@@ -5,6 +5,7 @@ Table Users {
   fullName String
   phone String
   avatar String
+  address String
   role String // "guest", "customer", "consultant", "staff", "manager", "admin"
   emailVerified Boolean [default: false]
   isActive Boolean [default: true]
