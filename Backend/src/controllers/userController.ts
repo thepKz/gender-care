@@ -1,9 +1,9 @@
 import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
-import { User } from "../models";
+import { OtpCode, User } from "../models";
 import {
-    sendPasswordChangeAlert,
-    sendResetPasswordEmail,
+  sendPasswordChangeAlert,
+  sendResetPasswordEmail,
 } from "../services/emails";
 import { AuthRequest } from "../types";
 
@@ -25,11 +25,12 @@ export const getUser = async (req: AuthRequest, res: Response) => {
 
     const formattedProfile = {
       email: user.email,
-      username: user.username,
+      fullName: user.fullName,
       phone: user.phone,
       avatar: user.avatar,
-      address: user.address,
-      role: user.role
+      role: user.role,
+      emailVerified: user.emailVerified,
+      isActive: user.isActive
     };
     return res.status(200).json({ data: formattedProfile });
   } catch (error: any) {
@@ -44,20 +45,18 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?._id;
     const {
-      username,
+      fullName,
       phone,
       avatar,
-      address,
     } = req.body;
 
     const userUpdateData: any = {
       phone,
       avatar,
-      address,
     };
 
-    if (username) {
-      userUpdateData.username = username.toLowerCase();
+    if (fullName) {
+      userUpdateData.fullName = fullName;
     }
 
     const updatedUser = await User.findOneAndUpdate(
@@ -74,11 +73,10 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
 
     const formattedUser = {
       id: updatedUser._id,
-      username: updatedUser.username,
+      fullName: updatedUser.fullName,
       email: updatedUser.email,
       avatar: updatedUser.avatar,
       phone: updatedUser.phone,
-      address: updatedUser.address
     };
 
     return res
@@ -136,12 +134,12 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
     const formattedData = users.map((user) => ({
       id: user._id,
-      username: user.username,
+      fullName: user.fullName,
       email: user.email,
       avatar: user.avatar || "",
       phone: user.phone || "",
       role: user.role,
-      isDisabled: user.isDisabled,
+      isActive: user.isActive,
     }));
 
     return res.status(200).json({ data: formattedData });
@@ -162,7 +160,7 @@ export const toggleUserStatus = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Không tìm thấy người dùng" });
     }
 
-    user.isDisabled = !user.isDisabled;
+    user.isActive = !user.isActive;
     await user.save();
 
     return res.status(200).json({
@@ -194,14 +192,14 @@ export const checkPhoneNumber = async (req: Request, res: Response) => {
 export const changePassword = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?._id;
-    const { password, newPassword } = req.body;
+    const { currentPassword, newPassword } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "Không tìm thấy người dùng" });
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
     if (!isValidPassword) {
       return res.status(400).json({
         message: "Mật khẩu hiện tại không đúng",
@@ -210,11 +208,11 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.passwordHash = hashedPassword;
+    user.password = hashedPassword;
     await user.save();
 
     // Gửi email cảnh báo
-    await sendPasswordChangeAlert(user.email, user.username, newPassword);
+    await sendPasswordChangeAlert(user.email, user.fullName, newPassword);
 
     return res.status(200).json({ message: "Đổi mật khẩu thành công" });
   } catch (error: any) {
@@ -234,15 +232,24 @@ export const forgotPassword = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Email không tồn tại" });
     }
 
-    const resetToken = Math.floor(
-      100000 + Math.random() * 900000
-    ).toString();
+    // Tạo OTP cho reset password
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
-    user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-    await user.save();
+    // Tạo thời gian hết hạn (10 phút)
+    const expiryDate = new Date();
+    expiryDate.setMinutes(expiryDate.getMinutes() + 10);
+    
+    // Lưu OTP vào database
+    await OtpCode.create({
+      userId: user._id,
+      type: "password_reset",
+      otp,
+      expires: expiryDate,
+      verified: false,
+      attempts: 0
+    });
 
-    await sendResetPasswordEmail(user.email, user.username, resetToken);
+    await sendResetPasswordEmail(user.email, otp, user.fullName);
 
     return res.status(200).json({
       message: "Mã xác nhận đã được gửi đến email của bạn",
@@ -257,24 +264,37 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
 export const resetPassword = async (req: Request, res: Response) => {
   try {
-    const { email, token, newPassword } = req.body;
+    const { email, otp, newPassword } = req.body;
 
-    const user = await User.findOne({
-      email,
-      resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() },
+    // Tìm user theo email
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ message: "Email không tồn tại" });
+    }
+
+    // Kiểm tra OTP
+    const otpRecord = await OtpCode.findOne({
+      userId: user._id,
+      type: "password_reset",
+      otp,
+      expires: { $gt: new Date() },
+      verified: false
     });
 
-    if (!user) {
+    if (!otpRecord) {
       return res.status(400).json({
         message: "Mã xác nhận không hợp lệ hoặc đã hết hạn",
       });
     }
 
+    // Cập nhật OTP thành đã sử dụng
+    otpRecord.verified = true;
+    otpRecord.verifiedAt = new Date();
+    await otpRecord.save();
+
+    // Cập nhật mật khẩu
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.passwordHash = hashedPassword;
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
+    user.password = hashedPassword;
     await user.save();
 
     return res.status(200).json({
@@ -305,14 +325,14 @@ export const searchUsers = async (req: Request, res: Response) => {
     // Thêm bộ lọc tìm kiếm cơ bản
     if (query) {
       searchQuery.$or = [
-        { username: { $regex: query, $options: "i" } },
+        { fullName: { $regex: query, $options: "i" } },
         { email: { $regex: query, $options: "i" } },
         { phone: { $regex: query, $options: "i" } }
       ];
     }
     
     // Thêm bộ lọc theo role
-    if (role && ["admin", "user", "staff"].includes(role)) {
+    if (role && ["admin", "customer", "consultant", "staff", "manager"].includes(role)) {
       searchQuery.role = role;
     }
     
@@ -325,7 +345,7 @@ export const searchUsers = async (req: Request, res: Response) => {
       .sort(sort)
       .skip(skip)
       .limit(limit)
-      .select("-passwordHash"); // Không trả về trường password
+      .select("-password"); // Không trả về trường password
     
     // Đếm tổng số kết quả
     const total = await User.countDocuments(searchQuery);

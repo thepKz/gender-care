@@ -1,6 +1,15 @@
-import { verifyAdmin, verifyGuest, verifyToken, verifyUser } from "./auth";
+import { verifyAdmin, verifyConsultant, verifyCustomer, verifyEmailVerification, verifyStaff, verifyToken } from "./auth";
 import { authMiddleware } from "./authMiddleware";
 import { roleMiddleware } from "./roleMiddleware";
 
-export { authMiddleware, roleMiddleware, verifyAdmin, verifyGuest, verifyToken, verifyUser };
+export {
+    authMiddleware,
+    roleMiddleware,
+    verifyAdmin,
+    verifyConsultant,
+    verifyCustomer,
+    verifyEmailVerification,
+    verifyStaff,
+    verifyToken
+};
 

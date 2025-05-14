@@ -1,45 +1,41 @@
 import mongoose from "mongoose";
 
 export interface IUser {
-  username: string;
   email: string;
-  passwordHash: string;
-  phone: string;
-  role: "admin" | "user" | "staff";
-  address: string;
-  rewardPoints: number;
-  avatar: string;
-  isDisabled?: boolean;
-  resetPasswordToken?: string;
-  resetPasswordExpires?: Date;
+  password: string;
+  fullName: string;
+  phone?: string;
+  avatar?: string;
+  role: "guest" | "customer" | "consultant" | "staff" | "manager" | "admin";
+  emailVerified: boolean;
+  isActive: boolean;
 }
 
 const userSchema = new mongoose.Schema<IUser>(
   {
-    username: { type: String, required: true, unique: true },
     email: { type: String, required: true, unique: true },
-    passwordHash: { type: String, required: true },
-    phone: { type: String, default: "" },
+    password: { type: String, required: true },
+    fullName: { type: String, required: true },
+    phone: { type: String },
+    avatar: { type: String },
     role: {
       type: String,
-      enum: ["admin", "user", "staff"],
-      default: "user",
+      enum: ["guest", "customer", "consultant", "staff", "manager", "admin"],
+      default: "guest",
     },
-    address: { type: String, default: "" },
-    rewardPoints: { type: Number, default: 0 },
-    avatar: { type: String, default: "" },
-    isDisabled: {
+    emailVerified: {
       type: Boolean,
       default: false,
     },
-    resetPasswordToken: String,
-    resetPasswordExpires: Date,
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 );
 
-// Tạo index cho username và email để tối ưu hóa truy vấn
-userSchema.index({ username: 1 });
+// Tạo index cho email để tối ưu hóa truy vấn
 userSchema.index({ email: 1 });
 
 const User = mongoose.model<IUser>("User", userSchema);

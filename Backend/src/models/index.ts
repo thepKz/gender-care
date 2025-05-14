@@ -1,13 +1,10 @@
+import LoginHistory from './LoginHistory';
+import OtpCode from './OtpCode';
 
-import Message from "./Message";
-import Notification from "./Notification";
-import Payment from "./Payment";
-import Promotion from "./Promotion";
-import Review from "./Review";
-import User from "./User";
-import Wishlist from "./Wishlist";
+import User from './User';
 
 export {
-    Message, Notification, Payment, Promotion, Review, User, Wishlist
+    LoginHistory,
+    OtpCode, User
 };
 

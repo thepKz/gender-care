@@ -1,176 +1,32 @@
 openapi: 3.0.0
 info:
   title: Gender Healthcare API
-  description: API documentation for Gender Healthcare application
+  description: API cho dự án Gender Healthcare
   version: 1.0.0
+  contact:
+    email: admin@genderhealthcare.com
 
 servers:
-  - url: ${API_URL}
-    description: Current environment
-
-components:
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
-  schemas:
-    User:
-      type: object
-      properties:
-        id:
-          type: string
-        username:
-          type: string
-          description: 8-30 ký tự, chỉ chứa chữ, số và dấu gạch dưới
-        email:
-          type: string
-          format: email
-        passwordHash:
-          type: string
-          description: Mật khẩu đã được mã hóa
-        role:
-          type: string
-          enum: [admin, user, guest]
-        fullName:
-          type: string
-        phone:
-          type: string
-        avatar:
-          type: string
-        address:
-          type: object
-          properties:
-            street:
-              type: string
-            city:
-              type: string
-            state:
-              type: string
-            zipCode:
-              type: string
-            country:
-              type: string
-        isDisabled:
-          type: boolean
-          
-    Product:
-      type: object
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        price:
-          type: number
-        stock:
-          type: integer
-        categoryId:
-          type: string
-        variants:
-          type: array
-          items:
-            type: object
-            properties:
-              color:
-                type: string
-              size:
-                type: string
-              stock:
-                type: integer
-              imageUrl:
-                type: string
-        isFeatured:
-          type: boolean
-        rating:
-          type: number
-        reviewCount:
-          type: integer
-    
-    Order:
-      type: object
-      properties:
-        id:
-          type: string
-        userId:
-          type: string
-        items:
-          type: array
-          items:
-            type: object
-            properties:
-              _id:
-                type: string
-              productId:
-                type: string
-              quantity:
-                type: integer
-              price:
-                type: number
-        totalAmount:
-          type: number
-        status:
-          type: string
-          enum: [pending, shipped, delivered, cancelled]
-        shippingAddress:
-          type: object
-          properties:
-            street:
-              type: string
-            city:
-              type: string
-            state:
-              type: string
-            zipCode:
-              type: string
-            country:
-              type: string
-        paymentId:
-          type: string
-
-    Review:
-      type: object
-      properties:
-        id:
-          type: string
-        userId:
-          type: string
-        productId:
-          type: string
-        rating:
-          type: number
-        comment:
-          type: string
-        createdAt:
-          type: string
-          format: date-time
+  - url: http://localhost:5000/api
+    description: Development Server
+  - url: https://api.genderhealthcare.com
+    description: Production Server
 
 tags:
   - name: Auth
-    description: Authentication endpoints
-  - name: Users
-    description: User management endpoints
-  - name: Products
-    description: Product management endpoints
-  - name: Orders
-    description: Order management endpoints
-  - name: Reviews
-    description: Review management endpoints
+    description: Xác thực và phân quyền
+  - name: User
+    description: Quản lý người dùng
+  - name: OTP
+    description: Quản lý mã OTP và xác thực
 
 paths:
-  /api/auth/register:
+  /auth/register:
     post:
       tags:
         - Auth
-      summary: Register new user
-      description: |
-        Register a new user with the following rules:
-        - Username: 8-30 ký tự, chỉ chứa chữ, số và dấu gạch dưới
-        - Email: Phải đúng định dạng email
-        - Password: Phải có chữ hoa, chữ thường, số, ký tự đặc biệt, 6-30 ký tự
+      summary: Đăng ký tài khoản mới
+      description: Đăng ký tài khoản người dùng mới và gửi email xác thực
       requestBody:
         required: true
         content:
@@ -178,27 +34,25 @@ paths:
             schema:
               type: object
               required:
-                - username
                 - email
                 - password
+                - fullName
               properties:
-                username:
-                  type: string
-                  example: "user123"
                 email:
                   type: string
                   format: email
-                  example: "user@example.com"
                 password:
                   type: string
                   format: password
-                  example: "Test@123"
+                  minLength: 6
+                fullName:
+                  type: string
+                  minLength: 3
                 phone:
                   type: string
-                  example: "0903123456"
       responses:
         '201':
-          description: User registered successfully
+          description: Đăng ký thành công
           content:
             application/json:
               schema:
@@ -206,43 +60,41 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Đăng ký thành công!"
+                    example: Đăng ký thành công!
                   data:
                     type: object
                     properties:
                       id:
                         type: string
-                      username:
+                      fullName:
                         type: string
                       email:
                         type: string
                       role:
                         type: string
-                      isVerified:
+                      emailVerified:
                         type: boolean
                       token:
                         type: string
         '400':
-          description: Invalid input
+          description: Lỗi dữ liệu đầu vào
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  username:
-                    type: string
-                  email:
-                    type: string
-                  password:
-                    type: string
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   
-  /api/auth/login:
+  /auth/login:
     post:
       tags:
         - Auth
-      summary: Login user
+      summary: Đăng nhập
+      description: Đăng nhập vào hệ thống
       requestBody:
         required: true
         content:
@@ -256,14 +108,12 @@ paths:
                 email:
                   type: string
                   format: email
-                  example: "user@example.com"
                 password:
                   type: string
                   format: password
-                  example: "Test@123"
       responses:
         '200':
-          description: Login successful
+          description: Đăng nhập thành công
           content:
             application/json:
               schema:
@@ -271,26 +121,61 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Đăng nhập thành công!"
+                    example: Đăng nhập thành công!
                   data:
                     type: object
                     properties:
                       id:
                         type: string
-                      username:
+                      fullName:
                         type: string
                       email:
                         type: string
                       role:
                         type: string
-                      isVerified:
+                      emailVerified:
                         type: boolean
                       token:
                         type: string
-                      avatar:
-                        type: string
+        '400':
+          description: Lỗi dữ liệu đầu vào
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
-          description: Invalid credentials
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /auth/verify-email:
+    post:
+      tags:
+        - Auth
+        - OTP
+      summary: Xác thực email
+      description: Xác thực email sử dụng mã OTP gửi qua email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - otp
+              properties:
+                email:
+                  type: string
+                  format: email
+                otp:
+                  type: string
+                  example: "123456"
+      responses:
+        '200':
+          description: Xác thực thành công
           content:
             application/json:
               schema:
@@ -298,245 +183,32 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Thông tin đăng nhập không chính xác"
-
-  /api/users:
-    get:
-      tags:
-        - Users
-      summary: Get user profile
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: User profile retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
+                    example: Xác nhận tài khoản thành công
+                  user:
                     type: object
                     properties:
+                      id:
+                        type: string
+                      fullName:
+                        type: string
                       email:
                         type: string
-                      username:
-                        type: string
-                      phone:
-                        type: string
-                      avatar:
-                        type: string
-                      address:
-                        type: object
-                      role:
-                        type: string
-        '401':
-          description: Unauthorized
-        '404':
-          description: User not found
-
-  /api/users/all:
-    get:
-      tags:
-        - Users
-      summary: Get all users
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: List of users retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        username:
-                          type: string
-                        email:
-                          type: string
-                        avatar:
-                          type: string
-                        phone:
-                          type: string
-                        role:
-                          type: string
-                        isDisabled:
-                          type: boolean
-        '401':
-          description: Unauthorized
-        '403':
-          description: Forbidden
-
-  /api/users/search:
-    get:
-      tags:
-        - Users
-      summary: Search users
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: q
-          in: query
-          description: Search query (username, email, phone)
-          schema:
-            type: string
-        - name: role
-          in: query
-          description: Filter by role (admin, user, staff)
-          schema:
-            type: string
-        - name: page
-          in: query
-          description: Page number
-          schema:
-            type: integer
-            default: 1
-        - name: limit
-          in: query
-          description: Number of results per page
-          schema:
-            type: integer
-            default: 10
-        - name: sortBy
-          in: query
-          description: Field to sort by
-          schema:
-            type: string
-            default: createdAt
-        - name: sortOrder
-          in: query
-          description: Sort order (asc or desc)
-          schema:
-            type: string
-            default: desc
-      responses:
-        '200':
-          description: Search results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  users:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/User'
-                  filters:
-                    type: object
-                  pagination:
-                    type: object
-                    properties:
-                      total:
-                        type: integer
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
-                      totalPages:
-                        type: integer
-        '401':
-          description: Unauthorized
-        '500':
-          description: Server error
-
-  /api/users/update-profile:
-    patch:
-      tags:
-        - Users
-      summary: Update user profile
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                username:
-                  type: string
-                phone:
-                  type: string
-                avatar:
-                  type: string
-                address:
-                  type: object
-      responses:
-        '200':
-          description: Profile updated successfully
-        '401':
-          description: Unauthorized
-        '500':
-          description: Server error
-
-  /api/users/toggle-status/{userId}:
-    patch:
-      tags:
-        - Users
-      summary: Toggle user active status
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: User status toggled successfully
-        '401':
-          description: Unauthorized
-        '404':
-          description: User not found
-        '500':
-          description: Server error
-
-  /api/users/change-password:
-    patch:
-      tags:
-        - Users
-      summary: Change user password
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - password
-                - newPassword
-              properties:
-                password:
-                  type: string
-                  description: Current password
-                newPassword:
-                  type: string
-                  description: New password
-      responses:
-        '200':
-          description: Password changed successfully
+                      emailVerified:
+                        type: boolean
         '400':
-          description: Invalid current password
-        '401':
-          description: Unauthorized
-        '500':
-          description: Server error
-
-  /api/users/forgot-password:
+          description: Mã không hợp lệ hoặc hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /auth/request-otp:
     post:
       tags:
-        - Users
-      summary: Request password reset
+        - Auth
+        - OTP
+      summary: Yêu cầu mã OTP
+      description: Yêu cầu mã OTP cho xác thực email, đặt lại mật khẩu, hoặc đăng nhập
       requestBody:
         required: true
         content:
@@ -545,769 +217,45 @@ paths:
               type: object
               required:
                 - email
+                - type
               properties:
                 email:
                   type: string
                   format: email
+                type:
+                  type: string
+                  enum: [email_verification, password_reset, login]
       responses:
         '200':
-          description: Reset token sent successfully
+          description: Gửi mã OTP thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Mã OTP đã được gửi đến email của bạn
         '404':
-          description: Email not found
+          description: Không tìm thấy người dùng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
-          description: Server error
-
-  /api/users/reset-password:
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /auth/verify-otp:
     post:
       tags:
-        - Users
-      summary: Reset password with token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - email
-                - token
-                - newPassword
-              properties:
-                email:
-                  type: string
-                  format: email
-                token:
-                  type: string
-                newPassword:
-                  type: string
-      responses:
-        '200':
-          description: Password reset successfully
-        '400':
-          description: Invalid or expired token
-        '500':
-          description: Server error
-
-  /api/products:
-    get:
-      tags:
-        - Products
-      summary: Get all products
-      parameters:
-        - name: page
-          in: query
-          description: Page number
-          schema:
-            type: integer
-            default: 1
-        - name: limit
-          in: query
-          description: Number of results per page
-          schema:
-            type: integer
-            default: 10
-        - name: categoryId
-          in: query
-          description: Filter by category ID
-          schema:
-            type: string
-      responses:
-        '200':
-          description: List of products retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  products:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Product'
-                  pagination:
-                    type: object
-                    properties:
-                      total:
-                        type: integer
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
-                      totalPages:
-                        type: integer
-        '500':
-          description: Server error
-    post:
-      tags:
-        - Products
-      summary: Create new product
-      security:
-        - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - name
-                - categoryId
-                - price
-              properties:
-                name:
-                  type: string
-                description:
-                  type: string
-                price:
-                  type: number
-                stock:
-                  type: integer
-                categoryId:
-                  type: string
-                variants:
-                  type: array
-                  items:
-                    type: object
-                isFeatured:
-                  type: boolean
-      responses:
-        '201':
-          description: Product created successfully
-        '400':
-          description: Invalid input
-        '401':
-          description: Unauthorized
-        '500':
-          description: Server error
-
-  /api/products/search:
-    get:
-      tags:
-        - Products
-      summary: Search products
-      parameters:
-        - name: q
-          in: query
-          description: Search query
-          schema:
-            type: string
-        - name: categoryId
-          in: query
-          description: Filter by category ID
-          schema:
-            type: string
-        - name: minPrice
-          in: query
-          description: Minimum price
-          schema:
-            type: number
-        - name: maxPrice
-          in: query
-          description: Maximum price
-          schema:
-            type: number
-        - name: minRating
-          in: query
-          description: Minimum rating
-          schema:
-            type: number
-        - name: color
-          in: query
-          description: Filter by color
-          schema:
-            type: string
-        - name: featured
-          in: query
-          description: Filter by featured status
-          schema:
-            type: boolean
-        - name: page
-          in: query
-          description: Page number
-          schema:
-            type: integer
-            default: 1
-        - name: limit
-          in: query
-          description: Number of results per page
-          schema:
-            type: integer
-            default: 10
-        - name: sortBy
-          in: query
-          description: Field to sort by (price_asc, price_desc, rating, popularity, newest)
-          schema:
-            type: string
-            default: createdAt
-        - name: sortOrder
-          in: query
-          description: Sort order (asc or desc)
-          schema:
-            type: string
-            default: desc
-      responses:
-        '200':
-          description: Search results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  products:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Product'
-                  filters:
-                    type: object
-                  pagination:
-                    type: object
-                    properties:
-                      total:
-                        type: integer
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
-                      totalPages:
-                        type: integer
-        '500':
-          description: Server error
-
-  /api/products/featured:
-    get:
-      tags:
-        - Products
-      summary: Get featured products
-      responses:
-        '200':
-          description: Featured products retrieved successfully
-        '500':
-          description: Server error
-
-  /api/products/{id}:
-    get:
-      tags:
-        - Products
-      summary: Get product by ID
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Product retrieved successfully
-        '404':
-          description: Product not found
-        '500':
-          description: Server error
-    put:
-      tags:
-        - Products
-      summary: Update product
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                description:
-                  type: string
-                price:
-                  type: number
-                stock:
-                  type: integer
-                categoryId:
-                  type: string
-                variants:
-                  type: array
-                  items:
-                    type: object
-                isFeatured:
-                  type: boolean
-      responses:
-        '200':
-          description: Product updated successfully
-        '400':
-          description: Invalid input
-        '401':
-          description: Unauthorized
-        '404':
-          description: Product not found
-        '500':
-          description: Server error
-    delete:
-      tags:
-        - Products
-      summary: Delete product
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Product deleted successfully
-        '401':
-          description: Unauthorized
-        '404':
-          description: Product not found
-        '500':
-          description: Server error
-
-  /api/orders:
-    get:
-      tags:
-        - Orders
-      summary: Get all orders (admin)
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: status
-          in: query
-          description: Filter by status
-          schema:
-            type: string
-            enum: [pending, shipped, delivered, cancelled]
-        - name: page
-          in: query
-          description: Page number
-          schema:
-            type: integer
-            default: 1
-        - name: limit
-          in: query
-          description: Number of results per page
-          schema:
-            type: integer
-            default: 10
-      responses:
-        '200':
-          description: List of orders retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  orders:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Order'
-                  pagination:
-                    type: object
-                    properties:
-                      total:
-                        type: integer
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
-                      totalPages:
-                        type: integer
-        '401':
-          description: Unauthorized
-        '500':
-          description: Server error
-
-  /api/orders/search:
-    get:
-      tags:
-        - Orders
-      summary: Search orders
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: orderId
-          in: query
-          description: Order ID
-          schema:
-            type: string
-        - name: userId
-          in: query
-          description: User ID
-          schema:
-            type: string
-        - name: status
-          in: query
-          description: Order status
-          schema:
-            type: string
-            enum: [pending, shipped, delivered, cancelled]
-        - name: minAmount
-          in: query
-          description: Minimum order amount
-          schema:
-            type: number
-        - name: maxAmount
-          in: query
-          description: Maximum order amount
-          schema:
-            type: number
-        - name: startDate
-          in: query
-          description: Start date
-          schema:
-            type: string
-            format: date
-        - name: endDate
-          in: query
-          description: End date
-          schema:
-            type: string
-            format: date
-        - name: page
-          in: query
-          description: Page number
-          schema:
-            type: integer
-            default: 1
-        - name: limit
-          in: query
-          description: Number of results per page
-          schema:
-            type: integer
-            default: 10
-        - name: sortBy
-          in: query
-          description: Field to sort by
-          schema:
-            type: string
-            default: createdAt
-        - name: sortOrder
-          in: query
-          description: Sort order (asc or desc)
-          schema:
-            type: string
-            default: desc
-      responses:
-        '200':
-          description: Search results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  orders:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Order'
-                  filters:
-                    type: object
-                  pagination:
-                    type: object
-                    properties:
-                      total:
-                        type: integer
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
-                      totalPages:
-                        type: integer
-        '401':
-          description: Unauthorized
-        '500':
-          description: Server error
-
-  /api/orders/user/{userId}:
-    get:
-      tags:
-        - Orders
-      summary: Get orders by user ID
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: List of user orders retrieved successfully
-        '401':
-          description: Unauthorized
-        '404':
-          description: User not found
-        '500':
-          description: Server error
-    post:
-      tags:
-        - Orders
-      summary: Create new order
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - items
-                - shippingAddress
-              properties:
-                items:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      productId:
-                        type: string
-                      quantity:
-                        type: integer
-                shippingAddress:
-                  type: object
-                  properties:
-                    street:
-                      type: string
-                    city:
-                      type: string
-                    state:
-                      type: string
-                    zipCode:
-                      type: string
-                    country:
-                      type: string
-                paymentMethod:
-                  type: string
-                  enum: [cash, creditCard, paypal]
-      responses:
-        '201':
-          description: Order created successfully
-        '400':
-          description: Invalid input
-        '401':
-          description: Unauthorized
-        '404':
-          description: User not found
-        '500':
-          description: Server error
-
-  /api/orders/{id}:
-    get:
-      tags:
-        - Orders
-      summary: Get order by ID
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Order retrieved successfully
-        '401':
-          description: Unauthorized
-        '404':
-          description: Order not found
-        '500':
-          description: Server error
-
-  /api/orders/{id}/status:
-    put:
-      tags:
-        - Orders
-      summary: Update order status
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - status
-              properties:
-                status:
-                  type: string
-                  enum: [pending, shipped, delivered, cancelled]
-      responses:
-        '200':
-          description: Order status updated successfully
-        '400':
-          description: Invalid status
-        '401':
-          description: Unauthorized
-        '404':
-          description: Order not found
-        '500':
-          description: Server error
-
-  /api/reviews/product/{productId}:
-    get:
-      tags:
-        - Reviews
-      summary: Get reviews by product ID
-      parameters:
-        - name: productId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: List of product reviews retrieved successfully
-        '404':
-          description: Product not found
-        '500':
-          description: Server error
-
-  /api/reviews/user/{userId}:
-    get:
-      tags:
-        - Reviews
-      summary: Get reviews by user ID
-      parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: List of user reviews retrieved successfully
-        '404':
-          description: User not found
-        '500':
-          description: Server error
-
-  /api/reviews/search:
-    get:
-      tags:
-        - Reviews
-      summary: Search reviews
-      parameters:
-        - name: productId
-          in: query
-          description: Product ID
-          schema:
-            type: string
-        - name: userId
-          in: query
-          description: User ID
-          schema:
-            type: string
-        - name: minRating
-          in: query
-          description: Minimum rating
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 5
-        - name: maxRating
-          in: query
-          description: Maximum rating
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 5
-        - name: keyword
-          in: query
-          description: Search keyword in comment
-          schema:
-            type: string
-        - name: startDate
-          in: query
-          description: Start date
-          schema:
-            type: string
-            format: date
-        - name: endDate
-          in: query
-          description: End date
-          schema:
-            type: string
-            format: date
-        - name: page
-          in: query
-          description: Page number
-          schema:
-            type: integer
-            default: 1
-        - name: limit
-          in: query
-          description: Number of results per page
-          schema:
-            type: integer
-            default: 10
-        - name: sortBy
-          in: query
-          description: Field to sort by
-          schema:
-            type: string
-            default: createdAt
-        - name: sortOrder
-          in: query
-          description: Sort order (asc or desc)
-          schema:
-            type: string
-            default: desc
-      responses:
-        '200':
-          description: Search results
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  reviews:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Review'
-                  filters:
-                    type: object
-                  pagination:
-                    type: object
-                    properties:
-                      total:
-                        type: integer
-                      page:
-                        type: integer
-                      limit:
-                        type: integer
-                      totalPages:
-                        type: integer
-        '500':
-          description: Server error
-
-  /api/reviews:
-    post:
-      tags:
-        - Reviews
-      summary: Create new review
-      security:
-        - BearerAuth: []
+        - Auth
+        - OTP
+      summary: Xác thực mã OTP
+      description: Xác thực mã OTP đã nhập
       requestBody:
         required: true
         content:
@@ -1316,42 +264,182 @@ paths:
               type: object
               required:
                 - userId
-                - productId
-                - rating
+                - otp
+                - type
               properties:
                 userId:
                   type: string
-                productId:
+                otp:
                   type: string
-                rating:
-                  type: integer
-                  minimum: 1
-                  maximum: 5
-                comment:
+                  example: "123456"
+                type:
                   type: string
+                  enum: [email_verification, password_reset, login]
       responses:
-        '201':
-          description: Review created successfully
+        '200':
+          description: Xác thực OTP thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
         '400':
-          description: Invalid input or user already reviewed this product
+          description: Mã OTP không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /auth/forgot-password:
+    post:
+      tags:
+        - Auth
+      summary: Quên mật khẩu
+      description: Yêu cầu đặt lại mật khẩu thông qua email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Gửi email đặt lại mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Mã xác nhận đã được gửi đến email của bạn
+        '404':
+          description: Email không tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /auth/reset-password:
+    post:
+      tags:
+        - Auth
+      summary: Đặt lại mật khẩu
+      description: Đặt lại mật khẩu với mã OTP
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - otp
+                - newPassword
+              properties:
+                email:
+                  type: string
+                  format: email
+                otp:
+                  type: string
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 6
+      responses:
+        '200':
+          description: Đặt lại mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Đặt lại mật khẩu thành công
+        '400':
+          description: Mã xác nhận không hợp lệ hoặc đã hết hạn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /auth/check-email-verification:
+    get:
+      tags:
+        - Auth
+      summary: Kiểm tra trạng thái xác thực email
+      description: Kiểm tra xem email của người dùng đã được xác thực chưa
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Trả về trạng thái xác thực email
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  emailVerified:
+                    type: boolean
+                  email:
+                    type: string
         '401':
-          description: Unauthorized
-        '500':
-          description: Server error
-
-  /api/reviews/{id}:
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /users/profile:
+    get:
+      tags:
+        - User
+      summary: Lấy thông tin người dùng
+      description: Lấy thông tin profile của người dùng đã đăng nhập
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Thông tin người dùng
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy thông tin người dùng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /users/profile:
     put:
       tags:
-        - Reviews
-      summary: Update review
+        - User
+      summary: Cập nhật thông tin người dùng
+      description: Cập nhật thông tin profile của người dùng đã đăng nhập
       security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -1359,41 +447,179 @@ paths:
             schema:
               type: object
               properties:
-                rating:
-                  type: integer
-                  minimum: 1
-                  maximum: 5
-                comment:
+                fullName:
+                  type: string
+                phone:
+                  type: string
+                avatar:
                   type: string
       responses:
         '200':
-          description: Review updated successfully
-        '400':
-          description: Invalid input
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Cập nhật thành công!
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
         '401':
-          description: Unauthorized
-        '404':
-          description: Review not found
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
-          description: Server error
-    delete:
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /users/change-password:
+    put:
       tags:
-        - Reviews
-      summary: Delete review
+        - User
+      summary: Đổi mật khẩu
+      description: Đổi mật khẩu người dùng
       security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 6
       responses:
         '200':
-          description: Review deleted successfully
+          description: Đổi mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Đổi mật khẩu thành công
+        '400':
+          description: Mật khẩu hiện tại không đúng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
-          description: Unauthorized
-        '404':
-          description: Review not found
-        '500':
-          description: Server error 
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        phone:
+          type: string
+        avatar:
+          type: string
+        role:
+          type: string
+          enum:
+            - guest
+            - customer
+            - consultant
+            - staff
+            - manager
+            - admin
+        emailVerified:
+          type: boolean
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        phone:
+          type: string
+        avatar:
+          type: string
+        role:
+          type: string
+        emailVerified:
+          type: boolean
+        isActive:
+          type: boolean
+    
+    OtpCode:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        type:
+          type: string
+          enum:
+            - email_verification
+            - password_reset
+            - login
+        otp:
+          type: string
+        expires:
+          type: string
+          format: date-time
+        verified:
+          type: boolean
+        verifiedAt:
+          type: string
+          format: date-time
+        attempts:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    
+    Error:
+      type: object
+      properties:
+        message:
+          type: string

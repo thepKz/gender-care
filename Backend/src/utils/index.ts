@@ -8,18 +8,16 @@ export const isStrongPassword = (password: string): boolean => {
   return strongPasswordRegex.test(password);
 };
 
-export const isValidUserName = (username: string): boolean => {
-  const hasUpperCase = /[A-Z]/.test(username);
-  const hasLowerCase = /[a-z]/.test(username);
-  const hasNumbers = /\d/.test(username);
-
-  return hasUpperCase && hasLowerCase && hasNumbers;
+export const isValidFullName = (fullName: string): boolean => {
+  // Kiểm tra độ dài tên (3-50 ký tự) và không chứa ký tự đặc biệt ngoại trừ dấu cách
+  const fullNameRegex = /^[A-Za-zÀ-ỹ\s]{3,50}$/;
+  return fullNameRegex.test(fullName);
 };
 
 export const signToken = async (payload: {
   _id: Types.ObjectId;
   email: string;
-  username: string;
+  fullName: string;
   role: string;
 }) => {
   const token = jwt.sign(payload, process.env.SECRET_KEY as string);
