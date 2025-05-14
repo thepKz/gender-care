@@ -1,0 +1,6 @@
+RewriteEngine On
+# Nếu một file/directory tồn tại, sử dụng nó trực tiếp
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+# Nếu không, chuyển đến index.html
+RewriteRule ^ /index.html [L] 
