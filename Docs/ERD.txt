@@ -1,0 +1,236 @@
+Table Users {
+  _id ObjectId [pk]
+  email String [unique]
+  password String
+  fullName String
+  phone String
+  avatar String
+  role String // "guest", "customer", "consultant", "staff", "manager", "admin"
+  emailVerified Boolean [default: false]
+  isActive Boolean [default: true]
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table OtpCodes {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id]
+  type String // "email_verification", "password_reset", "login"
+  otp String
+  expires DateTime
+  verified Boolean [default: false]
+  verifiedAt DateTime
+  attempts Number [default: 0]
+  createdAt DateTime
+}
+
+Table LoginHistory {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id]
+  ipAddress String
+  userAgent String
+  loginAt DateTime
+  status String // "success", "failed"
+  failReason String
+}
+
+Table Consultants {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id]
+  bio String
+  experience Number
+  rating Number
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table ConsultantSpecializations {
+  _id ObjectId [pk]
+  consultantId ObjectId [ref: > Consultants._id]
+  specialization String
+}
+
+Table ConsultantEducations {
+  _id ObjectId [pk]
+  consultantId ObjectId [ref: > Consultants._id]
+  education String
+}
+
+Table ConsultantCertificates {
+  _id ObjectId [pk]
+  consultantId ObjectId [ref: > Consultants._id]
+  certificate String
+}
+
+Table Availabilities {
+  _id ObjectId [pk]
+  consultantId ObjectId [ref: > Consultants._id]
+  date DateTime
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table TimeSlots {
+  _id ObjectId [pk]
+  availabilityId ObjectId [ref: > Availabilities._id]
+  startTime String
+  endTime String
+  isBooked Boolean [default: false]
+}
+
+Table Consultations {
+  _id ObjectId [pk]
+  customerId ObjectId [ref: > Users._id]
+  consultantId ObjectId [ref: > Consultants._id]
+  date DateTime
+  timeSlotId ObjectId [ref: > TimeSlots._id]
+  status String // "pending", "confirmed", "completed", "cancelled"
+  consultationType String // "online", "offline"
+  description String
+  rating Number
+  feedback String
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table Questions {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id, null]
+  title String
+  content String
+  isAnonymous Boolean [default: false]
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table QuestionCategories {
+  _id ObjectId [pk]
+  questionId ObjectId [ref: > Questions._id]
+  category String
+}
+
+Table Answers {
+  _id ObjectId [pk]
+  questionId ObjectId [ref: > Questions._id]
+  userId ObjectId [ref: > Users._id]
+  content String
+  createdAt DateTime
+}
+
+Table MenstrualCycles {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id]
+  startDate DateTime
+  endDate DateTime
+  flow String // "light", "medium", "heavy"
+  mood String
+  notes String
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table CycleSymptoms {
+  _id ObjectId [pk]
+  cycleId ObjectId [ref: > MenstrualCycles._id]
+  symptom String
+}
+
+Table MedicationReminders {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id]
+  name String
+  type String // "contraceptive", "vitamin", "other"
+  time String
+  dosage String
+  notes String
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table ReminderDays {
+  _id ObjectId [pk]
+  reminderId ObjectId [ref: > MedicationReminders._id]
+  day String // "monday", "tuesday", etc.
+}
+
+Table TestTypes {
+  _id ObjectId [pk]
+  name String
+  description String
+  price Number
+  preparationGuidelines String
+  resultWaitTime String
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table TestAppointments {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id]
+  appointmentDate DateTime
+  appointmentTime String
+  status String // "pending", "confirmed", "completed", "cancelled"
+  preferredLocation String // "clinic", "home"
+  address String
+  notes String
+  rating Number
+  feedback String
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table AppointmentTests {
+  _id ObjectId [pk]
+  appointmentId ObjectId [ref: > TestAppointments._id]
+  testTypeId ObjectId [ref: > TestTypes._id]
+  name String
+  price Number
+}
+
+Table TestResults {
+  _id ObjectId [pk]
+  appointmentTestId ObjectId [ref: > AppointmentTests._id]
+  result String
+  normalRange String
+  conclusion String // "normal", "abnormal"
+  recommendations String
+  createdAt DateTime
+}
+
+Table BlogCategories {
+  _id ObjectId [pk]
+  name String
+  slug String [unique]
+  description String
+  createdAt DateTime
+}
+
+Table BlogPosts {
+  _id ObjectId [pk]
+  title String
+  slug String [unique]
+  content String
+  excerpt String
+  authorId ObjectId [ref: > Users._id]
+  thumbnail String
+  published Boolean [default: false]
+  publishedAt DateTime
+  likes Number [default: 0]
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table PostCategories {
+  _id ObjectId [pk]
+  postId ObjectId [ref: > BlogPosts._id]
+  categoryId ObjectId [ref: > BlogCategories._id]
+}
+
+Table BlogComments {
+  _id ObjectId [pk]
+  postId ObjectId [ref: > BlogPosts._id]
+  userId ObjectId [ref: > Users._id, null]
+  content String
+  isAnonymous Boolean [default: false]
+  createdAt DateTime
+}
