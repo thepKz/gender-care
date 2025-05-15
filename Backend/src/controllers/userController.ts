@@ -235,6 +235,7 @@ export const forgotPassword = async (req: Request, res: Response) => {
     // Tạo OTP cho reset password
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
+    // HardCode
     // Tạo thời gian hết hạn (10 phút)
     const expiryDate = new Date();
     expiryDate.setMinutes(expiryDate.getMinutes() + 10);
