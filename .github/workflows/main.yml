@@ -101,7 +101,7 @@ jobs:
   # Deploy backend via FTP
   deploy-backend:
     needs: test-and-build
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/chore/')
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to Render
