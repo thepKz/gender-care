@@ -51,6 +51,7 @@ jobs:
         run: |
           cd Backend
           npm ci
+          npm install --save-dev copyfiles
           npm run build
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
@@ -100,34 +101,17 @@ jobs:
   # Deploy backend via FTP
   deploy-backend:
     needs: test-and-build
-
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: Download backend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: backend-dist
-          path: ./backend-dist
+      - name: Deploy to Render
+        run: curl ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        env:
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          MAIL_USER: ${{ secrets.MAIL_USER }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          API_URL: ${{ secrets.API_URL }}
+          PORT: 5000
 
-      - name: Create .env file for backend
-        run: |
-          cd backend-dist
-          echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> .env
-          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
-          echo "MAIL_USER=${{ secrets.MAIL_USER }}" >> .env
-          echo "MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}" >> .env
-          echo "API_URL=${{ secrets.API_URL }}" >> .env
-          echo "PORT=5000" >> .env
-
-      - name: FTP Deploy Backend
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-        with:
-          server: 112.78.2.94
-          username: team05backend
-          password: ${{ secrets.BACKEND_PASSWORD }}
-          port: 21
-          protocol: ftp
-          local-dir: ./backend-dist/
-          server-dir: /
-          dangerous-clean-slate: true
-
+    
