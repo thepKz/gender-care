@@ -56,17 +56,17 @@ jobs:
           MONGO_URI: ${{ secrets.MONGO_URI }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
-      - name: Install dependencies and build frontend
-        run: |
-          cd Frontend
-          npm ci
-          npm run build
+      # - name: Install dependencies and build frontend
+      #   run: |
+      #     cd Frontend
+      #     npm ci
+      #     npm run build
 
-      - name: Upload frontend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: Frontend/dist
+      # - name: Upload frontend artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: frontend-dist
+      #     path: Frontend/dist
 
       - name: Upload backend artifact
         uses: actions/upload-artifact@v4
