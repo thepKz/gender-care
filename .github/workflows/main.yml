@@ -125,8 +125,8 @@ jobs:
           server: 112.78.2.94
           username: team05backend
           password: ${{ secrets.BACKEND_PASSWORD }}
-          port: 22
-          protocol: sftp
+          port: 21
+          protocol: ftp
           local-dir: ./backend-dist/
           server-dir: /
           dangerous-clean-slate: true
