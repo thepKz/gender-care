@@ -1,14 +1,7 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { AxiosError } from 'axios';
 import { authApi } from '../../api';
-
-interface User {
-  id: string;
-  email: string;
-  fullName: string;
-  phone?: string;
-  avatar?: string;
-  role: 'guest' | 'customer' | 'consultant' | 'staff' | 'manager' | 'admin';
-}
+import { User } from '../../types';
 
 interface AuthState {
   user: User | null;
@@ -37,8 +30,9 @@ export const login = createAsyncThunk(
         localStorage.setItem('refreshToken', response.data.refreshToken);
       }
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Đăng nhập thất bại');
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message: string }>;
+      return rejectWithValue(axiosError.response?.data?.message || 'Đăng nhập thất bại');
     }
   }
 );
@@ -53,8 +47,9 @@ export const register = createAsyncThunk(
         localStorage.setItem('refreshToken', response.data.refreshToken);
       }
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Đăng ký thất bại');
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message: string }>;
+      return rejectWithValue(axiosError.response?.data?.message || 'Đăng ký thất bại');
     }
   }
 );
@@ -67,8 +62,9 @@ export const logout = createAsyncThunk(
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       return true;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Đăng xuất thất bại');
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message: string }>;
+      return rejectWithValue(axiosError.response?.data?.message || 'Đăng xuất thất bại');
     }
   }
 );
@@ -79,8 +75,9 @@ export const getProfile = createAsyncThunk(
     try {
       const response = await authApi.getProfile();
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Lấy thông tin người dùng thất bại');
+    } catch (error: unknown) {
+      const axiosError = error as AxiosError<{ message: string }>;
+      return rejectWithValue(axiosError.response?.data?.message || 'Lấy thông tin người dùng thất bại');
     }
   }
 );
