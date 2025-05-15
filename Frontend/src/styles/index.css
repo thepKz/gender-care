@@ -50,4 +50,76 @@ body {
   .form-control {
     @apply block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent;
   }
+
+  /* Header menu styles */
+  .nav-link {
+    @apply text-white relative font-medium text-base tracking-wide;
+    transition: transform 0.3s ease, color 0.3s ease;
+  }
+
+  .nav-link::after {
+    content: '';
+    @apply absolute left-0 bottom-[-6px] w-0 h-[2.5px] bg-white opacity-90 transition-all duration-300;
+    transform: translateY(3px);
+    transition: width 0.3s ease, transform 0.3s ease, opacity 0.3s ease;
+  }
+
+  .nav-link:hover {
+    @apply text-white;
+    transform: translateY(-1px);
+  }
+
+  .nav-link:hover::after {
+    @apply w-full opacity-100;
+    transform: translateY(0);
+  }
+
+  .nav-link.active {
+    @apply font-semibold;
+  }
+
+  .nav-link.active::after {
+    @apply w-full opacity-100;
+  }
+  
+  /* Header scroll effect */
+  .header-scroll {
+    @apply bg-blue-primary/95 backdrop-blur-sm;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+  }
+
+  /* Button hover effects - Sửa lại */
+  .btn-auth {
+    @apply transition-all duration-300 ease-in-out;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  /* Hiệu ứng đặc biệt cho nút đăng nhập (viền trắng) */
+  .btn-auth.text-white.border-white {
+    @apply relative overflow-hidden;
+  }
+  
+  .btn-auth.text-white.border-white:hover {
+    @apply border-opacity-80;
+  }
+  
+  
+
+  /* Hiệu ứng đặc biệt cho nút đăng ký (nền trắng) */
+  .btn-auth.bg-white.text-blue-primary {
+    @apply relative overflow-hidden;
+  }
+  
+  .btn-auth.bg-white.text-blue-primary:hover {
+    @apply bg-opacity-90;
+  }
+  
+
+  
+  .btn-auth.bg-white.text-blue-primary:hover::before {
+    @apply left-0;
+  }
 } 

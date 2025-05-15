@@ -7,16 +7,9 @@ export default {
         "Pro-Rounded": ["Pro-Rounded", "sans-serif"],
       },
       colors: {
-        primary: "#000000",
-        secondary: "#1a1a1a",
-        accent: "#333333",
-        text: {
-          primary: "#ffffff",
-          secondary: "#cccccc"
-        },
-        'disabled-text': '#9CA3AF',
-        'disabled-bg': '#374151',
-        'disabled-border': '#4B5563'
+        "blue-primary": "#0c3c54",
+        "blue-secondary": "#0F7EA9",
+        "green-dark": "#006478",
       },
     },
   },
