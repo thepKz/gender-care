@@ -100,8 +100,8 @@ jobs:
           server: 112.78.2.94
           username: team05
           password: ${{ secrets.FRONTEND_PASSWORD }}
-          port: 22
-          protocol: sftp
+          port: 211
+          protocol: ftp
           local-dir: ./frontend-dist/
           server-dir: /
           dangerous-clean-slate: true
