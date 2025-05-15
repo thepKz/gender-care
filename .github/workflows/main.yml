@@ -3,7 +3,7 @@ name: CI/CD
 
 on:
   push:
-    branches: [ main, develop, feature/* ]
+    branches: [ main, develop, feature/*, chore/** ]
     paths:
       - '**/*.tsx'
       - '**/*.ts'
@@ -12,9 +12,8 @@ on:
       - 'vite.config.*'
       - 'package.json'
       - 'package-lock.json'
-      - 'client/**'
-      - 'server/**'
-      - 'admin/**'
+      - 'Frontend/**'
+      - 'Backend/**'
       - '**/*.xml'
       - '**/*.yml'
   pull_request:
@@ -27,9 +26,10 @@ on:
       - 'vite.config.*'
       - 'package.json'
       - 'package-lock.json'
-      - 'client/**'
-      - 'server/**'
-      - 'admin/**'
+      - 'Frontend/**'
+      - 'Backend/**'
+      - '**/*.xml'
+      - '**/*.yml'
   workflow_dispatch:
 
 jobs:
@@ -47,63 +47,87 @@ jobs:
       - name: Clear npm cache
         run: npm cache clean --force
 
-      - name: Remove node_modules and package-lock.json
+      - name: Install dependencies and build backend
         run: |
-          rm -rf node_modules
-          rm -f package-lock.json
-
-      - name: Install dependencies and build server
-        run: |
-          cd server
+          cd Backend
           npm ci
-          npm install --save-dev copyfiles
           npm run build
         env:
           MONGO_URI: ${{ secrets.MONGO_URI }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
-      - name: Install dependencies and build client
+      - name: Install dependencies and build frontend
         run: |
-          cd client
+          cd Frontend
           npm ci
           npm run build
 
-      - name: Upload artifact client
+      - name: Upload frontend artifact
         uses: actions/upload-artifact@v3
         with:
-          name: client-dist
-          path: client/dist
+          name: frontend-dist
+          path: Frontend/dist
 
-  # CLIENT Job to deploy the application to the staging environment
-  deploy-staging:
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-dist
+          path: Backend/dist
+
+  # Deploy frontend via FTP
+  deploy-frontend:
     needs: test-and-build
-    if: github.ref == 'refs/heads/develop'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: staging
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Download artifact
+      - name: Download frontend artifact
         uses: actions/download-artifact@v3
         with:
-          name: client-dist
-          path: ./client/dist
+          name: frontend-dist
+          path: ./frontend-dist
 
-      - name: Deploy to Netlify (Staging)
-        uses: nwtgck/actions-netlify@v2.0
+      - name: FTP Deploy Frontend
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
-          publish-dir: './client/dist'
-          production-branch: develop
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          deploy-message: "Deploy to staging from GitHub Actions"
+          server: 112.78.2.94
+          username: team05
+          password: ${{ secrets.FRONTEND_PASSWORD }}
+          port: 22
+          protocol: sftp
+          local-dir: ./frontend-dist/
+          server-dir: /
+          dangerous-clean-slate: true
 
-
-
-  # Job to deploy the backend to Render
+  # Deploy backend via FTP
   deploy-backend:
-    needs: [test-and-build]
-    if: github.ref == 'refs/heads/develop'
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to Render
-        run: curl ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+      - name: Download backend artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: backend-dist
+          path: ./backend-dist
+
+      - name: Create .env file for backend
+        run: |
+          cd backend-dist
+          echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> .env
+          echo "SECRET_KEY=${{ secrets.SECRET_KEY }}" >> .env
+          echo "MAIL_USER=${{ secrets.MAIL_USER }}" >> .env
+          echo "MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}" >> .env
+          echo "PORT=5000" >> .env
+
+      - name: FTP Deploy Backend
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: 112.78.2.94
+          username: team05backend
+          password: ${{ secrets.BACKEND_PASSWORD }}
+          port: 22
+          protocol: sftp
+          local-dir: ./backend-dist/
+          server-dir: /
+          dangerous-clean-slate: true
+
