@@ -7,10 +7,8 @@ info:
     email: admin@genderhealthcare.com
 
 servers:
-  - url: http://localhost:5000/api
-    description: Development Server
-  - url: https://api.genderhealthcare.com
-    description: Production Server
+  - url: /api
+    description: API prefix
 
 tags:
   - name: Auth

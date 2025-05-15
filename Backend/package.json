@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node dist/index.js",
-    "build": "tsc",
+    "build": "tsc && copyfiles -f src/swagger.yaml dist/",
     "dev": "nodemon --exec ts-node src/index.ts",
     "test": "jest --detectOpenHandles",
     "test:watch": "jest --watch",
@@ -63,7 +63,8 @@
     "swagger-autogen": "^2.23.7",
     "swagger-jsdoc": "^6.2.8",
     "ts-jest": "^29.2.5",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "copyfiles": "^2.4.1"
   },
   "jest": {
     "verbose": true,

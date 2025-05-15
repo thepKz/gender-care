@@ -21,8 +21,7 @@ const port = process.env.PORT || 8000;
 const swaggerPath = path.resolve(__dirname, "swagger.yaml");
 const swaggerDocument = YAML.load(swaggerPath);
 
-// Hoàn toàn bỏ việc chỉnh sửa URL trong swagger.yaml
-// swaggerDocument.servers[0].url = process.env.API_URL ? `${process.env.API_URL}/api` : `http://localhost:${port}/api`;
+
 
 // Cho phép tất cả các origin
 app.use(cors({
@@ -39,15 +38,23 @@ app.get("/", (_req, res) => {
   res.send("Welcome to the Gender Healthcare API");
 });
 
+// Cấu hình API prefix và Swagger docs
+const apiRouter = express.Router();
+app.use('/api', apiRouter);
+
+// Cấu hình Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
   customCss: '.swagger-ui .topbar { display: none }',
   customSiteTitle: "Gender Healthcare API Documentation",
-  customfavIcon: "/favicon.ico"
+  customfavIcon: "/favicon.ico",
+  swaggerOptions: {
+    persistAuthorization: true,
+    basePath: '/api'
+  }
 }));
 
-// Cấu hình routes
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
+apiRouter.use("/auth", authRoutes);
+apiRouter.use("/users", userRoutes);
 
 
 // Export the app for testing purposes
@@ -65,7 +72,7 @@ if (require.main === module) {
       app.listen(port, () => {
         console.log(`Server started at ${new Date().toISOString()}`);
         console.log(`Server is running on port ${port}`);
-        console.log(`API Documentation available at ${process.env.API_URL || `http://localhost:${port}`}/api-docs`);
+        console.log(`API Documentation available at ${process.env.API_URL || `https://gender-healthcare-service-management.onrender.com`}/api-docs/`);
       });
     })
     .catch((error) => {
