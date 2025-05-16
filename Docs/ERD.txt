@@ -5,10 +5,20 @@ Table Users {
   fullName String
   phone String
   avatar String
+  gender String
   address String
+  year DateTime
   role String // "guest", "customer", "consultant", "staff", "manager", "admin"
   emailVerified Boolean [default: false]
   isActive Boolean [default: true]
+  createdAt DateTime
+  updatedAt DateTime
+  
+}
+Table StaffDetails {
+  _id ObjectId [pk]
+  userId ObjectId [ref: - Users._id, unique] // Liên kết 1-1 với Users
+  staffType String // "Nursing", "Blogers","Normal" - Normal là Others
   createdAt DateTime
   updatedAt DateTime
 }
@@ -81,8 +91,10 @@ Table TimeSlots {
 
 Table Consultations {
   _id ObjectId [pk]
-  customerId ObjectId [ref: > Users._id]
+ 
   consultantId ObjectId [ref: > Consultants._id]
+  bookedByUserId ObjectId [ref: > Users._id] // Người đặt
+  profileId ObjectId [ref: > UserProfiles._id] // Người được tư vấn
   date DateTime
   timeSlotId ObjectId [ref: > TimeSlots._id]
   status String // "pending", "confirmed", "completed", "cancelled"
@@ -94,33 +106,11 @@ Table Consultations {
   updatedAt DateTime
 }
 
-Table Questions {
-  _id ObjectId [pk]
-  userId ObjectId [ref: > Users._id, null]
-  title String
-  content String
-  isAnonymous Boolean [default: false]
-  createdAt DateTime
-  updatedAt DateTime
-}
-
-Table QuestionCategories {
-  _id ObjectId [pk]
-  questionId ObjectId [ref: > Questions._id]
-  category String
-}
-
-Table Answers {
-  _id ObjectId [pk]
-  questionId ObjectId [ref: > Questions._id]
-  userId ObjectId [ref: > Users._id]
-  content String
-  createdAt DateTime
-}
 
 Table MenstrualCycles {
   _id ObjectId [pk]
-  userId ObjectId [ref: > Users._id]
+  createdByUserId ObjectId [ref: > Users._id]
+  profileId ObjectId [ref: > UserProfiles._id]
   startDate DateTime
   endDate DateTime
   flow String // "light", "medium", "heavy"
@@ -138,7 +128,8 @@ Table CycleSymptoms {
 
 Table MedicationReminders {
   _id ObjectId [pk]
-  userId ObjectId [ref: > Users._id]
+  createdByUserId ObjectId [ref: > Users._id]
+  profileId ObjectId [ref: > UserProfiles._id]
   name String
   type String // "contraceptive", "vitamin", "other"
   time String
@@ -198,13 +189,6 @@ Table TestResults {
   createdAt DateTime
 }
 
-Table BlogCategories {
-  _id ObjectId [pk]
-  name String
-  slug String [unique]
-  description String
-  createdAt DateTime
-}
 
 Table BlogPosts {
   _id ObjectId [pk]
@@ -220,18 +204,33 @@ Table BlogPosts {
   createdAt DateTime
   updatedAt DateTime
 }
-
+Table BlogCategories {
+  _id ObjectId [pk]
+  name String [unique]
+  slug String [unique] // tiện cho URL
+  description String
+  createdAt DateTime
+  updatedAt DateTime
+}
 Table PostCategories {
   _id ObjectId [pk]
   postId ObjectId [ref: > BlogPosts._id]
   categoryId ObjectId [ref: > BlogCategories._id]
 }
 
-Table BlogComments {
+Table UserProfiles {
   _id ObjectId [pk]
-  postId ObjectId [ref: > BlogPosts._id]
-  userId ObjectId [ref: > Users._id, null]
-  content String
-  isAnonymous Boolean [default: false]
+  ownerId ObjectId [ref: > Users._id] // Người tạo (người đăng nhập)
+  fullName String
+  gender String
+  phone String
+  year DateTime
   createdAt DateTime
+  updatedAt DateTime
+}
+
+Table SystemConfigs {
+  _id ObjectId [pk]
+    key String [unique]
+    value String
 }
