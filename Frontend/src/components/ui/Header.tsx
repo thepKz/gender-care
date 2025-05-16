@@ -1,6 +1,6 @@
 import { Avatar, Drawer, Dropdown, MenuProps } from "antd";
 import { motion } from 'framer-motion';
-import { CalendarEdit, CloseCircle, Logout, Menu, User } from "iconsax-react";
+import { CalendarEdit, Logout, Menu, User } from "iconsax-react";
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -59,48 +59,22 @@ const Header: React.FC = () => {
     },
     {
       key: "2",
-      label: "Xét nghiệm STIs",
+      label: "Xét nghiệm",
       onClick: () => navigate('/services/sti-test'),
     },
     {
       key: "3",
-      label: "Bảng giá",
-      onClick: () => navigate('/services/price-list'),
+      label: "Lấy mẫu tại nhà",
+      onClick: () => navigate('/services/home-sampling'),
     },
+    {
+      key: "4",
+      label: "Theo dõi chu kỳ kinh nguyệt",
+      onClick: () => navigate('/services/cycle-tracking'),
+    }
   ];
 
-  // Menu Đặt lịch dropdown cho khách vãng lai
-  const bookingGuest: MenuProps["items"] = [
-    {
-      key: "1",
-      label: "Tư vấn",
-      onClick: () => navigate('/booking/consultation'),
-    },
-    {
-      key: "2",
-      label: "Xét nghiệm",
-      onClick: () => navigate('/booking/test'),
-    },
-  ];
 
-  // Menu Đặt lịch dropdown cho người dùng đã đăng nhập
-  const bookingUser: MenuProps["items"] = [
-    {
-      key: "1",
-      label: "Tư vấn",
-      onClick: () => navigate('/booking/consultation'),
-    },
-    {
-      key: "2",
-      label: "Xét nghiệm",
-      onClick: () => navigate('/booking/test'),
-    },
-    {
-      key: "3",
-      label: "Theo dõi chu kỳ",
-      onClick: () => navigate('/cycle-tracking'),
-    },
-  ];
 
   // Menu Hồ sơ cá nhân dropdown
   const profile: MenuProps["items"] = [
@@ -244,31 +218,9 @@ const Header: React.FC = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.15 }}
             >
-              <Dropdown 
-                menu={{ items: token ? bookingUser : bookingGuest }} 
-                placement="bottomCenter"
-                className="custom-dropdown"
-                trigger={['hover']}
-                mouseEnterDelay={0.1}
-                mouseLeaveDelay={0.2}
-                dropdownRender={(menu) => (
-                  <div className="custom-dropdown-container">
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {React.cloneElement(menu as React.ReactElement)}
-                    </motion.div>
-                  </div>
-                )}
-              >
-                <div className="dropdown-trigger">
-                  <span className={`nav-link ${getFontSize()} cursor-pointer ${isActive('/booking')}`}>
-                    Đặt lịch
-                  </span>
-                </div>
-              </Dropdown>
+              <Link to="/picture" className={`nav-link ${getFontSize()} ${isActive('/picture')}`}>
+                Hình ảnh
+              </Link>
             </motion.div>
             
             <motion.div
@@ -291,20 +243,12 @@ const Header: React.FC = () => {
               </Link>
             </motion.div>
             
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
-            >
-              <Link to="/faq" className={`nav-link ${getFontSize()} ${isActive('/faq')}`}>
-                Hỏi & Đáp
-              </Link>
-            </motion.div>
+           
             
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.35 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
             >
               <Link to="/blog" className={`nav-link ${getFontSize()} ${isActive('/blog')}`}>
                 Blog
@@ -390,9 +334,7 @@ const Header: React.FC = () => {
         title={
           <div className="flex justify-between items-center">
             <span className="text-lg font-semibold text-blue-primary">Menu</span>
-            <button onClick={() => setMobileMenuOpen(false)} className="focus:outline-none">
-              <CloseCircle size="24" color="#0c3c54" />
-            </button>
+
           </div>
         }
         placement="right"

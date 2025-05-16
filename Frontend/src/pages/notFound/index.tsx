@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 
 const NotFoundPage: React.FC = () => {
   return (
-    <div className="min-h-[calc(100vh-300px)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="text-center">
+    <div className="min-h-[calc(100vh-300px)] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 ">
+      <div className="text-center my-24">
         <h1 className="text-9xl font-extrabold text-blue-600 tracking-widest">404</h1>
         <div className="bg-blue-100 text-blue-800 px-3 py-1 text-sm rounded-md rotate-12 absolute">
           Trang không tồn tại
