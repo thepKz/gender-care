@@ -234,3 +234,90 @@ Table SystemConfigs {
     key String [unique]
     value String
 }
+
+Table ServicePackages {
+  _id ObjectId [pk]
+  name String
+  description String
+  price Number
+  discountPrice Number // Có thể null - giá thật
+  isActive Boolean [default: true]
+  createdAt DateTime
+  updatedAt DateTime
+}
+Table PackageTests {
+  _id ObjectId [pk]
+  packageId ObjectId [ref: > ServicePackages._id]
+  testTypeId ObjectId [ref: > TestTypes._id]
+}
+
+
+Table Promotions {
+  _id ObjectId [pk]
+  name String
+  code String [unique]
+  discountType String // "percentage", "fixed"
+  discountValue Number
+  startDate DateTime
+  endDate DateTime
+  maxUses Number // Có thể null
+  usedCount Number [default: 0]
+  applicablePackages ObjectId[] [ref: > ServicePackages._id]
+  isActive Boolean [default: true]
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+Table ConsultationInquiries {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id] // Customer hoặc null nếu là Guest
+  fullName String // Tên người gửi (bắt buộc với Guest)
+  phone String // Số điện thoại liên hệ
+  notes String // Dùng để note lại
+  question String // Câu hỏi hoặc mô tả vấn đề
+  status String // "pending", "contacted", "resolved", "cancelled"
+  consultantId ObjectId [ref: > Consultants._id] // Tư vấn viên xử lý - Có thể null 
+  createdAt DateTime
+  updatedAt DateTime
+}
+Table Bills {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id] // Người mua
+  profileId ObjectId [ref: > UserProfiles._id] // Người được đặt dịch vụ - co the null 
+  billNumber String [unique] // Số hóa đơn (ví dụ: BILL-20250517-001)
+  packageId ObjectId [ref: > ServicePackages._id] // Gói dịch vụ (nếu có), nullable
+  testAppointmentId ObjectId [ref: > TestAppointments._id] // Lịch xét nghiệm (nếu có), nullable
+  consultationId ObjectId [ref: > Consultations._id] // Buổi tư vấn (nếu có), nullable
+  promotionId ObjectId [ref: > Promotions._id] // Khuyến mãi áp dụng, nullable
+  subtotal Number // Tổng giá trước khuyến mãi
+  discountAmount Number [default: 0] // Số tiền giảm (từ promotion hoặc discountPrice)
+  totalAmount Number // Tổng giá sau khuyến mãi
+  status String // "pending", "paid", "cancelled"
+  createdAt DateTime
+  updatedAt DateTime
+   // Ràng buộc: ít nhất một trong packageId, testAppointmentId, consultationId phải không null
+}
+Table Payments {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id] // Người thực hiện thanh toán
+  billId ObjectId [ref: > Bills._id] // Liên kết với hóa đơn
+  amount Number // Số tiền thanh toán
+  paymentMethod String // "credit_card", "bank_transfer", "mobile_payment", "cash"
+  paymentGateway String  // co the null "stripe", "paypal", "vnpay", ...
+  transactionId String  // Co the nnull Mã giao dịch từ cổng thanh toán
+  status String // "pending", "completed", "failed", "refunded"
+  failureReason String  // Lý do thất bại (nếu có) co the null 
+  createdAt DateTime
+  updatedAt DateTime
+  paymentAt DateTime // Thời gian thanh toán
+}
+
+Table PackagePurchases {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id]
+  profileId ObjectId [ref: > UserProfiles._id] // co the null
+  packageId ObjectId [ref: > ServicePackages._id]
+  billId ObjectId [ref: > Bills._id] // Liên kết với hóa đơn
+  createdAt DateTime
+  updatedAt DateTime
+}
