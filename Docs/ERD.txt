@@ -15,6 +15,20 @@ Table Users {
   updatedAt DateTime
   
 }
+
+Table AuthTokens {
+  _id ObjectId [pk]
+  userId ObjectId [ref: > Users._id]
+  refreshToken String
+  userAgent String
+  ipAddress String
+  expiresAt DateTime
+  isRevoked Boolean [default: false]
+  createdAt DateTime
+  updatedAt DateTime
+  // Bảng này dùng để lưu refreshToken cho xác thực cookie HTTP-only, hỗ trợ đăng nhập đa thiết bị, bảo mật nâng cao.
+}
+
 Table StaffDetails {
   _id ObjectId [pk]
   userId ObjectId [ref: - Users._id, unique] // Liên kết 1-1 với Users
