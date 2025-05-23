@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import './header.css';
 
 const Header: React.FC = () => {
-  const { user, token, handleLogout } = useAuth();
+  const { user, isAuthenticated, handleLogout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
@@ -46,8 +46,10 @@ const Header: React.FC = () => {
   }, [location.pathname]);
 
   const onLogout = async () => {
-    await handleLogout();
-    navigate('/login');
+    const result = await handleLogout();
+    if (result.success) {
+      navigate('/');
+    }
   };
 
   // Menu Dịch vụ dropdown
@@ -148,162 +150,68 @@ const Header: React.FC = () => {
   };
 
   return (
-    <motion.header 
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className={`fixed z-50 w-full transition-all duration-300 ${scrolled ? 'shadow-lg' : ''} py-2 md:py-2.5 lg:py-3 pb-3 md:pb-3.5 lg:pb-4 ${getHeaderHeight()}`}
-      style={headerStyle}
-    >
-      <div className="container mx-auto px-4 h-full">
-        <div className="flex items-center justify-between h-full">
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center transition-transform duration-300 hover:scale-110">
-              <motion.img
-                whileHover={{ rotate: [0, -5, 5, -5, 0] }}
-                transition={{ duration: 0.5 }}
-                src="/images/logo.jpg"
-                alt="Logo"
-                className={`${getLogoSize()} w-auto mr-2`}
-              />
-            </Link>
-          </div>
-          
-          <nav className="hidden md:flex items-center justify-center space-x-3 lg:space-x-5 xl:space-x-7 flex-1 px-2 lg:px-4">
-            {/* Menu chính */}
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.05 }}
-            >
-              <Link to="/" className={`nav-link ${getFontSize()} ${isActive('/')}`}>
-                Trang chủ
+    <>
+      {/* Thông báo xác thực email nếu đã đăng nhập nhưng chưa xác thực */}
+      {user && isAuthenticated && !user.emailVerified && (
+        <div className="fixed top-0 left-0 w-full bg-red-600 text-white py-2 z-[100] text-center">
+          <div className="container mx-auto px-4">
+            <p className="text-sm md:text-base font-medium">
+              Tài khoản của bạn chưa được xác thực. 
+              <Link to="/verify-email" className="underline ml-2 font-bold hover:text-white">
+                Xác thực ngay tại đây
               </Link>
-            </motion.div>
+            </p>
+          </div>
+        </div>
+      )}
+
+      <motion.header 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className={`fixed z-50 w-full transition-all duration-300 ${scrolled ? 'shadow-lg' : ''} py-2 md:py-2.5 lg:py-3 pb-3 md:pb-3.5 lg:pb-4 ${getHeaderHeight()} ${user && isAuthenticated && !user.emailVerified ? 'mt-8 md:mt-10' : ''}`}
+        style={headerStyle}
+      >
+        <div className="container mx-auto px-4 h-full">
+          <div className="flex items-center justify-between h-full">
+            <div className="flex items-center">
+              <Link to="/" className="flex items-center transition-transform duration-300 hover:scale-110">
+                <motion.img
+                  whileHover={{ rotate: [0, -5, 5, -5, 0] }}
+                  transition={{ duration: 0.5 }}
+                  src="/images/logo.jpg"
+                  alt="Logo"
+                  className={`${getLogoSize()} w-auto mr-2`}
+                />
+              </Link>
+            </div>
             
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-            >
-              <Dropdown 
-                menu={{ items: services }} 
-                placement="bottomCenter" 
-                className="custom-dropdown"
-                trigger={['hover']}
-                mouseEnterDelay={0.1}
-                mouseLeaveDelay={0.2}
-                dropdownRender={(menu) => (
-                  <div className="custom-dropdown-container">
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {React.cloneElement(menu as React.ReactElement)}
-                    </motion.div>
-                  </div>
-                )}
+            <nav className="hidden md:flex items-center justify-center space-x-3 lg:space-x-5 xl:space-x-7 flex-1 px-2 lg:px-4">
+              {/* Menu chính */}
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.05 }}
               >
-                <div className="dropdown-trigger">
-                  <span className={`nav-link ${getFontSize()} cursor-pointer ${isActive('/services')}`}>
-                    Dịch vụ
-                  </span>
-                </div>
-              </Dropdown>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.15 }}
-            >
-              <Link to="/picture" className={`nav-link ${getFontSize()} ${isActive('/picture')}`}>
-                Hình ảnh
-              </Link>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-            >
-              <Link to="/counselors" className={`nav-link ${getFontSize()} ${isActive('/counselors')}`}>
-                Tư vấn viên
-              </Link>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.25 }}
-            >
-              <Link to="/about-gcc" className={`nav-link ${getFontSize()} ${isActive('/about-gcc')}`}>
-                Về chúng tôi
-              </Link>
-            </motion.div>
-            
-           
-            
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
-            >
-              <Link to="/blog" className={`nav-link ${getFontSize()} ${isActive('/blog')}`}>
-                Blog
-              </Link>
-            </motion.div>
-          </nav>
-
-          {/* Mobile menu button */}
-          <div className="block md:hidden">
-            <button 
-              onClick={toggleMobileMenu}
-              className="text-white p-2 focus:outline-none"
-              aria-label="Menu"
-            >
-              <Menu size={windowWidth < 640 ? "24" : "28"} color="#fff" />
-            </button>
-          </div>
-
-          <div className="hidden md:flex items-center justify-end ml-4 lg:ml-6">
-            {!token ? (
-              <div className="flex items-center space-x-3 lg:space-x-4">
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  <Link to="/login" className={`btn-auth text-white border border-white rounded-md ${getButtonPadding()} ${getFontSize()} font-medium`}>
-                    Đăng nhập
-                  </Link>
-                </motion.div>
-                <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
-                  <Link to="/register" className={`btn-auth bg-white text-blue-primary rounded-md ${getButtonPadding()} ${getFontSize()} font-medium`}>
-                    Đăng ký
-                  </Link>
-                </motion.div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 lg:gap-4">
-                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                  <Link
-                    to="/booking"
-                    className="btn-auth text-white p-2 rounded-full hover:bg-white/10"
-                  >
-                    <CalendarEdit
-                      color="white"
-                      size={windowWidth >= 1024 ? 26 : 24}
-                      variant="Bold"
-                    />
-                  </Link>
-                </motion.div>
+                <Link to="/" className={`nav-link ${getFontSize()} ${isActive('/')}`}>
+                  Trang chủ
+                </Link>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 }}
+              >
                 <Dropdown 
-                  menu={{ items: profile }} 
-                  placement="bottomRight"
-                  className="profile-dropdown"
+                  menu={{ items: services }} 
+                  placement="bottomCenter" 
+                  className="custom-dropdown"
                   trigger={['hover']}
                   mouseEnterDelay={0.1}
-                  mouseLeaveDelay={0.3}
+                  mouseLeaveDelay={0.2}
                   dropdownRender={(menu) => (
-                    <div className="profile-dropdown-container">
+                    <div className="custom-dropdown-container">
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -314,20 +222,130 @@ const Header: React.FC = () => {
                     </div>
                   )}
                 >
-                  <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                    <Avatar
-                      src={user?.avatar}
-                      className="cursor-pointer hover:opacity-90 transition-opacity"
-                      icon={<User size={windowWidth >= 1024 ? 20 : 18} />}
-                      size={windowWidth >= 1024 ? "large" : "default"}
-                    />
-                  </motion.div>
+                  <div className="dropdown-trigger">
+                    <span className={`nav-link ${getFontSize()} cursor-pointer ${isActive('/services')}`}>
+                      Dịch vụ
+                    </span>
+                  </div>
                 </Dropdown>
-              </div>
-            )}
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.15 }}
+              >
+                <Link to="/picture" className={`nav-link ${getFontSize()} ${isActive('/picture')}`}>
+                  Hình ảnh
+                </Link>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.2 }}
+              >
+                <Link to="/counselors" className={`nav-link ${getFontSize()} ${isActive('/counselors')}`}>
+                  Tư vấn viên
+                </Link>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.25 }}
+              >
+                <Link to="/about-gcc" className={`nav-link ${getFontSize()} ${isActive('/about-gcc')}`}>
+                  Về chúng tôi
+                </Link>
+              </motion.div>
+              
+             
+              
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.3 }}
+              >
+                <Link to="/blog" className={`nav-link ${getFontSize()} ${isActive('/blog')}`}>
+                  Blog
+                </Link>
+              </motion.div>
+            </nav>
+
+            {/* Mobile menu button */}
+            <div className="block md:hidden">
+              <button 
+                onClick={toggleMobileMenu}
+                className="text-white p-2 focus:outline-none"
+                aria-label="Menu"
+              >
+                <Menu size={windowWidth < 640 ? "24" : "28"} color="#fff" />
+              </button>
+            </div>
+
+            <div className="hidden md:flex items-center justify-end ml-4 lg:ml-6">
+              {!isAuthenticated ? (
+                <div className="flex items-center space-x-3 lg:space-x-4">
+                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                    <Link to="/login" className={`btn-auth text-white border border-white rounded-md ${getButtonPadding()} ${getFontSize()} font-medium`}>
+                      Đăng nhập
+                    </Link>
+                  </motion.div>
+                  <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}>
+                    <Link to="/register" className={`btn-auth bg-white text-blue-primary rounded-md ${getButtonPadding()} ${getFontSize()} font-medium`}>
+                      Đăng ký
+                    </Link>
+                  </motion.div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 lg:gap-4">
+                  <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                    <Link
+                      to="/booking"
+                      className="btn-auth text-white p-2 rounded-full"
+                    >
+                      <CalendarEdit
+                        color="white"
+                        size={windowWidth >= 1024 ? 26 : 24}
+                        variant="Bold"
+                      />
+                    </Link>
+                  </motion.div>
+                  <Dropdown 
+                    menu={{ items: profile }} 
+                    placement="bottomRight"
+                    className="profile-dropdown"
+                    trigger={['hover']}
+                    mouseEnterDelay={0.1}
+                    mouseLeaveDelay={0.3}
+                    dropdownRender={(menu) => (
+                      <div className="profile-dropdown-container">
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          {React.cloneElement(menu as React.ReactElement)}
+                        </motion.div>
+                      </div>
+                    )}
+                  >
+                    <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                      <Avatar
+                        src={user?.avatar}
+                        className="cursor-pointer hover:opacity-90 transition-opacity"
+                        icon={<User size={windowWidth >= 1024 ? 20 : 18} />}
+                        size={windowWidth >= 1024 ? "large" : "default"}
+                      />
+                    </motion.div>
+                  </Dropdown>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </motion.header>
 
       {/* Mobile Menu Drawer */}
       <Drawer
@@ -378,7 +396,7 @@ const Header: React.FC = () => {
                   <Link to="/booking/test" className="text-gray-600 text-base">
                     Xét nghiệm
                   </Link>
-                  {token && (
+                  {isAuthenticated && (
                     <Link to="/cycle-tracking" className="text-gray-600 text-base">
                       Theo dõi chu kỳ
                     </Link>
@@ -405,7 +423,7 @@ const Header: React.FC = () => {
           </div>
           
           <div className="p-4 border-t border-gray-200">
-            {!token ? (
+            {!isAuthenticated ? (
               <div className="flex flex-col space-y-3">
                 <Link to="/login" className="w-full py-2.5 border border-blue-primary text-blue-primary rounded-md text-center text-base font-medium transition-colors hover:bg-blue-50">
                   Đăng nhập
@@ -437,7 +455,7 @@ const Header: React.FC = () => {
           </div>
         </div>
       </Drawer>
-    </motion.header>
+    </>
   );
 };
 

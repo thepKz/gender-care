@@ -1,10 +1,23 @@
 import {
-    LoginRequest,
-    OtpRequest,
-    OtpVerificationRequest,
-    RegisterRequest
+  LoginRequest,
+  OtpRequest,
+  OtpVerificationRequest,
+  RegisterRequest,
+  User
 } from '../../types';
 import axiosInstance from '../axiosConfig';
+
+interface CheckEmailRequest {
+  email: string;
+}
+
+interface CheckPhoneRequest {
+  phone: string;
+}
+
+interface CheckResponse {
+  available: boolean;
+}
 
 const authApi = {
   login: (data: LoginRequest) => {
@@ -28,15 +41,15 @@ const authApi = {
   },
   
   getProfile: () => {
-    return axiosInstance.get('/auth/profile');
+    return axiosInstance.get('/users/profile/me');
   },
   
-  updateProfile: (data: any) => {
-    return axiosInstance.put('/auth/profile', data);
+  updateProfile: (data: Partial<User>) => {
+    return axiosInstance.put('/users/profile/me', data);
   },
   
   changePassword: (oldPassword: string, newPassword: string) => {
-    return axiosInstance.put('/auth/change-password', { oldPassword, newPassword });
+    return axiosInstance.put('/users/profile/me/change-password', { currentPassword: oldPassword, newPassword });
   },
 
   // Thêm endpoints mới cho OTP
@@ -44,13 +57,30 @@ const authApi = {
     return axiosInstance.post('/auth/request-otp', data);
   },
 
+  sendNewVerifyEmail: (email: string) => {
+    return axiosInstance.post('/auth/new-verify', { email });
+  },
+
   verifyOtp: (data: OtpVerificationRequest) => {
     return axiosInstance.post('/auth/verify-otp', data);
+  },
+
+  // Phương thức mới để xác thực email chỉ với email và OTP, không cần userId
+  verifyEmail: (email: string, otp: string) => {
+    return axiosInstance.post('/auth/verify-email', { email, otp });
   },
 
   // Endpoint kiểm tra trạng thái email đã xác thực hay chưa
   checkEmailVerification: () => {
     return axiosInstance.get('/auth/check-email-verification');
+  },
+
+  checkEmail: (data: CheckEmailRequest) => {
+    return axiosInstance.post<CheckResponse>('/auth/check-email', data);
+  },
+
+  checkPhone: (data: CheckPhoneRequest) => {
+    return axiosInstance.post<CheckResponse>('/auth/check-phone', data);
   }
 };
 

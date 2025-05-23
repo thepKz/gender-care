@@ -1,0 +1,154 @@
+/* Profile Page Custom Styles */
+.profile-tab-content {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Tab hover effects */
+.ant-tabs-tab {
+  transition: all 0.3s ease !important;
+}
+
+.ant-tabs-tab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(12, 60, 84, 0.15);
+}
+
+.ant-tabs-tab-active {
+  background: linear-gradient(135deg, #0C3C54 0%, #1a5570 100%) !important;
+  color: white !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(12, 60, 84, 0.25);
+}
+
+.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: white !important;
+}
+
+/* Card hover effects */
+.ant-card {
+  transition: all 0.3s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* Avatar hover effects */
+.avatar-container {
+  transition: all 0.3s ease;
+}
+
+.avatar-container:hover {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+/* Button enhanced hover */
+.btn-enhanced {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.6s;
+}
+
+.btn-enhanced:hover::before {
+  left: 100%;
+}
+
+/* Loading spinner enhancement */
+.loading-container {
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* Improved tab content animation */
+.tab-content-wrapper {
+  position: relative;
+  min-height: 600px;
+  overflow: hidden;
+}
+
+.tab-slide-enter {
+  opacity: 0;
+  transform: translateX(100px);
+}
+
+.tab-slide-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-slide-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.tab-slide-exit-active {
+  opacity: 0;
+  transform: translateX(-100px);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Form field focus effects */
+.ant-input:focus,
+.ant-input-password:focus {
+  border-color: #0C3C54 !important;
+  box-shadow: 0 0 0 2px rgba(12, 60, 84, 0.1) !important;
+}
+
+/* Progress bar customization */
+.ant-progress-bg {
+  transition: all 0.3s ease !important;
+}
+
+/* Success message styling */
+.ant-message-success {
+  background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(82, 196, 26, 0.3);
+}
+
+/* Error message styling */
+.ant-message-error {
+  background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.3);
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+  .tab-content-wrapper {
+    min-height: 500px;
+  }
+  
+  .ant-tabs-tab {
+    padding: 8px 12px !important;
+  }
+  
+  .profile-tab-content {
+    padding: 16px;
+  }
+}
+
+/* Dark mode support preparation */
+@media (prefers-color-scheme: dark) {
+  .ant-card {
+    background: #1f1f1f;
+    border-color: #404040;
+  }
+  
+  .profile-tab-content {
+    color: #ffffff;
+  }
+} 
