@@ -9,6 +9,11 @@ export interface IUser {
   role: "guest" | "customer" | "consultant" | "staff" | "manager" | "admin";
   emailVerified: boolean;
   isActive: boolean;
+  gender?: string;
+  address?: string;
+  year?: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const userSchema = new mongoose.Schema<IUser>(
@@ -31,6 +36,9 @@ const userSchema = new mongoose.Schema<IUser>(
       type: Boolean,
       default: true,
     },
+    gender: { type: String },
+    address: { type: String },
+    year: { type: Date },
   },
   { timestamps: true }
 );

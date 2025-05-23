@@ -7,8 +7,14 @@ export const authMiddleware = (
   res: Response,
   next: NextFunction
 ) => {
+  // Ưu tiên lấy token từ header Authorization
+  let token: string | undefined | null = undefined;
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(" ")[1];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.cookies && req.cookies.access_token) {
+    token = req.cookies.access_token;
+  }
 
   if (!token) {
     return res.status(401).json({ message: "Unauthorized: No token provided" });

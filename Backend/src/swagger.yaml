@@ -35,6 +35,7 @@ paths:
                 - email
                 - password
                 - fullName
+                - gender
               properties:
                 email:
                   type: string
@@ -48,6 +49,10 @@ paths:
                   minLength: 3
                 phone:
                   type: string
+                gender:
+                  type: string
+                  enum: [male, female, other]
+                  description: Giới tính người dùng
       responses:
         '201':
           description: Đăng ký thành công
@@ -72,8 +77,7 @@ paths:
                         type: string
                       emailVerified:
                         type: boolean
-                      token:
-                        type: string
+                # Token sẽ được set vào cookie HTTP-only, không trả về trong body.
         '400':
           description: Lỗi dữ liệu đầu vào
           content:
@@ -133,8 +137,7 @@ paths:
                         type: string
                       emailVerified:
                         type: boolean
-                      token:
-                        type: string
+                # Token sẽ được set vào cookie HTTP-only, không trả về trong body.
         '400':
           description: Lỗi dữ liệu đầu vào
           content:
@@ -526,6 +529,440 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /users:
+    post:
+      tags:
+        - User
+      summary: Tạo user mới
+      description: Tạo user mới (chỉ admin hoặc staff)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - fullName
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                fullName:
+                  type: string
+                phone:
+                  type: string
+                avatar:
+                  type: string
+                gender:
+                  type: string
+                address:
+                  type: string
+                year:
+                  type: string
+                  format: date
+                role:
+                  type: string
+                  enum: [guest, customer, consultant, staff, manager, admin]
+      responses:
+        '201':
+          description: Tạo user thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Thiếu thông tin
+        '409':
+          description: Email đã tồn tại
+        '500':
+          description: Lỗi server
+
+  /users/{userId}:
+    get:
+      tags:
+        - User
+      summary: Lấy thông tin user bất kỳ
+      description: Lấy chi tiết user theo id (chỉ admin/staff)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Thông tin user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+        '404':
+          description: Không tìm thấy user
+        '500':
+          description: Lỗi server
+    patch:
+      tags:
+        - User
+      summary: Cập nhật user bất kỳ
+      description: Cập nhật thông tin user theo id (chỉ admin/staff)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                phone:
+                  type: string
+                avatar:
+                  type: string
+                gender:
+                  type: string
+                address:
+                  type: string
+                year:
+                  type: string
+                  format: date
+                role:
+                  type: string
+                  enum: [guest, customer, consultant, staff, manager, admin]
+                isActive:
+                  type: boolean
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+        '404':
+          description: Không tìm thấy user
+        '500':
+          description: Lỗi server
+
+  /login-history:
+    post:
+      tags:
+        - User
+      summary: Ghi nhận lịch sử đăng nhập
+      description: Ghi nhận một lần đăng nhập (thành công/thất bại)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+                - status
+              properties:
+                userId:
+                  type: string
+                ipAddress:
+                  type: string
+                userAgent:
+                  type: string
+                status:
+                  type: string
+                  enum: [success, failed]
+                failReason:
+                  type: string
+      responses:
+        '201':
+          description: Ghi nhận thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/LoginHistory'
+        '400':
+          description: Thiếu thông tin
+        '500':
+          description: Lỗi server
+
+  /login-history/{userId}:
+    get:
+      tags:
+        - User
+      summary: Lấy lịch sử đăng nhập của user
+      description: Lấy danh sách lịch sử đăng nhập theo userId
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Danh sách lịch sử đăng nhập
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LoginHistory'
+        '400':
+          description: Thiếu userId
+        '500':
+          description: Lỗi server
+
+  /auth/google:
+    post:
+      tags:
+        - Auth
+      summary: Đăng nhập bằng Google
+      description: Đăng nhập bằng Google OAuth2, nhận id_token từ FE, xác thực, trả về JWT và user info
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: id_token từ Google
+      responses:
+        '200':
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                # Token sẽ được set vào cookie HTTP-only, không trả về trong body.
+        '400':
+          description: Thiếu hoặc sai token
+        '500':
+          description: Lỗi server
+
+  /auth/check-email:
+    post:
+      tags:
+        - Auth
+      summary: Kiểm tra email đã được sử dụng chưa
+      description: Kiểm tra xem email đã tồn tại trong hệ thống hay chưa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Trả về trạng thái có thể sử dụng email hay không
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available:
+                    type: boolean
+                    description: true nếu email chưa được sử dụng, false nếu đã tồn tại
+        '400':
+          description: Lỗi dữ liệu đầu vào
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/check-phone:
+    post:
+      tags:
+        - Auth
+      summary: Kiểm tra số điện thoại đã được sử dụng chưa
+      description: Kiểm tra xem số điện thoại đã tồn tại trong hệ thống hay chưa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - phone
+              properties:
+                phone:
+                  type: string
+                  description: Số điện thoại cần kiểm tra
+      responses:
+        '200':
+          description: Trả về trạng thái có thể sử dụng số điện thoại hay không
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  available:
+                    type: boolean
+                    description: true nếu số điện thoại chưa được sử dụng, false nếu đã tồn tại
+        '400':
+          description: Lỗi dữ liệu đầu vào
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login-admin:
+
+  /users/profile/avatar/upload:
+    post:
+      tags:
+        - User
+      summary: Upload avatar cho user
+      description: Upload file ảnh avatar lên server, trả về URL ảnh đã upload
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    example: https://res.cloudinary.com/your-cloud/image/upload/v123/avatar.jpg
+        '400':
+          description: Lỗi upload hoặc thiếu file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/profile/avatar:
+    put:
+      tags:
+        - User
+      summary: Cập nhật URL avatar cho user
+      description: Cập nhật URL avatar cho user đã đăng nhập
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  example: https://res.cloudinary.com/your-cloud/image/upload/v123/avatar.jpg
+      responses:
+        '200':
+          description: Cập nhật avatar thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Cập nhật avatar thành công
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Thiếu URL avatar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -620,4 +1057,24 @@ components:
       type: object
       properties:
         message:
+          type: string
+
+    LoginHistory:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        ipAddress:
+          type: string
+        userAgent:
+          type: string
+        loginAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [success, failed]
+        failReason:
           type: string

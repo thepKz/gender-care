@@ -1,21 +1,26 @@
 import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
+import { OAuth2Client } from "google-auth-library";
 import { ValidationError } from "../errors/validationError";
-import { OtpCode, User } from "../models";
+import { AuthToken, LoginHistory, OtpCode, User } from "../models";
 import { sendVerificationEmail } from "../services/emails";
-import { randomText, signToken } from "../utils";
+import { signRefreshToken, signToken, verifyRefreshToken } from "../utils";
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "203228075747-cnn4bmrbnkeqmbiouptng2kajeur2fjp.apps.googleusercontent.com";
+const client = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { fullName, email, password } = req.body;
+    const { fullName, email, password, gender, phone } = req.body;
 
     const formatFullName = fullName.trim();
     const formatEmail = email.trim().toLowerCase();
     const formatPassword = password.trim();
+    const formatGender = gender.trim();
 
     const errors: any = {};
 
-    if (!formatFullName || !formatEmail || !formatPassword) {
+    if (!formatFullName || !formatEmail || !formatPassword || !formatGender) {
       errors.message = "Vui lòng điền đầy đủ các trường!";
       throw new ValidationError(errors);
     }
@@ -41,6 +46,12 @@ export const register = async (req: Request, res: Response) => {
       throw new ValidationError(errors);
     }
 
+    // Kiểm tra giới tính
+    if (!['male', 'female', 'other'].includes(formatGender)) {
+      errors.gender = "Giới tính không hợp lệ!";
+      throw new ValidationError(errors);
+    }
+
     // Kiểm tra độ mạnh của mật khẩu
     if (
       !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]).{6,30}$/.test(
@@ -60,6 +71,8 @@ export const register = async (req: Request, res: Response) => {
       fullName: formatFullName,
       email: formatEmail,
       password: hashedPass,
+      gender: formatGender,
+      phone: phone || undefined,
       role: "customer",
       emailVerified: false,
       isActive: true
@@ -82,12 +95,30 @@ export const register = async (req: Request, res: Response) => {
       attempts: 0
     });
 
-    // Tạo token
+    // Tạo access token và refresh token
     const token = await signToken({
       _id: newUser._id,
       fullName: newUser.fullName,
       email: newUser.email,
       role: newUser.role,
+    });
+
+    const refreshToken = await signRefreshToken({
+      _id: newUser._id,
+      email: newUser.email,
+    });
+
+    // Lưu refresh token vào database
+    const refreshTokenExpiry = new Date();
+    refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 7); // 7 ngày
+
+    await AuthToken.create({
+      userId: newUser._id,
+      refreshToken,
+      userAgent: req.headers['user-agent'] || 'unknown',
+      ipAddress: req.ip || 'unknown',
+      expiresAt: refreshTokenExpiry,
+      isRevoked: false
     });
 
     // Gửi email xác thực
@@ -103,9 +134,9 @@ export const register = async (req: Request, res: Response) => {
         id: newUser._id,
         fullName: newUser.fullName,
         email: newUser.email,
+        gender: newUser.gender,
         role: newUser.role,
         emailVerified: false,
-        token,
       },
     });
   } catch (error: any) {
@@ -289,11 +320,39 @@ export const login = async (req: Request, res: Response) => {
       throw new ValidationError(errors);
     }
 
+    // Tạo access token và refresh token
     const token = await signToken({
       _id: user._id,
       fullName: user.fullName,
       email: user.email,
       role: user.role,
+    });
+
+    const refreshToken = await signRefreshToken({
+      _id: user._id,
+      email: user.email,
+    });
+
+    // Lưu refresh token vào database
+    const refreshTokenExpiry = new Date();
+    refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 7); // 7 ngày
+
+    await AuthToken.create({
+      userId: user._id,
+      refreshToken,
+      userAgent: req.headers['user-agent'] || 'unknown',
+      ipAddress: req.ip || 'unknown',
+      expiresAt: refreshTokenExpiry,
+      isRevoked: false
+    });
+
+    // Lưu lịch sử đăng nhập
+    await LoginHistory.create({
+      userId: user._id,
+      ipAddress: req.ip || 'unknown',
+      userAgent: req.headers['user-agent'] || 'unknown',
+      loginAt: new Date(),
+      status: 'success'
     });
 
     return res.status(200).json({
@@ -304,7 +363,8 @@ export const login = async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
         emailVerified: user.emailVerified,
-        token,
+        accessToken: token,
+        refreshToken: refreshToken
       },
     });
   } catch (error: any) {
@@ -319,62 +379,88 @@ export const login = async (req: Request, res: Response) => {
 
 export const loginWithGoogle = async (req: Request, res: Response) => {
   try {
-    const { email, name, photoUrl } = req.body;
-
-    const formatEmail = email.trim().toLowerCase();
-    const formatFullName = name || `User_${randomText(5)}`;
-
-    let user = await User.findOne({ email: formatEmail });
-
-    if (!user) {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPass = await bcrypt.hash(randomText(12), salt);
-      user = await User.create({
-        fullName: formatFullName,
-        email: formatEmail,
-        password: hashedPass,
-        avatar: photoUrl,
-        emailVerified: true,
-        isActive: true,
-        role: "customer"
-      });
-    } else {
-      if (!user.isActive) {
-        return res.status(403).json({
-          message:
-            "Tài khoản của bạn đã bị khóa! Vui lòng liên hệ quản trị viên để được hỗ trợ",
-        });
-      }
-
-      if (!user.avatar && photoUrl) {
-        user.avatar = photoUrl;
-        await user.save();
-      }
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ message: "Thiếu Google token" });
+    
+    // Xác thực token với Google
+    const ticket = await client.verifyIdToken({ 
+      idToken: token, 
+      audience: GOOGLE_CLIENT_ID 
+    });
+    
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      return res.status(400).json({ message: "Token không hợp lệ" });
     }
-
-    const token = await signToken({
+    
+    // Tìm hoặc tạo user
+    let user = await User.findOne({ email: payload.email });
+    if (!user) {
+      // Tạo user mới từ tài khoản Google
+      user = await User.create({
+        email: payload.email,
+        password: "", // Không dùng password cho tài khoản Google
+        fullName: payload.name || payload.email,
+        avatar: payload.picture,
+        emailVerified: true, // Email đã được xác thực bởi Google
+        isActive: true,
+        role: "customer",
+        gender: "other" // Giá trị mặc định
+      });
+    }
+    
+    // Tạo access token và refresh token giống như đăng nhập thông thường
+    const accessToken = await signToken({
       _id: user._id,
       fullName: user.fullName,
       email: user.email,
       role: user.role,
     });
 
+    const refreshToken = await signRefreshToken({
+      _id: user._id,
+      email: user.email,
+    });
+
+    // Lưu refresh token vào database
+    const refreshTokenExpiry = new Date();
+    refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 7); // 7 ngày
+
+    await AuthToken.create({
+      userId: user._id,
+      refreshToken,
+      userAgent: req.headers['user-agent'] || 'unknown',
+      ipAddress: req.ip || 'unknown',
+      expiresAt: refreshTokenExpiry,
+      isRevoked: false
+    });
+
+    // Lưu lịch sử đăng nhập
+    await LoginHistory.create({
+      userId: user._id,
+      ipAddress: req.ip || 'unknown',
+      userAgent: req.headers['user-agent'] || 'unknown',
+      loginAt: new Date(),
+      status: 'success'
+    });
+
     return res.status(200).json({
-      message: "Đăng nhập thành công!",
+      message: "Đăng nhập với Google thành công!",
       data: {
         id: user._id,
         fullName: user.fullName,
         email: user.email,
         role: user.role,
-        avatar: user.avatar || photoUrl,
         emailVerified: user.emailVerified,
-        token,
-      },
+        avatar: user.avatar,
+        accessToken: accessToken,
+        refreshToken: refreshToken
+      }
     });
   } catch (error: any) {
-    console.log(error);
-    res.status(500).json({
-      message: "Đã xảy ra lỗi khi xử lý đăng nhập Google",
+    console.error("Lỗi đăng nhập Google:", error);
+    return res.status(500).json({ 
+      message: "Đăng nhập với Google thất bại. Vui lòng thử lại sau." 
     });
   }
 };
@@ -439,7 +525,7 @@ export const loginAdmin = async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
         avatar: user.avatar,
-        token,
+        accessToken: token,
       },
     });
   } catch (error: any) {
@@ -466,5 +552,138 @@ export const checkEmail = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.log(error);
     return res.status(500).json({ message: error.message });
+  }
+};
+
+export const checkPhone = async (req: Request, res: Response) => {
+  try {
+    const { phone } = req.body;
+    const formatPhone = phone.trim();
+    
+    if (!formatPhone) {
+      return res.status(400).json({ message: "Số điện thoại không được để trống" });
+    }
+    
+    // Kiểm tra định dạng số điện thoại
+    if (!/^[0-9]{10,11}$/.test(formatPhone)) {
+      return res.status(400).json({ message: "Số điện thoại không hợp lệ" });
+    }
+    
+    const user = await User.findOne({ phone: formatPhone });
+    return res.status(200).json({ available: !user });
+  } catch (error: any) {
+    console.log(error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const logout = async (req: Request, res: Response) => {
+  try {
+    // Lấy refresh token từ cookie
+    const refreshToken = req.cookies.refresh_token;
+    
+    if (refreshToken) {
+      // Tìm và vô hiệu hóa refresh token trong database
+      await AuthToken.updateOne({ refreshToken }, { isRevoked: true });
+    }
+    
+    // Xóa cookie
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
+    });
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
+    });
+    
+    return res.status(200).json({ message: "Đăng xuất thành công" });
+  } catch (error: any) {
+    console.error('Lỗi khi đăng xuất:', error);
+    return res.status(500).json({ message: "Đã xảy ra lỗi khi đăng xuất" });
+  }
+};
+
+export const refreshAccessToken = async (req: Request, res: Response) => {
+  try {
+    // Lấy refresh token từ cookie
+    const refreshToken = req.cookies.refresh_token;
+    
+    if (!refreshToken) {
+      return res.status(401).json({ message: "Không tìm thấy refresh token" });
+    }
+    
+    // Kiểm tra refresh token trong database
+    const tokenDoc = await AuthToken.findOne({ 
+      refreshToken, 
+      isRevoked: false,
+      expiresAt: { $gt: new Date() }
+    });
+    
+    if (!tokenDoc) {
+      // Xóa cookie nếu token không hợp lệ
+      res.clearCookie('access_token');
+      res.clearCookie('refresh_token');
+      return res.status(401).json({ message: "Refresh token không hợp lệ hoặc đã hết hạn" });
+    }
+    
+    // Xác thực refresh token
+    const { valid, expired, decoded } = await verifyRefreshToken(refreshToken);
+    
+    if (!valid || expired || !decoded) {
+      // Vô hiệu hóa token trong database
+      await AuthToken.updateOne({ refreshToken }, { isRevoked: true });
+      
+      // Xóa cookie
+      res.clearCookie('access_token');
+      res.clearCookie('refresh_token');
+      
+      return res.status(401).json({ message: "Refresh token không hợp lệ hoặc đã hết hạn" });
+    }
+    
+    // Lấy thông tin user
+    const user = await User.findById(decoded._id);
+    
+    if (!user || !user.isActive) {
+      // Xóa cookie
+      res.clearCookie('access_token');
+      res.clearCookie('refresh_token');
+      
+      return res.status(401).json({ message: "Người dùng không tồn tại hoặc đã bị khóa" });
+    }
+    
+    // Tạo access token mới
+    const newAccessToken = await signToken({
+      _id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+    });
+    
+    // Thiết lập cookie mới cho access token
+    res.cookie('access_token', newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+      path: '/'
+    });
+    
+    return res.status(200).json({ 
+      message: "Token đã được làm mới",
+      data: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      }
+    });
+  } catch (error: any) {
+    console.error('Lỗi khi refresh token:', error);
+    return res.status(500).json({ message: "Đã xảy ra lỗi khi làm mới token" });
   }
 };

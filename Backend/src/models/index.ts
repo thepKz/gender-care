@@ -1,10 +1,11 @@
+import AuthToken from './AuthToken';
 import LoginHistory from './LoginHistory';
 import OtpCode from './OtpCode';
 
 import User from './User';
 
 export {
-    LoginHistory,
+    AuthToken, LoginHistory,
     OtpCode, User
 };
 

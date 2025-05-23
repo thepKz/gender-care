@@ -1,88 +1,93 @@
+import cookieParser from "cookie-parser";
 import cors from "cors";
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 import express from "express";
 import mongoose from "mongoose";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
-// @ts-ignore
+import { authRoutes, loginHistoryRoutes, userRoutes } from "./routes";
+
+// Load biến môi trường từ file .env (phải đặt ở đầu file)
 dotenv.config();
 
-// Routes
-import {
-  authRoutes,
-  userRoutes
-} from "./routes";
-
+// Khởi tạo app express
 const app = express();
-const port = process.env.PORT || 8000;
+const PORT = process.env.PORT || 5000;
 
-// Load swagger document
-const swaggerPath = path.resolve(__dirname, "swagger.yaml");
-const swaggerDocument = YAML.load(swaggerPath);
+// Cấu hình CORS cho nhiều origin
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:3000',
+  'https://gender-healthcare.vercel.app',
+  'https://gender-healthcare-service-management.onrender.com',
+  'http://localhost:5000'
 
+];
 
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); // Thêm cookie-parser để đọc cookie
 
-// Cho phép tất cả các origin
+// Cấu hình CORS
 app.use(cors({
-  origin: '*',
-  credentials: true,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Quan trọng: cho phép gửi cookie
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-app.use(express.json());
+// Phục vụ tài liệu Swagger
+const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-app.get("/", (_req, res) => {
-  console.log("Log message on backend");
-  res.send("Welcome to the Gender Healthcare API");
-});
+// Kết nối đến cơ sở dữ liệu MongoDB
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGO_URI as string);
+    console.log(`MongoDB đã kết nối: ${conn.connection.host}`);
+  } catch (error) {
+    console.error(`Lỗi: ${error}`);
+    process.exit(1);
+  }
+};
 
-// Cấu hình API prefix và Swagger docs
+connectDB();
+
+// Thiết lập routes
 const apiRouter = express.Router();
 app.use('/api', apiRouter);
 
-// Cấu hình Swagger UI
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
-  customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: "Gender Healthcare API Documentation",
-  customfavIcon: "/favicon.ico",
-  swaggerOptions: {
-    persistAuthorization: true,
-    basePath: '/api'
-  }
-}));
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/users', userRoutes);
+apiRouter.use('/login-history', loginHistoryRoutes);
 
-apiRouter.use("/auth", authRoutes);
-apiRouter.use("/users", userRoutes);
+// Middleware xử lý lỗi
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error(err.stack);
+  res.status(500).json({
+    message: 'Đã xảy ra lỗi server!',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
 
+// Khởi động server
+app.listen(PORT, () => {
+  console.log(`Server đang chạy tại http://localhost:${PORT}`);
+});
 
-// Export the app for testing purposes
-export { app };
-
-// Only start the server if this file is run directly (not imported as a module)
-if (require.main === module) {
-  console.log('Connecting to MongoDB...');
-  console.log('MongoDB URI:', process.env.MONGO_URI?.split('@')[1]); // Log URI an toàn (không hiện credentials)
-
-  mongoose
-    .connect(process.env.MONGO_URI as string)
-    .then(() => {
-      console.log("Connected to MongoDB successfully");
-      app.listen(port, () => {
-        console.log(`Server started at ${new Date().toISOString()}`);
-        console.log(`Server is running on port ${port}`);
-        console.log(`API Documentation available at ${process.env.API_URL || `https://gender-healthcare-service-management.onrender.com`}/api-docs/`);
-      });
-    })
-    .catch((error) => {
-      console.error("MongoDB connection error details:");
-      console.error("Name:", error.name);
-      console.error("Message:", error.message);
-      console.error("Code:", error.code);
-      if (error.name === 'MongoServerError') {
-        console.error("Please check your MongoDB credentials and database name");
-      }
-      process.exit(1); // Thoát process nếu không kết nối được database
-    });
-}
+export default app;
