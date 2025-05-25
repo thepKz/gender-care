@@ -25,14 +25,37 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
   'https://gender-healthcare.vercel.app',
   'https://gender-healthcare-service-management.onrender.com',
+  'https://team05.ksfu.cloud',
   'http://localhost:5000'
-
 ];
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser()); // Thêm cookie-parser để đọc cookie
+
+// Middleware để log CORS requests
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.path} - Origin: ${req.headers.origin}`);
+  next();
+});
+
+// Middleware để xử lý preflight requests
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  console.log(`Preflight request from origin: ${origin}`);
+  
+  if (allowedOrigins.includes(origin as string) || !origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, X-File-Name');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.sendStatus(200);
+  } else {
+    console.log(`Preflight blocked for origin: ${origin}`);
+    res.sendStatus(403);
+  }
+});
 
 // Cấu hình CORS
 app.use(cors({
@@ -43,12 +66,24 @@ app.use(cors({
     if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
+      console.log(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true, // Quan trọng: cho phép gửi cookie
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'X-File-Name'
+  ],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200, // Một số legacy browsers (IE11, various SmartTVs) choke on 204
+  preflightContinue: false
 }));
 
 // Phục vụ tài liệu Swagger

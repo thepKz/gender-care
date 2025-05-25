@@ -4,12 +4,13 @@
 
 1. [Tổng quan](#tổng-quan)
 2. [Cấu trúc Project](#cấu-trúc-project)
-3. [Frontend Conventions](#frontend-conventions)
-4. [Backend Conventions](#backend-conventions)
-5. [Database Conventions](#database-conventions)
-6. [Git Conventions](#git-conventions)
-7. [Testing Conventions](#testing-conventions)
-8. [Documentation Conventions](#documentation-conventions)
+3. [Design Conventions](#design-conventions)
+4. [Frontend Conventions](#frontend-conventions)
+5. [Backend Conventions](#backend-conventions)
+6. [Database Conventions](#database-conventions)
+7. [Git Conventions](#git-conventions)
+8. [Testing Conventions](#testing-conventions)
+9. [Documentation Conventions](#documentation-conventions)
 
 ---
 
@@ -90,6 +91,810 @@ Backend/
 │   └── index.ts               # Application entry point
 ├── uploads/                   # File uploads
 └── package.json
+```
+
+---
+
+## Design Conventions
+
+### 1. Design System Overview
+
+#### Brand Identity
+- **Primary Brand**: Gender Healthcare - Chăm sóc sức khỏe phụ nữ
+- **Mission**: Cung cấp dịch vụ chăm sóc sức khỏe toàn diện, an toàn và riêng tư cho phụ nữ
+- **Values**: Tin cậy, Chuyên nghiệp, Thân thiện, Bảo mật
+
+#### Design Principles
+- **Accessibility First**: Thiết kế dễ tiếp cận cho mọi người dùng
+- **Mobile-First**: Ưu tiên trải nghiệm trên thiết bị di động
+- **Privacy-Focused**: Giao diện thể hiện sự bảo mật và riêng tư
+- **Medical Professional**: Thiết kế chuyên nghiệp phù hợp lĩnh vực y tế
+- **User-Centric**: Tập trung vào trải nghiệm người dùng
+
+### 2. Color Palette
+
+#### Primary Colors
+```css
+:root {
+  /* Primary Blues - Chủ đạo */
+  --blue-primary: #0c3c54;      /* Xanh đậm chính */
+  --blue-secondary: #0F7EA9;    /* Xanh phụ */
+  --blue-light: #4A90E2;        /* Xanh sáng */
+  --blue-lighter: #E3F2FD;      /* Xanh rất nhạt */
+  
+  /* Accent Colors - Màu nhấn */
+  --green-primary: #006478;     /* Xanh lá chính */
+  --green-secondary: #00A693;   /* Xanh lá phụ */
+  --green-light: #4CAF50;       /* Xanh lá sáng */
+  
+  /* Neutral Colors - Màu trung tính */
+  --white: #FFFFFF;
+  --gray-50: #F9FAFB;
+  --gray-100: #F3F4F6;
+  --gray-200: #E5E7EB;
+  --gray-300: #D1D5DB;
+  --gray-400: #9CA3AF;
+  --gray-500: #6B7280;
+  --gray-600: #4B5563;
+  --gray-700: #374151;
+  --gray-800: #1F2937;
+  --gray-900: #111827;
+  
+  /* Status Colors - Màu trạng thái */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
+}
+```
+
+#### Color Usage Guidelines
+```typescript
+// ✅ Đúng - Sử dụng màu theo ngữ cảnh
+const colorUsage = {
+  // Primary Actions
+  primaryButton: 'bg-blue-primary hover:bg-blue-secondary',
+  primaryLink: 'text-blue-primary hover:text-blue-secondary',
+  
+  // Secondary Actions
+  secondaryButton: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+  
+  // Success States
+  successMessage: 'bg-green-light text-white',
+  successIcon: 'text-success',
+  
+  // Medical/Health Context
+  healthCard: 'border-green-primary bg-green-lighter',
+  consultationButton: 'bg-green-primary hover:bg-green-secondary',
+  
+  // Backgrounds
+  pageBackground: 'bg-gray-50',
+  cardBackground: 'bg-white',
+  sectionBackground: 'bg-gray-100'
+};
+
+// ❌ Sai - Sử dụng màu không nhất quán
+const wrongUsage = {
+  randomColors: 'bg-red-500', // Không có trong design system
+  hardcodedHex: 'bg-[#123456]', // Không sử dụng CSS variables
+  inconsistentHover: 'hover:bg-purple-500' // Không theo quy tắc
+};
+```
+
+### 3. Typography
+
+#### Font Family
+```css
+/* Primary Font - SF Pro Rounded */
+@font-face {
+  font-family: 'SF Pro Rounded';
+  src: url('/fonts/SF-Pro-Rounded-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'SF Pro Rounded';
+  src: url('/fonts/SF-Pro-Rounded-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Fallback Fonts */
+:root {
+  --font-primary: 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+}
+```
+
+#### Typography Scale
+```css
+:root {
+  /* Font Sizes */
+  --text-xs: 0.75rem;      /* 12px */
+  --text-sm: 0.875rem;     /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg: 1.125rem;     /* 18px */
+  --text-xl: 1.25rem;      /* 20px */
+  --text-2xl: 1.5rem;      /* 24px */
+  --text-3xl: 1.875rem;    /* 30px */
+  --text-4xl: 2.25rem;     /* 36px */
+  --text-5xl: 3rem;        /* 48px */
+  
+  /* Line Heights */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+  
+  /* Font Weights */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+}
+```
+
+#### Typography Usage
+```typescript
+// ✅ Đúng - Sử dụng typography scale
+const typographyClasses = {
+  // Headings
+  h1: 'text-4xl font-bold leading-tight text-gray-900',
+  h2: 'text-3xl font-bold leading-tight text-gray-800',
+  h3: 'text-2xl font-semibold leading-normal text-gray-800',
+  h4: 'text-xl font-semibold leading-normal text-gray-700',
+  h5: 'text-lg font-medium leading-normal text-gray-700',
+  h6: 'text-base font-medium leading-normal text-gray-600',
+  
+  // Body Text
+  bodyLarge: 'text-lg leading-relaxed text-gray-700',
+  body: 'text-base leading-normal text-gray-600',
+  bodySmall: 'text-sm leading-normal text-gray-500',
+  
+  // Special Text
+  caption: 'text-xs leading-normal text-gray-400',
+  label: 'text-sm font-medium text-gray-700',
+  link: 'text-blue-primary hover:text-blue-secondary underline',
+  
+  // Medical Context
+  medicalTitle: 'text-2xl font-bold text-green-primary',
+  consultantName: 'text-lg font-semibold text-gray-800',
+  appointmentTime: 'text-sm font-medium text-blue-primary'
+};
+```
+
+### 4. Spacing & Layout
+
+#### Spacing Scale
+```css
+:root {
+  /* Spacing Scale (8px base) */
+  --space-0: 0;
+  --space-1: 0.25rem;    /* 4px */
+  --space-2: 0.5rem;     /* 8px */
+  --space-3: 0.75rem;    /* 12px */
+  --space-4: 1rem;       /* 16px */
+  --space-5: 1.25rem;    /* 20px */
+  --space-6: 1.5rem;     /* 24px */
+  --space-8: 2rem;       /* 32px */
+  --space-10: 2.5rem;    /* 40px */
+  --space-12: 3rem;      /* 48px */
+  --space-16: 4rem;      /* 64px */
+  --space-20: 5rem;      /* 80px */
+  --space-24: 6rem;      /* 96px */
+  --space-32: 8rem;      /* 128px */
+}
+```
+
+#### Layout Guidelines
+```typescript
+// ✅ Container và Grid System
+const layoutClasses = {
+  // Containers
+  container: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',
+  containerSmall: 'max-w-4xl mx-auto px-4 sm:px-6',
+  containerMedium: 'max-w-5xl mx-auto px-4 sm:px-6 lg:px-8',
+  
+  // Grid Systems
+  gridCols2: 'grid grid-cols-1 md:grid-cols-2 gap-6',
+  gridCols3: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6',
+  gridCols4: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4',
+  
+  // Flexbox Layouts
+  flexCenter: 'flex items-center justify-center',
+  flexBetween: 'flex items-center justify-between',
+  flexCol: 'flex flex-col',
+  flexWrap: 'flex flex-wrap',
+  
+  // Spacing
+  sectionPadding: 'py-16 lg:py-24',
+  cardPadding: 'p-6 lg:p-8',
+  buttonPadding: 'px-6 py-3',
+  inputPadding: 'px-4 py-3'
+};
+```
+
+### 5. Component Design Patterns
+
+#### Button Variants
+```typescript
+// Button Design System
+const buttonVariants = {
+  // Primary Buttons
+  primary: `
+    bg-blue-primary text-white font-medium
+    hover:bg-blue-secondary focus:ring-2 focus:ring-blue-primary focus:ring-offset-2
+    disabled:bg-gray-300 disabled:cursor-not-allowed
+    transition-all duration-200 ease-in-out
+    px-6 py-3 rounded-lg
+  `,
+  
+  // Secondary Buttons
+  secondary: `
+    bg-white text-blue-primary border-2 border-blue-primary font-medium
+    hover:bg-blue-primary hover:text-white focus:ring-2 focus:ring-blue-primary focus:ring-offset-2
+    disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-300
+    transition-all duration-200 ease-in-out
+    px-6 py-3 rounded-lg
+  `,
+  
+  // Medical/Health Buttons
+  medical: `
+    bg-green-primary text-white font-medium
+    hover:bg-green-secondary focus:ring-2 focus:ring-green-primary focus:ring-offset-2
+    disabled:bg-gray-300 disabled:cursor-not-allowed
+    transition-all duration-200 ease-in-out
+    px-6 py-3 rounded-lg
+  `,
+  
+  // Danger Buttons
+  danger: `
+    bg-error text-white font-medium
+    hover:bg-red-600 focus:ring-2 focus:ring-error focus:ring-offset-2
+    disabled:bg-gray-300 disabled:cursor-not-allowed
+    transition-all duration-200 ease-in-out
+    px-6 py-3 rounded-lg
+  `,
+  
+  // Ghost Buttons
+  ghost: `
+    bg-transparent text-gray-600 font-medium
+    hover:bg-gray-100 focus:ring-2 focus:ring-gray-300 focus:ring-offset-2
+    disabled:text-gray-400 disabled:cursor-not-allowed
+    transition-all duration-200 ease-in-out
+    px-6 py-3 rounded-lg
+  `
+};
+
+// Button Sizes
+const buttonSizes = {
+  small: 'px-4 py-2 text-sm',
+  medium: 'px-6 py-3 text-base',
+  large: 'px-8 py-4 text-lg'
+};
+```
+
+#### Card Components
+```typescript
+// Card Design System
+const cardVariants = {
+  // Basic Card
+  basic: `
+    bg-white rounded-xl shadow-sm border border-gray-200
+    hover:shadow-md transition-shadow duration-200
+    p-6
+  `,
+  
+  // Medical Card
+  medical: `
+    bg-white rounded-xl shadow-sm border-l-4 border-l-green-primary
+    hover:shadow-md transition-shadow duration-200
+    p-6
+  `,
+  
+  // Consultation Card
+  consultation: `
+    bg-gradient-to-br from-blue-50 to-green-50 rounded-xl
+    border border-blue-200 hover:border-blue-300
+    hover:shadow-lg transition-all duration-200
+    p-6
+  `,
+  
+  // Profile Card
+  profile: `
+    bg-white rounded-2xl shadow-lg border border-gray-100
+    hover:shadow-xl transition-shadow duration-300
+    p-8
+  `,
+  
+  // Dashboard Card
+  dashboard: `
+    bg-white rounded-lg shadow-sm border border-gray-200
+    hover:shadow-md transition-shadow duration-200
+    p-4
+  `
+};
+```
+
+#### Form Components
+```typescript
+// Form Design System
+const formComponents = {
+  // Input Fields
+  input: `
+    w-full px-4 py-3 border border-gray-300 rounded-lg
+    focus:ring-2 focus:ring-blue-primary focus:border-blue-primary
+    disabled:bg-gray-100 disabled:cursor-not-allowed
+    placeholder:text-gray-400
+    transition-colors duration-200
+  `,
+  
+  // Input with Error
+  inputError: `
+    w-full px-4 py-3 border border-error rounded-lg
+    focus:ring-2 focus:ring-error focus:border-error
+    bg-red-50 placeholder:text-red-400
+    transition-colors duration-200
+  `,
+  
+  // Select Fields
+  select: `
+    w-full px-4 py-3 border border-gray-300 rounded-lg
+    focus:ring-2 focus:ring-blue-primary focus:border-blue-primary
+    bg-white cursor-pointer
+    transition-colors duration-200
+  `,
+  
+  // Labels
+  label: `
+    block text-sm font-medium text-gray-700 mb-2
+  `,
+  
+  // Error Messages
+  errorMessage: `
+    text-sm text-error mt-1 flex items-center gap-1
+  `,
+  
+  // Help Text
+  helpText: `
+    text-sm text-gray-500 mt-1
+  `
+};
+```
+
+### 6. Icons & Imagery
+
+#### Icon Guidelines
+```typescript
+// Icon Usage Guidelines
+const iconGuidelines = {
+  // Sizes
+  sizes: {
+    xs: 'w-3 h-3',      // 12px
+    sm: 'w-4 h-4',      // 16px
+    base: 'w-5 h-5',    // 20px
+    lg: 'w-6 h-6',      // 24px
+    xl: 'w-8 h-8',      // 32px
+    '2xl': 'w-12 h-12'  // 48px
+  },
+  
+  // Colors
+  colors: {
+    primary: 'text-blue-primary',
+    secondary: 'text-gray-500',
+    success: 'text-success',
+    warning: 'text-warning',
+    error: 'text-error',
+    medical: 'text-green-primary'
+  },
+  
+  // Context Usage
+  contexts: {
+    navigation: 'w-5 h-5 text-gray-500',
+    button: 'w-4 h-4 mr-2',
+    status: 'w-4 h-4 text-success',
+    medical: 'w-6 h-6 text-green-primary',
+    consultation: 'w-5 h-5 text-blue-primary'
+  }
+};
+
+// Medical Icons Mapping
+const medicalIcons = {
+  consultation: 'UserGroupIcon',
+  appointment: 'CalendarIcon',
+  health: 'HeartIcon',
+  medication: 'BeakerIcon',
+  test: 'ClipboardDocumentCheckIcon',
+  cycle: 'ArrowPathIcon',
+  profile: 'UserCircleIcon',
+  settings: 'CogIcon'
+};
+```
+
+#### Image Guidelines
+```typescript
+// Image Usage Guidelines
+const imageGuidelines = {
+  // Aspect Ratios
+  aspectRatios: {
+    square: 'aspect-square',        // 1:1
+    landscape: 'aspect-video',      // 16:9
+    portrait: 'aspect-[3/4]',       // 3:4
+    banner: 'aspect-[21/9]'         // 21:9
+  },
+  
+  // Sizes
+  sizes: {
+    avatar: 'w-10 h-10 rounded-full',
+    avatarLarge: 'w-16 h-16 rounded-full',
+    thumbnail: 'w-20 h-20 rounded-lg',
+    card: 'w-full h-48 object-cover rounded-t-lg',
+    hero: 'w-full h-96 lg:h-[500px] object-cover'
+  },
+  
+  // Medical Context
+  medical: {
+    doctorAvatar: 'w-12 h-12 rounded-full border-2 border-green-primary',
+    consultationBanner: 'w-full h-64 object-cover rounded-lg',
+    healthTip: 'w-full h-40 object-cover rounded-lg'
+  }
+};
+```
+
+### 7. Animation & Transitions
+
+#### Animation Guidelines
+```css
+/* Transition Durations */
+:root {
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+  
+  /* Easing Functions */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Common Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes slideRight {
+  from { 
+    opacity: 0; 
+    transform: translateX(-20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0); 
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -30px, 0);
+  }
+  70% {
+    transform: translate3d(0, -15px, 0);
+  }
+  90% {
+    transform: translate3d(0, -4px, 0);
+  }
+}
+```
+
+#### Animation Usage
+```typescript
+// Animation Classes
+const animations = {
+  // Page Transitions
+  pageEnter: 'animate-fadeIn duration-300 ease-out',
+  pageExit: 'animate-fadeOut duration-200 ease-in',
+  
+  // Component Animations
+  cardHover: 'hover:scale-105 transition-transform duration-200 ease-out',
+  buttonHover: 'hover:shadow-lg transition-shadow duration-200 ease-out',
+  
+  // Loading States
+  pulse: 'animate-pulse',
+  bounce: 'animate-bounce',
+  spin: 'animate-spin',
+  
+  // Medical Context
+  heartbeat: 'animate-pulse duration-1000',
+  consultationSlide: 'animate-slideRight duration-300 ease-out',
+  
+  // Form Interactions
+  inputFocus: 'focus:scale-105 transition-transform duration-150 ease-out',
+  errorShake: 'animate-bounce duration-300 ease-in-out'
+};
+```
+
+### 8. Responsive Design
+
+#### Breakpoints
+```css
+/* Tailwind CSS Breakpoints */
+:root {
+  --breakpoint-sm: 640px;   /* Small devices */
+  --breakpoint-md: 768px;   /* Medium devices */
+  --breakpoint-lg: 1024px;  /* Large devices */
+  --breakpoint-xl: 1280px;  /* Extra large devices */
+  --breakpoint-2xl: 1536px; /* 2X large devices */
+}
+```
+
+#### Responsive Patterns
+```typescript
+// Responsive Design Patterns
+const responsivePatterns = {
+  // Navigation
+  mobileNav: 'block md:hidden',
+  desktopNav: 'hidden md:block',
+  
+  // Grid Layouts
+  responsiveGrid: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+  consultationGrid: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
+  
+  // Typography
+  responsiveHeading: 'text-2xl sm:text-3xl lg:text-4xl xl:text-5xl',
+  responsiveBody: 'text-sm sm:text-base lg:text-lg',
+  
+  // Spacing
+  responsivePadding: 'p-4 sm:p-6 lg:p-8 xl:p-12',
+  responsiveMargin: 'm-4 sm:m-6 lg:m-8 xl:m-12',
+  
+  // Medical Context
+  consultationCard: 'w-full sm:w-auto lg:w-80 xl:w-96',
+  appointmentList: 'space-y-2 sm:space-y-4 lg:space-y-6'
+};
+```
+
+### 9. Accessibility Guidelines
+
+#### WCAG Compliance
+```typescript
+// Accessibility Guidelines
+const accessibilityGuidelines = {
+  // Color Contrast
+  colorContrast: {
+    // Minimum contrast ratio 4.5:1 for normal text
+    normalText: 'text-gray-700', // Contrast ratio: 4.5:1
+    largeText: 'text-gray-600',  // Contrast ratio: 3:1 (acceptable for large text)
+    
+    // High contrast for important elements
+    primaryButton: 'bg-blue-primary text-white', // Contrast ratio: 7:1
+    errorText: 'text-error',     // Contrast ratio: 5.2:1
+  },
+  
+  // Focus States
+  focusStates: {
+    button: 'focus:ring-2 focus:ring-blue-primary focus:ring-offset-2',
+    input: 'focus:ring-2 focus:ring-blue-primary focus:border-blue-primary',
+    link: 'focus:outline-none focus:ring-2 focus:ring-blue-primary focus:ring-offset-2'
+  },
+  
+  // ARIA Labels
+  ariaLabels: {
+    navigation: 'aria-label="Main navigation"',
+    search: 'aria-label="Search consultations"',
+    profile: 'aria-label="User profile menu"',
+    consultation: 'aria-label="Book consultation"'
+  },
+  
+  // Semantic HTML
+  semanticElements: {
+    navigation: '<nav role="navigation">',
+    main: '<main role="main">',
+    aside: '<aside role="complementary">',
+    article: '<article role="article">'
+  }
+};
+```
+
+### 10. Medical UI Patterns
+
+#### Health Data Visualization
+```typescript
+// Medical-specific UI patterns
+const medicalUIPatterns = {
+  // Cycle Tracking
+  cycleCalendar: `
+    grid grid-cols-7 gap-1 p-4
+    bg-gradient-to-br from-pink-50 to-purple-50
+    rounded-xl border border-pink-200
+  `,
+  
+  cycleDayActive: `
+    bg-pink-500 text-white rounded-full
+    w-8 h-8 flex items-center justify-center
+    text-sm font-medium
+  `,
+  
+  cycleDayPredicted: `
+    bg-pink-200 text-pink-700 rounded-full
+    w-8 h-8 flex items-center justify-center
+    text-sm font-medium border-2 border-dashed border-pink-400
+  `,
+  
+  // Consultation Status
+  consultationPending: `
+    bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full
+    text-sm font-medium border border-yellow-300
+  `,
+  
+  consultationConfirmed: `
+    bg-green-100 text-green-800 px-3 py-1 rounded-full
+    text-sm font-medium border border-green-300
+  `,
+  
+  consultationCompleted: `
+    bg-blue-100 text-blue-800 px-3 py-1 rounded-full
+    text-sm font-medium border border-blue-300
+  `,
+  
+  // Health Metrics
+  healthMetricCard: `
+    bg-white rounded-lg p-4 border-l-4 border-l-green-primary
+    shadow-sm hover:shadow-md transition-shadow duration-200
+  `,
+  
+  healthMetricValue: `
+    text-2xl font-bold text-gray-900 mb-1
+  `,
+  
+  healthMetricLabel: `
+    text-sm text-gray-600 uppercase tracking-wide
+  `,
+  
+  // Test Results
+  testResultNormal: `
+    bg-green-50 border border-green-200 rounded-lg p-4
+    text-green-800
+  `,
+  
+  testResultAbnormal: `
+    bg-red-50 border border-red-200 rounded-lg p-4
+    text-red-800
+  `,
+  
+  testResultPending: `
+    bg-yellow-50 border border-yellow-200 rounded-lg p-4
+    text-yellow-800
+  `
+};
+```
+
+### 11. Component Library Structure
+
+#### Component Organization
+```typescript
+// Component Library Structure
+const componentLibrary = {
+  // Base Components
+  base: {
+    Button: 'components/ui/Button.tsx',
+    Input: 'components/ui/Input.tsx',
+    Card: 'components/ui/Card.tsx',
+    Modal: 'components/ui/Modal.tsx',
+    Badge: 'components/ui/Badge.tsx'
+  },
+  
+  // Layout Components
+  layout: {
+    Header: 'components/layouts/Header.tsx',
+    Footer: 'components/layouts/Footer.tsx',
+    Sidebar: 'components/layouts/Sidebar.tsx',
+    Container: 'components/layouts/Container.tsx'
+  },
+  
+  // Medical Components
+  medical: {
+    ConsultationCard: 'components/medical/ConsultationCard.tsx',
+    CycleTracker: 'components/medical/CycleTracker.tsx',
+    HealthMetric: 'components/medical/HealthMetric.tsx',
+    TestResult: 'components/medical/TestResult.tsx',
+    AppointmentCard: 'components/medical/AppointmentCard.tsx'
+  },
+  
+  // Form Components
+  forms: {
+    FormField: 'components/forms/FormField.tsx',
+    FormGroup: 'components/forms/FormGroup.tsx',
+    FormValidation: 'components/forms/FormValidation.tsx',
+    DatePicker: 'components/forms/DatePicker.tsx',
+    TimePicker: 'components/forms/TimePicker.tsx'
+  }
+};
+```
+
+### 12. Design Tokens
+
+#### Design Token Structure
+```typescript
+// Design Tokens for consistent theming
+export const designTokens = {
+  colors: {
+    primary: {
+      50: '#E3F2FD',
+      100: '#BBDEFB',
+      200: '#90CAF9',
+      300: '#64B5F6',
+      400: '#42A5F5',
+      500: '#0c3c54', // Primary
+      600: '#0F7EA9',
+      700: '#1976D2',
+      800: '#1565C0',
+      900: '#0D47A1'
+    },
+    medical: {
+      50: '#E0F7FA',
+      100: '#B2EBF2',
+      200: '#80DEEA',
+      300: '#4DD0E1',
+      400: '#26C6DA',
+      500: '#006478', // Medical Primary
+      600: '#00A693',
+      700: '#0097A7',
+      800: '#00838F',
+      900: '#006064'
+    }
+  },
+  
+  spacing: {
+    xs: '0.25rem',
+    sm: '0.5rem',
+    md: '1rem',
+    lg: '1.5rem',
+    xl: '2rem',
+    '2xl': '3rem',
+    '3xl': '4rem'
+  },
+  
+  borderRadius: {
+    none: '0',
+    sm: '0.25rem',
+    md: '0.5rem',
+    lg: '0.75rem',
+    xl: '1rem',
+    '2xl': '1.5rem',
+    full: '9999px'
+  },
+  
+  shadows: {
+    sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+    md: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+    lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+    xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+  }
+};
 ```
 
 ---
