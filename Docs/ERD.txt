@@ -8,31 +8,17 @@ Table Users {
   gender String
   address String
   year DateTime
-  role String // "guest", "customer", "consultant", "staff", "manager", "admin"
+  role String // "guest", "customer", "doctor", "staff", "manager", "admin"
   emailVerified Boolean [default: false]
   isActive Boolean [default: true]
   createdAt DateTime
   updatedAt DateTime
-  
-}
-
-Table AuthTokens {
-  _id ObjectId [pk]
-  userId ObjectId [ref: > Users._id]
-  refreshToken String
-  userAgent String
-  ipAddress String
-  expiresAt DateTime
-  isRevoked Boolean [default: false]
-  createdAt DateTime
-  updatedAt DateTime
-  // Bảng này dùng để lưu refreshToken cho xác thực cookie HTTP-only, hỗ trợ đăng nhập đa thiết bị, bảo mật nâng cao.
 }
 
 Table StaffDetails {
   _id ObjectId [pk]
-  userId ObjectId [ref: - Users._id, unique] // Liên kết 1-1 với Users
-  staffType String // "Nursing", "Blogers","Normal" - Normal là Others
+  userId ObjectId [ref: - Users._id, unique]
+  staffType String // "Nursing", "Blogers", "Normal"
   createdAt DateTime
   updatedAt DateTime
 }
@@ -59,76 +45,86 @@ Table LoginHistory {
   failReason String
 }
 
-Table Consultants {
+Table Doctors {
   _id ObjectId [pk]
-  userId ObjectId [ref: > Users._id]
+  userId ObjectId [ref: - Users._id]
   bio String
   experience Number
   rating Number
+  specialization String
+   education String
   createdAt DateTime
   updatedAt DateTime
-}
-
-Table ConsultantSpecializations {
-  _id ObjectId [pk]
-  consultantId ObjectId [ref: > Consultants._id]
-  specialization String
-}
-
-Table ConsultantEducations {
-  _id ObjectId [pk]
-  consultantId ObjectId [ref: > Consultants._id]
-  education String
-}
-
-Table ConsultantCertificates {
-  _id ObjectId [pk]
-  consultantId ObjectId [ref: > Consultants._id]
   certificate String
 }
-
-Table Availabilities {
+Table DoctorSchedules {
   _id ObjectId [pk]
-  consultantId ObjectId [ref: > Consultants._id]
-  date DateTime
+  doctorId Object [ref: > Doctors._id]
+  weekSchedule weekScheduleObject[] [note: 'Array of embedded weekScheduleObject']
   createdAt DateTime
   updatedAt DateTime
+}
+
+Table weekScheduleObject {
+  _id ObjectId [note: 'Not a separate collection, embedded in DoctorSchedules.weekSchedule']
+  dayOfWeek String
+  slots TimeSlots[] [note: 'Array of embedded TimeSlots']
 }
 
 Table TimeSlots {
-  _id ObjectId [pk]
-  availabilityId ObjectId [ref: > Availabilities._id]
-  startTime String
-  endTime String
+  _id ObjectId [note: 'Not a separate collection, embedded in weekScheduleObject.slots']
+  slotTime String
   isBooked Boolean [default: false]
 }
 
-Table Consultations {
+Table Appointments {
+    createdByUserId ObjectId [ref: > Users._id]
   _id ObjectId [pk]
- 
-  consultantId ObjectId [ref: > Consultants._id]
-  bookedByUserId ObjectId [ref: > Users._id] // Người đặt
-  profileId ObjectId [ref: > UserProfiles._id] // Người được tư vấn
-  date DateTime
-  timeSlotId ObjectId [ref: > TimeSlots._id]
-  status String // "pending", "confirmed", "completed", "cancelled"
-  consultationType String // "online", "offline"
+  profileId ObjectId [ref: > UserProfiles._id]
+  packageId ObjectId [ref: > ServicePackages._id]
+  serviceId ObjectId [ref: > Services._id]
+  // 1 hoac 2 duoc chon
+  slotId ObjectId [Note: 'emmbeded document']
+  appointmentDate DateTime // Day
+  appointmentTime String // 8:00 9:00
+  appointmentType String // "consultation", "test", "other"
+  typeLocation String // "clinic", "home", "Online"
+  address String
   description String
-  rating Number
-  feedback String
+  notes String
+  status String // "pending", "confirmed", "completed", "cancelled"
   createdAt DateTime
   updatedAt DateTime
 }
-
-
+Table Services {
+  _id ObjectId
+  serviceName String
+  price Number
+  description String
+  isDeleted Boolean
+  serviceType String // "consultation", "test", "other"
+  availableAt String[] // Athome, Online, Center
+}
+Table Feedbacks {
+  _id ObjectId [pk]
+  rating Number
+  feedback String
+  comment String
+  appointmentId ObjectId [ref: > Appointments._id]
+  doctorId ObjectId [ref: > Doctors._id]
+  serviceId ObjectId [ref: > Services._id]
+  packageId ObjectId [ref: > ServicePackages._id]
+}
 Table MenstrualCycles {
   _id ObjectId [pk]
   createdByUserId ObjectId [ref: > Users._id]
   profileId ObjectId [ref: > UserProfiles._id]
   startDate DateTime
   endDate DateTime
-  flow String // "light", "medium", "heavy"
+  stamp string
+  symbol string
   mood String
+  observation String
   notes String
   createdAt DateTime
   updatedAt DateTime
@@ -153,16 +149,22 @@ Table MedicationReminders {
   updatedAt DateTime
 }
 
-Table ReminderDays {
+Table NotificationDays {
   _id ObjectId [pk]
   reminderId ObjectId [ref: > MedicationReminders._id]
-  day String // "monday", "tuesday", etc.
+  notificationTimes DateTime
+  status String // "send", "failed"
+  createdAt DateTime
+  updatedAt DateTime
 }
 
-Table TestTypes {
+
+
+Table AppointmentTests {
   _id ObjectId [pk]
-  name String
+  appointmentId ObjectId [ref: > Appointments._id]
   description String
+  name String
   price Number
   preparationGuidelines String
   resultWaitTime String
@@ -170,39 +172,32 @@ Table TestTypes {
   updatedAt DateTime
 }
 
-Table TestAppointments {
+Table TestResults {
   _id ObjectId [pk]
-  userId ObjectId [ref: > Users._id]
-  appointmentDate DateTime
-  appointmentTime String
-  status String // "pending", "confirmed", "completed", "cancelled"
-  preferredLocation String // "clinic", "home"
-  address String
-  notes String
-  rating Number
-  feedback String
+  appointmentTestId ObjectId [ref: > AppointmentTests._id]
+  conclusion String
+  recommendations String
+  createdAt DateTime
+}
+Table TestCategories {
+  _id ObjectId [pk]
+  name String [unique]       // "Acid Uric", "ALT", "Glucose", v.v.
+  description String         // Mô tả chỉ số (nếu cần)
+  unit String                // Đơn vị mặc định, ví dụ: "µmol/L", "U/L"
+  normalRange String         // Khoảng tham chiếu mặc định, ví dụ: "202 – 416 µmol/L"
   createdAt DateTime
   updatedAt DateTime
 }
 
-Table AppointmentTests {
+Table TestResultItems { // Thông số khách hàng
   _id ObjectId [pk]
-  appointmentId ObjectId [ref: > TestAppointments._id]
-  testTypeId ObjectId [ref: > TestTypes._id]
-  name String
-  price Number
+  testResultId ObjectId [ref: > TestResults._id]
+  itemNameId ObjectId [ref: > TestCategories._id]  // Tham chiếu đến tên chỉ số
+  value String                                         // "366.7", "27.1", v.v.
+  unit String                                          // Ghi đè nếu cần
+  currentRange String                                   // Ghi đè nếu cần
+  flag String                                          // "high", "low", "normal"
 }
-
-Table TestResults {
-  _id ObjectId [pk]
-  appointmentTestId ObjectId [ref: > AppointmentTests._id]
-  result String
-  normalRange String
-  conclusion String // "normal", "abnormal"
-  recommendations String
-  createdAt DateTime
-}
-
 
 Table BlogPosts {
   _id ObjectId [pk]
@@ -218,23 +213,25 @@ Table BlogPosts {
   createdAt DateTime
   updatedAt DateTime
 }
+
 Table BlogCategories {
   _id ObjectId [pk]
   name String [unique]
-  slug String [unique] // tiện cho URL
+  slug String [unique]
   description String
   createdAt DateTime
   updatedAt DateTime
 }
+
 Table PostCategories {
   _id ObjectId [pk]
   postId ObjectId [ref: > BlogPosts._id]
   categoryId ObjectId [ref: > BlogCategories._id]
 }
 
-Table UserProfiles {
+Table UserProfiles { // You can add your family as a profile
   _id ObjectId [pk]
-  ownerId ObjectId [ref: > Users._id] // Người tạo (người đăng nhập)
+  ownerId ObjectId [ref: > Users._id]
   fullName String
   gender String
   phone String
@@ -245,8 +242,8 @@ Table UserProfiles {
 
 Table SystemConfigs {
   _id ObjectId [pk]
-    key String [unique]
-    value String
+  key String [unique]
+  value String
 }
 
 Table ServicePackages {
@@ -254,18 +251,12 @@ Table ServicePackages {
   name String
   description String
   price Number
-  discountPrice Number // Có thể null - giá thật
+  discountPrice Number
+  serviceIds ObjectId[] [ref: > Services._id]
   isActive Boolean [default: true]
   createdAt DateTime
   updatedAt DateTime
 }
-Table PackageTests {
-  _id ObjectId [pk]
-  packageId ObjectId [ref: > ServicePackages._id]
-  testTypeId ObjectId [ref: > TestTypes._id]
-}
-
-
 Table Promotions {
   _id ObjectId [pk]
   name String
@@ -274,7 +265,7 @@ Table Promotions {
   discountValue Number
   startDate DateTime
   endDate DateTime
-  maxUses Number // Có thể null
+  maxUses Number
   usedCount Number [default: 0]
   applicablePackages ObjectId[] [ref: > ServicePackages._id]
   isActive Boolean [default: true]
@@ -282,56 +273,76 @@ Table Promotions {
   updatedAt DateTime
 }
 
-Table ConsultationInquiries {
+Table DoctorQA {
   _id ObjectId [pk]
-  userId ObjectId [ref: > Users._id] // Customer hoặc null nếu là Guest
-  fullName String // Tên người gửi (bắt buộc với Guest)
-  phone String // Số điện thoại liên hệ
-  notes String // Dùng để note lại
-  question String // Câu hỏi hoặc mô tả vấn đề
+  doctorId ObjectId [ref: > Doctors._id]
+  userId ObjectId [ref: > Users._id]
+  fullName String
+  phone String
+  notes String
+  question String
   status String // "pending", "contacted", "resolved", "cancelled"
-  consultantId ObjectId [ref: > Consultants._id] // Tư vấn viên xử lý - Có thể null 
+  
   createdAt DateTime
   updatedAt DateTime
 }
+
 Table Bills {
+  userId ObjectId [ref: > Users._id]
   _id ObjectId [pk]
-  userId ObjectId [ref: > Users._id] // Người mua
-  profileId ObjectId [ref: > UserProfiles._id] // Người được đặt dịch vụ - co the null 
-  billNumber String [unique] // Số hóa đơn (ví dụ: BILL-20250517-001)
-  packageId ObjectId [ref: > ServicePackages._id] // Gói dịch vụ (nếu có), nullable
-  testAppointmentId ObjectId [ref: > TestAppointments._id] // Lịch xét nghiệm (nếu có), nullable
-  consultationId ObjectId [ref: > Consultations._id] // Buổi tư vấn (nếu có), nullable
-  promotionId ObjectId [ref: > Promotions._id] // Khuyến mãi áp dụng, nullable
-  subtotal Number // Tổng giá trước khuyến mãi
-  discountAmount Number [default: 0] // Số tiền giảm (từ promotion hoặc discountPrice)
-  totalAmount Number // Tổng giá sau khuyến mãi
+  
+  profileId ObjectId [ref: > UserProfiles._id]
+  billNumber String [unique]
+  packageId ObjectId [ref: > ServicePackages._id]
+  appointmentId ObjectId [ref: > Appointments._id]
+  promotionId ObjectId [ref: > Promotions._id]
+  subtotal Number
+  discountAmount Number [default: 0]
+  totalAmount Number
   status String // "pending", "paid", "cancelled"
   createdAt DateTime
   updatedAt DateTime
-   // Ràng buộc: ít nhất một trong packageId, testAppointmentId, consultationId phải không null
+  // Note: At least one of packageId, appointmentId must not be null
 }
+
 Table Payments {
   _id ObjectId [pk]
-  userId ObjectId [ref: > Users._id] // Người thực hiện thanh toán
-  billId ObjectId [ref: > Bills._id] // Liên kết với hóa đơn
-  amount Number // Số tiền thanh toán
+  userId ObjectId [ref: > Users._id]
+  billId ObjectId [ref: > Bills._id]
+  amount Number
   paymentMethod String // "credit_card", "bank_transfer", "mobile_payment", "cash"
-  paymentGateway String  // co the null "stripe", "paypal", "vnpay", ...
-  transactionId String  // Co the nnull Mã giao dịch từ cổng thanh toán
+  paymentGateway String
+  transactionId String
   status String // "pending", "completed", "failed", "refunded"
-  failureReason String  // Lý do thất bại (nếu có) co the null 
+  failureReason String
   createdAt DateTime
   updatedAt DateTime
-  paymentAt DateTime // Thời gian thanh toán
+  paymentAt DateTime
 }
 
 Table PackagePurchases {
-  _id ObjectId [pk]
+  _id ObjectId [pk] 
+  profileId ObjectId [ref: > UserProfiles._id]
   userId ObjectId [ref: > Users._id]
-  profileId ObjectId [ref: > UserProfiles._id] // co the null
+ 
   packageId ObjectId [ref: > ServicePackages._id]
-  billId ObjectId [ref: > Bills._id] // Liên kết với hóa đơn
+  billId ObjectId [ref: > Bills._id]
   createdAt DateTime
   updatedAt DateTime
 }
+
+Table MedicalRecords {
+  _id ObjectId [pk]
+    doctorId ObjectId [ref: > Doctors._id]
+  profileId ObjectId [ref: > UserProfiles._id]
+  appointmentId ObjectId [ref: > Appointments._id] // Cần lấy thông tin test Result
+  diagnosis String
+  symptoms String
+  treatment String
+  notes String
+  pictures String[]
+  createdAt DateTime
+  updatedAt DateTime
+}
+
+
