@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import './profilelayout.css';
+import './profileLayout.css';
 
 const ProfileLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   return (
