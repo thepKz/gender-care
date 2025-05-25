@@ -134,6 +134,21 @@ export const logout = createAsyncThunk(
   }
 );
 
+// Google login action
+export const googleLogin = createAsyncThunk(
+  'auth/googleLogin',
+  async (token: string, { rejectWithValue }) => {
+    try {
+      const response = await authApi.googleLogin(token);
+      const userData = response.data.data;
+      localStorage.setItem('user_info', JSON.stringify(userData));
+      return { user: userData };
+    } catch (error: unknown) {
+      return rejectWithValue(handleApiError(error));
+    }
+  }
+);
+
 // 3. Sửa getProfile: chỉ gọi nếu có access_token trong localStorage
 export const getProfile = createAsyncThunk(
   'auth/getProfile',
@@ -224,6 +239,23 @@ const authSlice = createSlice({
         state.error = action.payload as string;
         state.isAuthenticated = false;
         state.user = null;
+      })
+      
+      // Google login cases
+      .addCase(googleLogin.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(googleLogin.fulfilled, (state, action) => {
+        state.loading = false;
+        state.isAuthenticated = true;
+        state.user = action.payload.user;
+        state.error = null;
+      })
+      .addCase(googleLogin.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+        state.isAuthenticated = false;
       })
       
       // Get profile cases

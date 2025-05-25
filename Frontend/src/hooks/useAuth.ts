@@ -30,6 +30,7 @@ interface UseAuthResult {
   handleLogin: (params: LoginParams) => Promise<AuthResult>;
   handleRegister: (params: RegisterParams) => Promise<AuthResult>;
   handleLogout: () => Promise<AuthResult>;
+  handleGoogleLogin: (token: string) => Promise<AuthResult>;
   fetchProfile: () => Promise<AuthResult>;
 }
 
@@ -142,6 +143,24 @@ const useAuth = (): UseAuthResult => {
     }
   }, [dispatch]);
 
+  /**
+   * Xử lý đăng nhập Google
+   */
+  const handleGoogleLogin = useCallback(
+    async (token: string): Promise<AuthResult> => {
+      try {
+        const result = await dispatch(googleLogin(token)).unwrap();
+        return { success: true, user: result.user };
+      } catch (error) {
+        if (typeof error === 'string') {
+          return { success: false, error };
+        }
+        return { success: false, error: 'Đăng nhập Google thất bại. Vui lòng thử lại sau.' };
+      }
+    },
+    [dispatch]
+  );
+
   return {
     user,
     isAuthenticated,
@@ -150,6 +169,7 @@ const useAuth = (): UseAuthResult => {
     handleLogin,
     handleRegister,
     handleLogout,
+    handleGoogleLogin,
     fetchProfile,
   };
 };

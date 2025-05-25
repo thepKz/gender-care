@@ -1,8 +1,6 @@
-import axios from 'axios';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import axiosInstance from '../../api/axiosConfig';
 import { useAuth } from '../../hooks/useAuth';
 
 // Define type cho window.google để tránh dùng any
@@ -54,7 +52,7 @@ const LoginPage: React.FC = () => {
     password: boolean;
   }>({ email: false, password: false });
   
-  const { handleLogin, error, fetchProfile } = useAuth();
+  const { handleLogin, handleGoogleLogin, error, fetchProfile } = useAuth();
   const navigate = useNavigate();
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
@@ -71,24 +69,25 @@ const LoginPage: React.FC = () => {
             setLoginError(null);
             try {
               console.log('Google login response received:', response);
-              // Sử dụng URL tuyệt đối thay vì tương đối để tránh vấn đề với baseURL
-              const res = await axiosInstance.post('/auth/login-google', { token: response.credential });
               
-              console.log('Google login success:', res.data);
-              // Không lưu token vào localStorage, cookie đã được set bởi server
+              // Sử dụng handleGoogleLogin từ useAuth hook
+              const result = await handleGoogleLogin(response.credential);
               
-              // Chuyển hướng đến trang chủ sau khi đăng nhập thành công
-              navigate('/');
-              toast.success('Đăng nhập thành công!');
+              if (result.success) {
+                console.log('Google login success:', result);
+                toast.success('Đăng nhập Google thành công!');
+                
+                // Gọi fetchProfile để lấy thông tin user mới nhất
+                await fetchProfile();
+                
+                // Chuyển hướng đến trang chủ
+                navigate('/');
+              } else {
+                setLoginError(result.error || 'Đăng nhập Google thất bại');
+              }
             } catch (error) {
               console.error('Google login error:', error);
-              if (axios.isAxiosError(error)) {
-                setLoginError(error.response?.data?.message || error.message || 'Đăng nhập Google thất bại');
-              } else if (error instanceof Error) {
-                setLoginError(error.message);
-              } else {
-                setLoginError('Đăng nhập Google thất bại');
-              }
+              setLoginError('Đăng nhập Google thất bại. Vui lòng thử lại sau.');
             }
           },
           // Thêm danh sách các origins được phép

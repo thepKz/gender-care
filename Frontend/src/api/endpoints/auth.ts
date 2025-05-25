@@ -1,9 +1,9 @@
 import {
-  LoginRequest,
-  OtpRequest,
-  OtpVerificationRequest,
-  RegisterRequest,
-  User
+    LoginRequest,
+    OtpRequest,
+    OtpVerificationRequest,
+    RegisterRequest,
+    User
 } from '../../types';
 import axiosInstance from '../axiosConfig';
 
@@ -36,8 +36,8 @@ const authApi = {
     return axiosInstance.post('/auth/forgot-password', { email });
   },
   
-  resetPassword: (token: string, password: string) => {
-    return axiosInstance.post('/auth/reset-password', { token, password });
+  resetPassword: (email: string, otp: string, newPassword: string) => {
+    return axiosInstance.post('/auth/reset-password', { email, otp, newPassword });
   },
   
   getProfile: () => {
@@ -81,6 +81,10 @@ const authApi = {
 
   checkPhone: (data: CheckPhoneRequest) => {
     return axiosInstance.post<CheckResponse>('/auth/check-phone', data);
+  },
+
+  googleLogin: (token: string) => {
+    return axiosInstance.post('/auth/login-google', { token });
   }
 };
 

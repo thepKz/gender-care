@@ -9,7 +9,8 @@ export default {
       colors: {
         "blue-primary": "#0c3c54",
         "blue-secondary": "#0F7EA9",
-        "green-dark": "#006478",
+        "green-primary": "#006478",
+        "green-secondary": "#00A693",
       },
     },
   },
