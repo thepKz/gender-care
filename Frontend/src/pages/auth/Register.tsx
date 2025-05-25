@@ -126,8 +126,8 @@ const RegisterPage: React.FC = () => {
                 // Giữ thông báo mặc định
                 break;
             }
-          } else if (error && typeof error === 'object' && error instanceof Error && (error as any).message === 'Network Error') {
-            // Lỗi không nhận được phản hồi từ server
+          } else {
+            // Lỗi không nhận được phản hồi từ server (network error)
             errorMessage = 'Không thể kết nối tới máy chủ. Vui lòng kiểm tra kết nối mạng';
           }
           
@@ -203,8 +203,8 @@ const RegisterPage: React.FC = () => {
                 // Giữ thông báo mặc định
                 break;
             }
-          } else if (error && typeof error === 'object' && error instanceof Error && (error as any).message === 'Network Error') {
-            // Lỗi không nhận được phản hồi từ server
+          } else {
+            // Lỗi không nhận được phản hồi từ server (network error)
             errorMessage = 'Không thể kết nối tới máy chủ. Vui lòng kiểm tra kết nối mạng';
           }
           
