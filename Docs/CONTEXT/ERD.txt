@@ -140,13 +140,16 @@ Table MedicationReminders {
   _id ObjectId [pk]
   createdByUserId ObjectId [ref: > Users._id]
   profileId ObjectId [ref: > UserProfiles._id]
-  name String
-  type String // "contraceptive", "vitamin", "other"
-  time String
-  dosage String
+  medicines Array[] 
   notes String
   createdAt DateTime
   updatedAt DateTime
+}
+Table Medicines {
+ name String
+  type String // "contraceptive", "vitamin", "other"
+  time String
+  dosage String
 }
 
 Table NotificationDays {
