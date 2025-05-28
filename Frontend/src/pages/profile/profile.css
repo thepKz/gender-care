@@ -142,13 +142,3 @@
 }
 
 /* Dark mode support preparation */
-@media (prefers-color-scheme: dark) {
-  .ant-card {
-    background: #1f1f1f;
-    border-color: #404040;
-  }
-  
-  .profile-tab-content {
-    color: #ffffff;
-  }
-} 

@@ -1,0 +1,102 @@
+II. Requirement Specification
+II.1 Problem description
+Phần mềm Quản lý Dịch vụ Chăm sóc Sức khỏe Giới tính là một hệ thống phần mềm mới được phát triển nhằm mục đích hỗ trợ cơ sở y tế trong việc quản lý và cung cấp các dịch vụ liên quan đến sức khỏe giới tính và sinh sản một cách hiệu quả, bảo mật và tiện lợi. Hệ thống này sẽ số hóa và tích hợp nhiều quy trình, từ việc cung cấp thông tin, giáo dục giới tính, hỗ trợ người dùng theo dõi sức khỏe sinh sản cá nhân, đặt lịch tư vấn trực tuyến, đặt lịch xét nghiệm các bệnh lây truyền qua đường tình dục (STIs), cho đến quản lý thông tin người dùng, tư vấn viên và các dịch vụ của cơ sở.
+Mục tiêu chính là nâng cao trải nghiệm của người dùng khi tiếp cận các dịch vụ chăm sóc sức khỏe giới tính, đồng thời tối ưu hóa quy trình vận hành cho cơ sở y tế. Sơ đồ ngữ cảnh dưới đây minh họa các thực thể bên ngoài và các luồng dữ liệu chính tương tác với hệ thống.
+
+II.2 Major Features ( fix )
+FE-01: Cung cấp thông tin toàn diện về cơ sở y tế, blog chia sẻ kiến thức về giáo dục giới tính, chăm sóc sức khỏe sinh sản và thông tin chi tiết về các dịch vụ xét nghiệm STIs. (Truy cập bởi: Guest, Customer)
+FE-02: Hỗ trợ người dùng theo dõi chu kỳ sinh sản cá nhân, bao gồm dự đoán ngày rụng trứng, khả năng mang thai và nhắc nhở lịch uống thuốc tránh thai. (Truy cập bởi: Customer)
+FE-03: Cho phép người dùng đặt lịch tư vấn trực tuyến với các tư vấn viên chuyên môn của cơ sở y tế. (Truy cập bởi: Customer)
+FE-04: Cung cấp nền tảng để người dùng đặt câu hỏi ẩn danh hoặc công khai và nhận giải đáp từ đội ngũ tư vấn viên. (Truy cập bởi: Customer; Trả lời bởi: Consultant)
+FE-05: Quản lý toàn diện quy trình dịch vụ xét nghiệm STIs, từ khâu người dùng đặt lịch, lấy mẫu, xử lý mẫu cho đến khi trả kết quả xét nghiệm. (Tương tác bởi: Customer, Staff, Manager)
+FE-06: Quản trị viên có khả năng khai báo, cập nhật thông tin chi tiết về các dịch vụ xét nghiệm, bao gồm quy trình, yêu cầu và bảng giá. (Truy cập bởi: Staff, Manager, Admin)
+FE-07: Quản lý thông tin chi tiết của đội ngũ tư vấn viên, bao gồm thông tin cá nhân, bằng cấp, kinh nghiệm chuyên môn và lịch làm việc. (Quản lý bởi: Staff, Manager, Admin; Tư vấn viên tự cập nhật một phần bởi: Consultant)
+FE-08: Thu thập, quản lý và hiển thị đánh giá (rating) và phản hồi (feedback) của người dùng về chất lượng dịch vụ và tư vấn viên. (Gửi bởi: Customer; Xem và quản lý bởi: Manager, Admin)
+FE-09: Quản lý hồ sơ người dùng, bao gồm thông tin cá nhân (bảo mật), lịch sử đặt lịch xét nghiệm và lịch sử các phiên tư vấn. (Xem bởi: Customer (hồ sơ của mình), Staff (thông tin cần thiết cho dịch vụ), Consultant (thông tin cần thiết cho tư vấn), Manager, Admin)
+FE-10: Cung cấp dashboard trực quan và hệ thống báo cáo chi tiết cho ban quản lý cơ sở y tế để theo dõi hiệu suất hoạt động và đưa ra quyết định. (Truy cập bởi: Manager, Admin)
+
+II.3 Context Diagram
+[Context Diagram is the highest-level system analysis diagram, showing the system as a "black box" with:
+External entities interacting with the system
+Data flows into and out of the system]
+
+II.4 Nonfunctional requirements 
+#
+Feature
+System Function
+Description
+1
+Clinic Information Management
+Display Clinic Info
+Admin updates clinic details (name, address, contact) in configuration. System displays this on the homepage.
+2
+Blog Management
+Create, Approve, Publish Blogs
+Staff creates and reviews blog posts related to sexual health. Approved posts are categorized and published to homepage or blog page.
+3
+Menstrual Cycle Tracking
+Cycle Logging, Reminder Notifications
+Customers input cycle data; system calculates ovulation/pregnancy likelihood and sends reminders for medication or key dates.
+4
+Consultation Inquiry
+Ask Questions (Guest & Customer)
+Users submit questions via form. Staff assigns to consultants who follow up via Zalo, Messenger, or call. System logs and notifies status updates.
+5
+Online Consultation Scheduling
+Book Consultation with Consultant
+Staff helps Customer choose consultant and available timeslot. Booking is created and confirmed. System records and sends reminders.
+6
+STI Test Management
+Book, Process, and View Test Results
+Customers book STI tests. Staff manages appointments and uploads results. Customers view results and can rate the service.
+7
+Service Package Sales
+Purchase Health Packages
+Customers buy packages with optional promotions. System creates bill, processes payment, and confirms via email/SMS.
+8
+Consultant Management
+Manage Consultant Profiles & Schedules
+Admin adds consultant info, qualifications. Consultants register available times. System shows availability to Customers.
+9
+Rating and Feedback
+Collect Anonymous Ratings
+After services, system collects feedback and updates consultant ratings. Ratings remain anonymous and internal.
+10
+User Profile Management
+Maintain Health Records & History
+Customers create profiles for themselves or others. System stores history of consultations, tests, and purchases.
+11
+Billing and Payment
+Generate Bills and Handle Payments
+System generates bills for services/packages. Customers pay via integrated gateways. Status is updated automatically or manually by staff.
+12
+Reporting and Dashboard
+Generate Reports for Admin/Manager
+System aggregates data (revenue, appointments, ratings) and displays visual reports for Admins/Managers.
+
+
+II.5 Functional requirements
+II.5.1 Actors
+#
+Actor
+Description
+1
+Administrator
+The highest-level system operator. Manages the entire database, user role assignments, system security, login history, technical support, and password resets.
+2
+Manager
+Oversees the entire system at the healthcare facility. Has full staff privileges, plus blog and Q&A category management, statistics, consultant performance review, and approval.
+3
+Staff
+Operates the system from the healthcare facility side. Manages user accounts, verifies appointments, enters test results, moderates blog/comments, and supports consultants.
+4
+Consultant
+A certified healthcare consultant or doctor. Handles consultation schedules, answers user questions, confirms or cancels appointments, views feedback, and manages/searches patient records.
+5
+Customer
+A registered user. Can manage personal profile, track menstrual cycle, receive reminders, book consultations and tests, view results, ask questions, and provide feedback.
+
+
+Guest
+A non-registered or not-logged-in user. Can view public content such as blog, services, consultants, and register for an account. Can book appointments with limited access.
+

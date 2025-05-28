@@ -115,8 +115,8 @@ export const verifyCustomer = async (
   }
 };
 
-// Middleware kiểm tra quyền consultant
-export const verifyConsultant = async (
+// Middleware kiểm tra quyền doctor
+export const verifyDoctor = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction
@@ -127,7 +127,7 @@ export const verifyConsultant = async (
     }
 
     const user = await User.findById(req.user._id);
-    if (!user || (user.role !== "consultant" && user.role !== "admin")) {
+    if (!user || (user.role !== "doctor" && user.role !== "admin")) {
       return res.status(403).json({ message: "Không có quyền truy cập" });
     }
 

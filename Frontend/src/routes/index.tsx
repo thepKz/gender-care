@@ -17,6 +17,22 @@ import NotFoundPage from '../pages/notFound';
 import ProfilePage from '../pages/profile';
 import ProfileEditPage from '../pages/profile/edit';
 
+// New Pages
+import AboutGCCPage from '../pages/about-gcc';
+import BlogPage from '../pages/blog';
+import CounselorsPage from '../pages/counselors';
+import PicturePage from '../pages/picture';
+import ServicesPage from '../pages/services';
+
+// Booking Pages
+import BookingPage from '../pages/booking';
+import BookingHistoryPage from '../pages/booking-history';
+import FeedbackPage from '../pages/feedback';
+
+// Demo Pages
+import DemoIndexPage from '../pages/demo';
+import ComponentShowcasePage from '../pages/demo/components';
+
 // Hooks
 import { useAuth } from '../hooks/useAuth';
 
@@ -64,6 +80,29 @@ const AppRoutes: React.FC = () => {
       {/* Main routes - có header/footer */}
       <Route element={<MainLayout />}>
         <Route index path="/" element={<HomePage />} />
+        
+        {/* New Pages */}
+        <Route path="/picture" element={<PicturePage />} />
+        <Route path="/counselors" element={<CounselorsPage />} />
+        <Route path="/about-gcc" element={<AboutGCCPage />} />
+        <Route path="/blog" element={<BlogPage />} />
+        <Route path="/services" element={<ServicesPage />} />
+        
+        {/* All service booking routes redirect to main booking page */}
+        <Route path="/services/consulting" element={<Navigate to="/booking?service=consultation" replace />} />
+        <Route path="/services/sti-test" element={<Navigate to="/booking?service=sti-testing" replace />} />
+        <Route path="/services/home-sampling" element={<Navigate to="/booking?service=home-sampling" replace />} />
+        <Route path="/services/cycle-tracking" element={<Navigate to="/booking?service=cycle-tracking" replace />} />
+        
+        {/* Booking Pages */}
+        <Route path="/booking" element={<BookingPage />} />
+        <Route path="/booking-history" element={<BookingHistoryPage />} />
+        <Route path="/feedback" element={<FeedbackPage />} />
+        
+        {/* Demo Pages */}
+        <Route path="/demo" element={<DemoIndexPage />} />
+        <Route path="/demo/components" element={<ComponentShowcasePage />} />
+        
         {/* Các route khác */}
         <Route path="*" element={<NotFoundPage />} />
       </Route>

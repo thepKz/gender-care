@@ -1,71 +1,92 @@
 import axiosInstance from '../axiosConfig';
 
-interface BookConsultationParams {
-  consultantId: string;
-  date: string;
-  timeSlot: string;
+interface BookAppointmentParams {
+  profileId: string;
+  packageId?: string;
+  serviceId?: string;
+  slotId: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  appointmentType: 'consultation' | 'test' | 'other';
+  typeLocation: 'clinic' | 'home' | 'Online';
+  address?: string;
   description?: string;
-  consultationType: 'online' | 'offline';
+  notes?: string;
 }
 
-interface AskQuestionParams {
-  title: string;
-  content: string;
-  isAnonymous?: boolean;
-  categories?: string[];
+// Định nghĩa types cho query parameters
+interface QueryParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  status?: string;
 }
 
 const consultationApi = {
-  // Danh sách tư vấn viên
-  getConsultants: (params?: any) => {
-    return axiosInstance.get('/consultants', { params });
+  // Danh sách bác sĩ
+  getDoctors: (params?: QueryParams) => {
+    return axiosInstance.get('/doctors', { params });
   },
   
-  // Chi tiết tư vấn viên
-  getConsultantDetail: (id: string) => {
-    return axiosInstance.get(`/consultants/${id}`);
+  // Chi tiết bác sĩ
+  getDoctorDetail: (id: string) => {
+    return axiosInstance.get(`/doctors/${id}`);
   },
   
-  // Lấy lịch trống của tư vấn viên
-  getConsultantAvailability: (consultantId: string, date: string) => {
-    return axiosInstance.get(`/consultants/${consultantId}/availability`, { 
-      params: { date } 
-    });
+  // Lấy lịch làm việc của bác sĩ
+  getDoctorSchedule: (doctorId: string) => {
+    return axiosInstance.get(`/doctors/${doctorId}/schedule`);
   },
   
-  // Đặt lịch tư vấn
-  bookConsultation: (data: BookConsultationParams) => {
-    return axiosInstance.post('/consultations/book', data);
+  // Đặt lịch hẹn
+  bookAppointment: (data: BookAppointmentParams) => {
+    return axiosInstance.post('/appointments', data);
   },
   
-  // Lấy danh sách lịch tư vấn của người dùng
-  getUserConsultations: (params?: any) => {
-    return axiosInstance.get('/consultations/user', { params });
+  // Lấy danh sách lịch hẹn của người dùng
+  getUserAppointments: (params?: QueryParams) => {
+    return axiosInstance.get('/appointments/user', { params });
   },
   
-  // Hủy lịch tư vấn
-  cancelConsultation: (id: string, reason?: string) => {
-    return axiosInstance.put(`/consultations/${id}/cancel`, { reason });
+  // Hủy lịch hẹn
+  cancelAppointment: (id: string, reason?: string) => {
+    return axiosInstance.put(`/appointments/${id}/cancel`, { reason });
   },
   
-  // Đánh giá buổi tư vấn
-  rateConsultation: (id: string, rating: number, feedback?: string) => {
-    return axiosInstance.post(`/consultations/${id}/rating`, { rating, feedback });
+  // Đánh giá dịch vụ
+  createFeedback: (data: {
+    appointmentId: string;
+    rating: number;
+    feedback: string;
+    comment?: string;
+    doctorId?: string;
+    serviceId?: string;
+    packageId?: string;
+  }) => {
+    return axiosInstance.post('/feedbacks', data);
   },
   
-  // Đặt câu hỏi
-  askQuestion: (data: AskQuestionParams) => {
-    return axiosInstance.post('/consultations/questions', data);
+  // Đặt câu hỏi cho bác sĩ
+  askDoctorQuestion: (data: {
+    doctorId: string;
+    fullName: string;
+    phone: string;
+    notes?: string;
+    question: string;
+  }) => {
+    return axiosInstance.post('/doctor-qa', data);
   },
   
-  // Lấy danh sách câu hỏi
-  getQuestions: (params?: any) => {
-    return axiosInstance.get('/consultations/questions', { params });
+  // Lấy danh sách câu hỏi của người dùng
+  getUserQuestions: (params?: QueryParams) => {
+    return axiosInstance.get('/doctor-qa/user', { params });
   },
   
   // Lấy chi tiết câu hỏi
   getQuestionDetail: (id: string) => {
-    return axiosInstance.get(`/consultations/questions/${id}`);
+    return axiosInstance.get(`/doctor-qa/${id}`);
   }
 };
 

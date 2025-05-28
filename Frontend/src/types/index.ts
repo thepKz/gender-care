@@ -5,11 +5,11 @@ export interface User {
   password: string;
   fullName: string;
   phone?: string;
-  avatar? : string;
+  avatar?: string;
   gender: string;
   address?: string;
   year?: string;
-  role: 'guest' | 'customer' | 'consultant' | 'staff' | 'manager' | 'admin';
+  role: 'guest' | 'customer' | 'doctor' | 'staff' | 'manager' | 'admin';
   emailVerified: boolean;
   isActive: boolean;
   createdAt: string;
@@ -90,66 +90,95 @@ export interface LoginHistory {
   failReason?: string;
 }
 
-// Consultant types
-export interface Consultant {
+// Doctor types
+export interface Doctor {
   _id: string;
   userId: string;
   bio: string;
   experience: number;
   rating: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ConsultantSpecialization {
-  _id: string;
-  consultantId: string;
   specialization: string;
-}
-
-export interface ConsultantEducation {
-  _id: string;
-  consultantId: string;
   education: string;
-}
-
-export interface ConsultantCertificate {
-  _id: string;
-  consultantId: string;
   certificate: string;
-}
-
-export interface Availability {
-  _id: string;
-  consultantId: string;
-  date: string;
   createdAt: string;
   updatedAt: string;
 }
 
+// Doctor schedule types
 export interface TimeSlot {
   _id: string;
-  availabilityId: string;
-  startTime: string;
-  endTime: string;
+  slotTime: string;
   isBooked: boolean;
 }
 
-// Consultation types
-export interface Consultation {
+export interface WeekScheduleObject {
   _id: string;
-  consultantId: string;
-  bookedByUserId: string;
-  profileId: string;
-  date: string;
-  timeSlotId: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  consultationType: 'online' | 'offline';
-  description?: string;
-  rating?: number;
-  feedback?: string;
+  dayOfWeek: string;
+  slots: TimeSlot[];
+}
+
+export interface DoctorSchedule {
+  _id: string;
+  doctorId: string;
+  weekSchedule: WeekScheduleObject[];
   createdAt: string;
   updatedAt: string;
+}
+
+// Service types
+export interface Service {
+  _id: string;
+  serviceName: string;
+  price: number;
+  description: string;
+  isDeleted: boolean;
+  serviceType: 'consultation' | 'test' | 'other';
+  availableAt: string[]; // ['Athome', 'Online', 'Center']
+}
+
+// Service package types
+export interface ServicePackage {
+  _id: string;
+  name: string;
+  description: string;
+  price: number;
+  discountPrice: number;
+  serviceIds: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Appointment types
+export interface Appointment {
+  _id: string;
+  createdByUserId: string;
+  profileId: string;
+  packageId?: string;
+  serviceId?: string;
+  slotId: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  appointmentType: 'consultation' | 'test' | 'other';
+  typeLocation: 'clinic' | 'home' | 'Online';
+  address?: string;
+  description?: string;
+  notes?: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Feedback types
+export interface Feedback {
+  _id: string;
+  rating: number;
+  feedback: string;
+  comment: string;
+  appointmentId: string;
+  doctorId?: string;
+  serviceId?: string;
+  packageId?: string;
 }
 
 // User Profile types
@@ -171,8 +200,10 @@ export interface MenstrualCycle {
   profileId: string;
   startDate: string;
   endDate: string;
-  flow: 'light' | 'medium' | 'heavy';
+  stamp: string;
+  symbol: string;
   mood: string;
+  observation: string;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -198,17 +229,21 @@ export interface MedicationReminder {
   updatedAt: string;
 }
 
-export interface ReminderDay {
+export interface NotificationDay {
   _id: string;
   reminderId: string;
-  day: string;
+  notificationTimes: string;
+  status: 'send' | 'failed';
+  createdAt: string;
+  updatedAt: string;
 }
 
-// STI testing types
-export interface TestType {
+// Test types
+export interface AppointmentTest {
   _id: string;
-  name: string;
+  appointmentId: string;
   description: string;
+  name: string;
   price: number;
   preparationGuidelines: string;
   resultWaitTime: string;
@@ -216,37 +251,32 @@ export interface TestType {
   updatedAt: string;
 }
 
-export interface TestAppointment {
+export interface TestResult {
   _id: string;
-  userId: string;
-  appointmentDate: string;
-  appointmentTime: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  preferredLocation: 'clinic' | 'home';
-  address: string;
-  notes: string;
-  rating: number;
-  feedback: string;
+  appointmentTestId: string;
+  conclusion: string;
+  recommendations: string;
+  createdAt: string;
+}
+
+export interface TestCategory {
+  _id: string;
+  name: string;
+  description: string;
+  unit: string;
+  normalRange: string;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface AppointmentTest {
+export interface TestResultItem {
   _id: string;
-  appointmentId: string;
-  testTypeId: string;
-  name: string;
-  price: number;
-}
-
-export interface TestResult {
-  _id: string;
-  appointmentTestId: string;
-  result: string;
-  normalRange: string;
-  conclusion: 'normal' | 'abnormal';
-  recommendations: string;
-  createdAt: string;
+  testResultId: string;
+  itemNameId: string;
+  value: string;
+  unit: string;
+  currentRange: string;
+  flag: 'high' | 'low' | 'normal';
 }
 
 // Blog types
@@ -285,4 +315,120 @@ export interface SystemConfig {
   _id: string;
   key: string;
   value: string;
+}
+
+// Promotion types
+export interface Promotion {
+  _id: string;
+  name: string;
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  startDate: string;
+  endDate: string;
+  maxUses: number;
+  usedCount: number;
+  applicablePackages: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Doctor Q&A types
+export interface DoctorQA {
+  _id: string;
+  doctorId: string;
+  userId: string;
+  fullName: string;
+  phone: string;
+  notes: string;
+  question: string;
+  status: 'pending' | 'contacted' | 'resolved' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Bill types
+export interface Bill {
+  _id: string;
+  userId: string;
+  profileId: string;
+  billNumber: string;
+  packageId?: string;
+  appointmentId?: string;
+  promotionId?: string;
+  subtotal: number;
+  discountAmount: number;
+  totalAmount: number;
+  status: 'pending' | 'paid' | 'cancelled';
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Payment types
+export interface Payment {
+  _id: string;
+  userId: string;
+  billId: string;
+  amount: number;
+  paymentMethod: 'credit_card' | 'bank_transfer' | 'mobile_payment' | 'cash';
+  paymentGateway: string;
+  transactionId: string;
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  failureReason?: string;
+  createdAt: string;
+  updatedAt: string;
+  paymentAt: string;
+}
+
+// Package purchase types
+export interface PackagePurchase {
+  _id: string;
+  profileId: string;
+  userId: string;
+  packageId: string;
+  billId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Medical record types
+export interface MedicalRecord {
+  _id: string;
+  doctorId: string;
+  profileId: string;
+  appointmentId: string;
+  diagnosis: string;
+  symptoms: string;
+  treatment: string;
+  notes: string;
+  pictures: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// API Response types
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  errors?: Record<string, string>;
+}
+
+// Pagination types
+export interface PaginationQuery {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }

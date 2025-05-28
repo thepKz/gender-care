@@ -98,7 +98,7 @@ const Home = () => {
                       ghost
                       size="large"
                       type="default"
-                      onClick={() => navigate('/consultants')}
+                      onClick={() => navigate('/doctors')}
                       className="w-full sm:w-auto sm:min-w-40 border-2 border-white rounded-full backdrop-blur-sm bg-white/10
                                  transition-all duration-300 hover:!bg-cyan-400 hover:!text-[#0C3C54] hover:!border-cyan-400 flex items-center justify-center text-white group"
                     >

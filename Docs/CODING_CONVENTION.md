@@ -260,7 +260,7 @@ const typographyClasses = {
   
   // Medical Context
   medicalTitle: 'text-2xl font-bold text-green-primary',
-  consultantName: 'text-lg font-semibold text-gray-800',
+  doctorName: 'text-lg font-semibold text-gray-800',
   appointmentTime: 'text-sm font-medium text-blue-primary'
 };
 ```
@@ -953,7 +953,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const USER_ROLES = {
   ADMIN: 'admin',
   CUSTOMER: 'customer',
-  CONSULTANT: 'consultant'
+  DOCTOR: 'doctor'
 } as const;
 ```
 
@@ -1032,7 +1032,7 @@ interface User {
 }
 
 // ✅ Union types cho constants
-type UserRole = 'guest' | 'customer' | 'consultant' | 'staff' | 'manager' | 'admin';
+type UserRole = 'guest' | 'customer' | 'doctor' | 'staff' | 'manager' | 'admin';
 
 // ✅ Generic types
 interface ApiResponse<T> {
@@ -1302,7 +1302,7 @@ export interface IUser extends Document {
   password: string;
   phone?: string;
   gender: string;
-  role: 'guest' | 'customer' | 'consultant' | 'staff' | 'manager' | 'admin';
+  role: 'guest' | 'customer' | 'doctor' | 'staff' | 'manager' | 'admin';
   emailVerified: boolean;
   isActive: boolean;
   createdAt: Date;
@@ -1345,7 +1345,7 @@ const UserSchema = new Schema<IUser>({
   },
   role: {
     type: String,
-    enum: ['guest', 'customer', 'consultant', 'staff', 'manager', 'admin'],
+    enum: ['guest', 'customer', 'doctor', 'staff', 'manager', 'admin'],
     default: 'customer'
   },
   emailVerified: {
@@ -1700,7 +1700,7 @@ schema.pre('save', function(next) {
 ```typescript
 // Reference Pattern - cho large documents
 const consultationSchema = new Schema({
-  consultantId: {
+  doctorId: {
     type: Schema.Types.ObjectId,
     ref: 'User',
     required: true

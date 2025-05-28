@@ -567,7 +567,7 @@ paths:
                   format: date
                 role:
                   type: string
-                  enum: [guest, customer, consultant, staff, manager, admin]
+                  enum: [guest, customer, doctor, staff, manager, admin]
       responses:
         '201':
           description: Tạo user thành công
@@ -648,7 +648,7 @@ paths:
                   format: date
                 role:
                   type: string
-                  enum: [guest, customer, consultant, staff, manager, admin]
+                  enum: [guest, customer, doctor, staff, manager, admin]
                 isActive:
                   type: boolean
       responses:
@@ -989,7 +989,7 @@ components:
           enum:
             - guest
             - customer
-            - consultant
+            - doctor
             - staff
             - manager
             - admin

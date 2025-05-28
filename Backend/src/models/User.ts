@@ -6,7 +6,7 @@ export interface IUser {
   fullName: string;
   phone?: string;
   avatar?: string;
-  role: "guest" | "customer" | "consultant" | "staff" | "manager" | "admin";
+  role: "guest" | "customer" | "doctor" | "staff" | "manager" | "admin";
   emailVerified: boolean;
   isActive: boolean;
   gender?: string;
@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema<IUser>(
     avatar: { type: String },
     role: {
       type: String,
-      enum: ["guest", "customer", "consultant", "staff", "manager", "admin"],
+      enum: ["guest", "customer", "doctor", "staff", "manager", "admin"],
       default: "guest",
     },
     emailVerified: {

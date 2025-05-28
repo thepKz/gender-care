@@ -300,7 +300,7 @@ export const searchUsers = async (req: Request, res: Response) => {
     }
     
     // Thêm bộ lọc theo role
-    if (role && ["admin", "customer", "consultant", "staff", "manager"].includes(role)) {
+    if (role && ["admin", "customer", "doctor", "staff", "manager"].includes(role)) {
       searchQuery.role = role;
     }
     
