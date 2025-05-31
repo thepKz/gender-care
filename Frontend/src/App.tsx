@@ -4,6 +4,12 @@ import { useAuth } from './hooks/useAuth';
 import { useAppDispatch } from './redux/hooks';
 import { updateUser } from './redux/slices/authSlice';
 import AppRoutes from './routes';
+import { cleanupInvalidTokens } from './utils/helpers';
+
+// Import debug utilities trong development
+if (process.env.NODE_ENV === 'development') {
+  import('./utils/debugToken');
+}
 
 // Custom notification config
 notification.config({
@@ -37,6 +43,9 @@ const App: React.FC = () => {
   const dispatch = useAppDispatch();
 
   useEffect(() => {
+    // Cleanup tokens không hợp lệ trước khi làm gì khác
+    cleanupInvalidTokens();
+    
     // Nếu có cookie user_info thì cập nhật redux ngay
     const userInfo = getUserInfoFromCookie();
     if (userInfo) {

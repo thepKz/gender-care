@@ -13,6 +13,8 @@ declare global {
             client_id: string;
             callback: (response: GoogleCredentialResponse) => void;
             authorized_origins?: string[];
+            ux_mode?: string;
+            use_fedcm_for_prompt?: boolean;
           }) => void;
           renderButton: (
             element: HTMLElement,
@@ -63,6 +65,20 @@ const LoginPage: React.FC = () => {
         const currentOrigin = window.location.origin;
         console.log('Current origin:', currentOrigin);
         
+        // Danh sách tất cả các origins được phép
+        const authorizedOrigins = [
+          'https://gender-healthcare-service-management.onrender.com',
+          'http://localhost:5000',
+          'http://localhost:5173',
+          'http://localhost:3000',
+          'https://gender-healthcare.vercel.app',
+          'https://team05.ksfu.cloud', // Thêm domain hiện tại
+          currentOrigin
+        ];
+
+        // Loại bỏ duplicates
+        const uniqueOrigins = [...new Set(authorizedOrigins)];
+        
         window.google.accounts.id.initialize({
           client_id: '203228075747-cnn4bmrbnkeqmbiouptng2kajeur2fjp.apps.googleusercontent.com',
           callback: async (response: GoogleCredentialResponse) => {
@@ -70,11 +86,19 @@ const LoginPage: React.FC = () => {
             try {
               console.log('Google login response received:', response);
               
-              // Sử dụng handleGoogleLogin từ useAuth hook
-              const result = await handleGoogleLogin(response.credential);
+              // Sử dụng handleGoogleLogin từ useAuth hook với timeout handling
+              const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Google login timeout')), 25000); // 25 giây
+              });
+              
+              const loginPromise = handleGoogleLogin(response.credential);
+              
+              const result = await Promise.race([loginPromise, timeoutPromise]) as any;
               
               if (result.success) {
                 console.log('Google login success:', result);
+                console.log('User data after Google login:', result.user);
+                console.log('User avatar from Google:', result.user?.avatar);
                 toast.success('Đăng nhập Google thành công!');
                 
                 // Gọi fetchProfile để lấy thông tin user mới nhất
@@ -84,22 +108,21 @@ const LoginPage: React.FC = () => {
                 navigate('/');
               } else {
                 setLoginError(result.error || 'Đăng nhập Google thất bại');
+                toast.error(result.error || 'Đăng nhập Google thất bại');
               }
             } catch (error) {
               console.error('Google login error:', error);
-              setLoginError('Đăng nhập Google thất bại. Vui lòng thử lại sau.');
+              const errorMessage = error instanceof Error ? error.message : 'Đăng nhập Google thất bại. Vui lòng thử lại sau.';
+              setLoginError(errorMessage);
+              toast.error(errorMessage);
             }
           },
-          // Thêm danh sách các origins được phép
-          authorized_origins: [
-            'https://gender-healthcare-service-management.onrender.com',
-            'http://localhost:5000',
-            'http://localhost:5173',
-            'http://localhost:3000',
-            'https://gender-healthcare.vercel.app',
-            currentOrigin
-          ]
+          // Thêm các tùy chọn để giảm COOP issues
+          authorized_origins: uniqueOrigins,
+          ux_mode: 'popup', // Sử dụng popup mode thay vì redirect
+          use_fedcm_for_prompt: false // Tắt FedCM để tránh conflict
         });
+
         window.google.accounts.id.renderButton(googleButtonRef.current, {
           theme: 'outline',
           size: 'large',
@@ -111,11 +134,12 @@ const LoginPage: React.FC = () => {
       } catch (error) {
         console.error('Lỗi khi khởi tạo Google Sign-In:', error);
         setLoginError('Không thể khởi tạo đăng nhập Google. Vui lòng thử lại sau.');
+        toast.error('Không thể khởi tạo đăng nhập Google. Vui lòng thử lại sau.');
       }
     } else {
       console.warn('Google Sign-In không khả dụng');
     }
-  }, []);
+  }, [handleGoogleLogin, fetchProfile, navigate]);
 
   const validateEmail = (email: string): boolean => {
     if (!email.trim()) {

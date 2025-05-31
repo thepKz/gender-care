@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getValidTokenFromStorage } from '../utils/helpers';
 
 interface ApiResponse<T = any> {
   data: T;
@@ -22,12 +23,22 @@ export const handleAPI = async <T = any>(
     const apiUrl = process.env.REACT_APP_API_URL || '';
     const url = `${apiUrl}${endpoint}`;
     
+    // Sử dụng helper function để lấy token hợp lệ
+    const token = getValidTokenFromStorage('access_token');
+    
     const config = {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        'Authorization': token ? `Bearer ${token}` : ''
       }
     };
+    
+    // Debug log để kiểm tra token
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[handleAPI] Endpoint:', endpoint);
+      console.log('[handleAPI] Token exists:', !!token);
+      console.log('[handleAPI] Token preview:', token ? `${token.substring(0, 20)}...` : 'none');
+    }
     
     let response;
     

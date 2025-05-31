@@ -64,7 +64,14 @@ export const signRefreshToken = async (payload: {
 
 export const verifyRefreshToken = async (token: string) => {
   try {
-    const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET as string) as {
+    // Sử dụng cùng logic như signRefreshToken
+    const refreshSecret = process.env.REFRESH_TOKEN_SECRET || process.env.SECRET_KEY;
+    
+    if (!refreshSecret) {
+      throw new Error("Không tìm thấy secret key cho refresh token!");
+    }
+    
+    const decoded = jwt.verify(token, refreshSecret) as {
       _id: string;
       email: string;
     };

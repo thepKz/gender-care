@@ -6,6 +6,42 @@ import authApi from '../../api/endpoints/auth';
 import { useAuth } from '../../hooks/useAuth';
 import { debounce } from '../../utils/index';
 
+// Define type cho window.google để tránh dùng any
+declare global {
+  interface Window {
+    google: {
+      accounts: {
+        id: {
+          initialize: (config: {
+            client_id: string;
+            callback: (response: GoogleCredentialResponse) => void;
+            authorized_origins?: string[];
+            ux_mode?: string;
+            use_fedcm_for_prompt?: boolean;
+          }) => void;
+          renderButton: (
+            element: HTMLElement,
+            options: {
+              theme: string;
+              size: string;
+              width: number;
+              logo_alignment: string;
+              text: string;
+              shape: string;
+            }
+          ) => void;
+        };
+      };
+    };
+  }
+}
+
+interface GoogleCredentialResponse {
+  credential: string;
+  select_by: string;
+  clientId?: string;
+}
+
 // Component hiển thị dấu * bắt buộc
 const RequiredMark = (): JSX.Element => (
   <span className="text-red-500 ml-1">*</span>
@@ -64,6 +100,10 @@ const RegisterPage: React.FC = () => {
   const [checkingEmail, setCheckingEmail] = useState(false);
   const [checkingPhone, setCheckingPhone] = useState(false);
   
+  const { handleRegister, handleGoogleLogin, fetchProfile } = useAuth();
+  const navigate = useNavigate();
+  const googleButtonRef = useRef<HTMLDivElement>(null);
+
   // Cải thiện thời gian debounce cho việc kiểm tra email
   const checkEmailDebounced = useRef<(email: string) => void>(
     debounce((emailValue: string) => {
@@ -220,8 +260,89 @@ const RegisterPage: React.FC = () => {
     }, 200) as unknown as (phone: string) => void // Giảm xuống 200ms
   ).current;
 
-  const { handleRegister } = useAuth();
-  const navigate = useNavigate();
+  // Google OAuth setup
+  useEffect(() => {
+    if (window.google && googleButtonRef.current) {
+      try {
+        // Lấy current domain để thiết lập chính xác
+        const currentOrigin = window.location.origin;
+        console.log('Current origin:', currentOrigin);
+        
+        // Danh sách tất cả các origins được phép
+        const authorizedOrigins = [
+          'https://gender-healthcare-service-management.onrender.com',
+          'http://localhost:5000',
+          'http://localhost:5173',
+          'http://localhost:3000',
+          'https://gender-healthcare.vercel.app',
+          'https://team05.ksfu.cloud', // Thêm domain hiện tại
+          currentOrigin
+        ];
+
+        // Loại bỏ duplicates
+        const uniqueOrigins = [...new Set(authorizedOrigins)];
+        
+        window.google.accounts.id.initialize({
+          client_id: '203228075747-cnn4bmrbnkeqmbiouptng2kajeur2fjp.apps.googleusercontent.com',
+          callback: async (response: GoogleCredentialResponse) => {
+            setRegisterError(null);
+            try {
+              console.log('Google register response received:', response);
+              
+              // Sử dụng handleGoogleLogin từ useAuth hook với timeout handling
+              const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Google register timeout')), 25000); // 25 giây
+              });
+              
+              const loginPromise = handleGoogleLogin(response.credential);
+              
+              const result = await Promise.race([loginPromise, timeoutPromise]) as { success: boolean; user?: any; error?: string };
+              
+              if (result.success) {
+                console.log('Google register success:', result);
+                console.log('User data after Google register:', result.user);
+                console.log('User avatar from Google:', result.user?.avatar);
+                toast.success('Đăng ký Google thành công!');
+                
+                // Gọi fetchProfile để lấy thông tin user mới nhất
+                await fetchProfile();
+                
+                // Chuyển hướng đến trang chủ
+                navigate('/');
+              } else {
+                setRegisterError(result.error || 'Đăng ký Google thất bại');
+                toast.error(result.error || 'Đăng ký Google thất bại');
+              }
+            } catch (error) {
+              console.error('Google register error:', error);
+              const errorMessage = error instanceof Error ? error.message : 'Đăng ký Google thất bại. Vui lòng thử lại sau.';
+              setRegisterError(errorMessage);
+              toast.error(errorMessage);
+            }
+          },
+          // Thêm các tùy chọn để giảm COOP issues
+          authorized_origins: uniqueOrigins,
+          ux_mode: 'popup', // Sử dụng popup mode thay vì redirect
+          use_fedcm_for_prompt: false // Tắt FedCM để tránh conflict
+        });
+
+        window.google.accounts.id.renderButton(googleButtonRef.current, {
+          theme: 'outline',
+          size: 'large',
+          width: 320,
+          logo_alignment: 'left',
+          text: 'signup_with',
+          shape: 'rectangular',
+        });
+      } catch (error) {
+        console.error('Lỗi khi khởi tạo Google Sign-Up:', error);
+        setRegisterError('Không thể khởi tạo đăng ký Google. Vui lòng thử lại sau.');
+        toast.error('Không thể khởi tạo đăng ký Google. Vui lòng thử lại sau.');
+      }
+    } else {
+      console.warn('Google Sign-Up không khả dụng');
+    }
+  }, [handleGoogleLogin, fetchProfile, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -505,32 +626,28 @@ const RegisterPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Reset lỗi và trạng thái touched
-    setRegisterError(null);
-    setErrors({});
-    // Bắt đầu quá trình đăng ký, ngăn không cho chạy kiểm tra debounce khi submit
+    if (isSubmitting) return; // Chặn double submit
     setIsSubmitting(true);
-    
-    // Nếu đang có quá trình kiểm tra bất đồng bộ, không cho phép submit
-    if (checkingEmail || checkingPhone) {
-      setRegisterError("Vui lòng đợi hệ thống kiểm tra thông tin của bạn");
-      setIsSubmitting(false);
-      return;
-    }
-    
-    // Validate form trước khi thực hiện API call để tiết kiệm thời gian
-    if (!validateForm()) {
-      setIsSubmitting(false);
-      return;
-    }
-    
-    // Bắt đầu quá trình đăng ký
-    // (đã đánh dấu isSubmitting trước khi validate)
-    
     try {
-      // Thực hiện đăng ký mà không cần kiểm tra email/phone lại
-      // vì đã kiểm tra trong quá trình nhập
+      // Reset lỗi và trạng thái touched
+      setRegisterError(null);
+      setErrors({});
+      // Nếu đang có quá trình kiểm tra bất đồng bộ, không cho phép submit
+      if (checkingEmail || checkingPhone) {
+        setRegisterError("Vui lòng đợi hệ thống kiểm tra thông tin của bạn");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Validate form trước khi thực hiện API call để tiết kiệm thời gian
+      if (!validateForm()) {
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Bắt đầu quá trình đăng ký
+      // (đã đánh dấu isSubmitting trước khi validate)
+      
       const result = await handleRegister({
         email: formData.email,
         password: formData.password,
@@ -544,11 +661,12 @@ const RegisterPage: React.FC = () => {
         setErrors({});
         setRegisterError(null);
         
-        // Hiển thị thông báo thành công
         toast.success("Đăng ký thành công! Vui lòng xác thực email của bạn.");
         
-        // Chuyển hướng đến trang xác thực email
-        navigate('/verify-email');
+        // Chỉ gọi navigate 1 lần duy nhất
+        setTimeout(() => {
+          navigate('/verify-email');
+        }, 300); // Thêm delay nhỏ để tránh double navigate do render lại
       } else {
         // Hiển thị lỗi cụ thể từ server nếu có
         if (result.error?.includes('Email')) {
@@ -865,23 +983,15 @@ const RegisterPage: React.FC = () => {
         <div className="pt-2">
           <button
             type="submit"
+            className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
             disabled={isSubmitting}
-            className={`w-full py-2 px-3 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-white font-medium shadow-sm transition-all duration-200 ${isSubmitting ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
-            {isSubmitting ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Đang xử lý...
-              </span>
-            ) : 'Đăng ký ngay'}
+            {isSubmitting ? 'Đang xử lý...' : 'Đăng ký'}
           </button>
         </div>
         
         {/* Khu vực hiển thị lỗi từ server - có chiều cao cố định để tránh layout shift */}
-        <div className="h-10 ">
+        <div className="h-5">
           {registerError && (
             <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-2 rounded text-sm animate-pulse" role="alert">
               <p>{registerError}</p>
@@ -893,7 +1003,16 @@ const RegisterPage: React.FC = () => {
       <p className="text-center p-2 text-gray-500 text-sm mt-2">
         Bạn đã có tài khoản? <Link to="/login" className="text-cyan-600 hover:underline font-medium">Đăng nhập ngay</Link>
       </p>
-      <p className="text-center text-xs text-gray-500 mt-2">
+      
+      <div className="my-4 flex items-center justify-center">
+        <span className="h-px w-1/4 bg-gray-200"></span>
+        <span className="mx-2 text-gray-400 text-xs">Hoặc đăng ký với</span>
+        <span className="h-px w-1/4 bg-gray-200"></span>
+      </div>
+      
+      <div ref={googleButtonRef} className="flex justify-center"></div>
+      
+      <p className="text-center text-xs text-gray-500 mt-4">
         Bằng cách đăng ký, bạn đồng ý với <a href="/terms" className="text-cyan-600 hover:underline">Điều khoản</a> và <a href="/privacy" className="text-cyan-600 hover:underline">Chính sách</a> của chúng tôi
       </p>
     </>

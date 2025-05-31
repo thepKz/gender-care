@@ -236,12 +236,14 @@ MAILTRAP_TOKEN=your-mailtrap-token
 PAYOS_CLIENT_ID=your-payos-client-id
 PAYOS_API_KEY=your-payos-api-key
 PAYOS_CHECKSUM_KEY=your-payos-checksum-key
+GOOGLE_CLIENT_ID=203228075747-cnn4bmrbnkeqmbiouptng2kajeur2fjp.apps.googleusercontent.com
+SECRET_KEY=your-jwt-secret-for-legacy-support
 ```
 
 #### Frontend (.env.local)
 ```bash
 VITE_API_BASE_URL=http://localhost:5000/api
-VITE_GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_ID=203228075747-cnn4bmrbnkeqmbiouptng2kajeur2fjp.apps.googleusercontent.com
 VITE_ENVIRONMENT=development
 ```
 
