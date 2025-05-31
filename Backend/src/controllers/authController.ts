@@ -95,32 +95,6 @@ export const register = async (req: Request, res: Response) => {
       attempts: 0
     });
 
-    // Tạo access token và refresh token
-    const token = await signToken({
-      _id: newUser._id,
-      fullName: newUser.fullName,
-      email: newUser.email,
-      role: newUser.role,
-    });
-
-    const refreshToken = await signRefreshToken({
-      _id: newUser._id,
-      email: newUser.email,
-    });
-
-    // Lưu refresh token vào database
-    const refreshTokenExpiry = new Date();
-    refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 7); // 7 ngày
-
-    await AuthToken.create({
-      userId: newUser._id,
-      refreshToken,
-      userAgent: req.headers['user-agent'] || 'unknown',
-      ipAddress: req.ip || 'unknown',
-      expiresAt: refreshTokenExpiry,
-      isRevoked: false
-    });
-
     // Gửi email xác thực
     await sendVerificationEmail(
       newUser.email,
@@ -128,9 +102,23 @@ export const register = async (req: Request, res: Response) => {
       newUser.fullName
     );
 
+    // Tạo access token và refresh token cho user mới đăng ký
+    const accessToken = await signToken({
+      _id: newUser._id,
+      fullName: newUser.fullName,
+      email: newUser.email,
+      role: newUser.role,
+    });
+    const refreshToken = await signRefreshToken({
+      _id: newUser._id,
+      email: newUser.email,
+    });
+
     return res.status(201).json({
       message: "Đăng ký thành công!",
       data: {
+        accessToken,
+        refreshToken,
         id: newUser._id,
         fullName: newUser.fullName,
         email: newUser.email,
@@ -380,32 +368,89 @@ export const login = async (req: Request, res: Response) => {
 export const loginWithGoogle = async (req: Request, res: Response) => {
   try {
     const { token } = req.body;
-    if (!token) return res.status(400).json({ message: "Thiếu Google token" });
+    if (!token) {
+      console.log("No Google token provided");
+      return res.status(400).json({ message: "Thiếu Google token" });
+    }
     
-    // Xác thực token với Google
-    const ticket = await client.verifyIdToken({ 
-      idToken: token, 
-      audience: GOOGLE_CLIENT_ID 
+    console.log("Processing Google login with token length:", token.length);
+    
+    // Xác thực token với Google với timeout
+    const verifyTimeout = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Google verification timeout')), 15000);
     });
     
+    const verifyPromise = client.verifyIdToken({ 
+      idToken: token, 
+      audience: [
+        GOOGLE_CLIENT_ID,
+        '203228075747-cnn4bmrbnkeqmbiouptng2kajeur2fjp.apps.googleusercontent.com'
+      ]
+    });
+    
+    const ticket = await Promise.race([verifyPromise, verifyTimeout]) as any;
+    
     const payload = ticket.getPayload();
+    console.log("Google JWT payload:", payload);
+    console.log("Google avatar (picture):", payload.picture);
+    
     if (!payload || !payload.email) {
-      return res.status(400).json({ message: "Token không hợp lệ" });
+      console.error("Invalid Google token payload:", payload);
+      return res.status(400).json({
+        success: false,
+        message: "Token Google không hợp lệ"
+      });
     }
+    
+    console.log("Google user verified:", payload.email);
+    console.log("Google user data:", {
+      email: payload.email,
+      name: payload.name,
+      picture: payload.picture,
+      email_verified: payload.email_verified
+    });
     
     // Tìm hoặc tạo user
     let user = await User.findOne({ email: payload.email });
     if (!user) {
+      console.log("Creating new user from Google account:", payload.email);
+      
+      // Tạo password ngẫu nhiên cho tài khoản Google (vì password là required)
+      const randomPassword = Math.random().toString(36).slice(-8) + 'Aa1!';
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+      
       // Tạo user mới từ tài khoản Google
       user = await User.create({
         email: payload.email,
-        password: "", // Không dùng password cho tài khoản Google
-        fullName: payload.name || payload.email,
+        password: hashedPassword, // Sử dụng password được hash thay vì empty string
+        fullName: payload.name || payload.email.split('@')[0],
         avatar: payload.picture,
         emailVerified: true, // Email đã được xác thực bởi Google
         isActive: true,
         role: "customer",
         gender: "other" // Giá trị mặc định
+      });
+      
+      console.log("New user created successfully:", user._id);
+    } else {
+      console.log("Found existing user, performing login only (no info update):", payload.email);
+      
+      // Đảm bảo email đã được verify cho tài khoản Google (chỉ update trường này)
+      if (!user.emailVerified) {
+        user.emailVerified = true;
+        await user.save();
+        console.log("Updated emailVerified status only");
+      }
+      
+      // KHÔNG update avatar, fullName hoặc thông tin khác
+      // Giữ nguyên thông tin user hiện tại
+    }
+    
+    if (!user.isActive) {
+      console.log("User account is inactive:", payload.email);
+      return res.status(403).json({ 
+        message: "Tài khoản của bạn đã bị khóa! Vui lòng liên hệ quản trị viên để được hỗ trợ" 
       });
     }
     
@@ -444,6 +489,42 @@ export const loginWithGoogle = async (req: Request, res: Response) => {
       status: 'success'
     });
 
+    console.log("Google login successful for user:", user.email);
+
+    // Set cookies như đăng nhập thông thường
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    res.cookie('access_token', accessToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 15 * 60 * 1000, // 15 phút
+      domain: isProduction ? '.ksfu.cloud' : undefined
+    });
+
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+      domain: isProduction ? '.ksfu.cloud' : undefined
+    });
+
+    res.cookie('user_info', JSON.stringify({
+      id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+      emailVerified: user.emailVerified,
+      avatar: user.avatar
+    }), {
+      httpOnly: false, // Cho phép client đọc
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+      domain: isProduction ? '.ksfu.cloud' : undefined
+    });
+
     return res.status(200).json({
       message: "Đăng nhập với Google thành công!",
       data: {
@@ -459,6 +540,37 @@ export const loginWithGoogle = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Lỗi đăng nhập Google:", error);
+    console.error("Error stack:", error.stack);
+    
+    // Phân loại lỗi để trả về message phù hợp
+    if (error.message?.includes('timeout')) {
+      return res.status(408).json({ 
+        message: "Xác thực Google mất quá nhiều thời gian. Vui lòng thử lại." 
+      });
+    }
+    
+    if (error.message?.includes('Invalid token')) {
+      return res.status(400).json({ 
+        message: "Token Google không hợp lệ. Vui lòng thử đăng nhập lại." 
+      });
+    }
+    
+    // Log validation errors
+    if (error.name === 'ValidationError') {
+      console.error("Validation error details:", error.errors);
+      return res.status(400).json({ 
+        message: "Dữ liệu không hợp lệ. Vui lòng thử lại." 
+      });
+    }
+    
+    // Log MongoDB errors
+    if (error.code === 11000) {
+      console.error("Duplicate key error:", error.keyValue);
+      return res.status(400).json({ 
+        message: "Email đã tồn tại trong hệ thống." 
+      });
+    }
+    
     return res.status(500).json({ 
       message: "Đăng nhập với Google thất bại. Vui lòng thử lại sau." 
     });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../redux/hooks';
-import { getProfile, login, logout, register } from '../redux/slices/authSlice';
+import { getProfile, googleLogin, login, logout, register } from '../redux/slices/authSlice';
 import { User } from '../types';
 
 interface LoginParams {
@@ -46,26 +46,36 @@ const useAuth = (): UseAuthResult => {
    * Kiểm tra trạng thái đăng nhập khi ứng dụng khởi động
    */
   useEffect(() => {
-    // Kiểm tra xem có cookie access_token không trước khi gọi API
+    // Tạm thời comment để debug register issue
+    /*
+    // Kiểm tra xem có cookie access_token hoặc localStorage access_token không
     const hasCookies = document.cookie.split(';').some(c => c.trim().startsWith('access_token='));
+    const hasLocalStorageToken = localStorage.getItem('access_token');
     
     const checkAuth = async () => {
       // Đánh dấu đã thử, để tránh retry liên tục khi lỗi
       checkAuthAttemptRef.current = true;
       
-      // Chỉ thực hiện kiểm tra nếu có cookie
-      if (hasCookies) {
+      // Thực hiện kiểm tra nếu có cookie hoặc localStorage token
+      if (hasCookies || hasLocalStorageToken) {
         try {
-          // Gọi API để kiểm tra cookie và lấy thông tin user
+          // Gọi API để kiểm tra token và lấy thông tin user
           await dispatch(getProfile()).unwrap();
           
           // Chỉ log thành công trong môi trường dev
           if (import.meta.env.DEV) {
-            console.log("Đã xác thực thành công");
+            console.log("Đã xác thực thành công từ", hasCookies ? "cookies" : "localStorage");
           }
         } catch {
-          // Không cần log lỗi khi chưa đăng nhập - đây là trạng thái bình thường
-          // if (import.meta.env.DEV) console.log('Chưa đăng nhập hoặc phiên đã hết hạn');
+          // Nếu token invalid, clear localStorage
+          if (hasLocalStorageToken && !hasCookies) {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user_info');
+            if (import.meta.env.DEV) {
+              console.log('Token localStorage invalid, đã clear');
+            }
+          }
         }
       }
     };
@@ -74,6 +84,8 @@ const useAuth = (): UseAuthResult => {
     if (!checkAuthAttemptRef.current) {
       checkAuth();
     }
+    */
+    console.log('Auto-check auth disabled for debugging');
   }, [dispatch]);
 
   /**

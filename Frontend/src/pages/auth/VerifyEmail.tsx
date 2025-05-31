@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { authApi } from '../../api';
+import axiosInstance from '../../api/axiosConfig';
 import { useAuth } from '../../hooks/useAuth';
 
 interface OtpTimerStorage {
@@ -245,6 +246,46 @@ const VerifyEmail: React.FC = () => {
       setIsVerifying(false);
     }
   };
+
+  // Thêm hàm refreshAccessToken
+  const refreshAccessToken = async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    if (!refreshToken) return false;
+    try {
+      const response = await axiosInstance.post('/auth/refresh-token', { refreshToken });
+      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
+      if (accessToken && newRefreshToken) {
+        localStorage.setItem('access_token', accessToken);
+        localStorage.setItem('refresh_token', newRefreshToken);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      // Nếu refresh thất bại, xóa luôn refreshToken
+      localStorage.removeItem('refresh_token');
+      return false;
+    }
+  };
+
+  // Trong useEffect kiểm tra accessToken khi load trang
+  useEffect(() => {
+    const checkAndRestoreToken = async () => {
+      const accessToken = localStorage.getItem('access_token');
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (!accessToken && refreshToken) {
+        // Thử refresh token
+        const ok = await refreshAccessToken();
+        if (!ok) {
+          toast.error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+          navigate('/login');
+        }
+      } else if (!accessToken && !refreshToken) {
+        toast.error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại');
+        navigate('/login');
+      }
+    };
+    checkAndRestoreToken();
+  }, [navigate]);
 
   // Nếu đã đăng nhập và đã xác thực email thì không hiện trang này
   if (user?.emailVerified) {

@@ -203,31 +203,9 @@ const Header: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.1 }}
               >
-                <Dropdown 
-                  menu={{ items: services }} 
-                  placement="bottomCenter" 
-                  className="custom-dropdown"
-                  trigger={['hover']}
-                  mouseEnterDelay={0.1}
-                  mouseLeaveDelay={0.2}
-                  dropdownRender={(menu) => (
-                    <div className="custom-dropdown-container">
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        {React.cloneElement(menu as React.ReactElement)}
-                      </motion.div>
-                    </div>
-                  )}
-                >
-                  <div className="dropdown-trigger">
-                    <span className={`nav-link ${getFontSize()} cursor-pointer ${isActive('/services')}`}>
-                      Dịch vụ
-                    </span>
-                  </div>
-                </Dropdown>
+                <Link to="/services" className={`nav-link ${getFontSize()} ${isActive('/services')}`}>
+                  Dịch vụ
+                </Link>
               </motion.div>
               
               <motion.div
@@ -369,20 +347,9 @@ const Header: React.FC = () => {
               </Link>
               
               <div className="py-2 border-b border-gray-100">
-                <div className="flex justify-between items-center text-blue-primary text-lg">
-                  <span>Dịch vụ</span>
-                </div>
-                <div className="mt-2 pl-4 flex flex-col space-y-2">
-                  <Link to="/services/consulting" className="text-gray-600 text-base">
-                    Tư vấn
-                  </Link>
-                  <Link to="/services/sti-test" className="text-gray-600 text-base">
-                    Xét nghiệm STIs
-                  </Link>
-                  <Link to="/services/price-list" className="text-gray-600 text-base">
-                    Bảng giá
-                  </Link>
-                </div>
+                <Link to="/services" className="text-blue-primary text-lg">
+                  Dịch vụ
+                </Link>
               </div>
               
               <div className="py-2 border-b border-gray-100">

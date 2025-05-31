@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { AxiosError } from 'axios';
+import axios, { AxiosError } from 'axios';
 import { authApi } from '../../api';
 import { User } from '../../types';
 
@@ -80,6 +80,11 @@ const handleApiError = (error: unknown): string => {
 
 // 1. Thêm các hàm helper để lưu/xóa accessToken, refreshToken vào localStorage
 const saveTokensToLocalStorage = (accessToken: string, refreshToken: string) => {
+  // Đảm bảo token là string, không phải object
+  if (typeof accessToken !== 'string' || typeof refreshToken !== 'string') {
+    console.error('[saveTokensToLocalStorage] Token không phải string:', { accessToken, refreshToken });
+    return;
+  }
   localStorage.setItem('access_token', accessToken);
   localStorage.setItem('refresh_token', refreshToken);
 };
@@ -109,7 +114,13 @@ export const register = createAsyncThunk(
   async (userData: { email: string; password: string; fullName: string; phone?: string; gender: string }, { rejectWithValue }) => {
     try {
       const response = await authApi.register(userData);
-      const { accessToken, refreshToken, ...user } = response.data.data;
+      const responseData = response.data.data;
+      const { accessToken, refreshToken, ...user } = responseData;
+      // Kiểm tra token phải là string
+      if (typeof accessToken !== 'string' || typeof refreshToken !== 'string') {
+        console.error('[register] Token không phải string:', { accessToken, refreshToken });
+        return rejectWithValue('Token trả về từ server không hợp lệ');
+      }
       saveTokensToLocalStorage(accessToken, refreshToken);
       localStorage.setItem('user_info', JSON.stringify(user));
       return { user, accessToken, refreshToken };
@@ -139,11 +150,46 @@ export const googleLogin = createAsyncThunk(
   'auth/googleLogin',
   async (token: string, { rejectWithValue }) => {
     try {
+      console.log('Sending Google token to backend...');
       const response = await authApi.googleLogin(token);
       const userData = response.data.data;
-      localStorage.setItem('user_info', JSON.stringify(userData));
-      return { user: userData };
+      
+      // Extract tokens từ response data
+      const { accessToken, refreshToken, ...userInfo } = userData;
+      
+      // Lưu tokens vào localStorage như login thông thường
+      if (accessToken && refreshToken) {
+        saveTokensToLocalStorage(accessToken, refreshToken);
+        console.log('Google OAuth tokens saved to localStorage');
+      }
+      
+      // Lưu thông tin user vào localStorage để persist
+      localStorage.setItem('user_info', JSON.stringify(userInfo));
+      
+      console.log('Google login success, user data:', userInfo);
+      return { user: userInfo, accessToken, refreshToken };
     } catch (error: unknown) {
+      console.error('Google login failed:', error);
+      
+      // Handle specific error types
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ECONNABORTED') {
+          return rejectWithValue('Kết nối bị gián đoạn. Vui lòng kiểm tra mạng và thử lại.');
+        }
+        
+        if (error.response?.status === 408) {
+          return rejectWithValue('Xác thực Google mất quá nhiều thời gian. Vui lòng thử lại.');
+        }
+        
+        if (error.response?.status === 400) {
+          return rejectWithValue('Token Google không hợp lệ. Vui lòng thử đăng nhập lại.');
+        }
+        
+        if (error.response?.data?.message) {
+          return rejectWithValue(error.response.data.message);
+        }
+      }
+      
       return rejectWithValue(handleApiError(error));
     }
   }

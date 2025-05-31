@@ -35,7 +35,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser()); // Thêm cookie-parser để đọc cookie
 
-// Cấu hình CORS
+// Cấu hình CORS với Cross-Origin-Opener-Policy
 app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -49,8 +49,23 @@ app.use(cors({
   },
   credentials: true, // Quan trọng: cho phép gửi cookie
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200 // Để support legacy browsers
 }));
+
+// Thêm headers để fix COOP policy cho Google OAuth
+app.use((req, res, next) => {
+  // Set Cross-Origin-Opener-Policy để support Google OAuth
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  
+  // Additional security headers
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  next();
+});
 
 // Phục vụ tài liệu Swagger
 const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
