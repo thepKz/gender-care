@@ -21,6 +21,13 @@ export const sendEmail = async (
   html: string
 ): Promise<void> => {
   try {
+    // Kiểm tra credentials trước khi gửi
+    if (!process.env.MAIL_USER || !process.env.MAIL_PASSWORD) {
+      console.warn('⚠️  Email credentials not configured. Email sending skipped.');
+      console.log(`Would send email to: ${to}, subject: ${subject}`);
+      return;
+    }
+
     const mailOptions = {
       from: `"Gender Healthcare" <${process.env.MAIL_USER}>`,
       to,
@@ -29,10 +36,11 @@ export const sendEmail = async (
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Email sent successfully to ${to}`);
+    console.log(`✅ Email sent successfully to ${to}`);
   } catch (error) {
-    console.error("Error sending email:", error);
-    throw error;
+    console.error("❌ Error sending email:", error);
+    // Không throw error để tránh crash app
+    console.log(`📧 Email sending failed but app continues running`);
   }
 };
 

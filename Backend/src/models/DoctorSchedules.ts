@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 // Interface cho TimeSlots (embedded document)
 export interface ITimeSlots {
   slotTime: string;
-  isBooked: boolean;
+  status: string; // "Free", "Booked", "Absent"
 }
 
 // Interface cho weekScheduleObject (embedded document) 
@@ -26,9 +26,10 @@ const TimeSlotsSchema = new mongoose.Schema<ITimeSlots>({
     type: String, 
     required: true 
   },
-  isBooked: { 
-    type: Boolean, 
-    default: false 
+  status: { 
+    type: String,
+    enum: ["Free", "Booked", "Absent"],
+    default: "Free"
   }
 }, { _id: true });
 
