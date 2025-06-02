@@ -17,6 +17,8 @@ tags:
     description: Quản lý người dùng
   - name: OTP
     description: Quản lý mã OTP và xác thực
+  - name: Appointment
+    description: Quản lý cuộc hẹn và đặt lịch
 
 paths:
   /auth/register:
@@ -963,6 +965,415 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /appointments:
+    get:
+      tags:
+        - Appointment
+      summary: Lấy danh sách cuộc hẹn
+      description: |
+        Lấy danh sách cuộc hẹn với quyền truy cập theo role:
+        - **Customer/Guest**: Chỉ xem appointments của mình
+        - **Staff**: Có thể xem TẤT CẢ appointments trong hệ thống
+        - **Admin/Manager/Doctor**: Xem tất cả appointments hoặc filter theo userId
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Số trang
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Số lượng bản ghi mỗi trang
+          required: false
+          schema:
+            type: integer
+            default: 10
+        - name: status
+          in: query
+          description: Lọc theo trạng thái
+          required: false
+          schema:
+            type: string
+            enum: [pending, confirmed, completed, cancelled]
+        - name: profileId
+          in: query
+          description: Lọc theo profile ID
+          required: false
+          schema:
+            type: string
+        - name: userId
+          in: query
+          description: Lọc theo user tạo appointment (chỉ admin/staff/manager/doctor)
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AppointmentListItem'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      tags:
+        - Appointment
+      summary: Đặt lịch hẹn mới
+      description: Tạo cuộc hẹn mới với bác sĩ
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - profileId
+                - slotId
+                - appointmentDate
+                - appointmentTime
+                - appointmentType
+                - typeLocation
+              properties:
+                profileId:
+                  type: string
+                  description: ID của profile người khám
+                serviceId:
+                  type: string
+                  description: ID dịch vụ (chọn serviceId hoặc packageId)
+                packageId:
+                  type: string
+                  description: ID gói dịch vụ (chọn serviceId hoặc packageId)
+                slotId:
+                  type: string
+                  description: ID khung giờ đặt lịch
+                appointmentDate:
+                  type: string
+                  format: date
+                  description: Ngày hẹn
+                appointmentTime:
+                  type: string
+                  description: Giờ hẹn (format HH:mm)
+                  example: "09:00"
+                appointmentType:
+                  type: string
+                  enum: [consultation, test, other]
+                  description: Loại cuộc hẹn
+                typeLocation:
+                  type: string
+                  enum: [clinic, home, Online]
+                  description: Địa điểm thực hiện
+                address:
+                  type: string
+                  description: Địa chỉ cụ thể (nếu có)
+                description:
+                  type: string
+                  description: Mô tả vấn đề
+                notes:
+                  type: string
+                  description: Ghi chú thêm
+      responses:
+        '201':
+          description: Đặt lịch thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Đặt lịch hẹn thành công
+                  data:
+                    $ref: '#/components/schemas/Appointment'
+        '400':
+          description: Dữ liệu không hợp lệ hoặc slot đã được đặt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy profile/service/slot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /appointments/{id}:
+    get:
+      tags:
+        - Appointment
+      summary: Lấy chi tiết cuộc hẹn
+      description: Lấy thông tin chi tiết của một cuộc hẹn
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID của cuộc hẹn
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lấy thông tin thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AppointmentDetail'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy cuộc hẹn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      tags:
+        - Appointment
+      summary: Cập nhật cuộc hẹn
+      description: Cập nhật thông tin cuộc hẹn (chỉ với status pending/confirmed)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID của cuộc hẹn
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                appointmentDate:
+                  type: string
+                  format: date
+                appointmentTime:
+                  type: string
+                  example: "10:00"
+                typeLocation:
+                  type: string
+                  enum: [clinic, home, Online]
+                address:
+                  type: string
+                description:
+                  type: string
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Cập nhật cuộc hẹn thành công
+                  data:
+                    $ref: '#/components/schemas/Appointment'
+        '400':
+          description: Không thể cập nhật cuộc hẹn đã hoàn thành/hủy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy cuộc hẹn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      tags:
+        - Appointment
+      summary: Hủy cuộc hẹn
+      description: Hủy cuộc hẹn và giải phóng slot thời gian
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID của cuộc hẹn
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Hủy cuộc hẹn thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Hủy cuộc hẹn thành công
+        '400':
+          description: Không thể hủy cuộc hẹn đã hoàn thành/hủy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy cuộc hẹn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /appointments/{id}/status:
+    put:
+      tags:
+        - Appointment
+      summary: Thay đổi trạng thái cuộc hẹn
+      description: Thay đổi trạng thái cuộc hẹn (chỉ dành cho staff/doctor/manager/admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID của cuộc hẹn
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [pending, confirmed, completed, cancelled]
+                  description: Trạng thái mới
+      responses:
+        '200':
+          description: Cập nhật trạng thái thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Cập nhật trạng thái cuộc hẹn thành công
+                  data:
+                    $ref: '#/components/schemas/Appointment'
+        '400':
+          description: Chuyển đổi trạng thái không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền thay đổi trạng thái
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy cuộc hẹn
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1078,3 +1489,215 @@ components:
           enum: [success, failed]
         failReason:
           type: string
+
+    Appointment:
+      type: object
+      properties:
+        _id:
+          type: string
+        createdByUserId:
+          type: string
+        profileId:
+          type: string
+        serviceId:
+          type: string
+        packageId:
+          type: string
+        slotId:
+          type: string
+        appointmentDate:
+          type: string
+          format: date
+        appointmentTime:
+          type: string
+          example: "09:00"
+        appointmentType:
+          type: string
+          enum: [consultation, test, other]
+        typeLocation:
+          type: string
+          enum: [clinic, home, Online]
+        address:
+          type: string
+        description:
+          type: string
+        notes:
+          type: string
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AppointmentWithDetails:
+      allOf:
+        - $ref: '#/components/schemas/Appointment'
+        - type: object
+          properties:
+            profile:
+              type: object
+              properties:
+                _id:
+                  type: string
+                fullName:
+                  type: string
+                gender:
+                  type: string
+                phone:
+                  type: string
+            service:
+              type: object
+              properties:
+                _id:
+                  type: string
+                serviceName:
+                  type: string
+                price:
+                  type: number
+                serviceType:
+                  type: string
+            package:
+              type: object
+              properties:
+                _id:
+                  type: string
+                name:
+                  type: string
+                price:
+                  type: number
+            doctor:
+              type: object
+              properties:
+                _id:
+                  type: string
+                fullName:
+                  type: string
+                avatar:
+                  type: string
+                phone:
+                  type: string
+
+    AppointmentDetail:
+      allOf:
+        - $ref: '#/components/schemas/AppointmentWithDetails'
+        - type: object
+          properties:
+            doctor:
+              type: object
+              properties:
+                _id:
+                  type: string
+                bio:
+                  type: string
+                experience:
+                  type: number
+                rating:
+                  type: number
+                specialization:
+                  type: string
+                user:
+                  type: object
+                  properties:
+                    _id:
+                      type: string
+                    fullName:
+                      type: string
+                    avatar:
+                      type: string
+                    phone:
+                      type: string
+
+    Pagination:
+      type: object
+      properties:
+        current:
+          type: integer
+          description: Trang hiện tại
+        pageSize:
+          type: integer
+          description: Số bản ghi mỗi trang
+        total:
+          type: integer
+          description: Tổng số bản ghi
+        totalPages:
+          type: integer
+          description: Tổng số trang
+
+    AppointmentListItem:
+      type: object
+      properties:
+        _id:
+          type: string
+        appointmentDate:
+          type: string
+          format: date
+        appointmentTime:
+          type: string
+          example: "09:00"
+        appointmentType:
+          type: string
+          enum: [consultation, test, other]
+        typeLocation:
+          type: string
+          enum: [clinic, home, Online]
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled]
+        profile:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+            fullName:
+              type: string
+        service:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+            serviceName:
+              type: string
+            price:
+              type: number
+        package:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+            name:
+              type: string
+            price:
+              type: number
+        doctor:
+          type: object
+          nullable: true
+          properties:
+            _id:
+              type: string
+            fullName:
+              type: string
+            avatar:
+              type: string
+        createdAt:
+          type: string
+          format: date-time
+        createdByUser:
+          type: object
+          nullable: true
+          description: Thông tin user tạo appointment (chỉ hiển thị cho admin/staff/manager/doctor)
+          properties:
+            _id:
+              type: string
+            fullName:
+              type: string
+            email:
+              type: string
+            phone:
+              type: string

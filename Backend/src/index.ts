@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
-import { authRoutes, loginHistoryRoutes, userRoutes } from "./routes";
+import { authRoutes, loginHistoryRoutes, userRoutes, appointmentRoutes } from "./routes";
 
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
 dotenv.config();
@@ -40,7 +40,7 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
@@ -58,12 +58,12 @@ app.use((req, res, next) => {
   // Set Cross-Origin-Opener-Policy để support Google OAuth
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  
+
   // Additional security headers
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
+
   next();
 });
 
@@ -91,6 +91,7 @@ app.use('/api', apiRouter);
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/users', userRoutes);
 apiRouter.use('/login-history', loginHistoryRoutes);
+apiRouter.use('/appointments', appointmentRoutes);
 
 // Middleware xử lý lỗi
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -104,6 +105,8 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Khởi động server
 app.listen(PORT, () => {
   console.log(`Server đang chạy tại http://localhost:${PORT}`);
+  console.log(`Swagger đang chạy tại http://localhost:${PORT}/api-docs`);
+
 });
 
 export default app;
