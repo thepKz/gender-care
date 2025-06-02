@@ -6,6 +6,10 @@ info:
   contact:
     email: admin@genderhealthcare.com
 
+# THÊM GLOBAL SECURITY ĐỂ HIỆN NÚT AUTHORIZE TRONG SWAGGER UI
+security:
+  - bearerAuth: []
+
 servers:
   - url: /api
     description: API prefix
@@ -19,6 +23,8 @@ tags:
     description: Quản lý mã OTP và xác thực
   - name: Doctor
     description: Quản lý bác sĩ
+  - name: Doctor Schedules
+    description: Quản lý lịch làm việc bác sĩ
 
 paths:
   /auth/register:
@@ -1049,6 +1055,345 @@ paths:
         '200':
           description: Đã xóa bác sĩ
 
+  # ===== DOCTOR SCHEDULE APIs =====
+  /doctors/{id}/schedules:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Xem lịch làm việc của bác sĩ (PUBLIC)
+      description: Lấy tất cả lịch làm việc của bác sĩ - không cần đăng nhập để customer có thể xem
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của bác sĩ
+      responses:
+        '200':
+          description: Lấy lịch làm việc thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy lịch làm việc thành công"
+                  data:
+                    $ref: '#/components/schemas/DoctorSchedule'
+        '404':
+          description: Bác sĩ chưa có lịch làm việc nào
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Doctor Schedules
+      summary: Tạo lịch làm việc cho bác sĩ (STAFF ONLY)
+      description: Staff tạo lịch làm việc cho bác sĩ theo ngày - tự động tạo 8 slots cố định
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của bác sĩ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - date
+              properties:
+                date:
+                  type: string
+                  format: date
+                  example: "2024-01-15"
+                  description: Ngày làm việc (YYYY-MM-DD)
+      responses:
+        '201':
+          description: Tạo lịch làm việc thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tạo lịch làm việc thành công! Đã tạo 8 slots từ 7h-17h"
+                  data:
+                    $ref: '#/components/schemas/DoctorSchedule'
+        '400':
+          description: Lỗi dữ liệu đầu vào hoặc ngày đã có lịch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền (chỉ staff)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Doctor Schedules
+      summary: Cập nhật trạng thái booking slot (STAFF ONLY)
+      description: Cập nhật trạng thái đã đặt/chưa đặt của slot thời gian cụ thể
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của bác sĩ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - date
+                - slotId
+                - isBooked
+              properties:
+                date:
+                  type: string
+                  format: date
+                  example: "2024-01-15"
+                slotId:
+                  type: string
+                  example: "507f1f77bcf86cd799439011"
+                  description: ID của slot cần cập nhật
+                isBooked:
+                  type: boolean
+                  example: true
+                  description: true = đã đặt, false = chưa đặt
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Đặt lịch thành công"
+                  data:
+                    $ref: '#/components/schemas/DoctorSchedule'
+        '400':
+          description: Lỗi dữ liệu đầu vào
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền (chỉ staff)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /doctors/{id}/schedules/{scheduleId}:
+    delete:
+      tags:
+        - Doctor Schedules
+      summary: Xóa lịch làm việc của một ngày (STAFF ONLY)
+      description: Xóa toàn bộ lịch làm việc của bác sĩ trong một ngày cụ thể
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của bác sĩ
+        - in: path
+          name: scheduleId
+          required: true
+          schema:
+            type: string
+          description: ID của schedule ngày cần xóa
+      responses:
+        '200':
+          description: Xóa lịch thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Xóa lịch làm việc thành công"
+                  data:
+                    $ref: '#/components/schemas/DoctorSchedule'
+        '400':
+          description: Lỗi khi xóa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền (chỉ staff)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy lịch để xóa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /doctors/{id}/available-slots:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Xem slot trống của bác sĩ theo ngày (PUBLIC)
+      description: Lấy danh sách slot chưa được đặt của bác sĩ trong ngày cụ thể - không cần đăng nhập
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của bác sĩ
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2024-01-15"
+          description: Ngày cần xem slot trống (YYYY-MM-DD)
+      responses:
+        '200':
+          description: Lấy slot trống thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tìm thấy 5 slot trống trong ngày 2024-01-15"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AvailableSlot'
+        '400':
+          description: Thiếu tham số date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /doctors/available:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Tìm tất cả bác sĩ có lịch trống theo ngày/timeSlot (PUBLIC)
+      description: Lấy danh sách tất cả bác sĩ có lịch trống trong ngày cụ thể, có thể lọc theo khung giờ - không cần đăng nhập
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2024-01-15"
+          description: Ngày cần tìm bác sĩ có lịch trống (YYYY-MM-DD)
+        - in: query
+          name: timeSlot
+          required: false
+          schema:
+            type: string
+          example: "07:00-08:00"
+          description: Khung giờ cụ thể (tuỳ chọn). Nếu không có sẽ tìm tất cả bác sĩ có ít nhất 1 slot trống
+      responses:
+        '200':
+          description: Tìm bác sĩ có lịch trống thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tìm thấy 3 bác sĩ có lịch trống trong ngày 2024-01-15"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AvailableDoctor'
+                  searchCriteria:
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                        example: "2024-01-15"
+                      timeSlot:
+                        type: string
+                        example: "07:00-08:00"
+                      totalFound:
+                        type: integer
+                        example: 3
+        '400':
+          description: Thiếu tham số date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1182,3 +1527,112 @@ components:
           type: string
         certificate:
           type: string
+
+    # ===== DOCTOR SCHEDULE SCHEMAS =====
+    TimeSlot:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+        slotTime:
+          type: string
+          example: "07:00-08:00"
+          description: Khung giờ làm việc
+        isBooked:
+          type: boolean
+          example: false
+          description: true = đã được đặt, false = còn trống
+
+    WeekSchedule:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439012"
+        dayOfWeek:
+          type: string
+          format: date-time
+          example: "2024-01-15T00:00:00.000Z"
+          description: Ngày làm việc
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+          description: Danh sách 8 slot thời gian trong ngày
+
+    DoctorSchedule:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439013"
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        weekSchedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeekSchedule'
+          description: Lịch làm việc theo từng ngày
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AvailableSlot:
+      type: object
+      properties:
+        slotId:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+          description: ID của slot trống
+        slotTime:
+          type: string
+          example: "07:00-08:00"
+          description: Khung giờ trống
+        isBooked:
+          type: boolean
+          example: false
+          description: Luôn là false vì chỉ trả về slot trống
+
+    AvailableDoctor:
+      type: object
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        doctorInfo:
+          type: object
+          properties:
+            fullName:
+              type: string
+              example: "Dr. Nguyễn Văn A"
+            email:
+              type: string
+              example: "dr.nguyen@genderhealthcare.com"
+            avatar:
+              type: string
+              example: "https://example.com/avatar.jpg"
+            specialization:
+              type: string
+              example: "Nội khoa"
+            experience:
+              type: number
+              example: 5
+            rating:
+              type: number
+              example: 4.5
+        availableSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailableSlot'
+          description: Danh sách slot trống của bác sĩ
+        totalAvailableSlots:
+          type: integer
+          example: 3
+          description: Tổng số slot trống
