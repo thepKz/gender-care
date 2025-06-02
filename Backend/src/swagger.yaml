@@ -17,6 +17,8 @@ tags:
     description: Quản lý người dùng
   - name: OTP
     description: Quản lý mã OTP và xác thực
+  - name: Doctor
+    description: Quản lý bác sĩ
 
 paths:
   /auth/register:
@@ -963,6 +965,90 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /doctors:
+    get:
+      tags:
+        - Doctor
+      summary: Lấy danh sách tất cả bác sĩ
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Doctor'
+
+    post:
+      tags:
+        - Doctor
+      summary: Tạo bác sĩ mới
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Doctor'
+      responses:
+        '201':
+          description: Đã tạo bác sĩ
+
+  /doctors/{id}:
+    get:
+      tags:
+        - Doctor
+      summary: Lấy thông tin bác sĩ theo ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Doctor'
+        '404':
+          description: Không tìm thấy bác sĩ
+
+    put:
+      tags:
+        - Doctor
+      summary: Cập nhật thông tin bác sĩ
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Doctor'
+      responses:
+        '200':
+          description: Đã cập nhật bác sĩ
+
+    delete:
+      tags:
+        - Doctor
+      summary: Xóa bác sĩ
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đã xóa bác sĩ
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1077,4 +1163,22 @@ components:
           type: string
           enum: [success, failed]
         failReason:
+          type: string
+
+    Doctor:
+      type: object
+      properties:
+        userId:
+          type: string
+        bio:
+          type: string
+        experience:
+          type: number
+        rating:
+          type: number
+        specialization:
+          type: string
+        education:
+          type: string
+        certificate:
           type: string

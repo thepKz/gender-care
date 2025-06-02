@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
-import { authRoutes, loginHistoryRoutes, userRoutes } from "./routes";
+import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes } from "./routes";
 
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
 dotenv.config();
@@ -91,7 +91,7 @@ app.use('/api', apiRouter);
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/users', userRoutes);
 apiRouter.use('/login-history', loginHistoryRoutes);
-
+apiRouter.use('/doctors', doctorRoutes);
 // Middleware xử lý lỗi
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
