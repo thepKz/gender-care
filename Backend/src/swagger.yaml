@@ -19,6 +19,10 @@ tags:
     description: Quản lý mã OTP và xác thực
   - name: Doctor
     description: Quản lý bác sĩ
+  - name: Service
+    description: Quản lý dịch vụ (Chỉ Manager)
+  - name: Service Package
+    description: Quản lý gói dịch vụ (Chỉ Manager)
 
 paths:
   /auth/register:
@@ -1049,6 +1053,673 @@ paths:
         '200':
           description: Đã xóa bác sĩ
 
+  /services:
+    get:
+      tags:
+        - Service
+      summary: Lấy danh sách dịch vụ
+      description: Lấy danh sách tất cả dịch vụ với phân trang và bộ lọc (Chỉ Manager)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Số lượng item mỗi trang
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            default: createdAt
+          description: Trường để sắp xếp
+        - in: query
+          name: sortOrder
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Thứ tự sắp xếp
+        - in: query
+          name: serviceType
+          schema:
+            type: string
+            enum: [consultation, test, treatment, other]
+          description: Lọc theo loại dịch vụ
+        - in: query
+          name: availableAt
+          schema:
+            type: string
+            enum: [Athome, Online, Center]
+          description: Lọc theo địa điểm cung cấp
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Tìm kiếm theo tên dịch vụ
+      responses:
+        '200':
+          description: Danh sách dịch vụ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      services:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Service'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập (không phải Manager)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Service
+      summary: Tạo dịch vụ mới
+      description: Tạo một dịch vụ mới (Chỉ Manager)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - serviceName
+                - price
+                - description
+                - serviceType
+                - availableAt
+              properties:
+                serviceName:
+                  type: string
+                  description: Tên dịch vụ
+                  example: "Tư vấn sức khỏe sinh sản"
+                price:
+                  type: number
+                  minimum: 0
+                  description: Giá dịch vụ
+                  example: 500000
+                description:
+                  type: string
+                  description: Mô tả dịch vụ
+                  example: "Tư vấn chuyên sâu về sức khỏe sinh sản cho phụ nữ"
+                serviceType:
+                  type: string
+                  enum: [consultation, test, treatment, other]
+                  description: Loại dịch vụ
+                  example: "consultation"
+                availableAt:
+                  type: array
+                  items:
+                    type: string
+                    enum: [Athome, Online, Center]
+                  description: Các địa điểm cung cấp dịch vụ
+                  example: ["Online", "Center"]
+      responses:
+        '201':
+          description: Tạo dịch vụ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Service'
+                  message:
+                    type: string
+                    example: "Service created successfully"
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập (không phải Manager)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Tên dịch vụ đã tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /services/{id}:
+    put:
+      tags:
+        - Service
+      summary: Cập nhật dịch vụ
+      description: Cập nhật thông tin dịch vụ theo ID (Chỉ Manager)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của dịch vụ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                serviceName:
+                  type: string
+                  description: Tên dịch vụ
+                  example: "Tư vấn sức khỏe sinh sản"
+                price:
+                  type: number
+                  minimum: 0
+                  description: Giá dịch vụ
+                  example: 500000
+                description:
+                  type: string
+                  description: Mô tả dịch vụ
+                  example: "Tư vấn chuyên sâu về sức khỏe sinh sản cho phụ nữ"
+                serviceType:
+                  type: string
+                  enum: [consultation, test, treatment, other]
+                  description: Loại dịch vụ
+                  example: "consultation"
+                availableAt:
+                  type: array
+                  items:
+                    type: string
+                    enum: [Athome, Online, Center]
+                  description: Các địa điểm cung cấp dịch vụ
+                  example: ["Online", "Center"]
+      responses:
+        '200':
+          description: Cập nhật dịch vụ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Service'
+                  message:
+                    type: string
+                    example: "Service updated successfully"
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập (không phải Manager)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy dịch vụ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Tên dịch vụ đã tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Service
+      summary: Xóa dịch vụ
+      description: Xóa mềm dịch vụ theo ID (Chỉ Manager)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của dịch vụ
+      responses:
+        '200':
+          description: Xóa dịch vụ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Service deleted successfully"
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập (không phải Manager)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy dịch vụ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /service-packages:
+    get:
+      tags:
+        - Service Package
+      summary: Lấy danh sách gói dịch vụ
+      description: Lấy danh sách tất cả gói dịch vụ với phân trang và bộ lọc (Chỉ Manager)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Số lượng item mỗi trang
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            default: createdAt
+          description: Trường để sắp xếp
+        - in: query
+          name: sortOrder
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Thứ tự sắp xếp
+        - in: query
+          name: isActive
+          schema:
+            type: integer
+            enum: [0, 1]
+          description: Lọc theo trạng thái hoạt động
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Tìm kiếm theo tên gói dịch vụ
+      responses:
+        '200':
+          description: Danh sách gói dịch vụ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      packages:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ServicePackage'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập (không phải Manager)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Service Package
+      summary: Tạo gói dịch vụ mới
+      description: Tạo một gói dịch vụ mới (Chỉ Manager)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - description
+                - priceBeforeDiscount
+                - price
+                - serviceIds
+              properties:
+                name:
+                  type: string
+                  description: Tên gói dịch vụ
+                  example: "Gói chăm sóc sức khỏe sinh sản toàn diện"
+                description:
+                  type: string
+                  description: Mô tả gói dịch vụ
+                  example: "Gói dịch vụ bao gồm tư vấn, khám và xét nghiệm"
+                priceBeforeDiscount:
+                  type: number
+                  minimum: 0
+                  description: Giá gốc trước giảm giá
+                  example: 2000000
+                price:
+                  type: number
+                  minimum: 0
+                  description: Giá sau giảm giá
+                  example: 1500000
+                serviceIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Danh sách ID của các dịch vụ trong gói
+                  example: ["64a1b2c3d4e5f6g7h8i9j0k1", "64a1b2c3d4e5f6g7h8i9j0k2"]
+      responses:
+        '201':
+          description: Tạo gói dịch vụ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ServicePackage'
+                  message:
+                    type: string
+                    example: "Service package created successfully"
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập (không phải Manager)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Tên gói dịch vụ đã tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /service-packages/{id}:
+    put:
+      tags:
+        - Service Package
+      summary: Cập nhật gói dịch vụ
+      description: Cập nhật thông tin gói dịch vụ theo ID (Chỉ Manager)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của gói dịch vụ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Tên gói dịch vụ
+                  example: "Gói chăm sóc sức khỏe sinh sản toàn diện"
+                description:
+                  type: string
+                  description: Mô tả gói dịch vụ
+                  example: "Gói dịch vụ bao gồm tư vấn, khám và xét nghiệm"
+                priceBeforeDiscount:
+                  type: number
+                  minimum: 0
+                  description: Giá gốc trước giảm giá
+                  example: 2000000
+                price:
+                  type: number
+                  minimum: 0
+                  description: Giá sau giảm giá
+                  example: 1500000
+                serviceIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Danh sách ID của các dịch vụ trong gói
+                  example: ["64a1b2c3d4e5f6g7h8i9j0k1", "64a1b2c3d4e5f6g7h8i9j0k2"]
+                isActive:
+                  type: integer
+                  enum: [0, 1]
+                  description: Trạng thái hoạt động (1 = active, 0 = inactive)
+                  example: 1
+      responses:
+        '200':
+          description: Cập nhật gói dịch vụ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ServicePackage'
+                  message:
+                    type: string
+                    example: "Service package updated successfully"
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập (không phải Manager)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy gói dịch vụ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Tên gói dịch vụ đã tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Service Package
+      summary: Xóa gói dịch vụ
+      description: Xóa gói dịch vụ theo ID (Chỉ Manager)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của gói dịch vụ
+      responses:
+        '200':
+          description: Xóa gói dịch vụ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Service package deleted successfully"
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập (không phải Manager)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy gói dịch vụ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1182,3 +1853,63 @@ components:
           type: string
         certificate:
           type: string
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        description:
+          type: string
+        type:
+          type: string
+        availableAt:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ServicePackage:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        priceBeforeDiscount:
+          type: number
+        price:
+          type: number
+        serviceIds:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer

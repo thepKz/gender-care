@@ -104,8 +104,8 @@ export interface IServicePackage {
   _id: string;
   name: string;
   description: string;
+  priceBeforeDiscount: number;
   price: number;
-  discountPrice: number;
   serviceIds: string[];
   isActive: boolean;
   createdAt: Date;
