@@ -45,6 +45,12 @@ router.post('/:id/book-slot', verifyToken, verifyStaff, doctorScheduleController
 // STAFF ONLY: Tạo lịch cho bác sĩ (chỉ staff/manager/admin)
 router.post('/:id/schedules', verifyToken, verifyStaff, doctorScheduleController.createDoctorSchedule);
 
+// STAFF ONLY: Tạo lịch hàng loạt cho nhiều ngày (BULK CREATION)
+router.post('/:id/schedules/bulk-days', verifyToken, verifyStaff, doctorScheduleController.createBulkDoctorScheduleForDays);
+
+// STAFF ONLY: Tạo lịch hàng loạt cho cả tháng - trừ T7, CN (BULK CREATION)
+router.post('/:id/schedules/bulk-month', verifyToken, verifyStaff, doctorScheduleController.createBulkDoctorScheduleForMonth);
+
 // STAFF ONLY: Cập nhật booking status (khi customer đặt lịch)
 router.put('/:id/schedules', verifyToken, verifyStaff, doctorScheduleController.updateDoctorSchedule);
 

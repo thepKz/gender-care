@@ -382,4 +382,117 @@ export const bookSlotForCustomer = async (req: Request, res: Response): Promise<
       message: error.message || 'Đã xảy ra lỗi khi đặt lịch cho customer' 
     });
   }
+};
+
+// POST /doctors/:id/schedules/bulk-days - Staff tạo lịch cho nhiều ngày cụ thể
+export const createBulkDoctorScheduleForDays = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { dates } = req.body;
+
+    // Validation
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      res.status(400).json({ 
+        message: 'Vui lòng cung cấp mảng dates (YYYY-MM-DD)' 
+      });
+      return;
+    }
+
+    if (dates.length > 31) {
+      res.status(400).json({ 
+        message: 'Không thể tạo lịch cho quá 31 ngày một lúc' 
+      });
+      return;
+    }
+
+    // Validate each date format
+    const invalidDates = dates.filter((date: string) => {
+      const dateObj = new Date(date);
+      return isNaN(dateObj.getTime()) || !/^\d{4}-\d{2}-\d{2}$/.test(date);
+    });
+
+    if (invalidDates.length > 0) {
+      res.status(400).json({ 
+        message: `Định dạng ngày không hợp lệ: ${invalidDates.join(', ')}. Vui lòng sử dụng YYYY-MM-DD` 
+      });
+      return;
+    }
+
+    const result = await doctorService.createBulkDoctorScheduleForDays(id, dates);
+
+    if (result.success) {
+      res.status(201).json({
+        message: `Tạo lịch thành công cho ${result.successCount}/${result.totalRequested} ngày`,
+        data: result
+      });
+    } else {
+      res.status(400).json({
+        message: 'Không thể tạo lịch cho bất kỳ ngày nào',
+        data: result
+      });
+    }
+
+  } catch (error: any) {
+    console.log('Error in createBulkDoctorScheduleForDays:', error);
+    res.status(400).json({ 
+      message: error.message || 'Đã xảy ra lỗi khi tạo lịch cho nhiều ngày' 
+    });
+  }
+};
+
+// POST /doctors/:id/schedules/bulk-month - Staff tạo lịch cho cả tháng (trừ T7, CN)
+export const createBulkDoctorScheduleForMonth = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { month, year } = req.body;
+
+    // Validation
+    if (!month || !year) {
+      res.status(400).json({ 
+        message: 'Vui lòng cung cấp month (1-12) và year (2024-2030)' 
+      });
+      return;
+    }
+
+    if (typeof month !== 'number' || typeof year !== 'number') {
+      res.status(400).json({ 
+        message: 'Month và year phải là số' 
+      });
+      return;
+    }
+
+    if (month < 1 || month > 12) {
+      res.status(400).json({ 
+        message: 'Month phải từ 1-12' 
+      });
+      return;
+    }
+
+    if (year < 2024 || year > 2030) {
+      res.status(400).json({ 
+        message: 'Year phải từ 2024-2030' 
+      });
+      return;
+    }
+
+    const result = await doctorService.createBulkDoctorScheduleForMonth(id, month, year);
+
+    if (result.success) {
+      res.status(201).json({
+        message: `Tạo lịch thành công cho tháng ${month}/${year}: ${result.successCount}/${result.totalWorkingDays} ngày làm việc (đã loại bỏ ${result.weekendsExcluded} ngày cuối tuần)`,
+        data: result
+      });
+    } else {
+      res.status(400).json({
+        message: `Không thể tạo lịch cho tháng ${month}/${year}`,
+        data: result
+      });
+    }
+
+  } catch (error: any) {
+    console.log('Error in createBulkDoctorScheduleForMonth:', error);
+    res.status(400).json({ 
+      message: error.message || 'Đã xảy ra lỗi khi tạo lịch cho cả tháng' 
+    });
+  }
 }; 

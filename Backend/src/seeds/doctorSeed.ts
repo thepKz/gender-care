@@ -2,30 +2,17 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import User from '../models/User';
 import Doctor from '../models/Doctor';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
 
 const seedDoctors = async () => {
   try {
-    // Kết nối MongoDB
-    if (!process.env.MONGO_URI) {
-      throw new Error('MONGO_URI không được định nghĩa trong .env');
+    // Kiểm tra đã có doctor nào chưa
+    const existingDoctors = await Doctor.countDocuments();
+    if (existingDoctors > 0) {
+      console.log('✅ Doctor seed data đã tồn tại, bỏ qua việc tạo mới');
+      return;
     }
-    
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('📁 Đã kết nối MongoDB thành công');
 
-    // Xóa dữ liệu bác sĩ cũ (nếu có)
-    const existingDoctors = await Doctor.find().populate('userId');
-    for (const doctor of existingDoctors) {
-      if (doctor.userId) {
-        await User.findByIdAndDelete(doctor.userId);
-      }
-      await Doctor.findByIdAndDelete(doctor._id);
-    }
-    console.log('🗑️  Đã xóa dữ liệu bác sĩ demo cũ');
+    console.log('🌱 Đang tạo Doctor seed data...');
 
     // Data demo cho 5 bác sĩ
     const doctorsData = [
@@ -158,22 +145,15 @@ const seedDoctors = async () => {
 
     console.log('🎉 Hoàn thành seed 5 bác sĩ demo!');
     console.log('\n📋 Thông tin đăng nhập:');
-    console.log('Email: dr.nguyen@genderhealthcare.com | Password: doctor123');
-    console.log('Email: dr.le@genderhealthcare.com | Password: doctor123');
-    console.log('Email: dr.tran@genderhealthcare.com | Password: doctor123');
-    console.log('Email: dr.pham@genderhealthcare.com | Password: doctor123');
-    console.log('Email: dr.hoang@genderhealthcare.com | Password: doctor123');
+    console.log('   Email: dr.nguyen@genderhealthcare.com | Password: doctor123');
+    console.log('   Email: dr.le@genderhealthcare.com | Password: doctor123');
+    console.log('   Email: dr.tran@genderhealthcare.com | Password: doctor123');
+    console.log('   Email: dr.pham@genderhealthcare.com | Password: doctor123');
+    console.log('   Email: dr.hoang@genderhealthcare.com | Password: doctor123');
 
-    process.exit(0);
   } catch (error) {
     console.error('❌ Lỗi khi seed doctors:', error);
-    process.exit(1);
   }
 };
-
-// Chạy seed nếu file được gọi trực tiếp
-if (require.main === module) {
-  seedDoctors();
-}
 
 export default seedDoctors; 

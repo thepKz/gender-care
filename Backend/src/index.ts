@@ -7,6 +7,8 @@ import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes } from "./routes";
+import doctorQARoutes from "./routes/doctorQARoutes";
+import { runAllSeeds } from "./seeds";
 
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
 dotenv.config();
@@ -76,6 +78,10 @@ const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI as string);
     console.log(`MongoDB đã kết nối: ${conn.connection.host}`);
+    
+    // Chạy seeds sau khi kết nối database thành công
+    await runAllSeeds();
+    
   } catch (error) {
     console.error(`Lỗi: ${error}`);
     process.exit(1);
@@ -92,6 +98,9 @@ apiRouter.use('/auth', authRoutes);
 apiRouter.use('/users', userRoutes);
 apiRouter.use('/login-history', loginHistoryRoutes);
 apiRouter.use('/doctors', doctorRoutes);
+// Thêm DoctorQA routes
+apiRouter.use('/', doctorQARoutes);
+
 // Middleware xử lý lỗi
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
