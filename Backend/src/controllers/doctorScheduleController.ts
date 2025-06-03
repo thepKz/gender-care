@@ -292,4 +292,94 @@ export const getAvailableDoctorsForStaff = async (req: Request, res: Response) =
       message: error.message || 'Đã xảy ra lỗi khi xem bác sĩ' 
     });
   }
+};
+
+// Lấy thống kê về bác sĩ: số slot booked, absent, và số ngày nghỉ
+export const getDoctorStatistics = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: doctorId } = req.params;
+
+    if (!doctorId) {
+      res.status(400).json({ 
+        message: 'Thiếu ID bác sĩ' 
+      });
+      return;
+    }
+
+    const statistics = await doctorService.getDoctorStatistics(doctorId);
+    
+    res.status(200).json({
+      message: 'Lấy thống kê bác sĩ thành công',
+      data: statistics
+    });
+
+  } catch (error) {
+    console.error('Error getting doctor statistics:', error);
+    res.status(500).json({ 
+      message: 'Lỗi server khi lấy thống kê bác sĩ' 
+    });
+  }
+};
+
+// Lấy thống kê tất cả bác sĩ (STAFF ONLY)
+export const getAllDoctorsStatistics = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const allStatistics = await doctorService.getAllDoctorsStatistics();
+    
+    res.status(200).json({
+      message: `Lấy thống kê thành công cho ${allStatistics.length} bác sĩ`,
+      data: allStatistics,
+      summary: {
+        totalDoctors: allStatistics.length,
+        totalBookedSlots: allStatistics.reduce((sum, doc) => sum + doc.bookedSlots, 0),
+        totalAbsentSlots: allStatistics.reduce((sum, doc) => sum + doc.absentSlots, 0),
+        totalAbsentDays: allStatistics.reduce((sum, doc) => sum + doc.absentDays, 0)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting all doctors statistics:', error);
+    res.status(500).json({ 
+      message: 'Lỗi server khi lấy thống kê tất cả bác sĩ' 
+    });
+  }
+};
+
+// Book slot cho customer (STAFF ONLY) - Khi customer gọi điện đặt lịch
+export const bookSlotForCustomer = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id: doctorId } = req.params;
+    const { date, slotId } = req.body;
+
+    if (!date || !slotId) {
+      res.status(400).json({ 
+        message: 'Vui lòng cung cấp đầy đủ: date, slotId' 
+      });
+      return;
+    }
+
+    // Sử dụng service có sẵn để update status thành "Booked"
+    const updatedSchedule = await doctorService.updateDoctorSchedule(doctorId, { 
+      date, 
+      slotId, 
+      status: 'Booked' 
+    });
+
+    res.status(200).json({ 
+      message: 'Đặt lịch thành công cho customer!',
+      data: updatedSchedule,
+      bookingInfo: {
+        doctorId,
+        date,
+        slotId,
+        status: 'Booked'
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error booking slot for customer:', error);
+    res.status(400).json({ 
+      message: error.message || 'Đã xảy ra lỗi khi đặt lịch cho customer' 
+    });
+  }
 }; 
