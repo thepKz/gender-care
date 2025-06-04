@@ -969,10 +969,11 @@ paths:
     get:
       tags:
         - Doctor
-      summary: Lấy danh sách tất cả bác sĩ
+      summary: Lấy danh sách tất cả bác sĩ (cho phép guest)
+      description: Lấy danh sách tất cả bác sĩ, không yêu cầu xác thực. Bất kỳ ai cũng có thể truy cập.
       responses:
         '200':
-          description: OK
+          description: Thành công
           content:
             application/json:
               schema:
@@ -983,22 +984,91 @@ paths:
     post:
       tags:
         - Doctor
-      summary: Tạo bác sĩ mới
+      summary: Tạo bác sĩ mới (tự động tạo user account)
+      description: Tạo bác sĩ mới. Hệ thống sẽ tự động tạo user account với email được sinh từ tên bác sĩ và password mặc định.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Doctor'
+              type: object
+              required:
+                - fullName
+              properties:
+                fullName:
+                  type: string
+                  example: "BS. Nguyễn Văn A"
+                  description: "Tên đầy đủ của bác sĩ (bắt buộc, dùng để tạo email)"
+                phone:
+                  type: string
+                  example: "0123456789"
+                gender:
+                  type: string
+                  enum: [male, female, other]
+                  example: "male"
+                address:
+                  type: string
+                  example: "TP. Hồ Chí Minh"
+                bio:
+                  type: string
+                  example: "Chuyên gia về sức khỏe sinh sản"
+                experience:
+                  type: number
+                  example: 5
+                rating:
+                  type: number
+                  minimum: 0
+                  maximum: 5
+                  example: 4.5
+                specialization:
+                  type: string
+                  example: "Phụ khoa - Sinh sản"
+                education:
+                  type: string
+                  example: "Thạc sĩ Y khoa - Đại học Y Dược"
+                certificate:
+                  type: string
+                  example: "Chứng chỉ chuyên khoa cấp I"
       responses:
         '201':
-          description: Đã tạo bác sĩ
+          description: Đã tạo bác sĩ thành công (kèm thông tin user được tạo tự động)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Doctor'
+        '400':
+          description: Thiếu tên bác sĩ hoặc dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email được tạo tự động đã tồn tại (tên bác sĩ trùng)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập (chỉ staff/admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /doctors/{id}:
     get:
       tags:
         - Doctor
-      summary: Lấy thông tin bác sĩ theo ID
+      summary: Lấy thông tin bác sĩ theo ID (cho phép guest)
+      description: Lấy thông tin chi tiết bác sĩ theo ID, không yêu cầu xác thực. Bất kỳ ai cũng có thể truy cập.
       parameters:
         - in: path
           name: id
@@ -1007,18 +1077,25 @@ paths:
             type: string
       responses:
         '200':
-          description: OK
+          description: Thành công
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Doctor'
         '404':
           description: Không tìm thấy bác sĩ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     put:
       tags:
         - Doctor
-      summary: Cập nhật thông tin bác sĩ
+      summary: Cập nhật thông tin bác sĩ (không thể sửa userId)
+      description: Cập nhật thông tin bác sĩ. Lưu ý userId không thể được thay đổi để đảm bảo tính toàn vẹn dữ liệu.
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: id
@@ -1030,15 +1107,45 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Doctor'
+              $ref: '#/components/schemas/DoctorUpdateRequest'
       responses:
         '200':
-          description: Đã cập nhật bác sĩ
+          description: Đã cập nhật bác sĩ thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Doctor'
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập (chỉ staff/admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy bác sĩ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     delete:
       tags:
         - Doctor
       summary: Xóa bác sĩ
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: id
@@ -1047,7 +1154,33 @@ paths:
             type: string
       responses:
         '200':
-          description: Đã xóa bác sĩ
+          description: Đã xóa bác sĩ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Xóa bác sĩ thành công
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập (chỉ staff/admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy bác sĩ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
 components:
   securitySchemes:
@@ -1182,3 +1315,36 @@ components:
           type: string
         certificate:
           type: string
+
+    DoctorWithUser:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        doctor:
+          $ref: '#/components/schemas/Doctor'
+
+    DoctorUpdateRequest:
+      type: object
+      description: Schema cho cập nhật thông tin bác sĩ (không bao gồm userId)
+      properties:
+        bio:
+          type: string
+          example: "Chuyên gia về sức khỏe sinh sản"
+        experience:
+          type: number
+          example: 5
+        rating:
+          type: number
+          minimum: 0
+          maximum: 5
+          example: 4.5
+        specialization:
+          type: string
+          example: "Phụ khoa - Sinh sản"
+        education:
+          type: string
+          example: "Thạc sĩ Y khoa - Đại học Y Dược"
+        certificate:
+          type: string
+          example: "Chứng chỉ chuyên khoa cấp I"

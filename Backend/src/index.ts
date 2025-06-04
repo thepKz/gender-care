@@ -7,6 +7,7 @@ import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes } from "./routes";
+import { runAllSeeds } from "./seeds";
 
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
 dotenv.config();
@@ -76,6 +77,11 @@ const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI as string);
     console.log(`MongoDB đã kết nối: ${conn.connection.host}`);
+    
+    // Chạy seed data sau khi kết nối DB thành công
+    if (process.env.NODE_ENV !== 'production') {
+      await runAllSeeds();
+    }
   } catch (error) {
     console.error(`Lỗi: ${error}`);
     process.exit(1);
