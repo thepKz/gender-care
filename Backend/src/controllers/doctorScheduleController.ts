@@ -495,4 +495,49 @@ export const createBulkDoctorScheduleForMonth = async (req: Request, res: Respon
       message: error.message || 'Đã xảy ra lỗi khi tạo lịch cho cả tháng' 
     });
   }
+};
+
+// POST /doctors/:id/schedules/bulk - Staff tạo lịch hàng loạt cho bác sĩ (nhiều ngày cùng lúc)
+export const createBulkDoctorSchedule = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { dates } = req.body;
+
+    if (!dates || !Array.isArray(dates)) {
+      return res.status(400).json({ 
+        message: 'Vui lòng cung cấp danh sách ngày làm việc (dates array)' 
+      });
+    }
+
+    const result = await doctorService.createBulkDoctorSchedule(id, { dates });
+
+    const { results, schedule } = result;
+
+    let message = `Hoàn thành! Tạo thành công ${results.successful} ngày, bỏ qua ${results.failed} ngày.`;
+    
+    if (results.details.created.length > 0) {
+      message += ` Ngày đã tạo: ${results.details.created.join(', ')}.`;
+    }
+    
+    if (results.details.skipped.length > 0) {
+      message += ` Ngày đã tồn tại: ${results.details.skipped.join(', ')}.`;
+    }
+
+    if (results.details.errors.length > 0) {
+      message += ` Lỗi: ${results.details.errors.map(e => e.date + ' (' + e.reason + ')').join(', ')}.`;
+    }
+
+    return res.status(201).json({ 
+      message,
+      data: {
+        ...results,
+        schedule
+      }
+    });
+  } catch (error: any) {
+    console.log('Error in createBulkDoctorSchedule:', error);
+    return res.status(400).json({ 
+      message: error.message || 'Đã xảy ra lỗi khi tạo lịch làm việc hàng loạt' 
+    });
+  }
 }; 

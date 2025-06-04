@@ -614,3 +614,120 @@ export const createBulkDoctorScheduleForMonth = async (doctorId: string, month: 
     throw new Error(error.message || 'Không thể tạo lịch cho cả tháng');
   }
 };
+
+// POST /doctors/:id/schedules/bulk - Staff tạo lịch cho bác sĩ cho nhiều ngày cùng lúc
+export const createBulkDoctorSchedule = async (doctorId: string, scheduleData: { dates: string[] }) => {
+  try {
+    // Kiểm tra doctor có tồn tại không
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor) {
+      throw new Error('Không tìm thấy bác sĩ');
+    }
+
+    const { dates } = scheduleData;
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      throw new Error('Vui lòng cung cấp danh sách ngày làm việc');
+    }
+
+    // Validate tối đa 31 ngày (1 tháng) để tránh spam
+    if (dates.length > 31) {
+      throw new Error('Chỉ có thể tạo tối đa 31 ngày cùng lúc');
+    }
+
+    // Validate format ngày
+    const validDates: Date[] = [];
+    const invalidDates: string[] = [];
+    
+    dates.forEach(dateStr => {
+      const workDate = new Date(dateStr);
+      if (isNaN(workDate.getTime()) || !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        invalidDates.push(dateStr);
+      } else {
+        validDates.push(workDate);
+      }
+    });
+
+    if (invalidDates.length > 0) {
+      throw new Error(`Ngày không hợp lệ: ${invalidDates.join(', ')}. Vui lòng sử dụng format YYYY-MM-DD`);
+    }
+
+    // Tìm schedule hiện tại của doctor
+    let doctorSchedule = await DoctorSchedules.findOne({ doctorId });
+
+    const results = {
+      successful: 0,
+      failed: 0,
+      details: {
+        created: [] as string[],
+        skipped: [] as string[],
+        errors: [] as { date: string, reason: string }[]
+      }
+    };
+
+    // Xử lý từng ngày
+    for (const workDate of validDates) {
+      const dateStr = workDate.toISOString().split('T')[0];
+      
+      try {
+        // Tạo 8 slots cố định với status: "Free"
+        const newDaySchedule = {
+          dayOfWeek: workDate,
+          slots: FIXED_TIME_SLOTS.map(timeSlot => ({
+            slotTime: timeSlot,
+            status: "Free"
+          }))
+        };
+
+        if (!doctorSchedule) {
+          // Tạo mới schedule cho doctor (lần đầu tiên)
+          doctorSchedule = await DoctorSchedules.create({
+            doctorId,
+            weekSchedule: [newDaySchedule]
+          });
+          results.successful++;
+          results.details.created.push(dateStr);
+        } else {
+          // Kiểm tra xem ngày này đã có lịch chưa
+          const existingDay = doctorSchedule.weekSchedule.find(ws => {
+            const scheduleDate = new Date(ws.dayOfWeek);
+            return scheduleDate.toDateString() === workDate.toDateString();
+          });
+
+          if (existingDay) {
+            // Ngày đã tồn tại, skip
+            results.failed++;
+            results.details.skipped.push(dateStr);
+          } else {
+            // Thêm ngày mới vào weekSchedule
+            doctorSchedule.weekSchedule.push(newDaySchedule as any);
+            results.successful++;
+            results.details.created.push(dateStr);
+          }
+        }
+      } catch (error: any) {
+        results.failed++;
+        results.details.errors.push({
+          date: dateStr,
+          reason: error.message || 'Lỗi không xác định'
+        });
+      }
+    }
+
+    // Lưu tất cả thay đổi
+    if (doctorSchedule && results.successful > 0) {
+      await doctorSchedule.save();
+    }
+
+    // Lấy schedule mới nhất để trả về
+    const finalSchedule = await DoctorSchedules.findById(doctorSchedule?._id)
+      .populate('doctorId', 'userId bio specialization');
+
+    return {
+      results,
+      schedule: finalSchedule
+    };
+
+  } catch (error: any) {
+    throw new Error(error.message || 'Không thể tạo lịch làm việc hàng loạt');
+  }
+};
