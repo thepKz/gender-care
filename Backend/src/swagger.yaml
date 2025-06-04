@@ -19,6 +19,8 @@ tags:
     description: Quản lý mã OTP và xác thực
   - name: Doctor
     description: Quản lý bác sĩ
+  - name: UserProfile
+    description: Quản lý profile người dùng
 
 paths:
   /auth/register:
@@ -1182,6 +1184,211 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /user-profiles:
+    post:
+      tags:
+        - UserProfile
+      summary: Tạo profile mới
+      description: Tạo profile cho user đã đăng nhập. Mỗi user có thể có nhiều profiles.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfileRequest'
+      responses:
+        '201':
+          description: Tạo profile thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Thiếu thông tin bắt buộc
+        '401':
+          description: Chưa xác thực
+
+    get:
+      tags:
+        - UserProfile
+      summary: Lấy tất cả profiles (Admin/Staff only)
+      description: Lấy danh sách tất cả user profiles với phân trang
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserProfile'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Chưa xác thực
+        '403':
+          description: Không có quyền truy cập
+
+  /user-profiles/me:
+    get:
+      tags:
+        - UserProfile
+      summary: Lấy tất cả profiles của chính mình
+      description: Lấy tất cả profiles của user đang đăng nhập
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserProfile'
+                  count:
+                    type: integer
+                    description: Số lượng profiles
+        '401':
+          description: Chưa xác thực
+
+  /user-profiles/{id}:
+    get:
+      tags:
+        - UserProfile
+      summary: Lấy profile theo ID
+      description: Lấy profile theo ID. Chỉ owner hoặc admin/staff mới xem được.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: ID không hợp lệ
+        '404':
+          description: Không tìm thấy profile
+        '403':
+          description: Không có quyền truy cập
+        '401':
+          description: Chưa xác thực
+
+    put:
+      tags:
+        - UserProfile
+      summary: Cập nhật profile
+      description: Cập nhật profile theo ID. Chỉ owner hoặc admin/staff mới cập nhật được.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfileUpdateRequest'
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: ID không hợp lệ
+        '404':
+          description: Không tìm thấy profile
+        '403':
+          description: Không có quyền chỉnh sửa
+        '401':
+          description: Chưa xác thực
+
+    delete:
+      tags:
+        - UserProfile
+      summary: Xóa profile
+      description: Xóa profile theo ID. Chỉ owner hoặc admin mới xóa được.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Xóa thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: ID không hợp lệ
+        '404':
+          description: Không tìm thấy profile
+        '403':
+          description: Không có quyền xóa
+        '401':
+          description: Chưa xác thực
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1226,23 +1433,27 @@ components:
     UserProfile:
       type: object
       properties:
-        id:
+        _id:
           type: string
-        email:
-          type: string
+        ownerId:
+          $ref: '#/components/schemas/User'
         fullName:
           type: string
+        gender:
+          type: string
+          enum: [male, female, other]
         phone:
           type: string
-        avatar:
+        year:
           type: string
-        role:
+          format: date
+        createdAt:
           type: string
-        emailVerified:
-          type: boolean
-        isActive:
-          type: boolean
-    
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
     OtpCode:
       type: object
       properties:
@@ -1348,3 +1559,54 @@ components:
         certificate:
           type: string
           example: "Chứng chỉ chuyên khoa cấp I"
+
+    UserProfileRequest:
+      type: object
+      required:
+        - fullName
+        - gender
+      properties:
+        fullName:
+          type: string
+          example: "Nguyễn Văn A"
+        gender:
+          type: string
+          enum: [male, female, other]
+          example: "male"
+        phone:
+          type: string
+          example: "0123456789"
+        year:
+          type: string
+          format: date
+          example: "1990-01-01"
+
+    UserProfileUpdateRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          example: "Nguyễn Văn A"
+        gender:
+          type: string
+          enum: [male, female, other]
+          example: "male"
+        phone:
+          type: string
+          example: "0123456789"
+        year:
+          type: string
+          format: date
+          example: "1990-01-01"
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer

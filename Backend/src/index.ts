@@ -7,6 +7,7 @@ import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes } from "./routes";
+import userProfileRoutes from "./routes/userProfileRoutes";
 import { runAllSeeds } from "./seeds";
 
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
@@ -98,6 +99,7 @@ apiRouter.use('/auth', authRoutes);
 apiRouter.use('/users', userRoutes);
 apiRouter.use('/login-history', loginHistoryRoutes);
 apiRouter.use('/doctors', doctorRoutes);
+apiRouter.use('/user-profiles', userProfileRoutes);
 // Middleware xử lý lỗi
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err.stack);
