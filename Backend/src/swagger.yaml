@@ -1440,7 +1440,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-=======
   schemas:
     User:
       type: object
@@ -1864,7 +1863,7 @@ paths:
                   message:
                     type: string
                     example: "Tìm thấy 8 slots trong ngày 2024-01-15 (tất cả status)"
-                  dat
+                  data:
                     type: array
                     items:
                       $ref: '#/components/schemas/StaffSlot'

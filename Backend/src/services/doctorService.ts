@@ -1,7 +1,7 @@
 
 import DoctorSchedules from '../models/DoctorSchedules';
 
-import { Doctor } from '../models/Doctor';
+import  Doctor  from '../models/Doctor';
 import User from '../models/User';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
