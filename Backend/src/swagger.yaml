@@ -1058,9 +1058,7 @@ paths:
       tags:
         - Service
       summary: Lấy danh sách dịch vụ
-      description: Lấy danh sách tất cả dịch vụ với phân trang và bộ lọc (Chỉ Manager)
-      security:
-        - bearerAuth: []
+      description: Lấy danh sách tất cả dịch vụ với phân trang và bộ lọc (Public access)
       parameters:
         - in: query
           name: page
@@ -1393,9 +1391,7 @@ paths:
       tags:
         - Service Package
       summary: Lấy danh sách gói dịch vụ
-      description: Lấy danh sách tất cả gói dịch vụ với phân trang và bộ lọc (Chỉ Manager)
-      security:
-        - bearerAuth: []
+      description: Lấy danh sách tất cả gói dịch vụ với phân trang và bộ lọc (Public access)
       parameters:
         - in: query
           name: page
@@ -1453,18 +1449,6 @@ paths:
                           $ref: '#/components/schemas/ServicePackage'
                       pagination:
                         $ref: '#/components/schemas/Pagination'
-        '401':
-          description: Chưa xác thực
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Không có quyền truy cập (không phải Manager)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Lỗi server
           content:

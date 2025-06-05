@@ -1,9 +1,9 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import Service from '../models/Service';
 import { AuthRequest, ApiResponse, PaginationQuery } from '../types';
 
-// GET /services - Get all services
-export const getAllServices = async (req: AuthRequest, res: Response) => {
+// GET /services - Get all services (Public access)
+export const getAllServices = async (req: Request, res: Response) => {
   try {
     const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = req.query as PaginationQuery;
     const { serviceType, availableAt, search } = req.query;

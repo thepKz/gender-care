@@ -1,10 +1,10 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import ServicePackage from '../models/ServicePackage';
 import Service from '../models/Service';
 import { AuthRequest, ApiResponse, PaginationQuery } from '../types';
 
-// GET /service-packages - Get all service packages
-export const getAllServicePackages = async (req: AuthRequest, res: Response) => {
+// GET /service-packages - Get all service packages (Public access)
+export const getAllServicePackages = async (req: Request, res: Response) => {
   try {
     const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = req.query as PaginationQuery;
     const { isActive, search } = req.query;

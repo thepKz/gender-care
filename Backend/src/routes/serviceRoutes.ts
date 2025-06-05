@@ -10,12 +10,14 @@ import { authorizeManager } from '../middleware/authorizeManager';
 
 const router = express.Router();
 
-// Apply authentication and manager authorization to all routes
+// Public route - không cần authentication
+router.get('/', getAllServices);          // GET /services - Public access
+
+// Protected routes - cần authentication và manager authorization
 router.use(authMiddleware);
 router.use(authorizeManager);
 
 // Service routes
-router.get('/', getAllServices);          // GET /services
 router.post('/', createService);          // POST /services
 router.put('/:id', updateService);        // PUT /services/:id
 router.delete('/:id', deleteService);     // DELETE /services/:id
