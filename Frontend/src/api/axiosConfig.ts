@@ -17,18 +17,7 @@ const silentEndpoints = [
   '/auth/login',
 ];
 
-// Danh sách các endpoint không yêu cầu xác thực
-const publicEndpoints = [
-  '/auth/login',
-  '/auth/register',
-  '/auth/forgot-password',
-  '/auth/reset-password',
-  '/auth/verify-email',
-  '/auth/new-verify',
-  '/auth/check-email',
-  '/auth/check-phone',
-  '/auth/login-google' // Thêm Google OAuth endpoint
-];
+
 
 // Interceptor cho request
 axiosInstance.interceptors.request.use(
@@ -60,9 +49,6 @@ axiosInstance.interceptors.request.use(
       console.log('Request URL:', config.url);
       console.log('BaseURL:', config.baseURL);
     }
-    
-    // Kiểm tra URL có phải là public endpoint không
-    const isPublicEndpoint = config.url && publicEndpoints.some(endpoint => config.url?.includes(endpoint));
     
     // Tất cả request đều tự động gửi cookie (bao gồm token), không cần thêm Authorization header
     return config;

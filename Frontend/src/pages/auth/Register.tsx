@@ -307,8 +307,8 @@ const RegisterPage: React.FC = () => {
                 // Gọi fetchProfile để lấy thông tin user mới nhất
                 await fetchProfile();
                 
-                // Chuyển hướng đến trang chủ
-                navigate('/');
+                // Chuyển hướng trực tiếp đến trang xác thực email
+                navigate('/verify-email');
               } else {
                 setRegisterError(result.error || 'Đăng ký Google thất bại');
                 toast.error(result.error || 'Đăng ký Google thất bại');

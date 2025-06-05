@@ -1,9 +1,9 @@
 import { EyeInvisibleOutlined, EyeTwoTone, LockOutlined, SafetyOutlined } from '@ant-design/icons';
-import { Alert, Button, Divider, Form, Input, Progress } from 'antd';
+import { Alert, Button, Divider, Form, Input, notification, Progress } from 'antd';
 import { motion } from 'framer-motion';
 import React, { useState } from 'react';
+
 import authApi from '../../api/endpoints/auth';
-import { showErrorNotification, showSuccessNotification } from '../../utils/notification';
 import { checkPasswordStrength, PasswordStrength } from '../../utils/passwordUtils';
 
 interface ChangePasswordFormProps {
@@ -38,8 +38,8 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSuccess }) =>
       // Gọi API đổi mật khẩu
       await authApi.changePassword(values.currentPassword, values.newPassword);
       
-      showSuccessNotification({
-        title: 'Đổi mật khẩu thành công!',
+      notification.success({
+        message: 'Đổi mật khẩu thành công!',
         description: 'Mật khẩu của bạn đã được cập nhật an toàn',
       });
       form.resetFields();
@@ -52,18 +52,18 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSuccess }) =>
       console.error('Lỗi đổi mật khẩu:', error);
       
       if (error.response?.data?.message) {
-        showErrorNotification({
-          title: 'Lỗi đổi mật khẩu',
+        notification.error({
+          message: 'Lỗi đổi mật khẩu',
           description: error.response.data.message,
         });
       } else if (error.response?.status === 400) {
-        showErrorNotification({
-          title: 'Mật khẩu không chính xác',
+        notification.error({
+          message: 'Mật khẩu không chính xác',
           description: 'Vui lòng kiểm tra lại mật khẩu hiện tại',
         });
       } else {
-        showErrorNotification({
-          title: 'Có lỗi xảy ra',
+        notification.error({
+          message: 'Có lỗi xảy ra',
           description: 'Không thể đổi mật khẩu. Vui lòng thử lại sau',
         });
       }

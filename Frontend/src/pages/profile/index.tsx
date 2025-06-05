@@ -1,14 +1,13 @@
 import { CalendarOutlined, CameraOutlined, EditOutlined, HomeFilled, LockOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Button, Card, Skeleton, Spin, Tabs, Tag, Upload } from 'antd';
+import { Avatar, Button, Card, Skeleton, Spin, Tabs, Tag, Upload, notification } from 'antd';
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
 import userApi from '../../api/endpoints/userApi';
 import Image1 from '../../assets/images/image1.jpg';
 import ChangePasswordForm from '../../components/auth/ChangePasswordForm';
 import { useAuth } from '../../hooks/useAuth';
-import { showErrorNotification, showSuccessNotification } from '../../utils/notification';
+
 import './profile.css';
 
 const TabItems = [
@@ -23,6 +22,7 @@ const ProfilePage: React.FC = () => {
   const { user, isAuthenticated, fetchProfile } = useAuth();
   const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
+  const [currentAvatar, setCurrentAvatar] = useState<string | null>(null);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -37,7 +37,10 @@ const ProfilePage: React.FC = () => {
         if (!result.success) {
           if (result.error && !result.error.includes('Không có thông tin đăng nhập')) {
             console.error('Không thể tải thông tin người dùng', result.error);
-            toast.error('Không thể tải thông tin người dùng. Vui lòng thử lại sau.');
+            notification.error({
+              message: 'Lỗi tải dữ liệu',
+              description: 'Không thể tải thông tin người dùng. Vui lòng thử lại sau.',
+            });
           }
         }
       } catch (error) {
@@ -45,7 +48,10 @@ const ProfilePage: React.FC = () => {
             !error.message.includes('Không có thông tin đăng nhập') && 
             !error.message.includes('Unauthorized')) {
           console.error('Lỗi khi tải thông tin người dùng', error);
-          toast.error('Lỗi khi tải thông tin người dùng. Vui lòng thử lại sau.');
+          notification.error({
+            message: 'Lỗi hệ thống',
+            description: 'Lỗi khi tải thông tin người dùng. Vui lòng thử lại sau.',
+          });
         }
       } finally {
         setIsLoading(false);
@@ -54,6 +60,13 @@ const ProfilePage: React.FC = () => {
 
     loadProfile();
   }, [isAuthenticated, fetchProfile, navigate]);
+
+  // Đồng bộ currentAvatar với user.avatar
+  useEffect(() => {
+    if (user?.avatar) {
+      setCurrentAvatar(user.avatar);
+    }
+  }, [user?.avatar]);
 
   const handleTabChange = (key: string) => {
     setActiveTab(key);
@@ -108,8 +121,8 @@ const ProfilePage: React.FC = () => {
             showUploadList={false}
             beforeUpload={(file) => {
               if (file.size > 5 * 1024 * 1024) {
-                showErrorNotification({
-                  title: 'File quá lớn',
+                notification.error({
+                  message: 'File quá lớn',
                   description: 'Ảnh đại diện phải nhỏ hơn 5MB',
                 });
                 return Upload.LIST_IGNORE;
@@ -124,15 +137,19 @@ const ProfilePage: React.FC = () => {
                 const res = await userApi.uploadAvatarImage(formData);
                 const url = res.url;
                 await userApi.updateAvatar(url);
-                showSuccessNotification({
-                  title: 'Cập nhật thành công',
+                
+                // Cập nhật avatar ngay lập tức trên UI
+                setCurrentAvatar(url);
+                
+                notification.success({
+                  message: 'Cập nhật thành công',
                   description: 'Ảnh đại diện đã được cập nhật',
                 });
-                fetchProfile();
+                await fetchProfile();
                 if (onSuccess) onSuccess({}, file as unknown as File);
               } catch (err) {
-                showErrorNotification({
-                  title: 'Lỗi upload',
+                notification.error({
+                  message: 'Lỗi upload',
                   description: 'Không thể upload ảnh đại diện',
                 });
                 if (onError) onError(err as Error);
@@ -146,8 +163,8 @@ const ProfilePage: React.FC = () => {
             <div className="relative cursor-pointer">
               <Avatar
                 size={128}
-                src={user.avatar || Image1}
-                icon={!user.avatar && <UserOutlined />}
+                src={currentAvatar || user.avatar || Image1}
+                icon={!(currentAvatar || user.avatar) && <UserOutlined />}
                 className="border-4 border-[#0C3C54] shadow-xl bg-white transition-transform duration-300 hover:scale-105"
                 style={{ objectFit: 'cover', backgroundColor: '#fff' }}
               />
@@ -312,8 +329,8 @@ const ProfilePage: React.FC = () => {
               >
                 <ChangePasswordForm 
                   onSuccess={() => {
-                    showSuccessNotification({
-                      title: 'Cập nhật thành công',
+                    notification.success({
+                      message: 'Cập nhật thành công',
                       description: 'Mật khẩu đã được thay đổi an toàn',
                     });
                   }}

@@ -399,8 +399,12 @@ const Booking: React.FC = () => {
 
   return (
     <BookingLayout>
-      {/* Toàn bộ nội dung booking form, stepper, chọn thời gian, xác nhận, KHÔNG render hình ảnh bác sĩ/dịch vụ */}
-      {/* ... giữ lại các step, form, button, thông báo ... */}
+      <div className="min-h-screen">
+        <div className="container mx-auto px-4 py-8">
+          <h1>Booking Content</h1>
+          {/* TODO: Add booking content here */}
+        </div>
+      </div>
     </BookingLayout>
   );
 };
