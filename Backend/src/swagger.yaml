@@ -1646,11 +1646,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
-                  message:
-                    type: string
-                    example: Xóa bác sĩ thành công
-
         '401':
           description: Chưa xác thực
           content:
@@ -1817,15 +1812,11 @@ paths:
                 $ref: '#/components/schemas/Error'
         '403':
           description: Không có quyền truy cập (không phải Manager)
-
-          description: Không có quyền truy cập (chỉ staff/admin)
-
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
         '404':
-
           description: Không tìm thấy gói dịch vụ
           content:
             application/json:
@@ -1833,9 +1824,6 @@ paths:
                 $ref: '#/components/schemas/Error'
         '500':
           description: Lỗi server
-
-          description: Không tìm thấy bác sĩ
-
           content:
             application/json:
               schema:

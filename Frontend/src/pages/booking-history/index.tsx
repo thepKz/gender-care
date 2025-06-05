@@ -1,23 +1,24 @@
 import { DatePicker, Empty, Input, Modal, Rate, Select, Spin, Tag, Timeline } from 'antd';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-    Activity,
-    Calendar,
-    Clock,
-    CloseCircle,
-    Eye,
-    Heart,
-    Home,
-    Location,
-    MonitorMobbile,
-    People,
-    Refresh,
-    SearchNormal1,
-    Star,
-    TickCircle,
-    Timer,
-    Trash,
-    User
+  Activity,
+  Calendar,
+  Clock,
+  CloseCircle,
+  DocumentText,
+  Eye,
+  Heart,
+  Home,
+  Location,
+  MonitorMobbile,
+  People,
+  Refresh,
+  SearchNormal1,
+  Star,
+  TickCircle,
+  Timer,
+  Trash,
+  User
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -61,7 +62,7 @@ const BookingHistory: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<[string, string] | null>(null);
+  const [dateRange, setDateRange] = useState<[any, any] | null>(null);
 
   // Mock data
   const mockAppointments: Appointment[] = [
@@ -218,16 +219,16 @@ const BookingHistory: React.FC = () => {
     navigate(`/booking?reschedule=${appointment.id}&service=${appointment.serviceId}`);
   };
 
-  const handleRebook = (appointment: Appointment) => {
-    navigate(`/booking?service=${appointment.serviceId}`);
-  };
+  // const handleRebook = (appointment: Appointment) => {
+  //   navigate(`/booking?service=${appointment.serviceId}`);
+  // };
 
-  const confirmCancel = () => {
-    // API call to cancel appointment
-    console.log('Cancelling appointment:', selectedAppointment?.id);
-    setShowDetailModal(false);
-    setSelectedAppointment(null);
-  };
+  // const confirmCancel = () => {
+  //   // API call to cancel appointment
+  //   console.log('Cancelling appointment:', selectedAppointment?.id);
+  //   setShowDetailModal(false);
+  //   setSelectedAppointment(null);
+  // };
 
   const handleFeedback = (appointment: Appointment) => {
     navigate(`/feedback?appointment=${appointment.id}`);
@@ -506,7 +507,7 @@ const BookingHistory: React.FC = () => {
 
                             {appointment.rating && (
                               <div className="flex items-center gap-2">
-                                <Rate disabled defaultValue={appointment.rating} size="small" />
+                                <Rate disabled defaultValue={appointment.rating} className="text-sm" />
                                 <span className="text-sm text-gray-600">
                                   ({appointment.rating}/5)
                                 </span>
@@ -540,7 +541,7 @@ const BookingHistory: React.FC = () => {
                             <div className="flex flex-wrap gap-2 justify-end">
                               <ModernButton
                                 variant="outline"
-                                size="small"
+                                className="text-sm"
                                 icon={<Eye size={16} />}
                                 onClick={() => handleViewDetail(appointment)}
                               >
@@ -550,7 +551,7 @@ const BookingHistory: React.FC = () => {
                               {appointment.canReschedule && (
                                 <ModernButton
                                   variant="outline"
-                                  size="small"
+                                  className="text-sm"
                                   icon={<Refresh size={16} />}
                                   onClick={() => handleReschedule(appointment)}
                                 >
@@ -561,7 +562,7 @@ const BookingHistory: React.FC = () => {
                               {appointment.canCancel && (
                                 <ModernButton
                                   variant="danger"
-                                  size="small"
+                                  className="text-sm"
                                   icon={<Trash size={16} />}
                                   onClick={() => handleCancel(appointment)}
                                 >
@@ -572,7 +573,7 @@ const BookingHistory: React.FC = () => {
                               {appointment.status === 'completed' && !appointment.rating && (
                                 <ModernButton
                                   variant="primary"
-                                  size="small"
+                                  className="text-sm"
                                   icon={<Star size={16} />}
                                   onClick={() => handleFeedback(appointment)}
                                 >
