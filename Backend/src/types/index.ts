@@ -1,4 +1,5 @@
 import { Request } from 'express';
+import mongoose from 'mongoose';
 
 export * from "./auth";
 
@@ -147,7 +148,7 @@ export interface IFeedback {
 // User Profile types
 export interface IUserProfile {
   _id: string;
-  ownerId: string;
+  ownerId: string | mongoose.Types.ObjectId;
   fullName: string;
   gender: string;
   phone: string;

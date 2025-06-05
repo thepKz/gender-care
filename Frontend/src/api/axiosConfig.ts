@@ -1,12 +1,10 @@
 import axios from 'axios';
 import { getValidTokenFromStorage } from '../utils/helpers';
 
-// Lấy BASE_URL từ .env hoặc sử dụng giá trị mặc định
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/';
-
-// Tạo instance của axios với cấu hình mặc định
+// Sử dụng Vite proxy, không cần baseURL đầy đủ
+// Vite sẽ proxy /api requests đến backend server
 const axiosInstance = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: '/api',
   timeout: 15000, // Tăng timeout từ 10s lên 15s cho Google OAuth
   headers: {
     'Content-Type': 'application/json',

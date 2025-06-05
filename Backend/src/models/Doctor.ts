@@ -1,13 +1,37 @@
 import mongoose from 'mongoose';
 
-const DoctorSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  bio: String,
-  experience: Number,
-  rating: Number,
-  specialization: String,
-  education: String,
-  certificate: String,
+export interface IDoctor {
+  userId: mongoose.Types.ObjectId;
+  bio?: string;
+  experience?: number;
+  rating?: number;
+  specialization?: string;
+  education?: string;
+  certificate?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+const DoctorSchema = new mongoose.Schema<IDoctor>({
+  userId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true, 
+    unique: true 
+  },
+  bio: { type: String },
+  experience: { type: Number },
+  rating: { type: Number, min: 0, max: 5 },
+  specialization: { type: String },
+  education: { type: String },
+  certificate: { type: String },
 }, { timestamps: true });
 
-export const Doctor = mongoose.model('Doctor', DoctorSchema);
+// Tạo index để tối ưu hóa truy vấn
+DoctorSchema.index({ userId: 1 });
+DoctorSchema.index({ specialization: 1 });
+DoctorSchema.index({ rating: -1 });
+
+const Doctor = mongoose.model<IDoctor>('Doctor', DoctorSchema);
+
+export default Doctor;
