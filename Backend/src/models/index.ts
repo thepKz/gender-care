@@ -18,7 +18,7 @@ import Appointments from './Appointments';
 // Health Tracking
 import MenstrualCycles from './MenstrualCycles';
 import CycleSymptoms from './CycleSymptoms';
-import MedicationReminders from './MedicationReminders';
+import MedicationReminders, { IMedicationReminders, IMedicines } from './MedicationReminders';
 import NotificationDays from './NotificationDays';
 
 // Testing & Medical
@@ -26,7 +26,7 @@ import TestCategories from './TestCategories';
 import AppointmentTests from './AppointmentTests';
 import TestResults from './TestResults';
 import TestResultItems from './TestResultItems';
-import MedicalRecords from './MedicalRecords';
+import MedicalRecords, { IMedicalRecords, IMedicalRecordMedicines } from './MedicalRecords';
 
 // Content & Community
 import BlogCategories from './BlogCategories';
@@ -90,5 +90,13 @@ export {
   
   // System
   SystemConfigs
+};
+
+// Export interfaces
+export type {
+  IMedicalRecords,
+  IMedicalRecordMedicines,
+  IMedicationReminders,
+  IMedicines
 };
 
