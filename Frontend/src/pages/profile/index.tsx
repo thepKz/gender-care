@@ -1,4 +1,4 @@
-import { CalendarOutlined, CameraOutlined, EditOutlined, HomeFilled, LockOutlined, UserOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CameraOutlined, EditOutlined, HomeFilled, LockOutlined, TeamOutlined, UserOutlined, PlusOutlined } from '@ant-design/icons';
 import { Avatar, Button, Card, Skeleton, Spin, Tabs, Tag, Upload, notification } from 'antd';
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
@@ -6,6 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import userApi from '../../api/endpoints/userApi';
 import Image1 from '../../assets/images/image1.jpg';
 import ChangePasswordForm from '../../components/auth/ChangePasswordForm';
+import ProfilesList from '../../components/profile/ProfilesList';
 import { useAuth } from '../../hooks/useAuth';
 
 import './profile.css';
@@ -13,7 +14,8 @@ import './profile.css';
 const TabItems = [
   { key: "1", label: "Thông tin cá nhân", icon: <UserOutlined /> },
   { key: "2", label: "Lịch sử đặt lịch", icon: <CalendarOutlined /> },
-  { key: "3", label: "Đổi mật khẩu", icon: <LockOutlined /> },
+  { key: "3", label: "Quản lý hồ sơ sức khỏe", icon: <TeamOutlined /> },
+  { key: "4", label: "Đổi mật khẩu", icon: <LockOutlined /> },
 ];
 
 const ProfilePage: React.FC = () => {
@@ -321,6 +323,30 @@ const ProfilePage: React.FC = () => {
             {activeTab === "3" && (
               <motion.div 
                 key="tab-3"
+                initial={{ opacity: 0, x: 20 }} 
+                animate={{ opacity: 1, x: 0 }} 
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+                className="w-full"
+              >
+                <ProfilesList />
+                
+                <div className="mt-6 text-center">
+                  <Button 
+                    type="primary" 
+                    size="large"
+                    icon={<TeamOutlined />}
+                    onClick={() => navigate('/profile/health-profiles')}
+                    className="bg-[#0C3C54] hover:bg-[#1a5570] border-none rounded-lg px-8 py-3 h-auto transition-all duration-200 hover:shadow-lg hover:scale-105"
+                  >
+                    Xem tất cả hồ sơ
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+            {activeTab === "4" && (
+              <motion.div 
+                key="tab-4"
                 initial={{ opacity: 0, x: 20 }} 
                 animate={{ opacity: 1, x: 0 }} 
                 exit={{ opacity: 0, x: -20 }}
