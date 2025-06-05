@@ -1,3 +1,4 @@
+
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import User from '../models/User';
@@ -157,3 +158,4 @@ const seedDoctors = async () => {
 };
 
 export default seedDoctors; 
+
