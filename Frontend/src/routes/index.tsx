@@ -16,6 +16,7 @@ import HomePage from '../pages/home';
 import NotFoundPage from '../pages/notFound';
 import ProfilePage from '../pages/profile';
 import ProfileEditPage from '../pages/profile/edit';
+import ProfilesPage from '../pages/profile/profiles';
 
 // New Pages
 import AboutGCCPage from '../pages/about-gcc';
@@ -32,6 +33,12 @@ import FeedbackPage from '../pages/feedback';
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
+
+// Import các trang hồ sơ bệnh án
+import HealthProfilesPage from '../pages/profile/health-profiles';
+import CreateProfilePage from '../pages/profile/create-profile';
+import EditProfilePage from '../pages/profile/edit-profile';
+import ViewProfilePage from '../pages/profile/view-profile';
 
 // Hooks
 import { useAuth } from '../hooks/useAuth';
@@ -76,6 +83,11 @@ const AppRoutes: React.FC = () => {
       <Route element={<ProfileLayout />}>
         <Route path="/profile" element={isAuthenticated ? <ProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/profile/edit" element={isAuthenticated ? <ProfileEditPage /> : <Navigate to="/login" replace />} />
+                  <Route path="/profile/health-profiles" element={isAuthenticated ? <HealthProfilesPage /> : <Navigate to="/login" replace />} />
+          <Route path="/profile/create-profile" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
+          <Route path="/profile/edit-profile/:profileId" element={isAuthenticated ? <EditProfilePage /> : <Navigate to="/login" replace />} />
+          <Route path="/profile/view-profile/:profileId" element={isAuthenticated ? <ViewProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/medical-records/:profileId" element={isAuthenticated ? <NotFoundPage /> : <Navigate to="/login" replace />} />
       </Route>
       {/* Main routes - có header/footer */}
       <Route element={<MainLayout />}>
