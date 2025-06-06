@@ -27,6 +27,14 @@ tags:
     description: Quản lý lịch làm việc bác sĩ
   - name: Doctor QA
     description: Quản lý tư vấn bác sĩ - hệ thống tư vấn trực tuyến
+  - name: Medical Records
+    description: Quản lý hồ sơ khám bệnh - chỉ Doctor/Staff có thể tạo/sửa
+  - name: Medicines
+    description: Quản lý master data thuốc - chỉ Manager có quyền CRUD
+  - name: Medication Reminders
+    description: Quản lý nhắc nhở uống thuốc - User tạo từ medical records
+  - name: Notification Days
+    description: Quản lý lịch sử thông báo nhắc nhở uống thuốc
 
 paths:
   /auth/register:
@@ -2571,6 +2579,1436 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  # =============== MEDICAL RECORDS APIs ===============
+  
+  /medical-records:
+    post:
+      tags:
+        - Medical Records
+      summary: "[DOCTOR/STAFF] Tạo hồ sơ khám bệnh"
+      description: Doctor/Staff tạo hồ sơ khám bệnh sau khi khám cho bệnh nhân. Có thể chọn thuốc từ danh sách medicines master data.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - profileId
+                - appointmentId
+              properties:
+                profileId:
+                  type: string
+                  example: "675e4bcd6dc1234567890123"
+                  description: ID hồ sơ bệnh nhân
+                appointmentId:
+                  type: string
+                  example: "675e4bcd6dc1234567890456"
+                  description: ID cuộc hẹn khám
+                diagnosis:
+                  type: string
+                  example: "Viêm dạ dày"
+                  description: Chẩn đoán bệnh
+                symptoms:
+                  type: string
+                  example: "Đau bụng, buồn nôn"
+                  description: Triệu chứng
+                treatment:
+                  type: string
+                  example: "Uống thuốc theo đơn, kiêng cay"
+                  description: Phương pháp điều trị
+                medicines:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        example: "Paracetamol"
+                      type:
+                        type: string
+                        example: "Giảm đau"
+                      dosage:
+                        type: string
+                        example: "500mg"
+                      frequency:
+                        type: string
+                        example: "3 lần/ngày"
+                      timingInstructions:
+                        type: string
+                        example: "Sau ăn 30 phút"
+                      duration:
+                        type: string
+                        example: "7 ngày"
+                      instructions:
+                        type: string
+                        example: "Uống đủ liều, không bỏ"
+                  description: Danh sách thuốc kê đơn
+                notes:
+                  type: string
+                  example: "Tái khám sau 1 tuần"
+                  description: Ghi chú thêm
+                pictures:
+                  type: array
+                  items:
+                    type: string
+                  example: ["url1.jpg", "url2.jpg"]
+                  description: Hình ảnh kèm theo
+      responses:
+        '201':
+          description: Tạo hồ sơ khám bệnh thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tạo hồ sơ khám bệnh thành công"
+                  data:
+                    $ref: '#/components/schemas/MedicalRecord'
+
+  /medical-records/{id}:
+    put:
+      tags:
+        - Medical Records
+      summary: "[DOCTOR/STAFF] Cập nhật hồ sơ khám bệnh"
+      description: Doctor chỉ sửa được hồ sơ do mình tạo, Staff sửa được tất cả
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID hồ sơ khám bệnh
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                diagnosis:
+                  type: string
+                symptoms:
+                  type: string
+                treatment:
+                  type: string
+                medicines:
+                  type: array
+                  items:
+                    type: object
+                notes:
+                  type: string
+                pictures:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Cập nhật hồ sơ khám bệnh thành công"
+                  data:
+                    $ref: '#/components/schemas/MedicalRecord'
+    
+    get:
+      tags:
+        - Medical Records
+      summary: "[ALL] Xem chi tiết hồ sơ khám bệnh"
+      description: Doctor xem hồ sơ do mình tạo, Staff xem tất cả, Customer xem hồ sơ của mình
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID hồ sơ khám bệnh
+      responses:
+        '200':
+          description: Lấy thông tin thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy thông tin hồ sơ khám bệnh thành công"
+                  data:
+                    $ref: '#/components/schemas/MedicalRecord'
+
+  /medical-records/my/records:
+    get:
+      tags:
+        - Medical Records
+      summary: "[DOCTOR] Xem hồ sơ do mình tạo"
+      description: Doctor xem danh sách hồ sơ khám bệnh do mình tạo
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: profileId
+          schema:
+            type: string
+          description: Lọc theo hồ sơ bệnh nhân
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MedicalRecord'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /medical-records/staff/all:
+    get:
+      tags:
+        - Medical Records
+      summary: "[STAFF] Xem tất cả hồ sơ khám bệnh"
+      description: Staff/Manager/Admin xem tất cả hồ sơ khám bệnh trong hệ thống
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: doctorId
+          schema:
+            type: string
+          description: Lọc theo bác sĩ
+        - in: query
+          name: profileId
+          schema:
+            type: string
+          description: Lọc theo hồ sơ bệnh nhân
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Lấy tất cả hồ sơ thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MedicalRecord'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /medical-records/profile/{profileId}:
+    get:
+      tags:
+        - Medical Records
+      summary: "[CUSTOMER] Xem hồ sơ khám của profile"
+      description: User xem hồ sơ khám bệnh của profiles thuộc về mình
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: profileId
+          required: true
+          schema:
+            type: string
+          description: ID hồ sơ bệnh nhân
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: doctorId
+          schema:
+            type: string
+          description: Lọc theo bác sĩ
+      responses:
+        '200':
+          description: Lấy hồ sơ khám bệnh thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MedicalRecord'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /medical-records/my/search:
+    get:
+      tags:
+        - Medical Records
+      summary: "[DOCTOR] Tìm kiếm hồ sơ do mình tạo"
+      description: Doctor tìm kiếm trong hồ sơ khám bệnh do mình tạo
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: diagnosis
+          schema:
+            type: string
+          description: Tìm theo chẩn đoán
+        - in: query
+          name: patientName
+          schema:
+            type: string
+          description: Tìm theo tên bệnh nhân
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Tìm kiếm thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MedicalRecord'
+                  searchCriteria:
+                    type: object
+
+  /medical-records/staff/search:
+    get:
+      tags:
+        - Medical Records
+      summary: "[STAFF] Tìm kiếm tất cả hồ sơ"
+      description: Staff tìm kiếm trong tất cả hồ sơ khám bệnh
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: diagnosis
+          schema:
+            type: string
+          description: Tìm theo chẩn đoán
+        - in: query
+          name: doctorName
+          schema:
+            type: string
+          description: Tìm theo tên bác sĩ
+        - in: query
+          name: patientName
+          schema:
+            type: string
+          description: Tìm theo tên bệnh nhân
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Tìm kiếm thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MedicalRecord'
+                  searchCriteria:
+                    type: object
+
+  # =============== MEDICINES APIs ===============
+  
+  /medicines:
+    post:
+      tags:
+        - Medicines
+      summary: "[MANAGER] Tạo thuốc mới"
+      description: Chỉ Manager có quyền tạo thuốc trong master data
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - type
+              properties:
+                name:
+                  type: string
+                  example: "Paracetamol"
+                  description: Tên thuốc
+                type:
+                  type: string
+                  example: "Giảm đau, hạ sốt"
+                  description: Loại thuốc
+                description:
+                  type: string
+                  example: "Thuốc giảm đau, hạ sốt thông dụng"
+                  description: Mô tả thuốc
+                defaultDosage:
+                  type: string
+                  example: "500mg"
+                  description: Liều lượng mặc định
+                defaultTimingInstructions:
+                  type: string
+                  example: "Sau ăn 30 phút"
+                  description: Hướng dẫn sử dụng mặc định
+      responses:
+        '201':
+          description: Tạo thuốc thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tạo thuốc thành công"
+                  data:
+                    $ref: '#/components/schemas/Medicine'
+    
+    get:
+      tags:
+        - Medicines
+      summary: "[DOCTOR/STAFF/MANAGER] Lấy danh sách thuốc"
+      description: Doctor/Staff xem thuốc đang hoạt động để kê đơn, Manager xem tất cả thuốc để quản lý. Customer KHÔNG được xem - họ chỉ xem thuốc từ medical records của mình.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: ["contraceptive", "vitamin", "other", "antibiotic", "painkiller"]
+          description: Lọc theo loại thuốc (tuỳ chọn)
+          example: "painkiller"
+      responses:
+        '200':
+          description: Lấy danh sách thuốc thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy danh sách thuốc thành công (5 thuốc)"
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                        name:
+                          type: string
+                          example: "Paracetamol"
+                        type:
+                          type: string
+                          example: "painkiller"
+                        description:
+                          type: string
+                          example: "Thuốc giảm đau, hạ sốt"
+                        defaultDosage:
+                          type: string
+                          example: "500mg"
+                        defaultTimingInstructions:
+                          type: string
+                          example: "Sau ăn 30 phút"
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền (chỉ Doctor/Staff/Manager)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /medicines/{id}:
+    get:
+      tags:
+        - Medicines
+      summary: "[ALL ROLES EXCEPT GUEST] Xem chi tiết thuốc"
+      description: Tất cả roles trừ guest có thể xem thông tin chi tiết của một loại thuốc
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID thuốc
+      responses:
+        '200':
+          description: Lấy thông tin thuốc thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy thông tin thuốc thành công"
+                  data:
+                    $ref: '#/components/schemas/Medicine'
+    
+    put:
+      tags:
+        - Medicines
+      summary: "[MANAGER] Cập nhật thuốc"
+      description: Chỉ Manager có quyền cập nhật thông tin thuốc
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID thuốc
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                description:
+                  type: string
+                defaultDosage:
+                  type: string
+                defaultTimingInstructions:
+                  type: string
+                isActive:
+                  type: boolean
+      responses:
+        '200':
+          description: Cập nhật thuốc thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Cập nhật thuốc thành công"
+                  data:
+                    $ref: '#/components/schemas/Medicine'
+
+  /medicines/{id}/status:
+    patch:
+      tags:
+        - Medicines
+      summary: "[MANAGER] Kích hoạt/vô hiệu hóa thuốc"
+      description: Manager thay đổi trạng thái hoạt động của thuốc
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID thuốc
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - isActive
+              properties:
+                isActive:
+                  type: boolean
+                  description: Trạng thái hoạt động mới
+      responses:
+        '200':
+          description: Thay đổi trạng thái thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Medicine'
+
+  # =============== MEDICATION REMINDERS APIs ===============
+  
+  /medication-reminders:
+    post:
+      tags:
+        - Medication Reminders
+      summary: "[CUSTOMER] Tạo nhắc nhở từ hồ sơ khám"
+      description: User tạo nhắc nhở uống thuốc từ hồ sơ khám bệnh, chọn thuốc và thiết lập lịch nhắc
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - medicalRecordId
+                - profileId
+                - selectedMedicines
+              properties:
+                medicalRecordId:
+                  type: string
+                  example: "675e4bcd6dc1234567890123"
+                  description: ID hồ sơ khám bệnh
+                profileId:
+                  type: string
+                  example: "675e4bcd6dc1234567890456"
+                  description: ID hồ sơ bệnh nhân
+                selectedMedicines:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      medicineIndex:
+                        type: integer
+                        example: 0
+                        description: Index thuốc trong medical record
+                      reminderTimes:
+                        type: array
+                        items:
+                          type: string
+                        example: ["08:00", "14:00", "20:00"]
+                        description: Giờ nhắc nhở
+                      frequency:
+                        type: string
+                        example: "daily"
+                        description: Tần suất
+                      customInstructions:
+                        type: string
+                        example: "Uống sau ăn"
+                        description: Hướng dẫn riêng
+                  description: Danh sách thuốc được chọn để nhắc
+                startDate:
+                  type: string
+                  format: date
+                  example: "2024-01-20"
+                  description: Ngày bắt đầu nhắc
+                endDate:
+                  type: string
+                  format: date
+                  example: "2024-01-27"
+                  description: Ngày kết thúc nhắc (optional)
+                notes:
+                  type: string
+                  example: "Nhắc uống thuốc theo đơn bác sĩ"
+                  description: Ghi chú thêm
+      responses:
+        '201':
+          description: Tạo nhắc nhở thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tạo nhắc nhở uống thuốc thành công"
+                  data:
+                    $ref: '#/components/schemas/MedicationReminder'
+
+  /medication-reminders/my:
+    get:
+      tags:
+        - Medication Reminders
+      summary: "[CUSTOMER] Xem nhắc nhở của tôi"
+      description: User xem danh sách nhắc nhở uống thuốc của profiles thuộc về mình
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: profileId
+          schema:
+            type: string
+          description: Lọc theo hồ sơ bệnh nhân
+        - in: query
+          name: isActive
+          schema:
+            type: boolean
+          description: Lọc theo trạng thái hoạt động
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Lấy danh sách nhắc nhở thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MedicationReminder'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /medication-reminders/{id}:
+    get:
+      tags:
+        - Medication Reminders
+      summary: "[CUSTOMER] Xem chi tiết nhắc nhở"
+      description: User xem chi tiết nhắc nhở uống thuốc của mình
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID nhắc nhở
+      responses:
+        '200':
+          description: Lấy thông tin nhắc nhở thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy thông tin nhắc nhở thành công"
+                  data:
+                    $ref: '#/components/schemas/MedicationReminder'
+    
+    put:
+      tags:
+        - Medication Reminders
+      summary: "[CUSTOMER] Cập nhật nhắc nhở"
+      description: User cập nhật thông tin nhắc nhở uống thuốc của mình
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID nhắc nhở
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                medicines:
+                  type: array
+                  items:
+                    type: object
+                  description: Danh sách thuốc và lịch nhắc
+                startDate:
+                  type: string
+                  format: date
+                endDate:
+                  type: string
+                  format: date
+                isActive:
+                  type: boolean
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Cập nhật nhắc nhở thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Cập nhật nhắc nhở thành công"
+                  data:
+                    $ref: '#/components/schemas/MedicationReminder'
+    
+    delete:
+      tags:
+        - Medication Reminders
+      summary: "[CUSTOMER] Xóa nhắc nhở"
+      description: User xóa nhắc nhở uống thuốc của mình
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID nhắc nhở
+      responses:
+        '200':
+          description: Xóa nhắc nhở thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Xóa nhắc nhở thành công"
+                  data:
+                    $ref: '#/components/schemas/MedicationReminder'
+
+  /medication-reminders/{id}/status:
+    patch:
+      tags:
+        - Medication Reminders
+      summary: "[CUSTOMER] Tạm dừng/kích hoạt nhắc nhở"
+      description: User tạm dừng hoặc kích hoạt lại nhắc nhở uống thuốc
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID nhắc nhở
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - isActive
+              properties:
+                isActive:
+                  type: boolean
+                  description: Trạng thái hoạt động mới
+      responses:
+        '200':
+          description: Thay đổi trạng thái thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/MedicationReminder'
+
+  /medication-reminders/staff/all:
+    get:
+      tags:
+        - Medication Reminders
+      summary: "[STAFF] Xem tất cả nhắc nhở"
+      description: Staff/Manager/Admin xem tổng quan tất cả nhắc nhở trong hệ thống
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: profileId
+          schema:
+            type: string
+          description: Lọc theo hồ sơ bệnh nhân
+        - in: query
+          name: userId
+          schema:
+            type: string
+          description: Lọc theo user
+        - in: query
+          name: isActive
+          schema:
+            type: boolean
+          description: Lọc theo trạng thái hoạt động
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Lấy tất cả nhắc nhở thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MedicationReminder'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  # =============== NOTIFICATION DAYS APIs ===============
+  
+  /notification-days/{id}:
+    put:
+      tags:
+        - Notification Days
+      summary: "[CUSTOMER] Cập nhật trạng thái thông báo"
+      description: User cập nhật trạng thái thông báo nhắc uống thuốc (taken, skipped, snoozed)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID thông báo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [pending, sent, failed, taken, skipped, snoozed]
+                  example: "taken"
+                  description: Trạng thái mới
+                reason:
+                  type: string
+                  example: "Đã uống đúng giờ"
+                  description: Lý do (tuỳ chọn)
+                takenAt:
+                  type: string
+                  format: date-time
+                  description: Thời gian uống (nếu status = taken)
+                snoozedUntil:
+                  type: string
+                  format: date-time
+                  description: Hoãn đến lúc (nếu status = snoozed)
+      responses:
+        '200':
+          description: Cập nhật trạng thái thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Cập nhật trạng thái thông báo thành công"
+                  data:
+                    $ref: '#/components/schemas/NotificationDay'
+
+  /notification-days/my:
+    get:
+      tags:
+        - Notification Days
+      summary: "[CUSTOMER] Xem thông báo của tôi"
+      description: User xem tất cả thông báo nhắc uống thuốc của mình
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: reminderId
+          schema:
+            type: string
+          description: Lọc theo nhắc nhở cụ thể
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, sent, failed, taken, skipped, snoozed]
+          description: Lọc theo trạng thái
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Lấy danh sách thông báo thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NotificationDay'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /notification-days/reminder/{reminderId}:
+    get:
+      tags:
+        - Notification Days
+      summary: "[CUSTOMER] Xem thông báo theo nhắc nhở"
+      description: User xem tất cả thông báo của một nhắc nhở cụ thể
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: reminderId
+          required: true
+          schema:
+            type: string
+          description: ID nhắc nhở
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, sent, failed, taken, skipped, snoozed]
+          description: Lọc theo trạng thái
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Lấy thông báo của nhắc nhở thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NotificationDay'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /notification-days/{id}/taken:
+    patch:
+      tags:
+        - Notification Days
+      summary: "[CUSTOMER] Đánh dấu đã uống thuốc"
+      description: User đánh dấu đã uống thuốc theo lịch nhắc
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID thông báo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  example: "Đã uống đúng giờ"
+                  description: Lý do (tuỳ chọn)
+      responses:
+        '200':
+          description: Đánh dấu đã uống thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Đánh dấu đã uống thuốc thành công"
+                  data:
+                    $ref: '#/components/schemas/NotificationDay'
+
+  /notification-days/{id}/skipped:
+    patch:
+      tags:
+        - Notification Days
+      summary: "[CUSTOMER] Bỏ qua lần uống"
+      description: User đánh dấu bỏ qua lần uống thuốc này
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID thông báo
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  example: "Quên mang thuốc"
+                  description: Lý do bỏ qua
+      responses:
+        '200':
+          description: Đánh dấu bỏ qua thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Đánh dấu bỏ qua lần uống thành công"
+                  data:
+                    $ref: '#/components/schemas/NotificationDay'
+
+  /notification-days/{id}/snooze:
+    patch:
+      tags:
+        - Notification Days
+      summary: "[CUSTOMER] Hoãn thông báo"
+      description: User hoãn thông báo nhắc uống thuốc đến thời gian khác
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID thông báo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - snoozedUntil
+              properties:
+                snoozedUntil:
+                  type: string
+                  format: date-time
+                  example: "2024-01-20T15:30:00.000Z"
+                  description: Thời gian hoãn đến
+                reason:
+                  type: string
+                  example: "Đang bận, sẽ uống sau"
+                  description: Lý do hoãn
+      responses:
+        '200':
+          description: Hoãn thông báo thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Hoãn thông báo thành công"
+                  data:
+                    $ref: '#/components/schemas/NotificationDay'
+
+  /notification-days/staff/all:
+    get:
+      tags:
+        - Notification Days
+      summary: "[STAFF] Xem tất cả thông báo"
+      description: Staff/Manager/Admin xem tổng quan tất cả thông báo trong hệ thống
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: reminderId
+          schema:
+            type: string
+          description: Lọc theo nhắc nhở
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, sent, failed, taken, skipped, snoozed]
+          description: Lọc theo trạng thái
+        - in: query
+          name: userId
+          schema:
+            type: string
+          description: Lọc theo user
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Lấy tất cả thông báo thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NotificationDay'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /notification-days/staff/statistics:
+    get:
+      tags:
+        - Notification Days
+      summary: "[STAFF] Lấy thống kê thông báo"
+      description: Staff xem thống kê về hiệu quả nhắc nhở uống thuốc
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: dateFrom
+          schema:
+            type: string
+            format: date
+          description: Từ ngày
+        - in: query
+          name: dateTo
+          schema:
+            type: string
+            format: date
+          description: Đến ngày
+        - in: query
+          name: reminderId
+          schema:
+            type: string
+          description: Lọc theo nhắc nhở cụ thể
+      responses:
+        '200':
+          description: Lấy thống kê thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy thống kê thông báo thành công"
+                  data:
+                    type: object
+                    properties:
+                      totalNotifications:
+                        type: integer
+                        example: 150
+                      takenCount:
+                        type: integer
+                        example: 120
+                      skippedCount:
+                        type: integer
+                        example: 20
+                      snoozedCount:
+                        type: integer
+                        example: 10
+                      complianceRate:
+                        type: number
+                        example: 80.0
+                        description: Tỷ lệ tuân thủ uống thuốc (%)
+                      period:
+                        type: object
+                        properties:
+                          from:
+                            type: string
+                            format: date
+                          to:
+                            type: string
+                            format: date
+
 components:
   securitySchemes:
     bearerAuth:
@@ -3012,3 +4450,603 @@ components:
           format: date-time
           example: "2024-01-15T14:45:00.000Z"
           description: Thời gian cập nhật cuối
+
+    # =============== NEW SCHEMAS FOR 4 MODULES ===============
+    
+    MedicalRecord:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "675e4bcd6dc1234567890123"
+          description: ID hồ sơ khám bệnh
+        doctorId:
+          type: object
+          properties:
+            _id:
+              type: string
+            userId:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  example: "Dr. Nguyễn Văn A"
+                email:
+                  type: string
+        profileId:
+          type: object
+          properties:
+            _id:
+              type: string
+            fullName:
+              type: string
+              example: "Nguyễn Thị B"
+            gender:
+              type: string
+              example: "female"
+            phone:
+              type: string
+              example: "0987654321"
+        appointmentId:
+          type: object
+          properties:
+            _id:
+              type: string
+            appointmentDate:
+              type: string
+              format: date
+            appointmentTime:
+              type: string
+              example: "14:00-15:00"
+            status:
+              type: string
+        diagnosis:
+          type: string
+          example: "Viêm dạ dày"
+          description: Chẩn đoán bệnh
+        symptoms:
+          type: string
+          example: "Đau bụng, buồn nôn"
+          description: Triệu chứng
+        treatment:
+          type: string
+          example: "Uống thuốc theo đơn, kiêng cay"
+          description: Phương pháp điều trị
+        medicines:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: "Paracetamol"
+              type:
+                type: string
+                example: "Giảm đau"
+              dosage:
+                type: string
+                example: "500mg"
+              frequency:
+                type: string
+                example: "3 lần/ngày"
+              timingInstructions:
+                type: string
+                example: "Sau ăn 30 phút"
+              duration:
+                type: string
+                example: "7 ngày"
+              instructions:
+                type: string
+                example: "Uống đủ liều, không bỏ"
+          description: Danh sách thuốc kê đơn
+        notes:
+          type: string
+          example: "Tái khám sau 1 tuần"
+          description: Ghi chú thêm
+        pictures:
+          type: array
+          items:
+            type: string
+          example: ["url1.jpg", "url2.jpg"]
+          description: Hình ảnh kèm theo
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Medicine:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "675e4bcd6dc1234567890456"
+          description: ID thuốc
+        name:
+          type: string
+          example: "Paracetamol"
+          description: Tên thuốc
+        type:
+          type: string
+          example: "Giảm đau, hạ sốt"
+          description: Loại thuốc
+        description:
+          type: string
+          example: "Thuốc giảm đau, hạ sốt thông dụng"
+          description: Mô tả thuốc
+        defaultDosage:
+          type: string
+          example: "500mg"
+          description: Liều lượng mặc định
+        defaultTimingInstructions:
+          type: string
+          example: "Sau ăn 30 phút"
+          description: Hướng dẫn sử dụng mặc định
+        isActive:
+          type: boolean
+          example: true
+          description: Trạng thái hoạt động
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MedicationReminder:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "675e4bcd6dc1234567890789"
+          description: ID nhắc nhở
+        createdByUserId:
+          type: string
+          example: "675e4bcd6dc1234567890abc"
+          description: ID user tạo nhắc nhở
+        profileId:
+          type: object
+          properties:
+            _id:
+              type: string
+            fullName:
+              type: string
+              example: "Nguyễn Thị B"
+            gender:
+              type: string
+              example: "female"
+            phone:
+              type: string
+              example: "0987654321"
+        medicalRecordId:
+          type: object
+          properties:
+            _id:
+              type: string
+            diagnosis:
+              type: string
+              example: "Viêm dạ dày"
+            treatment:
+              type: string
+              example: "Uống thuốc theo đơn"
+            createdAt:
+              type: string
+              format: date-time
+        medicines:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: "Paracetamol"
+              dosage:
+                type: string
+                example: "500mg"
+              reminderTimes:
+                type: array
+                items:
+                  type: string
+                example: ["08:00", "14:00", "20:00"]
+                description: Giờ nhắc nhở
+              frequency:
+                type: string
+                example: "daily"
+                description: Tần suất
+              instructions:
+                type: string
+                example: "Uống sau ăn"
+          description: Danh sách thuốc và lịch nhắc
+        startDate:
+          type: string
+          format: date
+          example: "2024-01-20"
+          description: Ngày bắt đầu nhắc
+        endDate:
+          type: string
+          format: date
+          example: "2024-01-27"
+          description: Ngày kết thúc nhắc
+        isActive:
+          type: boolean
+          example: true
+          description: Trạng thái hoạt động
+        notes:
+          type: string
+          example: "Nhắc uống thuốc theo đơn bác sĩ"
+          description: Ghi chú thêm
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    NotificationDay:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "675e4bcd6dc1234567890def"
+          description: ID thông báo
+        reminderId:
+          type: object
+          properties:
+            _id:
+              type: string
+            medicines:
+              type: array
+              items:
+                type: object
+            profileId:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  example: "Nguyễn Thị B"
+          description: Thông tin nhắc nhở
+        notificationTimes:
+          type: string
+          format: date-time
+          example: "2024-01-20T08:00:00.000Z"
+          description: Thời gian thông báo
+        status:
+          type: string
+          enum: [pending, sent, failed, taken, skipped, snoozed]
+          example: "taken"
+          description: Trạng thái thông báo
+        reason:
+          type: string
+          example: "Đã uống đúng giờ"
+          description: Lý do (cho taken/skipped/snoozed)
+        takenAt:
+          type: string
+          format: date-time
+          description: Thời gian uống thuốc (nếu status = taken)
+        snoozedUntil:
+          type: string
+          format: date-time
+          description: Hoãn đến lúc (nếu status = snoozed)
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 5
+        totalRecords:
+          type: integer
+          example: 50
+        limit:
+          type: integer
+          example: 10
+
+    # =============== NEW SCHEMAS FOR 4 MODULES ===============
+    
+    MedicalRecord:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "675e4bcd6dc1234567890123"
+          description: ID hồ sơ khám bệnh
+        doctorId:
+          type: object
+          properties:
+            _id:
+              type: string
+            userId:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  example: "Dr. Nguyễn Văn A"
+                email:
+                  type: string
+        profileId:
+          type: object
+          properties:
+            _id:
+              type: string
+            fullName:
+              type: string
+              example: "Nguyễn Thị B"
+            gender:
+              type: string
+              example: "female"
+            phone:
+              type: string
+              example: "0987654321"
+        appointmentId:
+          type: object
+          properties:
+            _id:
+              type: string
+            appointmentDate:
+              type: string
+              format: date
+            appointmentTime:
+              type: string
+              example: "14:00-15:00"
+            status:
+              type: string
+        diagnosis:
+          type: string
+          example: "Viêm dạ dày"
+          description: Chẩn đoán bệnh
+        symptoms:
+          type: string
+          example: "Đau bụng, buồn nôn"
+          description: Triệu chứng
+        treatment:
+          type: string
+          example: "Uống thuốc theo đơn, kiêng cay"
+          description: Phương pháp điều trị
+        medicines:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: "Paracetamol"
+              type:
+                type: string
+                example: "Giảm đau"
+              dosage:
+                type: string
+                example: "500mg"
+              frequency:
+                type: string
+                example: "3 lần/ngày"
+              timingInstructions:
+                type: string
+                example: "Sau ăn 30 phút"
+              duration:
+                type: string
+                example: "7 ngày"
+              instructions:
+                type: string
+                example: "Uống đủ liều, không bỏ"
+          description: Danh sách thuốc kê đơn
+        notes:
+          type: string
+          example: "Tái khám sau 1 tuần"
+          description: Ghi chú thêm
+        pictures:
+          type: array
+          items:
+            type: string
+          example: ["url1.jpg", "url2.jpg"]
+          description: Hình ảnh kèm theo
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Medicine:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "675e4bcd6dc1234567890456"
+          description: ID thuốc
+        name:
+          type: string
+          example: "Paracetamol"
+          description: Tên thuốc
+        type:
+          type: string
+          example: "Giảm đau, hạ sốt"
+          description: Loại thuốc
+        description:
+          type: string
+          example: "Thuốc giảm đau, hạ sốt thông dụng"
+          description: Mô tả thuốc
+        defaultDosage:
+          type: string
+          example: "500mg"
+          description: Liều lượng mặc định
+        defaultTimingInstructions:
+          type: string
+          example: "Sau ăn 30 phút"
+          description: Hướng dẫn sử dụng mặc định
+        isActive:
+          type: boolean
+          example: true
+          description: Trạng thái hoạt động
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MedicationReminder:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "675e4bcd6dc1234567890789"
+          description: ID nhắc nhở
+        createdByUserId:
+          type: string
+          example: "675e4bcd6dc1234567890abc"
+          description: ID user tạo nhắc nhở
+        profileId:
+          type: object
+          properties:
+            _id:
+              type: string
+            fullName:
+              type: string
+              example: "Nguyễn Thị B"
+            gender:
+              type: string
+              example: "female"
+            phone:
+              type: string
+              example: "0987654321"
+        medicalRecordId:
+          type: object
+          properties:
+            _id:
+              type: string
+            diagnosis:
+              type: string
+              example: "Viêm dạ dày"
+            treatment:
+              type: string
+              example: "Uống thuốc theo đơn"
+            createdAt:
+              type: string
+              format: date-time
+        medicines:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: "Paracetamol"
+              dosage:
+                type: string
+                example: "500mg"
+              reminderTimes:
+                type: array
+                items:
+                  type: string
+                example: ["08:00", "14:00", "20:00"]
+                description: Giờ nhắc nhở
+              frequency:
+                type: string
+                example: "daily"
+                description: Tần suất
+              instructions:
+                type: string
+                example: "Uống sau ăn"
+          description: Danh sách thuốc và lịch nhắc
+        startDate:
+          type: string
+          format: date
+          example: "2024-01-20"
+          description: Ngày bắt đầu nhắc
+        endDate:
+          type: string
+          format: date
+          example: "2024-01-27"
+          description: Ngày kết thúc nhắc
+        isActive:
+          type: boolean
+          example: true
+          description: Trạng thái hoạt động
+        notes:
+          type: string
+          example: "Nhắc uống thuốc theo đơn bác sĩ"
+          description: Ghi chú thêm
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    NotificationDay:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "675e4bcd6dc1234567890def"
+          description: ID thông báo
+        reminderId:
+          type: object
+          properties:
+            _id:
+              type: string
+            medicines:
+              type: array
+              items:
+                type: object
+            profileId:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  example: "Nguyễn Thị B"
+          description: Thông tin nhắc nhở
+        notificationTimes:
+          type: string
+          format: date-time
+          example: "2024-01-20T08:00:00.000Z"
+          description: Thời gian thông báo
+        status:
+          type: string
+          enum: [pending, sent, failed, taken, skipped, snoozed]
+          example: "taken"
+          description: Trạng thái thông báo
+        reason:
+          type: string
+          example: "Đã uống đúng giờ"
+          description: Lý do (cho taken/skipped/snoozed)
+        takenAt:
+          type: string
+          format: date-time
+          description: Thời gian uống thuốc (nếu status = taken)
+        snoozedUntil:
+          type: string
+          format: date-time
+          description: Hoãn đến lúc (nếu status = snoozed)
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 5
+        totalRecords:
+          type: integer
+          example: 50
+        limit:
+          type: integer
+          example: 10

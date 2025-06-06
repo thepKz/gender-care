@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
-import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes } from "./routes";
+import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, medicalRecordsRoutes, medicinesRoutes, medicationRemindersRoutes, notificationDaysRoutes } from "./routes";
 import doctorQARoutes from "./routes/doctorQARoutes";
 import { runAllSeeds } from "./seeds";
 
@@ -100,6 +100,11 @@ apiRouter.use('/login-history', loginHistoryRoutes);
 apiRouter.use('/doctors', doctorRoutes);
 // Thêm DoctorQA routes
 apiRouter.use('/', doctorQARoutes);
+// Thêm các routes còn lại
+apiRouter.use('/medical-records', medicalRecordsRoutes);
+apiRouter.use('/medicines', medicinesRoutes);
+apiRouter.use('/medication-reminders', medicationRemindersRoutes);
+apiRouter.use('/notification-days', notificationDaysRoutes);
 
 // Middleware xử lý lỗi
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

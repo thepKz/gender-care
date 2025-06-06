@@ -45,40 +45,27 @@ export const createMedicine = async (req: Request, res: Response) => {
   }
 };
 
-// Lấy danh sách medicines (Tất cả roles)
+// Lấy danh sách medicines (Customer, Doctor, Staff, Manager)
 export const getAllMedicines = async (req: Request, res: Response) => {
   try {
-    const { type, isActive, search, page = 1, limit = 10 } = req.query;
+    const { type } = req.query;
+    const userRole = (req as any).user?.role;
 
-    // Build query
+    // Build query - Manager xem tất cả, role khác chỉ xem active
     const query: any = {};
-    if (type) query.type = type;
-    if (isActive !== undefined) query.isActive = isActive === 'true';
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
-      ];
+    if (userRole !== 'manager') {
+      query.isActive = true; // Chỉ Manager mới xem được thuốc inactive
     }
+    if (type) query.type = type;
 
-    // Pagination
-    const skip = (Number(page) - 1) * Number(limit);
-    const total = await Medicines.countDocuments(query);
-
+    // Lấy tất cả thuốc phù hợp, sắp xếp theo tên
     const medicines = await Medicines.find(query)
       .sort({ name: 1 })
-      .skip(skip)
-      .limit(Number(limit));
+      .select('name type description defaultDosage defaultTimingInstructions isActive');
 
     res.json({
-      message: `Lấy danh sách thuốc thành công (${medicines.length}/${total} thuốc)`,
-      data: medicines,
-      pagination: {
-        currentPage: Number(page),
-        totalPages: Math.ceil(total / Number(limit)),
-        totalRecords: total,
-        limit: Number(limit)
-      }
+      message: `Lấy danh sách thuốc thành công (${medicines.length} thuốc)`,
+      data: medicines
     });
   } catch (error) {
     console.error('Error getting medicines:', error);
@@ -88,10 +75,17 @@ export const getAllMedicines = async (req: Request, res: Response) => {
   }
 };
 
-// Lấy chi tiết medicine
+// Lấy chi tiết medicine (All roles except guest)
 export const getMedicineById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    // Validate ObjectId format
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        message: 'ID thuốc không hợp lệ'
+      });
+    }
 
     const medicine = await Medicines.findById(id);
     if (!medicine) {
@@ -162,34 +156,7 @@ export const updateMedicine = async (req: Request, res: Response) => {
   }
 };
 
-// Xóa medicine (Manager only) - Soft delete
-export const deleteMedicine = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const medicine = await Medicines.findById(id);
-    if (!medicine) {
-      return res.status(404).json({
-        message: 'Không tìm thấy thuốc'
-      });
-    }
-
-    // Soft delete - set isActive to false
-    await Medicines.findByIdAndUpdate(id, { isActive: false });
-
-    res.json({
-      message: 'Xóa thuốc thành công',
-      data: { id, name: medicine.name, isActive: false }
-    });
-  } catch (error) {
-    console.error('Error deleting medicine:', error);
-    res.status(500).json({
-      message: 'Lỗi server khi xóa thuốc'
-    });
-  }
-};
-
-// Kích hoạt/vô hiệu hóa medicine
+// Kích hoạt/vô hiệu hóa medicine (Manager only)
 export const toggleMedicineStatus = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
