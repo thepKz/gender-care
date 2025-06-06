@@ -55,7 +55,7 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
           message: 'Lỗi',
           description: 'Không tìm thấy ID hồ sơ'
         });
-        navigate('/profile/health-profiles');
+        navigate('/profile');
         return;
       }
 
@@ -66,15 +66,8 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
         const response = await userProfileApi.getProfileById(profileId);
         console.log('API Response:', response); // Log để debug
         
-        // Kiểm tra và xử lý nhiều cấu trúc dữ liệu có thể có
-        let profileData;
-        if (response?.data?.data) {
-          profileData = response.data.data;
-          console.log('Found profile data in response.data.data');
-        } else if (response?.data) {
-          profileData = response.data;
-          console.log('Found profile data in response.data');
-        }
+        // API trả về trực tiếp UserProfile object
+        const profileData = response;
         
         console.log('Profile data:', profileData);
         
@@ -83,7 +76,7 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
             message: 'Lỗi dữ liệu',
             description: 'Không tìm thấy thông tin hồ sơ'
           });
-          navigate('/profile/health-profiles');
+          navigate('/profile');
           return;
         }
 
@@ -154,7 +147,7 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
       });
       
       // Chuyển hướng đến trang danh sách hồ sơ
-      navigate('/profile/health-profiles');
+      window.location.hash = '#/user-profiles';
     } catch (error: any) {
       console.error('Error updating profile:', error);
       
@@ -200,7 +193,7 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
             message: 'Thành công',
             description: 'Xóa hồ sơ bệnh án thành công!'
           });
-          navigate('/profile/health-profiles');
+          window.location.hash = '#/user-profiles';
         } catch (error) {
           console.error('Error deleting profile:', error);
           notification.error({
@@ -232,7 +225,7 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
             <Link to="/profile">Tài khoản</Link>
           </Breadcrumb.Item>
           <Breadcrumb.Item>
-            <Link to="/profile/health-profiles">Hồ sơ sức khỏe</Link>
+            <Link to="/profile">Hồ sơ sức khỏe</Link>
           </Breadcrumb.Item>
           <Breadcrumb.Item>Chỉnh sửa hồ sơ</Breadcrumb.Item>
         </Breadcrumb>
@@ -249,7 +242,7 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
           </div>
           <Button 
             icon={<ArrowLeftOutlined />} 
-            onClick={() => navigate('/profile/health-profiles')}
+            onClick={() => navigate('/profile')}
             className="flex items-center"
           >
             Quay lại

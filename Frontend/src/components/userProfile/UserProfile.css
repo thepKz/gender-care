@@ -1,0 +1,289 @@
+/* UserProfile Components Global Styles */
+
+.user-profile-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f0f8ff 0%, #ffffff 50%, #f0f8ff 100%);
+}
+
+/* UserProfileCard Styles */
+.user-profile-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.user-profile-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.user-profile-card .ant-card-body {
+  padding: 20px;
+}
+
+.user-profile-card .profile-background {
+  position: absolute;
+  top: 0;
+  right: 0;
+  opacity: 0.05;
+  transition: opacity 0.3s ease;
+}
+
+.user-profile-card:hover .profile-background {
+  opacity: 0.1;
+}
+
+/* Profile Gender Colors */
+.gender-male {
+  --primary-color: #0C3C54;
+  --secondary-color: #1a5570;
+  --bg-color: #f0f4f8;
+}
+
+.gender-female {
+  --primary-color: #eb2f96;
+  --secondary-color: #ff85c0;
+  --bg-color: #fff0f6;
+}
+
+.gender-other {
+  --primary-color: #722ed1;
+  --secondary-color: #b37feb;
+  --bg-color: #f9f0ff;
+}
+
+/* UserProfileModal Styles */
+.user-profile-modal .ant-modal-header {
+  border-bottom: 1px solid #f0f0f0;
+  background: linear-gradient(90deg, #fafafa 0%, #ffffff 100%);
+}
+
+.user-profile-modal .ant-form-item-label > label {
+  font-weight: 500;
+  color: #262626;
+}
+
+.user-profile-modal .ant-input-affix-wrapper {
+  border-radius: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-profile-modal .ant-input-affix-wrapper:focus-within {
+  border-color: #0C3C54;
+  box-shadow: 0 0 0 3px rgba(12, 60, 84, 0.1);
+}
+
+.user-profile-modal .ant-select-selector {
+  border-radius: 8px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-profile-modal .ant-select-focused .ant-select-selector {
+  border-color: #0C3C54 !important;
+  box-shadow: 0 0 0 3px rgba(12, 60, 84, 0.1) !important;
+}
+
+.user-profile-modal .ant-picker {
+  border-radius: 8px;
+  width: 100%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-profile-modal .ant-picker:hover,
+.user-profile-modal .ant-picker.ant-picker-focused {
+  border-color: #0C3C54;
+  box-shadow: 0 0 0 3px rgba(12, 60, 84, 0.1);
+}
+
+/* UserProfileList Styles */
+.user-profile-filters {
+  background: #fafafa;
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+  transition: all 0.3s ease;
+}
+
+.user-profile-filters.active {
+  background: #f6ffed;
+  border-color: #52c41a;
+}
+
+.user-profile-search .ant-input-search .ant-input-group .ant-input-affix-wrapper {
+  border-radius: 12px 0 0 12px;
+}
+
+.user-profile-search .ant-input-search .ant-input-search-button {
+  border-radius: 0 12px 12px 0;
+  background: #0C3C54;
+  border-color: #0C3C54;
+}
+
+.user-profile-search .ant-input-search .ant-input-search-button:hover {
+  background: #1a5570;
+  border-color: #1a5570;
+}
+
+/* Statistics Cards */
+.profile-stats-card {
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #ffffff 0%, #fafafa 100%);
+}
+
+.profile-stats-card:hover {
+  border-color: #0C3C54;
+  box-shadow: 0 4px 12px rgba(12, 60, 84, 0.1);
+}
+
+.profile-stats-card .ant-statistic-title {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.profile-stats-card .ant-statistic-content {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* Empty State */
+.profile-empty-state {
+  padding: 60px 20px;
+  text-align: center;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 16px;
+  border: 2px dashed #e8e8e8;
+}
+
+.profile-empty-state .ant-empty-image {
+  margin-bottom: 24px;
+}
+
+.profile-empty-state .ant-empty-description {
+  font-size: 16px;
+  margin-bottom: 24px;
+}
+
+/* Quick Add Profile Modal */
+.quick-add-profile-modal .ant-modal-content {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.quick-add-profile-modal .ant-modal-header {
+  background: linear-gradient(135deg, #f0f8ff 0%, #ffffff 100%);
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.quick-add-profile-modal .ant-form-item {
+  margin-bottom: 20px;
+}
+
+/* Filter Tags */
+.profile-filter-tag {
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: linear-gradient(135deg, #e6f7ff 0%, #f0f8ff 100%);
+  border: 1px solid #91d5ff;
+  color: #0958d9;
+}
+
+.profile-filter-tag.active {
+  background: linear-gradient(135deg, #0C3C54 0%, #1a5570 100%);
+  color: white;
+  border-color: #0C3C54;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .user-profile-card {
+    margin-bottom: 16px;
+  }
+  
+  .user-profile-filters {
+    padding: 16px;
+  }
+  
+  .profile-stats-card .ant-statistic-content {
+    font-size: 18px;
+  }
+  
+  .user-profile-modal {
+    margin: 20px;
+    width: calc(100vw - 40px) !important;
+    max-width: 500px;
+  }
+}
+
+@media (max-width: 576px) {
+  .user-profile-card .ant-card-body {
+    padding: 16px;
+  }
+  
+  .profile-empty-state {
+    padding: 40px 16px;
+  }
+  
+  .user-profile-modal {
+    margin: 10px;
+    width: calc(100vw - 20px) !important;
+  }
+}
+
+/* Animation Keyframes */
+@keyframes profileCardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes profileStatsCountUp {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.profile-card-enter {
+  animation: profileCardSlideIn 0.3s ease-out;
+}
+
+.profile-stats-enter {
+  animation: profileStatsCountUp 0.5s ease-out;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .user-profile-page {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%);
+  }
+  
+  .user-profile-card {
+    background: #2a2a2a;
+    border-color: #404040;
+    color: #ffffff;
+  }
+  
+  .profile-stats-card {
+    background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+    border-color: #404040;
+  }
+  
+  .profile-empty-state {
+    background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+    border-color: #404040;
+    color: #ffffff;
+  }
+} 

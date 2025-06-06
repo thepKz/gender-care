@@ -90,7 +90,7 @@ const Header: React.FC = () => {
       key: "2",
       icon: <Profile2User size={20} className="profile-icon" />,
       label: "Hồ sơ bệnh án",
-      onClick: () => navigate('/profile/health-profiles'),
+      onClick: () => navigate('/user-profiles'),
     },
     {
       key: "3",
@@ -98,15 +98,10 @@ const Header: React.FC = () => {
       onClick: () => navigate('/booking-history'),
     },
     {
-      key: "4",
-      label: "Feedback",
-      onClick: () => navigate('/feedback'),
-    },
-    {
       type: "divider",
     },
     {
-      key: "5",
+      key: "4",
       label: "Đăng xuất",
       icon: <Logout size={20} className="logout-icon" />,
       onClick: onLogout,
@@ -382,9 +377,9 @@ const Header: React.FC = () => {
               
               {isAuthenticated && (
                 <div className="py-2 border-b border-gray-100">
-                  <Link to="/profile/health-profiles" className="text-blue-primary text-lg flex items-center">
+                  <Link to="/user-profiles" className="text-blue-primary text-lg flex items-center">
                     <ProfileCircle size={20} className="mr-2" />
-                    Hồ sơ sức khỏe
+                    Hồ sơ bệnh án
                   </Link>
                 </div>
               )}

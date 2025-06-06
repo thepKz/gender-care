@@ -16,9 +16,9 @@ import {
   TeamOutlined,
   FormOutlined 
 } from '@ant-design/icons';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import userProfileApi from '../../api/endpoints/userProfileApi';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -26,24 +26,23 @@ const { Title, Text } = Typography;
 
 const CreateProfilePage: React.FC = () => {
   const [form] = Form.useForm();
-  const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/login');
+      window.location.hash = '#/login';
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated]);
 
   // Tính toán ngày tối thiểu là 10 năm trước tính từ hiện tại
-  const disabledDate = (current: moment.Moment) => {
+  const disabledDate = (current: dayjs.Dayjs) => {
     // Không cho phép chọn ngày trong tương lai
-    if (current > moment().endOf('day')) {
+    if (current > dayjs().endOf('day')) {
       return true;
     }
     // Không cho phép chọn ngày dưới 10 tuổi
-    return current > moment().subtract(10, 'years');
+    return current > dayjs().subtract(10, 'years');
   };
 
   const handleSubmit = async (values: any) => {
@@ -65,7 +64,7 @@ const CreateProfilePage: React.FC = () => {
       });
       
       // Chuyển hướng đến trang danh sách hồ sơ
-      navigate('/profile/health-profiles');
+      window.location.hash = '#/user-profiles';
     } catch (error) {
       console.error('Error creating profile:', error);
       notification.error({
@@ -86,10 +85,10 @@ const CreateProfilePage: React.FC = () => {
       >
         <Breadcrumb className="mb-6">
           <Breadcrumb.Item>
-            <Link to="/profile">Tài khoản</Link>
+            <Link to="/user-profiles">Tài khoản</Link>
           </Breadcrumb.Item>
           <Breadcrumb.Item>
-            <Link to="/profile/health-profiles">Hồ sơ sức khỏe</Link>
+            <Link to="/user-profiles">Hồ sơ sức khỏe</Link>
           </Breadcrumb.Item>
           <Breadcrumb.Item>Tạo hồ sơ mới</Breadcrumb.Item>
         </Breadcrumb>
@@ -106,7 +105,7 @@ const CreateProfilePage: React.FC = () => {
           </div>
           <Button 
             icon={<ArrowLeftOutlined />} 
-            onClick={() => navigate('/profile/health-profiles')}
+            onClick={() => window.location.hash = '#/user-profiles'}
             className="flex items-center"
           >
             Quay lại
@@ -187,7 +186,7 @@ const CreateProfilePage: React.FC = () => {
                 rules={[
                   {
                     validator: (_, value) => {
-                      if (value && value > moment().subtract(10, 'years')) {
+                      if (value && value > dayjs().subtract(10, 'years')) {
                         return Promise.reject('Tuổi phải từ 10 trở lên');
                       }
                       return Promise.resolve();

@@ -155,7 +155,7 @@ const ProfileForm: React.FC<ProfileFormProps> = ({
             size="large"
             loading={loading}
             icon={<SaveOutlined />}
-            className="rounded-lg bg-[#0C3C54] hover:bg-[#1a5570] border-none"
+            className="rounded-lg bg-[#0C3C54] hover:bg-[#0C3C54]/90 border-none"
           >
             {isEdit ? 'Cập nhật hồ sơ' : 'Tạo hồ sơ'}
           </Button>

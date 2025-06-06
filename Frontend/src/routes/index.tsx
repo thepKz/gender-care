@@ -35,10 +35,11 @@ import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
 
 // Import các trang hồ sơ bệnh án
-import HealthProfilesPage from '../pages/profile/health-profiles';
+// XÓA: import HealthProfilesPage from '../pages/profile/health-profiles';
 import CreateProfilePage from '../pages/profile/create-profile';
 import EditProfilePage from '../pages/profile/edit-profile';
 import ViewProfilePage from '../pages/profile/view-profile';
+import UserProfilesPage from '../pages/profile/UserProfilesPage';
 
 // Hooks
 import { useAuth } from '../hooks/useAuth';
@@ -83,10 +84,9 @@ const AppRoutes: React.FC = () => {
       <Route element={<ProfileLayout />}>
         <Route path="/profile" element={isAuthenticated ? <ProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/profile/edit" element={isAuthenticated ? <ProfileEditPage /> : <Navigate to="/login" replace />} />
-                  <Route path="/profile/health-profiles" element={isAuthenticated ? <HealthProfilesPage /> : <Navigate to="/login" replace />} />
-          <Route path="/profile/create-profile" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
-          <Route path="/profile/edit-profile/:profileId" element={isAuthenticated ? <EditProfilePage /> : <Navigate to="/login" replace />} />
-          <Route path="/profile/view-profile/:profileId" element={isAuthenticated ? <ViewProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/create-profile" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/edit-profile/:profileId" element={isAuthenticated ? <EditProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/view-profile/:profileId" element={isAuthenticated ? <ViewProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/medical-records/:profileId" element={isAuthenticated ? <NotFoundPage /> : <Navigate to="/login" replace />} />
       </Route>
       {/* Main routes - có header/footer */}
@@ -105,6 +105,9 @@ const AppRoutes: React.FC = () => {
         <Route path="/services/sti-test" element={<Navigate to="/booking?service=sti-testing" replace />} />
         <Route path="/services/home-sampling" element={<Navigate to="/booking?service=home-sampling" replace />} />
         <Route path="/services/cycle-tracking" element={<Navigate to="/booking?service=cycle-tracking" replace />} />
+        
+        {/* User Profiles Page */}
+        <Route path="/user-profiles" element={isAuthenticated ? <UserProfilesPage /> : <Navigate to="/login" replace />} />
         
         {/* Booking Pages */}
         <Route path="/booking" element={<BookingPage />} />

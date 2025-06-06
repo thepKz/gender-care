@@ -1,41 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  Card, 
-  Typography, 
-  Breadcrumb, 
-  Spin, 
-  Avatar, 
-  Descriptions, 
-  Button, 
-  Tabs,
-  Tag,
-  Divider,
-  notification,
-  Empty,
-  Result
-} from 'antd';
-import { 
-  ArrowLeftOutlined, 
-  TeamOutlined, 
-  ManOutlined, 
-  WomanOutlined,
-  QuestionOutlined,
-  EditOutlined,
-  FileTextOutlined,
-  MedicineBoxOutlined,
-  HistoryOutlined,
-  CalendarOutlined,
-  ReloadOutlined
-} from '@ant-design/icons';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import userProfileApi from '../../api/endpoints/userProfileApi';
 import { useAuth } from '../../hooks/useAuth';
 import { UserProfile } from '../../types';
-
-const { Title, Text, Paragraph } = Typography;
-const { TabPane } = Tabs;
 
 interface MedicalRecord {
   date: string;
@@ -99,46 +68,37 @@ const ViewProfilePage: React.FC = () => {
   // Lấy thông tin hồ sơ
   const fetchProfileData = async () => {
     if (!profileId) {
-      notification.error({
-        message: 'Lỗi',
-        description: 'Không tìm thấy ID hồ sơ'
-      });
-      navigate('/profile/health-profiles');
+      console.error('Lỗi', 'Không tìm thấy ID hồ sơ');
+      navigate('/profile');
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
-      const response = await userProfileApi.getProfileById(profileId);
-      console.log('API Response:', response); // Log để debug
       
-      // Kiểm tra và xử lý nhiều cấu trúc dữ liệu có thể có
-      let profileData;
-      if (response?.data?.data) {
-        profileData = response.data.data;
-      } else if (response?.data) {
-        profileData = response.data;
-      }
+      // First, get user's profiles to check if this profile belongs to them
+      const userProfiles = await userProfileApi.getMyProfiles();
+      const profileExists = userProfiles.find(p => p._id === profileId);
       
-      if (!profileData) {
-        setError('Không tìm thấy thông tin hồ sơ');
-        notification.error({
-          message: 'Lỗi dữ liệu',
-          description: 'Không tìm thấy thông tin hồ sơ'
-        });
+      if (!profileExists) {
+        setError('Bạn không có quyền truy cập hồ sơ này');
+        console.error('Không có quyền truy cập', 'Bạn chỉ có thể xem các hồ sơ thuộc về tài khoản của mình');
         return;
       }
 
-      setProfile(profileData);
+      setProfile(profileExists);
     } catch (error: unknown) {
       console.error('Error fetching profile:', error);
       
       let errorMessage = 'Không thể tải thông tin hồ sơ.';
       
       if (axios.isAxiosError(error)) {
-        if (error.response) {
-          console.log('Error response:', error.response);
+        if (error.response?.status === 403) {
+          errorMessage = 'Bạn không có quyền truy cập hồ sơ này';
+        } else if (error.response?.status === 404) {
+          errorMessage = 'Không tìm thấy hồ sơ này';
+        } else if (error.response) {
           errorMessage = error.response.data?.message || errorMessage;
         } else if (error.request) {
           errorMessage = 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.';
@@ -150,10 +110,7 @@ const ViewProfilePage: React.FC = () => {
       }
       
       setError(errorMessage);
-      notification.error({
-        message: 'Lỗi kết nối',
-        description: errorMessage
-      });
+      console.error('Lỗi', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -162,17 +119,17 @@ const ViewProfilePage: React.FC = () => {
   // Lấy thông tin hồ sơ
   useEffect(() => {
     fetchProfileData();
-  }, [profileId, navigate]);
+  }, [profileId]); // Removed navigate dependency to prevent duplicate calls
 
   // Hiển thị biểu tượng giới tính
   const renderGenderIcon = (gender: string) => {
     switch (gender) {
       case 'male':
-        return <ManOutlined className="text-blue-600" />;
+        return '👨';
       case 'female':
-        return <WomanOutlined className="text-pink-600" />;
+        return '👩';
       default:
-        return <QuestionOutlined className="text-gray-600" />;
+        return '❓';
     }
   };
 
@@ -188,10 +145,15 @@ const ViewProfilePage: React.FC = () => {
     }
   };
 
+  const breadcrumbRoutes = [
+    { path: '/user-profiles', breadcrumbName: 'Hồ sơ bệnh án' }
+  ];
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl flex justify-center items-center min-h-[60vh]">
-        <Spin size="large" tip="Đang tải thông tin hồ sơ..." />
+        <div className="w-12 h-12 border-4 border-[#0C3C54]/20 border-t-[#0C3C54] rounded-full animate-spin"></div>
+        <span className="ml-4 text-[#0C3C54] font-semibold text-lg">Đang tải thông tin hồ sơ...</span>
       </div>
     );
   }
@@ -199,28 +161,29 @@ const ViewProfilePage: React.FC = () => {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Result
-          status="error"
-          title="Không thể tải thông tin hồ sơ"
-          subTitle={error}
-          extra={[
-            <Button 
-              type="primary" 
-              key="retry"
-              icon={<ReloadOutlined />}
-              onClick={fetchProfileData}
-              className="bg-[#0C3C54] hover:bg-[#1a5570] border-none"
-            >
-              Thử lại
-            </Button>,
-            <Button 
-              key="back" 
-              onClick={() => navigate('/profile/health-profiles')}
-            >
-              Quay lại danh sách
-            </Button>,
-          ]}
-        />
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Lỗi:</strong>
+          <span className="block sm:inline">{error}</span>
+          <button 
+            type="button"
+            className="absolute top-0 bottom-0 right-0 px-4 py-3"
+            onClick={fetchProfileData}
+          >
+            <svg className="fill-current h-6 w-6 text-red-500" role="button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <title>Close</title>
+              <path d="M14.348 14.849a1.2 1.2 0 0 1-1.697 0L10 11.819l-2.651 3.029a1.2 1.2 0 1 1-1.697-1.697l2.758-3.15-2.759-3.152a1.2 1.2 0 1 1 1.697-1.697l2.652 3.03 2.651-3.03a1.2 1.2 0 1 1 1.697 1.697l-2.758 3.152 2.758 3.15a1.2 1.2 0 0 1 0 1.698z" />
+            </svg>
+          </button>
+        </div>
+        <div className="text-center mt-4">
+          <button 
+            type="button"
+            onClick={() => navigate('/user-profiles')}
+            className="rounded-lg bg-[#0C3C54] hover:bg-[#0C3C54]/90 border-none px-4 py-2 text-white"
+          >
+            Quay lại danh sách hồ sơ
+          </button>
+        </div>
       </div>
     );
   }
@@ -228,244 +191,116 @@ const ViewProfilePage: React.FC = () => {
   if (!profile) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Empty 
-          description="Không tìm thấy thông tin hồ sơ" 
-          image={Empty.PRESENTED_IMAGE_SIMPLE} 
-        />
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Lỗi:</strong>
+          <span className="block sm:inline">Không tìm thấy thông tin hồ sơ</span>
+        </div>
         <div className="text-center mt-4">
-          <Button 
-            type="primary"
-            onClick={() => navigate('/profile/health-profiles')}
-            className="rounded-lg bg-[#0C3C54] hover:bg-[#1a5570] border-none"
+          <button 
+            type="button"
+            onClick={() => navigate('/user-profiles')}
+            className="rounded-lg bg-[#0C3C54] hover:bg-[#0C3C54]/90 border-none px-4 py-2 text-white"
           >
             Quay lại danh sách hồ sơ
-          </Button>
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="container mx-auto px-2 py-8 md:px-0">
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Breadcrumb className="mb-6">
-          <Breadcrumb.Item>
-            <Link to="/profile">Tài khoản</Link>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>
-            <Link to="/profile/health-profiles">Hồ sơ sức khỏe</Link>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>Chi tiết hồ sơ</Breadcrumb.Item>
-        </Breadcrumb>
+        <nav className="mb-6 flex items-center text-sm text-[#0C3C54]/80 gap-2">
+          {breadcrumbRoutes.map((route, idx) => (
+            <span key={route.path || route.breadcrumbName} className="flex items-center gap-1">
+              {idx > 0 && <span className="mx-1">/</span>}
+              {route.path ? (
+                <Link to={route.path} className="hover:underline hover:text-[#0C3C54]">{route.breadcrumbName}</Link>
+              ) : (
+                <span>{route.breadcrumbName}</span>
+              )}
+            </span>
+          ))}
+          <span className="mx-1">/</span>
+          <span className="font-semibold text-[#0C3C54]">Chi tiết hồ sơ</span>
+        </nav>
 
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Title level={2} className="!text-[#0C3C54] !m-0 flex items-center">
-              <TeamOutlined className="mr-2" /> 
-              Chi tiết hồ sơ bệnh án
-            </Title>
-            <Text className="text-gray-500 mt-2 block">
-              Xem thông tin chi tiết hồ sơ bệnh án
-            </Text>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Cột trái: Avatar, tên, badge, ngày tạo */}
+          <div className="rounded-2xl shadow-lg p-8 bg-white flex flex-col items-center justify-start gap-4">
+            <div className={`w-28 h-28 rounded-full flex items-center justify-center border-4 ${profile.gender === 'male' ? 'border-[#0C3C54]' : profile.gender === 'female' ? 'border-[#a78bfa]' : 'border-[#fde68a]'} bg-[#f8fafc] shadow-lg`}>
+              <span className="text-5xl">{renderGenderIcon(profile.gender)}</span>
+            </div>
+            <div className="text-2xl font-bold text-[#0C3C54] mt-2">{profile.fullName}</div>
+            <span className={`px-4 py-1 rounded-lg text-white text-base font-semibold mb-2 ${profile.gender === 'male' ? 'bg-[#0C3C54]' : profile.gender === 'female' ? 'bg-[#a78bfa]' : 'bg-[#fde68a] text-[#0C3C54]'}`}>{renderGenderLabel(profile.gender)}</span>
+            <div className="text-sm text-gray-500 mt-2">Ngày tạo: <span className="font-semibold text-[#0C3C54]">{profile.createdAt ? new Date(profile.createdAt).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}</span></div>
           </div>
-          <div className="flex gap-3">
-            <Button 
-              icon={<ArrowLeftOutlined />} 
-              onClick={() => navigate('/profile/health-profiles')}
-              className="flex items-center"
-            >
-              Quay lại
-            </Button>
-            <Button 
-              type="primary"
-              icon={<EditOutlined />}
-              onClick={() => navigate(`/profile/edit-profile/${profile._id}`)}
-              className="flex items-center bg-[#0C3C54] hover:bg-[#1a5570] border-none"
-            >
-              Chỉnh sửa
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* Thông tin cơ bản */}
-          <div className="md:col-span-1">
-            <Card className="rounded-xl shadow-md text-center">
-              <div className="mb-4">
-                <Avatar 
-                  size={100} 
-                  icon={renderGenderIcon(profile.gender)}
-                  className={`border-4 ${
-                    profile.gender === 'male' ? 'border-blue-500' : 
-                    profile.gender === 'female' ? 'border-pink-500' : 
-                    'border-purple-500'
-                  }`}
-                  style={{ backgroundColor: '#fff' }}
-                />
-              </div>
-              <Title level={4} className="!mb-1">{profile.fullName}</Title>
-              <Tag color={
-                profile.gender === 'male' ? 'blue' : 
-                profile.gender === 'female' ? 'pink' : 
-                'purple'
-              }>
-                {renderGenderLabel(profile.gender)}
-              </Tag>
-              
-              <Divider />
-              
-              <div className="text-left">
-                {profile.phone && (
-                  <div className="mb-2">
-                    <Text type="secondary">Số điện thoại:</Text>
-                    <div>{profile.phone}</div>
-                  </div>
-                )}
-                
-                {profile.year && (
-                  <div>
-                    <Text type="secondary">Ngày sinh:</Text>
-                    <div>{new Date(profile.year).toLocaleDateString('vi-VN')}</div>
-                  </div>
-                )}
-              </div>
-            </Card>
-          </div>
-          
-          {/* Thông tin chi tiết */}
-          <div className="md:col-span-3">
-            <Card className="rounded-xl shadow-md">
-              <Tabs 
-                activeKey={activeTab} 
-                onChange={setActiveTab}
-                type="card"
-                className="profile-detail-tabs"
-              >
-                <TabPane 
-                  tab={
-                    <span className="flex items-center">
-                      <FileTextOutlined className="mr-2" />
-                      Thông tin chung
-                    </span>
-                  } 
-                  key="1"
-                >
-                  <Descriptions 
-                    title="Thông tin chi tiết" 
-                    bordered 
-                    column={{ xs: 1, sm: 2 }}
-                    className="rounded-lg overflow-hidden"
-                  >
-                    <Descriptions.Item label="Họ và tên">{profile.fullName}</Descriptions.Item>
-                    <Descriptions.Item label="Giới tính">{renderGenderLabel(profile.gender)}</Descriptions.Item>
-                    <Descriptions.Item label="Số điện thoại">{profile.phone || 'Chưa cập nhật'}</Descriptions.Item>
-                    <Descriptions.Item label="Ngày sinh">
-                      {profile.year ? new Date(profile.year).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Ngày tạo hồ sơ" span={2}>
-                      {new Date(profile.createdAt).toLocaleDateString('vi-VN', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </Descriptions.Item>
-                  </Descriptions>
-                  
-                  <div className="mt-6">
-                    <Paragraph className="text-gray-500 italic">
-                      * Đây là thông tin cơ bản của hồ sơ bệnh án. Để cập nhật thông tin, vui lòng nhấn nút "Chỉnh sửa".
-                    </Paragraph>
-                  </div>
-                </TabPane>
-                
-                <TabPane 
-                  tab={
-                    <span className="flex items-center">
-                      <MedicineBoxOutlined className="mr-2" />
-                      Bệnh án
-                    </span>
-                  } 
-                  key="2"
-                >
-                  <div className="mb-4">
-                    <Title level={5}>Lịch sử bệnh án</Title>
-                    <Paragraph className="text-gray-500">
-                      Danh sách các lần khám và điều trị
-                    </Paragraph>
-                  </div>
-                  
-                  {sampleMedicalRecords.length > 0 ? (
-                    <div className="space-y-4">
-                      {sampleMedicalRecords.map((record, index) => (
-                        <Card 
-                          key={index} 
-                          className="rounded-lg border border-gray-200"
-                          size="small"
-                        >
-                          <div className="flex items-center mb-2">
-                            <CalendarOutlined className="mr-2 text-blue-600" />
-                            <Text strong>{new Date(record.date).toLocaleDateString('vi-VN')}</Text>
-                          </div>
-                          <Descriptions column={1} size="small" className="mb-0">
-                            <Descriptions.Item label="Chẩn đoán">{record.diagnosis}</Descriptions.Item>
-                            <Descriptions.Item label="Điều trị">{record.treatment}</Descriptions.Item>
-                            <Descriptions.Item label="Bác sĩ">{record.doctor}</Descriptions.Item>
-                          </Descriptions>
-                        </Card>
-                      ))}
+          {/* Cột phải: Thông tin chung, bệnh án, xét nghiệm */}
+          <div className="md:col-span-2 flex flex-col gap-8">
+            {/* Thông tin chung */}
+            <div className="bg-white rounded-2xl shadow p-6">
+              <h2 className="text-xl font-bold text-[#0C3C54] mb-4">Thông tin chung</h2>
+              <table className="w-full text-left border-separate border-spacing-y-2">
+                <tbody>
+                  <tr className="bg-[#f8fafc]">
+                    <td className="py-2 px-4 font-semibold text-[#0C3C54]">Họ và tên</td>
+                    <td className="py-2 px-4">{profile.fullName}</td>
+                    <td className="py-2 px-4 font-semibold text-[#0C3C54]">Giới tính</td>
+                    <td className="py-2 px-4">{renderGenderLabel(profile.gender)}</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-4 font-semibold text-[#0C3C54]">Số điện thoại</td>
+                    <td className="py-2 px-4">{profile.phone || 'Chưa cập nhật'}</td>
+                    <td className="py-2 px-4 font-semibold text-[#0C3C54]">Ngày sinh</td>
+                    <td className="py-2 px-4">{profile.year ? new Date(profile.year).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            {/* Thông tin bệnh án */}
+            <div>
+              <h2 className="text-xl font-bold text-[#0C3C54] mb-4 mt-8">Thông tin bệnh án</h2>
+              {sampleMedicalRecords.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sampleMedicalRecords.map((record, index) => (
+                    <div key={index} className="bg-[#f8fafc] rounded-xl shadow p-4 flex flex-col gap-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-[#0C3C54] text-lg font-bold">{new Date(record.date).toLocaleDateString('vi-VN')}</span>
+                      </div>
+                      <div><span className="font-semibold text-[#0C3C54]">Chẩn đoán:</span> {record.diagnosis}</div>
+                      <div><span className="font-semibold text-[#0C3C54]">Điều trị:</span> {record.treatment}</div>
+                      <div><span className="font-semibold text-[#0C3C54]">Bác sĩ:</span> {record.doctor}</div>
                     </div>
-                  ) : (
-                    <Empty description="Chưa có thông tin bệnh án" />
-                  )}
-                </TabPane>
-                
-                <TabPane 
-                  tab={
-                    <span className="flex items-center">
-                      <HistoryOutlined className="mr-2" />
-                      Kết quả xét nghiệm
-                    </span>
-                  } 
-                  key="3"
-                >
-                  <div className="mb-4">
-                    <Title level={5}>Kết quả xét nghiệm</Title>
-                    <Paragraph className="text-gray-500">
-                      Danh sách các kết quả xét nghiệm
-                    </Paragraph>
-                  </div>
-                  
-                  {sampleTestResults.length > 0 ? (
-                    <div className="space-y-4">
-                      {sampleTestResults.map((test, index) => (
-                        <Card 
-                          key={index} 
-                          className="rounded-lg border border-gray-200"
-                          size="small"
-                        >
-                          <div className="flex items-center mb-2">
-                            <CalendarOutlined className="mr-2 text-green-600" />
-                            <Text strong>{new Date(test.date).toLocaleDateString('vi-VN')}</Text>
-                          </div>
-                          <Descriptions column={1} size="small" className="mb-0">
-                            <Descriptions.Item label="Loại xét nghiệm">{test.testType}</Descriptions.Item>
-                            <Descriptions.Item label="Kết quả">{test.result}</Descriptions.Item>
-                          </Descriptions>
-                        </Card>
-                      ))}
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500">Chưa có thông tin bệnh án</p>
+              )}
+            </div>
+            {/* Kết quả xét nghiệm */}
+            <div>
+              <h2 className="text-xl font-bold text-[#0C3C54] mb-4 mt-8">Kết quả xét nghiệm</h2>
+              {sampleTestResults.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sampleTestResults.map((test, index) => (
+                    <div key={index} className="bg-[#f8fafc] rounded-xl shadow p-4 flex flex-col gap-2">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-green-600 text-lg font-bold">{new Date(test.date).toLocaleDateString('vi-VN')}</span>
+                      </div>
+                      <div><span className="font-semibold text-[#0C3C54]">Loại xét nghiệm:</span> {test.testType}</div>
+                      <div><span className="font-semibold text-[#0C3C54]">Kết quả:</span> {test.result}</div>
                     </div>
-                  ) : (
-                    <Empty description="Chưa có kết quả xét nghiệm" />
-                  )}
-                </TabPane>
-              </Tabs>
-            </Card>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500">Chưa có kết quả xét nghiệm</p>
+              )}
+            </div>
           </div>
         </div>
       </motion.div>

@@ -7,52 +7,42 @@ import {
   PhoneOutlined, 
   CalendarOutlined,
   ArrowRightOutlined,
-  UserOutlined
+  UserOutlined,
+  PlusOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import userProfileApi from '../../api/endpoints/userProfileApi';
 import { UserProfile } from '../../types';
+import QuickAddProfile from '../userProfile/QuickAddProfile';
 
 const ProfilesList: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
 
-  useEffect(() => {
-    const fetchProfiles = async () => {
-      try {
-        setLoading(true);
-        const response = await userProfileApi.getMyProfiles();
-        // Kiểm tra và log cấu trúc response để debug
-        console.log('API Response:', response);
-        
-        // Trích xuất dữ liệu từ response.data.data vì cấu trúc API trả về
-        // Nếu không có data.data, thử lấy data trực tiếp
-        if (response?.data?.data) {
-          setProfiles(response.data.data);
-        } else if (Array.isArray(response?.data)) {
-          setProfiles(response.data);
-        } else {
-          console.error('Unexpected response structure:', response);
-          setProfiles([]);
-          notification.error({
-            message: 'Lỗi dữ liệu',
-            description: 'Cấu trúc dữ liệu không đúng định dạng'
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching profiles:', error);
-        notification.error({
-          message: 'Lỗi kết nối',
-          description: 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại sau.'
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchProfiles = async () => {
+    try {
+      setLoading(true);
+      const profilesData = await userProfileApi.getMyProfiles();
+      setProfiles(profilesData);
+    } catch (error) {
+      console.error('Error fetching profiles:', error);
+      notification.error({
+        message: 'Lỗi kết nối',
+        description: 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng và thử lại sau.'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchProfiles();
   }, []);
+
+  const handleProfileAdded = () => {
+    fetchProfiles(); // Refresh danh sách sau khi thêm
+  };
 
   // Hiển thị biểu tượng giới tính
   const renderGenderIcon = (gender: string) => {
@@ -100,14 +90,18 @@ const ProfilesList: React.FC = () => {
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           className="mb-6"
         />
-        <Button 
-          type="primary" 
-          icon={<UserOutlined />}
-          onClick={() => navigate('/profile/create-profile')}
-          className="bg-[#0F7EA9] hover:bg-[#0c3c54]" // blue-secondary và blue-primary từ design system
-        >
-          Tạo hồ sơ mới
-        </Button>
+        <QuickAddProfile 
+          onSuccess={handleProfileAdded}
+          trigger={
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              className="bg-[#0F7EA9] hover:bg-[#0c3c54]"
+            >
+              Tạo hồ sơ mới
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -118,15 +112,19 @@ const ProfilesList: React.FC = () => {
   return (
     <div>
       <div className="mb-6 flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-[#0c3c54]">Hồ sơ của bạn</h2>
-        <Button 
-          type="primary" 
-          icon={<UserOutlined />}
-          onClick={() => navigate('/profile/create-profile')}
-          className="bg-[#0F7EA9] hover:bg-[#0c3c54] border-none shadow-md"
-        >
-          Tạo hồ sơ mới
-        </Button>
+        <h2 className="text-2xl font-bold text-[#0c3c54]">Hồ sơ bệnh án của bạn</h2>
+        <QuickAddProfile 
+          onSuccess={handleProfileAdded}
+          trigger={
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              className="bg-[#0F7EA9] hover:bg-[#0c3c54] border-none shadow-md"
+            >
+              Thêm nhanh
+            </Button>
+          }
+        />
       </div>
       
       <Row gutter={[20, 20]}>
