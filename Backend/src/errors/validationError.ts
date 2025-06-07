@@ -1,10 +1,9 @@
-
 export class ValidationError extends Error {
-    errors: any;
-  
-    constructor(errors: any) {
-      super("Validation Error");
-      this.name = "ValidationError";
-      this.errors = errors;
-    }
+  public errors: Record<string, string>;
+
+  constructor(errors: Record<string, string>) {
+    super('Validation Error');
+    this.name = 'ValidationError';
+    this.errors = errors;
   }
+}

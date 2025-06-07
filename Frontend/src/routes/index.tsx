@@ -24,6 +24,9 @@ import CounselorsPage from '../pages/counselors';
 import PicturePage from '../pages/picture';
 import ServicesPage from '../pages/services';
 
+// Doctor Pages
+import DoctorDetail from '../pages/doctors/DoctorDetail';
+
 // Booking Pages
 import BookingPage from '../pages/booking';
 import BookingHistoryPage from '../pages/booking-history';
@@ -32,6 +35,13 @@ import FeedbackPage from '../pages/feedback';
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
+
+// Import các trang hồ sơ bệnh án
+// XÓA: import HealthProfilesPage from '../pages/profile/health-profiles';
+import CreateProfilePage from '../pages/profile/create-profile';
+import EditProfilePage from '../pages/profile/edit-profile';
+import UserProfilesPage from '../pages/profile/UserProfilesPage';
+import ViewProfilePage from '../pages/profile/view-profile';
 
 // Hooks
 import { useAuth } from '../hooks/useAuth';
@@ -76,6 +86,10 @@ const AppRoutes: React.FC = () => {
       <Route element={<ProfileLayout />}>
         <Route path="/profile" element={isAuthenticated ? <ProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/profile/edit" element={isAuthenticated ? <ProfileEditPage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/create-profile" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/edit-profile/:profileId" element={isAuthenticated ? <EditProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/view-profile/:profileId" element={isAuthenticated ? <ViewProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/medical-records/:profileId" element={isAuthenticated ? <NotFoundPage /> : <Navigate to="/login" replace />} />
       </Route>
       {/* Main routes - có header/footer */}
       <Route element={<MainLayout />}>
@@ -84,6 +98,7 @@ const AppRoutes: React.FC = () => {
         {/* New Pages */}
         <Route path="/picture" element={<PicturePage />} />
         <Route path="/counselors" element={<CounselorsPage />} />
+        <Route path="/doctors/:id" element={<DoctorDetail />} />
         <Route path="/about-gcc" element={<AboutGCCPage />} />
         <Route path="/blog" element={<BlogPage />} />
         <Route path="/services" element={<ServicesPage />} />
@@ -93,6 +108,9 @@ const AppRoutes: React.FC = () => {
         <Route path="/services/sti-test" element={<Navigate to="/booking?service=sti-testing" replace />} />
         <Route path="/services/home-sampling" element={<Navigate to="/booking?service=home-sampling" replace />} />
         <Route path="/services/cycle-tracking" element={<Navigate to="/booking?service=cycle-tracking" replace />} />
+        
+        {/* User Profiles Page */}
+        <Route path="/user-profiles" element={isAuthenticated ? <UserProfilesPage /> : <Navigate to="/login" replace />} />
         
         {/* Booking Pages */}
         <Route path="/booking" element={<BookingPage />} />

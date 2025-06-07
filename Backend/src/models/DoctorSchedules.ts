@@ -2,12 +2,14 @@ import mongoose from 'mongoose';
 
 // Interface cho TimeSlots (embedded document)
 export interface ITimeSlots {
+  _id?: mongoose.Types.ObjectId;
   slotTime: string;
   status: string; // "Free", "Booked", "Absent"
 }
 
 // Interface cho weekScheduleObject (embedded document) 
 export interface IWeekScheduleObject {
+  _id?: mongoose.Types.ObjectId;
   dayOfWeek: Date; // Đã sửa từ String thành Date như yêu cầu
   slots: ITimeSlots[];
 }
@@ -22,11 +24,11 @@ export interface IDoctorSchedules {
 
 // Schema cho TimeSlots
 const TimeSlotsSchema = new mongoose.Schema<ITimeSlots>({
-  slotTime: { 
-    type: String, 
-    required: true 
+  slotTime: {
+    type: String,
+    required: true
   },
-  status: { 
+  status: {
     type: String,
     enum: ["Free", "Booked", "Absent"],
     default: "Free"
@@ -35,19 +37,19 @@ const TimeSlotsSchema = new mongoose.Schema<ITimeSlots>({
 
 // Schema cho weekScheduleObject
 const WeekScheduleObjectSchema = new mongoose.Schema<IWeekScheduleObject>({
-  dayOfWeek: { 
+  dayOfWeek: {
     type: Date, // Đã sửa từ String thành Date
-    required: true 
+    required: true
   },
   slots: [TimeSlotsSchema]
 }, { _id: true });
 
 // Schema chính cho DoctorSchedules
 const DoctorSchedulesSchema = new mongoose.Schema<IDoctorSchedules>({
-  doctorId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Doctor', 
-    required: true 
+  doctorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Doctor',
+    required: true
   },
   weekSchedule: [WeekScheduleObjectSchema]
 }, { timestamps: true });

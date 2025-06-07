@@ -18,8 +18,14 @@ import testResultsRoutes from "./testResultsRoutes";
 
 import testResultItemsRoutes from "./testResultItemsRoutes";
 
+import doctorQARoutes from "./doctorQARoutes";
+
+import userProfileRoutes from "./userProfileRoutes";
+
+import appointmentRoutes from "./appointmentRoutes";
+
 export {
-    authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes,
+    authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes, doctorQARoutes, userProfileRoutes, appointmentRoutes,
     testCategoriesRoutes, appointmentTestsRoutes, testResultsRoutes, testResultItemsRoutes
 };
 

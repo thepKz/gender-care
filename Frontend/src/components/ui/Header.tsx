@@ -1,6 +1,6 @@
 import { Avatar, Drawer, Dropdown, MenuProps } from "antd";
 import { motion } from 'framer-motion';
-import { CalendarEdit, Logout, Menu, User } from "iconsax-react";
+import { CalendarEdit, Logout, Menu, Profile2User, ProfileCircle, User } from "iconsax-react";
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -88,13 +88,14 @@ const Header: React.FC = () => {
     },
     {
       key: "2",
-      label: "Lịch sử đặt lịch",
-      onClick: () => navigate('/booking-history'),
+      icon: <Profile2User size={20} className="profile-icon" />,
+      label: "Hồ sơ bệnh án",
+      onClick: () => navigate('/user-profiles'),
     },
     {
       key: "3",
-      label: "Feedback",
-      onClick: () => navigate('/feedback'),
+      label: "Lịch sử đặt lịch",
+      onClick: () => navigate('/booking-history'),
     },
     {
       type: "divider",
@@ -282,6 +283,7 @@ const Header: React.FC = () => {
                     <Link
                       to="/booking"
                       className="btn-auth text-white p-2 rounded-full"
+                      title="Đặt lịch"
                     >
                       <CalendarEdit
                         color="white"
@@ -290,6 +292,8 @@ const Header: React.FC = () => {
                       />
                     </Link>
                   </motion.div>
+                  
+                  
                   <Dropdown 
                     menu={{ items: profile }} 
                     placement="bottomRight"
@@ -337,7 +341,7 @@ const Header: React.FC = () => {
         onClose={() => setMobileMenuOpen(false)}
         open={mobileMenuOpen}
         width={windowWidth < 640 ? 260 : 280}
-        bodyStyle={{ padding: 0 }}
+        styles={{ body: { padding: 0 } }}
       >
         <div className="flex flex-col h-full">
           <div className="py-4 px-6 flex-1">
@@ -370,6 +374,15 @@ const Header: React.FC = () => {
                   )}
                 </div>
               </div>
+              
+              {isAuthenticated && (
+                <div className="py-2 border-b border-gray-100">
+                  <Link to="/user-profiles" className="text-blue-primary text-lg flex items-center">
+                    <ProfileCircle size={20} className="mr-2" />
+                    Hồ sơ bệnh án
+                  </Link>
+                </div>
+              )}
               
               <Link to="/counselors" className="py-2 border-b border-gray-100 text-blue-primary text-lg">
                 Tư vấn viên

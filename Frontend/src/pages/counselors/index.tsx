@@ -1,44 +1,21 @@
-import { Button, Card, Input, Rate, Select, Spin, Tag } from "antd";
+import { Button, Card, Input, Rate, Select, Spin, Tag, message } from "antd";
 import { motion } from "framer-motion";
 import {
     Award,
     Calendar,
-    Clock,
     Heart,
     Profile2User,
     SearchNormal1,
+    Star1,
     User
 } from "iconsax-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Image1 from "../../assets/images/image1.jpg";
+import { doctorApi, type Doctor } from "../../api/endpoints/doctorApi";
 import { AnimatedSection } from "../../share";
 
 const { Search } = Input;
 const { Option } = Select;
-
-interface Doctor {
-  id: number;
-  name: string;
-  avatar: string;
-  specialization: string;
-  education: string;
-  experience: number;
-  rating: number;
-  reviewCount: number;
-  bio: string;
-  languages: string[];
-  consultationTypes: string[];
-  price: {
-    online: number;
-    offline: number;
-  };
-  availability: string[];
-  certificates: string[];
-  isOnline: boolean;
-  responseTime: string;
-  successRate: number;
-}
 
 const Counselors = () => {
   const navigate = useNavigate();
@@ -47,152 +24,37 @@ const Counselors = () => {
   const [selectedSpecialization, setSelectedSpecialization] = useState<string>("all");
   const [selectedConsultationType, setSelectedConsultationType] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("rating");
-  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
 
-  // Mock data cho doctors
-  const doctors: Doctor[] = [
-    {
-      id: 1,
-      name: "BS. Nguyễn Thị Hương",
-      avatar: Image1,
-      specialization: "Sức khỏe sinh sản nữ",
-      education: "Tiến sĩ Y khoa - Đại học Y Hà Nội",
-      experience: 8,
-      rating: 4.9,
-      reviewCount: 245,
-      bio: "Bác sĩ chuyên khoa Sản phụ khoa với hơn 8 năm kinh nghiệm trong lĩnh vực chăm sóc sức khỏe sinh sản nữ. Chuyên về tư vấn tiền hôn nhân, kế hoạch hóa gia đình và điều trị các vấn đề về chu kỳ kinh nguyệt.",
-      languages: ["Tiếng Việt", "English"],
-      consultationTypes: ["Online", "Tại phòng khám"],
-      price: {
-        online: 300000,
-        offline: 500000
-      },
-      availability: ["Thứ 2-6: 8:00-17:00", "Thứ 7: 8:00-12:00"],
-      certificates: ["Chứng chỉ Sản phụ khoa", "Chứng chỉ Tư vấn tâm lý"],
-      isOnline: true,
-      responseTime: "< 30 phút",
-      successRate: 96
-    },
-    {
-      id: 2,
-      name: "BS. Trần Văn Nam",
-      avatar: Image1,
-      specialization: "Sức khỏe sinh sản nam",
-      education: "Thạc sĩ Y khoa - Đại học Y Dược TP.HCM",
-      experience: 6,
-      rating: 4.8,
-      reviewCount: 189,
-      bio: "Bác sĩ chuyên khoa Nam học với kinh nghiệm phong phú trong điều trị các vấn đề về sức khỏe sinh sản nam giới. Tư vấn về rối loạn chức năng tình dục, vô sinh nam và các bệnh lây truyền qua đường tình dục.",
-      languages: ["Tiếng Việt"],
-      consultationTypes: ["Online", "Tại phòng khám"],
-      price: {
-        online: 350000,
-        offline: 550000
-      },
-      availability: ["Thứ 2-6: 9:00-18:00", "Chủ nhật: 9:00-15:00"],
-      certificates: ["Chứng chỉ Nam học", "Chứng chỉ Điều trị vô sinh"],
-      isOnline: false,
-      responseTime: "< 1 giờ",
-      successRate: 94
-    },
-    {
-      id: 3,
-      name: "BS. Lê Thị Lan",
-      avatar: Image1,
-      specialization: "Tâm lý tình dục",
-      education: "Tiến sĩ Tâm lý học - Đại học Quốc gia Hà Nội",
-      experience: 10,
-      rating: 4.9,
-      reviewCount: 312,
-      bio: "Chuyên gia tâm lý với chuyên môn sâu về tâm lý tình dục và các vấn đề trong mối quan hệ. Có kinh nghiệm tư vấn cho các cặp đôi về vấn đề tình dục, hôn nhân và kế hoạch hóa gia đình.",
-      languages: ["Tiếng Việt", "English", "中文"],
-      consultationTypes: ["Online", "Tại phòng khám", "Tại nhà"],
-      price: {
-        online: 400000,
-        offline: 600000
-      },
-      availability: ["Thứ 2-7: 8:00-20:00"],
-      certificates: ["Chứng chỉ Tâm lý lâm sàng", "Chứng chỉ Trị liệu gia đình"],
-      isOnline: true,
-      responseTime: "< 15 phút",
-      successRate: 98
-    },
-    {
-      id: 4,
-      name: "BS. Phạm Minh Tuấn",
-      avatar: Image1,
-      specialization: "Xét nghiệm STI",
-      education: "Thạc sĩ Y khoa - Đại học Y Hà Nội",
-      experience: 7,
-      rating: 4.7,
-      reviewCount: 156,
-      bio: "Bác sĩ chuyên khoa Xét nghiệm với kinh nghiệm trong chẩn đoán và điều trị các bệnh lây truyền qua đường tình dục. Chuyên về tư vấn phòng ngừa và điều trị HIV, Giang mai, Lậu và các STI khác.",
-      languages: ["Tiếng Việt", "English"],
-      consultationTypes: ["Online", "Tại phòng khám"],
-      price: {
-        online: 250000,
-        offline: 450000
-      },
-      availability: ["Thứ 2-6: 7:00-16:00"],
-      certificates: ["Chứng chỉ Xét nghiệm", "Chứng chỉ HIV/AIDS"],
-      isOnline: true,
-      responseTime: "< 45 phút",
-      successRate: 92
-    },
-    {
-      id: 5,
-      name: "BS. Hoàng Thị Mai",
-      avatar: Image1,
-      specialization: "Kế hoạch hóa gia đình",
-      education: "Tiến sĩ Y khoa - Đại học Y Dược TP.HCM",
-      experience: 12,
-      rating: 4.8,
-      reviewCount: 278,
-      bio: "Bác sĩ có nhiều năm kinh nghiệm trong lĩnh vực kế hoạch hóa gia đình, tư vấn về các phương pháp tránh thai, điều trị vô sinh và chăm sóc sức khỏe phụ nữ trước và sau sinh.",
-      languages: ["Tiếng Việt", "English"],
-      consultationTypes: ["Online", "Tại phòng khám", "Tại nhà"],
-      price: {
-        online: 380000,
-        offline: 580000
-      },
-      availability: ["Thứ 2-6: 8:00-17:00", "Thứ 7: 8:00-14:00"],
-      certificates: ["Chứng chỉ Kế hoạch hóa gia đình", "Chứng chỉ Sản khoa"],
-      isOnline: false,
-      responseTime: "< 2 giờ",
-      successRate: 95
-    },
-    {
-      id: 6,
-      name: "BS. Đỗ Văn Hùng",
-      avatar: Image1,
-      specialization: "Tư vấn tiền hôn nhân",
-      education: "Thạc sĩ Y khoa - Đại học Y Hà Nội",
-      experience: 5,
-      rating: 4.6,
-      reviewCount: 134,
-      bio: "Bác sĩ trẻ với đam mê tư vấn cho các cặp đôi chuẩn bị kết hôn. Chuyên về khám sức khỏe tiền hôn nhân, tư vấn về sức khỏe sinh sản và chuẩn bị cho việc có con.",
-      languages: ["Tiếng Việt"],
-      consultationTypes: ["Online", "Tại phòng khám"],
-      price: {
-        online: 280000,
-        offline: 480000
-      },
-      availability: ["Thứ 2-6: 9:00-18:00"],
-      certificates: ["Chứng chỉ Tư vấn hôn nhân", "Chứng chỉ Sức khỏe sinh sản"],
-      isOnline: true,
-      responseTime: "< 1 giờ",
-      successRate: 90
+  // Lấy danh sách bác sĩ từ API
+  const fetchDoctors = async () => {
+    try {
+      setLoadingDoctors(true);
+      const doctorsList = await doctorApi.getAllDoctors();
+      
+      // Remove potential duplicates based on _id
+      const uniqueDoctors = doctorsList.filter((doctor, index, array) => 
+        array.findIndex(d => d._id === doctor._id) === index
+      );
+      
+      setDoctors(uniqueDoctors);
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách bác sĩ:', error);
+      message.error('Không thể tải danh sách bác sĩ');
+    } finally {
+      setLoadingDoctors(false);
     }
-  ];
+  };
 
+  // Tạo danh sách specializations từ doctors data
   const specializations = [
     { value: "all", label: "Tất cả chuyên khoa" },
-    { value: "Sức khỏe sinh sản nữ", label: "Sức khỏe sinh sản nữ" },
-    { value: "Sức khỏe sinh sản nam", label: "Sức khỏe sinh sản nam" },
-    { value: "Tâm lý tình dục", label: "Tâm lý tình dục" },
-    { value: "Xét nghiệm STI", label: "Xét nghiệm STI" },
-    { value: "Kế hoạch hóa gia đình", label: "Kế hoạch hóa gia đình" },
-    { value: "Tư vấn tiền hôn nhân", label: "Tư vấn tiền hôn nhân" }
+    ...Array.from(new Set(doctors.map(d => d.specialization).filter(Boolean))).map(spec => ({
+      value: spec!,
+      label: spec!
+    }))
   ];
 
   const consultationTypes = [
@@ -205,34 +67,27 @@ const Counselors = () => {
   const sortOptions = [
     { value: "rating", label: "Đánh giá cao nhất" },
     { value: "experience", label: "Kinh nghiệm nhiều nhất" },
-    { value: "price_low", label: "Giá thấp nhất" },
-    { value: "price_high", label: "Giá cao nhất" },
-    { value: "reviews", label: "Nhiều đánh giá nhất" }
+    { value: "name", label: "Tên A-Z" }
   ];
 
   // Filter and sort doctors
   const filteredDoctors = doctors
     .filter(doctor => {
-      const matchesSearch = doctor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           doctor.specialization.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = doctor.userId.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (doctor.specialization && doctor.specialization.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesSpecialization = selectedSpecialization === "all" || 
                                    doctor.specialization === selectedSpecialization;
-      const matchesConsultationType = selectedConsultationType === "all" ||
-                                    doctor.consultationTypes.includes(selectedConsultationType);
-      return matchesSearch && matchesSpecialization && matchesConsultationType;
+      // Tạm thời bỏ filter consultation type vì API chưa có field này
+      return matchesSearch && matchesSpecialization;
     })
     .sort((a, b) => {
       switch (sortBy) {
         case "rating":
-          return b.rating - a.rating;
+          return (b.rating || 0) - (a.rating || 0);
         case "experience":
-          return b.experience - a.experience;
-        case "price_low":
-          return a.price.online - b.price.online;
-        case "price_high":
-          return b.price.online - a.price.online;
-        case "reviews":
-          return b.reviewCount - a.reviewCount;
+          return (b.experience || 0) - (a.experience || 0);
+        case "name":
+          return a.userId.fullName.localeCompare(b.userId.fullName);
         default:
           return 0;
       }
@@ -240,10 +95,11 @@ const Counselors = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    fetchDoctors();
     setTimeout(() => setLoading(false), 1000);
   }, []);
 
-  const handleFavorite = (doctorId: number, e: React.MouseEvent) => {
+  const handleFavorite = (doctorId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const newFavorites = new Set(favoriteIds);
     if (favoriteIds.has(doctorId)) {
@@ -255,11 +111,16 @@ const Counselors = () => {
   };
 
   const handleBookConsultation = (doctor: Doctor) => {
-    navigate(`/booking/consultation/${doctor.id}`);
+    navigate(`/booking/consultation/${doctor._id}`);
   };
 
   const handleViewProfile = (doctor: Doctor) => {
-    navigate(`/doctors/${doctor.id}`);
+    // Scroll to top trước khi navigate
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Delay navigate để scroll hoàn thành
+    setTimeout(() => {
+      navigate(`/doctors/${doctor._id}`);
+    }, 300);
   };
 
   if (loading) {
@@ -407,38 +268,63 @@ const Counselors = () => {
             layout
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
           >
-            {filteredDoctors.map((doctor, index) => (
-              <motion.div
-                key={doctor.id}
-                layout
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                whileHover={{ y: -10 }}
-                className="group"
-              >
+            {loadingDoctors ? (
+              // Loading skeleton
+              [...Array(6)].map((_, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className="group"
+                >
+                  <Card className="h-full border-0 shadow-lg transition-all duration-500 overflow-hidden animate-pulse">
+                    <div className="h-48 bg-gray-200"></div>
+                    <div className="p-6">
+                      <div className="h-6 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded mb-4"></div>
+                      <div className="h-16 bg-gray-200 rounded mb-4"></div>
+                      <div className="flex gap-2">
+                        <div className="flex-1 h-10 bg-gray-200 rounded"></div>
+                        <div className="flex-1 h-10 bg-gray-200 rounded"></div>
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))
+            ) : (
+              filteredDoctors.map((doctor, index) => (
+                <motion.div
+                  key={doctor._id}
+                  layout
+                  initial={{ opacity: 0, y: 50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  whileHover={{ y: -10 }}
+                  className="group"
+                >
                 <Card
-                  className="h-full border-0 shadow-lg group-hover:shadow-2xl transition-all duration-500 overflow-hidden"
+                  className="h-full border-0 shadow-lg group-hover:shadow-2xl transition-all duration-500 overflow-hidden cursor-pointer"
+                  onClick={() => handleViewProfile(doctor)}
                   cover={
-                    <div className="relative h-48 overflow-hidden">
-                      <img
-                        src={doctor.avatar}
-                        alt={doctor.name}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                    <div className="relative h-56 overflow-hidden bg-gradient-to-br from-[#0C3C54] to-[#2A7F9E]">
+                      {/* Doctor Avatar */}
+                      <div className="absolute top-6 left-1/2 transform -translate-x-1/2">
+                        <div className="w-20 h-20 rounded-full border-4 border-white overflow-hidden bg-white shadow-lg">
+                          <img
+                            src={doctor.image || doctor.userId.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${doctor.userId.fullName}&backgroundColor=ffffff`}
+                            alt={doctor.userId.fullName}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
                       
-                      {/* Online Status */}
+                      {/* Rating Badge */}
                       <div className="absolute top-4 left-4">
-                        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
-                          doctor.isOnline 
-                            ? "bg-green-500 text-white" 
-                            : "bg-gray-500 text-white"
-                        }`}>
-                          <div className={`w-2 h-2 rounded-full ${
-                            doctor.isOnline ? "bg-white" : "bg-gray-300"
-                          }`}></div>
-                          {doctor.isOnline ? "Đang online" : "Offline"}
+                        <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-500 text-white">
+                          <Star1 size={10} variant="Bold" />
+                          {doctor.rating ? doctor.rating.toFixed(1) : '4.9'}
                         </div>
                       </div>
 
@@ -447,114 +333,73 @@ const Counselors = () => {
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
-                          onClick={(e) => handleFavorite(doctor.id, e)}
+                          onClick={(e) => handleFavorite(doctor._id, e)}
                           className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
-                            favoriteIds.has(doctor.id)
+                            favoriteIds.has(doctor._id)
                               ? "bg-red-500 text-white"
                               : "bg-white/20 text-white hover:bg-red-500"
                           }`}
                         >
-                          <Heart size={16} variant={favoriteIds.has(doctor.id) ? "Bold" : "Outline"} />
+                          <Heart size={14} variant={favoriteIds.has(doctor._id) ? "Bold" : "Outline"} />
                         </motion.button>
                       </div>
 
-                      {/* Quick Actions */}
-                      <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => handleViewProfile(doctor)}
-                          className="p-2 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-blue-500 transition-colors"
-                        >
-                          <User size={16} />
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => handleBookConsultation(doctor)}
-                          className="p-2 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-green-500 transition-colors"
-                        >
-                          <Calendar size={16} />
-                        </motion.button>
+                      {/* Doctor Name & Specialization on cover */}
+                      <div className="absolute bottom-4 left-4 right-4 text-center text-white">
+                        <h3 className="text-lg font-bold mb-1">
+                          {doctor.userId.fullName}
+                        </h3>
+                        <p className="text-sm text-white/90">
+                          {doctor.specialization || 'Bác sĩ chuyên khoa'}
+                        </p>
                       </div>
                     </div>
                   }
                 >
-                  <div className="p-6">
-                    {/* Doctor Info */}
+                  <div className="p-5">
+                    {/* Education */}
                     <div className="mb-4">
-                      <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-[#0C3C54] transition-colors">
-                        {doctor.name}
-                      </h3>
-                      <p className="text-[#0C3C54] font-medium mb-2">
-                        {doctor.specialization}
-                      </p>
-                      <p className="text-gray-600 text-sm mb-3">
-                        {doctor.education}
+                      <p className="text-gray-600 text-sm">
+                        {doctor.education || 'Bác sĩ Y khoa'}
                       </p>
                     </div>
 
                     {/* Rating and Experience */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2">
-                        <Rate disabled defaultValue={doctor.rating} allowHalf className="text-sm" />
+                        <Rate disabled defaultValue={doctor.rating || 4.5} allowHalf className="text-sm" />
                         <span className="text-sm text-gray-600">
-                          {doctor.rating} ({doctor.reviewCount})
+                          {doctor.rating ? doctor.rating.toFixed(1) : '4.8'}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
+                      <div className="flex items-center gap-1 text-sm text-[#0C3C54] font-medium">
                         <Award size={16} />
-                        <span>{doctor.experience} năm</span>
+                        <span>{doctor.experience || 15} năm</span>
                       </div>
                     </div>
 
                     {/* Bio */}
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                      {doctor.bio}
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                      {doctor.bio || 'Bác sĩ chuyên nghiệp với nhiều năm kinh nghiệm trong lĩnh vực chăm sóc sức khỏe giới tính và tư vấn chuyên môn.'}
                     </p>
 
-                    {/* Languages */}
-                    <div className="mb-4">
-                      <div className="flex flex-wrap gap-1">
-                        {doctor.languages.map((lang, idx) => (
-                          <Tag key={idx} className="text-xs">
-                            {lang}
-                          </Tag>
-                        ))}
+                    {/* Certificate */}
+                    {doctor.certificate && (
+                      <div className="mb-4">
+                        <Tag color="blue" className="text-xs">
+                          {doctor.certificate}
+                        </Tag>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Consultation Types */}
-                    <div className="mb-4">
-                      <div className="flex flex-wrap gap-1">
-                        {doctor.consultationTypes.map((type, idx) => (
-                          <Tag key={idx} color="blue" className="text-xs">
-                            {type}
-                          </Tag>
-                        ))}
+                    {/* Contact Info - Simplified */}
+                    <div className="grid grid-cols-2 gap-3 mb-4 text-xs text-gray-600">
+                      <div className="truncate">
+                        📧 {doctor.userId.email}
                       </div>
-                    </div>
-
-                    {/* Price and Stats */}
-                    <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-[#0C3C54]">
-                          {doctor.price.online.toLocaleString()}đ
-                        </div>
-                        <div className="text-xs text-gray-600">Online</div>
+                      <div>
+                        📞 {doctor.userId.phone || '0901234567'}
                       </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-[#0C3C54]">
-                          {doctor.successRate}%
-                        </div>
-                        <div className="text-xs text-gray-600">Thành công</div>
-                      </div>
-                    </div>
-
-                    {/* Response Time */}
-                    <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
-                      <Clock size={16} />
-                      <span>Phản hồi: {doctor.responseTime}</span>
                     </div>
 
                     {/* Action Buttons */}
@@ -562,14 +407,20 @@ const Counselors = () => {
                       <Button
                         type="primary"
                         className="flex-1 bg-[#0C3C54] border-[#0C3C54] rounded-lg font-medium"
-                        onClick={() => handleBookConsultation(doctor)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleBookConsultation(doctor);
+                        }}
                         icon={<Calendar size={16} />}
                       >
                         Đặt lịch
                       </Button>
                       <Button
                         className="flex-1 border-[#0C3C54] text-[#0C3C54] rounded-lg font-medium hover:!bg-[#0C3C54] hover:!text-white"
-                        onClick={() => handleViewProfile(doctor)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewProfile(doctor);
+                        }}
                         icon={<User size={16} />}
                       >
                         Xem hồ sơ
@@ -578,7 +429,8 @@ const Counselors = () => {
                   </div>
                 </Card>
               </motion.div>
-            ))}
+              ))
+            )}
           </motion.div>
 
           {/* Load More */}

@@ -186,9 +186,9 @@ export interface UserProfile {
   _id: string;
   ownerId: string;
   fullName: string;
-  gender: string;
-  phone: string;
-  year: string;
+  gender: 'male' | 'female' | 'other';
+  phone?: string;
+  year?: Date | string;
   createdAt: string;
   updatedAt: string;
 }
