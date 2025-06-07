@@ -8,8 +8,8 @@ const isValidObjectId = (id: string): boolean => {
   return mongoose.Types.ObjectId.isValid(id);
 };
 
-export const getAllDoctors = () => Doctor.find().populate('userId', 'fullName email avatar phone');
-export const getDoctorById = (id: string) => Doctor.findById(id).populate('userId', 'fullName email avatar phone');
+export const getAllDoctors = () => Doctor.find().populate('userId', 'fullName email avatar phone gender address');
+export const getDoctorById = (id: string) => Doctor.findById(id).populate('userId', 'fullName email avatar phone gender address');
 
 // Sửa createDoctor để tự tạo user account từ doctorInfo
 export const createDoctor = async (doctorInfo: any) => {
@@ -36,8 +36,8 @@ export const createDoctor = async (doctorInfo: any) => {
       throw new Error(`Email ${email} đã tồn tại. Vui lòng đặt tên khác cho bác sĩ.`);
     }
 
-    // Tạo password mặc định
-    const defaultPassword = 'doctor123';
+    // Tạo password mặc định tuân thủ quy tắc bảo mật (chữ thường, in hoa, số, ký tự đặc biệt)
+    const defaultPassword = 'Doctor123!';
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
     // Tạo user account với thông tin từ doctorInfo
@@ -63,7 +63,7 @@ export const createDoctor = async (doctorInfo: any) => {
     });
 
     // Populate user info để trả về
-    const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'fullName email avatar phone');
+    const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'fullName email avatar phone gender address');
     
     // Log thông tin account mới tạo cho admin
     console.log(`✅ Đã tạo bác sĩ mới: ${doctorInfo.fullName}`);
@@ -85,7 +85,7 @@ export const updateDoctor = (id: string, data: any) => {
     console.warn(`Cố gắng cập nhật userId cho doctor ${id}, đã bị loại bỏ`);
   }
   
-  return Doctor.findByIdAndUpdate(id, updateData, { new: true }).populate('userId', 'fullName email avatar phone');
+  return Doctor.findByIdAndUpdate(id, updateData, { new: true }).populate('userId', 'fullName email avatar phone gender address');
 };
 
 export const deleteDoctor = (id: string) => Doctor.findByIdAndDelete(id);

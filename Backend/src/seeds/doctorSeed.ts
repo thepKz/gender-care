@@ -6,7 +6,7 @@ import { Doctor } from '../models/Doctor';
 const userDemoData = [
   {
     email: 'dr.lehoa@genderhealthcare.com',
-    password: 'doctor123',
+    password: 'Doctor123!',
     fullName: 'BS. Lê Thị Hoa',
     phone: '0901234568',
     role: 'doctor',
@@ -17,7 +17,7 @@ const userDemoData = [
   },
   {
     email: 'dr.tranminh@genderhealthcare.com', 
-    password: 'doctor123',
+    password: 'Doctor123!',
     fullName: 'BS. Trần Minh Đức',
     phone: '0901234569',
     role: 'doctor',
@@ -28,7 +28,7 @@ const userDemoData = [
   },
   {
     email: 'dr.nguyenlan@genderhealthcare.com',
-    password: 'doctor123', 
+    password: 'Doctor123!', 
     fullName: 'BS. Nguyễn Thị Lan',
     phone: '0901234570',
     role: 'doctor',
@@ -39,7 +39,7 @@ const userDemoData = [
   },
   {
     email: 'dr.hoangnam@genderhealthcare.com',
-    password: 'doctor123',
+    password: 'Doctor123!',
     fullName: 'BS. Hoàng Văn Nam', 
     phone: '0901234571',
     role: 'doctor',
@@ -50,7 +50,7 @@ const userDemoData = [
   },
   {
     email: 'dr.phamthuy@genderhealthcare.com',
-    password: 'doctor123',
+    password: 'Doctor123!',
     fullName: 'BS. Phạm Thị Thùy',
     phone: '0901234572', 
     role: 'doctor',
