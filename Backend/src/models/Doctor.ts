@@ -8,6 +8,10 @@ const DoctorSchema = new mongoose.Schema({
   specialization: String,
   education: String,
   certificate: String,
+  // Soft delete fields
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
 export const Doctor = mongoose.model('Doctor', DoctorSchema);

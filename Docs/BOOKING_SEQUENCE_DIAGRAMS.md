@@ -1,11 +1,13 @@
 # Sequence Diagrams - Unified Booking Flow
 
 ## Tổng quan
-Tài liệu này mô tả sequence diagram cho **luồng đặt lịch hẹn thống nhất** trong hệ thống Gender Healthcare. 
+
+Tài liệu này mô tả sequence diagram cho **luồng đặt lịch hẹn thống nhất** trong hệ thống Gender Healthcare.
 
 **Tất cả các dịch vụ đều sử dụng một luồng booking duy nhất tại `/booking`:**
+
 - Consultation (Tư vấn)
-- STI Testing (Xét nghiệm STI) 
+- STI Testing (Xét nghiệm STI)
 - Health Checkup (Khám sức khỏe)
 - Home Sampling (Lấy mẫu tại nhà)
 - Cycle Tracking (Theo dõi chu kỳ)
@@ -36,7 +38,7 @@ sequenceDiagram
     DB-->>B: Return doctors list
     B-->>F: Return doctors with workload info
     F-->>C: Display doctor selection (optional)
-    
+
     alt Customer chọn bác sĩ cụ thể
         C->>F: Select specific doctor
     else Hệ thống auto-assign
@@ -83,27 +85,27 @@ sequenceDiagram
     C->>F: Fill form (name, phone, notes, description, address if needed)
     F->>F: Validate all required fields
     F->>B: POST /api/appointments
-    
+
     Note over B: Create appointment record
     B->>DB: Create Appointments document
     Note over DB: Fields:<br/>- serviceId<br/>- packageId (if applicable)<br/>- doctorId (assigned)<br/>- profileId<br/>- appointmentDate/Time<br/>- typeLocation<br/>- address (if home)<br/>- description<br/>- notes<br/>- status: "pending"
     DB-->>B: Return appointment ID
-    
+
     Note over B: Update doctor schedule
     B->>DB: Update TimeSlots.isBooked = true
     DB-->>B: Confirm slot booking
-    
+
     Note over B: Create bill
     B->>DB: Create Bills document
     DB-->>B: Return bill ID
-    
+
     B-->>F: Return booking confirmation
     F-->>C: Show success message + appointment details
 
     Note over C,N: 7. Notification và xác nhận
     B->>N: Send notification to assigned doctor/staff
     N->>D: Email/SMS: New appointment booking
-    
+
     D->>F: Login to dashboard
     F->>B: GET /api/appointments?assignedTo={doctorId}&status=pending
     B->>DB: Query pending appointments
@@ -115,7 +117,7 @@ sequenceDiagram
     F->>B: PUT /api/appointments/{appointmentId}/status
     B->>DB: Update Appointments.status = "confirmed"/"cancelled"
     DB-->>B: Confirm status update
-    
+
     B->>N: Send confirmation to customer
     N->>C: Email/SMS: Appointment confirmed/cancelled
     B-->>F: Return updated status
@@ -144,7 +146,7 @@ sequenceDiagram
     Note over C,N: 2. Customer hủy/đổi lịch
     C->>F: Click cancel/reschedule appointment
     F->>F: Check cancellation policy
-    
+
     alt Hủy lịch
         F->>B: PUT /api/appointments/{appointmentId}/cancel
         B->>DB: Update status = "cancelled"
@@ -159,7 +161,7 @@ sequenceDiagram
         DB-->>B: Return new available slots
         B-->>F: Return time options
         F-->>C: Display new time slots
-        
+
         C->>F: Chọn slot mới
         F->>B: PUT /api/appointments/{appointmentId}/reschedule
         B->>DB: Update appointment date/time
@@ -190,12 +192,12 @@ sequenceDiagram
     alt Appointment completed
         B->>N: Send feedback request
         N->>C: Email/SMS: Rate your experience
-        
+
         C->>F: Click feedback link
         F->>B: GET /api/appointments/{appointmentId}/feedback-form
         B-->>F: Return feedback form
         F-->>C: Display rating form
-        
+
         C->>F: Submit rating and feedback
         F->>B: POST /api/feedbacks
         B->>DB: Create Feedbacks document
@@ -221,14 +223,14 @@ sequenceDiagram
     Note over C,N: 1. Tạo hóa đơn khi đặt lịch
     C->>F: Confirm booking with payment
     F->>B: POST /api/appointments (with payment info)
-    
+
     B->>DB: Create Appointments document
     DB-->>B: Return appointment ID
-    
+
     B->>DB: Create Bills document
     Note over DB: Calculate total with promotions<br/>Status: "pending"
     DB-->>B: Return bill ID
-    
+
     B-->>F: Return booking + bill details
     F-->>C: Display payment options
 
@@ -237,7 +239,7 @@ sequenceDiagram
     F->>B: POST /api/payments/initiate
     B->>DB: Create Payments document (status: "pending")
     DB-->>B: Return payment ID
-    
+
     B->>PG: Initiate payment transaction
     PG-->>B: Return payment URL/token
     B-->>F: Return payment details
@@ -249,7 +251,7 @@ sequenceDiagram
     B->>DB: Update Bills.status = "paid"
     B->>DB: Update Appointments.status = "confirmed"
     DB-->>B: Confirm all updates
-    
+
     B->>N: Send payment confirmation
     N->>C: Email/SMS: Payment successful + appointment confirmed
 
@@ -260,10 +262,10 @@ sequenceDiagram
         B->>DB: Update Bills.status = "pending"
         B->>DB: Update Appointments.status = "pending"
         DB-->>B: Confirm updates
-        
+
         B->>N: Send payment failure notification
         N->>C: Email/SMS: Payment failed, please retry
-        
+
         C->>F: Retry payment
         F->>B: POST /api/payments/retry
         Note over B,PG: Repeat payment process
@@ -273,6 +275,7 @@ sequenceDiagram
 ## 4. Entities và Relationships
 
 ### Các Entity chính trong Booking Flow:
+
 - **Users**: Customer, Doctor, Staff thực hiện booking
 - **UserProfiles**: Hồ sơ của customer (có thể đặt cho gia đình)
 - **Services**: Các dịch vụ có thể đặt lịch
@@ -286,11 +289,13 @@ sequenceDiagram
 - **Feedbacks**: Đánh giá sau dịch vụ
 
 ### Luồng dữ liệu chính:
+
 1. **Service Selection** → **Doctor/Schedule Selection** → **Profile Selection** → **Appointment Creation**
 2. **Appointment** → **Bill Creation** → **Payment Processing**
 3. **Appointment Execution** → **Result/Record Creation** → **Feedback Collection**
 
 ### Package Handling:
+
 - **ServicePackages**: Gói dịch vụ combo (VD: Gói STI cơ bản, Gói khám tổng quát)
 - Trong booking form, nếu service có packages thì hiển thị package selection
 - Package được lưu trong `Appointments.packageId`
@@ -306,6 +311,7 @@ cancelled  cancelled   cancelled
 ```
 
 ### Mô tả trạng thái:
+
 - **pending**: Vừa tạo, chờ xác nhận từ staff/doctor
 - **confirmed**: Đã xác nhận, chờ thực hiện
 - **in_progress**: Đang thực hiện dịch vụ
@@ -315,6 +321,7 @@ cancelled  cancelled   cancelled
 ## 6. Business Rules
 
 ### Booking Rules:
+
 1. **Unified Flow**: Tất cả services đều qua `/booking` với query parameter `?service={serviceId}`
 2. **Doctor Assignment**: Customer có thể chọn doctor hoặc để hệ thống auto-assign (doctor ít workload nhất)
 3. **Location Logic**: Address field chỉ hiện khi `typeLocation = "home"`
@@ -325,12 +332,14 @@ cancelled  cancelled   cancelled
 8. **Payment**: Phải hoàn thành để confirm appointment
 
 ### Notification Rules:
+
 1. Gửi confirmation email/SMS sau khi đặt lịch
 2. Reminder 24h trước appointment
 3. Notification khi có thay đổi status
 4. Feedback request sau khi completed
 
 ### Access Control:
+
 - **Customer**: Chỉ xem/quản lý appointment của mình
 - **Doctor**: Xem appointment được assign + update status
 - **Staff**: Quản lý tất cả appointment + upload results
@@ -339,6 +348,7 @@ cancelled  cancelled   cancelled
 ## 7. API Endpoints Required
 
 ### Booking Flow APIs:
+
 ```
 GET /api/services/{serviceId}                    # Get service details
 GET /api/services/{serviceId}/packages           # Get service packages (if any)
@@ -354,6 +364,7 @@ PUT /api/appointments/{id}/reschedule            # Reschedule appointment
 ```
 
 ### Supporting APIs:
+
 ```
 POST /api/bills                                 # Create bill
 POST /api/payments/initiate                     # Start payment
@@ -361,4 +372,4 @@ POST /api/payments/retry                        # Retry failed payment
 POST /api/feedbacks                             # Submit feedback
 GET /api/appointments/{id}/results               # Get test results
 POST /api/medical-records                       # Create medical record
-``` 
+```
