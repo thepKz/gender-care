@@ -61,6 +61,7 @@ export interface IDoctor {
   bio: string;
   experience: number;
   rating: number;
+  image?: string;
   specialization: string;
   education: string;
   certificate: string;
@@ -105,8 +106,8 @@ export interface IServicePackage {
   _id: string;
   name: string;
   description: string;
+  priceBeforeDiscount: number;
   price: number;
-  discountPrice: number;
   serviceIds: string[];
   isActive: boolean;
   createdAt: Date;

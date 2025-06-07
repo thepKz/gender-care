@@ -1,29 +1,32 @@
 import { DatePicker, Empty, Input, Modal, Rate, Select, Spin, Tag, Timeline } from 'antd';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-    Activity,
-    Calendar,
-    Clock,
-    CloseCircle,
-    Eye,
-    Heart,
-    Home,
-    Location,
-    MonitorMobbile,
-    People,
-    Refresh,
-    SearchNormal1,
-    Star,
-    TickCircle,
-    Timer,
-    Trash,
-    User
+  Activity,
+  Calendar,
+  Clock,
+  CloseCircle,
+  DocumentText,
+  Eye,
+  Heart,
+  Home,
+  Location,
+  MonitorMobbile,
+  People,
+  Refresh,
+  SearchNormal1,
+  Star,
+  TickCircle,
+  Timer,
+  Trash,
+  User
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { appointmentApi } from '../../api/endpoints';
 import Image1 from '../../assets/images/image1.jpg';
 import ModernButton from '../../components/ui/ModernButton';
 import ModernCard from '../../components/ui/ModernCard';
+import { message } from 'antd';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -61,7 +64,7 @@ const BookingHistory: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<[string, string] | null>(null);
+  const [dateRange, setDateRange] = useState<[any, any] | null>(null);
 
   // Mock data
   const mockAppointments: Appointment[] = [
@@ -133,14 +136,47 @@ const BookingHistory: React.FC = () => {
   ];
 
   useEffect(() => {
-    // Simulate API call
-    const timer = setTimeout(() => {
-      setAppointments(mockAppointments);
-      setFilteredAppointments(mockAppointments);
-      setLoading(false);
-    }, 1500);
+    // Fetch appointments from API
+    const fetchAppointments = async () => {
+      setLoading(true);
+      try {
+        const response = await appointmentApi.getAllAppointments();
+        if (response.success) {
+          const formattedAppointments = response.data.appointments.map((apt: any) => ({
+            id: apt._id,
+            serviceId: apt.serviceId?._id || '',
+            serviceName: apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
+            packageName: apt.packageId?.name,
+            doctorName: apt.doctorId?.fullName,
+            doctorAvatar: apt.doctorId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+            appointmentDate: new Date(apt.appointmentDate).toISOString().split('T')[0],
+            appointmentTime: apt.appointmentTime,
+            typeLocation: apt.typeLocation,
+            status: apt.status,
+            price: apt.packageId?.price || apt.serviceId?.price || 0,
+            createdAt: new Date(apt.createdAt).toISOString(),
+            description: apt.description,
+            notes: apt.notes,
+            address: apt.address,
+            canCancel: ['pending', 'confirmed'].includes(apt.status),
+            canReschedule: ['pending', 'confirmed'].includes(apt.status),
+            rating: apt.rating,
+            feedback: apt.feedback
+          }));
+          setAppointments(formattedAppointments);
+          setFilteredAppointments(formattedAppointments);
+        }
+      } catch (error) {
+        console.error('Error fetching appointments:', error);
+        // Fallback to mock data if API fails
+        setAppointments(mockAppointments);
+        setFilteredAppointments(mockAppointments);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    fetchAppointments();
   }, []);
 
   useEffect(() => {
@@ -209,25 +245,44 @@ const BookingHistory: React.FC = () => {
     setShowDetailModal(true);
   };
 
-  const handleCancel = (appointment: Appointment) => {
-    setSelectedAppointment(appointment);
-    setShowDetailModal(true);
+  const handleCancel = async (appointment: Appointment) => {
+    try {
+      const response = await appointmentApi.deleteAppointment(appointment.id);
+      if (response.success) {
+        message.success('Hủy cuộc hẹn thành công!');
+        // Refresh appointments
+        const updatedAppointments = appointments.map(apt => 
+          apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+        );
+        setAppointments(updatedAppointments);
+        setFilteredAppointments(
+          filteredAppointments.map(apt => 
+            apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      message.error('Có lỗi xảy ra khi hủy cuộc hẹn. Vui lòng thử lại!');
+    }
+    setShowDetailModal(false);
+    setSelectedAppointment(null);
   };
 
   const handleReschedule = (appointment: Appointment) => {
     navigate(`/booking?reschedule=${appointment.id}&service=${appointment.serviceId}`);
   };
 
-  const handleRebook = (appointment: Appointment) => {
-    navigate(`/booking?service=${appointment.serviceId}`);
-  };
+  // const handleRebook = (appointment: Appointment) => {
+  //   navigate(`/booking?service=${appointment.serviceId}`);
+  // };
 
-  const confirmCancel = () => {
-    // API call to cancel appointment
-    console.log('Cancelling appointment:', selectedAppointment?.id);
-    setShowDetailModal(false);
-    setSelectedAppointment(null);
-  };
+  // const confirmCancel = () => {
+  //   // API call to cancel appointment
+  //   console.log('Cancelling appointment:', selectedAppointment?.id);
+  //   setShowDetailModal(false);
+  //   setSelectedAppointment(null);
+  // };
 
   const handleFeedback = (appointment: Appointment) => {
     navigate(`/feedback?appointment=${appointment.id}`);
@@ -506,7 +561,7 @@ const BookingHistory: React.FC = () => {
 
                             {appointment.rating && (
                               <div className="flex items-center gap-2">
-                                <Rate disabled defaultValue={appointment.rating} size="small" />
+                                <Rate disabled defaultValue={appointment.rating} className="text-sm" />
                                 <span className="text-sm text-gray-600">
                                   ({appointment.rating}/5)
                                 </span>
@@ -540,7 +595,7 @@ const BookingHistory: React.FC = () => {
                             <div className="flex flex-wrap gap-2 justify-end">
                               <ModernButton
                                 variant="outline"
-                                size="small"
+                                className="text-sm"
                                 icon={<Eye size={16} />}
                                 onClick={() => handleViewDetail(appointment)}
                               >
@@ -550,7 +605,7 @@ const BookingHistory: React.FC = () => {
                               {appointment.canReschedule && (
                                 <ModernButton
                                   variant="outline"
-                                  size="small"
+                                  className="text-sm"
                                   icon={<Refresh size={16} />}
                                   onClick={() => handleReschedule(appointment)}
                                 >
@@ -561,7 +616,7 @@ const BookingHistory: React.FC = () => {
                               {appointment.canCancel && (
                                 <ModernButton
                                   variant="danger"
-                                  size="small"
+                                  className="text-sm"
                                   icon={<Trash size={16} />}
                                   onClick={() => handleCancel(appointment)}
                                 >
@@ -572,7 +627,7 @@ const BookingHistory: React.FC = () => {
                               {appointment.status === 'completed' && !appointment.rating && (
                                 <ModernButton
                                   variant="primary"
-                                  size="small"
+                                  className="text-sm"
                                   icon={<Star size={16} />}
                                   onClick={() => handleFeedback(appointment)}
                                 >
