@@ -3179,6 +3179,142 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  # ===== DEBUG ENDPOINTS (DEVELOPMENT ONLY) =====
+  
+  /doctors/debug/schedule-logic:
+    get:
+      tags:
+        - Doctor Debug
+      summary: Debug schedule creation logic (DEVELOPMENT)
+      description: |-
+        Endpoint dành cho development để test logic tạo lịch làm việc.
+        Kiểm tra timezone handling, weekend detection, và slot generation.
+        
+        **Note:** Chỉ hoạt động trong development environment.
+      responses:
+        '200':
+          description: Debug info về schedule logic
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Debug schedule creation logic"
+                  data:
+                    type: object
+                    properties:
+                      currentTime:
+                        type: string
+                        format: date-time
+                      timezone:
+                        type: string
+                        example: "Asia/Ho_Chi_Minh"
+                      testDates:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                            dayOfWeek:
+                              type: integer
+                            dayName:
+                              type: string
+                            isWeekend:
+                              type: boolean
+        '500':
+          description: Lỗi server
+
+  /doctors/{id}/debug/test-friday:
+    post:
+      tags:
+        - Doctor Debug  
+      summary: Real test thứ 6 schedule creation (DEVELOPMENT)
+      description: |-
+        Tạo lịch làm việc thật cho ngày thứ 6 để verify logic.
+        Endpoint này thực sự tạo data trong database để test.
+        
+        **Warning:** Chỉ sử dụng trong development environment.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của bác sĩ
+      responses:
+        '201':
+          description: Tạo test schedule thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Test Friday schedule created successfully"
+                  data:
+                    $ref: '#/components/schemas/DoctorSchedule'
+        '400':
+          description: Lỗi tạo test schedule
+        '500':
+          description: Lỗi server
+
+  /doctors/debug/test-date:
+    get:
+      tags:
+        - Doctor Debug
+      summary: Test logic với 1 ngày cụ thể (DEVELOPMENT) 
+      description: |-
+        Test timezone và weekend detection logic với ngày cụ thể.
+        Endpoint để debug các vấn đề về timezone conversion.
+        
+        **Note:** Development only endpoint.
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2024-01-15"
+          description: Ngày cần test (YYYY-MM-DD)
+      responses:
+        '200':
+          description: Test result cho ngày cụ thể
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Test date logic completed"
+                  data:
+                    type: object
+                    properties:
+                      inputDate:
+                        type: string
+                      localTime:
+                        type: string
+                        format: date-time
+                      dayOfWeek:
+                        type: integer
+                      dayName:
+                        type: string
+                      isWeekend:
+                        type: boolean
+                      canCreateSchedule:
+                        type: boolean
+        '400':
+          description: Invalid date format
+        '500':
+          description: Lỗi server
+
+  # ===== END DEBUG ENDPOINTS =====
+
   /doctors/schedules/all/staff:
     get:
       tags:
@@ -5552,8 +5688,15 @@ paths:
     post:
       tags:
         - Doctor Schedules
-      summary: Tạo lịch hàng loạt cho bác sĩ (STAFF/MANAGER/ADMIN)
-      description: Tạo lịch làm việc hàng loạt cho bác sĩ với nhiều time slots trong một ngày
+      summary: Tạo lịch hàng loạt cho nhiều ngày (STAFF/MANAGER/ADMIN)
+      description: |-
+        Tạo lịch làm việc hàng loạt cho bác sĩ trong nhiều ngày cùng lúc.
+        Backend sẽ tự động:
+        - Loại bỏ các ngày cuối tuần (T7, CN)
+        - Tạo 8 slots cố định cho mỗi ngày (7h-17h)
+        - Xử lý các ngày đã có lịch bằng cách skip
+        
+        **Note:** Request body sử dụng `dates` array, không phải `date` + `timeSlots`
       security:
         - bearerAuth: []
       parameters:
@@ -5570,31 +5713,24 @@ paths:
             schema:
               type: object
               required:
-                - date
-                - timeSlots
+                - dates
               properties:
-                date:
-                  type: string
-                  format: date
-                  example: "2024-01-15"
-                  description: Ngày làm việc (YYYY-MM-DD)
-                timeSlots:
+                dates:
                   type: array
                   items:
                     type: string
-                  example: ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"]
-                  description: Mảng các khung giờ làm việc
+                    format: date
+                  example: ["2024-01-15", "2024-01-16", "2024-01-17", "2024-01-18", "2024-01-19"]
+                  description: Mảng các ngày làm việc (YYYY-MM-DD) - tối đa 31 ngày
             examples:
-              full_day:
-                summary: Tạo lịch cả ngày
+              multiple_dates:
+                summary: Tạo lịch cho nhiều ngày
                 value:
-                  date: "2024-01-15"
-                  timeSlots: ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"]
-              morning_only:
-                summary: Chỉ tạo lịch buổi sáng
+                  dates: ["2024-01-15", "2024-01-16", "2024-01-17", "2024-01-18", "2024-01-19"]
+              single_week:
+                summary: Tạo lịch cho 1 tuần (T2-T6)
                 value:
-                  date: "2024-01-15"
-                  timeSlots: ["08:00", "09:00", "10:00", "11:00"]
+                  dates: ["2024-01-15", "2024-01-16", "2024-01-17", "2024-01-18", "2024-01-19"]
       responses:
         '201':
           description: Tạo lịch hàng loạt thành công
@@ -5605,9 +5741,66 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Tạo lịch thành công cho 8 time slots"
+                    example: "Hoàn thành! Tạo thành công 4 ngày, bỏ qua 1 ngày. Đã loại bỏ 2 ngày cuối tuần."
                   data:
-                    $ref: '#/components/schemas/DoctorSchedule'
+                    type: object
+                    properties:
+                      successful:
+                        type: integer
+                        example: 4
+                        description: "Số ngày tạo thành công"
+                      failed:
+                        type: integer
+                        example: 1
+                        description: "Số ngày tạo thất bại"
+                      weekendSkipped:
+                        type: integer
+                        example: 2
+                        description: "Số ngày cuối tuần đã loại bỏ"
+                      details:
+                        type: object
+                        properties:
+                          created:
+                            type: array
+                            items:
+                              type: string
+                            example: ["2024-01-15", "2024-01-16", "2024-01-17", "2024-01-18"]
+                          skipped:
+                            type: array
+                            items:
+                              type: string
+                            example: ["2024-01-19"]
+                          weekendDates:
+                            type: array
+                            items:
+                              type: string
+                            example: ["2024-01-20", "2024-01-21"]
+                          errors:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                date:
+                                  type: string
+                                reason:
+                                  type: string
+                      schedule:
+                        $ref: '#/components/schemas/DoctorSchedule'
+                  summary:
+                    type: object
+                    properties:
+                      totalRequested:
+                        type: integer
+                        example: 7
+                      successful:
+                        type: integer
+                        example: 4
+                      failed:
+                        type: integer
+                        example: 1
+                      weekendsSkipped:
+                        type: integer
+                        example: 2
         '400':
           description: Lỗi dữ liệu đầu vào (ngày không hợp lệ, time slots trống)
           content:
@@ -7593,6 +7786,25 @@ components:
           type: string
           example: "Chứng chỉ chuyên khoa cấp I Phụ sản"
           description: "Chứng chỉ hành nghề"
+        image:
+          type: string
+          example: "https://cloudinary.com/doctor-avatar.jpg"
+          description: "Ảnh đại diện bác sĩ"
+        # Soft delete fields - chỉ admin mới thấy
+        isDeleted:
+          type: boolean
+          example: false
+          description: "Trạng thái soft delete (chỉ admin)"
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: "Thời gian xóa (nếu đã xóa)"
+        deletedBy:
+          type: string
+          format: ObjectId
+          nullable: true
+          description: "ID admin thực hiện xóa"
 
     DoctorResponse:
       type: object
@@ -7615,6 +7827,9 @@ components:
           type: string
         certificate:
           type: string
+        image:
+          type: string
+          description: "Ảnh đại diện bác sĩ"
         createdAt:
           type: string
           format: date-time
@@ -7643,6 +7858,9 @@ components:
           type: string
         certificate:
           type: string
+        image:
+          type: string
+          description: "Ảnh đại diện bác sĩ"
 
     # ===== DOCTOR SCHEDULE SCHEMAS =====
     TimeSlot:
@@ -7721,6 +7939,9 @@ components:
           type: string
         certificate:
           type: string
+        image:
+          type: string
+          description: "Ảnh đại diện bác sĩ"
         createdAt:
           type: string
           format: date-time
@@ -8976,3 +9197,149 @@ components:
         total:
           type: integer
           example: 50
+
+    # ===== DEBUG RESPONSE SCHEMAS =====
+    DebugScheduleResponse:
+      type: object
+      description: "Response cho debug schedule endpoints"
+      properties:
+        message:
+          type: string
+          example: "Debug schedule creation logic"
+        data:
+          type: object
+          properties:
+            currentTime:
+              type: string
+              format: date-time
+            timezone:
+              type: string
+              example: "Asia/Ho_Chi_Minh"
+            testDates:
+              type: array
+              items:
+                type: object
+                properties:
+                  date:
+                    type: string
+                  dayOfWeek:
+                    type: integer
+                  dayName:
+                    type: string
+                  isWeekend:
+                    type: boolean
+
+    StaffAvailableDoctor:
+      type: object
+      description: "Doctor info với tất cả slots cho staff"
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+        doctorInfo:
+          type: object
+          properties:
+            fullName:
+              type: string
+              example: "Dr. Nguyễn Văn A"
+            specialization:
+              type: string
+              example: "Phụ khoa"
+            rating:
+              type: number
+              example: 4.5
+        availableSlots:
+          type: array
+          items:
+            type: object
+            properties:
+              slotId:
+                type: string
+              slotTime:
+                type: string
+              status:
+                type: string
+                enum: [Free, Booked, Absent]
+        totalSlots:
+          type: integer
+          example: 8
+        freeSlots:
+          type: integer
+          example: 3
+        bookedSlots:
+          type: integer
+          example: 4  
+        absentSlots:
+          type: integer
+          example: 1
+
+    DoctorDeleteResponse:
+      type: object
+      description: "Response khi xóa bác sĩ (soft delete)"
+      properties:
+        message:
+          type: string
+          example: "Xóa bác sĩ thành công"
+        data:
+          type: object
+          properties:
+            doctorId:
+              type: string
+              format: ObjectId
+            userId:
+              type: string
+              format: ObjectId
+            fullName:
+              type: string
+              example: "Dr. Nguyễn Văn A"
+            deletedAt:
+              type: string
+              format: date-time
+            deletedBy:
+              type: string
+              format: ObjectId
+            userAccountStatus:
+              type: string
+              example: "Đã vô hiệu hóa"
+        audit:
+          type: object
+          properties:
+            operation:
+              type: string
+              example: "SOFT_DELETE_DOCTOR"
+            timestamp:
+              type: string
+              format: date-time
+            adminId:
+              type: string
+              format: ObjectId
+
+    ConflictErrorResponse:
+      type: object
+      description: "Error response cho business conflicts"  
+      properties:
+        message:
+          type: string
+          example: "Không thể xóa bác sĩ do có appointments đang hoạt động"
+        error:
+          type: string
+          example: "BUSINESS_CONSTRAINT_VIOLATION"
+        details:
+          type: object
+          properties:
+            activeAppointments:
+              type: integer
+              example: 3
+            pendingQA:
+              type: integer
+              example: 2
+            conflictReason:
+              type: string
+              example: "Doctor has active business relationships"
+        suggestions:
+          type: array
+          items:
+            type: string
+          example: 
+            - "Hoàn thành tất cả appointments trước khi xóa"
+            - "Sử dụng force=true để bỏ qua validation"
