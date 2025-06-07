@@ -82,9 +82,9 @@ export const createDoctor = async (doctorInfo: any) => {
     const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'fullName avatar gender address');
     
     // Log thông tin account mới tạo cho admin
-    console.log(`✅ Đã tạo bác sĩ mới: ${doctorInfo.fullName}`);
-    console.log(`📧 Email: ${email}`);
-    console.log(`🔑 Password mặc định: ${defaultPassword}`);
+    console.log(`Đã tạo bác sĩ mới: ${doctorInfo.fullName}`);
+    console.log(`Email: ${email}`);
+    console.log(`Password mặc định: ${defaultPassword}`);
     
     return {
       doctor: populatedDoctor,
@@ -232,7 +232,7 @@ export const deleteDoctor = async (id: string, adminId: string, force: boolean =
   });
 
   // Log audit trail
-  console.log(`🗑️ Doctor deleted by admin:`, {
+  console.log(`Doctor deleted by admin:`, {
     doctorId: id,
     doctorName: (doctor.userId as any).fullName,
     adminId,
