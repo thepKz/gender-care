@@ -491,7 +491,7 @@ const AdminDoctorSchedulePage: React.FC = () => {
           setSelectedDates([]);
         }}
         footer={null}
-        width={800}
+        width={700}
         destroyOnClose
       >
         <Form
@@ -539,24 +539,37 @@ const AdminDoctorSchedulePage: React.FC = () => {
           {createMode === 'dates' && (
             <>
               <Form.Item label="Chọn ngày làm việc">
-                <div style={{ border: '1px solid #d9d9d9', borderRadius: '6px', padding: '16px' }}>
-                  <Calendar
-                    fullscreen={false}
-                    onSelect={onCalendarSelect}
-                    dateCellRender={dateRender}
-                  />
+                <div style={{ border: '1px solid #d9d9d9', borderRadius: '6px', padding: '8px' }}>
+                  <div style={{ 
+                    maxHeight: '220px', 
+                    overflowY: 'auto'
+                  }}>
+                    <Calendar
+                      fullscreen={false}
+                      onSelect={onCalendarSelect}
+                      dateCellRender={dateRender}
+                    />
+                  </div>
                   {selectedDates.length > 0 && (
-                    <div style={{ marginTop: '16px' }}>
-                      <Text strong>Đã chọn {selectedDates.length} ngày:</Text>
-                      <div style={{ marginTop: '8px' }}>
+                    <div style={{ 
+                      marginTop: '8px', 
+                      borderTop: '1px solid #f0f0f0',
+                      paddingTop: '8px',
+                      maxHeight: '50px',
+                      overflowY: 'auto'
+                    }}>
+                      <Text strong style={{ fontSize: '12px' }}>Đã chọn {selectedDates.length} ngày:</Text>
+                      <div style={{ marginTop: '4px' }}>
                         {selectedDates.map(date => (
                           <Tag 
                             key={date} 
                             closable 
                             onClose={() => setSelectedDates(prev => prev.filter(d => d !== date))}
-                            style={{ marginBottom: '4px' }}
+                            style={{ marginBottom: '2px', marginRight: '4px', fontSize: '11px' }}
+                            color="blue"
+
                           >
-                            {dayjs(date).format('DD/MM/YYYY')}
+                            {dayjs(date).format('DD/MM')}
                           </Tag>
                         ))}
                       </div>
@@ -604,20 +617,13 @@ const AdminDoctorSchedulePage: React.FC = () => {
                   </Form.Item>
                 </Col>
               </Row>
-
-              <Form.Item name="excludeWeekends" valuePropName="checked">
-                <Radio.Group>
-                  <Radio value={true}>Loại bỏ cuối tuần</Radio>
-                  <Radio value={false}>Bao gồm cuối tuần</Radio>
-                </Radio.Group>
-              </Form.Item>
             </>
           )}
 
-          <Form.Item label="Khung giờ làm việc (8 slot mặc định)" name="timeSlots">
+          <Form.Item label="Khung giờ làm việc" name="timeSlots">
             <Select
               mode="tags"
-              placeholder="Chọn hoặc nhập khung giờ"
+              placeholder="Sử dụng 8 slot mặc định hoặc chỉnh sửa"
               style={{ width: '100%' }}
             >
               {DEFAULT_TIME_SLOTS.map(slot => (
@@ -626,8 +632,16 @@ const AdminDoctorSchedulePage: React.FC = () => {
             </Select>
           </Form.Item>
 
-          <div style={{ fontSize: '12px', color: '#666', marginBottom: '16px' }}>
-            ℹ️ Mỗi ngày sẽ được tạo 8 slot thời gian. Cuối tuần sẽ được loại bỏ tự động.
+          <div style={{ 
+            fontSize: '12px', 
+            color: '#666', 
+            marginBottom: '16px',
+            backgroundColor: '#f6f8fa',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            border: '1px solid #d0d7de'
+          }}>
+            💡 <strong>Lưu ý:</strong> Mỗi ngày sẽ được tạo 8 slot thời gian. Cuối tuần (T7, CN) sẽ được loại bỏ tự động.
           </div>
 
           <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
