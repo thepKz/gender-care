@@ -7,6 +7,7 @@ import doctorScheduleApi from './endpoints/doctorSchedule';
 import menstrualCycleApi from './endpoints/menstrualCycle';
 import stiTestingApi from './endpoints/stiTesting';
 import userApi from './endpoints/userApi';
+import userProfileApi from './endpoints/userProfileApi';
 
 const api = {
   auth: authApi,
@@ -17,6 +18,7 @@ const api = {
   stiTesting: stiTestingApi,
   blog: blogApi,
   user: userApi,
+  userProfile: userProfileApi,
 };
 
 export {
@@ -25,7 +27,8 @@ export {
     doctorScheduleApi,
     menstrualCycleApi,
     stiTestingApi,
-    userApi
+    userApi,
+    userProfileApi
 };
 
 export default api; 

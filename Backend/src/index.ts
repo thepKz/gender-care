@@ -6,8 +6,8 @@ import mongoose from "mongoose";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
-import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, medicalRecordsRoutes, medicinesRoutes, medicationRemindersRoutes, notificationDaysRoutes } from "./routes";
-import doctorQARoutes from "./routes/doctorQARoutes";
+import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes, doctorQARoutes, userProfileRoutes, appointmentRoutes } from "./routes";
+import { medicalRecordsRoutes, medicinesRoutes, medicationRemindersRoutes, notificationDaysRoutes } from "./routes";
 import { runAllSeeds } from "./seeds";
 
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
@@ -42,7 +42,7 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
@@ -60,12 +60,12 @@ app.use((req, res, next) => {
   // Set Cross-Origin-Opener-Policy để support Google OAuth
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
-  
+
   // Additional security headers
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
+
   next();
 });
 
@@ -78,10 +78,12 @@ const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI as string);
     console.log(`MongoDB đã kết nối: ${conn.connection.host}`);
-    
-    // Chạy seeds sau khi kết nối database thành công
-    await runAllSeeds();
-    
+
+    // Chạy seed data sau khi kết nối DB thành công
+    if (process.env.NODE_ENV !== 'production') {
+      await runAllSeeds();
+    }
+
   } catch (error) {
     console.error(`Lỗi: ${error}`);
     process.exit(1);
@@ -98,13 +100,11 @@ apiRouter.use('/auth', authRoutes);
 apiRouter.use('/users', userRoutes);
 apiRouter.use('/login-history', loginHistoryRoutes);
 apiRouter.use('/doctors', doctorRoutes);
-// Thêm DoctorQA routes
+apiRouter.use('/services', serviceRoutes);
+apiRouter.use('/service-packages', servicePackageRoutes);
 apiRouter.use('/', doctorQARoutes);
-// Thêm các routes còn lại
-apiRouter.use('/medical-records', medicalRecordsRoutes);
-apiRouter.use('/medicines', medicinesRoutes);
-apiRouter.use('/medication-reminders', medicationRemindersRoutes);
-apiRouter.use('/notification-days', notificationDaysRoutes);
+apiRouter.use('/user-profiles', userProfileRoutes);
+apiRouter.use('/appointments', appointmentRoutes);
 
 // Middleware xử lý lỗi
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

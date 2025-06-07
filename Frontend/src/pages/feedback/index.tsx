@@ -1,13 +1,21 @@
-import { Form, Input, Progress, Rate, Upload, message } from 'antd';
+import { Form, Input, message, Progress, Rate, Select, Upload } from 'antd';
 import { motion } from 'framer-motion';
 import {
     Camera,
-    TickCircle
+    Heart,
+    Home,
+    Location,
+    MonitorMobbile,
+    Star,
+    TickCircle,
+    User
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ModernButton from '../../components/ui/ModernButton';
 import ModernCard from '../../components/ui/ModernCard';
+
+const { Option } = Select;
 
 const { TextArea } = Input;
 
@@ -534,23 +542,23 @@ const Feedback: React.FC = () => {
                       <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                         <div className="flex justify-between items-center">
                           <span className="text-gray-600">Đánh giá tổng quan:</span>
-                          <Rate disabled value={form.getFieldValue('overallRating')} size="small" />
+                          <Rate disabled value={form.getFieldValue('overallRating')} className="text-sm" />
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-gray-600">Chất lượng dịch vụ:</span>
-                          <Rate disabled value={form.getFieldValue('serviceQuality')} size="small" />
+                                                      <Rate disabled value={form.getFieldValue('serviceQuality')} className="text-sm" />
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-gray-600">Bác sĩ/Nhân viên:</span>
-                          <Rate disabled value={form.getFieldValue('doctorRating')} size="small" />
+                          <Rate disabled value={form.getFieldValue('doctorRating')} className="text-sm" />
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-gray-600">Cơ sở vật chất:</span>
-                          <Rate disabled value={form.getFieldValue('facilityRating')} size="small" />
+                          <Rate disabled value={form.getFieldValue('facilityRating')} className="text-sm" />
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-gray-600">Giá trị/Chi phí:</span>
-                          <Rate disabled value={form.getFieldValue('valueForMoney')} size="small" />
+                          <Rate disabled value={form.getFieldValue('valueForMoney')} className="text-sm" />
                         </div>
                       </div>
                     </div>

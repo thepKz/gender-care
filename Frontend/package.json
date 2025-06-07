@@ -15,6 +15,7 @@
     "@types/lodash": "^4.17.12",
     "antd": "^5.20.6",
     "axios": "^1.7.7",
+    "dayjs": "^1.11.13",
     "firebase": "^10.13.2",
     "framer-motion": "^11.18.2",
     "gsap": "^3.13.0",

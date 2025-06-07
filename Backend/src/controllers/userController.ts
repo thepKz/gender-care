@@ -449,7 +449,7 @@ export const updateUserProfile = async (req: any, res: Response) => {
       updateData.fullName = fullName;
     }
 
-    if (phone !== undefined) {
+    if (phone !== undefined && phone !== '') {
       if (!/^[0-9]{10,11}$/.test(phone)) {
         return res.status(400).json({ message: "Số điện thoại không hợp lệ" });
       }

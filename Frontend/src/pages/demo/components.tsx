@@ -190,7 +190,7 @@ const ComponentShowcase: React.FC = () => {
                       Đây là một ví dụ về {card.label.toLowerCase()} card với nội dung mẫu để demo.
                     </p>
                     <div className="flex items-center justify-between">
-                      <Rate disabled defaultValue={4} size="small" />
+                      <Rate disabled defaultValue={4} className="text-sm" />
                       <span className="text-sm text-gray-500">4.0/5</span>
                     </div>
                   </div>

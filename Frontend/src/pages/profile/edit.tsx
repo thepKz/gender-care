@@ -1,11 +1,10 @@
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import { Button, Card, DatePicker, Form, Input, Radio } from 'antd';
+import { Button, Card, DatePicker, Form, Input, Radio, notification } from 'antd';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import userApi from '../../api/endpoints/userApi';
 import { useAuth } from '../../hooks/useAuth';
-import { showErrorNotification, showSuccessNotification } from '../../utils/notification';
 
 interface FormValues {
   fullName: string;
@@ -37,8 +36,8 @@ const ProfileEditPage: React.FC = () => {
         console.log('fetchProfile result:', result);
 
         if (!result.success) {
-          showErrorNotification({
-            title: 'Không thể tải dữ liệu',
+          notification.error({
+            message: 'Không thể tải dữ liệu',
             description: 'Vui lòng thử lại sau',
           });
           console.error('Không thể tải thông tin người dùng', result.error);
@@ -63,8 +62,8 @@ const ProfileEditPage: React.FC = () => {
         }
       } catch (error) {
         console.error('Lỗi khi tải thông tin người dùng', error);
-        showErrorNotification({
-          title: 'Lỗi hệ thống',
+        notification.error({
+          message: 'Lỗi hệ thống',
           description: 'Có lỗi xảy ra khi tải thông tin người dùng',
         });
       }
@@ -84,20 +83,38 @@ const ProfileEditPage: React.FC = () => {
         year: values.year ? values.year.format('YYYY-MM-DD') : undefined,
         avatar: imageUrl, // Thêm trường avatar nếu đã upload
       };
+      
+      // Loại bỏ các trường rỗng hoặc undefined để tránh validation lỗi
+      Object.keys(formattedValues).forEach(key => {
+        if (formattedValues[key as keyof typeof formattedValues] === '' || 
+            formattedValues[key as keyof typeof formattedValues] === undefined) {
+          delete formattedValues[key as keyof typeof formattedValues];
+        }
+      });
+      
       // Gọi API cập nhật profile thực tế
       await userApi.updateProfile(formattedValues);
       // Sau khi cập nhật thành công, gọi lại fetchProfile để đồng bộ redux và localStorage
       await fetchProfile();
-      showSuccessNotification({
-        title: 'Cập nhật thành công!',
+      notification.success({
+        message: 'Cập nhật thành công!',
         description: 'Thông tin cá nhân đã được lưu',
       });
       navigate('/profile');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Lỗi khi cập nhật thông tin', error);
-      showErrorNotification({
-        title: 'Cập nhật thất bại',
-        description: 'Không thể cập nhật thông tin. Vui lòng thử lại',
+      
+      // Hiển thị lỗi cụ thể từ server
+      let errorMessage = 'Không thể cập nhật thông tin. Vui lòng thử lại';
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      notification.error({
+        message: 'Cập nhật thất bại',
+        description: errorMessage,
       });
     } finally {
       setSubmitting(false);

@@ -1,9 +1,9 @@
 import seedDoctors from './doctorSeed';
-import { seedDoctorQA } from './doctorQASeeds';
 import seedMedicines from './medicinesSeed';
 import seedUserProfiles from './userProfilesSeed';
+import seedDoctorQA from './doctorQASeeds';
+import seedStaff from './staffSeed';
 
-// Main function để chạy tất cả seeds
 export const runAllSeeds = async () => {
   try {
     console.log('🌱 Bắt đầu chạy tất cả seed data...');
@@ -21,4 +21,4 @@ export const runAllSeeds = async () => {
 };
 
 // Export individual seeds nếu cần
-export { seedDoctors, seedDoctorQA, seedMedicines, seedUserProfiles }; 
+export { seedStaff, seedDoctors, seedDoctorQA, seedMedicines, seedUserProfiles }; 
