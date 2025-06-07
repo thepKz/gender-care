@@ -420,14 +420,28 @@ export const createBulkDoctorScheduleForDays = async (req: Request, res: Respons
 
     const result = await doctorService.createBulkDoctorScheduleForDays(id, dates);
 
+    let message = `Tạo lịch thành công cho ${result.successCount}/${result.totalRequested} ngày`;
+    
+    if (result.weekendCount > 0) {
+      message += `. Đã bỏ qua ${result.weekendCount} ngày cuối tuần: ${result.weekendDates.join(', ')}`;
+    }
+
     if (result.success) {
       res.status(201).json({
-        message: `Tạo lịch thành công cho ${result.successCount}/${result.totalRequested} ngày`,
-        data: result
+        message,
+        data: result,
+        summary: {
+          totalRequested: result.totalRequested,
+          successful: result.successCount,
+          errors: result.errorCount,
+          weekendsSkipped: result.weekendCount
+        }
       });
     } else {
       res.status(400).json({
-        message: 'Không thể tạo lịch cho bất kỳ ngày nào',
+        message: result.weekendCount > 0 
+          ? `Không thể tạo lịch cho bất kỳ ngày nào. Đã bỏ qua ${result.weekendCount} ngày cuối tuần`
+          : 'Không thể tạo lịch cho bất kỳ ngày nào',
         data: result
       });
     }
@@ -515,6 +529,10 @@ export const createBulkDoctorSchedule = async (req: Request, res: Response) => {
 
     let message = `Hoàn thành! Tạo thành công ${results.successful} ngày, bỏ qua ${results.failed} ngày.`;
     
+    if (results.weekendSkipped > 0) {
+      message += ` Đã loại bỏ ${results.weekendSkipped} ngày cuối tuần: ${results.details.weekendDates.join(', ')}.`;
+    }
+    
     if (results.details.created.length > 0) {
       message += ` Ngày đã tạo: ${results.details.created.join(', ')}.`;
     }
@@ -532,6 +550,12 @@ export const createBulkDoctorSchedule = async (req: Request, res: Response) => {
       data: {
         ...results,
         schedule
+      },
+      summary: {
+        totalRequested: dates.length,
+        successful: results.successful,
+        failed: results.failed,
+        weekendsSkipped: results.weekendSkipped
       }
     });
   } catch (error: any) {

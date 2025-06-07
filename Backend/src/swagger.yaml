@@ -886,38 +886,320 @@ paths:
                 $ref: '#/components/schemas/Error'
 
   /auth/login-admin:
-
-  /users/profile/avatar/upload:
     post:
       tags:
-        - User
-      summary: Upload avatar cho user
-      description: Upload file ảnh avatar lên server, trả về URL ảnh đã upload
-      security:
-        - bearerAuth: []
+        - Auth
+      summary: Đăng nhập admin/staff
+      description: Đăng nhập cho admin và staff với email và password
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
               type: object
+              required:
+                - email
+                - password
               properties:
-                avatar:
+                email:
                   type: string
-                  format: binary
+                  format: email
+                  example: admin@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
       responses:
         '200':
-          description: Upload thành công
+          description: Đăng nhập thành công
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  url:
+                  message:
                     type: string
-                    example: https://res.cloudinary.com/your-cloud/image/upload/v123/avatar.jpg
+                    example: Đăng nhập admin thành công!
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      fullName:
+                        type: string
+                      email:
+                        type: string
+                      role:
+                        type: string
+                        enum: [admin, staff, manager]
+                      emailVerified:
+                        type: boolean
         '400':
-          description: Lỗi upload hoặc thiếu file
+          description: Lỗi dữ liệu đầu vào
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Sai email hoặc password, hoặc không phải admin/staff
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login-google:
+    post:
+      tags:
+        - Auth
+      summary: Đăng nhập bằng Google
+      description: Đăng nhập bằng Google OAuth token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: Google OAuth token
+                  example: ya29.a0AfH6SMC...
+      responses:
+        '200':
+          description: Đăng nhập Google thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Đăng nhập Google thành công!
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      fullName:
+                        type: string
+                      email:
+                        type: string
+                      role:
+                        type: string
+                      emailVerified:
+                        type: boolean
+        '400':
+          description: Token Google không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/new-verify:
+    post:
+      tags:
+        - Auth
+        - OTP
+      summary: Gửi lại email xác thực
+      description: Gửi lại email chứa mã OTP để xác thực tài khoản
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+      responses:
+        '200':
+          description: Đã gửi lại email xác thực
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Đã gửi lại email xác thực!
+        '400':
+          description: Email không hợp lệ hoặc đã được xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy tài khoản với email này
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/profile/me:
+    get:
+      tags:
+        - User
+      summary: Lấy thông tin profile của user hiện tại
+      description: Lấy thông tin profile của user đã đăng nhập
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Lấy thông tin profile thành công
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - User
+      summary: Cập nhật thông tin profile
+      description: Cập nhật thông tin profile của user đã đăng nhập
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  example: Nguyễn Văn A
+                phone:
+                  type: string
+                  example: "0123456789"
+                gender:
+                  type: string
+                  enum: [male, female, other]
+                  example: male
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Cập nhật profile thành công
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/profile/me/change-password:
+    put:
+      tags:
+        - User
+      summary: Đổi mật khẩu
+      description: Đổi mật khẩu cho user đã đăng nhập
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - oldPassword
+                - newPassword
+              properties:
+                oldPassword:
+                  type: string
+                  format: password
+                  example: oldPassword123
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 6
+                  example: newPassword123
+      responses:
+        '200':
+          description: Đổi mật khẩu thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Đổi mật khẩu thành công
+        '400':
+          description: Mật khẩu cũ sai hoặc mật khẩu mới không hợp lệ
           content:
             application/json:
               schema:
@@ -935,11 +1217,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /users/profile/avatar:
+  /users/profile/me/avatar:
     put:
       tags:
         - User
-      summary: Cập nhật URL avatar cho user
+      summary: Cập nhật URL avatar
       description: Cập nhật URL avatar cho user đã đăng nhập
       security:
         - bearerAuth: []
@@ -982,6 +1264,54 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Không tìm thấy user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/profile/me/avatar/upload:
+    post:
+      tags:
+        - User
+      summary: Upload avatar cho user
+      description: Upload file ảnh avatar lên server, trả về URL ảnh đã upload
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    example: https://res.cloudinary.com/your-cloud/image/upload/v123/avatar.jpg
+        '400':
+          description: Lỗi upload hoặc thiếu file
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
           content:
             application/json:
               schema:
@@ -1927,7 +2257,7 @@ paths:
                           page:
                             type: integer
                             example: 1
-                          limit:
+                            limit:
                             type: integer
                             example: 10
                           pages:
@@ -2401,8 +2731,551 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /user-profiles:
+    post:
+      tags:
+        - UserProfile
+      summary: Tạo profile mới
+      description: Tạo profile cho user đã đăng nhập. Mỗi user có thể có nhiều profiles.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfileRequest'
+      responses:
+        '201':
+          description: Tạo profile thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Thiếu thông tin bắt buộc
+        '401':
+          description: Chưa xác thực
 
-components:
+    get:
+      tags:
+        - UserProfile
+      summary: Lấy tất cả profiles (Admin/Staff only)
+      description: Lấy danh sách tất cả user profiles với phân trang
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserProfile'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Chưa xác thực
+        '403':
+          description: Không có quyền truy cập
+
+  /user-profiles/me:
+    get:
+      tags:
+        - UserProfile
+      summary: Lấy tất cả profiles của chính mình
+      description: Lấy tất cả profiles của user đang đăng nhập
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserProfile'
+                  count:
+                    type: integer
+                    description: Số lượng profiles
+        '401':
+          description: Chưa xác thực
+
+  /user-profiles/{id}:
+    get:
+      tags:
+        - UserProfile
+      summary: Lấy profile theo ID
+      description: Lấy profile theo ID. Chỉ owner hoặc admin/staff mới xem được.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: ID không hợp lệ
+        '404':
+          description: Không tìm thấy profile
+        '403':
+          description: Không có quyền truy cập
+        '401':
+          description: Chưa xác thực
+
+    put:
+      tags:
+        - UserProfile
+      summary: Cập nhật profile
+      description: Cập nhật profile theo ID. Chỉ owner hoặc admin/staff mới cập nhật được.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserProfileUpdateRequest'
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: ID không hợp lệ
+        '404':
+          description: Không tìm thấy profile
+        '403':
+          description: Không có quyền chỉnh sửa
+        '401':
+          description: Chưa xác thực
+
+    delete:
+      tags:
+        - UserProfile
+      summary: Xóa profile
+      description: Xóa profile theo ID. Chỉ owner hoặc admin mới xóa được.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Xóa thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      deleted:
+                        type: boolean
+        '400':
+          description: ID không hợp lệ
+        '404':
+          description: Không tìm thấy profile
+        '403':
+          description: Không có quyền xóa
+        '401':
+          description: Chưa xác thực
+
+  /doctors/schedules/all:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Lấy tất cả lịch làm việc của tất cả bác sĩ (PUBLIC - chỉ Free status)
+      description: Lấy tất cả lịch làm việc của tất cả bác sĩ - chỉ hiển thị slot có status Free để customer có thể xem toàn bộ
+      responses:
+        '200':
+          description: Lấy tất cả lịch làm việc thành công (chỉ hiển thị slot trống)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy tất cả lịch làm việc thành công (chỉ hiển thị slot trống) - Tìm thấy 5 bác sĩ có lịch làm việc"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DoctorSchedule'
+                  totalDoctorsWithSchedules:
+                    type: integer
+                    example: 5
+                    description: Tổng số bác sĩ có lịch làm việc
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /doctors/{id}/schedules:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Xem lịch làm việc của bác sĩ (PUBLIC - chỉ Free status)
+      description: Lấy lịch làm việc của bác sĩ - chỉ hiển thị slot có status Free để customer có thể xem
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của bác sĩ
+      responses:
+        '200':
+          description: Lấy lịch làm việc thành công (chỉ hiển thị slot trống)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy lịch làm việc thành công (chỉ hiển thị slot trống)"
+                  data:
+                    $ref: '#/components/schemas/DoctorSchedule'
+        '404':
+          description: Bác sĩ chưa có lịch làm việc nào
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /doctors/{id}/available-slots:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Xem slot trống của bác sĩ theo ngày (PUBLIC - chỉ Free status)
+      description: Lấy danh sách slot có status Free của bác sĩ trong ngày cụ thể - không cần đăng nhập
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của bác sĩ
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2024-01-15"
+          description: Ngày cần xem slot trống (YYYY-MM-DD)
+      responses:
+        '200':
+          description: Lấy slot trống thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tìm thấy 5 slot trống trong ngày 2024-01-15"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AvailableSlot'
+        '400':
+          description: Thiếu tham số date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /doctors/available:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Tìm tất cả bác sĩ có lịch trống theo ngày (PUBLIC - chỉ Free status)
+      description: Lấy danh sách tất cả bác sĩ có slot Free trong ngày cụ thể, có thể lọc theo khung giờ - không cần đăng nhập
+      parameters:
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+          example: "2024-01-15"
+          description: Ngày cần tìm bác sĩ có lịch trống (YYYY-MM-DD)
+        - in: query
+          name: timeSlot
+          required: false
+          schema:
+            type: string
+          example: "07:00-08:00"
+          description: Khung giờ cụ thể (tuỳ chọn). Nếu không có sẽ tìm tất cả bác sĩ có ít nhất 1 slot Free
+      responses:
+        '200':
+          description: Tìm bác sĩ có lịch trống thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tìm thấy 3 bác sĩ có lịch trống trong ngày 2024-01-15"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AvailableDoctor'
+                  searchCriteria:
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                        example: "2024-01-15"
+                      timeSlot:
+                        type: string
+                        example: "07:00-08:00"
+                      totalFound:
+                        type: integer
+                        example: 3
+        '400':
+          description: Thiếu tham số date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /doctors/schedules/all/staff:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Staff xem tất cả lịch làm việc của tất cả bác sĩ (STAFF/MANAGER/ADMIN)
+      description: Staff/Manager/Admin xem tất cả lịch làm việc của tất cả bác sĩ với mọi status (Free, Booked, Absent)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lấy tất cả lịch làm việc thành công (tất cả status)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy tất cả lịch làm việc thành công (tất cả status) - Tìm thấy 5 bác sĩ có lịch làm việc"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DoctorSchedule'
+                  totalDoctorsWithSchedules:
+                    type: integer
+                    example: 5
+                    description: Tổng số bác sĩ có lịch làm việc
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền (chỉ staff/manager/admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /doctors/statistics/all:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Lấy thống kê tổng của tất cả bác sĩ (STAFF/MANAGER/ADMIN)
+      description: Lấy thống kê tổng quan về slot booking của tất cả bác sĩ
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lấy thống kê thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy thống kê tất cả bác sĩ thành công"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DoctorStatistics'
+                  totalDoctors:
+                    type: integer
+                    example: 10
+                    description: Tổng số bác sĩ
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền (chỉ staff/manager/admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /doctors/{id}/statistics:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Lấy thống kê của bác sĩ cụ thể (STAFF/MANAGER/ADMIN)
+      description: Lấy thống kê chi tiết về slot booking của một bác sĩ
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của bác sĩ
+      responses:
+        '200':
+          description: Lấy thống kê thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy thống kê bác sĩ thành công"
+                  data:
+                    $ref: '#/components/schemas/DoctorStatistics'
+        '404':
+          description: Bác sĩ không tồn tại
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền (chỉ staff/manager/admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ===== DOCTOR SCHEDULE APIs =====
+  
+
+  # ===== PUBLIC ROUTES (không cần xác thực) =====
+  
+  /doctors/schedules/all:
   securitySchemes:
     bearerAuth:
       type: http
@@ -2414,7 +3287,6 @@ components:
       type: object
       properties:
         id:
-          type: string
         email:
           type: string
         fullName:
@@ -2924,7 +3796,7 @@ components:
           type: integer
         page:
           type: integer
-        limit:
+          limit:
           type: integer
         totalPages:
           type: integer
@@ -3305,99 +4177,6 @@ components:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  schemas:
-    User:
-      type: object
-      properties:
-        id:
-          type: string
-        email:
-          type: string
-        fullName:
-          type: string
-        phone:
-          type: string
-        avatar:
-          type: string
-        role:
-          type: string
-          enum:
-            - guest
-            - customer
-            - doctor
-            - staff
-            - manager
-            - admin
-        emailVerified:
-          type: boolean
-        isActive:
-          type: boolean
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-    
-    UserProfile:
-      type: object
-      properties:
-        _id:
-          type: string
-        ownerId:
-          $ref: '#/components/schemas/User'
-        fullName:
-          type: string
-        gender:
-          type: string
-          enum: [male, female, other]
-        phone:
-          type: string
-        year:
-          type: string
-          format: date
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
-    OtpCode:
-      type: object
-      properties:
-        id:
-          type: string
-        userId:
-          type: string
-        type:
-          type: string
-          enum:
-            - email_verification
-            - password_reset
-            - login
-        otp:
-          type: string
-        expires:
-          type: string
-          format: date-time
-        verified:
-          type: boolean
-        verifiedAt:
-          type: string
-          format: date-time
-        attempts:
-          type: integer
-        createdAt:
-          type: string
-          format: date-time
-    
-    Error:
-      type: object
-      properties:
-        message:
-          type: string
-
 
   /doctors/{id}/available-slots:
     get:
@@ -4612,6 +5391,91 @@ components:
                 $ref: '#/components/schemas/Error'
         '403':
           description: Không có quyền (chỉ staff/manager/admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /doctors/{id}/schedules/bulk:
+    post:
+      tags:
+        - Doctor Schedules
+      summary: Tạo lịch hàng loạt cho bác sĩ (STAFF/MANAGER/ADMIN)
+      description: Tạo lịch làm việc hàng loạt cho bác sĩ với nhiều time slots trong một ngày
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của bác sĩ
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - date
+                - timeSlots
+              properties:
+                date:
+                  type: string
+                  format: date
+                  example: "2024-01-15"
+                  description: Ngày làm việc (YYYY-MM-DD)
+                timeSlots:
+                  type: array
+                  items:
+                    type: string
+                  example: ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"]
+                  description: Mảng các khung giờ làm việc
+            examples:
+              full_day:
+                summary: Tạo lịch cả ngày
+                value:
+                  date: "2024-01-15"
+                  timeSlots: ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"]
+              morning_only:
+                summary: Chỉ tạo lịch buổi sáng
+                value:
+                  date: "2024-01-15"
+                  timeSlots: ["08:00", "09:00", "10:00", "11:00"]
+      responses:
+        '201':
+          description: Tạo lịch hàng loạt thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Tạo lịch thành công cho 8 time slots"
+                  data:
+                    $ref: '#/components/schemas/DoctorSchedule'
+        '400':
+          description: Lỗi dữ liệu đầu vào (ngày không hợp lệ, time slots trống)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền (chỉ staff/manager/admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Lịch làm việc đã tồn tại cho ngày này
           content:
             application/json:
               schema:
@@ -6872,9 +7736,9 @@ components:
           type: integer
         page:
           type: integer
-        limit:
+          limit:
           type: integer
-        totalPages:
+          totalPages:
           type: integer
 
     Appointment:
@@ -6916,6 +7780,10 @@ components:
               type: string
               example: "0987654321"
         appointmentId:
+          type: object
+          properties:
+            _id:
+              type: string
               example: "60d5ecb8b392e1b8c8f5c125"
             fullName:
               type: string
@@ -6992,6 +7860,11 @@ components:
             type: string
           example: ["url1.jpg", "url2.jpg"]
           description: Hình ảnh kèm theo
+        packageId:
+          type: object
+          properties:
+            _id:
+              type: string
               example: "60d5ecb8b392e1b8c8f5c126"
             name:
               type: string
@@ -7097,7 +7970,7 @@ components:
           type: string
           format: date-time
 
-      Medicine:
+    Medicine:
       type: object
       properties:
         _id:
@@ -7299,13 +8172,13 @@ components:
           currentPage:
           type: integer
           example: 1
-        totalPages:
+          totalPages:
           type: integer
           example: 5
-        totalRecords:
+          totalRecords:
           type: integer
           example: 50
-        limit:
+          limit:
           type: integer
           example: 10
 
@@ -7610,10 +8483,8 @@ components:
           example: 10
         page:
           type: integer
-        limit:
-          type: integer
+          example: 1
         total:
           type: integer
-        totalPages:
-          type: integer
+          example: 50
 

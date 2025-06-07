@@ -194,6 +194,12 @@ export const createDoctorSchedule = async (doctorId: string, scheduleData: { dat
 
     const workDate = new Date(date);
     
+    // Check if it's weekend (Saturday=6, Sunday=0)
+    const dayOfWeek = workDate.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      throw new Error(`Không thể tạo lịch cho ngày cuối tuần: ${date} (${dayOfWeek === 0 ? 'Chủ nhật' : 'Thứ 7'})`);
+    }
+    
     // Tìm schedule hiện tại của doctor
     let doctorSchedule = await DoctorSchedules.findOne({ doctorId });
 
@@ -644,6 +650,7 @@ export const createBulkDoctorScheduleForDays = async (doctorId: string, dates: s
 
     const results = [];
     const errors = [];
+    const weekendDates = [];
 
     for (const dateStr of dates) {
       try {
@@ -651,6 +658,14 @@ export const createBulkDoctorScheduleForDays = async (doctorId: string, dates: s
         const workDate = new Date(dateStr);
         if (isNaN(workDate.getTime())) {
           errors.push(`Ngày không hợp lệ: ${dateStr}`);
+          continue;
+        }
+
+        // Check if it's weekend (Saturday=6, Sunday=0)
+        const dayOfWeek = workDate.getDay();
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          weekendDates.push(dateStr);
+          errors.push(`Không thể tạo lịch cho ngày cuối tuần: ${dateStr} (${dayOfWeek === 0 ? 'Chủ nhật' : 'Thứ 7'})`);
           continue;
         }
 
@@ -683,8 +698,10 @@ export const createBulkDoctorScheduleForDays = async (doctorId: string, dates: s
       totalRequested: dates.length,
       successCount: results.length,
       errorCount: errors.length,
+      weekendCount: weekendDates.length,
       results,
-      errors
+      errors,
+      weekendDates
     };
 
   } catch (error: any) {
@@ -761,16 +778,23 @@ export const createBulkDoctorSchedule = async (doctorId: string, scheduleData: {
       throw new Error('Chỉ có thể tạo tối đa 31 ngày cùng lúc');
     }
 
-    // Validate format ngày
+    // Validate format ngày và loại bỏ ngày cuối tuần
     const validDates: Date[] = [];
     const invalidDates: string[] = [];
+    const weekendDates: string[] = [];
     
     dates.forEach(dateStr => {
       const workDate = new Date(dateStr);
       if (isNaN(workDate.getTime()) || !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
         invalidDates.push(dateStr);
       } else {
-        validDates.push(workDate);
+        // Check if it's weekend (Saturday=6, Sunday=0)
+        const dayOfWeek = workDate.getDay();
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          weekendDates.push(dateStr);
+        } else {
+          validDates.push(workDate);
+        }
       }
     });
 
@@ -784,14 +808,16 @@ export const createBulkDoctorSchedule = async (doctorId: string, scheduleData: {
     const results = {
       successful: 0,
       failed: 0,
+      weekendSkipped: weekendDates.length,
       details: {
         created: [] as string[],
         skipped: [] as string[],
+        weekendDates: weekendDates,
         errors: [] as { date: string, reason: string }[]
       }
     };
 
-    // Xử lý từng ngày
+    // Xử lý từng ngày (chỉ các ngày trong tuần)
     for (const workDate of validDates) {
       const dateStr = workDate.toISOString().split('T')[0];
       

@@ -103,6 +103,10 @@ apiRouter.use('/doctors', doctorRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
 apiRouter.use('/', doctorQARoutes);
+apiRouter.use('/medical-records', medicalRecordsRoutes);
+apiRouter.use('/medicines', medicinesRoutes);
+apiRouter.use('/medication-reminders', medicationRemindersRoutes);
+apiRouter.use('/notification-days', notificationDaysRoutes);
 apiRouter.use('/user-profiles', userProfileRoutes);
 apiRouter.use('/appointments', appointmentRoutes);
 
