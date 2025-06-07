@@ -16,10 +16,10 @@ router.get('/:id/contact', verifyToken, verifyStaff, doctorController.getContact
 // Tạo bác sĩ mới - chỉ admin được phép
 router.post('/', verifyToken, verifyAdmin, doctorController.create);
 
-// Cập nhật thông tin bác sĩ - chỉ staff/admin được phép
+// Cập nhật thông tin bác sĩ - staff/admin được phép
 router.put('/:id', verifyToken, verifyStaff, doctorController.update);
 
-// Xóa bác sĩ - chỉ staff/admin được phép
-router.delete('/:id', verifyToken, verifyStaff, doctorController.remove);
+// Xóa bác sĩ - chỉ admin được phép (high risk operation)
+router.delete('/:id', verifyToken, verifyAdmin, doctorController.remove);
 
 export default router;
