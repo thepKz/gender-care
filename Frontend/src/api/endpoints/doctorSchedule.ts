@@ -33,8 +33,15 @@ export interface IDoctorSchedule {
 // Tạo lịch theo ngày cụ thể
 export interface CreateScheduleByDatesRequest {
   doctorId: string;
-  dates: string[]; // ["2025-01-15", "2025-01-16", ...]
+  dates: string[]; // ["2025-01-15", "2025-01-16", ...] - Chỉ thứ 2-6
   timeSlots?: string[]; // ["07:00-08:00", "08:00-09:00", ...] - optional, sẽ dùng default nếu không có
+}
+
+// Response khi có ngày cuối tuần
+export interface WeekendErrorResponse {
+  success: false;
+  message: string;
+  weekendDates: string[]; // Các ngày thứ 7, CN bị reject
 }
 
 // Tạo lịch theo tháng
@@ -92,20 +99,56 @@ const doctorScheduleApi = {
     throw new Error('API getById chưa được implement trong backend');
   },
 
-  // Tạo lịch theo ngày cụ thể - sử dụng bulk-days endpoint
+  // Tạo lịch theo ngày cụ thể - gửi array dates trực tiếp
   createScheduleByDates: async (data: CreateScheduleByDatesRequest): Promise<IDoctorSchedule> => {
     const { doctorId, dates, timeSlots } = data;
-    const startDate = dates[0];
-    const endDate = dates[dates.length - 1];
     
-    const bulkData = {
-      startDate,
-      endDate, 
-      timeSlots: timeSlots || [],
-      excludeWeekends: false
+    // Validate chỉ cho phép thứ 2-6 (1-5, Monday = 1, Sunday = 0)
+    const weekendDates: string[] = [];
+    const validDates: string[] = [];
+    
+    dates.forEach(dateStr => {
+      const date = new Date(dateStr);
+      const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        // Thứ 7 (6) hoặc Chủ nhật (0)
+        weekendDates.push(dateStr);
+      } else {
+        // Thứ 2-6 (1-5)
+        validDates.push(dateStr);
+      }
+    });
+    
+    // Nếu có ngày cuối tuần, throw error
+    if (weekendDates.length > 0) {
+      const weekendNames = weekendDates.map(dateStr => {
+        const date = new Date(dateStr);
+        const dayName = date.getDay() === 0 ? 'Chủ nhật' : 'Thứ 7';
+        return `${dayName} (${dateStr})`;
+      });
+      
+      throw new Error(`Không thể tạo lịch cho các ngày cuối tuần: ${weekendNames.join(', ')}. Chỉ cho phép tạo lịch từ thứ 2 đến thứ 6.`);
+    }
+    
+    // Nếu không có ngày hợp lệ nào
+    if (validDates.length === 0) {
+      throw new Error('Vui lòng chọn ít nhất một ngày từ thứ 2 đến thứ 6.');
+    }
+    
+    // Gửi object chứa array dates
+    const requestData = {
+      dates: validDates, // Gửi array dates trực tiếp
+      timeSlots: timeSlots || []
     };
     
-    const response = await axiosInstance.post(`/doctors/${doctorId}/schedules/bulk-days`, bulkData);
+    console.log('📤 Sending request to API:', {
+      url: `/doctors/${doctorId}/schedules/bulk-days`,
+      method: 'POST',
+      data: requestData
+    });
+    
+    const response = await axiosInstance.post(`/doctors/${doctorId}/schedules/bulk-days`, requestData);
     return response.data.data || response.data;
   },
 

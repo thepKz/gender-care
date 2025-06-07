@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Card, 
   Select, 
@@ -19,7 +19,9 @@ import {
   Popconfirm,
   Radio,
   Calendar,
-  Badge
+  Badge,
+  Statistic,
+  Switch
 } from 'antd';
 import { 
   CalendarOutlined, 
@@ -28,7 +30,9 @@ import {
   EditOutlined,
   DeleteOutlined,
   UserOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  TableOutlined,
+  BarChartOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
@@ -41,6 +45,17 @@ import doctorScheduleApi, {
   type CreateScheduleByDatesRequest,
   type CreateScheduleByMonthRequest
 } from '../../../api/endpoints/doctorSchedule';
+import AdvancedCalendar from '../../../components/ui/AdvancedCalendar';
+import AdvancedSearchFilter from '../../../components/ui/AdvancedSearchFilter';
+import { useAdvancedSearch } from '../../../hooks/useAdvancedSearch';
+import { useVirtualizedCalendar } from '../../../hooks/useVirtualizedCalendar';
+import type { CalendarEvent, CalendarView, DoctorScheduleEvent } from '../../../types/calendar';
+import type { SearchFilterOptions } from '../../../components/ui/AdvancedSearchFilter';
+import { 
+  convertSchedulesToCalendarEvents, 
+  getScheduleStats,
+  formatEventTime 
+} from '../../../utils/calendarUtils';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -85,6 +100,10 @@ const DoctorSchedulePage: React.FC = () => {
   const [createMode, setCreateMode] = useState<CreateMode>('dates');
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [form] = Form.useForm();
+  
+  // Calendar view state
+  const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
+  const [calendarView, setCalendarView] = useState<CalendarView>('month');
 
   // Load schedules for selected month
   useEffect(() => {
@@ -149,10 +168,48 @@ const DoctorSchedulePage: React.FC = () => {
     }
   };
 
+  // Convert schedules to calendar events
+  const calendarEvents = useMemo((): DoctorScheduleEvent[] => {
+    const events = convertSchedulesToCalendarEvents(schedules);
+    console.log('📊 Calendar events for UI:', events.length, events);
+    return events;
+  }, [schedules]);
+
+  // Advanced search hook
+  const {
+    filteredSchedules,
+    filteredEvents,
+    searchDoctors,
+    applyFilters,
+    loading: searchLoading,
+    totalResults,
+    availableSpecializations,
+    availableTimeSlots
+  } = useAdvancedSearch({
+    schedules,
+    events: calendarEvents
+  });
+
+  // Virtualized calendar for performance optimization
+  const {
+    visibleEvents,
+    updateViewRange,
+    stats: virtualStats
+  } = useVirtualizedCalendar({
+    events: filteredEvents,
+    maxEventsPerDay: 100, // Limit to 100 events per day for performance
+    enableVirtualization: filteredEvents.length > 500 // Auto-enable for large datasets
+  });
+
+  // Calculate statistics from filtered data
+  const scheduleStats = useMemo(() => {
+    return getScheduleStats(filteredEvents);
+  }, [filteredEvents]);
+
   const getTableData = (): ScheduleViewData[] => {
     const data: ScheduleViewData[] = [];
     
-    schedules.forEach(schedule => {
+    filteredSchedules.forEach(schedule => {
       schedule.weekSchedule.forEach(weekSchedule => {
         const workDate = dayjs(weekSchedule.dayOfWeek);
         const freeSlots = weekSchedule.slots.filter(slot => slot.status === 'Free').length;
@@ -231,6 +288,51 @@ const DoctorSchedulePage: React.FC = () => {
     }
   };
 
+  // Calendar event handlers
+  const handleSelectEvent = (event: CalendarEvent) => {
+    const resource = event.resource;
+    if (resource) {
+      Modal.info({
+        title: 'Chi tiết lịch hẹn',
+        content: (
+          <div style={{ marginTop: 16 }}>
+            <p><strong>Bác sĩ:</strong> {resource.doctorName}</p>
+            <p><strong>Chuyên khoa:</strong> {resource.specialization}</p>
+            <p><strong>Thời gian:</strong> {formatEventTime(event)}</p>
+            <p><strong>Ngày:</strong> {dayjs(event.start).format('dddd, DD/MM/YYYY')}</p>
+            <p><strong>Trạng thái:</strong> 
+              <Tag color={
+                resource.status === 'Free' ? 'green' :
+                resource.status === 'Booked' ? 'blue' : 'red'
+              }>
+                {resource.status === 'Free' ? 'Có thể đặt' : 
+                 resource.status === 'Booked' ? 'Đã đặt lịch' : 'Không có mặt'}
+              </Tag>
+            </p>
+            {resource.patientName && (
+              <p><strong>Bệnh nhân:</strong> {resource.patientName}</p>
+            )}
+            {resource.appointmentId && (
+              <p><strong>Mã lịch hẹn:</strong> {resource.appointmentId}</p>
+            )}
+          </div>
+        ),
+        width: 500
+      });
+    }
+  };
+
+  const handleCalendarNavigate = (date: Date, view: CalendarView) => {
+    const newMonth = dayjs(date);
+    if (!newMonth.isSame(selectedMonth, 'month')) {
+      setSelectedMonth(newMonth);
+    }
+  };
+
+  const handleCalendarViewChange = (view: CalendarView) => {
+    setCalendarView(view);
+  };
+
   const handleDeleteSchedule = async (scheduleId: string, doctorId: string) => {
     try {
       await doctorScheduleApi.deleteDoctorScheduleWithDoctorId(doctorId, scheduleId);
@@ -248,6 +350,8 @@ const DoctorSchedulePage: React.FC = () => {
     const isSelected = selectedDates.includes(dateStr);
     const isToday = current.isSame(dayjs(), 'day');
     const isPast = current.isBefore(dayjs(), 'day');
+    const dayOfWeek = current.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Thứ 7 hoặc Chủ nhật
     
     if (isSelected) {
       return (
@@ -265,8 +369,21 @@ const DoctorSchedulePage: React.FC = () => {
       );
     }
     
+    if (isWeekend) {
+      return (
+        <div className="ant-picker-cell-inner" style={{ 
+          color: '#ff4d4f', 
+          backgroundColor: '#fff2f0',
+          borderRadius: '4px',
+          cursor: 'not-allowed'
+        }}>
+          {current.date()}
+        </div>
+      );
+    }
+    
     return (
-      <div className="ant-picker-cell-inner">
+      <div className="ant-picker-cell-inner" style={{ cursor: 'pointer' }}>
         {current.date()}
       </div>
     );
@@ -275,9 +392,17 @@ const DoctorSchedulePage: React.FC = () => {
   const onCalendarSelect = (date: Dayjs) => {
     const dateStr = date.format('YYYY-MM-DD');
     const isPast = date.isBefore(dayjs(), 'day');
+    const dayOfWeek = date.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
     
     if (isPast) {
       message.warning('Không thể chọn ngày trong quá khứ');
+      return;
+    }
+    
+    if (isWeekend) {
+      const dayName = dayOfWeek === 0 ? 'Chủ nhật' : 'Thứ 7';
+      message.warning(`Không thể tạo lịch vào ${dayName}. Chỉ cho phép tạo lịch từ thứ 2 đến thứ 6.`);
       return;
     }
     
@@ -420,6 +545,17 @@ const DoctorSchedulePage: React.FC = () => {
 
   return (
     <div style={{ padding: '24px' }}>
+      {/* Advanced Search & Filter */}
+      <AdvancedSearchFilter
+        onFilterChange={applyFilters}
+        onDoctorSearch={searchDoctors}
+        availableTimeSlots={availableTimeSlots}
+        availableSpecializations={availableSpecializations}
+        loading={searchLoading}
+        totalResults={totalResults}
+        className="mb-4"
+      />
+
       <div style={{ marginBottom: '24px' }}>
         <Title level={3} style={{ margin: 0 }}>
           Quản lý lịch làm việc bác sĩ
@@ -428,6 +564,71 @@ const DoctorSchedulePage: React.FC = () => {
           Xem và quản lý lịch làm việc của bác sĩ
         </Text>
       </div>
+
+      {/* Performance Alert for Large Datasets */}
+      {calendarEvents.length > 1000 && (
+        <Card style={{ marginBottom: 16, borderColor: '#faad14' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ fontSize: '24px' }}>⚡</div>
+            <div>
+              <div style={{ fontWeight: 600, color: '#faad14' }}>
+                Dataset lớn được phát hiện ({calendarEvents.length.toLocaleString()} events)
+              </div>
+              <div style={{ fontSize: '13px', color: '#666', marginTop: '4px' }}>
+                Hệ thống đã tự động kích hoạt chế độ tối ưu performance. 
+                Sử dụng <strong>bộ lọc</strong> để thu hẹp kết quả và tăng tốc độ xử lý.
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Statistics */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={6}>
+          <Card>
+            <Statistic
+              title="Tổng khung giờ"
+              value={scheduleStats.total}
+              prefix={<ClockCircleOutlined />}
+              formatter={(value) => value.toLocaleString()}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={6}>
+          <Card>
+            <Statistic
+              title="Có thể đặt"
+              value={scheduleStats.free}
+              valueStyle={{ color: '#52c41a' }}
+              prefix={<CalendarOutlined />}
+              formatter={(value) => value.toLocaleString()}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={6}>
+          <Card>
+            <Statistic
+              title="Đã đặt"
+              value={scheduleStats.booked}
+              valueStyle={{ color: '#1890ff' }}
+              prefix={<UserOutlined />}
+              formatter={(value) => value.toLocaleString()}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={6}>
+          <Card>
+            <Statistic
+              title="Tỷ lệ sử dụng"
+              value={scheduleStats.utilization}
+              suffix="%"
+              valueStyle={{ color: scheduleStats.utilization > 75 ? '#52c41a' : '#faad14' }}
+              prefix={<BarChartOutlined />}
+            />
+          </Card>
+        </Col>
+      </Row>
 
       {/* Controls */}
       <Card style={{ marginBottom: '24px' }}>
@@ -452,7 +653,18 @@ const DoctorSchedulePage: React.FC = () => {
               Tải lại
             </Button>
           </Col>
-          <Col flex={1} />
+          <Col flex={1}>
+            <Space style={{ float: 'right' }}>
+              <Text strong>Chế độ xem:</Text>
+              <Switch
+                checkedChildren={<CalendarOutlined />}
+                unCheckedChildren={<TableOutlined />}
+                checked={viewMode === 'calendar'}
+                onChange={(checked) => setViewMode(checked ? 'calendar' : 'table')}
+              />
+              <Text>{viewMode === 'calendar' ? 'Lịch' : 'Bảng'}</Text>
+            </Space>
+          </Col>
           <Col>
             <Button
               type="primary"
@@ -466,8 +678,55 @@ const DoctorSchedulePage: React.FC = () => {
         </Row>
       </Card>
 
-      {/* Schedule Table */}
-      <Card title={`Lịch làm việc tháng ${selectedMonth.format('MM/YYYY')} (${tableData.length} lịch)`}>
+      {/* Calendar View */}
+      {viewMode === 'calendar' ? (
+        <div style={{ height: '700px' }}>
+          {/* Performance Stats for Large Datasets */}
+          {virtualStats.isVirtualized && (
+            <div style={{ 
+              marginBottom: '12px', 
+              padding: '8px 12px', 
+              background: '#f0f7ff', 
+              borderRadius: '6px',
+              fontSize: '12px',
+              color: '#1890ff'
+            }}>
+              🚀 <strong>Performance Mode:</strong> Hiển thị {virtualStats.visibleEvents}/{virtualStats.totalEvents} events 
+              (Tối ưu {virtualStats.performanceGain}%)
+            </div>
+          )}
+          
+          <AdvancedCalendar
+            events={visibleEvents}
+            onSelectEvent={handleSelectEvent}
+            onNavigate={(date, view) => {
+              handleCalendarNavigate(date, view);
+              // Update virtualization range based on view
+              const start = new Date(date);
+              const end = new Date(date);
+              
+              if (view === 'month') {
+                start.setDate(1);
+                end.setMonth(end.getMonth() + 1, 0);
+              } else if (view === 'week') {
+                start.setDate(start.getDate() - start.getDay());
+                end.setDate(end.getDate() + (6 - end.getDay()));
+              } else {
+                end.setDate(end.getDate() + 1);
+              }
+              
+              updateViewRange(start, end);
+            }}
+            onView={handleCalendarViewChange}
+            defaultView="month"
+            views={['month', 'week', 'day', 'agenda']}
+            loading={loading || searchLoading}
+            height={700}
+          />
+        </div>
+      ) : (
+        /* Schedule Table */
+        <Card title={`Lịch làm việc tháng ${selectedMonth.format('MM/YYYY')} (${tableData.length} lịch)`}>
         {loading && !isCreateModalVisible ? (
           <div style={{ textAlign: 'center', padding: '50px' }}>
             <Spin size="large" />
@@ -492,21 +751,26 @@ const DoctorSchedulePage: React.FC = () => {
             }
           />
         ) : (
-          <Table
+                      <Table
             columns={columns}
             dataSource={tableData}
             rowKey="key"
-            loading={loading}
+            loading={loading || searchLoading}
             pagination={{
-              pageSize: 20,
+              pageSize: tableData.length > 1000 ? 50 : 20, // Tăng page size cho dataset lớn
               showSizeChanger: true,
               showQuickJumper: true,
-              showTotal: (total) => `Tổng cộng ${total} lịch làm việc`,
+              showTotal: (total, range) => 
+                `${range[0]}-${range[1]} của ${total} lịch làm việc`,
+              pageSizeOptions: ['20', '50', '100', '200'],
+              size: 'small'
             }}
-            scroll={{ x: 1200 }}
+            scroll={{ x: 1200, y: 600 }} // Add vertical scroll for large datasets
+            size={tableData.length > 500 ? 'small' : 'middle'} // Compact view for large data
           />
         )}
       </Card>
+      )}
 
       {/* Create Schedule Modal */}
       <Modal
@@ -565,6 +829,12 @@ const DoctorSchedulePage: React.FC = () => {
 
           {createMode === 'dates' && (
             <Form.Item label="Chọn ngày làm việc">
+              <div style={{ marginBottom: '12px' }}>
+                <Text type="secondary" style={{ fontSize: '13px' }}>
+                  💡 <strong>Lưu ý:</strong> Chỉ có thể tạo lịch từ <strong>thứ 2 đến thứ 6</strong>. 
+                  Các ngày cuối tuần (thứ 7, chủ nhật) sẽ được đánh dấu màu đỏ và không thể chọn.
+                </Text>
+              </div>
               <div style={{ border: '1px solid #d9d9d9', borderRadius: '6px', padding: '8px' }}>
                 <div style={{ 
                   maxHeight: '220px', 
@@ -600,6 +870,48 @@ const DoctorSchedulePage: React.FC = () => {
                     </div>
                   </div>
                 )}
+                
+                {/* Calendar Legend */}
+                <div style={{ 
+                  marginTop: '12px', 
+                  padding: '8px', 
+                  backgroundColor: '#fafafa', 
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}>
+                  <Text strong style={{ fontSize: '12px' }}>Chú thích:</Text>
+                  <div style={{ display: 'flex', gap: '16px', marginTop: '4px', flexWrap: 'wrap' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ 
+                        width: '12px', 
+                        height: '12px', 
+                        backgroundColor: '#1890ff', 
+                        borderRadius: '2px' 
+                      }}></div>
+                      <Text style={{ fontSize: '12px' }}>Đã chọn</Text>
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ 
+                        width: '12px', 
+                        height: '12px', 
+                        backgroundColor: '#fff2f0',
+                        border: '1px solid #ff4d4f', 
+                        borderRadius: '2px' 
+                      }}></div>
+                      <Text style={{ fontSize: '12px', color: '#ff4d4f' }}>Cuối tuần (không thể chọn)</Text>
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ 
+                        width: '12px', 
+                        height: '12px', 
+                        backgroundColor: '#f5f5f5',
+                        border: '1px solid #d9d9d9', 
+                        borderRadius: '2px' 
+                      }}></div>
+                      <Text style={{ fontSize: '12px', color: '#999' }}>Quá khứ (không thể chọn)</Text>
+                    </span>
+                  </div>
+                </div>
               </div>
             </Form.Item>
           )}
