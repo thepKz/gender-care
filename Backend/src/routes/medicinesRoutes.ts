@@ -5,10 +5,10 @@ import { roleMiddleware } from '../middleware/roleMiddleware';
 
 const router = express.Router();
 
-// Lấy danh sách medicines (Doctor, Staff, Manager only - customer không được xem tất cả)
+// Lấy danh sách medicines (Doctor, Staff, Manager, Admin only - customer không được xem tất cả)
 router.get('/',
   verifyToken,
-  roleMiddleware(['doctor', 'staff', 'manager']),
+  roleMiddleware(['doctor', 'staff', 'manager', 'admin']),
   medicinesController.getAllMedicines
 );
 
@@ -19,24 +19,24 @@ router.get('/:id',
   medicinesController.getMedicineById
 );
 
-// Tạo medicine (Manager only)
+// Tạo medicine (Manager/Admin only)
 router.post('/',
   verifyToken,
-  roleMiddleware(['manager']),
+  roleMiddleware(['manager', 'admin']),
   medicinesController.createMedicine
 );
 
-// Cập nhật medicine (Manager only)
+// Cập nhật medicine (Manager/Admin only)
 router.put('/:id',
   verifyToken,
-  roleMiddleware(['manager']),
+  roleMiddleware(['manager', 'admin']),
   medicinesController.updateMedicine
 );
 
-// Kích hoạt/vô hiệu hóa medicine (Manager only)
+// Kích hoạt/vô hiệu hóa medicine (Manager/Admin only)
 router.patch('/:id/status',
   verifyToken,
-  roleMiddleware(['manager']),
+  roleMiddleware(['manager', 'admin']),
   medicinesController.toggleMedicineStatus
 );
 

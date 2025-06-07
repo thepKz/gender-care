@@ -18,6 +18,7 @@ export interface IMedicationReminders {
   startDate?: Date;
   endDate?: Date;
   isActive?: boolean;
+  isDeleted?: boolean;
   notes?: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -86,6 +87,10 @@ const MedicationRemindersSchema = new mongoose.Schema<IMedicationReminders>({
     type: Boolean,
     default: true 
   },
+  isDeleted: { 
+    type: Boolean,
+    default: false 
+  },
   notes: { 
     type: String 
   }
@@ -96,6 +101,7 @@ MedicationRemindersSchema.index({ createdByUserId: 1 });
 MedicationRemindersSchema.index({ profileId: 1 });
 MedicationRemindersSchema.index({ medicalRecordId: 1 });
 MedicationRemindersSchema.index({ isActive: 1 });
+MedicationRemindersSchema.index({ isDeleted: 1 });
 
 const MedicationReminders = mongoose.model<IMedicationReminders>('MedicationReminders', MedicationRemindersSchema);
 

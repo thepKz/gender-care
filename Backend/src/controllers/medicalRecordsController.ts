@@ -1,12 +1,13 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../types/auth';
 import { MedicalRecords, IMedicalRecords } from '../models';
 import mongoose from 'mongoose';
 
 // Tạo medical record (Doctor/Staff)
-export const createMedicalRecord = async (req: Request, res: Response) => {
+export const createMedicalRecord = async (req: AuthRequest, res: Response) => {
   try {
     const { profileId, appointmentId, diagnosis, symptoms, treatment, medicines, notes, pictures } = req.body;
-    const doctorId = req.user?.id;
+    const doctorId = req.user?._id;
 
     // Validate required fields
     if (!profileId || !appointmentId) {
@@ -48,11 +49,11 @@ export const createMedicalRecord = async (req: Request, res: Response) => {
 };
 
 // Cập nhật medical record (Doctor/Staff - chỉ sửa, không xóa)
-export const updateMedicalRecord = async (req: Request, res: Response) => {
+export const updateMedicalRecord = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { diagnosis, symptoms, treatment, medicines, notes, pictures } = req.body;
-    const currentUserId = req.user?.id;
+    const currentUserId = req.user?._id;
     const userRole = req.user?.role;
 
     // Find medical record
@@ -105,10 +106,10 @@ export const updateMedicalRecord = async (req: Request, res: Response) => {
 };
 
 // Lấy chi tiết medical record (Doctor/Staff/User)
-export const getMedicalRecordById = async (req: Request, res: Response) => {
+export const getMedicalRecordById = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const currentUserId = req.user?.id;
+    const currentUserId = req.user?._id;
     const userRole = req.user?.role;
 
     const medicalRecord = await MedicalRecords.findById(id).populate([
@@ -153,9 +154,9 @@ export const getMedicalRecordById = async (req: Request, res: Response) => {
 };
 
 // Doctor xem medical records do mình tạo
-export const getMyMedicalRecords = async (req: Request, res: Response) => {
+export const getMyMedicalRecords = async (req: AuthRequest, res: Response) => {
   try {
-    const currentUserId = req.user?.id;
+    const currentUserId = req.user?._id;
     const { page = 1, limit = 10, profileId, dateFrom, dateTo } = req.query;
 
     // Find doctor record first
@@ -255,10 +256,10 @@ export const getAllMedicalRecords = async (req: Request, res: Response) => {
 };
 
 // User xem medical records của profiles thuộc về mình
-export const getMedicalRecordsByProfile = async (req: Request, res: Response) => {
+export const getMedicalRecordsByProfile = async (req: AuthRequest, res: Response) => {
   try {
     const { profileId } = req.params;
-    const currentUserId = req.user?.id;
+    const currentUserId = req.user?._id;
     const { page = 1, limit = 10, doctorId } = req.query;
 
     // Check if user owns the profile
@@ -313,9 +314,9 @@ export const getMedicalRecordsByProfile = async (req: Request, res: Response) =>
 };
 
 // Doctor tìm kiếm medical records do mình tạo
-export const searchMyMedicalRecords = async (req: Request, res: Response) => {
+export const searchMyMedicalRecords = async (req: AuthRequest, res: Response) => {
   try {
-    const currentUserId = req.user?.id;
+    const currentUserId = req.user?._id;
     const { diagnosis, patientName, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
 
     // Find doctor record first
@@ -379,7 +380,7 @@ export const searchMyMedicalRecords = async (req: Request, res: Response) => {
 };
 
 // Staff tìm kiếm trong tất cả medical records
-export const searchAllMedicalRecords = async (req: Request, res: Response) => {
+export const searchAllMedicalRecords = async (req: AuthRequest, res: Response) => {
   try {
     const { diagnosis, doctorName, patientName, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
 

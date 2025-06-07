@@ -1,5 +1,7 @@
 import seedDoctors from './doctorSeed';
 import { seedDoctorQA } from './doctorQASeeds';
+import seedMedicines from './medicinesSeed';
+import seedUserProfiles from './userProfilesSeed';
 
 // Main function để chạy tất cả seeds
 export const runAllSeeds = async () => {
@@ -7,8 +9,10 @@ export const runAllSeeds = async () => {
     console.log('🌱 Bắt đầu chạy tất cả seed data...');
     
     // Chạy seeds theo thứ tự dependency
-    await seedDoctors();    // Doctors trước
-    await seedDoctorQA();   // DoctorQA sau (cần doctor + user)
+    await seedMedicines();    // Medicines trước (independent)
+    await seedUserProfiles(); // UserProfiles (cần tạo user + profiles cho medical records)
+    await seedDoctors();      // Doctors sau
+    await seedDoctorQA();     // DoctorQA cuối (cần doctor + user)
     
     console.log('✅ Hoàn thành việc chạy tất cả seed data!');
   } catch (error) {
@@ -17,4 +21,4 @@ export const runAllSeeds = async () => {
 };
 
 // Export individual seeds nếu cần
-export { seedDoctors, seedDoctorQA }; 
+export { seedDoctors, seedDoctorQA, seedMedicines, seedUserProfiles }; 
