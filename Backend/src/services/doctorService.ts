@@ -13,6 +13,46 @@ const FIXED_TIME_SLOTS = [
   "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"
 ];
 
+// GET /doctors/schedules/all - Lấy tất cả lịch làm việc của tất cả bác sĩ (PUBLIC - chỉ Free)
+export const getAllDoctorsSchedules = async (isStaff: boolean = false) => {
+  try {
+    // Lấy tất cả schedules của tất cả doctors
+    const allSchedules = await DoctorSchedules.find()
+      .populate({
+        path: 'doctorId',
+        populate: {
+          path: 'userId',
+          select: 'fullName email avatar'
+        },
+        select: 'userId bio specialization'
+      });
+    
+    if (!isStaff) {
+      // Public: chỉ show slots có status = "Free"
+      const filteredSchedules = allSchedules.map(schedule => {
+        const scheduleObj = JSON.parse(JSON.stringify(schedule));
+        return {
+          ...scheduleObj,
+          weekSchedule: scheduleObj.weekSchedule.map((day: any) => ({
+            ...day,
+            slots: day.slots.filter((slot: any) => slot.status === "Free")
+          }))
+        };
+      });
+      return filteredSchedules;
+    }
+    
+    return allSchedules; // Staff: show tất cả
+  } catch (error: any) {
+    throw new Error(error.message || 'Không thể lấy tất cả lịch làm việc');
+  }
+};
+
+// GET /doctors/schedules/all/staff - Staff xem tất cả lịch làm việc của tất cả bác sĩ
+export const getAllDoctorsSchedulesForStaff = async () => {
+  return await getAllDoctorsSchedules(true);
+};
+
 // GET /doctors/:id/schedules - Xem lịch làm việc của bác sĩ (PUBLIC - chỉ Free)
 export const getDoctorSchedules = async (doctorId: string, isStaff: boolean = false) => {
   try {

@@ -56,7 +56,10 @@ const StaffDoctorSchedulePage: React.FC = () => {
   const loadSchedules = async () => {
     try {
       setLoading(true);
-      const data = await doctorScheduleApi.getAll();
+      const data = await doctorScheduleApi.getSchedulesByMonth(
+        selectedMonth.month() + 1,
+        selectedMonth.year()
+      );
       setSchedules(data);
     } catch (error: any) {
       console.error('Lỗi tải lịch làm việc:', error);

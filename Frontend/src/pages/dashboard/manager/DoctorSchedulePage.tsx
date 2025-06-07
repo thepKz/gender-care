@@ -16,7 +16,10 @@ import {
   Empty,
   Spin,
   Tooltip,
-  Popconfirm
+  Popconfirm,
+  Radio,
+  Calendar,
+  Badge
 } from 'antd';
 import { 
   CalendarOutlined, 
@@ -34,7 +37,9 @@ import doctorApi, { type IDoctor } from '../../../api/endpoints/doctor';
 import doctorScheduleApi, { 
   type IDoctorSchedule, 
   type IWeekScheduleObject,
-  type ITimeSlot 
+  type ITimeSlot,
+  type CreateScheduleByDatesRequest,
+  type CreateScheduleByMonthRequest
 } from '../../../api/endpoints/doctorSchedule';
 
 const { Title, Text } = Typography;
@@ -53,16 +58,21 @@ const DEFAULT_TIME_SLOTS = [
   '16:00-17:00'
 ];
 
+type CreateMode = 'dates' | 'month';
+
 interface ScheduleViewData {
   key: string;
   doctorName: string;
   doctorId: string;
   specialization: string;
-  dayOfWeek: string;
+  workDate: string; // Ngày làm việc cụ thể
+  dayOfWeek: string; // Thứ trong tuần
   totalSlots: number;
   availableSlots: number;
   bookedSlots: number;
+  unavailableSlots: number;
   scheduleId: string;
+  timeSlots: string[]; // Danh sách các slot thời gian
 }
 
 const DoctorSchedulePage: React.FC = () => {
@@ -72,6 +82,8 @@ const DoctorSchedulePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [availableDoctors, setAvailableDoctors] = useState<IDoctor[]>([]);
+  const [createMode, setCreateMode] = useState<CreateMode>('dates');
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [form] = Form.useForm();
 
   // Load schedules for selected month
@@ -82,11 +94,30 @@ const DoctorSchedulePage: React.FC = () => {
   const loadSchedules = async () => {
     try {
       setLoading(true);
-      const data = await doctorScheduleApi.getAll();
+      
+      // Debug logs
+      console.log('🔍 [Debug] Loading schedules for:', {
+        month: selectedMonth.month() + 1,
+        year: selectedMonth.year()
+      });
+      
+      // Lấy lịch theo tháng được chọn
+      const data = await doctorScheduleApi.getSchedulesByMonth(
+        selectedMonth.month() + 1,
+        selectedMonth.year()
+      );
+      
+      console.log('✅ [Debug] Schedules loaded successfully:', data);
       setSchedules(data);
     } catch (error: any) {
-      console.error('Lỗi tải lịch làm việc:', error);
-      message.error('Không thể tải lịch làm việc');
+      console.error('❌ [Debug] Lỗi tải lịch:', error);
+      console.error('❌ [Debug] Error details:', {
+        message: error.message,
+        response: error.response,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      message.error('Không thể tải dữ liệu lịch làm việc');
     } finally {
       setLoading(false);
     }
@@ -95,77 +126,101 @@ const DoctorSchedulePage: React.FC = () => {
   const loadDoctorsForCreate = async () => {
     try {
       setLoading(true);
+      
+      // Debug logs
+      console.log('🔍 [Debug] Loading doctors list...');
+      
       const data = await doctorApi.getAll();
+      
+      console.log('✅ [Debug] Doctors loaded successfully:', data);
       setAvailableDoctors(data);
       setIsCreateModalVisible(true);
     } catch (error: any) {
-      console.error('Lỗi tải danh sách bác sĩ:', error);
+      console.error('❌ [Debug] Lỗi tải danh sách bác sĩ:', error);
+      console.error('❌ [Debug] Error details:', {
+        message: error.message,
+        response: error.response,
+        status: error.response?.status,
+        data: error.response?.data
+      });
       message.error('Không thể tải danh sách bác sĩ');
     } finally {
       setLoading(false);
     }
   };
 
-  // Transform schedules data for table display
   const getTableData = (): ScheduleViewData[] => {
-    const tableData: ScheduleViewData[] = [];
-
+    const data: ScheduleViewData[] = [];
+    
     schedules.forEach(schedule => {
-      const doctor = schedule.doctorId;
-      
-      schedule.weekSchedule.forEach(weekDay => {
-        // Filter by selected month
-        const dayDate = dayjs(weekDay.dayOfWeek);
-        if (!dayDate.isSame(selectedMonth, 'month')) {
-          return;
-        }
-
-        const availableSlots = weekDay.slots.filter(slot => !slot.isBooked).length;
-        const bookedSlots = weekDay.slots.filter(slot => slot.isBooked).length;
-
-        tableData.push({
-          key: `${schedule._id}_${weekDay._id}`,
-          doctorName: doctor.userId.fullName,
-          doctorId: doctor._id,
-          specialization: doctor.specialization || 'Chưa xác định',
-          dayOfWeek: dayDate.format('DD/MM/YYYY - dddd'),
-          totalSlots: weekDay.slots.length,
-          availableSlots,
-          bookedSlots,
-          scheduleId: schedule._id
+      schedule.weekSchedule.forEach(weekSchedule => {
+        const workDate = dayjs(weekSchedule.dayOfWeek);
+        const freeSlots = weekSchedule.slots.filter(slot => slot.status === 'Free').length;
+        const bookedSlots = weekSchedule.slots.filter(slot => slot.status === 'Booked').length;
+        const unavailableSlots = weekSchedule.slots.filter(slot => slot.status === 'Absent').length;
+        
+        data.push({
+          key: `${schedule._id}-${weekSchedule._id}`,
+          doctorName: schedule.doctorId.userId.fullName,
+          doctorId: schedule.doctorId._id,
+          specialization: schedule.doctorId.specialization || 'Chưa xác định',
+          workDate: workDate.format('DD/MM/YYYY'),
+          dayOfWeek: workDate.format('dddd, DD/MM/YYYY'),
+          totalSlots: weekSchedule.slots.length,
+          availableSlots: freeSlots,
+          bookedSlots: bookedSlots,
+          unavailableSlots: unavailableSlots,
+          scheduleId: schedule._id,
+          timeSlots: weekSchedule.slots.map(slot => slot.slotTime)
         });
       });
     });
 
-    return tableData.sort((a, b) => {
-      // Sort by doctor name, then by date
-      if (a.doctorName !== b.doctorName) {
-        return a.doctorName.localeCompare(b.doctorName);
-      }
-      return a.dayOfWeek.localeCompare(b.dayOfWeek);
-    });
+    return data.sort((a, b) => dayjs(a.workDate, 'DD/MM/YYYY').valueOf() - dayjs(b.workDate, 'DD/MM/YYYY').valueOf());
   };
 
   const handleCreateSchedule = async (values: any) => {
     try {
       setLoading(true);
       
-      const { doctorId, dateRange, timeSlots } = values;
-      
-      // Tạo lịch hàng loạt cho khoảng ngày được chọn
-      const bulkData = {
-        doctorId,
-        startDate: dateRange[0].format('YYYY-MM-DD'),
-        endDate: dateRange[1].format('YYYY-MM-DD'),
-        timeSlots: timeSlots || DEFAULT_TIME_SLOTS,
-        excludeWeekends: true // Loại bỏ cuối tuần
-      };
+      const { doctorId, timeSlots } = values;
+      const selectedTimeSlots = timeSlots || DEFAULT_TIME_SLOTS;
 
-      await doctorScheduleApi.createBulkSchedule(bulkData);
-      
-      message.success('Tạo lịch làm việc thành công!');
+      if (createMode === 'dates') {
+        // Tạo lịch theo ngày cụ thể
+        if (selectedDates.length === 0) {
+          message.error('Vui lòng chọn ít nhất một ngày!');
+          return;
+        }
+
+        const createData: CreateScheduleByDatesRequest = {
+          doctorId,
+          dates: selectedDates,
+          timeSlots: selectedTimeSlots
+        };
+
+        await doctorScheduleApi.createScheduleByDates(createData);
+        message.success(`Tạo lịch thành công cho ${selectedDates.length} ngày!`);
+        
+      } else {
+        // Tạo lịch theo tháng
+        const { month, year } = values;
+        
+        const createData: CreateScheduleByMonthRequest = {
+          doctorId,
+          month,
+          year,
+          timeSlots: selectedTimeSlots,
+          excludeWeekends: values.excludeWeekends !== false // default true
+        };
+
+        await doctorScheduleApi.createScheduleByMonth(createData);
+        message.success(`Tạo lịch thành công cho tháng ${month}/${year}!`);
+      }
+
       setIsCreateModalVisible(false);
       form.resetFields();
+      setSelectedDates([]);
       await loadSchedules(); // Reload data
       
     } catch (error: any) {
@@ -176,9 +231,9 @@ const DoctorSchedulePage: React.FC = () => {
     }
   };
 
-  const handleDeleteSchedule = async (scheduleId: string) => {
+  const handleDeleteSchedule = async (scheduleId: string, doctorId: string) => {
     try {
-      await doctorScheduleApi.deleteDoctorSchedule(scheduleId);
+      await doctorScheduleApi.deleteDoctorScheduleWithDoctorId(doctorId, scheduleId);
       message.success('Xóa lịch làm việc thành công!');
       await loadSchedules(); // Reload data
     } catch (error: any) {
@@ -187,10 +242,59 @@ const DoctorSchedulePage: React.FC = () => {
     }
   };
 
+  // Calendar date cell render for date selection
+  const dateRender = (current: Dayjs) => {
+    const dateStr = current.format('YYYY-MM-DD');
+    const isSelected = selectedDates.includes(dateStr);
+    const isToday = current.isSame(dayjs(), 'day');
+    const isPast = current.isBefore(dayjs(), 'day');
+    
+    if (isSelected) {
+      return (
+        <div className="ant-picker-cell-inner" style={{ backgroundColor: '#1890ff', color: 'white', borderRadius: '4px' }}>
+          {current.date()}
+        </div>
+      );
+    }
+    
+    if (isPast) {
+      return (
+        <div className="ant-picker-cell-inner" style={{ color: '#d9d9d9' }}>
+          {current.date()}
+        </div>
+      );
+    }
+    
+    return (
+      <div className="ant-picker-cell-inner">
+        {current.date()}
+      </div>
+    );
+  };
+
+  const onCalendarSelect = (date: Dayjs) => {
+    const dateStr = date.format('YYYY-MM-DD');
+    const isPast = date.isBefore(dayjs(), 'day');
+    
+    if (isPast) {
+      message.warning('Không thể chọn ngày trong quá khứ');
+      return;
+    }
+    
+    if (selectedDates.includes(dateStr)) {
+      // Unselect date
+      setSelectedDates(prev => prev.filter(d => d !== dateStr));
+    } else {
+      // Select date
+      setSelectedDates(prev => [...prev, dateStr].sort());
+    }
+  };
+
   const columns: ColumnsType<ScheduleViewData> = [
     {
       title: 'Bác sĩ',
       key: 'doctor',
+      width: 200,
       render: (_, record) => (
         <Space>
           <UserOutlined />
@@ -205,39 +309,64 @@ const DoctorSchedulePage: React.FC = () => {
     },
     {
       title: 'Ngày làm việc',
-      dataIndex: 'dayOfWeek',
-      key: 'dayOfWeek',
-      render: (dayOfWeek) => (
-        <Space>
-          <CalendarOutlined />
-          <Text>{dayOfWeek}</Text>
+      key: 'workDate',
+      width: 180,
+      render: (_, record) => (
+        <Space direction="vertical" size={0}>
+          <div style={{ fontWeight: 'bold' }}>
+            <CalendarOutlined /> {record.workDate}
+          </div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            {dayjs(record.workDate, 'DD/MM/YYYY').format('dddd')}
+          </div>
         </Space>
+      ),
+      sorter: (a, b) => dayjs(a.workDate, 'DD/MM/YYYY').valueOf() - dayjs(b.workDate, 'DD/MM/YYYY').valueOf(),
+    },
+    {
+      title: 'Khung giờ',
+      key: 'timeSlots',
+      width: 200,
+      render: (_, record) => (
+        <div>
+          <ClockCircleOutlined /> {record.totalSlots} khung giờ
+          <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
+            {record.timeSlots.slice(0, 2).join(', ')}
+            {record.timeSlots.length > 2 && '...'}
+          </div>
+        </div>
       ),
     },
     {
-      title: 'Tổng slot',
-      dataIndex: 'totalSlots',
-      key: 'totalSlots',
-      align: 'center',
-      render: (total) => <Tag color="blue">{total}</Tag>,
-    },
-    {
-      title: 'Slot trống',
+      title: 'Trống',
       dataIndex: 'availableSlots',
       key: 'availableSlots',
+      width: 80,
       align: 'center',
       render: (available) => <Tag color="green">{available}</Tag>,
+      sorter: (a, b) => a.availableSlots - b.availableSlots,
     },
     {
       title: 'Đã đặt',
       dataIndex: 'bookedSlots',
       key: 'bookedSlots',
+      width: 80,
       align: 'center',
       render: (booked) => <Tag color="red">{booked}</Tag>,
+      sorter: (a, b) => a.bookedSlots - b.bookedSlots,
+    },
+    {
+      title: 'Không khả dụng',
+      dataIndex: 'unavailableSlots',
+      key: 'unavailableSlots',
+      width: 100,
+      align: 'center',
+      render: (unavailable) => <Tag color="orange">{unavailable}</Tag>,
     },
     {
       title: 'Trạng thái',
       key: 'status',
+      width: 100,
       render: (_, record) => {
         const { availableSlots, totalSlots } = record;
         if (availableSlots === totalSlots) {
@@ -252,6 +381,7 @@ const DoctorSchedulePage: React.FC = () => {
     {
       title: 'Thao tác',
       key: 'actions',
+      width: 120,
       render: (_, record) => (
         <Space>
           <Tooltip title="Chỉnh sửa">
@@ -268,7 +398,7 @@ const DoctorSchedulePage: React.FC = () => {
           <Popconfirm
             title="Xác nhận xóa"
             description="Bạn có chắc chắn muốn xóa lịch làm việc này?"
-            onConfirm={() => handleDeleteSchedule(record.scheduleId)}
+            onConfirm={() => handleDeleteSchedule(record.scheduleId, record.doctorId)}
             okText="Xóa"
             cancelText="Hủy"
           >
@@ -337,7 +467,7 @@ const DoctorSchedulePage: React.FC = () => {
       </Card>
 
       {/* Schedule Table */}
-      <Card title={`Lịch làm việc tháng ${selectedMonth.format('MM/YYYY')}`}>
+      <Card title={`Lịch làm việc tháng ${selectedMonth.format('MM/YYYY')} (${tableData.length} lịch)`}>
         {loading && !isCreateModalVisible ? (
           <div style={{ textAlign: 'center', padding: '50px' }}>
             <Spin size="large" />
@@ -348,32 +478,32 @@ const DoctorSchedulePage: React.FC = () => {
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
               <div>
-                <Text type="secondary">Không có dữ liệu lịch làm việc</Text>
-                <br />
-                <Text type="secondary">Hãy tạo lịch mới cho bác sĩ</Text>
+                <div>Không có dữ liệu lịch làm việc</div>
+                <div style={{ marginTop: '8px' }}>
+                  <Button 
+                    type="primary" 
+                    icon={<PlusOutlined />}
+                    onClick={loadDoctorsForCreate}
+                  >
+                    Tạo lịch đầu tiên
+                  </Button>
+                </div>
               </div>
             }
-          >
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={loadDoctorsForCreate}
-            >
-              Tạo lịch đầu tiên
-            </Button>
-          </Empty>
+          />
         ) : (
           <Table
             columns={columns}
             dataSource={tableData}
-            loading={loading && !isCreateModalVisible}
+            rowKey="key"
+            loading={loading}
             pagination={{
-              pageSize: 10,
+              pageSize: 20,
               showSizeChanger: true,
               showQuickJumper: true,
               showTotal: (total) => `Tổng cộng ${total} lịch làm việc`,
             }}
-            scroll={{ x: 'max-content' }}
+            scroll={{ x: 1200 }}
           />
         )}
       </Card>
@@ -385,9 +515,10 @@ const DoctorSchedulePage: React.FC = () => {
         onCancel={() => {
           setIsCreateModalVisible(false);
           form.resetFields();
+          setSelectedDates([]);
         }}
         footer={null}
-        width={600}
+        width={800}
         destroyOnClose
       >
         <Form
@@ -395,6 +526,7 @@ const DoctorSchedulePage: React.FC = () => {
           layout="vertical"
           onFinish={handleCreateSchedule}
           initialValues={{
+            excludeWeekends: true,
             timeSlots: DEFAULT_TIME_SLOTS
           }}
         >
@@ -412,50 +544,117 @@ const DoctorSchedulePage: React.FC = () => {
             >
               {availableDoctors.map(doctor => (
                 <Option key={doctor._id} value={doctor._id}>
-                  <div>
-                    <div style={{ fontWeight: 'bold' }}>{doctor.userId.fullName}</div>
-                    <div style={{ fontSize: '12px', color: '#666' }}>
-                      {doctor.specialization || 'Chưa xác định'}
-                    </div>
-                  </div>
+                  BS. {doctor.userId.fullName} - {doctor.specialization || 'Chưa xác định'}
                 </Option>
               ))}
             </Select>
           </Form.Item>
 
-          <Form.Item
-            label="Khoảng thời gian"
-            name="dateRange"
-            rules={[{ required: true, message: 'Vui lòng chọn khoảng thời gian!' }]}
-          >
-            <RangePicker 
-              style={{ width: '100%' }}
-              format="DD/MM/YYYY"
-              placeholder={['Ngày bắt đầu', 'Ngày kết thúc']}
-            />
+          <Form.Item label="Chế độ tạo lịch">
+            <Radio.Group 
+              value={createMode} 
+              onChange={(e) => {
+                setCreateMode(e.target.value);
+                setSelectedDates([]);
+              }}
+            >
+              <Radio value="dates">Tạo theo ngày cụ thể</Radio>
+              <Radio value="month">Tạo theo tháng</Radio>
+            </Radio.Group>
           </Form.Item>
 
-          <Form.Item
-            label="Khung giờ làm việc (8 slot mặc định)"
-            name="timeSlots"
-          >
+          {createMode === 'dates' && (
+            <>
+              <Form.Item label="Chọn ngày làm việc">
+                <div style={{ border: '1px solid #d9d9d9', borderRadius: '6px', padding: '16px' }}>
+                  <Calendar
+                    fullscreen={false}
+                    onSelect={onCalendarSelect}
+                    dateCellRender={dateRender}
+                  />
+                  {selectedDates.length > 0 && (
+                    <div style={{ marginTop: '16px' }}>
+                      <Text strong>Đã chọn {selectedDates.length} ngày:</Text>
+                      <div style={{ marginTop: '8px' }}>
+                        {selectedDates.map(date => (
+                          <Tag 
+                            key={date} 
+                            closable 
+                            onClose={() => setSelectedDates(prev => prev.filter(d => d !== date))}
+                            style={{ marginBottom: '4px' }}
+                          >
+                            {dayjs(date).format('DD/MM/YYYY')}
+                          </Tag>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </Form.Item>
+            </>
+          )}
+
+          {createMode === 'month' && (
+            <>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    label="Tháng"
+                    name="month"
+                    rules={[{ required: true, message: 'Vui lòng chọn tháng!' }]}
+                  >
+                    <Select placeholder="Chọn tháng">
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <Option key={i + 1} value={i + 1}>
+                          Tháng {i + 1}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label="Năm"
+                    name="year"
+                    rules={[{ required: true, message: 'Vui lòng chọn năm!' }]}
+                  >
+                    <Select placeholder="Chọn năm">
+                      {Array.from({ length: 5 }, (_, i) => {
+                        const year = dayjs().year() + i;
+                        return (
+                          <Option key={year} value={year}>
+                            {year}
+                          </Option>
+                        );
+                      })}
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Form.Item name="excludeWeekends" valuePropName="checked">
+                <Radio.Group>
+                  <Radio value={true}>Loại bỏ cuối tuần</Radio>
+                  <Radio value={false}>Bao gồm cuối tuần</Radio>
+                </Radio.Group>
+              </Form.Item>
+            </>
+          )}
+
+          <Form.Item label="Khung giờ làm việc (8 slot mặc định)" name="timeSlots">
             <Select
               mode="tags"
-              style={{ width: '100%' }}
               placeholder="Chọn hoặc nhập khung giờ"
-              tokenSeparators={[',']}
+              style={{ width: '100%' }}
             >
               {DEFAULT_TIME_SLOTS.map(slot => (
-                <Option key={slot} value={slot}>
-                  {slot}
-                </Option>
+                <Option key={slot} value={slot}>{slot}</Option>
               ))}
             </Select>
           </Form.Item>
 
           <div style={{ fontSize: '12px', color: '#666', marginBottom: '16px' }}>
-            <ClockCircleOutlined /> Mỗi ngày sẽ được tạo 8 slot thời gian. 
-            Cuối tuần sẽ được loại bỏ tự động.
+            ℹ️ Mỗi ngày sẽ được tạo 8 slot thời gian. Cuối tuần sẽ được loại bỏ tự động.
           </div>
 
           <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
