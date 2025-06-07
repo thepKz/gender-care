@@ -1,4 +1,4 @@
-import { Button, Card, Input, Modal, Rate, Select, Spin } from "antd";
+import { Button, Card, Input, Rate, Select, Spin } from "antd";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Activity,
@@ -29,25 +29,38 @@ const { Option } = Select;
 interface Service {
   id: number;
   name: string;
-  description: string;
-  shortDescription: string;
   image: string;
-  price: {
-    online: number;
-    offline: number;
-    home?: number;
-  };
-  duration: string;
-  category: string;
-  features: string[];
-  benefits: string[];
-  availableAt: string[];
+  price: number;
   rating: number;
   reviewCount: number;
-  isPopular: boolean;
-  isNew?: boolean;
   icon: React.ReactNode;
-  gradient: string;
+  description: string;
+  highlights: string[];
+}
+
+function CustomModal({ open, onClose, children }: { open: boolean, onClose: () => void, children: React.ReactNode }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-opacity duration-300"
+        onClick={onClose}
+      />
+      {/* Modal content */}
+      <div className="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full mx-4 p-8 animate-fadeInUp" style={{ zIndex: 10 }}>
+        {/* Close button */}
+        <button
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl font-bold focus:outline-none"
+          onClick={onClose}
+          aria-label="Đóng"
+        >
+          ×
+        </button>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 const Services = () => {
@@ -69,119 +82,70 @@ const Services = () => {
     {
       id: 1,
       name: "Tư vấn Sức khỏe Sinh sản",
-      description: "Dịch vụ tư vấn toàn diện về sức khỏe sinh sản cho mọi giới tính, bao gồm tư vấn về sức khỏe tình dục, kế hoạch hóa gia đình, và các vấn đề liên quan đến sức khỏe giới tính.",
-      shortDescription: "Tư vấn chuyên sâu về sức khỏe sinh sản cho mọi giới tính",
       image: Image1,
-      price: { online: 300000, offline: 500000, home: 800000 },
-      duration: "45-60 phút",
-      category: "consultation",
-      features: [
+      price: 500000,
+      rating: 4.8,
+      reviewCount: 245,
+      icon: <Heart size={32} variant="Bold" color="#0C3C54" />,
+      description: "Dịch vụ tư vấn toàn diện về sức khỏe sinh sản cho mọi giới tính, bao gồm tư vấn về sức khỏe tình dục, kế hoạch hóa gia đình, và các vấn đề liên quan đến sức khỏe giới tính.",
+      highlights: [
         "Tư vấn 1:1 với bác sĩ chuyên khoa",
         "Đánh giá tình trạng sức khỏe tổng quát",
         "Lập kế hoạch chăm sóc cá nhân",
         "Tư vấn về phương pháp tránh thai",
-        "Hỗ trợ tâm lý và giải đáp thắc mắc",
-      ],
-      benefits: [
-        "Được tư vấn bởi chuyên gia hàng đầu",
-        "Môi trường riêng tư và thoải mái",
-        "Kế hoạch chăm sóc cá nhân hóa",
-        "Hỗ trợ 24/7 sau tư vấn",
-      ],
-      availableAt: ["Online", "Tại phòng khám", "Tại nhà"],
-      rating: 4.8,
-      reviewCount: 245,
-      isPopular: true,
-      icon: <Heart size={32} variant="Bold" />,
-      gradient: "from-pink-500 via-rose-500 to-red-500",
+        "Hỗ trợ tâm lý và giải đáp thắc mắc"
+      ]
     },
     {
       id: 2,
       name: "Xét nghiệm STI/STD",
-      description: "Gói xét nghiệm toàn diện các bệnh lây truyền qua đường tình dục cho mọi giới tính, bao gồm HIV, Giang mai, Lậu, Chlamydia và các STI khác với công nghệ hiện đại.",
-      shortDescription: "Xét nghiệm toàn diện các bệnh lây truyền qua đường tình dục",
       image: Image2,
-      price: { online: 0, offline: 1200000, home: 1500000 },
-      duration: "30-45 phút",
-      category: "testing",
-      features: [
+      price: 1200000,
+      rating: 4.9,
+      reviewCount: 189,
+      icon: <Activity size={32} variant="Bold" color="#0C3C54" />,
+      description: "Gói xét nghiệm toàn diện các bệnh lây truyền qua đường tình dục cho mọi giới tính, bao gồm HIV, Giang mai, Lậu, Chlamydia và các STI khác với công nghệ hiện đại.",
+      highlights: [
         "Xét nghiệm 12 loại STI phổ biến",
         "Công nghệ PCR hiện đại",
         "Kết quả trong 24-48 giờ",
         "Tư vấn kết quả miễn phí",
-        "Bảo mật tuyệt đối",
-      ],
-      benefits: [
-        "Phát hiện sớm các bệnh lý",
-        "Điều trị kịp thời và hiệu quả",
-        "Bảo vệ sức khỏe bản thân và người thân",
-        "An tâm trong các mối quan hệ",
-      ],
-      availableAt: ["Tại phòng khám", "Tại nhà"],
-      rating: 4.9,
-      reviewCount: 189,
-      isPopular: true,
-      isNew: true,
-      icon: <Activity size={32} variant="Bold" />,
-      gradient: "from-blue-500 via-teal-500 to-cyan-500",
+        "Bảo mật tuyệt đối"
+      ]
     },
     {
       id: 3,
       name: "Tư vấn Sức khỏe Giới tính",
-      description: "Dịch vụ tư vấn chuyên sâu về sức khỏe giới tính cho LGBT+ và mọi nhóm đối tượng, bao gồm tư vấn về định danh giới tính và các vấn đề liên quan.",
-      shortDescription: "Tư vấn toàn diện về sức khỏe giới tính cho mọi nhóm đối tượng",
       image: Image3,
-      price: { online: 400000, offline: 600000, home: 900000 },
-      duration: "60-90 phút",
-      category: "consultation",
-      features: [
+      price: 600000,
+      rating: 4.7,
+      reviewCount: 156,
+      icon: <People size={32} variant="Bold" color="#0C3C54" />,
+      description: "Dịch vụ tư vấn chuyên sâu về sức khỏe giới tính cho LGBT+ và mọi nhóm đối tượng, bao gồm tư vấn về định danh giới tính và các vấn đề liên quan.",
+      highlights: [
         "Tư vấn về định danh giới tính",
         "Hỗ trợ quá trình chuyển đổi giới tính",
         "Tư vấn tâm lý chuyên sâu",
         "Kế hoạch chăm sóc dài hạn",
-        "Hỗ trợ gia đình và người thân",
-      ],
-      benefits: [
-        "Môi trường an toàn và thấu hiểu",
-        "Chuyên gia có kinh nghiệm về LGBT+",
-        "Kế hoạch hỗ trợ toàn diện",
-        "Bảo mật thông tin tuyệt đối",
-      ],
-      availableAt: ["Online", "Tại phòng khám", "Tại nhà"],
-      rating: 4.7,
-      reviewCount: 156,
-      isPopular: false,
-      icon: <People size={32} variant="Bold" />,
-      gradient: "from-purple-500 via-indigo-500 to-blue-500",
+        "Hỗ trợ gia đình và người thân"
+      ]
     },
     {
       id: 4,
       name: "Theo dõi Sức khỏe Tình dục",
-      description: "Dịch vụ theo dõi và tư vấn về sức khỏe tình dục cho mọi giới tính, giúp mọi người hiểu rõ hơn về cơ thể và phát hiện sớm các bất thường.",
-      shortDescription: "Theo dõi và tư vấn sức khỏe tình dục chuyên nghiệp",
       image: Image4,
-      price: { online: 250000, offline: 400000 },
-      duration: "30-45 phút",
-      category: "monitoring",
-      features: [
+      price: 400000,
+      rating: 4.6,
+      reviewCount: 198,
+      icon: <MonitorMobbile size={32} variant="Bold" color="#0C3C54" />,
+      description: "Dịch vụ theo dõi và tư vấn về sức khỏe tình dục cho mọi giới tính, giúp mọi người hiểu rõ hơn về cơ thể và phát hiện sớm các bất thường.",
+      highlights: [
         "Theo dõi sức khỏe tình dục",
         "Phân tích các triệu chứng",
         "Tư vấn về rối loạn chức năng",
         "Ứng dụng theo dõi miễn phí",
-        "Nhắc nhở chăm sóc định kỳ",
-      ],
-      benefits: [
-        "Phát hiện sớm vấn đề sức khỏe",
-        "Cải thiện chất lượng cuộc sống",
-        "Tăng cường tự tin",
-        "Kiến thức chăm sóc bản thân",
-      ],
-      availableAt: ["Online", "Tại phòng khám"],
-      rating: 4.6,
-      reviewCount: 198,
-      isPopular: false,
-      icon: <MonitorMobbile size={32} variant="Bold" />,
-      gradient: "from-green-500 via-emerald-500 to-teal-500",
+        "Nhắc nhở chăm sóc định kỳ"
+      ]
     },
   ];
 
@@ -193,10 +157,8 @@ const Services = () => {
   ];
 
   const filteredServices = services.filter(service => {
-    const matchesCategory = selectedCategory === "all" || service.category === selectedCategory;
-    const matchesSearch = service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         service.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
+    const matchesCategory = selectedCategory === "all" || service.name.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesCategory;
   });
 
   const sortedServices = [...filteredServices].sort((a, b) => {
@@ -206,7 +168,7 @@ const Services = () => {
       case "rating":
         return b.rating - a.rating;
       case "price":
-        return (a.price.online || a.price.offline) - (b.price.online || b.price.offline);
+        return (a.price) - (b.price);
       default:
         return 0;
     }
@@ -238,34 +200,30 @@ const Services = () => {
 
   return (
     <div className="relative w-full overflow-x-hidden">
-      {/* Fixed Header Padding */}
-      <div className="pt-20"></div>
 
       {/* Hero Section */}
-      <div className="relative min-h-[60vh] bg-gradient-to-br from-[#0C3C54] via-[#2A7F9E] to-sky-400">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0 bg-[url('../../assets/images/pattern.png')] bg-repeat"></div>
+      <div className="relative min-h-[60vh] overflow-hidden">
+        {/* Nền gradient + overlay pattern + floating dots */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0C3C54] to-[#2A7F9E] opacity-90"></div>
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-[url('../../assets/images/pattern.png')] opacity-10"></div>
+          {[...Array(15)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-2 h-2 rounded-full bg-white/20"
+              animate={{
+                x: [Math.random() * window.innerWidth, Math.random() * window.innerWidth],
+                y: [Math.random() * 400, Math.random() * 400],
+                opacity: [0.2, 0.8, 0.2],
+              }}
+              transition={{
+                duration: Math.random() * 10 + 10,
+                repeat: Infinity,
+                repeatType: "reverse",
+              }}
+            />
+          ))}
         </div>
-        
-        {/* Floating Elements */}
-        {[...Array(15)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-2 h-2 rounded-full bg-white/20"
-            animate={{
-              x: [`${Math.random() * 100}%`, `${Math.random() * 100}%`],
-              y: [`${Math.random() * 100}%`, `${Math.random() * 100}%`],
-              opacity: [0.2, 0.6, 0.2],
-            }}
-            transition={{
-              duration: Math.random() * 10 + 5,
-              repeat: Infinity,
-              repeatType: "reverse",
-            }}
-          />
-        ))}
-
         <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-20">
           <div className="max-w-4xl mx-auto text-center">
             <AnimatedSection animation="fadeIn">
@@ -275,12 +233,12 @@ const Services = () => {
                 transition={{ duration: 0.8 }}
               >
                 <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
-                  Dịch vụ Sức khỏe 
-                  <span className="block bg-gradient-to-r from-cyan-400 to-blue-300 bg-clip-text text-transparent">
+                  Dịch vụ Sức khỏe <br />
+                  <span className="block text-white font-bold">
                     Giới tính Toàn diện
                   </span>
                 </h1>
-                <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
+                <p className="text-xl md:text-2xl text-white mb-8 leading-relaxed">
                   Chăm sóc sức khỏe giới tính cho mọi người - An toàn, Chuyên nghiệp, Bảo mật
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -288,19 +246,19 @@ const Services = () => {
                     size="large"
                     type="primary"
                     onClick={() => navigate('/booking')}
-                    className="bg-gradient-to-r from-cyan-500 to-blue-500 border-none rounded-full px-8 py-3 h-auto text-lg font-semibold hover:scale-105 transition-all duration-300 shadow-lg"
+                    className="bg-[#0C3C54] border border-[#0C3C54] text-white rounded-full px-8 py-3 h-auto text-lg font-semibold hover:bg-[#17688a] hover:border-[#17688a] transition-all duration-300 shadow-none"
                   >
                     Đặt lịch ngay
-                    <Calendar size={20} className="ml-2" />
+                    <Calendar size={20} className="ml-2" color="white" />
                   </Button>
                   <Button
                     size="large"
                     ghost
                     onClick={() => window.open('tel:+84888888888')}
-                    className="border-2 border-white text-white rounded-full px-8 py-3 h-auto text-lg font-semibold hover:bg-white hover:text-[#0C3C54] transition-all duration-300"
+                    className="border-2 border-[#0C3C54] text-[#0C3C54] rounded-full px-8 py-3 h-auto text-lg font-semibold hover:bg-[#0C3C54] hover:text-white hover:border-[#17688a] transition-all duration-300"
                   >
                     Tư vấn miễn phí
-                    <Call size={20} className="ml-2" />
+                    <Call size={20} className="ml-2" color="#0C3C54" />
                   </Button>
                 </div>
               </motion.div>
@@ -375,70 +333,34 @@ const Services = () => {
                 >
                   <Card
                     hoverable
-                    className="h-full rounded-2xl border-0 shadow-lg hover:shadow-2xl transition-all duration-500 overflow-hidden"
+                    className="h-full rounded-2xl border border-gray-200 shadow-sm transition-all duration-300 overflow-hidden bg-white"
                     cover={
-                      <div className="relative overflow-hidden h-48">
+                      <div className="relative overflow-hidden h-48 flex items-center justify-center bg-gray-50">
                         <img
                           src={service.image}
                           alt={service.name}
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          className="w-full h-full object-cover opacity-90"
                         />
-                        <div className={`absolute inset-0 bg-gradient-to-t ${service.gradient} opacity-60`}></div>
                         <div className="absolute top-4 left-4">
-                          <div className={`p-2 rounded-xl bg-gradient-to-r ${service.gradient} text-white shadow-lg`}>
+                          <div className="p-2 rounded-full bg-white border border-[#0C3C54] text-[#0C3C54] shadow-sm">
                             {service.icon}
                           </div>
                         </div>
-                        {service.isNew && (
-                          <div className="absolute top-4 right-4 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
-                            MỚI
-                          </div>
-                        )}
-                        {service.isPopular && (
-                          <div className="absolute top-4 right-4 bg-yellow-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
-                            PHỔ BIẾN
-                          </div>
-                        )}
                       </div>
                     }
                     onClick={() => handleServiceClick(service)}
                   >
                     <div className="p-2">
-                      <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-1">
+                      <h3 className="text-xl font-bold text-[#0C3C54] mb-2 line-clamp-1">
                         {service.name}
                       </h3>
-                      <p className="text-gray-600 mb-4 line-clamp-2">
-                        {service.shortDescription}
-                      </p>
-                      
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center">
-                          <Rate disabled defaultValue={service.rating} className="text-sm" />
-                          <span className="ml-2 text-gray-500 text-sm">
-                            ({service.reviewCount})
-                          </span>
-                        </div>
-                        <div className="flex items-center text-gray-500 text-sm">
-                          <Clock size={16} className="mr-1" />
-                          {service.duration}
-                        </div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Rate disabled defaultValue={service.rating} className="text-sm" style={{ color: '#faad14' }} />
+                        <span className="text-gray-500 text-sm">({service.reviewCount})</span>
                       </div>
-
-                      <div className="space-y-2 mb-4">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Online:</span>
-                          <span className="font-semibold text-green-600">
-                            {service.price.online ? formatPrice(service.price.online) : 'Không có'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Tại phòng khám:</span>
-                          <span className="font-semibold text-blue-600">
-                            {formatPrice(service.price.offline)}
-                          </span>
-                        </div>
+                      <div className="text-lg font-semibold text-[#0C3C54] mb-2">
+                        {formatPrice(service.price)}
                       </div>
-
                       <Button
                         type="primary"
                         block
@@ -447,7 +369,7 @@ const Services = () => {
                           e.stopPropagation();
                           handleBookService(service);
                         }}
-                        className={`bg-gradient-to-r ${service.gradient} border-none rounded-xl font-semibold hover:scale-105 transition-all duration-300`}
+                        className="bg-[#0C3C54] border border-[#0C3C54] text-white rounded-xl font-semibold hover:bg-[#17688a] hover:border-[#17688a] transition-all duration-300 mt-2"
                       >
                         Đặt lịch ngay
                       </Button>
@@ -554,112 +476,35 @@ const Services = () => {
       </div>
 
       {/* Service Detail Modal */}
-      <Modal
-        title={null}
-        open={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        footer={null}
-        width={800}
-        className="service-modal"
-      >
+      <CustomModal open={isModalVisible} onClose={() => setIsModalVisible(false)}>
         {selectedService && (
-          <div className="p-6">
-            <div className="flex items-start gap-6 mb-6">
-              <div className={`p-4 rounded-2xl bg-gradient-to-r ${selectedService.gradient} text-white`}>
-                {selectedService.icon}
-              </div>
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  {selectedService.name}
-                </h2>
-                <div className="flex items-center gap-4 mb-4">
-                  <Rate disabled defaultValue={selectedService.rating} />
-                  <span className="text-gray-500">
-                    ({selectedService.reviewCount} đánh giá)
-                  </span>
-                  <div className="flex items-center text-gray-500">
-                    <Clock size={16} className="mr-1" />
-                    {selectedService.duration}
-                  </div>
-                </div>
-              </div>
+          <div className="flex flex-col md:flex-row gap-8 items-start">
+            <div className="flex-shrink-0 flex items-center justify-center w-28 h-28 rounded-full border-2 border-[#0C3C54] text-[#0C3C54] bg-white">
+              {selectedService.icon}
             </div>
-
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">Mô tả chi tiết</h3>
-              <p className="text-gray-600 leading-relaxed">
-                {selectedService.description}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Tính năng</h3>
-                <ul className="space-y-2">
-                  {selectedService.features.map((feature, index) => (
-                    <li key={index} className="flex items-start">
-                      <TickCircle size={16} className="text-green-500 mr-2 mt-1 flex-shrink-0" />
-                      <span className="text-gray-600">{feature}</span>
-                    </li>
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-[#0C3C54] mb-2">
+                {selectedService.name}
+              </h2>
+              <div className="flex items-center gap-4 mb-2">
+                <Rate disabled defaultValue={selectedService.rating} className="text-[#faad14]" />
+                <span className="text-gray-500">({selectedService.reviewCount} đánh giá)</span>
+              </div>
+              <div className="text-lg font-semibold text-[#0C3C54] mb-4">
+                {formatPrice(selectedService.price)}
+              </div>
+              <div className="mb-4">
+                <h3 className="text-base font-semibold mb-1 text-[#0C3C54]">Mô tả dịch vụ</h3>
+                <p className="text-gray-700 leading-relaxed">{selectedService.description}</p>
+              </div>
+              <div className="mb-6">
+                <h3 className="text-base font-semibold mb-1 text-[#0C3C54]">Điểm nổi bật</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  {selectedService.highlights.map((item, idx) => (
+                    <li key={idx} className="text-gray-700">{item}</li>
                   ))}
                 </ul>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Lợi ích</h3>
-                <ul className="space-y-2">
-                  {selectedService.benefits.map((benefit, index) => (
-                    <li key={index} className="flex items-start">
-                      <Star1 size={16} className="text-yellow-500 mr-2 mt-1 flex-shrink-0" />
-                      <span className="text-gray-600">{benefit}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-3">Hình thức dịch vụ</h3>
-              <div className="flex flex-wrap gap-2">
-                {selectedService.availableAt.map((type, index) => (
-                  <span
-                    key={index}
-                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                  >
-                    {type}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-gray-50 rounded-xl p-4 mb-6">
-              <h3 className="text-lg font-semibold mb-3">Bảng giá</h3>
-              <div className="space-y-2">
-                {selectedService.price.online > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Tư vấn online:</span>
-                    <span className="font-semibold text-green-600">
-                      {formatPrice(selectedService.price.online)}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Tại phòng khám:</span>
-                  <span className="font-semibold text-blue-600">
-                    {formatPrice(selectedService.price.offline)}
-                  </span>
-                </div>
-                {selectedService.price.home && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Tại nhà:</span>
-                    <span className="font-semibold text-purple-600">
-                      {formatPrice(selectedService.price.home)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex gap-4">
               <Button
                 type="primary"
                 size="large"
@@ -667,21 +512,14 @@ const Services = () => {
                   setIsModalVisible(false);
                   handleBookService(selectedService);
                 }}
-                className={`flex-1 bg-gradient-to-r ${selectedService.gradient} border-none rounded-xl font-semibold`}
+                className="bg-[#0C3C54] border border-[#0C3C54] text-white rounded-xl font-semibold hover:bg-[#17688a] hover:border-[#17688a] transition-all duration-300 px-8"
               >
                 Đặt lịch ngay
-              </Button>
-              <Button
-                size="large"
-                onClick={() => window.open('tel:+84888888888')}
-                className="px-8 rounded-xl"
-              >
-                Gọi tư vấn
               </Button>
             </div>
           </div>
         )}
-      </Modal>
+      </CustomModal>
     </div>
   );
 };

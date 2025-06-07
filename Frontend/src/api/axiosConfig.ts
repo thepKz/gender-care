@@ -3,13 +3,16 @@ import { getValidTokenFromStorage } from '../utils/helpers';
 
 // Create axios instance with base URL
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 15000, // Tăng timeout từ 10s lên 15s cho Google OAuth
   headers: {
     'Content-Type': 'application/json',
   },
   withCredentials: true, // Quan trọng: cho phép gửi/nhận cookie qua các domain khác nhau
 });
+
+// Log baseURL for debugging
+console.log('Axios baseURL:', axiosInstance.defaults.baseURL);
 
 // Danh sách các endpoint sẽ không hiển thị lỗi 401
 const silentEndpoints = [

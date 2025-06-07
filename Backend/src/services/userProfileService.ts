@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 export const createUserProfile = async (ownerId: string, profileData: Partial<IUserProfile>) => {
   try {
     // Cho phép user tạo nhiều profiles (đã xóa kiểm tra existing profile)
-    
+
     const profile = await UserProfile.create({
       ownerId,
       ...profileData
@@ -22,7 +22,7 @@ export const createUserProfile = async (ownerId: string, profileData: Partial<IU
 export const getAllUserProfiles = async (page: number = 1, limit: number = 10) => {
   try {
     const skip = (page - 1) * limit;
-    
+
     const profiles = await UserProfile.find()
       .populate('ownerId', 'email fullName avatar role')
       .sort({ createdAt: -1 })
@@ -53,7 +53,7 @@ export const getUserProfileById = async (profileId: string, requesterId: string,
     }
 
     const profile = await UserProfile.findById(profileId).populate('ownerId', 'email fullName avatar');
-    
+
     if (!profile) {
       throw new Error('Không tìm thấy profile');
     }
@@ -75,7 +75,7 @@ export const getMyUserProfiles = async (ownerId: string) => {
     const profiles = await UserProfile.find({ ownerId })
       .populate('ownerId', 'email fullName avatar')
       .sort({ createdAt: -1 });
-    
+
     return profiles;
   } catch (error: any) {
     throw new Error(error.message);
@@ -90,7 +90,7 @@ export const updateUserProfile = async (profileId: string, updateData: Partial<I
     }
 
     const profile = await UserProfile.findById(profileId);
-    
+
     if (!profile) {
       throw new Error('Không tìm thấy profile');
     }
@@ -104,8 +104,8 @@ export const updateUserProfile = async (profileId: string, updateData: Partial<I
     const { ownerId, ...safeUpdateData } = updateData;
 
     const updatedProfile = await UserProfile.findByIdAndUpdate(
-      profileId, 
-      safeUpdateData, 
+      profileId,
+      safeUpdateData,
       { new: true, runValidators: true }
     ).populate('ownerId', 'email fullName avatar');
 
@@ -123,7 +123,7 @@ export const deleteUserProfile = async (profileId: string, requesterId: string, 
     }
 
     const profile = await UserProfile.findById(profileId);
-    
+
     if (!profile) {
       throw new Error('Không tìm thấy profile');
     }
@@ -134,7 +134,7 @@ export const deleteUserProfile = async (profileId: string, requesterId: string, 
     }
 
     await UserProfile.findByIdAndDelete(profileId);
-    
+
     return { message: 'Xóa profile thành công' };
   } catch (error: any) {
     throw new Error(error.message);
