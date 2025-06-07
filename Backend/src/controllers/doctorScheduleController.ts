@@ -540,4 +540,40 @@ export const createBulkDoctorSchedule = async (req: Request, res: Response) => {
       message: error.message || 'Đã xảy ra lỗi khi tạo lịch làm việc hàng loạt' 
     });
   }
+};
+
+// GET /doctors/schedules/all - Lấy tất cả lịch làm việc của tất cả bác sĩ (PUBLIC - chỉ Free)
+export const getAllDoctorsSchedules = async (req: Request, res: Response) => {
+  try {
+    const allSchedules = await doctorService.getAllDoctorsSchedules(false);
+    
+    return res.status(200).json({ 
+      message: `Lấy tất cả lịch làm việc thành công (chỉ hiển thị slot trống) - Tìm thấy ${allSchedules.length} bác sĩ có lịch làm việc`,
+      data: allSchedules,
+      totalDoctorsWithSchedules: allSchedules.length
+    });
+  } catch (error: any) {
+    console.log('Error in getAllDoctorsSchedules:', error);
+    return res.status(500).json({ 
+      message: error.message || 'Đã xảy ra lỗi khi lấy tất cả lịch làm việc' 
+    });
+  }
+};
+
+// GET /doctors/schedules/all/staff - Staff xem tất cả lịch làm việc của tất cả bác sĩ (tất cả status)
+export const getAllDoctorsSchedulesForStaff = async (req: Request, res: Response) => {
+  try {
+    const allSchedules = await doctorService.getAllDoctorsSchedulesForStaff();
+    
+    return res.status(200).json({ 
+      message: `Lấy tất cả lịch làm việc thành công (tất cả status) - Tìm thấy ${allSchedules.length} bác sĩ có lịch làm việc`,
+      data: allSchedules,
+      totalDoctorsWithSchedules: allSchedules.length
+    });
+  } catch (error: any) {
+    console.log('Error in getAllDoctorsSchedulesForStaff:', error);
+    return res.status(500).json({ 
+      message: error.message || 'Đã xảy ra lỗi khi lấy tất cả lịch làm việc' 
+    });
+  }
 }; 

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../types/auth';
 import mongoose from 'mongoose';
 import * as doctorQAService from '../services/doctorQAService';
 
@@ -28,10 +29,10 @@ export const getLeastBookedDoctor = async (req: Request, res: Response): Promise
 };
 
 // POST /api/doctor-qa - Tạo yêu cầu tư vấn mới (USER)
-export const createDoctorQA = async (req: Request, res: Response): Promise<void> => {
+export const createDoctorQA = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { doctorId, fullName, phone, question, notes } = req.body;
-    const userId = (req as any).user.id;  // Từ middleware auth
+    const userId = req.user?._id;  // Từ middleware auth
 
     if (!fullName || !phone || !question) {
       res.status(400).json({ 
@@ -123,11 +124,11 @@ export const getDoctorQAById = async (req: Request, res: Response): Promise<void
 };
 
 // GET /api/doctor-qa/my-requests - Lấy yêu cầu tư vấn của user đang đăng nhập (USER)
-export const getMyDoctorQAs = async (req: Request, res: Response): Promise<void> => {
+export const getMyDoctorQAs = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('🔍 [DEBUG] User object:', (req as any).user);
+    console.log('🔍 [DEBUG] User object:', req.user);
     
-    const userId = (req as any).user?.id || (req as any).user?._id;
+    const userId = req.user?._id;
     console.log('🔍 [DEBUG] Extracted userId:', userId);
     
     if (!userId) {

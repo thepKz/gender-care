@@ -1076,6 +1076,38 @@ paths:
   
   # ===== PUBLIC ROUTES (không cần xác thực) =====
   
+  /doctors/schedules/all:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Lấy tất cả lịch làm việc của tất cả bác sĩ (PUBLIC - chỉ Free status)
+      description: Lấy tất cả lịch làm việc của tất cả bác sĩ - chỉ hiển thị slot có status Free để customer có thể xem toàn bộ
+      responses:
+        '200':
+          description: Lấy tất cả lịch làm việc thành công (chỉ hiển thị slot trống)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy tất cả lịch làm việc thành công (chỉ hiển thị slot trống) - Tìm thấy 5 bác sĩ có lịch làm việc"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DoctorSchedule'
+                  totalDoctorsWithSchedules:
+                    type: integer
+                    example: 5
+                    description: Tổng số bác sĩ có lịch làm việc
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
   /doctors/{id}/schedules:
     get:
       tags:
@@ -1227,6 +1259,52 @@ paths:
                 $ref: '#/components/schemas/Error'
 
   # ===== STAFF ONLY ROUTES (cần xác thực + staff role) =====
+
+  /doctors/schedules/all/staff:
+    get:
+      tags:
+        - Doctor Schedules
+      summary: Staff xem tất cả lịch làm việc của tất cả bác sĩ (STAFF/MANAGER/ADMIN)
+      description: Staff/Manager/Admin xem tất cả lịch làm việc của tất cả bác sĩ với mọi status (Free, Booked, Absent)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lấy tất cả lịch làm việc thành công (tất cả status)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Lấy tất cả lịch làm việc thành công (tất cả status) - Tìm thấy 5 bác sĩ có lịch làm việc"
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DoctorSchedule'
+                  totalDoctorsWithSchedules:
+                    type: integer
+                    example: 5
+                    description: Tổng số bác sĩ có lịch làm việc
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền (chỉ staff/manager/admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /doctors/statistics/all:
     get:
