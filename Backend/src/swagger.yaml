@@ -36,6 +36,9 @@ tags:
   - name: UserProfile
     description: Quản lý profile người dùng
 
+  - name: Appointments
+    description: Quản lý lịch hẹn và cuộc hẹn
+
 paths:
   /auth/register:
     post:
@@ -1829,6 +1832,560 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /appointments:
+    get:
+      tags:
+        - Appointments
+      summary: Lấy danh sách cuộc hẹn
+      description: Lấy danh sách cuộc hẹn với phân trang và lọc
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Số trang
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: Số lượng kết quả mỗi trang
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, completed, cancelled]
+          description: Lọc theo trạng thái cuộc hẹn
+        - name: appointmentType
+          in: query
+          schema:
+            type: string
+            enum: [consultation, test, other]
+          description: Lọc theo loại cuộc hẹn
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Lọc từ ngày (YYYY-MM-DD)
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Lọc đến ngày (YYYY-MM-DD)
+        - name: profileId
+          in: query
+          schema:
+            type: string
+          description: Lọc theo ID hồ sơ người dùng
+        - name: createdByUserId
+          in: query
+          schema:
+            type: string
+          description: Lọc theo ID người tạo cuộc hẹn
+      responses:
+        '200':
+          description: Danh sách cuộc hẹn
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      appointments:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Appointment'
+                      pagination:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                            example: 45
+                          page:
+                            type: integer
+                            example: 1
+                          limit:
+                            type: integer
+                            example: 10
+                          pages:
+                            type: integer
+                            example: 5
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    post:
+      tags:
+        - Appointments
+      summary: Tạo cuộc hẹn mới
+      description: Đặt lịch hẹn mới với dịch vụ, gói dịch vụ hoặc bác sĩ
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - profileId
+                - appointmentDate
+                - appointmentTime
+                - appointmentType
+                - typeLocation
+              properties:
+                profileId:
+                  type: string
+                  description: ID hồ sơ người dùng
+                  example: "60d5ecb8b392e1b8c8f5c123"
+                packageId:
+                  type: string
+                  description: ID gói dịch vụ (nếu có)
+                  example: "60d5ecb8b392e1b8c8f5c456"
+                serviceId:
+                  type: string
+                  description: ID dịch vụ (nếu có)
+                  example: "60d5ecb8b392e1b8c8f5c789"
+                slotId:
+                  type: string
+                  description: ID slot thời gian (nếu có)
+                  example: "60d5ecb8b392e1b8c8f5c101"
+                appointmentDate:
+                  type: string
+                  format: date
+                  description: Ngày hẹn (YYYY-MM-DD)
+                  example: "2023-06-15"
+                appointmentTime:
+                  type: string
+                  description: Giờ hẹn (HH:MM)
+                  example: "14:30"
+                appointmentType:
+                  type: string
+                  enum: [consultation, test, other]
+                  description: Loại cuộc hẹn
+                  example: "consultation"
+                typeLocation:
+                  type: string
+                  enum: [clinic, home, Online]
+                  description: Loại địa điểm
+                  example: "clinic"
+                address:
+                  type: string
+                  description: Địa chỉ (bắt buộc nếu typeLocation là home)
+                  example: "123 Đường ABC, Quận 1, TP.HCM"
+                description:
+                  type: string
+                  description: Mô tả cuộc hẹn
+                  example: "Khám sức khỏe định kỳ"
+                notes:
+                  type: string
+                  description: Ghi chú thêm
+                  example: "Tôi có tiền sử bệnh tim"
+      responses:
+        '201':
+          description: Tạo cuộc hẹn thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Đặt lịch hẹn thành công"
+                  data:
+                    $ref: '#/components/schemas/Appointment'
+        '400':
+          description: Dữ liệu đầu vào không hợp lệ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  errors:
+                    type: object
+                    properties:
+                      general:
+                        type: string
+                        example: "Phải cung cấp một trong hai: packageId hoặc serviceId"
+        '401':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy tài nguyên
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Không tìm thấy hồ sơ người dùng"
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /appointments/{id}:
+    get:
+      tags:
+        - Appointments
+      summary: Lấy chi tiết cuộc hẹn
+      description: Lấy thông tin chi tiết của một cuộc hẹn theo ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID của cuộc hẹn
+      responses:
+        '200':
+          description: Chi tiết cuộc hẹn
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/Appointment'
+        '400':
+          description: ID không hợp lệ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  errors:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "ID cuộc hẹn không hợp lệ"
+        '404':
+          description: Không tìm thấy cuộc hẹn
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Không tìm thấy cuộc hẹn"
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    put:
+      tags:
+        - Appointments
+      summary: Cập nhật cuộc hẹn
+      description: Cập nhật thông tin cuộc hẹn
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID của cuộc hẹn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                profileId:
+                  type: string
+                  description: ID hồ sơ người dùng
+                packageId:
+                  type: string
+                  description: ID gói dịch vụ
+                serviceId:
+                  type: string
+                  description: ID dịch vụ
+                slotId:
+                  type: string
+                  description: ID slot thời gian
+                appointmentDate:
+                  type: string
+                  format: date
+                  description: Ngày hẹn (YYYY-MM-DD)
+                appointmentTime:
+                  type: string
+                  description: Giờ hẹn (HH:MM)
+                appointmentType:
+                  type: string
+                  enum: [consultation, test, other]
+                  description: Loại cuộc hẹn
+                typeLocation:
+                  type: string
+                  enum: [clinic, home, Online]
+                  description: Loại địa điểm
+                address:
+                  type: string
+                  description: Địa chỉ (bắt buộc nếu typeLocation là home)
+                description:
+                  type: string
+                  description: Mô tả cuộc hẹn
+                notes:
+                  type: string
+                  description: Ghi chú thêm
+      responses:
+        '200':
+          description: Cập nhật cuộc hẹn thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Cập nhật cuộc hẹn thành công"
+                  data:
+                    $ref: '#/components/schemas/Appointment'
+        '400':
+          description: Dữ liệu đầu vào không hợp lệ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  errors:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: "Không thể cập nhật cuộc hẹn đã hoàn thành hoặc đã hủy"
+        '401':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy cuộc hẹn
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Không tìm thấy cuộc hẹn"
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    
+    delete:
+      tags:
+        - Appointments
+      summary: Hủy cuộc hẹn
+      description: Hủy cuộc hẹn (xóa mềm - cập nhật trạng thái thành cancelled)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID của cuộc hẹn
+      responses:
+        '200':
+          description: Hủy cuộc hẹn thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Hủy cuộc hẹn thành công"
+                  data:
+                    $ref: '#/components/schemas/Appointment'
+        '400':
+          description: Không thể hủy cuộc hẹn
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  errors:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: "Không thể hủy cuộc hẹn đã hoàn thành hoặc đã hủy"
+        '401':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy cuộc hẹn
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Không tìm thấy cuộc hẹn"
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  
+  /appointments/{id}/status:
+    put:
+      tags:
+        - Appointments
+      summary: Cập nhật trạng thái cuộc hẹn
+      description: Cập nhật trạng thái cuộc hẹn
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID của cuộc hẹn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [pending, confirmed, completed, cancelled]
+                  description: Trạng thái mới của cuộc hẹn
+                  example: "confirmed"
+      responses:
+        '200':
+          description: Cập nhật trạng thái cuộc hẹn thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Cập nhật trạng thái cuộc hẹn thành công"
+                  data:
+                    $ref: '#/components/schemas/Appointment'
+        '400':
+          description: Dữ liệu đầu vào không hợp lệ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  errors:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        example: "Trạng thái không hợp lệ"
+        '401':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy cuộc hẹn
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: "Không tìm thấy cuộc hẹn"
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 
 components:
   securitySchemes:
@@ -1925,6 +2482,532 @@ components:
       properties:
         message:
           type: string
+
+    LoginHistory:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        ipAddress:
+          type: string
+        userAgent:
+          type: string
+        loginAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [success, failed]
+        failReason:
+          type: string
+
+    Doctor:
+      type: object
+      properties:
+        userId:
+          type: string
+        bio:
+          type: string
+        experience:
+          type: number
+        rating:
+          type: number
+        specialization:
+          type: string
+        education:
+          type: string
+        certificate:
+          type: string
+
+
+    # ===== DOCTOR SCHEDULE SCHEMAS =====
+    TimeSlot:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+        slotTime:
+          type: string
+          example: "07:00-08:00"
+          description: Khung giờ làm việc
+        status:
+          type: string
+          enum: [Free, Booked, Absent]
+          example: "Free"
+          description: Trạng thái slot - Free (trống), Booked (đã đặt), Absent (bác sĩ nghỉ)
+
+    WeekSchedule:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439012"
+        dayOfWeek:
+          type: string
+          format: date-time
+          example: "2024-01-15T00:00:00.000Z"
+          description: Ngày làm việc
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+          description: Danh sách 8 slot thời gian trong ngày
+
+    DoctorSchedule:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439013"
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        weekSchedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeekSchedule'
+          description: Lịch làm việc theo từng ngày
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AvailableSlot:
+      type: object
+      properties:
+        slotId:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+          description: ID của slot trống
+        slotTime:
+          type: string
+          example: "07:00-08:00"
+          description: Khung giờ trống
+        status:
+          type: string
+          example: "Free"
+          description: Luôn là Free vì chỉ trả về slot trống cho public
+
+    AvailableDoctor:
+      type: object
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        doctorInfo:
+          type: object
+          properties:
+            fullName:
+              type: string
+              example: "Dr. Nguyễn Văn A"
+            email:
+              type: string
+              example: "dr.nguyen@genderhealthcare.com"
+            avatar:
+              type: string
+              example: "https://example.com/avatar.jpg"
+            specialization:
+              type: string
+              example: "Nội khoa"
+            experience:
+              type: number
+              example: 5
+            rating:
+              type: number
+              example: 4.5
+        availableSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailableSlot'
+          description: Danh sách slot Free của bác sĩ (chỉ public)
+        totalAvailableSlots:
+          type: integer
+          example: 3
+
+    StaffSlot:
+      type: object
+      properties:
+        slotId:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+          description: ID của slot
+        slotTime:
+          type: string
+          example: "07:00-08:00"
+          description: Khung giờ
+        status:
+          type: string
+          enum: [Free, Booked, Absent]
+          example: "Booked"
+          description: Trạng thái slot cho staff xem
+
+    StaffAvailableDoctor:
+      type: object
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        doctorInfo:
+          type: object
+          properties:
+            fullName:
+              type: string
+              example: "Dr. Nguyễn Văn A"
+            email:
+              type: string
+              example: "dr.nguyen@genderhealthcare.com"
+            avatar:
+              type: string
+              example: "https://example.com/avatar.jpg"
+            specialization:
+              type: string
+              example: "Nội khoa"
+            experience:
+              type: number
+              example: 5
+            rating:
+              type: number
+              example: 4.5
+        availableSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffSlot'
+          description: Danh sách tất cả slots của bác sĩ (cho staff)
+        totalAvailableSlots:
+          type: integer
+          example: 8
+          description: Tổng số slots
+
+    DoctorStatistics:
+      type: object
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        name:
+          type: string
+          example: "Dr. Nguyễn Văn A"
+          description: Tên bác sĩ
+        bookedSlots:
+          type: integer
+          example: 15
+          description: Tổng số slot đã được đặt (status Booked)
+        absentSlots:
+          type: integer
+          example: 5
+          description: Tổng số slot vắng mặt lẻ (status Absent) - không tính slot đã thành ngày nghỉ
+        absentDays:
+          type: integer
+          example: 2
+          description: Số ngày nghỉ (mỗi ngày có đủ 8 slot Absent = 1 ngày nghỉ)
+
+    LeastBookedDoctor:
+      type: object
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        name:
+          type: string
+          example: "Dr. Nguyễn Văn A"
+          description: Tên bác sĩ
+        bookedSlots:
+          type: integer
+          example: 3
+          description: Số slot đã được đặt
+        absentSlots:
+          type: integer
+          example: 1
+          description: Số slot vắng mặt lẻ
+        absentDays:
+          type: integer
+          example: 0
+          description: Số ngày nghỉ
+
+    DoctorQA:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "675e4bcd6dc1234567890123"
+          description: ID của yêu cầu tư vấn
+        doctorId:
+          type: object
+          properties:
+            _id:
+              type: string
+              example: "675e4bcd6dc1234567890abc"
+            userId:
+              type: object
+              properties:
+                _id:
+                  type: string
+                  example: "675e4bcd6dc1234567890def"
+                fullName:
+                  type: string
+                  example: "Dr. Nguyễn Văn A"
+                email:
+                  type: string
+                  example: "dr.nguyen@genderhealthcare.com"
+            bio:
+              type: string
+              example: "Bác sĩ chuyên khoa Nội"
+            specialization:
+              type: string
+              example: "Nội khoa"
+        userId:
+          type: object
+          properties:
+            _id:
+              type: string
+              example: "675e4bcd6dc1234567890ghi"
+            fullName:
+              type: string
+              example: "Nguyễn Văn B"
+            email:
+              type: string
+              example: "user@example.com"
+        fullName:
+          type: string
+          example: "Nguyễn Văn B"
+          description: Họ tên người yêu cầu tư vấn
+        phone:
+          type: string
+          example: "0987654321"
+          description: Số điện thoại liên hệ
+        question:
+          type: string
+          example: "Tôi bị đau bụng thường xuyên, có phải bệnh gì không?"
+          description: Câu hỏi/vấn đề cần tư vấn
+        notes:
+          type: string
+          example: "Triệu chứng kéo dài 2 tuần"
+          description: Ghi chú thêm
+        status:
+          type: string
+          enum: [pending_payment, paid, doctor_confirmed, scheduled, consulting, completed, cancelled]
+          example: "pending_payment"
+          description: Trạng thái yêu cầu tư vấn
+        consultationFee:
+          type: number
+          example: 200000
+          description: Phí tư vấn (VND)
+        appointmentDate:
+          type: string
+          format: date-time
+          example: "2024-01-20T00:00:00.000Z"
+          description: Ngày hẹn tư vấn
+        appointmentSlot:
+          type: string
+          example: "14:00-15:00"
+          description: Khung giờ tư vấn
+        slotId:
+          type: string
+          example: "675e4bcd6dc1234567890jkl"
+          description: ID của slot đã book
+        doctorNotes:
+          type: string
+          example: "Đã tư vấn xong, khuyên nên khám thêm"
+          description: Ghi chú của bác sĩ
+        createdAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00.000Z"
+          description: Thời gian tạo yêu cầu
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2024-01-15T14:45:00.000Z"
+          description: Thời gian cập nhật cuối
+
+    DoctorWithUser:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        doctor:
+          $ref: '#/components/schemas/Doctor'
+
+    DoctorUpdateRequest:
+      type: object
+      description: Schema cho cập nhật thông tin bác sĩ (không bao gồm userId)
+      properties:
+        bio:
+          type: string
+          example: "Chuyên gia về sức khỏe sinh sản"
+        experience:
+          type: number
+          example: 5
+        rating:
+          type: number
+          minimum: 0
+          maximum: 5
+          example: 4.5
+        specialization:
+          type: string
+          example: "Phụ khoa - Sinh sản"
+        education:
+          type: string
+          example: "Thạc sĩ Y khoa - Đại học Y Dược"
+        certificate:
+          type: string
+          example: "Chứng chỉ chuyên khoa cấp I"
+
+    UserProfileRequest:
+      type: object
+      required:
+        - fullName
+        - gender
+      properties:
+        fullName:
+          type: string
+          example: "Nguyễn Văn A"
+        gender:
+          type: string
+          enum: [male, female, other]
+          example: "male"
+        phone:
+          type: string
+          example: "0123456789"
+        year:
+          type: string
+          format: date
+          example: "1990-01-01"
+
+    UserProfileUpdateRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          example: "Nguyễn Văn A"
+        gender:
+          type: string
+          enum: [male, female, other]
+          example: "male"
+        phone:
+          type: string
+          example: "0123456789"
+        year:
+          type: string
+          format: date
+          example: "1990-01-01"
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    Appointment:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "60d5ecb8b392e1b8c8f5c123"
+        createdByUserId:
+          type: string
+          example: "60d5ecb8b392e1b8c8f5c124"
+        profileId:
+          type: object
+          properties:
+            _id:
+              type: string
+              example: "60d5ecb8b392e1b8c8f5c125"
+            fullName:
+              type: string
+              example: "Nguyễn Văn A"
+            gender:
+              type: string
+              example: "male"
+            phone:
+              type: string
+              example: "0987654321"
+            year:
+              type: string
+              format: date
+              example: "1990-01-01"
+        packageId:
+          type: object
+          properties:
+            _id:
+              type: string
+              example: "60d5ecb8b392e1b8c8f5c126"
+            name:
+              type: string
+              example: "Gói khám sức khỏe cơ bản"
+            price:
+              type: number
+              example: 500000
+        serviceId:
+          type: object
+          properties:
+            _id:
+              type: string
+              example: "60d5ecb8b392e1b8c8f5c127"
+            serviceName:
+              type: string
+              example: "Khám tổng quát"
+            price:
+              type: number
+              example: 300000
+            serviceType:
+              type: string
+              example: "consultation"
+        slotId:
+          type: string
+          example: "60d5ecb8b392e1b8c8f5c128"
+        appointmentDate:
+          type: string
+          format: date
+          example: "2023-06-15"
+        appointmentTime:
+          type: string
+          example: "14:30"
+        appointmentType:
+          type: string
+          enum: [consultation, test, other]
+          example: "consultation"
+        typeLocation:
+          type: string
+          enum: [clinic, home, Online]
+          example: "clinic"
+        address:
+          type: string
+          example: "123 Đường ABC, Quận 1, TP.HCM"
+        description:
+          type: string
+          example: "Khám sức khỏe định kỳ"
+        notes:
+          type: string
+          example: "Tôi có tiền sử bệnh tim"
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled]
+          example: "pending"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2023-06-10T07:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2023-06-10T07:30:00Z"
 
 
   /user-profiles:
@@ -4267,6 +5350,101 @@ components:
           type: integer
         totalPages:
           type: integer
+
+    Appointment:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "60d5ecb8b392e1b8c8f5c123"
+        createdByUserId:
+          type: string
+          example: "60d5ecb8b392e1b8c8f5c124"
+        profileId:
+          type: object
+          properties:
+            _id:
+              type: string
+              example: "60d5ecb8b392e1b8c8f5c125"
+            fullName:
+              type: string
+              example: "Nguyễn Văn A"
+            gender:
+              type: string
+              example: "male"
+            phone:
+              type: string
+              example: "0987654321"
+            year:
+              type: string
+              format: date
+              example: "1990-01-01"
+        packageId:
+          type: object
+          properties:
+            _id:
+              type: string
+              example: "60d5ecb8b392e1b8c8f5c126"
+            name:
+              type: string
+              example: "Gói khám sức khỏe cơ bản"
+            price:
+              type: number
+              example: 500000
+        serviceId:
+          type: object
+          properties:
+            _id:
+              type: string
+              example: "60d5ecb8b392e1b8c8f5c127"
+            serviceName:
+              type: string
+              example: "Khám tổng quát"
+            price:
+              type: number
+              example: 300000
+            serviceType:
+              type: string
+              example: "consultation"
+        slotId:
+          type: string
+          example: "60d5ecb8b392e1b8c8f5c128"
+        appointmentDate:
+          type: string
+          format: date
+          example: "2023-06-15"
+        appointmentTime:
+          type: string
+          example: "14:30"
+        appointmentType:
+          type: string
+          enum: [consultation, test, other]
+          example: "consultation"
+        typeLocation:
+          type: string
+          enum: [clinic, home, Online]
+          example: "clinic"
+        address:
+          type: string
+          example: "123 Đường ABC, Quận 1, TP.HCM"
+        description:
+          type: string
+          example: "Khám sức khỏe định kỳ"
+        notes:
+          type: string
+          example: "Tôi có tiền sử bệnh tim"
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled]
+          example: "pending"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2023-06-10T07:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2023-06-10T07:30:00Z"
 
 
     Doctor:

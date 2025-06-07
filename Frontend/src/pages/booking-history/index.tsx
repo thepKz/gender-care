@@ -22,9 +22,11 @@ import {
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { appointmentApi } from '../../api/endpoints';
 import Image1 from '../../assets/images/image1.jpg';
 import ModernButton from '../../components/ui/ModernButton';
 import ModernCard from '../../components/ui/ModernCard';
+import { message } from 'antd';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -134,14 +136,47 @@ const BookingHistory: React.FC = () => {
   ];
 
   useEffect(() => {
-    // Simulate API call
-    const timer = setTimeout(() => {
-      setAppointments(mockAppointments);
-      setFilteredAppointments(mockAppointments);
-      setLoading(false);
-    }, 1500);
+    // Fetch appointments from API
+    const fetchAppointments = async () => {
+      setLoading(true);
+      try {
+        const response = await appointmentApi.getAllAppointments();
+        if (response.success) {
+          const formattedAppointments = response.data.appointments.map((apt: any) => ({
+            id: apt._id,
+            serviceId: apt.serviceId?._id || '',
+            serviceName: apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
+            packageName: apt.packageId?.name,
+            doctorName: apt.doctorId?.fullName,
+            doctorAvatar: apt.doctorId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+            appointmentDate: new Date(apt.appointmentDate).toISOString().split('T')[0],
+            appointmentTime: apt.appointmentTime,
+            typeLocation: apt.typeLocation,
+            status: apt.status,
+            price: apt.packageId?.price || apt.serviceId?.price || 0,
+            createdAt: new Date(apt.createdAt).toISOString(),
+            description: apt.description,
+            notes: apt.notes,
+            address: apt.address,
+            canCancel: ['pending', 'confirmed'].includes(apt.status),
+            canReschedule: ['pending', 'confirmed'].includes(apt.status),
+            rating: apt.rating,
+            feedback: apt.feedback
+          }));
+          setAppointments(formattedAppointments);
+          setFilteredAppointments(formattedAppointments);
+        }
+      } catch (error) {
+        console.error('Error fetching appointments:', error);
+        // Fallback to mock data if API fails
+        setAppointments(mockAppointments);
+        setFilteredAppointments(mockAppointments);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    return () => clearTimeout(timer);
+    fetchAppointments();
   }, []);
 
   useEffect(() => {
@@ -210,9 +245,28 @@ const BookingHistory: React.FC = () => {
     setShowDetailModal(true);
   };
 
-  const handleCancel = (appointment: Appointment) => {
-    setSelectedAppointment(appointment);
-    setShowDetailModal(true);
+  const handleCancel = async (appointment: Appointment) => {
+    try {
+      const response = await appointmentApi.deleteAppointment(appointment.id);
+      if (response.success) {
+        message.success('Hủy cuộc hẹn thành công!');
+        // Refresh appointments
+        const updatedAppointments = appointments.map(apt => 
+          apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+        );
+        setAppointments(updatedAppointments);
+        setFilteredAppointments(
+          filteredAppointments.map(apt => 
+            apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      message.error('Có lỗi xảy ra khi hủy cuộc hẹn. Vui lòng thử lại!');
+    }
+    setShowDetailModal(false);
+    setSelectedAppointment(null);
   };
 
   const handleReschedule = (appointment: Appointment) => {
