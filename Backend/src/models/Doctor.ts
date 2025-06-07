@@ -5,6 +5,7 @@ export interface IDoctor {
   bio?: string;
   experience?: number;
   rating?: number;
+  image?: string;
   specialization?: string;
   education?: string;
   certificate?: string;
@@ -22,6 +23,7 @@ const DoctorSchema = new mongoose.Schema<IDoctor>({
   bio: { type: String },
   experience: { type: Number },
   rating: { type: Number, min: 0, max: 5 },
+  image: { type: String },
   specialization: { type: String },
   education: { type: String },
   certificate: { type: String },

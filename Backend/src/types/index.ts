@@ -61,6 +61,7 @@ export interface IDoctor {
   bio: string;
   experience: number;
   rating: number;
+  image?: string;
   specialization: string;
   education: string;
   certificate: string;

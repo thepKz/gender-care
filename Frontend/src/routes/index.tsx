@@ -16,7 +16,6 @@ import HomePage from '../pages/home';
 import NotFoundPage from '../pages/notFound';
 import ProfilePage from '../pages/profile';
 import ProfileEditPage from '../pages/profile/edit';
-import ProfilesPage from '../pages/profile/profiles';
 
 // New Pages
 import AboutGCCPage from '../pages/about-gcc';
@@ -24,6 +23,9 @@ import BlogPage from '../pages/blog';
 import CounselorsPage from '../pages/counselors';
 import PicturePage from '../pages/picture';
 import ServicesPage from '../pages/services';
+
+// Doctor Pages
+import DoctorDetail from '../pages/doctors/DoctorDetail';
 
 // Booking Pages
 import BookingPage from '../pages/booking';
@@ -38,8 +40,8 @@ import ComponentShowcasePage from '../pages/demo/components';
 // XÓA: import HealthProfilesPage from '../pages/profile/health-profiles';
 import CreateProfilePage from '../pages/profile/create-profile';
 import EditProfilePage from '../pages/profile/edit-profile';
-import ViewProfilePage from '../pages/profile/view-profile';
 import UserProfilesPage from '../pages/profile/UserProfilesPage';
+import ViewProfilePage from '../pages/profile/view-profile';
 
 // Hooks
 import { useAuth } from '../hooks/useAuth';
@@ -96,6 +98,7 @@ const AppRoutes: React.FC = () => {
         {/* New Pages */}
         <Route path="/picture" element={<PicturePage />} />
         <Route path="/counselors" element={<CounselorsPage />} />
+        <Route path="/doctors/:id" element={<DoctorDetail />} />
         <Route path="/about-gcc" element={<AboutGCCPage />} />
         <Route path="/blog" element={<BlogPage />} />
         <Route path="/services" element={<ServicesPage />} />

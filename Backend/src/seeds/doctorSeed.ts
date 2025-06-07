@@ -1,8 +1,7 @@
 
-import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
-import User from '../models/User';
 import Doctor from '../models/Doctor';
+import User from '../models/User';
 
 const seedDoctors = async () => {
   try {
@@ -33,6 +32,7 @@ const seedDoctors = async () => {
           bio: 'Bác sĩ chuyên khoa Nội tiết - Sinh sản nam với 15 năm kinh nghiệm',
           experience: 15,
           rating: 4.8,
+          image: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=300&h=300&fit=crop&crop=face',
           specialization: 'Nội tiết - Sinh sản nam',
           education: 'Tiến sĩ Y khoa - Đại học Y Hà Nội',
           certificate: 'Chứng chỉ chuyên khoa cấp I Nội tiết'
@@ -54,6 +54,7 @@ const seedDoctors = async () => {
           bio: 'Chuyên gia về sức khỏe sinh sản nữ và điều trị vô sinh',
           experience: 12,
           rating: 4.9,
+          image: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=300&h=300&fit=crop&crop=face',
           specialization: 'Phụ khoa - Sinh sản',
           education: 'Thạc sĩ Y khoa - Đại học Y Phạm Ngọc Thạch',
           certificate: 'Chứng chỉ chuyên khoa cấp II Phụ sản'
@@ -75,6 +76,7 @@ const seedDoctors = async () => {
           bio: 'Bác sĩ chuyên về tâm lý học giới tính và tư vấn chuyển đổi giới tính',
           experience: 8,
           rating: 4.7,
+          image: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=300&h=300&fit=crop&crop=face',
           specialization: 'Tâm lý học giới tính',
           education: 'Thạc sĩ Tâm lý học - Đại học Quốc gia TP.HCM',
           certificate: 'Chứng chỉ tư vấn tâm lý giới tính quốc tế'
@@ -96,6 +98,7 @@ const seedDoctors = async () => {
           bio: 'Chuyên gia phẫu thuật thẩm mỹ và tái tạo hình dạng cơ thể',
           experience: 10,
           rating: 4.6,
+          image: 'https://images.unsplash.com/photo-1594824694996-0ff5843e293c?w=300&h=300&fit=crop&crop=face',
           specialization: 'Phẫu thuật thẩm mỹ giới tính',
           education: 'Tiến sĩ Y khoa - Đại học Y Hải Phòng',
           certificate: 'Chứng chỉ phẫu thuật tạo hình quốc tế'
@@ -117,6 +120,7 @@ const seedDoctors = async () => {
           bio: 'Bác sĩ điều trị hormone và chăm sóc sức khỏe người chuyển giới',
           experience: 7,
           rating: 4.5,
+          image: 'https://images.unsplash.com/photo-1607990281513-2c110a25bd8c?w=300&h=300&fit=crop&crop=face',
           specialization: 'Điều trị hormone',
           education: 'Thạc sĩ Y khoa - Đại học Y Cần Thơ',
           certificate: 'Chứng chỉ điều trị hormone replacement therapy'
