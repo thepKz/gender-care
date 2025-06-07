@@ -1,33 +1,21 @@
-import { Button, Card, Timeline } from "antd";
+import { Button, Card, Timeline, message } from "antd";
 import { motion } from "framer-motion";
 import {
-  Award,
-  Building,
-  Calendar,
-  Crown,
-  Heart,
-  People,
-  Shield,
-  Star1,
-  TrendUp,
-  UserOctagon
+    Award,
+    Building,
+    Calendar,
+    Crown,
+    Heart,
+    People,
+    Shield,
+    Star1,
+    TrendUp,
+    UserOctagon
 } from "iconsax-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Image1 from "../../assets/images/image1.jpg";
-import Image2 from "../../assets/images/image2.jpg";
-import Image3 from "../../assets/images/image3.jpg";
+import { doctorApi, type Doctor } from "../../api/endpoints/doctorApi";
 import { AnimatedSection } from "../../share";
-
-interface TeamMember {
-  id: number;
-  name: string;
-  position: string;
-  avatar: string;
-  bio: string;
-  experience: number;
-  specialization: string;
-}
 
 interface Achievement {
   id: number;
@@ -42,37 +30,22 @@ const AboutGCC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("mission");
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
 
-  // Mock data cho team members
-  const teamMembers: TeamMember[] = [
-    {
-      id: 1,
-      name: "BS. Nguyễn Thị Hương",
-      position: "Giám đốc Y khoa",
-      avatar: Image1,
-      bio: "Với hơn 15 năm kinh nghiệm trong lĩnh vực sức khỏe sinh sản, BS. Hương đã dẫn dắt đội ngũ y tế chuyên nghiệp tại Gender Healthcare.",
-      experience: 15,
-      specialization: "Sản phụ khoa"
-    },
-    {
-      id: 2,
-      name: "BS. Trần Văn Nam",
-      position: "Trưởng khoa Nam học",
-      avatar: Image2,
-      bio: "Chuyên gia hàng đầu về sức khỏe nam giới với nhiều nghiên cứu được công bố trên các tạp chí y khoa uy tín.",
-      experience: 12,
-      specialization: "Nam học"
-    },
-    {
-      id: 3,
-      name: "TS. Lê Thị Lan",
-      position: "Chuyên gia Tâm lý",
-      avatar: Image3,
-      bio: "Tiến sĩ Tâm lý học với chuyên môn sâu về tâm lý tình dục và tư vấn hôn nhân gia đình.",
-      experience: 10,
-      specialization: "Tâm lý học"
+  // Lấy danh sách bác sĩ từ API
+  const fetchDoctors = async () => {
+    try {
+      setLoadingDoctors(true);
+      const doctorsList = await doctorApi.getAllDoctors();
+      setDoctors(doctorsList.slice(0, 3)); // Chỉ lấy 3 bác sĩ đầu để hiển thị
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách bác sĩ:', error);
+      message.error('Không thể tải danh sách bác sĩ');
+    } finally {
+      setLoadingDoctors(false);
     }
-  ];
+  };
 
   // Mock data cho achievements
   const achievements: Achievement[] = [
@@ -163,6 +136,7 @@ const AboutGCC = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    fetchDoctors();
     setTimeout(() => setLoading(false), 1000);
   }, []);
 
@@ -452,45 +426,69 @@ const AboutGCC = () => {
           </AnimatedSection>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {teamMembers.map((member, index) => (
-              <motion.div
-                key={member.id}
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                whileHover={{ y: -10 }}
-                className="group"
-              >
-                <Card className="border-0 shadow-lg group-hover:shadow-2xl transition-all duration-500 overflow-hidden">
-                  <div className="relative h-64 overflow-hidden">
-                    <img
-                      src={member.avatar}
-                      alt={member.name}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                    <div className="absolute bottom-4 left-4 text-white">
-                      <h4 className="text-lg font-bold">{member.name}</h4>
-                      <p className="text-sm opacity-90">{member.position}</p>
+            {loadingDoctors ? (
+              // Loading skeleton
+              [...Array(3)].map((_, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  className="group"
+                >
+                  <Card className="border-0 shadow-lg transition-all duration-500 overflow-hidden animate-pulse">
+                    <div className="relative h-64 bg-gray-200"></div>
+                    <div className="p-6">
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded mb-4"></div>
+                      <div className="h-3 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded"></div>
                     </div>
-                  </div>
-                  <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <Award size={16} />
-                        <span>{member.experience} năm kinh nghiệm</span>
-                      </div>
-                      <div className="text-sm text-[#0C3C54] font-medium">
-                        {member.specialization}
+                  </Card>
+                </motion.div>
+              ))
+            ) : (
+              doctors.map((doctor, index) => (
+                <motion.div
+                  key={doctor._id}
+                  initial={{ opacity: 0, y: 50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.1 }}
+                  whileHover={{ y: -10 }}
+                  className="group cursor-pointer"
+                  onClick={() => navigate(`/doctors/${doctor._id}`)}
+                >
+                  <Card className="border-0 shadow-lg group-hover:shadow-2xl transition-all duration-500 overflow-hidden">
+                    <div className="relative h-64 overflow-hidden">
+                      <img
+                                                      src={doctor.image || doctor.userId.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${doctor.userId.fullName}`}
+                        alt={doctor.userId.fullName}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                      <div className="absolute bottom-4 left-4 text-white">
+                        <h4 className="text-lg font-bold">{doctor.userId.fullName}</h4>
+                        <p className="text-sm opacity-90">{doctor.specialization || 'Bác sĩ chuyên khoa'}</p>
                       </div>
                     </div>
-                    <p className="text-gray-600 text-sm leading-relaxed">
-                      {member.bio}
-                    </p>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Award size={16} />
+                          <span>{doctor.experience || 0} năm kinh nghiệm</span>
+                        </div>
+                        <div className="text-sm text-[#0C3C54] font-medium">
+                          {doctor.specialization || 'Chuyên khoa'}
+                        </div>
+                      </div>
+                      <p className="text-gray-600 text-sm leading-relaxed">
+                        {doctor.bio || 'Bác sĩ chuyên nghiệp với nhiều năm kinh nghiệm trong lĩnh vực chăm sóc sức khỏe.'}
+                      </p>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))
+            )}
           </div>
 
           <AnimatedSection animation="fadeIn" delay={0.5}>

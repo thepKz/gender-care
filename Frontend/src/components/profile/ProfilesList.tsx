@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Avatar, Tag, Spin, Empty, notification, Row, Col, Button } from 'antd';
-import { 
-  ManOutlined, 
-  WomanOutlined, 
-  QuestionOutlined, 
-  PhoneOutlined, 
-  CalendarOutlined,
-  ArrowRightOutlined,
-  UserOutlined,
-  PlusOutlined
+import {
+    ArrowRightOutlined,
+    CalendarOutlined,
+    ManOutlined,
+    PhoneOutlined,
+    PlusOutlined,
+    QuestionOutlined,
+    WomanOutlined
 } from '@ant-design/icons';
+import { Avatar, Button, Card, Col, Empty, notification, Row, Spin, Tag } from 'antd';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import userProfileApi from '../../api/endpoints/userProfileApi';
 import { UserProfile } from '../../types';
@@ -150,7 +149,7 @@ const ProfilesList: React.FC = () => {
                 </div>
               }
               onClick={() => navigate(`/profile/view-profile/${profile._id}`)}
-              bodyStyle={{ padding: '1.5rem' }}
+              styles={{ body: { padding: '1.5rem' } }}
             >
               <div className="text-center">
                 <div className="flex items-center justify-center mb-3">

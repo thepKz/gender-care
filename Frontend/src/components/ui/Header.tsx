@@ -1,6 +1,6 @@
 import { Avatar, Drawer, Dropdown, MenuProps } from "antd";
 import { motion } from 'framer-motion';
-import { CalendarEdit, Logout, Menu, ProfileCircle, User, Profile2User } from "iconsax-react";
+import { CalendarEdit, Logout, Menu, Profile2User, ProfileCircle, User } from "iconsax-react";
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -341,7 +341,7 @@ const Header: React.FC = () => {
         onClose={() => setMobileMenuOpen(false)}
         open={mobileMenuOpen}
         width={windowWidth < 640 ? 260 : 280}
-        bodyStyle={{ padding: 0 }}
+        styles={{ body: { padding: 0 } }}
       >
         <div className="flex flex-col h-full">
           <div className="py-4 px-6 flex-1">
