@@ -9,30 +9,12 @@ const isValidObjectId = (id: string): boolean => {
 };
 
 // API public - ẩn email và phone để bảo vệ privacy
-export const getAllDoctors = async (page: number = 1, limit: number = 10) => {
-  const skip = (page - 1) * limit;
+export const getAllDoctors = async () => {
+  const doctors = await Doctor.find({ isDeleted: { $ne: true } }) // Loại bỏ doctors đã bị xóa
+    .populate('userId', 'fullName avatar gender address') // Bỏ email và phone
+    .sort({ createdAt: -1 }); // Sắp xếp theo thời gian tạo mới nhất
   
-  // Thực hiện song song để tối ưu performance
-  const [doctors, total] = await Promise.all([
-    Doctor.find({ isDeleted: { $ne: true } }) // Loại bỏ doctors đã bị xóa
-      .populate('userId', 'fullName avatar gender address') // Bỏ email và phone
-      .limit(limit)
-      .skip(skip)
-      .sort({ createdAt: -1 }), // Sắp xếp theo thời gian tạo
-    Doctor.countDocuments({ isDeleted: { $ne: true } }) // Đếm chỉ doctors active
-  ]);
-  
-  return {
-    doctors,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit),
-      hasNext: page < Math.ceil(total / limit),
-      hasPrev: page > 1
-    }
-  };
+  return doctors; // Trả về trực tiếp array
 };
 
 export const getDoctorById = (id: string) => {
@@ -41,7 +23,8 @@ export const getDoctorById = (id: string) => {
     throw new Error('ID bác sĩ không hợp lệ');
   }
   
-  return Doctor.findOne({ _id: id, isDeleted: { $ne: true } }).populate('userId', 'fullName avatar gender address'); // Bỏ email và phone
+  // Trả về full info bao gồm contact (email, phone) vì chỉ staff/admin được access
+  return Doctor.findOne({ _id: id, isDeleted: { $ne: true } }).populate('userId', 'fullName email phone avatar gender address');
 };
 
 // Sửa createDoctor để tự tạo user account từ doctorInfo
@@ -103,7 +86,11 @@ export const createDoctor = async (doctorInfo: any) => {
     console.log(`📧 Email: ${email}`);
     console.log(`🔑 Password mặc định: ${defaultPassword}`);
     
-    return populatedDoctor;
+    return {
+      doctor: populatedDoctor,
+      email: email,
+      defaultPassword: defaultPassword
+    };
   } catch (error: any) {
     throw new Error(error.message);
   }
@@ -115,13 +102,18 @@ export const updateDoctor = async (id: string, data: any) => {
     throw new Error('ID bác sĩ không hợp lệ');
   }
 
-  // Loại bỏ các field không được phép cập nhật
+  // Tách user fields và doctor fields
   const { 
+    fullName,
+    phone, 
+    gender,
+    address,
+    // Loại bỏ các field không được phép cập nhật
     userId, 
     _id, 
     createdAt, 
     updatedAt,
-    ...updateData 
+    ...doctorFields 
   } = data;
   
   // Log cảnh báo nếu có người cố tình gửi field bị cấm
@@ -132,26 +124,60 @@ export const updateDoctor = async (id: string, data: any) => {
     console.warn(`Cố gắng cập nhật _id cho doctor ${id}, đã bị loại bỏ`);
   }
 
-  // Validate dữ liệu đầu vào
-  if (updateData.experience !== undefined && (updateData.experience < 0 || updateData.experience > 50)) {
+  // Validate dữ liệu đầu vào cho doctor fields
+  if (doctorFields.experience !== undefined && (doctorFields.experience < 0 || doctorFields.experience > 50)) {
     throw new Error('Số năm kinh nghiệm phải từ 0-50 năm');
   }
   
-  if (updateData.rating !== undefined && (updateData.rating < 0 || updateData.rating > 5)) {
+  if (doctorFields.rating !== undefined && (doctorFields.rating < 0 || doctorFields.rating > 5)) {
     throw new Error('Rating phải từ 0-5');
   }
 
+  // Validate gender field
+  if (gender !== undefined && !['male', 'female', 'other'].includes(gender)) {
+    throw new Error('Giới tính phải là male, female hoặc other');
+  }
+
   // Kiểm tra doctor có tồn tại và chưa bị xóa
-  const existingDoctor = await Doctor.findOne({ _id: id, isDeleted: { $ne: true } });
+  const existingDoctor = await Doctor.findOne({ _id: id, isDeleted: { $ne: true } }).populate('userId');
   if (!existingDoctor) {
     throw new Error('Không tìm thấy bác sĩ hoặc bác sĩ đã bị xóa');
   }
-  
-  return Doctor.findOneAndUpdate(
-    { _id: id, isDeleted: { $ne: true } },
-    updateData,
-    { new: true }
-  ).populate('userId', 'fullName avatar gender address');
+
+  // Chuẩn bị user update data
+  const userUpdateData: any = {};
+  if (fullName !== undefined) userUpdateData.fullName = fullName;
+  if (phone !== undefined) userUpdateData.phone = phone;
+  if (gender !== undefined) userUpdateData.gender = gender;
+  if (address !== undefined) userUpdateData.address = address;
+
+  // Cập nhật User nếu có user fields
+  if (Object.keys(userUpdateData).length > 0) {
+    await User.findByIdAndUpdate(
+      (existingDoctor.userId as any)._id,
+      userUpdateData,
+      { new: true }
+    );
+  }
+
+  // Cập nhật Doctor nếu có doctor fields
+  let updatedDoctor;
+  if (Object.keys(doctorFields).length > 0) {
+    updatedDoctor = await Doctor.findOneAndUpdate(
+      { _id: id, isDeleted: { $ne: true } },
+      doctorFields,
+      { new: true }
+    ).populate('userId', 'fullName email phone avatar gender address');
+  } else {
+    // Nếu chỉ update user fields, populate lại để có data mới
+    updatedDoctor = await Doctor.findById(id).populate('userId', 'fullName email phone avatar gender address');
+  }
+
+  if (!updatedDoctor) {
+    throw new Error('Lỗi khi cập nhật thông tin bác sĩ');
+  }
+
+  return updatedDoctor;
 };
 
 export const deleteDoctor = async (id: string, adminId: string, force: boolean = false) => {
@@ -221,12 +247,5 @@ export const deleteDoctor = async (id: string, adminId: string, force: boolean =
   };
 };
 
-// Service riêng để lấy contact info (chỉ cho admin/staff hoặc khi có appointment)
-export const getDoctorContactInfo = (id: string) => {
-  // Validate ObjectId format
-  if (!isValidObjectId(id)) {
-    throw new Error('ID bác sĩ không hợp lệ');
-  }
-  
-  return Doctor.findOne({ _id: id, isDeleted: { $ne: true } }).populate('userId', 'fullName email phone avatar gender address');
-};
+// getDoctorContactInfo đã được merge vào getDoctorById vì logic nghiệp vụ đã thay đổi
+// Chỉ staff/admin mới có thể access GET /doctors/:id nên luôn trả full info
