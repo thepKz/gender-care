@@ -3,8 +3,8 @@ import { getValidTokenFromStorage } from '../utils/helpers';
 
 // Create axios instance with base URL
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 15000, // Tăng timeout từ 10s lên 15s cho Google OAuth
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+  timeout: 20000, // Tăng timeout từ 15s lên 20s cho các API call
   headers: {
     'Content-Type': 'application/json',
   },
@@ -17,6 +17,8 @@ console.log('Axios baseURL:', axiosInstance.defaults.baseURL);
 // Danh sách các endpoint sẽ không hiển thị lỗi 401
 const silentEndpoints = [
   '/auth/login',
+  '/auth/register',
+  '/auth/verify-email'
 ];
 
 // Interceptor cho request
@@ -61,12 +63,23 @@ axiosInstance.interceptors.request.use(
 // Interceptor cho response
 axiosInstance.interceptors.response.use(
   (response) => {
+    // Log successful responses in development mode
+    if (import.meta.env.DEV) {
+      console.log(`[${response.config.method?.toUpperCase()}] ${response.config.url} - Status: ${response.status}`);
+    }
     return response;
   },
   (error) => {
     // Nếu request bị cancel bởi interceptor, ngăn không báo lỗi vào console
     if (axios.isCancel(error)) {
       return Promise.reject(new Error('Request cancelled'));
+    }
+
+    // Log detailed error info in development mode
+    if (import.meta.env.DEV) {
+      console.error(`API Error: ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
+      console.error(`Status: ${error.response?.status}, Message: ${error.message}`);
+      console.error('Response data:', error.response?.data);
     }
 
     // Xử lý lỗi 401 - Token không hợp lệ
@@ -103,6 +116,11 @@ axiosInstance.interceptors.response.use(
     if (error.response?.status === 401 && isSilentEndpoint) {
       // Không log lỗi 401 cho các endpoint im lặng
       return Promise.reject(error);
+    }
+
+    // Xử lý timeout errors
+    if (error.code === 'ECONNABORTED') {
+      console.error('Request timeout. The server took too long to respond.');
     }
 
     // Log các lỗi khác trong môi trường development

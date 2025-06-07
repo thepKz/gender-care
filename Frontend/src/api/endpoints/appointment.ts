@@ -57,21 +57,36 @@ export const appointmentApi = {
 
         // Kiểm tra định dạng ID MongoDB
         const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+        const invalidFields = [];
 
         if (!isValidObjectId(appointmentData.profileId)) {
-            throw new Error('ID hồ sơ không hợp lệ');
+            invalidFields.push('ID hồ sơ');
         }
 
         if (appointmentData.serviceId && !isValidObjectId(appointmentData.serviceId)) {
-            throw new Error('ID dịch vụ không hợp lệ');
+            invalidFields.push('ID dịch vụ');
         }
 
         if (appointmentData.packageId && !isValidObjectId(appointmentData.packageId)) {
-            throw new Error('ID gói dịch vụ không hợp lệ');
+            invalidFields.push('ID gói dịch vụ');
         }
 
         if (appointmentData.slotId && !isValidObjectId(appointmentData.slotId)) {
-            throw new Error('ID slot thời gian không hợp lệ');
+            invalidFields.push('ID slot thời gian');
+        }
+
+        if (invalidFields.length > 0) {
+            throw new Error(`Các trường không hợp lệ: ${invalidFields.join(', ')}`);
+        }
+
+        // Kiểm tra định dạng ngày tháng
+        const isValidDate = (dateStr: string) => {
+            const date = new Date(dateStr);
+            return !isNaN(date.getTime());
+        };
+
+        if (!isValidDate(appointmentData.appointmentDate)) {
+            throw new Error('Ngày hẹn không hợp lệ');
         }
 
         console.log('Dữ liệu gửi đi:', JSON.stringify(appointmentData, null, 2));
@@ -83,6 +98,8 @@ export const appointmentApi = {
             console.error('Lỗi khi tạo cuộc hẹn:', error);
             if (axios.isAxiosError(error)) {
                 console.error('Chi tiết lỗi:', error.response?.data);
+                console.error('Status code:', error.response?.status);
+                console.error('Headers:', error.response?.headers);
 
                 // Phân tích lỗi cụ thể từ API
                 if (error.response?.data?.errors) {
@@ -92,6 +109,12 @@ export const appointmentApi = {
                     throw new Error(`Lỗi validation: ${errorDetails}`);
                 } else if (error.response?.data?.message) {
                     throw new Error(error.response.data.message);
+                } else if (error.response?.status === 401) {
+                    throw new Error('Bạn cần đăng nhập để đặt lịch');
+                } else if (error.response?.status === 404) {
+                    throw new Error('Không tìm thấy tài nguyên yêu cầu');
+                } else if (error.response?.status === 500) {
+                    throw new Error('Lỗi máy chủ, vui lòng thử lại sau');
                 }
             }
             throw error;

@@ -9,8 +9,9 @@ import {
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { appointmentApi } from '../../api/endpoints';
+import { appointmentApi, servicesApi } from '../../api/endpoints';
 import axiosInstance from '../../api/axiosConfig';
+import userProfileApi from '../../api/endpoints/userProfileApi';
 import Image1 from '../../assets/images/image1.jpg';
 import Image2 from '../../assets/images/image2.jpg';
 import Image3 from '../../assets/images/image3.jpg';
@@ -128,172 +129,6 @@ const Booking: React.FC = () => {
   const [userProfiles, setUserProfiles] = useState<UserProfile[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
 
-  // Mock data với ID đúng định dạng MongoDB ObjectId
-  const mockServices: ServiceOption[] = [
-    {
-      id: '507f1f77bcf86cd799439011',
-      name: 'Tư vấn sức khỏe',
-      description: 'Tư vấn chuyên sâu với bác sĩ chuyên khoa về sức khỏe sinh sản và tình dục',
-      price: { online: 300000, clinic: 500000, home: 800000 },
-      duration: '45-60 phút',
-      icon: <People size={32} variant="Bold" />,
-      image: Image1,
-      gradient: 'from-blue-500 via-purple-500 to-pink-500',
-      category: 'consultation'
-    },
-    {
-      id: '507f1f77bcf86cd799439012',
-      name: 'Xét nghiệm STI/STD',
-      description: 'Gói xét nghiệm toàn diện các bệnh lây truyền qua đường tình dục',
-      price: { online: 0, clinic: 1200000, home: 1500000 },
-      duration: '30-45 phút',
-      icon: <Activity size={32} variant="Bold" />,
-      image: Image2,
-      gradient: 'from-green-500 via-teal-500 to-blue-500',
-      category: 'test',
-      packages: [
-        {
-          id: '507f1f77bcf86cd799439021',
-          name: 'Gói Cơ bản',
-          description: 'Xét nghiệm các STI phổ biến nhất',
-          price: { online: 0, clinic: 800000, home: 1000000 },
-          tests: ['HIV', 'Giang mai', 'Lậu', 'Chlamydia'],
-          duration: '30 phút',
-          gradient: 'from-blue-500 to-blue-600'
-        },
-        {
-          id: '507f1f77bcf86cd799439022',
-          name: 'Gói Tiêu chuẩn',
-          description: 'Xét nghiệm toàn diện các STI thường gặp',
-          price: { online: 0, clinic: 1200000, home: 1500000 },
-          tests: ['HIV', 'Giang mai', 'Lậu', 'Chlamydia', 'Herpes', 'HPV'],
-          duration: '45 phút',
-          isPopular: true,
-          gradient: 'from-green-500 to-green-600'
-        },
-        {
-          id: '507f1f77bcf86cd799439023',
-          name: 'Gói Cao cấp',
-          description: 'Xét nghiệm đầy đủ tất cả các STI và tư vấn chuyên sâu',
-          price: { online: 0, clinic: 1800000, home: 2200000 },
-          tests: ['HIV', 'Giang mai', 'Lậu', 'Chlamydia', 'Herpes', 'HPV', 'Hepatitis B', 'Hepatitis C', 'Trichomonas'],
-          duration: '60 phút',
-          gradient: 'from-purple-500 to-purple-600'
-        }
-      ]
-    },
-    {
-      id: 'health-checkup',
-      name: 'Khám sức khỏe tổng quát',
-      description: 'Khám sức khỏe định kỳ và tư vấn chăm sóc sức khỏe toàn diện',
-      price: { online: 0, clinic: 800000, home: 1200000 },
-      duration: '60-90 phút',
-      icon: <Heart size={32} variant="Bold" />,
-      image: Image3,
-      gradient: 'from-pink-500 via-rose-500 to-red-500',
-      category: 'test'
-    },
-    {
-      id: 'home-sampling',
-      name: 'Lấy mẫu tại nhà',
-      description: 'Dịch vụ lấy mẫu xét nghiệm tại nhà với đội ngũ y tế chuyên nghiệp',
-      price: { online: 0, clinic: 0, home: 800000 },
-      duration: '30-45 phút',
-      icon: <Home size={32} variant="Bold" />,
-      image: Image4,
-      gradient: 'from-emerald-500 via-green-500 to-teal-500',
-      category: 'test'
-    },
-    {
-      id: 'cycle-tracking',
-      name: 'Theo dõi chu kỳ kinh nguyệt',
-      description: 'Tư vấn và hướng dẫn theo dõi chu kỳ kinh nguyệt hiệu quả',
-      price: { online: 200000, clinic: 400000, home: 600000 },
-      duration: '30-45 phút',
-      icon: <Calendar size={32} variant="Bold" />,
-      image: Image1,
-      gradient: 'from-purple-500 via-pink-500 to-red-500',
-      category: 'consultation'
-    }
-  ];
-
-  const mockDoctors: Doctor[] = [
-    {
-      id: '507f1f77bcf86cd799439031',
-      name: 'BS. Nguyễn Thị Hương',
-      specialization: 'Sản phụ khoa',
-      experience: 8,
-      rating: 4.9,
-      reviewCount: 156,
-      avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-      workload: 12,
-      isAvailable: true,
-      bio: 'Chuyên gia về sức khỏe sinh sản phụ nữ với hơn 8 năm kinh nghiệm'
-    },
-    {
-      id: 'dr2',
-      name: 'BS. Trần Văn Minh',
-      specialization: 'Nam khoa',
-      experience: 10,
-      rating: 4.8,
-      reviewCount: 203,
-      avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150',
-      workload: 8,
-      isAvailable: true,
-      bio: 'Bác sĩ nam khoa giàu kinh nghiệm, chuyên điều trị các vấn đề sức khỏe nam giới'
-    },
-    {
-      id: 'dr3',
-      name: 'BS. Lê Thị Mai',
-      specialization: 'Tâm lý học',
-      experience: 6,
-      rating: 4.7,
-      reviewCount: 89,
-      avatar: 'https://images.unsplash.com/photo-1594824388853-d0c2b7b5e6b7?w=150',
-      workload: 15,
-      isAvailable: true,
-      bio: 'Chuyên gia tâm lý tình dục và tư vấn các vấn đề tâm lý liên quan đến giới tính'
-    }
-  ];
-
-  const mockUserProfiles: UserProfile[] = [
-    {
-      id: '507f1f77bcf86cd799439051',
-      fullName: 'Nguyễn Văn A',
-      phone: '0123456789',
-      email: 'nguyenvana@email.com',
-      birthDate: '1990-01-01',
-      gender: 'male',
-      relationship: 'self',
-      isDefault: true
-    },
-    {
-      id: '507f1f77bcf86cd799439052',
-      fullName: 'Nguyễn Thị B',
-      phone: '0987654321',
-      email: 'nguyenthib@email.com',
-      birthDate: '1992-05-15',
-      gender: 'female',
-      relationship: 'family',
-      isDefault: false
-    }
-  ];
-
-  const mockTimeSlots: TimeSlot[] = [
-    { id: '507f1f77bcf86cd799439061', time: '08:00', isAvailable: true },
-    { id: '507f1f77bcf86cd799439062', time: '08:30', isAvailable: true },
-    { id: '507f1f77bcf86cd799439063', time: '09:00', isAvailable: false },
-    { id: '507f1f77bcf86cd799439064', time: '09:30', isAvailable: true },
-    { id: '507f1f77bcf86cd799439065', time: '10:00', isAvailable: true },
-    { id: '507f1f77bcf86cd799439066', time: '10:30', isAvailable: false },
-    { id: '507f1f77bcf86cd799439067', time: '11:00', isAvailable: true },
-    { id: '507f1f77bcf86cd799439068', time: '14:00', isAvailable: true },
-    { id: '507f1f77bcf86cd799439069', time: '14:30', isAvailable: true },
-    { id: '507f1f77bcf86cd79943906a', time: '15:00', isAvailable: true },
-    { id: '507f1f77bcf86cd79943906b', time: '15:30', isAvailable: false },
-    { id: '507f1f77bcf86cd79943906c', time: '16:00', isAvailable: true }
-  ];
-
   const steps = [
     { title: 'Chọn dịch vụ', description: 'Lựa chọn dịch vụ phù hợp' },
     { title: 'Chọn bác sĩ', description: 'Chọn bác sĩ hoặc để hệ thống chọn' },
@@ -334,6 +169,22 @@ const Booking: React.FC = () => {
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
+      // Kiểm tra trước khi chuyển từ bước chọn hồ sơ sang bước thông tin chi tiết
+      if (currentStep === 4 && !selectedProfile) {
+        message.error('Vui lòng chọn hồ sơ bệnh nhân');
+        return;
+      }
+      
+      // Kiểm tra trước khi chuyển từ bước thông tin chi tiết sang bước xác nhận
+      if (currentStep === 5) {
+        form.validateFields().then(() => {
+          setCurrentStep(currentStep + 1);
+        }).catch(err => {
+          console.log('Validation failed:', err);
+        });
+        return;
+      }
+      
       setCurrentStep(currentStep + 1);
     }
   };
@@ -356,11 +207,13 @@ const Booking: React.FC = () => {
   };
 
   const handleProfileSelect = (profileId: string) => {
+    console.log('Selected profile ID:', profileId);
     if (profileId === 'new') {
       setSelectedProfile('new');
     } else {
       setSelectedProfile(profileId);
       const profile = userProfiles.find(p => p.id === profileId);
+      console.log('Found profile:', profile);
       if (profile) {
         form.setFieldsValue({
           fullName: profile.fullName,
@@ -378,32 +231,190 @@ const Booking: React.FC = () => {
   const fetchServices = async () => {
     setLoadingServices(true);
     try {
-      // Trong môi trường thực tế, gọi API
-      // const response = await axiosInstance.get('/services');
-      // if (response.data.success) {
-      //   const mappedServices = response.data.data.map(service => ({
-      //     id: service._id,
-      //     name: service.serviceName,
-      //     description: service.description,
-      //     price: {
-      //       online: service.availableAt.includes('Online') ? service.price : 0,
-      //       clinic: service.availableAt.includes('Center') ? service.price : 0,
-      //       home: service.availableAt.includes('Athome') ? service.price * 1.5 : 0,
-      //     },
-      //     duration: '45-60 phút',
-      //     icon: getIconForServiceType(service.serviceType),
-      //     image: getImageForServiceType(service.serviceType),
-      //     gradient: getGradientForServiceType(service.serviceType),
-      //     category: service.serviceType,
-      //   }));
-      //   setServices(mappedServices);
-      // }
+      // Log URL đang gọi
+      console.log('Đang gọi API services từ URL:', axiosInstance.defaults.baseURL + '/services');
       
-      // Sử dụng mock data cho development
-      setServices(mockServices);
+      // Gọi API thật từ servicesApi
+      const response = await servicesApi.getServices();
+      console.log('Services API response FULL:', JSON.stringify(response, null, 2));
+      
+      if (response) {
+        // Kiểm tra cấu trúc phản hồi đầy đủ
+        console.log('Cấu trúc response đầy đủ:', {
+          responseType: typeof response,
+          hasData: !!response.data,
+          dataType: typeof response.data,
+          isDataArray: Array.isArray(response.data),
+          dataLength: Array.isArray(response.data) ? response.data.length : 'not an array'
+        });
+        
+        // Xử lý nhiều cấu trúc dữ liệu khác nhau từ API
+        let servicesData: any[] = [];
+        
+        // Xử lý cấu trúc response đã biết từ backend:
+        // {"success":true,"data":{"services":[],"pagination":{"total":0,"page":1,"limit":10,"totalPages":0}}}
+        if (response.data && response.data.success === true && response.data.data && response.data.data.services) {
+          servicesData = response.data.data.services;
+          console.log('Tìm thấy services từ cấu trúc chuẩn: data.data.services');
+        } else if (Array.isArray(response.data)) {
+          // Trường hợp API trả về mảng trực tiếp
+          servicesData = response.data;
+        } else if (response.data && typeof response.data === 'object') {
+          // Kiểm tra các cấu trúc phổ biến
+          if (Array.isArray(response.data.data)) {
+            servicesData = response.data.data;
+          } else if (Array.isArray(response.data.services)) {
+            servicesData = response.data.services;
+          } else if (response.data.result && Array.isArray(response.data.result)) {
+            servicesData = response.data.result;
+          } else if (response.data.results && Array.isArray(response.data.results)) {
+            servicesData = response.data.results;
+          } else if (response.data.items && Array.isArray(response.data.items)) {
+            servicesData = response.data.items;
+          } else {
+            // Nếu không có cấu trúc tiêu chuẩn, tìm mảng đầu tiên trong object
+            const firstArrayProperty = Object.keys(response.data).find(key => 
+              Array.isArray(response.data[key]) && response.data[key].length > 0
+            );
+            
+            if (firstArrayProperty) {
+              servicesData = response.data[firstArrayProperty];
+              console.log(`Tìm thấy mảng dữ liệu trong thuộc tính: ${firstArrayProperty}`);
+            }
+          }
+        }
+        
+        console.log('Services data after parsing:', servicesData);
+        console.log('Services data length:', servicesData.length);
+        
+        if (servicesData && servicesData.length > 0) {
+          // Kiểm tra cấu trúc dữ liệu của item đầu tiên
+          const firstItem = servicesData[0];
+          console.log('Mẫu dữ liệu đầu tiên:', firstItem);
+          
+          // Chuyển đổi dữ liệu từ API để phù hợp với cấu trúc interface
+          const mappedServices = servicesData.map((service: any) => {
+            // Xác định các trường dữ liệu dựa trên cấu trúc thực tế
+            const id = service._id || service.id || '';
+            const name = service.serviceName || service.name || service.title || '';
+            const description = service.description || service.desc || service.serviceDescription || '';
+            const price = service.price || service.servicePrice || 0;
+            
+            // Xác định nơi dịch vụ có sẵn
+            const availableAt = service.availableAt || service.locations || [];
+            const isAvailableOnline = Array.isArray(availableAt) 
+              ? availableAt.includes('Online') 
+              : String(availableAt).includes('Online');
+            const isAvailableClinic = Array.isArray(availableAt) 
+              ? availableAt.includes('Center') 
+              : String(availableAt).includes('Center');
+            const isAvailableHome = Array.isArray(availableAt) 
+              ? availableAt.includes('Athome') 
+              : String(availableAt).includes('Athome');
+            
+            // Các thông tin khác
+            const serviceType = service.serviceType || service.category || service.type || 'consultation';
+            const duration = service.duration || service.serviceDuration || '45-60 phút';
+            
+            return {
+              id,
+              name,
+              description,
+              price: {
+                online: isAvailableOnline ? price : 0,
+                clinic: isAvailableClinic ? price : 0,
+                home: isAvailableHome ? price * 1.5 : 0,
+              },
+              duration,
+              icon: getIconForServiceType(serviceType),
+              image: getImageForServiceType(serviceType),
+              gradient: getGradientForServiceType(serviceType),
+              category: serviceType,
+            };
+          }).filter(service => service.id && service.name); // Lọc bỏ các dịch vụ không có id hoặc name
+          
+          console.log('Mapped services:', mappedServices);
+          
+          if (mappedServices.length > 0) {
+            setServices(mappedServices);
+            return;
+          } else {
+            console.error('Sau khi map và lọc, không còn dịch vụ nào hợp lệ');
+            message.info('Không tìm thấy dịch vụ hợp lệ từ server');
+          }
+        } else {
+          console.error('Không tìm thấy dịch vụ nào từ server. ServicesData rỗng:', servicesData);
+          message.info('Không có dịch vụ nào trên hệ thống. Hiển thị dữ liệu mẫu...');
+          
+          // Tạo dữ liệu mẫu khi API trả về rỗng
+          const demoServices: ServiceOption[] = [
+            {
+              id: 'demo-service-1',
+              name: 'Tư vấn tâm lý cá nhân',
+              description: 'Tư vấn 1-1 với chuyên gia tâm lý về các vấn đề cá nhân',
+              price: {
+                online: 300000,
+                clinic: 400000,
+                home: 600000
+              },
+              duration: '45-60 phút',
+              icon: getIconForServiceType('consultation'),
+              image: getImageForServiceType('consultation'),
+              gradient: getGradientForServiceType('consultation'),
+              category: 'consultation'
+            },
+            {
+              id: 'demo-service-2',
+              name: 'Kiểm tra sức khỏe tổng quát',
+              description: 'Kiểm tra sức khỏe toàn diện với các chỉ số cơ bản',
+              price: {
+                online: 0,
+                clinic: 500000,
+                home: 750000
+              },
+              duration: '60-90 phút',
+              icon: getIconForServiceType('test'),
+              image: getImageForServiceType('test'),
+              gradient: getGradientForServiceType('test'),
+              category: 'test'
+            },
+            {
+              id: 'demo-service-3',
+              name: 'Tư vấn tâm lý theo nhóm',
+              description: 'Tư vấn nhóm với chuyên gia tâm lý về các vấn đề chung',
+              price: {
+                online: 200000,
+                clinic: 250000,
+                home: 0
+              },
+              duration: '90-120 phút',
+              icon: getIconForServiceType('consultation'),
+              image: getImageForServiceType('consultation'),
+              gradient: getGradientForServiceType('consultation'),
+              category: 'consultation'
+            }
+          ];
+          
+          setServices(demoServices);
+          return;
+        }
+      } else {
+        console.error('Không tìm thấy dữ liệu phản hồi từ API');
+        message.info('Không thể tải dữ liệu dịch vụ');
+      }
     } catch (error) {
       console.error('Error fetching services:', error);
-      message.error('Không thể tải danh sách dịch vụ');
+      if (axios.isAxiosError(error)) {
+        console.error('Axios error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          config: error.config,
+          message: error.message,
+          url: error.config?.url,
+          baseURL: error.config?.baseURL
+        });
+      }
+      message.error('Không thể tải danh sách dịch vụ. Vui lòng thử lại sau.');
     } finally {
       setLoadingServices(false);
     }
@@ -412,17 +423,59 @@ const Booking: React.FC = () => {
   const fetchDoctors = async () => {
     setLoadingDoctors(true);
     try {
-      // Trong môi trường thực tế, gọi API
-      // const response = await axiosInstance.get('/doctors');
-      // if (response.data.success) {
-      //   setDoctors(response.data.data);
-      // }
+      console.log('Đang gọi API lấy danh sách bác sĩ...');
+      // Gọi API từ endpoint được định nghĩa trong backend
+      const response = await axiosInstance.get('/doctors');
       
-      // Sử dụng mock data cho development
-      setDoctors(mockDoctors);
+      console.log('Phản hồi API bác sĩ:', response);
+      
+      if (response && response.data) {
+        // Chuyển đổi dữ liệu từ API để phù hợp với cấu trúc interface
+        // API doctorController.getAll() có thể trả về mảng trực tiếp hoặc object { data: [...] }
+        const doctorsData = Array.isArray(response.data) ? response.data : 
+                        (response.data.data || []);
+        
+        console.log('Dữ liệu bác sĩ sau khi phân tích:', doctorsData);
+        
+        if (doctorsData.length > 0) {
+          const mappedDoctors = doctorsData.map((doctor: any) => ({
+            id: doctor._id || doctor.id,
+            name: doctor.userId?.fullName || doctor.user?.fullName || doctor.fullName || 'Bác sĩ',
+            specialization: doctor.specialization || 'Chuyên khoa',
+            experience: doctor.experience || 0,
+            rating: doctor.rating || 4.5,
+            reviewCount: doctor.reviewCount || 0,
+            avatar: doctor.userId?.avatar || doctor.user?.avatar || doctor.avatar || 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150',
+            workload: doctor.workload || 10,
+            isAvailable: doctor.isAvailable !== undefined ? doctor.isAvailable : true,
+            bio: doctor.bio || 'Bác sĩ chuyên khoa'
+          }));
+          
+          console.log('Dữ liệu bác sĩ đã chuyển đổi:', mappedDoctors);
+          
+          if (mappedDoctors.length > 0) {
+            setDoctors(mappedDoctors);
+            return;
+          } else {
+            message.info('Không tìm thấy bác sĩ nào từ server');
+          }
+        } else {
+          message.info('Không tìm thấy bác sĩ nào từ server');
+        }
+      } else {
+        message.info('Không tìm thấy dữ liệu bác sĩ');
+      }
     } catch (error) {
       console.error('Error fetching doctors:', error);
-      message.error('Không thể tải danh sách bác sĩ');
+      if (axios.isAxiosError(error)) {
+        console.error('Axios error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          config: error.config
+        });
+      }
+      
+      message.info('Không thể tải danh sách bác sĩ. Vui lòng thử lại sau.');
     } finally {
       setLoadingDoctors(false);
     }
@@ -431,47 +484,141 @@ const Booking: React.FC = () => {
   const fetchProfiles = async () => {
     setLoadingProfiles(true);
     try {
-      // Trong môi trường thực tế, gọi API
-      // const response = await axiosInstance.get('/users/profiles');
-      // if (response.data.success) {
-      //   setUserProfiles(response.data.data);
-      // }
+      console.log('Đang gọi API lấy danh sách hồ sơ...');
+      // Gọi API trực tiếp từ userProfileApi
+      const profiles = await userProfileApi.getMyProfiles();
+      console.log('Profile API response:', profiles);
       
-      // Sử dụng mock data cho development
-      setUserProfiles(mockUserProfiles);
+      if (profiles && profiles.length > 0) {
+        // Chuyển đổi dữ liệu từ API để phù hợp với cấu trúc interface
+        const mappedProfiles = profiles.map(profile => ({
+          id: profile._id || profile.id,
+          fullName: profile.fullName || '',
+          phone: profile.phone || '',
+          email: profile.email || '',
+          birthDate: profile.year || profile.birthDate || new Date().toISOString(),
+          gender: profile.gender || 'other',
+          relationship: profile.relationship || 'self',
+          isDefault: profile.isDefault || false
+        }));
+        
+        console.log('Mapped profiles:', mappedProfiles);
+        setUserProfiles(mappedProfiles);
+        
+        // Nếu chưa chọn profile và có ít nhất một profile, tự động chọn profile đầu tiên
+        if (!selectedProfile && mappedProfiles.length > 0) {
+          setSelectedProfile(mappedProfiles[0].id);
+        }
+      } else {
+        message.info('Không tìm thấy hồ sơ nào. Vui lòng tạo hồ sơ trước khi đặt lịch.');
+      }
     } catch (error) {
       console.error('Error fetching profiles:', error);
-      message.error('Không thể tải danh sách hồ sơ');
+      if (axios.isAxiosError(error)) {
+        console.error('Axios error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          message: error.message
+        });
+      }
+      
+      message.info('Không thể tải danh sách hồ sơ. Vui lòng thử lại sau.');
     } finally {
       setLoadingProfiles(false);
     }
   };
 
   const fetchTimeSlots = async () => {
-    if (!selectedDate) return;
+    if (!selectedDate) {
+      console.warn('Không thể tải time slots: Chưa chọn ngày');
+      return;
+    }
     
     setLoadingTimeSlots(true);
     try {
-      // Trong môi trường thực tế, gọi API
-      // const response = await axiosInstance.get('/doctor-schedules/available-slots', {
-      //   params: {
-      //     date: selectedDate,
-      //     doctorId: selectedDoctor || undefined
-      //   }
-      // });
-      // if (response.data.success) {
-      //   setTimeSlots(response.data.data.map(slot => ({
-      //     id: slot._id,
-      //     time: slot.slotTime,
-      //     isAvailable: !slot.isBooked
-      //   })));
-      // }
+      console.log('Đang gọi API lấy danh sách slots với:', {
+        date: selectedDate,
+        doctorId: selectedDoctor || undefined
+      });
       
-      // Sử dụng mock data cho development
-      setTimeSlots(mockTimeSlots);
+      // URL endpoint được cập nhật theo cấu trúc API trong doctorRoutes.ts
+      let apiUrl = '/doctors/available-slots';
+      
+      // Nếu có chọn doctor cụ thể, sử dụng endpoint lấy slots của doctor đó
+      if (selectedDoctor) {
+        apiUrl = `/doctors/${selectedDoctor}/available-slots`;
+      }
+      
+      console.log('Gọi API URL:', apiUrl);
+      
+      // Gọi API từ backend
+      const response = await axiosInstance.get(apiUrl, {
+        params: {
+          date: selectedDate
+        }
+      });
+      
+      console.log('TimeSlots API response:', response);
+      
+      if (response && response.data) {
+        // Xử lý dữ liệu trả về từ API
+        // Kiểm tra cấu trúc dữ liệu từ API
+        let slotsData: any[] = [];
+        
+        if (response.data.data) {
+          // Cấu trúc { data: [...] }
+          slotsData = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          // Cấu trúc trả về trực tiếp là mảng
+          slotsData = response.data;
+        } else if (typeof response.data === 'object' && response.data.availableSlots) {
+          // Cấu trúc trả về có thể là object với availableSlots
+          slotsData = response.data.availableSlots;
+        } else if (response.data.availableDoctors && Array.isArray(response.data.availableDoctors)) {
+          // Cấu trúc từ endpoint /doctors/available
+          const firstDoctor = response.data.availableDoctors[0];
+          if (firstDoctor && firstDoctor.availableSlots) {
+            slotsData = firstDoctor.availableSlots;
+          }
+        }
+        
+        console.log('Extracted slots data:', slotsData);
+        
+        if (slotsData && slotsData.length > 0) {
+          // Map dữ liệu từ API sang cấu trúc của interface TimeSlot
+          const mappedTimeSlots = slotsData.map((slot: any) => ({
+            id: slot.slotId || slot._id || slot.id,
+            time: slot.slotTime || slot.time,
+            isAvailable: slot.status === "Free" || (!slot.isBooked && slot.isAvailable !== false)
+          }));
+          
+          console.log('Mapped time slots:', mappedTimeSlots);
+          setTimeSlots(mappedTimeSlots);
+          
+          // Nếu có slot khả dụng và chưa chọn slot nào, tự động chọn slot đầu tiên khả dụng
+          const availableSlot = mappedTimeSlots.find(slot => slot.isAvailable);
+          if (availableSlot && !selectedTimeSlot) {
+            setSelectedTimeSlot(availableSlot.id);
+          }
+          
+          return;
+        } else {
+          message.info('Không tìm thấy thời gian trống nào cho ngày này');
+        }
+      } else {
+        message.info('Không tìm thấy dữ liệu thời gian');
+      }
     } catch (error) {
       console.error('Error fetching time slots:', error);
-      message.error('Không thể tải danh sách slot thời gian');
+      if (axios.isAxiosError(error)) {
+        console.error('Axios error details:', {
+          status: error.response?.status,
+          data: error.response?.data,
+          config: error.config
+        });
+      }
+      
+      message.info('Không thể tải danh sách thời gian. Vui lòng thử lại sau.');
     } finally {
       setLoadingTimeSlots(false);
     }
@@ -506,6 +653,13 @@ const Booking: React.FC = () => {
   const handleSubmit = async (values: BookingFormData) => {
     setLoading(true);
     try {
+      console.log('Starting submission with values:', { 
+        selectedService, 
+        selectedPackage, 
+        selectedProfile, 
+        selectedTimeSlot 
+      });
+      
       // Kiểm tra các trường bắt buộc
       if (!selectedService && !selectedPackage) {
         throw new Error('Vui lòng chọn dịch vụ hoặc gói dịch vụ');
@@ -525,25 +679,6 @@ const Booking: React.FC = () => {
       
       if (typeLocation === 'home' && !values.address) {
         throw new Error('Vui lòng nhập địa chỉ khi chọn dịch vụ tại nhà');
-      }
-      
-      // Kiểm tra định dạng ID
-      const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
-      
-      if (!isValidObjectId(selectedProfile)) {
-        throw new Error('ID hồ sơ không hợp lệ');
-      }
-      
-      if (selectedService && !isValidObjectId(selectedService)) {
-        throw new Error('ID dịch vụ không hợp lệ');
-      }
-      
-      if (selectedPackage && !isValidObjectId(selectedPackage)) {
-        throw new Error('ID gói dịch vụ không hợp lệ');
-      }
-      
-      if (selectedTimeSlot && !isValidObjectId(selectedTimeSlot)) {
-        throw new Error('ID slot thời gian không hợp lệ');
       }
       
       // Create appointment using API
@@ -619,7 +754,16 @@ const Booking: React.FC = () => {
               {steps.map((step, index) => (
                 <div 
                   key={index} 
-                  className={`flex flex-col items-center ${index <= currentStep ? 'text-blue-600' : 'text-gray-400'}`}
+                  onClick={() => {
+                    // Chỉ cho phép chuyển đến các bước đã đi qua
+                    if (index <= currentStep) {
+                      setCurrentStep(index);
+                    } else if (index === 4) {
+                      // Trường hợp đặc biệt cho bước 5 (chọn hồ sơ bệnh nhân)
+                      message.info('Vui lòng hoàn thành các bước trước');
+                    }
+                  }}
+                  className={`flex flex-col items-center ${index <= currentStep ? 'text-blue-600 cursor-pointer' : 'text-gray-400'}`}
                 >
                   <div 
                     className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
@@ -648,27 +792,44 @@ const Booking: React.FC = () => {
             {currentStep === 0 && (
               <div>
                 <h2 className="text-2xl font-bold mb-6">Chọn dịch vụ</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {services.map(service => (
-                    <div 
-                      key={service.id}
-                      onClick={() => handleServiceSelect(service.id)}
-                      className="bg-gradient-to-br border border-gray-100 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md"
+                
+                {loadingServices ? (
+                  <div className="flex justify-center py-10">
+                    <Spin size="large" tip="Đang tải dịch vụ..." />
+                  </div>
+                ) : services.length === 0 ? (
+                  <div className="text-center py-10">
+                    <div className="text-gray-500 mb-4">Không tìm thấy dịch vụ nào</div>
+                    <button 
+                      onClick={() => fetchServices()}
+                      className="px-6 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700"
                     >
-                      <div className="flex items-center mb-4">
-                        <div className={`p-3 rounded-full bg-gradient-to-r ${service.gradient} text-white mr-4`}>
-                          {service.icon}
+                      Tải lại
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {services.map(service => (
+                      <div 
+                        key={service.id}
+                        onClick={() => handleServiceSelect(service.id)}
+                        className="bg-gradient-to-br border border-gray-100 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md"
+                      >
+                        <div className="flex items-center mb-4">
+                          <div className={`p-3 rounded-full bg-gradient-to-r ${service.gradient} text-white mr-4`}>
+                            {service.icon}
+                          </div>
+                          <h3 className="text-xl font-semibold">{service.name}</h3>
                         </div>
-                        <h3 className="text-xl font-semibold">{service.name}</h3>
+                        <p className="text-gray-600 mb-4">{service.description}</p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-500">{service.duration}</span>
+                          <span className="font-bold text-blue-600">{formatPrice(service.price.clinic)}</span>
+                        </div>
                       </div>
-                      <p className="text-gray-600 mb-4">{service.description}</p>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500">{service.duration}</span>
-                        <span className="font-bold text-blue-600">{formatPrice(service.price.clinic)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             
@@ -676,61 +837,78 @@ const Booking: React.FC = () => {
             {currentStep === 1 && (
               <div>
                 <h2 className="text-2xl font-bold mb-6">Chọn bác sĩ</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {doctors.map(doctor => (
+                
+                {loadingDoctors ? (
+                  <div className="flex justify-center py-10">
+                    <Spin size="large" tip="Đang tải danh sách bác sĩ..." />
+                  </div>
+                ) : doctors.length === 0 ? (
+                  <div className="text-center py-10">
+                    <div className="text-gray-500 mb-4">Không tìm thấy bác sĩ nào</div>
+                    <button 
+                      onClick={() => fetchDoctors()}
+                      className="px-6 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700"
+                    >
+                      Tải lại
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {doctors.map(doctor => (
+                      <div 
+                        key={doctor.id}
+                        onClick={() => {
+                          setSelectedDoctor(doctor.id);
+                          handleNext();
+                        }}
+                        className="border border-gray-200 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md"
+                      >
+                        <div className="flex items-center mb-4">
+                          <img 
+                            src={doctor.avatar} 
+                            alt={doctor.name} 
+                            className="w-16 h-16 rounded-full object-cover mr-4"
+                          />
+                          <div>
+                            <h3 className="text-xl font-semibold">{doctor.name}</h3>
+                            <p className="text-gray-600">{doctor.specialization}</p>
+                          </div>
+                        </div>
+                        <div className="mb-4">
+                          <div className="flex items-center mb-2">
+                            <span className="text-yellow-400 mr-1">★</span>
+                            <span className="font-medium">{doctor.rating}</span>
+                            <span className="text-gray-500 text-sm ml-2">({doctor.reviewCount} đánh giá)</span>
+                          </div>
+                          <p className="text-gray-600 text-sm">{doctor.bio}</p>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-500">{doctor.experience} năm kinh nghiệm</span>
+                          <span className={`px-3 py-1 rounded-full text-xs ${doctor.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {doctor.isAvailable ? 'Có sẵn' : 'Không có sẵn'}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Option to let system choose */}
                     <div 
-                      key={doctor.id}
                       onClick={() => {
-                        setSelectedDoctor(doctor.id);
+                        setSelectedDoctor('');
                         handleNext();
                       }}
-                      className="border border-gray-200 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md"
+                      className="border-2 border-dashed border-gray-300 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md flex flex-col items-center justify-center"
                     >
-                      <div className="flex items-center mb-4">
-                        <img 
-                          src={doctor.avatar} 
-                          alt={doctor.name} 
-                          className="w-16 h-16 rounded-full object-cover mr-4"
-                        />
-                        <div>
-                          <h3 className="text-xl font-semibold">{doctor.name}</h3>
-                          <p className="text-gray-600">{doctor.specialization}</p>
-                        </div>
+                      <div className="p-4 rounded-full bg-blue-100 text-blue-600 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
                       </div>
-                      <div className="mb-4">
-                        <div className="flex items-center mb-2">
-                          <span className="text-yellow-400 mr-1">★</span>
-                          <span className="font-medium">{doctor.rating}</span>
-                          <span className="text-gray-500 text-sm ml-2">({doctor.reviewCount} đánh giá)</span>
-                        </div>
-                        <p className="text-gray-600 text-sm">{doctor.bio}</p>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500">{doctor.experience} năm kinh nghiệm</span>
-                        <span className={`px-3 py-1 rounded-full text-xs ${doctor.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {doctor.isAvailable ? 'Có sẵn' : 'Không có sẵn'}
-                        </span>
-                      </div>
+                      <h3 className="text-xl font-semibold text-center">Để hệ thống chọn</h3>
+                      <p className="text-gray-600 text-center mt-2">Chúng tôi sẽ chọn bác sĩ phù hợp nhất với nhu cầu của bạn</p>
                     </div>
-                  ))}
-                  
-                  {/* Option to let system choose */}
-                  <div 
-                    onClick={() => {
-                      setSelectedDoctor('');
-                      handleNext();
-                    }}
-                    className="border-2 border-dashed border-gray-300 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md flex flex-col items-center justify-center"
-                  >
-                    <div className="p-4 rounded-full bg-blue-100 text-blue-600 mb-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-semibold text-center">Để hệ thống chọn</h3>
-                    <p className="text-gray-600 text-center mt-2">Chúng tôi sẽ chọn bác sĩ phù hợp nhất với nhu cầu của bạn</p>
                   </div>
-                </div>
+                )}
               </div>
             )}
             
@@ -833,22 +1011,39 @@ const Booking: React.FC = () => {
                 {selectedDate && (
                   <div>
                     <h3 className="text-lg font-semibold mb-4">Chọn giờ</h3>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                      {timeSlots.map(slot => (
-                        <div 
-                          key={slot.id}
-                          onClick={() => slot.isAvailable && setSelectedTimeSlot(slot.id)}
-                          className={`text-center py-2 px-3 rounded-lg cursor-pointer transition
-                            ${selectedTimeSlot === slot.id 
-                              ? 'bg-blue-600 text-white' 
-                              : slot.isAvailable 
-                                ? 'hover:bg-blue-50 border border-gray-200' 
-                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                    
+                    {loadingTimeSlots ? (
+                      <div className="flex justify-center py-5">
+                        <Spin size="default" tip="Đang tải thời gian trống..." />
+                      </div>
+                    ) : timeSlots.length === 0 ? (
+                      <div className="text-center py-5">
+                        <div className="text-gray-500 mb-2">Không tìm thấy thời gian trống</div>
+                        <button 
+                          onClick={() => fetchTimeSlots()}
+                          className="px-4 py-1 bg-blue-600 rounded-md text-white hover:bg-blue-700 text-sm"
                         >
-                          {slot.time}
-                        </div>
-                      ))}
-                    </div>
+                          Tải lại
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                        {timeSlots.map(slot => (
+                          <div 
+                            key={slot.id}
+                            onClick={() => slot.isAvailable && setSelectedTimeSlot(slot.id)}
+                            className={`text-center py-2 px-3 rounded-lg cursor-pointer transition
+                              ${selectedTimeSlot === slot.id 
+                                ? 'bg-blue-600 text-white' 
+                                : slot.isAvailable 
+                                  ? 'hover:bg-blue-50 border border-gray-200' 
+                                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                          >
+                            {slot.time}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -870,50 +1065,67 @@ const Booking: React.FC = () => {
             {currentStep === 4 && (
               <div>
                 <h2 className="text-2xl font-bold mb-6">Chọn hồ sơ bệnh nhân</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {userProfiles.map(profile => (
-                    <div 
-                      key={profile.id}
-                      onClick={() => handleProfileSelect(profile.id)}
-                      className="border border-gray-200 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md"
-                    >
-                      <div className="flex items-center mb-4">
-                        <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-semibold">{profile.fullName}</h3>
-                          <p className="text-gray-600">{profile.relationship === 'self' ? 'Bản thân' : 'Người thân'}</p>
-                        </div>
-                        {profile.isDefault && (
-                          <span className="ml-auto px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full">Mặc định</span>
-                        )}
-                      </div>
-                      <div className="space-y-2 text-sm text-gray-600">
-                        <p>SĐT: {profile.phone}</p>
-                        <p>Email: {profile.email}</p>
-                        <p>Ngày sinh: {new Date(profile.birthDate).toLocaleDateString('vi-VN')}</p>
-                        <p>Giới tính: {profile.gender === 'male' ? 'Nam' : 'Nữ'}</p>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Create new profile */}
-                  <div 
-                    onClick={() => handleProfileSelect('new')}
-                    className="border-2 border-dashed border-gray-300 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md flex flex-col items-center justify-center"
-                  >
-                    <div className="p-4 rounded-full bg-green-100 text-green-600 mb-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-semibold text-center">Tạo hồ sơ mới</h3>
-                    <p className="text-gray-600 text-center mt-2">Thêm thông tin cho người thân hoặc bản thân</p>
+                
+                {loadingProfiles ? (
+                  <div className="flex justify-center py-10">
+                    <Spin size="large" tip="Đang tải hồ sơ..." />
                   </div>
-                </div>
+                ) : userProfiles.length === 0 ? (
+                  <div className="text-center py-10">
+                    <div className="text-gray-500 mb-4">Không có hồ sơ bệnh nhân nào</div>
+                    <button 
+                      onClick={() => handleProfileSelect('new')}
+                      className="px-6 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700"
+                    >
+                      Tạo hồ sơ mới
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {userProfiles.map(profile => (
+                      <div 
+                        key={profile.id}
+                        onClick={() => handleProfileSelect(profile.id)}
+                        className="border border-gray-200 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md"
+                      >
+                        <div className="flex items-center mb-4">
+                          <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-semibold">{profile.fullName}</h3>
+                            <p className="text-gray-600">{profile.relationship === 'self' ? 'Bản thân' : 'Người thân'}</p>
+                          </div>
+                          {profile.isDefault && (
+                            <span className="ml-auto px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full">Mặc định</span>
+                          )}
+                        </div>
+                        <div className="space-y-2 text-sm text-gray-600">
+                          <p>SĐT: {profile.phone || 'Chưa có'}</p>
+                          <p>Email: {profile.email || 'Chưa có'}</p>
+                          <p>Ngày sinh: {profile.birthDate ? new Date(profile.birthDate).toLocaleDateString('vi-VN') : 'Chưa có'}</p>
+                          <p>Giới tính: {profile.gender === 'male' ? 'Nam' : profile.gender === 'female' ? 'Nữ' : 'Khác'}</p>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Create new profile */}
+                    <div 
+                      onClick={() => handleProfileSelect('new')}
+                      className="border-2 border-dashed border-gray-300 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md flex flex-col items-center justify-center"
+                    >
+                      <div className="p-4 rounded-full bg-green-100 text-green-600 mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-semibold text-center">Tạo hồ sơ mới</h3>
+                      <p className="text-gray-600 text-center mt-2">Thêm thông tin cho người thân hoặc bản thân</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             
@@ -921,6 +1133,22 @@ const Booking: React.FC = () => {
             {currentStep === 5 && (
               <div>
                 <h2 className="text-2xl font-bold mb-6">Thông tin chi tiết</h2>
+                
+                {/* Hiển thị thông tin profile đã chọn */}
+                {selectedProfile && (
+                  <div className="bg-blue-50 p-4 rounded-lg mb-6">
+                    <h3 className="text-lg font-semibold mb-2">Thông tin bệnh nhân:</h3>
+                    {userProfiles.map(profile => profile.id === selectedProfile && (
+                      <div key={profile.id} className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <p><span className="font-medium">Họ tên:</span> {profile.fullName}</p>
+                        <p><span className="font-medium">Số điện thoại:</span> {profile.phone || 'Chưa có'}</p>
+                        <p><span className="font-medium">Email:</span> {profile.email || 'Chưa có'}</p>
+                        <p><span className="font-medium">Ngày sinh:</span> {profile.birthDate ? new Date(profile.birthDate).toLocaleDateString('vi-VN') : 'Chưa có'}</p>
+                        <p><span className="font-medium">Giới tính:</span> {profile.gender === 'male' ? 'Nam' : profile.gender === 'female' ? 'Nữ' : 'Khác'}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 
                 <Form
                   form={form}
@@ -1041,6 +1269,39 @@ const Booking: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Giá dịch vụ:</span>
                       <span className="font-medium text-blue-600">{formatPrice(getCurrentPrice())}</span>
+                    </div>
+
+                    {/* Thêm thông tin hồ sơ bệnh nhân */}
+                    <div className="border-t border-gray-200 mt-4 pt-4">
+                      <h4 className="font-semibold mb-2">Thông tin bệnh nhân:</h4>
+                      {selectedProfile && (
+                        <div className="space-y-2">
+                          {userProfiles.map(profile => profile.id === selectedProfile && (
+                            <React.Fragment key={profile.id}>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Họ tên:</span>
+                                <span className="font-medium">{profile.fullName}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Số điện thoại:</span>
+                                <span className="font-medium">{profile.phone || 'Chưa có'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Email:</span>
+                                <span className="font-medium">{profile.email || 'Chưa có'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Ngày sinh:</span>
+                                <span className="font-medium">{profile.birthDate ? new Date(profile.birthDate).toLocaleDateString('vi-VN') : 'Chưa có'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">Giới tính:</span>
+                                <span className="font-medium">{profile.gender === 'male' ? 'Nam' : profile.gender === 'female' ? 'Nữ' : 'Khác'}</span>
+                              </div>
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
