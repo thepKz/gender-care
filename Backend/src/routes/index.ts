@@ -10,7 +10,16 @@ import serviceRoutes from "./serviceRoutes";
 
 import servicePackageRoutes from "./servicePackageRoutes";
 
+import testCategoriesRoutes from "./testCategoriesRoutes";
+
+import appointmentTestsRoutes from "./appointmentTestsRoutes";
+
+import testResultsRoutes from "./testResultsRoutes";
+
+import testResultItemsRoutes from "./testResultItemsRoutes";
+
 export {
-    authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes
+    authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes,
+    testCategoriesRoutes, appointmentTestsRoutes, testResultsRoutes, testResultItemsRoutes
 };
 
