@@ -10,6 +10,9 @@ router.get('/', doctorController.getAll);
 // Xem thông tin bác sĩ theo ID - tất cả mọi người đều được phép (kể cả guest)  
 router.get('/:id', doctorController.getById);
 
+// Xem thông tin liên hệ bác sĩ - chỉ staff/admin được phép
+router.get('/:id/contact', verifyToken, verifyStaff, doctorController.getContactInfo);
+
 // Tạo bác sĩ mới - chỉ admin được phép
 router.post('/', verifyToken, verifyAdmin, doctorController.create);
 

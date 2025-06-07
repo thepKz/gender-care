@@ -3,9 +3,22 @@ import * as doctorService from '../services/doctorService';
 
 export const getAll = async (req: Request, res: Response) => {
   try {
-    const doctors = await doctorService.getAllDoctors();
-    res.json(doctors);
+    // Xử lý pagination parameters
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    
+    // Validate pagination parameters
+    if (page < 1) {
+      return res.status(400).json({ message: 'Page phải lớn hơn 0' });
+    }
+    if (limit < 1 || limit > 50) {
+      return res.status(400).json({ message: 'Limit phải từ 1-50' });
+    }
+    
+    const result = await doctorService.getAllDoctors(page, limit);
+    res.json(result);
   } catch (error) {
+    console.error('Error getting doctors:', error);
     res.status(500).json({ message: 'Lỗi server khi lấy danh sách bác sĩ' });
   }
 };
@@ -15,7 +28,13 @@ export const getById = async (req: Request, res: Response) => {
     const doctor = await doctorService.getDoctorById(req.params.id);
     if (!doctor) return res.status(404).json({ message: 'Không tìm thấy bác sĩ' });
     res.json(doctor);
-  } catch (error) {
+  } catch (error: any) {
+    // Xử lý lỗi validation ObjectId
+    if (error.message && error.message.includes('ID bác sĩ không hợp lệ')) {
+      return res.status(400).json({ message: error.message });
+    }
+    
+    console.error('Error getting doctor by ID:', error);
     res.status(500).json({ message: 'Lỗi server khi lấy thông tin bác sĩ' });
   }
 };
@@ -81,5 +100,21 @@ export const remove = async (req: Request, res: Response) => {
     res.json({ message: 'Xóa bác sĩ thành công' });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server khi xóa bác sĩ' });
+  }
+};
+
+export const getContactInfo = async (req: Request, res: Response) => {
+  try {
+    const doctor = await doctorService.getDoctorContactInfo(req.params.id);
+    if (!doctor) return res.status(404).json({ message: 'Không tìm thấy bác sĩ' });
+    res.json(doctor);
+  } catch (error: any) {
+    // Xử lý lỗi validation ObjectId
+    if (error.message && error.message.includes('ID bác sĩ không hợp lệ')) {
+      return res.status(400).json({ message: error.message });
+    }
+    
+    console.error('Error getting doctor contact info:', error);
+    res.status(500).json({ message: 'Lỗi server khi lấy thông tin liên hệ bác sĩ' });
   }
 };

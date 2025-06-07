@@ -8,8 +8,41 @@ const isValidObjectId = (id: string): boolean => {
   return mongoose.Types.ObjectId.isValid(id);
 };
 
-export const getAllDoctors = () => Doctor.find().populate('userId', 'fullName email avatar phone gender address');
-export const getDoctorById = (id: string) => Doctor.findById(id).populate('userId', 'fullName email avatar phone gender address');
+// API public - ẩn email và phone để bảo vệ privacy
+export const getAllDoctors = async (page: number = 1, limit: number = 10) => {
+  const skip = (page - 1) * limit;
+  
+  // Thực hiện song song để tối ưu performance
+  const [doctors, total] = await Promise.all([
+    Doctor.find()
+      .populate('userId', 'fullName avatar gender address') // Bỏ email và phone
+      .limit(limit)
+      .skip(skip)
+      .sort({ createdAt: -1 }), // Sắp xếp theo thời gian tạo
+    Doctor.countDocuments()
+  ]);
+  
+  return {
+    doctors,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+      hasNext: page < Math.ceil(total / limit),
+      hasPrev: page > 1
+    }
+  };
+};
+
+export const getDoctorById = (id: string) => {
+  // Validate ObjectId format
+  if (!isValidObjectId(id)) {
+    throw new Error('ID bác sĩ không hợp lệ');
+  }
+  
+  return Doctor.findById(id).populate('userId', 'fullName avatar gender address'); // Bỏ email và phone
+};
 
 // Sửa createDoctor để tự tạo user account từ doctorInfo
 export const createDoctor = async (doctorInfo: any) => {
@@ -62,8 +95,8 @@ export const createDoctor = async (doctorInfo: any) => {
       ...pureDoctorlnfo
     });
 
-    // Populate user info để trả về
-    const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'fullName email avatar phone gender address');
+    // Populate user info để trả về (ẩn email/phone trong response)
+    const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'fullName avatar gender address');
     
     // Log thông tin account mới tạo cho admin
     console.log(`✅ Đã tạo bác sĩ mới: ${doctorInfo.fullName}`);
@@ -85,7 +118,17 @@ export const updateDoctor = (id: string, data: any) => {
     console.warn(`Cố gắng cập nhật userId cho doctor ${id}, đã bị loại bỏ`);
   }
   
-  return Doctor.findByIdAndUpdate(id, updateData, { new: true }).populate('userId', 'fullName email avatar phone gender address');
+  return Doctor.findByIdAndUpdate(id, updateData, { new: true }).populate('userId', 'fullName avatar gender address');
 };
 
 export const deleteDoctor = (id: string) => Doctor.findByIdAndDelete(id);
+
+// Service riêng để lấy contact info (chỉ cho admin/staff hoặc khi có appointment)
+export const getDoctorContactInfo = (id: string) => {
+  // Validate ObjectId format
+  if (!isValidObjectId(id)) {
+    throw new Error('ID bác sĩ không hợp lệ');
+  }
+  
+  return Doctor.findById(id).populate('userId', 'fullName email phone avatar gender address');
+};
