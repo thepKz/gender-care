@@ -1054,7 +1054,10 @@ paths:
     delete:
       tags:
         - Doctor
-      summary: Xóa bác sĩ
+      summary: Xóa bác sĩ (MANAGER/ADMIN ONLY)
+      description: Chỉ Manager hoặc Admin mới có quyền xóa bác sĩ
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: id
@@ -1064,6 +1067,10 @@ paths:
       responses:
         '200':
           description: Đã xóa bác sĩ
+        '401':
+          description: Chưa xác thực
+        '403':
+          description: Không có quyền (chỉ Manager/Admin)
 
   # ===== DOCTOR SCHEDULE APIs =====
   
@@ -1225,7 +1232,7 @@ paths:
     get:
       tags:
         - Doctor Schedules
-      summary: Lấy thống kê tất cả bác sĩ (STAFF ONLY)
+      summary: Lấy thống kê tất cả bác sĩ (STAFF/MANAGER/ADMIN)
       description: Lấy thống kê tổng hợp của tất cả bác sĩ bao gồm số slot đã đặt, vắng mặt và số ngày nghỉ
       security:
         - bearerAuth: []
@@ -1270,7 +1277,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Không có quyền (chỉ staff)
+          description: Không có quyền (chỉ staff/manager/admin)
           content:
             application/json:
               schema:
@@ -1286,8 +1293,8 @@ paths:
     get:
       tags:
         - Doctor Schedules
-      summary: Staff xem tất cả bác sĩ và slots theo ngày (STAFF ONLY)
-      description: Staff xem tất cả bác sĩ và slots với mọi status (Free, Booked, Absent) trong ngày cụ thể
+      summary: Staff xem tất cả bác sĩ và slots theo ngày (STAFF/MANAGER/ADMIN)
+      description: Staff/Manager/Admin xem tất cả bác sĩ và slots với mọi status (Free, Booked, Absent) trong ngày cụ thể
       security:
         - bearerAuth: []
       parameters:
@@ -1359,8 +1366,8 @@ paths:
     get:
       tags:
         - Doctor Schedules
-      summary: Staff xem tất cả lịch làm việc của bác sĩ (STAFF ONLY)
-      description: Staff xem tất cả lịch làm việc với mọi status (Free, Booked, Absent)
+      summary: Staff xem tất cả lịch làm việc của bác sĩ (STAFF/MANAGER/ADMIN)
+      description: Staff/Manager/Admin xem tất cả lịch làm việc với mọi status (Free, Booked, Absent)
       security:
         - bearerAuth: []
       parameters:
@@ -1406,8 +1413,8 @@ paths:
     get:
       tags:
         - Doctor Schedules
-      summary: Staff xem tất cả slots theo ngày (STAFF ONLY)
-      description: Staff xem tất cả slots với mọi status (Free, Booked, Absent) của bác sĩ trong ngày cụ thể
+      summary: Staff xem tất cả slots theo ngày (STAFF/MANAGER/ADMIN)
+      description: Staff/Manager/Admin xem tất cả slots với mọi status (Free, Booked, Absent) của bác sĩ trong ngày cụ thể
       security:
         - bearerAuth: []
       parameters:
@@ -1463,7 +1470,7 @@ paths:
     get:
       tags:
         - Doctor Schedules
-      summary: Lấy thống kê bác sĩ (STAFF ONLY)
+      summary: Lấy thống kê bác sĩ (STAFF/MANAGER/ADMIN)
       description: Lấy thống kê chi tiết về bác sĩ bao gồm số slot đã đặt, vắng mặt và số ngày nghỉ
       security:
         - bearerAuth: []
@@ -1516,8 +1523,8 @@ paths:
     post:
       tags:
         - Doctor Schedules
-      summary: Tạo lịch làm việc cho bác sĩ (STAFF ONLY)
-      description: Staff tạo lịch làm việc cho bác sĩ theo ngày - tự động tạo 8 slots cố định với status Free
+      summary: Tạo lịch làm việc cho bác sĩ (STAFF/MANAGER/ADMIN)
+      description: Staff/Manager/Admin tạo lịch làm việc cho bác sĩ theo ngày - tự động tạo 8 slots cố định với status Free
       security:
         - bearerAuth: []
       parameters:
@@ -1576,7 +1583,7 @@ paths:
     put:
       tags:
         - Doctor Schedules
-      summary: Cập nhật trạng thái slot (STAFF ONLY)
+      summary: Cập nhật trạng thái slot (STAFF/MANAGER/ADMIN)
       description: Cập nhật status của slot thời gian cụ thể (Free/Booked/Absent)
       security:
         - bearerAuth: []
@@ -1647,8 +1654,8 @@ paths:
     delete:
       tags:
         - Doctor Schedules
-      summary: Xóa lịch làm việc của một ngày (STAFF ONLY)
-      description: Set tất cả slots trong ngày thành status Absent thay vì xóa cứng khỏi database
+      summary: Xóa lịch làm việc của một ngày (MANAGER ONLY)
+      description: Manager set tất cả slots trong ngày thành status Absent thay vì xóa cứng khỏi database
       security:
         - bearerAuth: []
       parameters:
@@ -1706,8 +1713,8 @@ paths:
     post:
       tags:
         - Doctor Schedules
-      summary: Book slot cho customer (STAFF ONLY)
-      description: Staff book slot cho customer khi nhận cuộc gọi đặt lịch tư vấn - chuyển slot từ Free thành Booked
+      summary: Book slot cho customer (MANAGER ONLY)
+      description: Manager book slot cho customer khi nhận cuộc gọi đặt lịch tư vấn - chuyển slot từ Free thành Booked
       security:
         - bearerAuth: []
       parameters:
@@ -1777,7 +1784,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Không có quyền (chỉ staff)
+          description: Không có quyền (chỉ manager)
           content:
             application/json:
               schema:
@@ -1790,8 +1797,8 @@ paths:
     get:
       tags:
         - Doctor QA
-      summary: "[STAFF] Tìm bác sĩ có ít lịch đặt nhất"
-      description: Staff tìm bác sĩ có số slot đã đặt ít nhất để tự động phân công
+      summary: "[STAFF/MANAGER/ADMIN] Tìm bác sĩ có ít lịch đặt nhất"
+      description: Staff/Manager/Admin tìm bác sĩ có số slot đã đặt ít nhất để tự động phân công
       security:
         - bearerAuth: []
       responses:
@@ -1819,7 +1826,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Không có quyền (chỉ staff)
+          description: Không có quyền (chỉ staff/manager/admin)
           content:
             application/json:
               schema:
@@ -1894,8 +1901,8 @@ paths:
     get:
       tags:
         - Doctor QA
-      summary: "[STAFF] Lấy tất cả yêu cầu tư vấn"
-      description: Staff xem tất cả yêu cầu tư vấn trong hệ thống, có thể filter theo status
+      summary: "[STAFF/MANAGER/ADMIN] Lấy tất cả yêu cầu tư vấn"
+      description: Staff/Manager/Admin xem tất cả yêu cầu tư vấn trong hệ thống, có thể filter theo status
       security:
         - bearerAuth: []
       parameters:
@@ -2242,8 +2249,8 @@ paths:
     delete:
       tags:
         - Doctor QA
-      summary: "[STAFF] Xóa yêu cầu tư vấn"
-      description: Staff xóa yêu cầu tư vấn (chỉ những yêu cầu chưa thanh toán hoặc đã hủy)
+      summary: "[STAFF/MANAGER/ADMIN] Xóa yêu cầu tư vấn"
+      description: Staff/Manager/Admin xóa yêu cầu tư vấn (chỉ những yêu cầu chưa thanh toán hoặc đã hủy)
       security:
         - bearerAuth: []
       parameters:
@@ -2273,7 +2280,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Không có quyền (chỉ staff)
+          description: Không có quyền (chỉ staff/manager/admin)
           content:
             application/json:
               schema:
@@ -2283,8 +2290,8 @@ paths:
     post:
       tags:
         - Doctor Schedules
-      summary: Tạo lịch hàng loạt cho nhiều ngày cụ thể (STAFF ONLY)
-      description: Staff tạo lịch làm việc cho bác sĩ trong nhiều ngày cùng lúc - mỗi ngày sẽ tự động tạo 8 slots với status Free
+      summary: Tạo lịch hàng loạt cho nhiều ngày cụ thể (MANAGER ONLY)
+      description: Manager tạo lịch làm việc cho bác sĩ trong nhiều ngày cùng lúc - mỗi ngày sẽ tự động tạo 8 slots với status Free
       security:
         - bearerAuth: []
       parameters:
@@ -2382,8 +2389,8 @@ paths:
     post:
       tags:
         - Doctor Schedules
-      summary: Tạo lịch hàng loạt cho cả tháng - trừ T7, CN (STAFF ONLY)
-      description: Staff tạo lịch làm việc cho bác sĩ trong cả tháng - tự động loại bỏ thứ 7, chủ nhật và tạo lịch cho các ngày làm việc
+      summary: Tạo lịch hàng loạt cho cả tháng - trừ T7, CN (MANAGER ONLY)
+      description: Manager tạo lịch làm việc cho bác sĩ trong cả tháng - tự động loại bỏ thứ 7, chủ nhật và tạo lịch cho các ngày làm việc
       security:
         - bearerAuth: []
       parameters:
@@ -2585,8 +2592,8 @@ paths:
     post:
       tags:
         - Medical Records
-      summary: "[DOCTOR/STAFF] Tạo hồ sơ khám bệnh"
-      description: Doctor/Staff tạo hồ sơ khám bệnh sau khi khám cho bệnh nhân. Có thể chọn thuốc từ danh sách medicines master data.
+      summary: "[DOCTOR/STAFF/MANAGER/ADMIN] Tạo hồ sơ khám bệnh"
+      description: Doctor/Staff/Manager/Admin tạo hồ sơ khám bệnh sau khi khám cho bệnh nhân. Có thể chọn thuốc từ danh sách medicines master data.
       security:
         - bearerAuth: []
       requestBody:
@@ -3026,8 +3033,8 @@ paths:
     post:
       tags:
         - Medicines
-      summary: "[MANAGER] Tạo thuốc mới"
-      description: Chỉ Manager có quyền tạo thuốc trong master data
+      summary: "[MANAGER/ADMIN] Tạo thuốc mới"
+      description: Chỉ Manager hoặc Admin có quyền tạo thuốc trong master data
       security:
         - bearerAuth: []
       requestBody:
@@ -3077,8 +3084,8 @@ paths:
     get:
       tags:
         - Medicines
-      summary: "[DOCTOR/STAFF/MANAGER] Lấy danh sách thuốc"
-      description: Doctor/Staff xem thuốc đang hoạt động để kê đơn, Manager xem tất cả thuốc để quản lý. Customer KHÔNG được xem - họ chỉ xem thuốc từ medical records của mình.
+      summary: "[DOCTOR/STAFF/MANAGER/ADMIN] Lấy danh sách thuốc"
+      description: Doctor/Staff/Manager/Admin xem thuốc đang hoạt động để kê đơn và quản lý. Customer KHÔNG được xem - họ chỉ xem thuốc từ medical records của mình.
       security:
         - bearerAuth: []
       parameters:
@@ -3129,7 +3136,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '403':
-          description: Không có quyền (chỉ Doctor/Staff/Manager)
+          description: Không có quyền (chỉ Doctor/Staff/Manager/Admin)
           content:
             application/json:
               schema:
@@ -3167,8 +3174,8 @@ paths:
     put:
       tags:
         - Medicines
-      summary: "[MANAGER] Cập nhật thuốc"
-      description: Chỉ Manager có quyền cập nhật thông tin thuốc
+      summary: "[MANAGER/ADMIN] Cập nhật thuốc"
+      description: Chỉ Manager hoặc Admin có quyền cập nhật thông tin thuốc
       security:
         - bearerAuth: []
       parameters:
@@ -3214,8 +3221,8 @@ paths:
     patch:
       tags:
         - Medicines
-      summary: "[MANAGER] Kích hoạt/vô hiệu hóa thuốc"
-      description: Manager thay đổi trạng thái hoạt động của thuốc
+      summary: "[MANAGER/ADMIN] Kích hoạt/vô hiệu hóa thuốc"
+      description: Manager hoặc Admin thay đổi trạng thái hoạt động của thuốc
       security:
         - bearerAuth: []
       parameters:
@@ -3527,7 +3534,7 @@ paths:
     get:
       tags:
         - Medication Reminders
-      summary: "[STAFF] Xem tất cả nhắc nhở"
+      summary: "[STAFF/MANAGER/ADMIN] Xem tất cả nhắc nhở"
       description: Staff/Manager/Admin xem tổng quan tất cả nhắc nhở trong hệ thống
       security:
         - bearerAuth: []
