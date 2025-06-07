@@ -192,13 +192,42 @@ export const createDoctorSchedule = async (doctorId: string, scheduleData: { dat
       throw new Error('Vui lòng cung cấp ngày làm việc');
     }
 
-    const workDate = new Date(date);
+    // 🔥 TIMEZONE FIX: Sử dụng local time cho Việt Nam (UTC+7)
+    const [year, month, day] = date.split('-').map(Number);
+    const workDate = new Date(year, month - 1, day); // Local time (UTC+7)
     
-    // Check if it's weekend (Saturday=6, Sunday=0)
+    // Method 1: getDay() với local time 
     const dayOfWeek = workDate.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      throw new Error(`Không thể tạo lịch cho ngày cuối tuần: ${date} (${dayOfWeek === 0 ? 'Chủ nhật' : 'Thứ 7'})`);
+    
+    // Method 2: Tạo Date với timezone VN rõ ràng
+    const workDateVN = new Date(date + 'T00:00:00.000+07:00');
+    const dayOfWeekVN = workDateVN.getDay();
+    
+    // Method 3: toLocaleDateString cho VN
+    const dayName = workDate.toLocaleDateString('vi-VN', { 
+      weekday: 'long',
+      timeZone: 'Asia/Ho_Chi_Minh' 
+    });
+    
+    // 🔍 TIMEZONE DEBUG: Log tất cả methods
+    console.log(`🔥 [TIMEZONE FIX] Processing date: ${date}`);
+    console.log(`🔥 [Local Time] getDay(): ${dayOfWeek} (0=CN, 1=T2, 2=T3, 3=T4, 4=T5, 5=T6, 6=T7)`);
+    console.log(`🔥 [VN Timezone] getDay(): ${dayOfWeekVN}`);
+    console.log(`🔥 [VN Locale] dayName: ${dayName}`);
+    
+    // 🔄 BACK TO T2-T6: Chỉ cho phép Monday-Friday (1-5)
+    const isWeekend = (dayOfWeek === 0) || (dayOfWeek === 6) || (dayName.includes('Chủ nhật')) || (dayName.includes('Thứ Bảy'));
+    
+    console.log(`🔥 [DECISION] Is Weekend? ${isWeekend} (dayOfWeek: ${dayOfWeek})`);
+    console.log(`🔥 [DECISION] Should create? ${!isWeekend} (T2-T6 only)`);
+    
+    if (isWeekend) {
+      const dayType = dayOfWeek === 0 ? 'Chủ nhật' : 'Thứ 7';
+      throw new Error(`🚫 Không thể tạo lịch cho cuối tuần: ${date} (${dayType})`);
     }
+    
+    // 🎯 CHỈ CHO PHÉP T2-T6 (Monday-Friday)
+    console.log(`✅ [SUCCESS] Creating schedule for ${dayName} (${date}) - Working day T2-T6`);
     
     // Tìm schedule hiện tại của doctor
     let doctorSchedule = await DoctorSchedules.findOne({ doctorId });
@@ -661,13 +690,27 @@ export const createBulkDoctorScheduleForDays = async (doctorId: string, dates: s
           continue;
         }
 
-        // Check if it's weekend (Saturday=6, Sunday=0)
-        const dayOfWeek = workDate.getDay();
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
+        // 🔥 TIMEZONE FIX: Local time cho bulk days
+        const [yearBulkDays, monthBulkDays, dayBulkDays] = dateStr.split('-').map(Number);
+        const localDateBulkDays = new Date(yearBulkDays, monthBulkDays - 1, dayBulkDays);
+        const dayOfWeekBulkDays = localDateBulkDays.getDay();
+        const dayNameBulkDays = localDateBulkDays.toLocaleDateString('vi-VN', { 
+          weekday: 'long',
+          timeZone: 'Asia/Ho_Chi_Minh' 
+        });
+        const isWeekendBulkDays = (dayOfWeekBulkDays === 0) || (dayOfWeekBulkDays === 6) || (dayNameBulkDays.includes('Chủ nhật')) || (dayNameBulkDays.includes('Thứ Bảy'));
+        
+        console.log(`📅 BulkDays checking ${dateStr}: dayOfWeek=${dayOfWeekBulkDays}, dayName=${dayNameBulkDays}, isWeekend=${isWeekendBulkDays}`);
+        
+        if (isWeekendBulkDays) {
           weekendDates.push(dateStr);
-          errors.push(`Không thể tạo lịch cho ngày cuối tuần: ${dateStr} (${dayOfWeek === 0 ? 'Chủ nhật' : 'Thứ 7'})`);
+          const dayType = dayOfWeekBulkDays === 0 ? 'Chủ nhật' : 'Thứ 7';
+          errors.push(`🚫 Không thể tạo lịch cho cuối tuần: ${dateStr} (${dayType})`);
+          console.log(`🚫 BulkDays skipped ${dateStr} (${dayNameBulkDays}) - Weekend`);
           continue;
         }
+        
+        console.log(`✅ BulkDays processing ${dateStr} (${dayNameBulkDays}) - Working day T2-T6`);
 
         // Check if schedule already exists for this date
         const existingSchedule = await DoctorSchedules.findOne({ 
@@ -729,15 +772,32 @@ export const createBulkDoctorScheduleForMonth = async (doctorId: string, month: 
 
     // Generate working days in month (exclude Saturday=6, Sunday=0)
     const workingDays = [];
-    const daysInMonth = new Date(year, month, 0).getDate();
+    // FIX: Để lấy đúng ngày của tháng, cần dùng month-1 cho cả daysInMonth và date creation
+    const daysInMonth = new Date(year, month, 0).getDate(); // này đúng rồi: month=6 -> ngày cuối tháng 6
 
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month - 1, day); // month-1 vì JS Date bắt đầu từ 0
+      // FIX: Use string-based date creation to avoid timezone issues
+      const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+      const date = new Date(dateStr);
       const dayOfWeek = date.getDay();
       
-      // Exclude Saturday (6) and Sunday (0)
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        workingDays.push(date.toISOString().split('T')[0]); // YYYY-MM-DD format
+      // 🔥 TIMEZONE FIX: Sử dụng local time cho bulk month  
+      const [yearLocal, monthLocal, dayLocal] = dateStr.split('-').map(Number);
+      const localDate = new Date(yearLocal, monthLocal - 1, dayLocal);
+      const dayOfWeekLocal = localDate.getDay();
+      const dayName = localDate.toLocaleDateString('vi-VN', { 
+        weekday: 'long',
+        timeZone: 'Asia/Ho_Chi_Minh' 
+      });
+      const isWeekend = (dayOfWeekLocal === 0) || (dayOfWeekLocal === 6) || (dayName.includes('Chủ nhật')) || (dayName.includes('Thứ Bảy'));
+      
+      console.log(`📅 Checking ${dateStr}: dayOfWeek=${dayOfWeekLocal}, dayName=${dayName}, isWeekend=${isWeekend}`);
+      
+      if (!isWeekend) {
+        workingDays.push(dateStr);
+        console.log(`✅ Added ${dateStr} (${dayName}) to working days (T2-T6)`);
+      } else {
+        console.log(`🚫 Skipped ${dateStr} (${dayName}) - Weekend (T7/CN)`);
       }
     }
 
@@ -788,12 +848,24 @@ export const createBulkDoctorSchedule = async (doctorId: string, scheduleData: {
       if (isNaN(workDate.getTime()) || !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
         invalidDates.push(dateStr);
       } else {
-        // Check if it's weekend (Saturday=6, Sunday=0)
-        const dayOfWeek = workDate.getDay();
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-          weekendDates.push(dateStr);
+        // 🔥 TIMEZONE FIX: Local time cho bulk dates
+        const [yearBulk, monthBulk, dayBulk] = dateStr.split('-').map(Number);
+        const localDateBulk = new Date(yearBulk, monthBulk - 1, dayBulk);
+        const dayOfWeekBulk = localDateBulk.getDay();
+        const dayNameBulk = localDateBulk.toLocaleDateString('vi-VN', { 
+          weekday: 'long',
+          timeZone: 'Asia/Ho_Chi_Minh' 
+        });
+        const isWeekendBulk = (dayOfWeekBulk === 0) || (dayOfWeekBulk === 6) || (dayNameBulk.includes('Chủ nhật')) || (dayNameBulk.includes('Thứ Bảy'));
+        
+        console.log(`📅 Bulk checking ${dateStr}: dayOfWeek=${dayOfWeekBulk}, dayName=${dayNameBulk}, isWeekend=${isWeekendBulk}`);
+        
+        if (isWeekendBulk) {
+          weekendDates.push(dateStr); // T7 và CN
+          console.log(`🚫 Bulk skipped ${dateStr} (${dayNameBulk}) - Weekend (T7/CN)`);
         } else {
-          validDates.push(workDate);
+          validDates.push(localDateBulk); // T2-T6 với local time
+          console.log(`✅ Bulk added ${dateStr} (${dayNameBulk}) to valid dates (T2-T6)`);
         }
       }
     });

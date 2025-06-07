@@ -22,6 +22,15 @@ router.get('/schedules/all', doctorScheduleController.getAllDoctorsSchedules);
 // PUBLIC: Tìm tất cả bác sĩ có lịch trống theo ngày/timeSlot (chỉ Free status)
 router.get('/available', doctorScheduleController.getAvailableDoctors);
 
+// DEBUG: Test schedule creation logic (PUBLIC cho dễ test)
+router.get('/debug/schedule-logic', doctorScheduleController.debugScheduleCreation);
+
+// DEBUG: Real test cho thứ 6 - tạo lịch thật để verify
+router.post('/:id/debug/test-friday', doctorScheduleController.realTestFridaySchedule);
+
+// 🔥 NEW: Test logic với 1 ngày cụ thể
+router.get('/debug/test-date', doctorScheduleController.testSingleDate);
+
 // PUBLIC: Xem lịch bác sĩ (chỉ Free status - để customer chọn doctor)
 router.get('/:id/schedules', doctorScheduleController.getDoctorSchedules);
 
