@@ -87,22 +87,3 @@ export const createBulkDoctorScheduleForMonth = async (doctorId: string, month: 
   
   return await DoctorServices.createBulkDoctorSchedules(doctorId, { dates });
 };
-
-/**
- * REFACTORING NOTES:
- * 
- * 1. ✅ Separated concerns into focused services
- * 2. ✅ Maintained backward compatibility
- * 3. ✅ Improved code organization and maintainability
- * 4. ✅ Made testing easier (each service can be tested independently)
- * 5. ✅ Reduced file size from 1097 lines to ~80 lines
- * 6. ✅ Followed Single Responsibility Principle
- * 
- * BENEFITS:
- * - Easier to maintain and debug
- * - Better separation of concerns
- * - Improved testability
- * - Reduced cognitive load
- * - Better team collaboration (different developers can work on different services)
- * - Easier to add new features without affecting existing code
- */ 
