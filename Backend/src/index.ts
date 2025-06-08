@@ -6,7 +6,9 @@ import mongoose from "mongoose";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
-import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes, doctorQARoutes, userProfileRoutes, appointmentRoutes, testCategoriesRoutes, appointmentTestsRoutes, testResultsRoutes, testResultItemsRoutes } from "./routes";
+import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes, doctorQARoutes, userProfileRoutes, 
+  appointmentRoutes, testCategoriesRoutes, appointmentTestsRoutes, testResultsRoutes, testResultItemsRoutes, medicalRecordsRoutes, 
+  medicinesRoutes, medicationRemindersRoutes, notificationDaysRoutes } from "./routes";
 
 import { runAllSeeds } from "./seeds";
 
