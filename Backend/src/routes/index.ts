@@ -9,8 +9,16 @@ import medicationRemindersRoutes from './medicationRemindersRoutes';
 import notificationDaysRoutes from './notificationDaysRoutes';
 import serviceRoutes from "./serviceRoutes";
 import servicePackageRoutes from "./servicePackageRoutes";
+import testCategoriesRoutes from "./testCategoriesRoutes";
+import appointmentTestsRoutes from "./appointmentTestsRoutes";
+import testResultsRoutes from "./testResultsRoutes";
+import testResultItemsRoutes from "./testResultItemsRoutes";
 import userProfileRoutes from "./userProfileRoutes";
 import appointmentRoutes from "./appointmentRoutes";
 export {
-    authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, doctorQARoutes, medicalRecordsRoutes, medicinesRoutes, medicationRemindersRoutes, notificationDaysRoutes, serviceRoutes, servicePackageRoutes, userProfileRoutes, appointmentRoutes
-}
+    authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes, doctorQARoutes, userProfileRoutes, appointmentRoutes,
+    testCategoriesRoutes, appointmentTestsRoutes, testResultsRoutes, testResultItemsRoutes,
+    medicalRecordsRoutes, medicinesRoutes, medicationRemindersRoutes, notificationDaysRoutes
+};
+
+
