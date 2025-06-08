@@ -6,7 +6,7 @@ export interface IUser {
   fullName: string;
   phone?: string;
   avatar?: string;
-  role: "guest" | "customer" | "doctor" | "staff" | "manager" | "admin";
+  role: "customer" | "doctor" | "staff" | "manager" | "admin";
   emailVerified: boolean;
   isActive: boolean;
   gender?: string;
@@ -14,6 +14,7 @@ export interface IUser {
   year?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+  deletedAt?: Date;
 }
 
 const userSchema = new mongoose.Schema<IUser>(
@@ -25,8 +26,8 @@ const userSchema = new mongoose.Schema<IUser>(
     avatar: { type: String },
     role: {
       type: String,
-      enum: ["guest", "customer", "doctor", "staff", "manager", "admin"],
-      default: "guest",
+      enum: ["customer", "doctor", "staff", "manager", "admin"],
+      default: "customer",
     },
     emailVerified: {
       type: Boolean,
@@ -39,6 +40,7 @@ const userSchema = new mongoose.Schema<IUser>(
     gender: { type: String },
     address: { type: String },
     year: { type: Date },
+    deletedAt: { type: Date }
   },
   { timestamps: true }
 );

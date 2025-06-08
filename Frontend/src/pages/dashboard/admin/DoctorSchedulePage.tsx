@@ -18,8 +18,7 @@ import {
   Tooltip,
   Popconfirm,
   Radio,
-  Calendar,
-  Badge
+  Calendar
 } from 'antd';
 import { 
   CalendarOutlined, 
@@ -36,15 +35,12 @@ import dayjs from 'dayjs';
 import doctorApi, { type IDoctor } from '../../../api/endpoints/doctor';
 import doctorScheduleApi, { 
   type IDoctorSchedule, 
-  type IWeekScheduleObject,
-  type ITimeSlot,
   type CreateScheduleByDatesRequest,
   type CreateScheduleByMonthRequest
 } from '../../../api/endpoints/doctorSchedule';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
 
 // 8 time slots mặc định theo yêu cầu
 const DEFAULT_TIME_SLOTS = [
@@ -75,8 +71,15 @@ interface ScheduleViewData {
   timeSlots: string[]; // Danh sách các slot thời gian
 }
 
+interface CreateScheduleFormValues {
+  doctorId: string;
+  timeSlots?: string[];
+  month?: number;
+  year?: number;
+  excludeWeekends?: boolean;
+}
+
 const AdminDoctorSchedulePage: React.FC = () => {
-  const [doctors, setDoctors] = useState<IDoctor[]>([]);
   const [schedules, setSchedules] = useState<IDoctorSchedule[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
   const [loading, setLoading] = useState(false);
@@ -100,7 +103,7 @@ const AdminDoctorSchedulePage: React.FC = () => {
         selectedMonth.year()
       );
       setSchedules(data);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Lỗi tải lịch:', error);
       message.error('Không thể tải dữ liệu lịch làm việc');
     } finally {
@@ -114,7 +117,7 @@ const AdminDoctorSchedulePage: React.FC = () => {
       const data = await doctorApi.getAll();
       setAvailableDoctors(data);
       setIsCreateModalVisible(true);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Lỗi tải danh sách bác sĩ:', error);
       message.error('Không thể tải danh sách bác sĩ');
     } finally {
@@ -152,7 +155,7 @@ const AdminDoctorSchedulePage: React.FC = () => {
     return data.sort((a, b) => dayjs(a.workDate, 'DD/MM/YYYY').valueOf() - dayjs(b.workDate, 'DD/MM/YYYY').valueOf());
   };
 
-  const handleCreateSchedule = async (values: any) => {
+  const handleCreateSchedule = async (values: CreateScheduleFormValues) => {
     try {
       setLoading(true);
       
@@ -179,6 +182,11 @@ const AdminDoctorSchedulePage: React.FC = () => {
         // Tạo lịch theo tháng
         const { month, year } = values;
         
+        if (!month || !year) {
+          message.error('Vui lòng chọn tháng và năm!');
+          return;
+        }
+        
         const createData: CreateScheduleByMonthRequest = {
           doctorId,
           month,
@@ -196,9 +204,10 @@ const AdminDoctorSchedulePage: React.FC = () => {
       setSelectedDates([]);
       await loadSchedules(); // Reload data
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Lỗi tạo lịch:', error);
-      message.error(error.message || 'Không thể tạo lịch làm việc');
+      const errorMessage = error instanceof Error ? error.message : 'Không thể tạo lịch làm việc';
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -209,7 +218,7 @@ const AdminDoctorSchedulePage: React.FC = () => {
       await doctorScheduleApi.deleteDoctorScheduleWithDoctorId(doctorId, scheduleId);
       message.success('Xóa lịch làm việc thành công!');
       await loadSchedules(); // Reload data
-    } catch (error: any) {
+    } catch (error) {
       console.error('Lỗi xóa lịch:', error);
       message.error('Không thể xóa lịch làm việc');
     }
@@ -219,7 +228,6 @@ const AdminDoctorSchedulePage: React.FC = () => {
   const dateRender = (current: Dayjs) => {
     const dateStr = current.format('YYYY-MM-DD');
     const isSelected = selectedDates.includes(dateStr);
-    const isToday = current.isSame(dayjs(), 'day');
     const isPast = current.isBefore(dayjs(), 'day');
     
     if (isSelected) {
