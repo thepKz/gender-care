@@ -15,8 +15,8 @@ const searchCache = new Map<string, DoctorOption[]>();
 const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes
 
 export const useAdvancedSearch = ({ schedules, events }: UseAdvancedSearchProps) => {
-  const [filteredSchedules, setFilteredSchedules] = useState<IDoctorSchedule[]>(schedules);
-  const [filteredEvents, setFilteredEvents] = useState<DoctorScheduleEvent[]>(events);
+  const [filteredSchedules, setFilteredSchedules] = useState<IDoctorSchedule[]>([]);
+  const [filteredEvents, setFilteredEvents] = useState<DoctorScheduleEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [allDoctors, setAllDoctors] = useState<IDoctor[]>([]);
   const [currentFilters, setCurrentFilters] = useState<SearchFilterOptions>({
@@ -44,6 +44,78 @@ export const useAdvancedSearch = ({ schedules, events }: UseAdvancedSearchProps)
 
     loadAllDoctors();
   }, []);
+
+  // Tự động sync filteredSchedules và filteredEvents khi schedules/events thay đổi
+  useEffect(() => {
+    console.log('🔄 Syncing filtered data with new schedules/events...');
+    
+    // Nếu không có filter nào được apply, hiển thị tất cả dữ liệu
+    const hasActiveFilters = 
+      currentFilters.selectedDoctorIds.length > 0 ||
+      currentFilters.selectedTimeSlots.length > 0 ||
+      currentFilters.selectedDaysOfWeek.length > 0 ||
+      currentFilters.dateRange !== null ||
+      currentFilters.status.length > 0 ||
+      currentFilters.specializations.length > 0;
+
+    if (!hasActiveFilters) {
+      // Hiển thị tất cả dữ liệu khi không có filter
+      setFilteredSchedules(schedules);
+      setFilteredEvents(events);
+      console.log('✅ Displaying all data (no filters active):', { schedules: schedules.length, events: events.length });
+    } else {
+      // Apply lại filters hiện tại với dữ liệu mới
+      let filtered = [...schedules];
+      let filteredEventList = [...events];
+
+      if (currentFilters.selectedDoctorIds.length > 0) {
+        filtered = filtered.filter(schedule => 
+          currentFilters.selectedDoctorIds.includes(schedule.doctorId._id)
+        );
+        filteredEventList = filteredEventList.filter(event =>
+          currentFilters.selectedDoctorIds.includes(event.resource.doctorId)
+        );
+      }
+
+      if (currentFilters.specializations.length > 0) {
+        filtered = filtered.filter(schedule =>
+          currentFilters.specializations.includes(schedule.doctorId.specialization || '')
+        );
+      }
+
+      if (currentFilters.selectedTimeSlots.length > 0) {
+        filteredEventList = filteredEventList.filter(event =>
+          currentFilters.selectedTimeSlots.includes(event.resource.slotTime)
+        );
+      }
+
+      if (currentFilters.selectedDaysOfWeek.length > 0) {
+        filteredEventList = filteredEventList.filter(event => {
+          const dayOfWeek = dayjs(event.start).day();
+          return currentFilters.selectedDaysOfWeek.includes(dayOfWeek);
+        });
+      }
+
+      if (currentFilters.status.length > 0) {
+        filteredEventList = filteredEventList.filter(event =>
+          currentFilters.status.includes(event.resource.status as any)
+        );
+      }
+
+      if (currentFilters.dateRange) {
+        const [startDate, endDate] = currentFilters.dateRange;
+        filteredEventList = filteredEventList.filter(event => {
+          const eventDate = dayjs(event.start);
+          return eventDate.isAfter(startDate.subtract(1, 'day')) && 
+                 eventDate.isBefore(endDate.add(1, 'day'));
+        });
+      }
+
+      setFilteredSchedules(filtered);
+      setFilteredEvents(filteredEventList);
+      console.log('✅ Reapplied existing filters to new data');
+    }
+  }, [schedules, events, currentFilters]); // Thêm currentFilters vào dependency
 
   const availableSpecializations = useMemo(() => {
     const specs = new Set<string>();
@@ -169,9 +241,14 @@ export const useAdvancedSearch = ({ schedules, events }: UseAdvancedSearchProps)
     [allDoctors, schedules] // Depend on allDoctors và schedules
   );
 
-  const applyFilters = useCallback((filters: SearchFilterOptions) => {
-    let filtered = [...schedules];
-    let filteredEventList = [...events];
+  // Helper function để apply filters (để tái sử dụng)
+  const applyFiltersInternal = useCallback((
+    filters: SearchFilterOptions, 
+    sourceSchedules: IDoctorSchedule[] = schedules, 
+    sourceEvents: DoctorScheduleEvent[] = events
+  ) => {
+    let filtered = [...sourceSchedules];
+    let filteredEventList = [...sourceEvents];
 
     if (filters.selectedDoctorIds.length > 0) {
       filtered = filtered.filter(schedule => 
@@ -216,10 +293,22 @@ export const useAdvancedSearch = ({ schedules, events }: UseAdvancedSearchProps)
       });
     }
 
-    setCurrentFilters(filters);
     setFilteredSchedules(filtered);
     setFilteredEvents(filteredEventList);
+    
+    console.log('🎯 Applied filters:', {
+      originalSchedules: sourceSchedules.length,
+      filteredSchedules: filtered.length,
+      originalEvents: sourceEvents.length,
+      filteredEvents: filteredEventList.length,
+      filters
+    });
   }, [schedules, events]);
+
+  const applyFilters = useCallback((filters: SearchFilterOptions) => {
+    setCurrentFilters(filters);
+    applyFiltersInternal(filters);
+  }, [applyFiltersInternal]);
 
   const totalResults = useMemo(() => filteredEvents.length, [filteredEvents]);
 
@@ -231,6 +320,7 @@ export const useAdvancedSearch = ({ schedules, events }: UseAdvancedSearchProps)
     loading,
     totalResults,
     availableSpecializations,
-    availableTimeSlots
+    availableTimeSlots,
+    allDoctors // Expose allDoctors để sử dụng trong dropdown
   };
 }; 

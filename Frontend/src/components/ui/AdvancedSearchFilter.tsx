@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { 
   Input, 
   Select, 
@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import type { IDoctor } from '../../api/endpoints/doctor';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -53,6 +54,7 @@ export interface AdvancedSearchFilterProps {
   onDoctorSearch: (searchTerm: string) => Promise<DoctorOption[]>;
   availableTimeSlots: string[];
   availableSpecializations: string[];
+  allDoctors: IDoctor[];
   loading?: boolean;
   totalResults?: number;
   className?: string;
@@ -87,6 +89,7 @@ const AdvancedSearchFilter: React.FC<AdvancedSearchFilterProps> = ({
   onDoctorSearch,
   availableTimeSlots = DEFAULT_TIME_SLOTS,
   availableSpecializations = [],
+  allDoctors = [],
   loading = false,
   totalResults = 0,
   className = ''
@@ -107,18 +110,49 @@ const AdvancedSearchFilter: React.FC<AdvancedSearchFilterProps> = ({
   const [doctorSearchLoading, setDoctorSearchLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // Debounced doctor search
+  // Convert allDoctors thành doctorOptions cho dropdown
+  const doctorOptionsFromProps = useMemo(() => {
+    if (!allDoctors || allDoctors.length === 0) return [];
+    
+    return allDoctors.map(doctor => ({
+      id: doctor._id,
+      name: doctor.userId.fullName,
+      fullName: doctor.userId.fullName,
+      specialization: doctor.specialization || 'Chưa xác định',
+      totalSlots: 0, // Sẽ được tính từ schedules nếu cần
+      availableSlots: 0 // Sẽ được tính từ schedules nếu cần
+    }));
+  }, [allDoctors]);
+
+  // Load doctor options từ allDoctors khi component mount
+  useEffect(() => {
+    if (doctorOptionsFromProps.length > 0 && doctorOptions.length === 0) {
+      setDoctorOptions(doctorOptionsFromProps);
+      console.log('✅ Loaded doctor options from allDoctors:', doctorOptionsFromProps.length);
+    }
+  }, [doctorOptionsFromProps, doctorOptions.length]);
+
+  // Debounced doctor search - sử dụng local filter thay vì API call
   const handleDoctorSearch = useCallback(
     async (searchValue: string) => {
       if (!searchValue.trim()) {
-        setDoctorOptions([]);
+        // Nếu không có search term, hiển thị tất cả doctors
+        setDoctorOptions(doctorOptionsFromProps);
         return;
       }
 
       setDoctorSearchLoading(true);
       try {
-        const results = await onDoctorSearch(searchValue);
-        setDoctorOptions(results);
+        // Filter local từ allDoctors
+        const searchTerm = searchValue.toLowerCase();
+        const filteredDoctors = doctorOptionsFromProps.filter(doctor => {
+          const fullName = doctor.fullName.toLowerCase();
+          const specialization = doctor.specialization.toLowerCase();
+          return fullName.includes(searchTerm) || specialization.includes(searchTerm);
+        });
+        
+        setDoctorOptions(filteredDoctors);
+        console.log('🔍 Filtered doctors locally:', filteredDoctors.length, 'from', doctorOptionsFromProps.length);
       } catch (error) {
         console.error('Error searching doctors:', error);
         setDoctorOptions([]);
@@ -126,7 +160,7 @@ const AdvancedSearchFilter: React.FC<AdvancedSearchFilterProps> = ({
         setDoctorSearchLoading(false);
       }
     },
-    [onDoctorSearch]
+    [doctorOptionsFromProps]
   );
 
   // Update filters và notify parent
@@ -148,9 +182,10 @@ const AdvancedSearchFilter: React.FC<AdvancedSearchFilterProps> = ({
       specializations: []
     };
     setFilters(emptyFilters);
-    setDoctorOptions([]);
+    // Reset lại doctor options về tất cả doctors
+    setDoctorOptions(doctorOptionsFromProps);
     onFilterChange(emptyFilters);
-  }, [onFilterChange]);
+  }, [onFilterChange, doctorOptionsFromProps]);
 
   // Count active filters
   const activeFilterCount = 
@@ -229,13 +264,21 @@ const AdvancedSearchFilter: React.FC<AdvancedSearchFilterProps> = ({
                   onChange={(value) => updateFilters({ selectedDoctorIds: value })}
                   style={{ width: '100%' }}
                   showSearch
+                  filterOption={(input, option) =>
+                    option?.children?.toString().toLowerCase().includes(input.toLowerCase()) ?? false
+                  }
                 >
                   {doctorOptions.map(doctor => (
                     <Option key={doctor.id} value={doctor.id}>
-                      {doctor.fullName} - {doctor.specialization}
+                      BS. {doctor.fullName} - {doctor.specialization}
                     </Option>
                   ))}
                 </Select>
+                {doctorOptions.length === 0 && allDoctors.length > 0 && (
+                  <div style={{ fontSize: '12px', color: '#999', marginTop: '4px' }}>
+                    💡 Sử dụng thanh tìm kiếm phía trên để lọc danh sách bác sĩ
+                  </div>
+                )}
               </Col>
 
               {/* Time Slots Filter */}

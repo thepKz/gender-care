@@ -91,12 +91,10 @@ interface ScheduleViewData {
 }
 
 const DoctorSchedulePage: React.FC = () => {
-  const [doctors, setDoctors] = useState<IDoctor[]>([]);
   const [schedules, setSchedules] = useState<IDoctorSchedule[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
   const [loading, setLoading] = useState(false);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
-  const [availableDoctors, setAvailableDoctors] = useState<IDoctor[]>([]);
   const [createMode, setCreateMode] = useState<CreateMode>('dates');
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [form] = Form.useForm();
@@ -142,30 +140,14 @@ const DoctorSchedulePage: React.FC = () => {
     }
   };
 
-  const loadDoctorsForCreate = async () => {
-    try {
-      setLoading(true);
-      
-      // Debug logs
-      console.log('🔍 [Debug] Loading doctors list...');
-      
-      const data = await doctorApi.getAll();
-      
-      console.log('✅ [Debug] Doctors loaded successfully:', data);
-      setAvailableDoctors(data);
-      setIsCreateModalVisible(true);
-    } catch (error: any) {
-      console.error('❌ [Debug] Lỗi tải danh sách bác sĩ:', error);
-      console.error('❌ [Debug] Error details:', {
-        message: error.message,
-        response: error.response,
-        status: error.response?.status,
-        data: error.response?.data
-      });
-      message.error('Không thể tải danh sách bác sĩ');
-    } finally {
-      setLoading(false);
+  const loadDoctorsForCreate = () => {
+    // Sử dụng allDoctors đã được load từ hook
+    console.log('✅ [Debug] Using doctors from hook:', allDoctors.length);
+    if (allDoctors.length === 0) {
+      message.warning('Danh sách bác sĩ chưa được tải. Vui lòng đợi giây lát...');
+      return;
     }
+    setIsCreateModalVisible(true);
   };
 
   // Convert schedules to calendar events
@@ -184,7 +166,8 @@ const DoctorSchedulePage: React.FC = () => {
     loading: searchLoading,
     totalResults,
     availableSpecializations,
-    availableTimeSlots
+    availableTimeSlots,
+    allDoctors
   } = useAdvancedSearch({
     schedules,
     events: calendarEvents
@@ -551,6 +534,7 @@ const DoctorSchedulePage: React.FC = () => {
         onDoctorSearch={searchDoctors}
         availableTimeSlots={availableTimeSlots}
         availableSpecializations={availableSpecializations}
+        allDoctors={allDoctors}
         loading={searchLoading}
         totalResults={totalResults}
         className="mb-4"
@@ -806,7 +790,7 @@ const DoctorSchedulePage: React.FC = () => {
                 option?.children?.toString().toLowerCase().includes(input.toLowerCase()) ?? false
               }
             >
-              {availableDoctors.map(doctor => (
+              {allDoctors.map(doctor => (
                 <Option key={doctor._id} value={doctor._id}>
                   BS. {doctor.userId.fullName} - {doctor.specialization || 'Chưa xác định'}
                 </Option>
