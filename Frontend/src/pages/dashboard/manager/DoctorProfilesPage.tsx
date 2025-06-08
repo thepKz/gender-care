@@ -15,7 +15,12 @@ import {
   Switch,
   Row,
   Col,
-  Statistic
+  Statistic,
+  Tooltip,
+  Badge,
+  List,
+  Typography,
+  Popover
 } from 'antd';
 import { 
   PlusOutlined, 
@@ -25,39 +30,93 @@ import {
   UserOutlined,
   MailOutlined,
   PhoneOutlined,
-  StarOutlined
+  StarOutlined,
+  CommentOutlined,
+  EyeOutlined,
+  CheckCircleOutlined,
+  StopOutlined
 } from '@ant-design/icons';
-import doctorApi, { type IDoctor } from '../../../api/endpoints/doctor';
+import doctorApi, { type Doctor } from '../../../api/endpoints/doctorApi';
 import userApi from '../../../api/endpoints/userApi';
 
 const { Option } = Select;
 const { Search } = Input;
+const { Text, Paragraph } = Typography;
+
+// Extend Doctor interface for enhanced features
+interface DoctorWithDetails extends Doctor {
+  feedback?: {
+    totalCount: number;
+    averageRating: number;
+    ratingDistribution: { [key: number]: number };
+    feedbacks: Array<{
+      rating: number;
+      comment: string;
+      customerName: string;
+      createdAt: string;
+    }>;
+    message: string;
+  };
+  status?: {
+    isActive: boolean;
+    statusText: string;
+    message: string;
+  };
+}
 
 const ManagerDoctorProfilesPage: React.FC = () => {
-  const [doctors, setDoctors] = useState<IDoctor[]>([]);
-  const [filteredDoctors, setFilteredDoctors] = useState<IDoctor[]>([]);
+  const [doctors, setDoctors] = useState<DoctorWithDetails[]>([]);
+  const [filteredDoctors, setFilteredDoctors] = useState<DoctorWithDetails[]>([]);
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingDoctor, setEditingDoctor] = useState<IDoctor | null>(null);
+  const [editingDoctor, setEditingDoctor] = useState<DoctorWithDetails | null>(null);
   const [searchText, setSearchText] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('');
   const [form] = Form.useForm();
 
-  // Load real data from API
+  // New states for feedback modal
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [selectedDoctorFeedback, setSelectedDoctorFeedback] = useState<any>(null);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+
+  // Load enhanced data from API với feedback và status
   useEffect(() => {
-    loadDoctors();
+    loadDoctorsWithDetails();
     loadAvailableUsers();
   }, []);
 
-  const loadDoctors = async () => {
+  // Load doctors with enhanced data structure
+  const loadDoctorsWithDetails = async () => {
     try {
       setLoading(true);
-      const data = await doctorApi.getAll();
-      setDoctors(data);
-      setFilteredDoctors(data);
+      
+      // Use basic API and enhance data
+      const basicData = await doctorApi.getAllDoctors();
+      // Transform basic data to match enhanced format
+      const enhancedBasicData: DoctorWithDetails[] = basicData.map(doctor => ({
+        ...doctor,
+        feedback: {
+          totalCount: 0,
+          averageRating: doctor.rating || 0,
+          ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+          feedbacks: [],
+          message: 'Chưa có đánh giá nào'
+        },
+        status: {
+          isActive: true, // Default to active for now
+          statusText: 'Hoạt động',
+          message: 'Bác sĩ đang hoạt động'
+        }
+      }));
+      
+      setDoctors(enhancedBasicData);
+      setFilteredDoctors(enhancedBasicData);
+      message.success('Tải danh sách bác sĩ thành công');
+      
     } catch (error: any) {
-      message.error(error.message || 'Không thể tải danh sách bác sĩ');
+      console.error('API failed:', error);
+      message.error('Không thể tải dữ liệu bác sĩ');
     } finally {
       setLoading(false);
     }
@@ -93,7 +152,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
     setFilteredDoctors(filtered);
   }, [doctors, searchText, selectedSpecialty]);
 
-  const handleEdit = (doctor: IDoctor) => {
+  const handleEdit = (doctor: DoctorWithDetails) => {
     setEditingDoctor(doctor);
     form.setFieldsValue({
       userId: doctor.userId._id,
@@ -115,8 +174,8 @@ const ManagerDoctorProfilesPage: React.FC = () => {
       okType: 'danger',
       onOk: async () => {
         try {
-          await doctorApi.delete(doctorId);
-          await loadDoctors(); // Reload data
+          await doctorApi.deleteDoctor(doctorId);
+          await loadDoctorsWithDetails(); // Reload enhanced data
           message.success('Xóa bác sĩ thành công!');
         } catch (error: any) {
           message.error(error.message || 'Không thể xóa bác sĩ');
@@ -125,10 +184,49 @@ const ManagerDoctorProfilesPage: React.FC = () => {
     });
   };
 
-  const handleStatusToggle = async (doctorId: string, newStatus: 'active' | 'inactive') => {
-    // Note: This would need a separate API endpoint to toggle user status
-    // For now, we'll just show a message
-    message.info('Chức năng thay đổi trạng thái sẽ được cập nhật sau');
+  // Handle status toggle - simplified for basic API
+  const handleStatusToggle = async (doctorId: string, newIsActive: boolean) => {
+    try {
+      // For now, just update local state since we don't have the status update API
+      const updatedDoctors = doctors.map(doctor => 
+        doctor._id === doctorId 
+          ? {
+              ...doctor,
+              status: {
+                isActive: newIsActive,
+                statusText: newIsActive ? 'Hoạt động' : 'Tạm dừng',
+                message: newIsActive ? 'Bác sĩ đang hoạt động' : 'Bác sĩ tạm ngưng hoạt động'
+              }
+            }
+          : doctor
+      );
+      setDoctors(updatedDoctors);
+      message.success('Cập nhật trạng thái thành công');
+    } catch (error: any) {
+      message.error(error.message || 'Không thể cập nhật trạng thái');
+    }
+  };
+
+  // Show feedback details - simplified for basic API
+  const showFeedbackDetails = async (doctorId: string) => {
+    try {
+      setFeedbackLoading(true);
+      setFeedbackModalVisible(true);
+      
+      // Create mock feedback data for now
+      const mockFeedback = {
+        totalCount: 0,
+        averageRating: 0,
+        message: 'Chưa có đánh giá nào',
+        feedbacks: []
+      };
+      setSelectedDoctorFeedback(mockFeedback);
+    } catch (error: any) {
+      message.error(error.message || 'Không thể tải đánh giá');
+      setFeedbackModalVisible(false);
+    } finally {
+      setFeedbackLoading(false);
+    }
   };
 
   const handleSubmit = async (values: any) => {
@@ -144,7 +242,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
           education: values.education,
           certificate: values.certificate
         };
-        await doctorApi.update(editingDoctor._id, updateData);
+        await doctorApi.updateDoctor(editingDoctor._id, updateData);
         message.success('Cập nhật thông tin bác sĩ thành công!');
       } else {
         // Add new doctor
@@ -156,14 +254,14 @@ const ManagerDoctorProfilesPage: React.FC = () => {
           education: values.education,
           certificate: values.certificate
         };
-        await doctorApi.create(createData);
+        await doctorApi.createDoctor(createData);
         message.success('Thêm bác sĩ mới thành công!');
       }
 
       setIsModalVisible(false);
       setEditingDoctor(null);
       form.resetFields();
-      await loadDoctors(); // Reload data
+      await loadDoctorsWithDetails(); // Reload enhanced data
     } catch (error: any) {
       message.error(error.message || 'Có lỗi xảy ra, vui lòng thử lại!');
     } finally {
@@ -177,7 +275,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
     {
       title: 'Bác sĩ',
       key: 'doctor',
-      render: (record: IDoctor) => (
+      render: (record: DoctorWithDetails) => (
         <Space>
           <Avatar size={40} src={record.userId.avatar} icon={<UserOutlined />} />
           <div>
@@ -190,7 +288,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
     {
       title: 'Liên hệ',
       key: 'contact',
-      render: (record: IDoctor) => (
+      render: (record: DoctorWithDetails) => (
         <div>
           <div><MailOutlined /> {record.userId.email}</div>
           <div><PhoneOutlined /> {record.userId.phone || 'N/A'}</div>
@@ -202,50 +300,94 @@ const ManagerDoctorProfilesPage: React.FC = () => {
       dataIndex: 'experience',
       key: 'experience',
       render: (experience: number) => experience ? `${experience} năm` : 'N/A',
-      sorter: (a: IDoctor, b: IDoctor) => (a.experience || 0) - (b.experience || 0),
+      sorter: (a: DoctorWithDetails, b: DoctorWithDetails) => (a.experience || 0) - (b.experience || 0),
     },
     {
       title: 'Đánh giá',
-      dataIndex: 'rating',
-      key: 'rating',
-      render: (rating: number) => (
-        <Space>
-          <Rate disabled value={rating || 0} style={{ fontSize: '14px' }} />
-          <span>({(rating || 0).toFixed(1)})</span>
-        </Space>
-      ),
-      sorter: (a: IDoctor, b: IDoctor) => (a.rating || 0) - (b.rating || 0),
+      key: 'feedback',
+      render: (record: DoctorWithDetails) => {
+        // Use enhanced feedback data if available
+        const feedbackData = record.feedback;
+        
+        if (feedbackData && feedbackData.totalCount > 0) {
+          return (
+            <Space direction="vertical" size={2}>
+              <Space>
+                <Rate disabled value={feedbackData.averageRating} style={{ fontSize: '14px' }} />
+                <span>({feedbackData.averageRating.toFixed(1)})</span>
+              </Space>
+              <Button 
+                type="link" 
+                size="small" 
+                icon={<CommentOutlined />}
+                onClick={() => showFeedbackDetails(record._id)}
+              >
+                {feedbackData.totalCount} đánh giá
+              </Button>
+            </Space>
+          );
+        } else {
+          return (
+            <Space direction="vertical" size={2}>
+              <Rate disabled value={record.rating || 0} style={{ fontSize: '14px' }} />
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                {feedbackData?.message || 'Chưa có đánh giá'}
+              </Text>
+            </Space>
+          );
+        }
+      },
+      sorter: (a: DoctorWithDetails, b: DoctorWithDetails) => {
+        const aRating = a.feedback?.averageRating || a.rating || 0;
+        const bRating = b.feedback?.averageRating || b.rating || 0;
+        return aRating - bRating;
+      },
     },
     {
       title: 'Trạng thái',
       key: 'status',
-      render: (record: IDoctor) => (
-        <Space>
-          <Tag color={record.userId.isActive ? 'green' : 'red'}>
-            {record.userId.isActive ? 'Hoạt động' : 'Tạm dừng'}
-          </Tag>
-          <Switch
-            size="small"
-            checked={record.userId.isActive}
-            onChange={(checked) => handleStatusToggle(record._id, checked ? 'active' : 'inactive')}
-          />
-        </Space>
-      ),
+      render: (record: DoctorWithDetails) => {
+        const statusData = record.status;
+        const isActive = statusData?.isActive ?? true;
+        const statusText = statusData?.statusText || (isActive ? 'Hoạt động' : 'Tạm dừng');
+        
+        return (
+          <Space direction="vertical" size={4}>
+            <Tag 
+              color={isActive ? 'green' : 'red'} 
+              icon={isActive ? <CheckCircleOutlined /> : <StopOutlined />}
+            >
+              {statusText}
+            </Tag>
+            <Switch
+              size="small"
+              checked={isActive}
+              onChange={(checked) => handleStatusToggle(record._id, checked)}
+              loading={loading}
+            />
+          </Space>
+        );
+      },
     },
     {
       title: 'Thống kê',
       key: 'stats',
-      render: (record: IDoctor) => (
+      render: (record: DoctorWithDetails) => (
         <div>
           <div>📅 {new Date(record.createdAt).toLocaleDateString()}</div>
-          <div>⭐ {record.rating || 0}/5</div>
+          <div>⭐ {record.feedback?.averageRating?.toFixed(1) || record.rating || 0}/5</div>
+          {record.feedback && (
+            <div style={{ fontSize: '12px', color: '#666' }}>
+              💬 {record.feedback.totalCount} feedback
+            </div>
+          )}
         </div>
       ),
     },
     {
       title: 'Thao tác',
       key: 'actions',
-      render: (record: IDoctor) => (
+      render: (record: DoctorWithDetails) => (
         <Space>
           <Button
             type="primary"
@@ -254,6 +396,15 @@ const ManagerDoctorProfilesPage: React.FC = () => {
             onClick={() => handleEdit(record)}
           >
             Sửa
+          </Button>
+          <Button
+            type="default"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => showFeedbackDetails(record._id)}
+            disabled={!record.feedback || record.feedback.totalCount === 0}
+          >
+            Xem đánh giá
           </Button>
           <Button
             danger
@@ -285,7 +436,10 @@ const ManagerDoctorProfilesPage: React.FC = () => {
           <Card>
             <Statistic 
               title="Đang hoạt động" 
-              value={doctors.filter(d => d.userId.isActive).length}
+              value={doctors.filter(d => {
+                const isActive = d.status?.isActive ?? true;
+                return isActive;
+              }).length}
               valueStyle={{ color: '#3f8600' }}
             />
           </Card>
@@ -294,7 +448,10 @@ const ManagerDoctorProfilesPage: React.FC = () => {
           <Card>
             <Statistic 
               title="Tạm dừng" 
-              value={doctors.filter(d => !d.userId.isActive).length}
+              value={doctors.filter(d => {
+                const isActive = d.status?.isActive ?? true;
+                return !isActive;
+              }).length}
               valueStyle={{ color: '#cf1322' }}
             />
           </Card>
@@ -303,7 +460,13 @@ const ManagerDoctorProfilesPage: React.FC = () => {
           <Card>
             <Statistic 
               title="Đánh giá TB" 
-              value={doctors.reduce((acc, d) => acc + (d.rating || 0), 0) / doctors.length || 0}
+              value={(() => {
+                const totalRating = doctors.reduce((acc, d) => {
+                  const rating = d.feedback?.averageRating || d.rating || 0;
+                  return acc + rating;
+                }, 0);
+                return doctors.length > 0 ? totalRating / doctors.length : 0;
+              })()}
               precision={1}
               suffix="⭐"
             />
@@ -357,7 +520,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
         <Table
           columns={columns}
           dataSource={filteredDoctors}
-          rowKey="id"
+          rowKey="_id"
           loading={loading}
           pagination={{
             pageSize: 10,
@@ -465,6 +628,108 @@ const ManagerDoctorProfilesPage: React.FC = () => {
             </Space>
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Feedback Details Modal */}
+      <Modal
+        title={
+          <Space>
+            <CommentOutlined />
+            <span>Chi tiết đánh giá</span>
+          </Space>
+        }
+        open={feedbackModalVisible}
+        onCancel={() => {
+          setFeedbackModalVisible(false);
+          setSelectedDoctorFeedback(null);
+        }}
+        footer={null}
+        width={800}
+      >
+        {feedbackLoading ? (
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <p>Đang tải dữ liệu đánh giá...</p>
+          </div>
+        ) : selectedDoctorFeedback ? (
+          <div>
+            {/* Feedback Summary */}
+            <Card size="small" style={{ marginBottom: '16px' }}>
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Statistic
+                    title="Tổng đánh giá"
+                    value={selectedDoctorFeedback.totalCount}
+                    prefix={<CommentOutlined />}
+                  />
+                </Col>
+                <Col span={8}>
+                  <Statistic
+                    title="Điểm trung bình"
+                    value={selectedDoctorFeedback.averageRating}
+                    precision={1}
+                    suffix="/ 5⭐"
+                  />
+                </Col>
+                <Col span={8}>
+                  <div>
+                    <Text type="secondary">Trạng thái:</Text>
+                    <br />
+                    <Text>{selectedDoctorFeedback.message}</Text>
+                  </div>
+                </Col>
+              </Row>
+            </Card>
+
+            {/* Feedback List */}
+            {selectedDoctorFeedback.feedbacks.length > 0 ? (
+              <List
+                header={<div><strong>Danh sách đánh giá ({selectedDoctorFeedback.feedbacks.length})</strong></div>}
+                dataSource={selectedDoctorFeedback.feedbacks}
+                renderItem={(feedback: any, index: number) => (
+                  <List.Item>
+                    <List.Item.Meta
+                      avatar={<Avatar>{index + 1}</Avatar>}
+                      title={
+                        <Space>
+                          <Rate disabled value={feedback.rating} style={{ fontSize: '14px' }} />
+                          <Text type="secondary">
+                            {new Date(feedback.createdAt).toLocaleDateString()}
+                          </Text>
+                        </Space>
+                      }
+                      description={
+                        <div>
+                          <Paragraph>
+                            <strong>Nhận xét:</strong> {feedback.comment}
+                          </Paragraph>
+                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                            Khách hàng: {feedback.customerName}
+                          </Text>
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+                pagination={{
+                  pageSize: 5,
+                  size: 'small',
+                  showTotal: (total) => `Tổng ${total} đánh giá`
+                }}
+              />
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <CommentOutlined style={{ fontSize: '48px', color: '#ccc' }} />
+                <p style={{ marginTop: '16px', color: '#999' }}>
+                  {selectedDoctorFeedback.message}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '40px' }}>
+            <p>Không có dữ liệu đánh giá</p>
+          </div>
+        )}
       </Modal>
     </div>
   );

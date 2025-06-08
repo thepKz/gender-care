@@ -8,11 +8,36 @@ import { roleMiddleware } from '../middleware/roleMiddleware';
 
 const router = Router();
 
-// Xem danh sách bác sĩ - tất cả mọi người đều được phép (kể cả guest)
-router.get('/', doctorController.getAll);
+// ===== SPECIFIC ROUTES FIRST (để tránh conflict với /:id) =====
 
 // 🆕 NEW: Xem danh sách bác sĩ với feedback và status - PUBLIC
 router.get('/details/all', doctorController.getAllWithDetails);
+
+// DEBUG: Test schedule creation logic (PUBLIC cho dễ test)
+router.get('/debug/schedule-logic', doctorScheduleController.debugScheduleCreation);
+
+// 🔥 NEW: Test logic với 1 ngày cụ thể
+router.get('/debug/test-date', doctorScheduleController.testSingleDate);
+
+// PUBLIC: Lấy tất cả lịch làm việc của tất cả bác sĩ (chỉ Free status)
+router.get('/schedules/all', doctorScheduleController.getAllDoctorsSchedules);
+
+// STAFF/MANAGER/ADMIN: Lấy tất cả lịch làm việc của tất cả bác sĩ (tất cả status)
+router.get('/schedules/all/staff', verifyToken, verifyStaff, doctorScheduleController.getAllDoctorsSchedulesForStaff);
+
+// STAFF/MANAGER/ADMIN: Lấy thống kê tổng của tất cả bác sĩ
+router.get('/statistics/all', verifyToken, verifyStaff, doctorScheduleController.getAllDoctorsStatistics);
+
+// PUBLIC: Tìm tất cả bác sĩ có lịch trống theo ngày/timeSlot (chỉ Free status)
+router.get('/available', doctorScheduleController.getAvailableDoctors);
+
+// STAFF/MANAGER/ADMIN: Tìm tất cả bác sĩ và slots theo ngày (tất cả status)
+router.get('/available/staff', verifyToken, verifyStaff, doctorScheduleController.getAvailableDoctorsForStaff);
+
+// ===== GENERIC ROUTES (/:id patterns) =====
+
+// Xem danh sách bác sĩ - tất cả mọi người đều được phép (kể cả guest)
+router.get('/', doctorController.getAll);
 
 // Xem thông tin bác sĩ theo ID - tất cả mọi người đều được phép (kể cả guest)  
 router.get('/:id', doctorController.getById);
@@ -26,39 +51,14 @@ router.get('/:id/feedbacks', doctorController.getDoctorFeedbacks);
 // 🆕 NEW: Lấy chỉ trạng thái active của doctor - PUBLIC (để frontend hiển thị status)
 router.get('/:id/status', doctorController.getDoctorStatus);
 
-// ===== PUBLIC ROUTES (không cần xác thực) =====
-
-// PUBLIC: Lấy tất cả lịch làm việc của tất cả bác sĩ (chỉ Free status)
-router.get('/schedules/all', doctorScheduleController.getAllDoctorsSchedules);
-
-// PUBLIC: Tìm tất cả bác sĩ có lịch trống theo ngày/timeSlot (chỉ Free status)
-router.get('/available', doctorScheduleController.getAvailableDoctors);
-
-// DEBUG: Test schedule creation logic (PUBLIC cho dễ test)
-router.get('/debug/schedule-logic', doctorScheduleController.debugScheduleCreation);
-
 // DEBUG: Real test cho thứ 6 - tạo lịch thật để verify
 router.post('/:id/debug/test-friday', doctorScheduleController.realTestFridaySchedule);
-
-// 🔥 NEW: Test logic với 1 ngày cụ thể
-router.get('/debug/test-date', doctorScheduleController.testSingleDate);
 
 // PUBLIC: Xem lịch bác sĩ (chỉ Free status - để customer chọn doctor)
 router.get('/:id/schedules', doctorScheduleController.getDoctorSchedules);
 
 // PUBLIC: Xem slots trống theo ngày (chỉ Free status - để customer chọn giờ)  
 router.get('/:id/available-slots', doctorScheduleController.getAvailableSlots);
-
-// ===== STAFF/MANAGER/ADMIN ROUTES (cần xác thực + staff/manager/admin role) =====
-
-// STAFF/MANAGER/ADMIN: Lấy tất cả lịch làm việc của tất cả bác sĩ (tất cả status)
-router.get('/schedules/all/staff', verifyToken, verifyStaff, doctorScheduleController.getAllDoctorsSchedulesForStaff);
-
-// STAFF/MANAGER/ADMIN: Lấy thống kê tổng của tất cả bác sĩ
-router.get('/statistics/all', verifyToken, verifyStaff, doctorScheduleController.getAllDoctorsStatistics);
-
-// STAFF/MANAGER/ADMIN: Tìm tất cả bác sĩ và slots theo ngày (tất cả status)
-router.get('/available/staff', verifyToken, verifyStaff, doctorScheduleController.getAvailableDoctorsForStaff);
 
 // STAFF/MANAGER/ADMIN: Xem tất cả lịch bác sĩ (tất cả status)
 router.get('/:id/schedules/staff', verifyToken, verifyStaff, doctorScheduleController.getDoctorSchedulesForStaff);

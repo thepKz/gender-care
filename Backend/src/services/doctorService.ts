@@ -75,7 +75,7 @@ export const getDoctorActiveStatus = async (doctorId: string) => {
     
     return {
       isActive,
-      statusText: isActive ? 'Hoạt động' : 'Tạm ngưng',
+      statusText: isActive ? 'Hoạt động' : 'Tạm dừng',
       message: isActive ? 'Bác sĩ đang hoạt động bình thường' : 'Bác sĩ tạm thời ngưng hoạt động'
     };
   } catch (error) {
