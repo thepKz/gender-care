@@ -33,8 +33,14 @@ tags:
     description: Quản lý lịch làm việc bác sĩ
   - name: Doctor QA
     description: Quản lý tư vấn bác sĩ - hệ thống tư vấn trực tuyến
-  - name: UserProfile
-    description: Quản lý profile người dùng
+  - name: Test Categories
+    description: Quản lý danh mục xét nghiệm
+  - name: Appointment Tests
+    description: Quản lý đặt lịch xét nghiệm
+  - name: Test Results
+    description: Quản lý kết quả xét nghiệm
+  - name: Test Result Items
+    description: Quản lý chi tiết kết quả xét nghiệm
 
   - name: Appointments
     description: Quản lý lịch hẹn và cuộc hẹn
@@ -440,7 +446,7 @@ paths:
                 type: object
                 properties:
                   data:
-                    $ref: '#/components/schemas/UserProfile'
+                    $ref: '#/components/schemas/User'
         '401':
           description: Chưa xác thực
           content:
@@ -487,7 +493,7 @@ paths:
                     type: string
                     example: Cập nhật thành công!
                   data:
-                    $ref: '#/components/schemas/UserProfile'
+                    $ref: '#/components/schemas/User'
         '401':
           description: Chưa xác thực
           content:
@@ -958,7 +964,7 @@ paths:
                     type: string
                     example: Cập nhật avatar thành công
                   data:
-                    $ref: '#/components/schemas/UserProfile'
+                    $ref: '#/components/schemas/User'
         '400':
           description: Thiếu URL avatar
           content:
@@ -1832,6 +1838,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  # ===== TEST CATEGORIES APIs =====
+  /test-categories:
   /appointments:
     get:
       tags:
@@ -3043,125 +3051,180 @@ components:
 
     get:
       tags:
-        - UserProfile
-      summary: Lấy tất cả profiles (Admin/Staff only)
-      description: Lấy danh sách tất cả user profiles với phân trang
-      security:
-        - bearerAuth: []
+        - Test Categories
+      summary: Lấy danh sách danh mục xét nghiệm
+      description: Lấy tất cả danh mục xét nghiệm có phân trang (Public access)
       parameters:
         - in: query
           name: page
           schema:
             type: integer
             default: 1
+          description: Số trang
         - in: query
           name: limit
           schema:
             type: integer
             default: 10
+          description: Số lượng item mỗi trang
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Tìm kiếm theo tên danh mục
       responses:
         '200':
-          description: Thành công
+          description: Lấy danh sách thành công
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  message:
-                    type: string
+                  success:
+                    type: boolean
+                    example: true
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/UserProfile'
+                      $ref: '#/components/schemas/TestCategory'
                   pagination:
                     $ref: '#/components/schemas/Pagination'
-        '401':
-          description: Chưa xác thực
-        '403':
-          description: Không có quyền truy cập
-
-  /user-profiles/me:
-    get:
-      tags:
-        - UserProfile
-      summary: Lấy tất cả profiles của chính mình
-      description: Lấy tất cả profiles của user đang đăng nhập
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Thành công
+        '500':
+          description: Lỗi server
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/UserProfile'
-                  count:
-                    type: integer
-                    description: Số lượng profiles
-        '401':
-          description: Chưa xác thực
+                $ref: '#/components/schemas/Error'
 
-  /user-profiles/{id}:
-    get:
+    post:
       tags:
-        - UserProfile
-      summary: Lấy profile theo ID
-      description: Lấy profile theo ID. Chỉ owner hoặc admin/staff mới xem được.
+        - Test Categories
+      summary: Tạo danh mục xét nghiệm mới
+      description: Tạo danh mục xét nghiệm mới (Chỉ Doctor/Nursing Staff)
       security:
         - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Thành công
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  data:
-                    $ref: '#/components/schemas/UserProfile'
-        '400':
-          description: ID không hợp lệ
-        '404':
-          description: Không tìm thấy profile
-        '403':
-          description: Không có quyền truy cập
-        '401':
-          description: Chưa xác thực
-
-    put:
-      tags:
-        - UserProfile
-      summary: Cập nhật profile
-      description: Cập nhật profile theo ID. Chỉ owner hoặc admin/staff mới cập nhật được.
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserProfileUpdateRequest'
+              type: object
+              required:
+                - categoryName
+                - description
+              properties:
+                categoryName:
+                  type: string
+                  description: Tên danh mục xét nghiệm
+                  example: "Xét nghiệm máu tổng quát"
+                description:
+                  type: string
+                  description: Mô tả danh mục
+                  example: "Các xét nghiệm cơ bản về máu"
+                isActive:
+                  type: boolean
+                  description: Trạng thái hoạt động
+                  default: true
+      responses:
+        '201':
+          description: Tạo danh mục thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestCategory'
+                  message:
+                    type: string
+                    example: "Tạo danh mục xét nghiệm thành công"
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /test-categories/{id}:
+    get:
+      tags:
+        - Test Categories
+      summary: Lấy chi tiết danh mục xét nghiệm
+      description: Lấy thông tin chi tiết danh mục xét nghiệm theo ID (Public access)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của danh mục xét nghiệm
+      responses:
+        '200':
+          description: Lấy thông tin thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestCategory'
+        '404':
+          description: Không tìm thấy danh mục
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Test Categories
+      summary: Cập nhật danh mục xét nghiệm
+      description: Cập nhật thông tin danh mục xét nghiệm (Chỉ Doctor/Nursing Staff)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của danh mục xét nghiệm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                categoryName:
+                  type: string
+                  description: Tên danh mục xét nghiệm
+                  example: "Xét nghiệm máu tổng quát"
+                description:
+                  type: string
+                  description: Mô tả danh mục
+                  example: "Các xét nghiệm cơ bản về máu"
+                isActive:
+                  type: boolean
+                  description: Trạng thái hoạt động
       responses:
         '200':
           description: Cập nhật thành công
@@ -3170,24 +3233,32 @@ components:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestCategory'
                   message:
                     type: string
-                  data:
-                    $ref: '#/components/schemas/UserProfile'
+                    example: "Cập nhật danh mục xét nghiệm thành công"
         '400':
-          description: ID không hợp lệ
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
-          description: Không tìm thấy profile
-        '403':
-          description: Không có quyền chỉnh sửa
-        '401':
-          description: Chưa xác thực
+          description: Không tìm thấy danh mục
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
     delete:
       tags:
-        - UserProfile
-      summary: Xóa profile
-      description: Xóa profile theo ID. Chỉ owner hoặc admin mới xóa được.
+        - Test Categories
+      summary: Xóa danh mục xét nghiệm
+      description: Xóa danh mục xét nghiệm (Chỉ Doctor/Nursing Staff)
       security:
         - bearerAuth: []
       parameters:
@@ -3196,6 +3267,7 @@ components:
           required: true
           schema:
             type: string
+          description: ID của danh mục xét nghiệm
       responses:
         '200':
           description: Xóa thành công
@@ -3204,60 +3276,824 @@ components:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   message:
                     type: string
-        '400':
-          description: ID không hợp lệ
+                    example: "Xóa danh mục xét nghiệm thành công"
         '404':
-          description: Không tìm thấy profile
+          description: Không tìm thấy danh mục
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '403':
-          description: Không có quyền xóa
-        '401':
-          description: Chưa xác thực
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-  # ===== DOCTOR SCHEDULE APIs =====
-  
-
-  # ===== PUBLIC ROUTES (không cần xác thực) =====
-  
-  /doctors/{id}/schedules:
+  # ===== APPOINTMENT TESTS APIs =====
+  /appointment-tests:
     get:
       tags:
-        - Doctor Schedules
-      summary: Xem lịch làm việc của bác sĩ (PUBLIC - chỉ Free status)
-      description: Lấy lịch làm việc của bác sĩ - chỉ hiển thị slot có status Free để customer có thể xem
+        - Appointment Tests
+      summary: Lấy danh sách đặt lịch xét nghiệm
+      description: Lấy tất cả đặt lịch xét nghiệm với phân trang (Staff/Doctor)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Số lượng item mỗi trang
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, confirmed, in_progress, completed, cancelled]
+          description: Lọc theo trạng thái
+        - in: query
+          name: patientName
+          schema:
+            type: string
+          description: Tìm kiếm theo tên bệnh nhân
+      responses:
+        '200':
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AppointmentTest'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Appointment Tests
+      summary: Tạo đặt lịch xét nghiệm mới
+      description: Tạo đặt lịch xét nghiệm mới (Customer/Staff)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - price
+                - patientName
+                - phone
+                - testDate
+                - testCategoryIds
+              properties:
+                appointmentId:
+                  type: string
+                  description: ID của appointment (tùy chọn)
+                  example: "none"
+                  default: "none"
+                name:
+                  type: string
+                  description: Tên xét nghiệm
+                  example: "Xét nghiệm máu tổng quát"
+                price:
+                  type: number
+                  description: Giá xét nghiệm (VND)
+                  example: 150000
+                  minimum: 0
+                patientName:
+                  type: string
+                  description: Tên bệnh nhân
+                  example: "Nguyễn Văn A"
+                phone:
+                  type: string
+                  description: Số điện thoại
+                  example: "0987654321"
+                email:
+                  type: string
+                  description: Email liên hệ
+                  example: "test@example.com"
+                testDate:
+                  type: string
+                  format: date
+                  description: Ngày xét nghiệm
+                  example: "2024-01-20"
+                testTime:
+                  type: string
+                  description: Giờ xét nghiệm
+                  example: "08:00"
+                testCategoryIds:
+                  type: array
+                  items:
+                    type: string
+                  description: Danh sách ID danh mục xét nghiệm
+                  example: ["64a1b2c3d4e5f6g7h8i9j0k1"]
+                notes:
+                  type: string
+                  description: Ghi chú
+                  example: "Nhịn ăn 8 tiếng trước khi xét nghiệm"
+      responses:
+        '201':
+          description: Tạo đặt lịch thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/AppointmentTest'
+                  message:
+                    type: string
+                    example: "Đặt lịch xét nghiệm thành công"
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /appointment-tests/{id}:
+    get:
+      tags:
+        - Appointment Tests
+      summary: Lấy chi tiết đặt lịch xét nghiệm
+      description: Lấy thông tin chi tiết đặt lịch xét nghiệm theo ID
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: id
           required: true
           schema:
             type: string
-          description: ID của bác sĩ
+          description: ID của đặt lịch xét nghiệm
       responses:
         '200':
-          description: Lấy lịch làm việc thành công (chỉ hiển thị slot trống)
+          description: Lấy thông tin thành công
           content:
             application/json:
               schema:
                 type: object
                 properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/AppointmentTest'
+        '404':
+          description: Không tìm thấy đặt lịch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Appointment Tests
+      summary: Cập nhật đặt lịch xét nghiệm
+      description: Cập nhật thông tin đặt lịch xét nghiệm (Staff/Doctor)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của đặt lịch xét nghiệm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                appointmentId:
+                  type: string
+                  description: ID của appointment (tùy chọn)
+                  example: "none"
+                name:
+                  type: string
+                  description: Tên xét nghiệm
+                  example: "Xét nghiệm máu tổng quát"
+                price:
+                  type: number
+                  description: Giá xét nghiệm (VND)
+                  example: 150000
+                  minimum: 0
+                patientName:
+                  type: string
+                  description: Tên bệnh nhân
+                phone:
+                  type: string
+                  description: Số điện thoại
+                email:
+                  type: string
+                  description: Email liên hệ
+                testDate:
+                  type: string
+                  format: date
+                  description: Ngày xét nghiệm
+                testTime:
+                  type: string
+                  description: Giờ xét nghiệm
+                status:
+                  type: string
+                  enum: [pending, confirmed, in_progress, completed, cancelled]
+                  description: Trạng thái đặt lịch
+                notes:
+                  type: string
+                  description: Ghi chú
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/AppointmentTest'
                   message:
                     type: string
-                    example: "Lấy lịch làm việc thành công (chỉ hiển thị slot trống)"
-                  data:
-                    $ref: '#/components/schemas/DoctorSchedule'
+                    example: "Cập nhật đặt lịch xét nghiệm thành công"
         '404':
-          description: Bác sĩ chưa có lịch làm việc nào
+          description: Không tìm thấy đặt lịch
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-        '500':
-          description: Lỗi server
+
+    delete:
+      tags:
+        - Appointment Tests
+      summary: Hủy đặt lịch xét nghiệm
+      description: Hủy đặt lịch xét nghiệm (Customer/Staff)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của đặt lịch xét nghiệm
+      responses:
+        '200':
+          description: Hủy đặt lịch thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Hủy đặt lịch xét nghiệm thành công"
+        '404':
+          description: Không tìm thấy đặt lịch
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  # ===== TEST RESULTS APIs =====
+  /test-results:
+    get:
+      tags:
+        - Test Results
+      summary: Lấy danh sách kết quả xét nghiệm
+      description: Lấy tất cả kết quả xét nghiệm với phân trang (Doctor/Staff)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Số lượng item mỗi trang
+        - in: query
+          name: patientName
+          schema:
+            type: string
+          description: Tìm kiếm theo tên bệnh nhân
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, ready, delivered]
+          description: Lọc theo trạng thái
+      responses:
+        '200':
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TestResult'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Test Results
+      summary: Tạo kết quả xét nghiệm mới
+      description: Tạo kết quả xét nghiệm mới (Doctor)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - appointmentTestId
+                - testDate
+              properties:
+                appointmentTestId:
+                  type: string
+                  description: ID của đặt lịch xét nghiệm
+                  example: "64a1b2c3d4e5f6g7h8i9j0k1"
+                testDate:
+                  type: string
+                  format: date
+                  description: Ngày thực hiện xét nghiệm
+                  example: "2024-01-20"
+                doctorNotes:
+                  type: string
+                  description: Ghi chú của bác sĩ
+                  example: "Kết quả bình thường"
+                conclusion:
+                  type: string
+                  description: Kết luận chung
+                  example: "Không có bất thường"
+      responses:
+        '201':
+          description: Tạo kết quả thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResult'
+                  message:
+                    type: string
+                    example: "Tạo kết quả xét nghiệm thành công"
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /test-results/{id}:
+    get:
+      tags:
+        - Test Results
+      summary: Lấy chi tiết kết quả xét nghiệm
+      description: Lấy thông tin chi tiết kết quả xét nghiệm theo ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của kết quả xét nghiệm
+      responses:
+        '200':
+          description: Lấy thông tin thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResult'
+        '404':
+          description: Không tìm thấy kết quả xét nghiệm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Test Results
+      summary: Cập nhật kết quả xét nghiệm
+      description: Cập nhật thông tin kết quả xét nghiệm (Doctor)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của kết quả xét nghiệm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                testDate:
+                  type: string
+                  format: date
+                  description: Ngày thực hiện xét nghiệm
+                doctorNotes:
+                  type: string
+                  description: Ghi chú của bác sĩ
+                conclusion:
+                  type: string
+                  description: Kết luận chung
+                status:
+                  type: string
+                  enum: [pending, ready, delivered]
+                  description: Trạng thái kết quả
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResult'
+                  message:
+                    type: string
+                    example: "Cập nhật kết quả xét nghiệm thành công"
+        '404':
+          description: Không tìm thấy kết quả xét nghiệm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Test Results
+      summary: Xóa kết quả xét nghiệm
+      description: Xóa kết quả xét nghiệm (Doctor)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của kết quả xét nghiệm
+      responses:
+        '200':
+          description: Xóa thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Xóa kết quả xét nghiệm thành công"
+        '404':
+          description: Không tìm thấy kết quả xét nghiệm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ===== TEST RESULT ITEMS APIs =====
+  /test-result-items:
+    get:
+      tags:
+        - Test Result Items
+      summary: Lấy danh sách chi tiết kết quả xét nghiệm
+      description: Lấy tất cả chi tiết kết quả xét nghiệm (Doctor/Staff)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: testResultId
+          schema:
+            type: string
+          description: Lọc theo ID kết quả xét nghiệm
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Số lượng item mỗi trang
+      responses:
+        '200':
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TestResultItem'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - Test Result Items
+      summary: Tạo chi tiết kết quả xét nghiệm mới
+      description: Tạo chi tiết kết quả xét nghiệm mới (Doctor)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - testResultId
+                - testName
+                - value
+                - unit
+                - normalRange
+              properties:
+                testResultId:
+                  type: string
+                  description: ID của kết quả xét nghiệm
+                  example: "64a1b2c3d4e5f6g7h8i9j0k1"
+                testName:
+                  type: string
+                  description: Tên xét nghiệm
+                  example: "Hemoglobin"
+                value:
+                  type: string
+                  description: Giá trị kết quả
+                  example: "14.5"
+                unit:
+                  type: string
+                  description: Đơn vị đo
+                  example: "g/dL"
+                normalRange:
+                  type: string
+                  description: Giá trị bình thường
+                  example: "12.0 - 16.0"
+                isAbnormal:
+                  type: boolean
+                  description: Có bất thường không
+                  default: false
+                notes:
+                  type: string
+                  description: Ghi chú
+                  example: "Trong giới hạn bình thường"
+      responses:
+        '201':
+          description: Tạo chi tiết thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResultItem'
+                  message:
+                    type: string
+                    example: "Tạo chi tiết kết quả xét nghiệm thành công"
+
+  /test-result-items/{id}:
+    get:
+      tags:
+        - Test Result Items
+      summary: Lấy chi tiết kết quả xét nghiệm theo ID
+      description: Lấy thông tin chi tiết kết quả xét nghiệm theo ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của chi tiết kết quả xét nghiệm
+      responses:
+        '200':
+          description: Lấy thông tin thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResultItem'
+        '404':
+          description: Không tìm thấy chi tiết kết quả xét nghiệm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Test Result Items
+      summary: Cập nhật chi tiết kết quả xét nghiệm
+      description: Cập nhật thông tin chi tiết kết quả xét nghiệm (Doctor)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của chi tiết kết quả xét nghiệm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                testName:
+                  type: string
+                  description: Tên xét nghiệm
+                value:
+                  type: string
+                  description: Giá trị kết quả
+                unit:
+                  type: string
+                  description: Đơn vị đo
+                normalRange:
+                  type: string
+                  description: Giá trị bình thường
+                isAbnormal:
+                  type: boolean
+                  description: Có bất thường không
+                notes:
+                  type: string
+                  description: Ghi chú
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResultItem'
+                  message:
+                    type: string
+                    example: "Cập nhật chi tiết kết quả xét nghiệm thành công"
+        '404':
+          description: Không tìm thấy chi tiết kết quả xét nghiệm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Test Result Items
+      summary: Xóa chi tiết kết quả xét nghiệm
+      description: Xóa chi tiết kết quả xét nghiệm (Doctor)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của chi tiết kết quả xét nghiệm
+      responses:
+        '200':
+          description: Xóa thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Xóa chi tiết kết quả xét nghiệm thành công"
+        '404':
+          description: Không tìm thấy chi tiết kết quả xét nghiệm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  
   schemas:
     User:
       type: object
@@ -3292,30 +4128,6 @@ components:
           type: string
           format: date-time
     
-    UserProfile:
-      type: object
-      properties:
-        _id:
-          type: string
-        ownerId:
-          $ref: '#/components/schemas/User'
-        fullName:
-          type: string
-        gender:
-          type: string
-          enum: [male, female, other]
-        phone:
-          type: string
-        year:
-          type: string
-          format: date
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-
     OtpCode:
       type: object
       properties:
@@ -3352,78 +4164,1071 @@ components:
           type: string
 
 
-  /doctors/{id}/available-slots:
-    get:
-      tags:
-        - Doctor Schedules
-      summary: Xem slot trống của bác sĩ theo ngày (PUBLIC - chỉ Free status)
-      description: Lấy danh sách slot có status Free của bác sĩ trong ngày cụ thể - không cần đăng nhập
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          description: ID của bác sĩ
-        - in: query
-          name: date
-          required: true
-          schema:
-            type: string
-            format: date
-          example: "2024-01-15"
-          description: Ngày cần xem slot trống (YYYY-MM-DD)
-      responses:
-        '200':
-          description: Lấy slot trống thành công
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Tìm thấy 5 slot trống trong ngày 2024-01-15"
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/AvailableSlot'
-        '400':
-          description: Thiếu tham số date
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Lỗi server
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+    LoginHistory:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        ipAddress:
+          type: string
+        userAgent:
+          type: string
+        loginAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [success, failed]
+        failReason:
+          type: string
 
+    Doctor:
+      type: object
+      properties:
+        userId:
+          type: string
+        bio:
+          type: string
+        experience:
+          type: number
+        rating:
+          type: number
+        specialization:
+          type: string
+        education:
+          type: string
+        certificate:
+          type: string
 
-  /doctors/available:
-    get:
-      tags:
-        - Doctor Schedules
-      summary: Tìm tất cả bác sĩ có lịch trống theo ngày (PUBLIC - chỉ Free status)
-      description: Lấy danh sách tất cả bác sĩ có slot Free trong ngày cụ thể, có thể lọc theo khung giờ - không cần đăng nhập
-      parameters:
-        - in: query
-          name: date
-          required: true
-          schema:
-            type: string
-            format: date
-          example: "2024-01-15"
-          description: Ngày cần tìm bác sĩ có lịch trống (YYYY-MM-DD)
-        - in: query
-          name: timeSlot
-          required: false
-          schema:
-            type: string
+    # ===== DOCTOR SCHEDULE SCHEMAS =====
+    TimeSlot:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+        slotTime:
+          type: string
           example: "07:00-08:00"
-          description: Khung giờ cụ thể (tuỳ chọn). Nếu không có sẽ tìm tất cả bác sĩ có ít nhất 1 slot Free
+          description: Khung giờ làm việc
+        status:
+          type: string
+          enum: [Free, Booked, Absent]
+          example: "Free"
+          description: Trạng thái slot - Free (trống), Booked (đã đặt), Absent (bác sĩ nghỉ)
+
+    WeekSchedule:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439012"
+        dayOfWeek:
+          type: string
+          format: date-time
+          example: "2024-01-15T00:00:00.000Z"
+          description: Ngày làm việc
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+          description: Danh sách 8 slot thời gian trong ngày
+
+    DoctorSchedule:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439013"
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        weekSchedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeekSchedule'
+          description: Lịch làm việc theo từng ngày
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AvailableSlot:
+      type: object
+      properties:
+        slotId:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+          description: ID của slot trống
+        slotTime:
+          type: string
+          example: "07:00-08:00"
+          description: Khung giờ trống
+        status:
+          type: string
+          example: "Free"
+          description: Luôn là Free vì chỉ trả về slot trống cho public
+
+    AvailableDoctor:
+      type: object
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        doctorInfo:
+          type: object
+          properties:
+            fullName:
+              type: string
+              example: "Dr. Nguyễn Văn A"
+              description: Tên đầy đủ của bác sĩ
+            specialization:
+              type: string
+              example: "Nội khoa"
+              description: Chuyên khoa
+        availableSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailableSlot'
+          description: Danh sách slot trống
+
+    DoctorPublicSchedule:
+      type: object
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        doctorInfo:
+          type: object
+          properties:
+            fullName:
+              type: string
+              example: "Dr. Nguyễn Văn A"
+              description: Tên đầy đủ của bác sĩ
+            specialization:
+              type: string
+              example: "Nội khoa"
+              description: Chuyên khoa
+        weekSchedule:
+          type: array
+          items:
+            type: object
+            properties:
+              dayOfWeek:
+                type: string
+                format: date-time
+                example: "2024-01-15T00:00:00.000Z"
+                description: Ngày làm việc
+              availableSlots:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AvailableSlot'
+                description: Danh sách slot trống trong ngày
+          description: Lịch làm việc tuần với chỉ slot trống
+
+    PublicDoctorDetails:
+      type: object
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        fullName:
+          type: string
+          example: "Dr. Nguyễn Văn A"
+          description: Tên đầy đủ của bác sĩ
+        email:
+          type: string
+          example: "doctor@email.com"
+          description: Email của bác sĩ
+        phone:
+          type: string
+          example: "0987654321"
+          description: Số điện thoại
+        specialization:
+          type: string
+          example: "Nội khoa"
+          description: Chuyên khoa
+        rating:
+          type: number
+          example: 4.5
+          description: Đánh giá trung bình
+
+    QnA:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439015"
+        question:
+          type: string
+          example: "Câu hỏi về sức khỏe"
+        answer:
+          type: string
+          example: "Trả lời từ bác sĩ"
+        askedBy:
+          type: string
+          example: "507f1f77bcf86cd799439016"
+          description: ID của người hỏi
+        answeredBy:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ trả lời
+        isPublic:
+          type: boolean
+          example: true
+          description: Câu hỏi có công khai không
+        category:
+          type: string
+          example: "Nội khoa"
+          description: Danh mục câu hỏi
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PublicQnA:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439015"
+        question:
+          type: string
+          example: "Câu hỏi về sức khỏe"
+        answer:
+          type: string
+          example: "Trả lời từ bác sĩ"
+        category:
+          type: string
+          example: "Nội khoa"
+          description: Danh mục câu hỏi
+        doctorInfo:
+          type: object
+          properties:
+            fullName:
+              type: string
+              example: "Dr. Nguyễn Văn A"
+            specialization:
+              type: string
+              example: "Nội khoa"
+        createdAt:
+          type: string
+          format: date-time
+
+    QnARequest:
+      type: object
+      required:
+        - question
+        - category
+      properties:
+        question:
+          type: string
+          example: "Tôi bị đau bụng, có nên uống thuốc gì không?"
+        category:
+          type: string
+          example: "Nội khoa"
+
+    QnAUpdateRequest:
+      type: object
+      properties:
+        question:
+          type: string
+          example: "Tôi bị đau bụng, có nên uống thuốc gì không?"
+        category:
+          type: string
+          example: "Nội khoa"
+        isPublic:
+          type: boolean
+          example: true
+
+    AnswerRequest:
+      type: object
+      required:
+        - answer
+      properties:
+        answer:
+          type: string
+          example: "Bạn nên đến khám để bác sĩ chẩn đoán chính xác."
+        isPublic:
+          type: boolean
+          example: true
+          description: Có công khai câu trả lời không
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        description:
+          type: string
+        type:
+          type: string
+        availableAt:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ServicePackage:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        priceBeforeDiscount:
+          type: number
+        price:
+          type: number
+        serviceIds:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    # ===== TEST SCHEMAS =====
+    TestCategory:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k1"
+        categoryName:
+          type: string
+          example: "Xét nghiệm máu tổng quát"
+        description:
+          type: string
+          example: "Các xét nghiệm cơ bản về máu"
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AppointmentTest:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k2"
+        appointmentId:
+          type: string
+          example: "none"
+        userId:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k3"
+        patientName:
+          type: string
+          example: "Nguyễn Văn A"
+        phone:
+          type: string
+          example: "0987654321"
+        email:
+          type: string
+          example: "test@example.com"
+        testDate:
+          type: string
+          format: date
+          example: "2024-01-20"
+        testTime:
+          type: string
+          example: "08:00"
+        testCategories:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestCategory'
+        status:
+          type: string
+          enum: [pending, confirmed, in_progress, completed, cancelled]
+          example: "pending"
+        notes:
+          type: string
+          example: "Nhịn ăn 8 tiếng trước khi xét nghiệm"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TestResult:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k4"
+        appointmentTest:
+          $ref: '#/components/schemas/AppointmentTest'
+        testDate:
+          type: string
+          format: date
+          example: "2024-01-20"
+        doctorId:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k5"
+        doctorNotes:
+          type: string
+          example: "Kết quả bình thường"
+        conclusion:
+          type: string
+          example: "Không có bất thường"
+        status:
+          type: string
+          enum: [pending, ready, delivered]
+          example: "ready"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TestResultItem:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k6"
+        testResultId:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k4"
+        testName:
+          type: string
+          example: "Hemoglobin"
+        value:
+          type: string
+          example: "14.5"
+        unit:
+          type: string
+          example: "g/dL"
+        normalRange:
+          type: string
+          example: "12.0 - 16.0"
+        isAbnormal:
+          type: boolean
+          example: false
+        notes:
+          type: string
+          example: "Trong giới hạn bình thường"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        phone:
+          type: string
+        avatar:
+          type: string
+        role:
+          type: string
+          enum:
+            - guest
+            - customer
+            - doctor
+            - staff
+            - manager
+            - admin
+        emailVerified:
+          type: boolean
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    
+    OtpCode:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        type:
+          type: string
+          enum:
+            - email_verification
+            - password_reset
+            - login
+        otp:
+          type: string
+        expires:
+          type: string
+          format: date-time
+        verified:
+          type: boolean
+        verifiedAt:
+          type: string
+          format: date-time
+        attempts:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+    
+    LoginHistory:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        ipAddress:
+          type: string
+        userAgent:
+          type: string
+        loginAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [success, failed]
+        failReason:
+          type: string
+
+    Doctor:
+      type: object
+      properties:
+        userId:
+          type: string
+        bio:
+          type: string
+        experience:
+          type: number
+        rating:
+          type: number
+        specialization:
+          type: string
+        education:
+          type: string
+        certificate:
+          type: string
+
+    # ===== DOCTOR SCHEDULE SCHEMAS =====
+    TimeSlot:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+        slotTime:
+          type: string
+          example: "07:00-08:00"
+          description: Khung giờ làm việc
+        status:
+          type: string
+          enum: [Free, Booked, Absent]
+          example: "Free"
+          description: Trạng thái slot - Free (trống), Booked (đã đặt), Absent (bác sĩ nghỉ)
+
+    WeekSchedule:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439012"
+        dayOfWeek:
+          type: string
+          format: date-time
+          example: "2024-01-15T00:00:00.000Z"
+          description: Ngày làm việc
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+          description: Danh sách 8 slot thời gian trong ngày
+
+    DoctorSchedule:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439013"
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        weekSchedule:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeekSchedule'
+          description: Lịch làm việc theo từng ngày
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AvailableSlot:
+      type: object
+      properties:
+        slotId:
+          type: string
+          example: "507f1f77bcf86cd799439011"
+          description: ID của slot trống
+        slotTime:
+          type: string
+          example: "07:00-08:00"
+          description: Khung giờ trống
+        status:
+          type: string
+          example: "Free"
+          description: Luôn là Free vì chỉ trả về slot trống cho public
+
+    AvailableDoctor:
+      type: object
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        doctorInfo:
+          type: object
+          properties:
+            fullName:
+              type: string
+              example: "Dr. Nguyễn Văn A"
+              description: Tên đầy đủ của bác sĩ
+            specialization:
+              type: string
+              example: "Nội khoa"
+              description: Chuyên khoa
+        availableSlots:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailableSlot'
+          description: Danh sách slot trống
+
+    DoctorPublicSchedule:
+      type: object
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        doctorInfo:
+          type: object
+          properties:
+            fullName:
+              type: string
+              example: "Dr. Nguyễn Văn A"
+              description: Tên đầy đủ của bác sĩ
+            specialization:
+              type: string
+              example: "Nội khoa"
+              description: Chuyên khoa
+        weekSchedule:
+          type: array
+          items:
+            type: object
+            properties:
+              dayOfWeek:
+                type: string
+                format: date-time
+                example: "2024-01-15T00:00:00.000Z"
+                description: Ngày làm việc
+              availableSlots:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AvailableSlot'
+                description: Danh sách slot trống trong ngày
+          description: Lịch làm việc tuần với chỉ slot trống
+
+    PublicDoctorDetails:
+      type: object
+      properties:
+        doctorId:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ
+        fullName:
+          type: string
+          example: "Dr. Nguyễn Văn A"
+          description: Tên đầy đủ của bác sĩ
+        email:
+          type: string
+          example: "doctor@email.com"
+          description: Email của bác sĩ
+        phone:
+          type: string
+          example: "0987654321"
+          description: Số điện thoại
+        specialization:
+          type: string
+          example: "Nội khoa"
+          description: Chuyên khoa
+        rating:
+          type: number
+          example: 4.5
+          description: Đánh giá trung bình
+
+    QnA:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439015"
+        question:
+          type: string
+          example: "Câu hỏi về sức khỏe"
+        answer:
+          type: string
+          example: "Trả lời từ bác sĩ"
+        askedBy:
+          type: string
+          example: "507f1f77bcf86cd799439016"
+          description: ID của người hỏi
+        answeredBy:
+          type: string
+          example: "507f1f77bcf86cd799439014"
+          description: ID của bác sĩ trả lời
+        isPublic:
+          type: boolean
+          example: true
+          description: Câu hỏi có công khai không
+        category:
+          type: string
+          example: "Nội khoa"
+          description: Danh mục câu hỏi
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PublicQnA:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "507f1f77bcf86cd799439015"
+        question:
+          type: string
+          example: "Câu hỏi về sức khỏe"
+        answer:
+          type: string
+          example: "Trả lời từ bác sĩ"
+        category:
+          type: string
+          example: "Nội khoa"
+          description: Danh mục câu hỏi
+        doctorInfo:
+          type: object
+          properties:
+            fullName:
+              type: string
+              example: "Dr. Nguyễn Văn A"
+            specialization:
+              type: string
+              example: "Nội khoa"
+        createdAt:
+          type: string
+          format: date-time
+
+    QnARequest:
+      type: object
+      required:
+        - question
+        - category
+      properties:
+        question:
+          type: string
+          example: "Tôi bị đau bụng, có nên uống thuốc gì không?"
+        category:
+          type: string
+          example: "Nội khoa"
+
+    QnAUpdateRequest:
+      type: object
+      properties:
+        question:
+          type: string
+          example: "Tôi bị đau bụng, có nên uống thuốc gì không?"
+        category:
+          type: string
+          example: "Nội khoa"
+        isPublic:
+          type: boolean
+          example: true
+
+    AnswerRequest:
+      type: object
+      required:
+        - answer
+      properties:
+        answer:
+          type: string
+          example: "Bạn nên đến khám để bác sĩ chẩn đoán chính xác."
+        isPublic:
+          type: boolean
+          example: true
+          description: Có công khai câu trả lời không
+
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        description:
+          type: string
+        type:
+          type: string
+        availableAt:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ServicePackage:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        priceBeforeDiscount:
+          type: number
+        price:
+          type: number
+        serviceIds:
+          type: array
+          items:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    # ===== TEST SCHEMAS =====
+    TestCategory:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k1"
+        categoryName:
+          type: string
+          example: "Xét nghiệm máu tổng quát"
+        description:
+          type: string
+          example: "Các xét nghiệm cơ bản về máu"
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    
+    AppointmentTest:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k2"
+        userId:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k3"
+        appointmentId:
+          type: string
+          example: "none"
+        patientName:
+          type: string
+          example: "Nguyễn Văn A"
+        phone:
+          type: string
+          example: "0987654321"
+        email:
+          type: string
+          example: "test@example.com"
+        testDate:
+          type: string
+          format: date
+          example: "2024-01-20"
+        testTime:
+          type: string
+          example: "08:00"
+        testCategories:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestCategory'
+        status:
+          type: string
+          enum: [pending, confirmed, in_progress, completed, cancelled]
+          example: "pending"
+        notes:
+          type: string
+          example: "Nhịn ăn 8 tiếng trước khi xét nghiệm"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TestResult:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k4"
+        appointmentTest:
+          $ref: '#/components/schemas/AppointmentTest'
+        testDate:
+          type: string
+          format: date
+          example: "2024-01-20"
+        doctorId:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k5"
+        doctorNotes:
+          type: string
+          example: "Kết quả bình thường"
+        conclusion:
+          type: string
+          example: "Không có bất thường"
+        status:
+          type: string
+          enum: [pending, ready, delivered]
+          example: "ready"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    
+    TestResultItem:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k6"
+        testResultId:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k4"
+        testName:
+          type: string
+          example: "Hemoglobin"
+        value:
+          type: string
+          example: "14.5"
+        unit:
+          type: string
+          example: "g/dL"
+        normalRange:
+          type: string
+          example: "12.0 - 16.0"
+        isAbnormal:
+          type: boolean
+          example: false
+        notes:
+          type: string
+          example: "Trong giới hạn bình thường"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
       responses:
         '200':
           description: Tìm bác sĩ có lịch trống thành công
@@ -4824,6 +6629,746 @@ components:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  # ===== TEST CATEGORIES APIs =====
+  /test-categories:
+    get:
+      tags:
+        - Test Categories
+      summary: Lấy danh sách danh mục xét nghiệm
+      description: Lấy tất cả danh mục xét nghiệm có phân trang (Public access)
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Số lượng item mỗi trang
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Tìm kiếm theo tên danh mục
+      responses:
+        '200':
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TestCategory'
+                  pagination:
+                      $ref: '#/components/schemas/Pagination'
+        '500':
+          description: Lỗi server
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Test Categories
+      summary: Tạo danh mục xét nghiệm mới
+      description: Tạo danh mục xét nghiệm mới (Chỉ Doctor/Nursing Staff)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - categoryName
+                - description
+              properties:
+                categoryName:
+                  type: string
+                  description: Tên danh mục xét nghiệm
+                  example: "Xét nghiệm máu tổng quát"
+                description:
+                  type: string
+                  description: Mô tả danh mục
+                  example: "Các xét nghiệm cơ bản về máu"
+                isActive:
+                  type: boolean
+                  description: Trạng thái hoạt động
+                  default: true
+      responses:
+        '201':
+          description: Tạo danh mục thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestCategory'
+                  message:
+                    type: string
+                    example: "Tạo danh mục xét nghiệm thành công"
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /test-categories/{id}:
+    get:
+      tags:
+        - Test Categories
+      summary: Lấy chi tiết danh mục xét nghiệm
+      description: Lấy thông tin chi tiết danh mục xét nghiệm theo ID (Public access)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của danh mục xét nghiệm
+      responses:
+        '200':
+          description: Lấy thông tin thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestCategory'
+        '404':
+          description: Không tìm thấy danh mục
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Test Categories
+      summary: Cập nhật danh mục xét nghiệm
+      description: Cập nhật thông tin danh mục xét nghiệm (Chỉ Doctor/Nursing Staff)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của danh mục xét nghiệm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                categoryName:
+                  type: string
+                  description: Tên danh mục xét nghiệm
+                  example: "Xét nghiệm máu tổng quát"
+                description:
+                  type: string
+                  description: Mô tả danh mục
+                  example: "Các xét nghiệm cơ bản về máu"
+                isActive:
+                  type: boolean
+                  description: Trạng thái hoạt động
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestCategory'
+                  message:
+                    type: string
+                    example: "Cập nhật danh mục xét nghiệm thành công"
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Không tìm thấy danh mục
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Test Categories
+      summary: Xóa danh mục xét nghiệm
+      description: Xóa danh mục xét nghiệm (Chỉ Doctor/Nursing Staff)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của danh mục xét nghiệm
+      responses:
+        '200':
+          description: Xóa thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Xóa danh mục xét nghiệm thành công"
+        '404':
+          description: Không tìm thấy danh mục
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+
+
+  # ===== TEST RESULTS APIs =====
+  /test-results:
+    get:
+      tags:
+        - Test Results
+      summary: Lấy danh sách kết quả xét nghiệm
+      description: Lấy tất cả kết quả xét nghiệm với phân trang (Doctor/Staff)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Số lượng item mỗi trang
+        - in: query
+          name: patientName
+          schema:
+            type: string
+          description: Tìm kiếm theo tên bệnh nhân
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, ready, delivered]
+          description: Lọc theo trạng thái
+      responses:
+        '200':
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TestResult'
+                  pagination:
+                      $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Chưa xác thực
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Không có quyền truy cập
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags:
+        - Test Results
+      summary: Tạo kết quả xét nghiệm mới
+      description: Tạo kết quả xét nghiệm mới (Doctor)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - appointmentTestId
+                - testDate
+              properties:
+                appointmentTestId:
+                  type: string
+                  description: ID của đặt lịch xét nghiệm
+                  example: "64a1b2c3d4e5f6g7h8i9j0k1"
+                testDate:
+                  type: string
+                  format: date
+                  description: Ngày thực hiện xét nghiệm
+                  example: "2024-01-20"
+                doctorNotes:
+                  type: string
+                  description: Ghi chú của bác sĩ
+                  example: "Kết quả bình thường"
+                conclusion:
+                  type: string
+                  description: Kết luận chung
+                  example: "Không có bất thường"
+      responses:
+        '201':
+          description: Tạo kết quả thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResult'
+                  message:
+                    type: string
+                    example: "Tạo kết quả xét nghiệm thành công"
+        '400':
+          description: Dữ liệu không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /test-results/{id}:
+    get:
+      tags:
+        - Test Results
+      summary: Lấy chi tiết kết quả xét nghiệm
+      description: Lấy thông tin chi tiết kết quả xét nghiệm theo ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của kết quả xét nghiệm
+      responses:
+        '200':
+          description: Lấy thông tin thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResult'
+        '404':
+          description: Không tìm thấy kết quả xét nghiệm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Test Results
+      summary: Cập nhật kết quả xét nghiệm
+      description: Cập nhật thông tin kết quả xét nghiệm (Doctor)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của kết quả xét nghiệm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                testDate:
+                  type: string
+                  format: date
+                  description: Ngày thực hiện xét nghiệm
+                doctorNotes:
+                  type: string
+                  description: Ghi chú của bác sĩ
+                conclusion:
+                  type: string
+                  description: Kết luận chung
+                status:
+                  type: string
+                  enum: [pending, ready, delivered]
+                  description: Trạng thái kết quả
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResult'
+                  message:
+                    type: string
+                    example: "Cập nhật kết quả xét nghiệm thành công"
+        '404':
+          description: Không tìm thấy kết quả xét nghiệm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Test Results
+      summary: Xóa kết quả xét nghiệm
+      description: Xóa kết quả xét nghiệm (Doctor)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của kết quả xét nghiệm
+      responses:
+        '200':
+          description: Xóa thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Xóa kết quả xét nghiệm thành công"
+        '404':
+          description: Không tìm thấy kết quả xét nghiệm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ===== TEST RESULT ITEMS APIs =====
+  /test-result-items:
+    get:
+      tags:
+        - Test Result Items
+      summary: Lấy danh sách chi tiết kết quả xét nghiệm
+      description: Lấy tất cả chi tiết kết quả xét nghiệm (Doctor/Staff)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: testResultId
+          schema:
+            type: string
+          description: Lọc theo ID kết quả xét nghiệm
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Số trang
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Số lượng item mỗi trang
+      responses:
+        '200':
+          description: Lấy danh sách thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TestResultItem'
+                  pagination:
+                      $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - Test Result Items
+      summary: Tạo chi tiết kết quả xét nghiệm mới
+      description: Tạo chi tiết kết quả xét nghiệm mới (Doctor)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - testResultId
+                - testName
+                - value
+                - unit
+                - normalRange
+              properties:
+                testResultId:
+                  type: string
+                  description: ID của kết quả xét nghiệm
+                  example: "64a1b2c3d4e5f6g7h8i9j0k1"
+                testName:
+                  type: string
+                  description: Tên xét nghiệm
+                  example: "Hemoglobin"
+                value:
+                  type: string
+                  description: Giá trị kết quả
+                  example: "14.5"
+                unit:
+                  type: string
+                  description: Đơn vị đo
+                  example: "g/dL"
+                normalRange:
+                  type: string
+                  description: Giá trị bình thường
+                  example: "12.0 - 16.0"
+                isAbnormal:
+                  type: boolean
+                  description: Có bất thường không
+                  default: false
+                notes:
+                  type: string
+                  description: Ghi chú
+                  example: "Trong giới hạn bình thường"
+      responses:
+        '201':
+          description: Tạo chi tiết thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResultItem'
+                  message:
+                    type: string
+                    example: "Tạo chi tiết kết quả xét nghiệm thành công"
+
+  /test-result-items/{id}:
+    get:
+      tags:
+        - Test Result Items
+      summary: Lấy chi tiết kết quả xét nghiệm theo ID
+      description: Lấy thông tin chi tiết kết quả xét nghiệm theo ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của chi tiết kết quả xét nghiệm
+      responses:
+        '200':
+          description: Lấy thông tin thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResultItem'
+        '404':
+          description: Không tìm thấy chi tiết kết quả xét nghiệm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      tags:
+        - Test Result Items
+      summary: Cập nhật chi tiết kết quả xét nghiệm
+      description: Cập nhật thông tin chi tiết kết quả xét nghiệm (Doctor)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của chi tiết kết quả xét nghiệm
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                testName:
+                  type: string
+                  description: Tên xét nghiệm
+                value:
+                  type: string
+                  description: Giá trị kết quả
+                unit:
+                  type: string
+                  description: Đơn vị đo
+                normalRange:
+                  type: string
+                  description: Giá trị bình thường
+                isAbnormal:
+                  type: boolean
+                  description: Có bất thường không
+                notes:
+                  type: string
+                  description: Ghi chú
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TestResultItem'
+                  message:
+                    type: string
+                    example: "Cập nhật chi tiết kết quả xét nghiệm thành công"
+        '404':
+          description: Không tìm thấy chi tiết kết quả xét nghiệm
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags:
+        - Test Result Items
+      summary: Xóa chi tiết kết quả xét nghiệm
+      description: Xóa chi tiết kết quả xét nghiệm (Doctor)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID của chi tiết kết quả xét nghiệm
+      responses:
+        '200':
+          description: Xóa thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Xóa chi tiết kết quả xét nghiệm thành công"
+        '404':
+          description: Không tìm thấy chi tiết kết quả xét nghiệm
+        content:
+          application/json:
+            schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -4833,8 +7378,8 @@ components:
   
   schemas:
     User:
-      type: object
-      properties:
+     type: object
+     properties:
         id:
           type: string
         email:
@@ -4864,26 +7409,6 @@ components:
         updatedAt:
           type: string
           format: date-time
-    
-    UserProfile:
-      type: object
-      properties:
-        id:
-          type: string
-        email:
-          type: string
-        fullName:
-          type: string
-        phone:
-          type: string
-        avatar:
-          type: string
-        role:
-          type: string
-        emailVerified:
-          type: boolean
-        isActive:
-          type: boolean
     
     OtpCode:
       type: object
@@ -5061,9 +7586,9 @@ components:
               example: 4.5
         availableSlots:
           type: array
+          description: Danh sách slot Free của bác sĩ (chỉ public)
           items:
             $ref: '#/components/schemas/AvailableSlot'
-          description: Danh sách slot Free của bác sĩ (chỉ public)
         totalAvailableSlots:
           type: integer
           example: 3
@@ -5300,45 +7825,6 @@ components:
           type: string
           example: "Chứng chỉ chuyên khoa cấp I"
 
-    UserProfileRequest:
-      type: object
-      required:
-        - fullName
-        - gender
-      properties:
-        fullName:
-          type: string
-          example: "Nguyễn Văn A"
-        gender:
-          type: string
-          enum: [male, female, other]
-          example: "male"
-        phone:
-          type: string
-          example: "0123456789"
-        year:
-          type: string
-          format: date
-          example: "1990-01-01"
-
-    UserProfileUpdateRequest:
-      type: object
-      properties:
-        fullName:
-          type: string
-          example: "Nguyễn Văn A"
-        gender:
-          type: string
-          enum: [male, female, other]
-          example: "male"
-        phone:
-          type: string
-          example: "0123456789"
-        year:
-          type: string
-          format: date
-          example: "1990-01-01"
-
     Pagination:
       type: object
       properties:
@@ -5524,4 +8010,139 @@ components:
           type: integer
         totalPages:
           type: integer
+
+    # Schemas for Test-related APIs
+    TestCategory:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k1"
+        categoryName:
+          type: string
+          example: "Xét nghiệm máu tổng quát"
+        description:
+          type: string
+          example: "Các xét nghiệm cơ bản về máu"
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AppointmentTest:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k2"
+        userId:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k3"
+        appointmentId:
+          type: string
+          example: "none"
+        patientName:
+          type: string
+          example: "Nguyễn Văn A"
+        phone:
+          type: string
+          example: "0987654321"
+        email:
+          type: string
+          example: "test@example.com"
+        testDate:
+          type: string
+          format: date
+          example: "2024-01-20"
+        testTime:
+          type: string
+          example: "08:00"
+        testCategories:
+          type: array
+          items:
+            $ref: '#/components/schemas/TestCategory'
+        status:
+          type: string
+          enum: [pending, confirmed, in_progress, completed, cancelled]
+          example: "pending"
+        notes:
+          type: string
+          example: "Nhịn ăn 8 tiếng trước khi xét nghiệm"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TestResult:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k4"
+        appointmentTest:
+          $ref: '#/components/schemas/AppointmentTest'
+        testDate:
+          type: string
+          format: date
+          example: "2024-01-20"
+        doctorId:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k5"
+        doctorNotes:
+          type: string
+          example: "Kết quả bình thường"
+        conclusion:
+          type: string
+          example: "Không có bất thường"
+        status:
+          type: string
+          enum: [pending, ready, delivered]
+          example: "ready"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TestResultItem:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k6"
+        testResultId:
+          type: string
+          example: "64a1b2c3d4e5f6g7h8i9j0k4"
+        testName:
+          type: string
+          example: "Hemoglobin"
+        value:
+          type: string
+          example: "14.5"
+        unit:
+          type: string
+          example: "g/dL"
+        normalRange:
+          type: string
+          example: "12.0 - 16.0"
+        isAbnormal:
+          type: boolean
+          example: false
+        notes:
+          type: string
+          example: "Trong giới hạn bình thường"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
