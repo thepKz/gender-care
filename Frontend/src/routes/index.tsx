@@ -36,7 +36,8 @@ import FeedbackPage from '../pages/feedback';
 import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
 
-// Import các trang hồ sơ bệnh án
+// Dashboard Wrapper Components
+import DashboardWrapper from '../components/dashboard/DashboardWrapper';// Import các trang hồ sơ bệnh án
 // XÓA: import HealthProfilesPage from '../pages/profile/health-profiles';
 import CreateProfilePage from '../pages/profile/create-profile';
 import EditProfilePage from '../pages/profile/edit-profile';
@@ -82,6 +83,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/verify-email" element={isAuthenticated ? <VerifyEmailPage /> : <Navigate to="/login" replace />} />
         {/* Thêm các trang xác thực khác nếu có */}
       </Route>
+      
       {/* Profile routes - không header/footer, nền gradient */}
       <Route element={<ProfileLayout />}>
         <Route path="/profile" element={isAuthenticated ? <ProfilePage /> : <Navigate to="/login" replace />} />
@@ -91,6 +93,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/profile/view-profile/:profileId" element={isAuthenticated ? <ViewProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/medical-records/:profileId" element={isAuthenticated ? <NotFoundPage /> : <Navigate to="/login" replace />} />
       </Route>
+      
       {/* Main routes - có header/footer */}
       <Route element={<MainLayout />}>
         <Route index path="/" element={<HomePage />} />
@@ -124,6 +127,13 @@ const AppRoutes: React.FC = () => {
         {/* Các route khác */}
         <Route path="*" element={<NotFoundPage />} />
       </Route>
+      
+      {/* Legacy Dashboard Redirects */}
+      <Route path="/admin-dashboard" element={<Navigate to="/dashboard/admin" replace />} />
+      <Route path="/staff-dashboard" element={<Navigate to="/dashboard/staff" replace />} />
+      
+      {/* Dashboard Routes - sử dụng DashboardWrapper cho tất cả */}
+      <Route path="/dashboard/*" element={<DashboardWrapper />} />
     </Routes>
   );
 };

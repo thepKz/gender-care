@@ -104,8 +104,16 @@ const LoginPage: React.FC = () => {
                 // Gọi fetchProfile để lấy thông tin user mới nhất
                 await fetchProfile();
                 
-                // Chuyển hướng đến trang chủ
-                navigate('/');
+                // Chuyển hướng dựa trên role
+                const userRole = result.user?.role;
+                if (userRole && ['admin', 'manager'].includes(userRole)) {
+                  navigate('/admin-dashboard');
+                } else if (userRole && ['staff', 'doctor'].includes(userRole)) {
+                  navigate('/staff-dashboard');
+                } else {
+                  // Customer hoặc role khác thì về trang chủ
+                  navigate('/');
+                }
               } else {
                 setLoginError(result.error || 'Đăng nhập Google thất bại');
                 toast.error(result.error || 'Đăng nhập Google thất bại');
@@ -202,8 +210,17 @@ const LoginPage: React.FC = () => {
         toast.success('Đăng nhập thành công!');
         // Gọi fetchProfile để lấy avatar ngay
         await fetchProfile();
-        // Chuyển hướng đến trang chủ thay vì trang profile
-        navigate('/');
+        
+        // Chuyển hướng dựa trên role
+        const userRole = result.user?.role;
+        if (userRole && ['admin', 'manager'].includes(userRole)) {
+          navigate('/admin-dashboard');
+        } else if (userRole && ['staff', 'doctor'].includes(userRole)) {
+          navigate('/staff-dashboard');
+        } else {
+          // Customer hoặc role khác thì về trang chủ
+          navigate('/');
+        }
       } else {
         setLoginError(result.error || 'Đăng nhập thất bại, vui lòng thử lại');
       }

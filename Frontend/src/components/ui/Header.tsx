@@ -80,6 +80,20 @@ const Header: React.FC = () => {
 
   // Menu Hồ sơ cá nhân dropdown
   const profile: MenuProps["items"] = [
+    // Thêm Dashboard links cho admin/manager/staff/doctor
+    ...(user && ['admin', 'manager', 'staff', 'doctor'].includes(user.role) ? [
+      {
+        key: "dashboard",
+        label: user.role === 'admin' || user.role === 'manager' ? "Admin Dashboard" : "Work Dashboard",
+        onClick: () => {
+          const dashboardPath = ['admin', 'manager'].includes(user.role) ? '/admin-dashboard' : '/staff-dashboard';
+          navigate(dashboardPath);
+        },
+      },
+      {
+        type: "divider" as const,
+      }
+    ] : []),
     {
       key: "1",
       icon: <User size={20} className="profile-icon" />,

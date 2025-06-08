@@ -140,23 +140,36 @@ Table MedicationReminders {
   _id ObjectId [pk] 
   createdByUserId ObjectId [ref: > Users._id] 
   profileId ObjectId [ref: > UserProfiles._id] 
+  medicalRecordId ObjectId [ref: > MedicalRecords._id]
   medicines Array[]  
+  startDate DateTime
+  endDate DateTime
+  isActive Boolean [default: true]
   notes String 
   createdAt DateTime 
   updatedAt DateTime 
 } 
 Table Medicines { 
- name String 
-  type String // "contraceptive", "vitamin", "other" 
-  time String 
-  dosage String 
+  _id ObjectId [pk]
+  name String [unique]
+  type String // "contraceptive", "vitamin", "other", "antibiotic", "painkiller"
+  description String
+  defaultDosage String
+  defaultTimingInstructions String
+  isActive Boolean [default: true]
+  isDeleted Boolean [default: false]
+  createdAt DateTime 
+  updatedAt DateTime 
 } 
  
 Table NotificationDays { 
   _id ObjectId [pk] 
   reminderId ObjectId [ref: > MedicationReminders._id] 
   notificationTimes DateTime 
-  status String // "send", "failed" 
+  status String // "pending", "sent", "failed", "taken", "skipped", "snoozed"
+  reason String
+  takenAt DateTime
+  snoozedUntil DateTime
   createdAt DateTime 
   updatedAt DateTime 
 } 

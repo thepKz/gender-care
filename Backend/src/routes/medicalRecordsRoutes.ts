@@ -1,0 +1,63 @@
+import express from 'express';
+import * as medicalRecordsController from '../controllers/medicalRecordsController';
+import { verifyToken } from '../middleware/auth';
+import { roleMiddleware } from '../middleware/roleMiddleware';
+
+const router = express.Router();
+
+// Tạo medical record (Doctor/Staff/Manager/Admin)
+router.post('/', 
+  verifyToken, 
+  roleMiddleware(['doctor', 'staff', 'manager', 'admin']), 
+  medicalRecordsController.createMedicalRecord
+);
+
+// Cập nhật medical record (Doctor/Staff/Manager/Admin)  
+router.put('/:id',
+  verifyToken,
+  roleMiddleware(['doctor', 'staff', 'manager', 'admin']),
+  medicalRecordsController.updateMedicalRecord
+);
+
+// Lấy chi tiết medical record (Doctor/Staff/Customer)
+router.get('/:id',
+  verifyToken,
+  medicalRecordsController.getMedicalRecordById
+);
+
+// Doctor xem medical records do mình tạo
+router.get('/my/records',
+  verifyToken,
+  roleMiddleware(['doctor']),
+  medicalRecordsController.getMyMedicalRecords
+);
+
+// Staff xem tất cả medical records
+router.get('/staff/all',
+  verifyToken,
+  roleMiddleware(['staff', 'manager', 'admin']),
+  medicalRecordsController.getAllMedicalRecords
+);
+
+// User xem medical records của profiles thuộc về mình
+router.get('/profile/:profileId',
+  verifyToken,
+  roleMiddleware(['customer']),
+  medicalRecordsController.getMedicalRecordsByProfile
+);
+
+// Doctor tìm kiếm medical records do mình tạo
+router.get('/my/search',
+  verifyToken,
+  roleMiddleware(['doctor']),
+  medicalRecordsController.searchMyMedicalRecords
+);
+
+// Staff tìm kiếm trong tất cả medical records
+router.get('/staff/search',
+  verifyToken,
+  roleMiddleware(['staff', 'manager', 'admin']),
+  medicalRecordsController.searchAllMedicalRecords
+);
+
+export default router; 
