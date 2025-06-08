@@ -11,8 +11,20 @@ const router = Router();
 // Xem danh sách bác sĩ - tất cả mọi người đều được phép (kể cả guest)
 router.get('/', doctorController.getAll);
 
+// 🆕 NEW: Xem danh sách bác sĩ với feedback và status - PUBLIC
+router.get('/details/all', doctorController.getAllWithDetails);
+
 // Xem thông tin bác sĩ theo ID - tất cả mọi người đều được phép (kể cả guest)  
 router.get('/:id', doctorController.getById);
+
+// 🆕 NEW: Xem thông tin bác sĩ với feedback và status - PUBLIC
+router.get('/:id/details', doctorController.getByIdWithDetails);
+
+// 🆕 NEW: Lấy chỉ feedback của doctor - PUBLIC
+router.get('/:id/feedbacks', doctorController.getDoctorFeedbacks);
+
+// 🆕 NEW: Lấy chỉ trạng thái active của doctor - PUBLIC (để frontend hiển thị status)
+router.get('/:id/status', doctorController.getDoctorStatus);
 
 // ===== PUBLIC ROUTES (không cần xác thực) =====
 
@@ -86,5 +98,9 @@ router.put('/:id', verifyToken, verifyStaff, doctorController.update);
 
 // Xóa bác sĩ - chỉ staff/admin được phép
 router.delete('/:id', verifyToken, verifyStaff, doctorController.remove);
+
+// MANAGER ONLY: Cập nhật trạng thái active/inactive của bác sĩ
+router.put('/:id/status', verifyToken, roleMiddleware(['manager']), doctorController.updateDoctorStatus);
+
 export default router;
 

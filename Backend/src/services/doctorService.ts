@@ -1,5 +1,6 @@
 import  Doctor  from '../models/Doctor';
 import User from '../models/User';
+import Feedbacks from '../models/Feedbacks';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import DoctorSchedules from '../models/DoctorSchedules';
@@ -7,6 +8,134 @@ import DoctorSchedules from '../models/DoctorSchedules';
 // Thêm function validation ObjectId
 const isValidObjectId = (id: string): boolean => {
   return mongoose.Types.ObjectId.isValid(id);
+};
+
+// Helper function: Lấy feedback của doctor (tạm thời trả về empty)
+export const getDoctorFeedbacks = async (doctorId: string) => {
+  try {
+    // Tìm tất cả feedbacks cho doctor này
+    const feedbacks = await Feedbacks.find({ doctorId })
+      .populate('appointmentId', 'appointmentDate')
+      .sort({ createdAt: -1 });
+
+    // Nếu chưa có feedback, trả về structure mặc định
+    if (!feedbacks || feedbacks.length === 0) {
+      return {
+        totalFeedbacks: 0,
+        averageRating: 0,
+        feedbacks: [],
+        message: 'Chưa có đánh giá nào'
+      };
+    }
+
+    // Tính toán thống kê
+    const totalFeedbacks = feedbacks.length;
+    const totalRating = feedbacks.reduce((sum, feedback) => sum + feedback.rating, 0);
+    const averageRating = Math.round((totalRating / totalFeedbacks) * 10) / 10; // Round to 1 decimal
+
+    return {
+      totalFeedbacks,
+      averageRating,
+      feedbacks: feedbacks.map(feedback => ({
+        _id: feedback._id,
+        rating: feedback.rating,
+        feedback: feedback.feedback,
+        comment: feedback.comment,
+        appointmentId: feedback.appointmentId,
+        createdAt: feedback.createdAt
+      })),
+      message: `Có ${totalFeedbacks} đánh giá`
+    };
+  } catch (error) {
+    console.error('Error getting doctor feedbacks:', error);
+    // Trả về structure mặc định nếu có lỗi
+    return {
+      totalFeedbacks: 0,
+      averageRating: 0,
+      feedbacks: [],
+      message: 'Chưa có đánh giá nào'
+    };
+  }
+};
+
+// Helper function: Check active status của doctor thông qua User.isActive
+export const getDoctorActiveStatus = async (doctorId: string) => {
+  try {
+    const doctor = await Doctor.findById(doctorId).populate('userId', 'isActive');
+    
+    if (!doctor || !(doctor as any).userId) {
+      return {
+        isActive: false,
+        statusText: 'Không xác định',
+        message: 'Không tìm thấy thông tin bác sĩ'
+      };
+    }
+
+    const isActive = (doctor as any).userId.isActive;
+    
+    return {
+      isActive,
+      statusText: isActive ? 'Hoạt động' : 'Tạm ngưng',
+      message: isActive ? 'Bác sĩ đang hoạt động bình thường' : 'Bác sĩ tạm thời ngưng hoạt động'
+    };
+  } catch (error) {
+    console.error('Error getting doctor active status:', error);
+    return {
+      isActive: false,
+      statusText: 'Lỗi hệ thống',
+      message: 'Không thể kiểm tra trạng thái'
+    };
+  }
+};
+
+// Enhanced function: Lấy tất cả doctors với feedback và status
+export const getAllDoctorsWithDetails = async () => {
+  try {
+    const doctors = await Doctor.find().populate('userId', 'fullName email avatar phone isActive');
+    
+    const doctorsWithDetails = [];
+    
+    for (const doctor of doctors) {
+      // Lấy feedback và status cho từng doctor
+      const feedbackData = await getDoctorFeedbacks(doctor._id.toString());
+      const statusData = await getDoctorActiveStatus(doctor._id.toString());
+      
+      doctorsWithDetails.push({
+        ...JSON.parse(JSON.stringify(doctor)), // Convert to plain object
+        feedback: feedbackData,
+        status: statusData
+      });
+    }
+    
+    return doctorsWithDetails;
+  } catch (error) {
+    console.error('Error getting all doctors with details:', error);
+    throw error;
+  }
+};
+
+// Enhanced function: Lấy doctor by ID với feedback và status  
+export const getDoctorByIdWithDetails = async (id: string) => {
+  try {
+    const doctor = await Doctor.findById(id).populate('userId', 'fullName email avatar phone isActive');
+    
+    if (!doctor) {
+      throw new Error('Không tìm thấy bác sĩ');
+    }
+    
+    // Lấy feedback và status
+    const feedbackData = await getDoctorFeedbacks(id);
+    const statusData = await getDoctorActiveStatus(id);
+    
+    return {
+      ...JSON.parse(JSON.stringify(doctor)), // Convert to plain object
+      feedback: feedbackData,
+      status: statusData
+    };
+  } catch (error) {
+    console.error('Error getting doctor by ID with details:', error);
+    throw error;
+  }
 };
 
 export const getAllDoctors = () => Doctor.find().populate('userId', 'fullName email avatar phone');
@@ -216,6 +345,41 @@ export const getAllDoctorsStatistics = async () => {
 
   } catch (error) {
     console.error('Error getting all doctors statistics:', error);
+    throw error;
+  }
+};
+
+// Toggle/Update active status của doctor
+export const updateDoctorActiveStatus = async (doctorId: string, isActive: boolean) => {
+  try {
+    // Tìm doctor để lấy userId
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor) {
+      throw new Error('Không tìm thấy bác sĩ');
+    }
+
+    // Cập nhật isActive trong User model
+    const updatedUser = await User.findByIdAndUpdate(
+      (doctor as any).userId,
+      { isActive },
+      { new: true }
+    ).select('isActive fullName email');
+
+    if (!updatedUser) {
+      throw new Error('Không thể cập nhật trạng thái người dùng');
+    }
+
+    return {
+      doctorId,
+      userId: updatedUser._id,
+      fullName: updatedUser.fullName,
+      email: updatedUser.email,
+      isActive: updatedUser.isActive,
+      statusText: updatedUser.isActive ? 'Hoạt động' : 'Tạm ngưng',
+      message: `Đã ${updatedUser.isActive ? 'kích hoạt' : 'tạm ngưng'} tài khoản bác sĩ thành công`
+    };
+  } catch (error) {
+    console.error('Error updating doctor active status:', error);
     throw error;
   }
 };
