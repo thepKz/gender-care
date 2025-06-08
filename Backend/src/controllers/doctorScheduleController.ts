@@ -418,29 +418,35 @@ export const createBulkDoctorScheduleForDays = async (req: Request, res: Respons
       return;
     }
 
+    // 🔧 FIX: Sử dụng đúng service function và response structure
     const result = await doctorService.createBulkDoctorScheduleForDays(id, dates);
 
-    let message = `Tạo lịch thành công cho ${result.successCount}/${result.totalRequested} ngày`;
+    const successCount = result.summary.success;
+    const totalRequested = result.summary.total;
+    const weekendCount = result.summary.weekend;
+    const weekendDates = result.results.weekend;
+
+    let message = `Tạo lịch thành công cho ${successCount}/${totalRequested} ngày`;
     
-    if (result.weekendCount > 0) {
-      message += `. Đã bỏ qua ${result.weekendCount} ngày cuối tuần: ${result.weekendDates.join(', ')}`;
+    if (weekendCount > 0) {
+      message += `. Đã bỏ qua ${weekendCount} ngày cuối tuần: ${weekendDates.join(', ')}`;
     }
 
-    if (result.success) {
+    if (successCount > 0) {
       res.status(201).json({
         message,
         data: result,
         summary: {
-          totalRequested: result.totalRequested,
-          successful: result.successCount,
-          errors: result.errorCount,
-          weekendsSkipped: result.weekendCount
+          totalRequested,
+          successful: successCount,
+          errors: result.summary.failed,
+          weekendsSkipped: weekendCount
         }
       });
     } else {
       res.status(400).json({
-        message: result.weekendCount > 0 
-          ? `Không thể tạo lịch cho bất kỳ ngày nào. Đã bỏ qua ${result.weekendCount} ngày cuối tuần`
+        message: weekendCount > 0 
+          ? `Không thể tạo lịch cho bất kỳ ngày nào. Đã bỏ qua ${weekendCount} ngày cuối tuần`
           : 'Không thể tạo lịch cho bất kỳ ngày nào',
         data: result
       });
@@ -489,11 +495,16 @@ export const createBulkDoctorScheduleForMonth = async (req: Request, res: Respon
       return;
     }
 
+    // 🔧 FIX: Sử dụng đúng service function và response structure
     const result = await doctorService.createBulkDoctorScheduleForMonth(id, month, year);
 
-    if (result.success) {
+    const successCount = result.summary.success;
+    const totalWorkingDays = result.summary.total - result.summary.weekend;
+    const weekendsExcluded = result.summary.weekend;
+
+    if (successCount > 0) {
       res.status(201).json({
-        message: `Tạo lịch thành công cho tháng ${month}/${year}: ${result.successCount}/${result.totalWorkingDays} ngày làm việc (đã loại bỏ ${result.weekendsExcluded} ngày cuối tuần)`,
+        message: `Tạo lịch thành công cho tháng ${month}/${year}: ${successCount}/${totalWorkingDays} ngày làm việc (đã loại bỏ ${weekendsExcluded} ngày cuối tuần)`,
         data: result
       });
     } else {
@@ -512,55 +523,57 @@ export const createBulkDoctorScheduleForMonth = async (req: Request, res: Respon
 };
 
 // POST /doctors/:id/schedules/bulk - Staff tạo lịch hàng loạt cho bác sĩ (nhiều ngày cùng lúc)
-export const createBulkDoctorSchedule = async (req: Request, res: Response) => {
+export const createBulkDoctorSchedule = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
     const { dates } = req.body;
 
     if (!dates || !Array.isArray(dates)) {
-      return res.status(400).json({ 
+      res.status(400).json({ 
         message: 'Vui lòng cung cấp danh sách ngày làm việc (dates array)' 
       });
+      return;
     }
 
+    // 🔧 FIX: Sử dụng đúng service function
     const result = await doctorService.createBulkDoctorSchedule(id, { dates });
 
-    const { results, schedule } = result;
+    // 🔧 FIX: Sử dụng đúng response structure
+    const successCount = result.summary.success;
+    const failedCount = result.summary.failed;
+    const weekendCount = result.summary.weekend;
 
-    let message = `Hoàn thành! Tạo thành công ${results.successful} ngày, bỏ qua ${results.failed} ngày.`;
+    let message = `Hoàn thành! Tạo thành công ${successCount} ngày, bỏ qua ${failedCount} ngày.`;
     
-    if (results.weekendSkipped > 0) {
-      message += ` Đã loại bỏ ${results.weekendSkipped} ngày cuối tuần: ${results.details.weekendDates.join(', ')}.`;
+    if (weekendCount > 0) {
+      message += ` Đã loại bỏ ${weekendCount} ngày cuối tuần: ${result.results.weekend.join(', ')}.`;
     }
     
-    if (results.details.created.length > 0) {
-      message += ` Ngày đã tạo: ${results.details.created.join(', ')}.`;
+    if (result.results.success.length > 0) {
+      message += ` Ngày đã tạo: ${result.results.success.join(', ')}.`;
     }
     
-    if (results.details.skipped.length > 0) {
-      message += ` Ngày đã tồn tại: ${results.details.skipped.join(', ')}.`;
+    if (result.results.existing.length > 0) {
+      message += ` Ngày đã tồn tại: ${result.results.existing.join(', ')}.`;
     }
 
-    if (results.details.errors.length > 0) {
-      message += ` Lỗi: ${results.details.errors.map(e => e.date + ' (' + e.reason + ')').join(', ')}.`;
+    if (result.results.failed.length > 0) {
+      message += ` Lỗi: ${result.results.failed.map((e: any) => e.date + ' (' + e.reason + ')').join(', ')}.`;
     }
 
-    return res.status(201).json({ 
+    res.status(201).json({ 
       message,
-      data: {
-        ...results,
-        schedule
-      },
+      data: result,
       summary: {
         totalRequested: dates.length,
-        successful: results.successful,
-        failed: results.failed,
-        weekendsSkipped: results.weekendSkipped
+        successful: successCount,
+        failed: failedCount,
+        weekendsSkipped: weekendCount
       }
     });
   } catch (error: any) {
     console.log('Error in createBulkDoctorSchedule:', error);
-    return res.status(400).json({ 
+    res.status(400).json({ 
       message: error.message || 'Đã xảy ra lỗi khi tạo lịch làm việc hàng loạt' 
     });
   }
