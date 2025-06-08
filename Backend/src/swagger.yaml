@@ -3477,16 +3477,17 @@ paths:
       type: object
       properties:
         id:
+          type: string
         email:
           type: string
-                fullName:
-                  type: string
-                phone:
-                  type: string
+        fullName:
+          type: string
+        phone:
+          type: string
         avatar:
-                  type: string
+          type: string
         role:
-                  type: string
+          type: string
           enum:
             - guest
             - customer
