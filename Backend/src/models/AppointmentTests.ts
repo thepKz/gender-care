@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 export interface IAppointmentTests {
-  appointmentId: mongoose.Types.ObjectId;
+  appointmentId?: string;
   description?: string;
   name: string;
   price: number;
@@ -13,9 +13,9 @@ export interface IAppointmentTests {
 
 const AppointmentTestsSchema = new mongoose.Schema<IAppointmentTests>({
   appointmentId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Appointments', 
-    required: true 
+    type: String,
+    required: false,
+    default: "none"
   },
   description: { 
     type: String 
