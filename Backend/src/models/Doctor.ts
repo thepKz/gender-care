@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 
+// TypeScript interface
 export interface IDoctor {
   userId: mongoose.Types.ObjectId;
   bio?: string;
@@ -11,8 +12,12 @@ export interface IDoctor {
   certificate?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  isDeleted?: boolean;
+  deletedAt?: Date;
+  deletedBy?: mongoose.Types.ObjectId;
 }
 
+// Mongoose schema
 const DoctorSchema = new mongoose.Schema<IDoctor>({
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -27,13 +32,19 @@ const DoctorSchema = new mongoose.Schema<IDoctor>({
   specialization: { type: String },
   education: { type: String },
   certificate: { type: String },
+  // Soft delete
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 
-// Tạo index để tối ưu hóa truy vấn
+// Tối ưu hóa truy vấn
 DoctorSchema.index({ userId: 1 });
 DoctorSchema.index({ specialization: 1 });
 DoctorSchema.index({ rating: -1 });
 
 const Doctor = mongoose.model<IDoctor>('Doctor', DoctorSchema);
 
+// Export cả named và default để tương thích
+export { Doctor };
 export default Doctor;
