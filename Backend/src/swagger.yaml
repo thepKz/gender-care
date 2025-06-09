@@ -1652,6 +1652,10 @@ paths:
                   type: string
                   description: Mô tả dịch vụ
                   example: "Tư vấn chuyên sâu về sức khỏe sinh sản cho phụ nữ"
+                image:
+                  type: string
+                  description: URL hình ảnh dịch vụ
+                  example: "https://example.com/service-image.jpg"
                 serviceType:
                   type: string
                   enum: [consultation, test, treatment, other]
@@ -1746,6 +1750,10 @@ paths:
                   type: string
                   description: Mô tả dịch vụ
                   example: "Tư vấn chuyên sâu về sức khỏe sinh sản cho phụ nữ"
+                image:
+                  type: string
+                  description: URL hình ảnh dịch vụ
+                  example: "https://example.com/service-image.jpg"
                 serviceType:
                   type: string
                   enum: [consultation, test, treatment, other]
@@ -1978,6 +1986,10 @@ paths:
                     type: string
                   description: Danh sách ID của các dịch vụ trong gói
                   example: ["64a1b2c3d4e5f6g7h8i9j0k1", "64a1b2c3d4e5f6g7h8i9j0k2"]
+                image:
+                  type: string
+                  description: URL hình ảnh gói dịch vụ
+                  example: "https://example.com/package-image.jpg"
       responses:
         '201':
           description: Tạo gói dịch vụ thành công
@@ -2077,6 +2089,10 @@ paths:
                   enum: [0, 1]
                   description: Trạng thái hoạt động (1 = active, 0 = inactive)
                   example: 1
+                image:
+                  type: string
+                  description: URL hình ảnh gói dịch vụ
+                  example: "https://example.com/package-image.jpg"
       responses:
         '200':
           description: Cập nhật gói dịch vụ thành công
@@ -5362,6 +5378,10 @@ components:
           type: number
         description:
           type: string
+        image:
+          type: string
+          description: URL hình ảnh dịch vụ
+          example: "https://example.com/service-image.jpg"
         type:
           type: string
         availableAt:
@@ -5384,6 +5404,10 @@ components:
           type: string
         description:
           type: string
+        image:
+          type: string
+          description: URL hình ảnh gói dịch vụ
+          example: "https://example.com/package-image.jpg"
         priceBeforeDiscount:
           type: number
         price:
@@ -5933,6 +5957,10 @@ components:
           type: number
         description:
           type: string
+        image:
+          type: string
+          description: URL hình ảnh dịch vụ
+          example: "https://example.com/service-image.jpg"
         type:
           type: string
         availableAt:
@@ -5955,6 +5983,10 @@ components:
           type: string
         description:
           type: string
+        image:
+          type: string
+          description: URL hình ảnh gói dịch vụ
+          example: "https://example.com/package-image.jpg"
         priceBeforeDiscount:
           type: number
         price:
@@ -5962,7 +5994,7 @@ components:
         serviceIds:
           type: array
           items:
-          type: string
+            type: string
         createdAt:
           type: string
           format: date-time
@@ -10504,6 +10536,10 @@ components:
           type: number
         description:
           type: string
+        image:
+          type: string
+          description: URL hình ảnh dịch vụ
+          example: "https://example.com/service-image.jpg"
         type:
           type: string
         availableAt:
@@ -10689,6 +10725,13 @@ components:
           type: string
           format: date-time
           description: Hoãn đến lúc (nếu status = snoozed)
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
     ServicePackage:
       type: object
       properties:
@@ -10698,6 +10741,10 @@ components:
           type: string
         description:
           type: string
+        image:
+          type: string
+          description: URL hình ảnh gói dịch vụ
+          example: "https://example.com/package-image.jpg"
         priceBeforeDiscount:
           type: number
         price:

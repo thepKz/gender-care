@@ -14,6 +14,10 @@ const ServicePackageSchema: Schema = new Schema({
     required: [true, 'Description is required'],
     trim: true
   },
+  image: {
+    type: String,
+    trim: true
+  },
   priceBeforeDiscount: {
     type: Number,
     required: [true, 'Original price is required'],

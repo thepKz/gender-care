@@ -4,6 +4,7 @@ export interface IServices {
   serviceName: string;
   price: number;
   description?: string;
+  image?: string;
   isDeleted: boolean;
   serviceType: "consultation" | "test" | "other";
   availableAt: string[]; // ["Athome", "Online", "Center"]
@@ -21,6 +22,10 @@ const ServicesSchema = new mongoose.Schema<IServices>({
   },
   description: { 
     type: String 
+  },
+  image: {
+    type: String,
+    trim: true
   },
   isDeleted: { 
     type: Boolean, 
