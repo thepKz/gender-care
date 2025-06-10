@@ -476,7 +476,7 @@ html {
 }
 
 /* Gradient Animation for Background */
-.bg-300% {
+.bg-300x {
   background-size: 300% 300%;
 }
 
@@ -515,4 +515,148 @@ html {
 
 .animate-glow {
   animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* Floating Appointment Button Animations */
+@keyframes floating-bounce {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-8px) scale(1.02);
+  }
+}
+
+@keyframes magnetic-pull {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.05) rotate(5deg);
+  }
+  50% {
+    transform: scale(1.1) rotate(0deg);
+  }
+  75% {
+    transform: scale(1.05) rotate(-5deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes slide-up-entrance {
+  0% {
+    transform: translateY(100px) scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: translateY(-10px) scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(0px) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes heartbeat {
+  0%, 100% {
+    transform: scale(1);
+    background: linear-gradient(45deg, #006478, #00A693);
+  }
+  50% {
+    transform: scale(1.1);
+    background: linear-gradient(45deg, #00A693, #006478);
+  }
+}
+
+@keyframes attention-seek {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    box-shadow: 0 8px 25px rgba(0, 100, 120, 0.3);
+  }
+  25% {
+    transform: scale(1.08) rotate(2deg);
+    box-shadow: 0 12px 35px rgba(0, 164, 147, 0.4);
+  }
+  50% {
+    transform: scale(1.12) rotate(0deg);
+    box-shadow: 0 16px 45px rgba(0, 100, 120, 0.5);
+  }
+  75% {
+    transform: scale(1.08) rotate(-2deg);
+    box-shadow: 0 12px 35px rgba(0, 164, 147, 0.4);
+  }
+}
+
+/* Floating Button Classes */
+.floating-bounce {
+  animation: floating-bounce 3s ease-in-out infinite;
+}
+
+.magnetic-hover {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.magnetic-hover:hover {
+  animation: magnetic-pull 0.6s ease-in-out;
+}
+
+.slide-up-entrance {
+  animation: slide-up-entrance 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.heartbeat-button {
+  animation: heartbeat 2.5s ease-in-out infinite;
+}
+
+.attention-seeking {
+  animation: attention-seek 4s ease-in-out infinite;
+}
+
+/* Advanced pulse with glow effect */
+.advanced-pulse {
+  position: relative;
+}
+
+.advanced-pulse::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, #006478, #00A693, #0F7EA9, #006478);
+  background-size: 300% 300%;
+  animation: gradient-shift 3s ease infinite, pulse-ring 2s ease infinite;
+  z-index: -1;
+  opacity: 0.7;
+}
+
+@keyframes pulse-ring {
+  0%, 100% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.3;
+  }
+}
+
+/* Responsive floating button adjustments */
+@media (max-width: 768px) {
+  .floating-bounce {
+    animation-duration: 4s;
+  }
+  
+  .attention-seeking {
+    animation-duration: 5s;
+  }
+  
+  .magnetic-hover:hover {
+    animation-duration: 0.4s;
+  }
 } 

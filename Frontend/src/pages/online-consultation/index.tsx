@@ -3,6 +3,7 @@ import { Button, Form, Input, message, Card, Row, Col, Typography, Space, Tag, A
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { VideoPlay, MessageQuestion, Profile, Shield, Clock, Heart, Send, Star1, Verify, Call, Messages2, TrendUp, Award, SecurityUser, VideoCircle } from 'iconsax-react';
 import GridMotion from '../../components/ui/GridMotion';
+import { FloatingAppointmentButton } from '../../components/common';
 import './styles.css';
 
 const { Title, Paragraph, Text } = Typography;
@@ -1230,6 +1231,20 @@ const OnlineConsultationPage: React.FC = () => {
           </Row>
         </div>
       </motion.section>
+
+      {/* Floating Appointment Button */}
+      <FloatingAppointmentButton 
+        onAppointmentClick={() => {
+          // Scroll to form when clicked
+          const formElement = document.getElementById('consultation-form');
+          if (formElement) {
+            formElement.scrollIntoView({ 
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
+        }}
+      />
     </div>
   );
 };
