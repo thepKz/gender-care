@@ -240,7 +240,7 @@ export const userApi = {
   createDoctor: async (request: CreateDoctorRequest): Promise<CreateDoctorResponse> => {
     const response = await axiosInstance.post('/doctors', request);
     return response.data;
-  }
+  },
 };
 
 export default userApi; 

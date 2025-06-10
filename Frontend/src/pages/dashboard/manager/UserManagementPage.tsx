@@ -5,7 +5,6 @@ import {
   Button,
   Space,
   Input,
-  InputNumber,
   Select,
   Tag,
   Modal,
@@ -36,22 +35,21 @@ import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type { UploadChangeParam } from 'antd/es/upload';
 import { userApi, User, UserQueryParams, SystemStatistics, CreateUserRequest } from '../../../api/endpoints/userApi';
+import authApi from '../../../api/endpoints/auth';
 import CustomPagination from '../../../components/ui/CustomPagination';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 
-
-
+// Interfaces
 interface CreateUserFormValues {
   email: string;
-  personalEmail?: string; // Email cá nhân cho bác sĩ/nhân viên/quản lý
+  personalEmail?: string;
   fullName: string;
   phone: string;
   role: string;
   gender: string;
-  // Doctor specific fields
   bio?: string;
   experience?: number;
   specialization?: string;
@@ -59,26 +57,66 @@ interface CreateUserFormValues {
   certificate?: File;
 }
 
+// Constants
+const ROLE_OPTIONS = [
+  { value: 'all', label: 'Tất cả vai trò', color: 'default' },
+  { value: 'customer', label: 'Khách hàng', color: 'blue' },
+  { value: 'doctor', label: 'Bác sĩ', color: 'green' },
+  { value: 'staff', label: 'Nhân viên', color: 'orange' },
+  { value: 'manager', label: 'Quản lý', color: 'purple' }
+];
+
+const GENDER_OPTIONS = [
+  { value: 'male', label: 'Nam' },
+  { value: 'female', label: 'Nữ' },
+  { value: 'other', label: 'Khác' }
+];
+
+// Helper functions
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const getRoleColor = (role: string): string => {
+  const option = ROLE_OPTIONS.find(opt => opt.value === role);
+  return option?.color || 'default';
+};
+
+const getRoleLabel = (role: string): string => {
+  const option = ROLE_OPTIONS.find(opt => opt.value === role);
+  return option?.label || role;
+};
+
+const formatErrorMessage = (error: unknown): string => {
+  return error instanceof Error ? error.message : 'Lỗi không xác định';
+};
+
 const UserManagementPage: React.FC = () => {
-  // State management
+  // Core states
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [statistics, setStatistics] = useState<SystemStatistics['data'] | null>(null);
+  
+  // UI states
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>('customer');
+  const [uploadedFile, setUploadedFile] = useState<UploadChangeParam['file'] | null>(null);
+  
+  // Email validation for customer only
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [emailError, setEmailError] = useState<string>('');
+  
+  // Form and pagination
   const [createForm] = Form.useForm();
-
-  // Query params state
   const [queryParams, setQueryParams] = useState<UserQueryParams>({
     page: 1,
     limit: 10,
     sortBy: 'createdAt',
     sortOrder: 'desc'
   });
-
-  // Pagination state
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -89,22 +127,7 @@ const UserManagementPage: React.FC = () => {
     size: 'default' as const
   });
 
-  // Role options
-  const roleOptions = [
-    { value: 'all', label: 'Tất cả vai trò', color: 'default' },
-    { value: 'customer', label: 'Khách hàng', color: 'blue' },
-    { value: 'doctor', label: 'Bác sĩ', color: 'green' },
-    { value: 'staff', label: 'Nhân viên', color: 'orange' },
-    { value: 'manager', label: 'Quản lý', color: 'purple' }
-  ];
-
-  // Get role color
-  const getRoleColor = (role: string) => {
-    const option = roleOptions.find(opt => opt.value === role);
-    return option?.color || 'default';
-  };
-
-  // Fetch users
+  // API functions
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
@@ -120,14 +143,12 @@ const UserManagementPage: React.FC = () => {
         }));
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
-      message.error('Lỗi khi tải danh sách người dùng: ' + errorMessage);
+      message.error('Lỗi khi tải danh sách người dùng: ' + formatErrorMessage(error));
     } finally {
       setLoading(false);
     }
   }, [queryParams]);
 
-  // Fetch statistics
   const fetchStatistics = useCallback(async () => {
     try {
       const response = await userApi.getSystemStatistics();
@@ -139,16 +160,30 @@ const UserManagementPage: React.FC = () => {
     }
   }, []);
 
-  // Load data on mount and query changes
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  const checkEmailAvailability = async (email: string) => {
+    if (!email || !validateEmail(email) || selectedRole !== 'customer') {
+      setEmailError('');
+      return;
+    }
 
-  useEffect(() => {
-    fetchStatistics();
-  }, [fetchStatistics]);
+    try {
+      setCheckingEmail(true);
+      const response = await authApi.checkEmail({ email });
+      
+      if (!response.data.available) {
+        setEmailError('Email này đã được sử dụng!');
+      } else {
+        setEmailError('');
+      }
+    } catch (error) {
+      console.error('Lỗi khi kiểm tra email:', error);
+      setEmailError('Không thể kiểm tra email');
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
 
-  // Handle table changes (pagination, sorting, filtering)
+  // Event handlers
   const handleTableChange = (
     newPagination: TablePaginationConfig,
     filters: Record<string, FilterValue | null>,
@@ -160,7 +195,6 @@ const UserManagementPage: React.FC = () => {
       limit: newPagination.pageSize || 10
     };
 
-    // Handle single sorter (not array)
     if (!Array.isArray(sorter) && sorter.field) {
       newParams.sortBy = sorter.field as string;
       newParams.sortOrder = sorter.order === 'ascend' ? 'asc' : 'desc';
@@ -169,7 +203,6 @@ const UserManagementPage: React.FC = () => {
     setQueryParams(newParams);
   };
 
-  // Handle search
   const handleSearch = (value: string) => {
     setQueryParams(prev => ({
       ...prev,
@@ -178,7 +211,6 @@ const UserManagementPage: React.FC = () => {
     }));
   };
 
-  // Handle role filter
   const handleRoleFilter = (role: string) => {
     setQueryParams(prev => ({
       ...prev,
@@ -187,7 +219,6 @@ const UserManagementPage: React.FC = () => {
     }));
   };
 
-  // Handle view user details
   const handleViewUser = async (user: User) => {
     try {
       const response = await userApi.getUserById(user._id);
@@ -196,24 +227,23 @@ const UserManagementPage: React.FC = () => {
         setIsDetailDrawerOpen(true);
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
-      message.error('Lỗi khi tải thông tin người dùng: ' + errorMessage);
+      message.error('Lỗi khi tải thông tin người dùng: ' + formatErrorMessage(error));
     }
   };
 
-  // Handle create user
   const handleCreateUser = () => {
     setSelectedRole('customer');
     createForm.resetFields();
+    setEmailError('');
+    setUploadedFile(null);
     setIsCreateModalOpen(true);
   };
 
-  // Handle create role change
   const handleCreateRoleChange = (role: string) => {
     setSelectedRole(role);
+    setEmailError(''); // Reset email error when role changes
     
     if (role !== 'doctor') {
-      // Clear doctor-specific fields when switching away from doctor
       createForm.setFieldsValue({
         bio: undefined,
         experience: undefined,
@@ -221,43 +251,76 @@ const UserManagementPage: React.FC = () => {
         education: undefined,
         certificate: undefined
       });
+      setUploadedFile(null);
     }
   };
 
-  // Handle create submit
   const handleCreateSubmit = async (values: CreateUserFormValues) => {
     try {
       setLoading(true);
       const { role, gender, personalEmail, ...userData } = values;
 
-      // Create regular user request với mật khẩu tự động sinh
       const userRequestData: CreateUserRequest = {
         ...userData,
-        personalEmail, // Thêm email cá nhân cho backend xử lý
-        password: 'auto-generated', // Placeholder - backend sẽ tự động sinh mật khẩu
+        personalEmail,
+        password: 'auto-generated',
         gender: gender as 'male' | 'female' | 'other' | undefined,
         role: role as 'customer' | 'doctor' | 'staff' | 'manager' | 'admin'
       };
+
+      if (role === 'doctor') {
+        const { bio, experience, specialization, education } = values;
+        Object.assign(userRequestData, {
+          bio,
+          experience,
+          specialization,
+          education
+        });
+      }
       
       const response = await userApi.createUser(userRequestData);
       
       if (response.success) {
-        const emailTarget = role === 'customer' ? 'email đã nhập' : 'email cá nhân';
-        message.success(`Tạo tài khoản thành công! Thông tin đăng nhập đã được gửi qua ${emailTarget}.`);
+        const actualSystemEmail = response.data.email;
+        
+        let successMessage = 'Tạo tài khoản thành công!';
+        
+        if (role === 'doctor') {
+          successMessage = `Tạo tài khoản bác sĩ thành công!\nEmail hệ thống: ${actualSystemEmail}`;
+        } else if (role !== 'customer') {
+          successMessage = `Tạo tài khoản thành công!\nEmail hệ thống: ${actualSystemEmail}`;
+        }
+        
+        message.success(successMessage, 5);
         setIsCreateModalOpen(false);
         createForm.resetFields();
+        setEmailError('');
+        setUploadedFile(null);
         fetchUsers();
         fetchStatistics();
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
-      message.error('Lỗi khi tạo tài khoản: ' + errorMessage);
+    } catch (error: unknown) {
+      console.error('Error creating user:', error);
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { status?: number; data?: { message?: string } } };
+        const errorMessage = axiosError.response?.data?.message || 'Lỗi không xác định';
+        
+        if (axiosError.response?.status === 409) {
+          message.error(`Lỗi khi tạo tài khoản: ${errorMessage}`);
+        } else if (axiosError.response?.status === 400) {
+          message.error(`Lỗi khi tạo tài khoản: ${errorMessage}`);
+        } else {
+          message.error('Lỗi khi tạo tài khoản: ' + formatErrorMessage(error));
+        }
+      } else {
+        message.error('Lỗi khi tạo tài khoản: ' + formatErrorMessage(error));
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle toggle status
   const handleToggleStatus = async (user: User, reason?: string) => {
     try {
       setLoading(true);
@@ -270,14 +333,22 @@ const UserManagementPage: React.FC = () => {
         fetchStatistics();
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
-      message.error('Lỗi khi thay đổi trạng thái: ' + errorMessage);
+      message.error('Lỗi khi thay đổi trạng thái: ' + formatErrorMessage(error));
     } finally {
       setLoading(false);
     }
   };
 
-  // Table columns
+  // Effects
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  useEffect(() => {
+    fetchStatistics();
+  }, [fetchStatistics]);
+
+  // Table columns configuration
   const columns: ColumnsType<User> = [
     {
       title: 'Người dùng',
@@ -305,15 +376,12 @@ const UserManagementPage: React.FC = () => {
       title: 'Vai trò',
       dataIndex: 'role',
       key: 'role',
-      render: (role: string) => {
-        const option = roleOptions.find(opt => opt.value === role);
-        return (
-          <Tag color={getRoleColor(role)}>
-            {option?.label || role}
-          </Tag>
-        );
-      },
-      filters: roleOptions.slice(1).map(role => ({
+      render: (role: string) => (
+        <Tag color={getRoleColor(role)}>
+          {getRoleLabel(role)}
+        </Tag>
+      ),
+      filters: ROLE_OPTIONS.slice(1).map(role => ({
         text: role.label,
         value: role.value
       })),
@@ -377,7 +445,6 @@ const UserManagementPage: React.FC = () => {
               onClick={() => handleViewUser(record)}
             />
           </Tooltip>
-
           <Tooltip title={record.isActive ? 'Khóa tài khoản' : 'Kích hoạt tài khoản'}>
             <Popconfirm
               title={`Bạn có muốn ${record.isActive ? 'khóa' : 'kích hoạt'} tài khoản này?`}
@@ -476,7 +543,7 @@ const UserManagementPage: React.FC = () => {
               onChange={handleRoleFilter}
               defaultValue="all"
             >
-              {roleOptions.map(role => (
+              {ROLE_OPTIONS.map(role => (
                 <Option key={role.value} value={role.value}>
                   {role.label}
                 </Option>
@@ -557,7 +624,7 @@ const UserManagementPage: React.FC = () => {
                 {selectedUser.fullName}
               </Title>
               <Tag color={getRoleColor(selectedUser.role)}>
-                {roleOptions.find(opt => opt.value === selectedUser.role)?.label || selectedUser.role}
+                {getRoleLabel(selectedUser.role)}
               </Tag>
             </div>
 
@@ -592,7 +659,7 @@ const UserManagementPage: React.FC = () => {
               </Descriptions.Item>
             </Descriptions>
 
-            {/* Doctor Profile (if user is doctor) */}
+            {/* Doctor Profile */}
             {selectedUser.role === 'doctor' && selectedUser.doctorProfile && (
               <div style={{ marginTop: '24px' }}>
                 <Title level={5}>Thông tin bác sĩ</Title>
@@ -643,6 +710,7 @@ const UserManagementPage: React.FC = () => {
               {' Người dùng có thể thay đổi mật khẩu sau khi đăng nhập lần đầu.'}
             </Text>
           </div>
+
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
@@ -663,25 +731,47 @@ const UserManagementPage: React.FC = () => {
                 name={selectedRole === 'customer' ? 'email' : 'personalEmail'}
                 rules={[
                   { required: true, message: 'Vui lòng nhập email!' },
-                  { type: 'email', message: 'Email không hợp lệ!' }
+                  { type: 'email', message: 'Email không hợp lệ!' },
+                  ...(selectedRole === 'customer' ? [{
+                    validator: () => {
+                      if (emailError) {
+                        return Promise.reject(new Error(emailError));
+                      }
+                      return Promise.resolve();
+                    }
+                  }] : [])
                 ]}
+                hasFeedback={selectedRole === 'customer'}
+                validateStatus={
+                  selectedRole === 'customer' ? (
+                    checkingEmail ? 'validating' : 
+                    emailError ? 'error' : 
+                    ''
+                  ) : ''
+                }
+                help={
+                  selectedRole === 'customer' ? (
+                    checkingEmail ? 'Đang kiểm tra email...' :
+                    emailError || undefined
+                  ) : undefined
+                }
               >
-                <Input placeholder={selectedRole === 'customer' ? 'Nhập email...' : 'Nhập email cá nhân...'} />
+                <Input 
+                  placeholder={selectedRole === 'customer' ? 'Nhập email...' : 'Nhập email cá nhân...'} 
+                  onChange={(e) => {
+                    if (selectedRole === 'customer') {
+                      const value = e.target.value;
+                      const timeoutId = setTimeout(() => {
+                        checkEmailAvailability(value);
+                      }, 800);
+                      
+                      return () => clearTimeout(timeoutId);
+                    }
+                  }}
+                />
               </Form.Item>
             </Col>
           </Row>
-
-          {selectedRole !== 'customer' && (
-            <Row gutter={16}>
-              <Col span={24}>
-                <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f0f2f5', borderRadius: 6, border: '1px solid #d9d9d9' }}>
-                  <Text type="secondary">
-                    <strong>Email hệ thống:</strong> Sẽ được tự động tạo theo định dạng {selectedRole === 'doctor' ? 'bs.' : selectedRole === 'staff' ? 'nv.' : 'ql.'}{createForm.getFieldValue('fullName') ? createForm.getFieldValue('fullName').toLowerCase().replace(/[^\w\s]/g, '').trim().split(' ').join('') : '[họtên]'}@genderhealthcare.com
-                  </Text>
-                </div>
-              </Col>
-            </Row>
-          )}
 
           <Row gutter={16}>
             <Col span={8}>
@@ -692,7 +782,7 @@ const UserManagementPage: React.FC = () => {
                 initialValue="customer"
               >
                 <Select onChange={handleCreateRoleChange}>
-                  {roleOptions.slice(1).filter(role => role.value !== 'admin').map(role => (
+                  {ROLE_OPTIONS.slice(1).filter(role => role.value !== 'admin').map(role => (
                     <Option key={role.value} value={role.value}>
                       {role.label}
                     </Option>
@@ -708,9 +798,11 @@ const UserManagementPage: React.FC = () => {
                 rules={[{ required: true, message: 'Vui lòng chọn giới tính!' }]}
               >
                 <Select placeholder="Chọn giới tính">
-                  <Option value="male">Nam</Option>
-                  <Option value="female">Nữ</Option>
-                  <Option value="other">Khác</Option>
+                  {GENDER_OPTIONS.map(option => (
+                    <Option key={option.value} value={option.value}>
+                      {option.label}
+                    </Option>
+                  ))}
                 </Select>
               </Form.Item>
             </Col>
@@ -729,7 +821,7 @@ const UserManagementPage: React.FC = () => {
             </Col>
           </Row>
 
-          {/* Doctor-specific fields for create */}
+          {/* Doctor-specific fields */}
           {selectedRole === 'doctor' && (
             <>
               <Title level={5}>Thông tin bác sĩ</Title>
@@ -747,14 +839,58 @@ const UserManagementPage: React.FC = () => {
                 
                 <Col span={12}>
                   <Form.Item
-                    label="Kinh nghiệm (năm)"
+                    label="Kinh nghiệm (Tối đa 50 năm)"
                     name="experience"
                     rules={[
                       { required: true, message: 'Vui lòng nhập kinh nghiệm!' },
-                      { type: 'number', min: 0, max: 50, message: 'Kinh nghiệm từ 0-50 năm!' }
+                      {
+                        validator: (_, value) => {
+                          if (value === null || value === undefined || value === '') {
+                            return Promise.resolve();
+                          }
+                          
+                          const stringValue = String(value).trim();
+                          
+                          if (!/^\d+$/.test(stringValue)) {
+                            return Promise.reject(new Error('Chỉ được nhập số!'));
+                          }
+                          
+                          const numValue = Number(stringValue);
+                          
+                          if (numValue < 0) {
+                            return Promise.reject(new Error('Kinh nghiệm không được âm!'));
+                          }
+                          
+                          if (numValue > 50) {
+                            return Promise.reject(new Error('Kinh nghiệm không được quá 50 năm!'));
+                          }
+                          
+                          return Promise.resolve();
+                        }
+                      }
                     ]}
                   >
-                    <InputNumber min={0} max={50} style={{ width: '100%' }} />
+                    <Input 
+                      style={{ width: '100%' }} 
+                      placeholder="Nhập số năm kinh nghiệm (0-50)"
+                      maxLength={2}
+                      onKeyPress={(e) => {
+                        if (!/[0-9]/.test(e.key)) {
+                          e.preventDefault();
+                        }
+                      }}
+                      onPaste={(e) => {
+                        const paste = e.clipboardData.getData('text');
+                        if (!/^\d+$/.test(paste)) {
+                          e.preventDefault();
+                        }
+                      }}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, '');
+                        e.target.value = value;
+                        createForm.setFieldsValue({ experience: value ? Number(value) : undefined });
+                      }}
+                    />
                   </Form.Item>
                 </Col>
               </Row>
@@ -781,13 +917,26 @@ const UserManagementPage: React.FC = () => {
                   onChange={(info: UploadChangeParam) => {
                     if (info.file) {
                       createForm.setFieldsValue({ certificate: info.file });
+                      setUploadedFile(info.file.originFileObj || info.file);
                     }
                   }}
                 >
-                  <div>
-                    <PlusOutlined />
-                    <div style={{ marginTop: 8 }}>Tải lên chứng chỉ</div>
-                  </div>
+                  {uploadedFile ? (
+                    <div>
+                      <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 24 }} />
+                      <div style={{ marginTop: 8, color: '#52c41a' }}>
+                        Đã tải lên thành công
+                      </div>
+                      <div style={{ fontSize: 12, color: '#666' }}>
+                        {uploadedFile.name}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <PlusOutlined />
+                      <div style={{ marginTop: 8 }}>Tải lên chứng chỉ</div>
+                    </div>
+                  )}
                 </Upload>
               </Form.Item>
 

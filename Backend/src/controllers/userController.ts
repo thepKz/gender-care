@@ -480,23 +480,56 @@ export const createUser = async (req: Request, res: Response) => {
     let systemEmail = email;
     if (role !== 'customer') {
       const normalizedName = fullName
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .replace(/[^\w\s]/g, '')
-        .trim()
-        .split(' ')
-        .join('');
+        .trim();
       
+      const words = normalizedName.split(/\s+/).filter((word: string) => word.length > 0);
+      if (words.length === 0) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Họ tên không hợp lệ" 
+        });
+      }
+      
+      // Lấy tên (từ cuối) và họ đệm (các từ trước)
+      const firstName = words[words.length - 1];
+      const lastNameParts = words.slice(0, -1);
+      
+      // Tạo viết tắt: tên + chữ cái đầu của họ đệm
+      const abbreviation = firstName + lastNameParts.map((part: string) => part[0]).join('');
+      
+      // Prefix theo role
       const rolePrefix = role === 'doctor' ? 'bs' : role === 'staff' ? 'nv' : 'ql';
-      systemEmail = `${rolePrefix}.${normalizedName}@genderhealthcare.com`;
+      
+      // Generate base email
+      const baseEmail = `${rolePrefix}.${abbreviation}@genderhealthcare.com`;
+      
+      // Check if email exists and generate unique email
+      systemEmail = baseEmail;
+      let emailExists = await User.findOne({ email: systemEmail });
+      let attempts = 0;
+      const maxAttempts = 100;
+      
+      while (emailExists && attempts < maxAttempts) {
+        // Generate random number between 10-99
+        const randomNum = Math.floor(Math.random() * 90) + 10;
+        systemEmail = `${rolePrefix}.${abbreviation}${randomNum}@genderhealthcare.com`;
+        emailExists = await User.findOne({ email: systemEmail });
+        attempts++;
+      }
+      
+      if (attempts >= maxAttempts) {
+        return res.status(500).json({ 
+          success: false,
+          message: "Không thể tạo email unique sau nhiều lần thử" 
+        });
+      }
     }
     
-    const existed = await User.findOne({ email: systemEmail });
-    if (existed) {
-      return res.status(409).json({ 
-        success: false,
-        message: "Email này đã tồn tại trong hệ thống" 
-      });
-    }
+
     
     // Tự động tạo mật khẩu
     const autoPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase() + '@';
@@ -520,7 +553,21 @@ export const createUser = async (req: Request, res: Response) => {
     try {
       const { sendWelcomeEmail } = await import('../services/emails');
       const emailTarget = role === 'customer' ? systemEmail : personalEmail;
-      await sendWelcomeEmail(emailTarget, user.fullName, autoPassword, systemEmail);
+      
+      // Chuẩn bị thông tin doctor profile nếu là bác sĩ
+      let doctorProfile = undefined;
+      if (role === 'doctor') {
+        // Lấy thông tin từ request body nếu có
+        const { bio, experience, specialization, education } = req.body;
+        doctorProfile = {
+          specialization,
+          experience,
+          education,
+          bio
+        };
+      }
+      
+      await sendWelcomeEmail(emailTarget, user.fullName, autoPassword, systemEmail, doctorProfile);
     } catch (emailError) {
       console.error('Lỗi gửi email:', emailError);
       // Không fail toàn bộ request nếu gửi email thất bại
@@ -537,7 +584,10 @@ export const createUser = async (req: Request, res: Response) => {
     return res.status(201).json({ 
       success: true,
       message: "Tạo người dùng thành công. Thông tin đăng nhập đã được gửi qua email.",
-      data: userWithoutPassword 
+      data: {
+        ...userWithoutPassword,
+        email: systemEmail // Đảm bảo trả về email thực tế đã được tạo
+      }
     });
   } catch (error: any) {
     return res.status(500).json({ 
@@ -1114,3 +1164,5 @@ export const getSystemStatistics = async (req: Request, res: Response): Promise<
     });
   }
 };
+
+

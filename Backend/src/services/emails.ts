@@ -122,13 +122,20 @@ export const sendWelcomeEmail = async (
   to: string,
   fullName: string,
   password: string,
-  systemEmail?: string
+  systemEmail?: string,
+  doctorProfile?: {
+    specialization?: string;
+    experience?: number;
+    education?: string;
+    bio?: string;
+  }
 ): Promise<void> => {
   const subject = "Chào mừng bạn đến với Gender Healthcare - Thông tin đăng nhập";
   
   // Nếu có systemEmail khác to, nghĩa là gửi về email cá nhân
   const loginEmail = systemEmail || to;
   const isPersonalEmail = systemEmail && systemEmail !== to;
+  const isDoctor = doctorProfile && Object.keys(doctorProfile).length > 0;
   
   const htmlContent = `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e9e9e9; border-radius: 5px;">
@@ -146,6 +153,19 @@ export const sendWelcomeEmail = async (
           <p style="margin: 5px 0;"><strong>Mật khẩu:</strong> <span style="background-color: #f8f9fa; padding: 5px 10px; border-radius: 3px; font-family: monospace;">${password}</span></p>
           ${isPersonalEmail ? `<p style="margin: 5px 0; font-size: 12px; color: #666;"><em>* Email này được gửi đến email cá nhân của bạn (${to})</em></p>` : ''}
         </div>
+
+        ${isDoctor ? `
+        <div style="background-color: #e8f5e8; border: 1px solid #c3e6c3; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h4 style="margin-top: 0; color: #2d5a2d;">📋 Thông tin hồ sơ bác sĩ đã đăng ký:</h4>
+          <div style="background-color: #ffffff; padding: 15px; border-radius: 5px;">
+            ${doctorProfile.specialization ? `<p style="margin: 8px 0;"><strong>🩺 Chuyên khoa:</strong> ${doctorProfile.specialization}</p>` : ''}
+            ${doctorProfile.experience ? `<p style="margin: 8px 0;"><strong>⏰ Kinh nghiệm:</strong> ${doctorProfile.experience} năm</p>` : ''}
+            ${doctorProfile.education ? `<p style="margin: 8px 0;"><strong>🎓 Học vấn:</strong> ${doctorProfile.education}</p>` : ''}
+            ${doctorProfile.bio ? `<p style="margin: 8px 0;"><strong>📝 Giới thiệu:</strong></p><p style="margin: 5px 0; font-style: italic; color: #555;">${doctorProfile.bio}</p>` : ''}
+          </div>
+          <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;"><em>Thông tin này đã được lưu vào hệ thống và sẽ hiển thị trên profile của bạn.</em></p>
+        </div>
+        ` : ''}
         
         <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <p style="margin: 0; color: #856404;"><strong>⚠️ Lưu ý quan trọng:</strong></p>
