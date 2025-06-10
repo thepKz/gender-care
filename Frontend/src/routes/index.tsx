@@ -21,6 +21,7 @@ import ProfileEditPage from '../pages/profile/edit';
 import AboutGCCPage from '../pages/about-gcc';
 import BlogPage from '../pages/blog';
 import CounselorsPage from '../pages/counselors';
+import OnlineConsultationPage from '../pages/online-consultation';
 import PicturePage from '../pages/picture';
 import ServicesPage from '../pages/services';
 
@@ -105,6 +106,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/about-gcc" element={<AboutGCCPage />} />
         <Route path="/blog" element={<BlogPage />} />
         <Route path="/services" element={<ServicesPage />} />
+        <Route path="/online-consultation" element={<OnlineConsultationPage />} />
         
         {/* All service booking routes redirect to main booking page */}
         <Route path="/services/consulting" element={<Navigate to="/booking?service=consultation" replace />} />

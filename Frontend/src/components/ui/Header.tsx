@@ -226,6 +226,16 @@ const Header: React.FC = () => {
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: 0.125 }}
+              >
+                <Link to="/online-consultation" className={`nav-link ${getFontSize()} ${isActive('/online-consultation')}`}>
+                  Tư vấn trực tuyến
+                </Link>
+              </motion.div>
+              
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: 0.15 }}
               >
                 <Link to="/picture" className={`nav-link ${getFontSize()} ${isActive('/picture')}`}>
@@ -367,6 +377,12 @@ const Header: React.FC = () => {
               <div className="py-2 border-b border-gray-100">
                 <Link to="/services" className="text-blue-primary text-lg">
                   Dịch vụ
+                </Link>
+              </div>
+              
+              <div className="py-2 border-b border-gray-100">
+                <Link to="/online-consultation" className="text-blue-primary text-lg">
+                  Tư vấn trực tuyến
                 </Link>
               </div>
               
