@@ -219,7 +219,7 @@ export const getDoctorQAByDoctorId = async (doctorId: string) => {
   }
 };
 
-// Cập nhật payment status
+// Cập nhật payment status và auto-assign doctor + schedule
 export const updatePaymentStatus = async (qaId: string, paymentSuccess: boolean) => {
   try {
     if (!isValidObjectId(qaId)) {
@@ -235,23 +235,75 @@ export const updatePaymentStatus = async (qaId: string, paymentSuccess: boolean)
       throw new Error('Yêu cầu tư vấn này đã được thanh toán hoặc không thể thanh toán');
     }
 
-    const newStatus = paymentSuccess ? 'paid' : 'cancelled';
-    
-    const updatedQA = await DoctorQA.findByIdAndUpdate(
-      qaId,
-      { status: newStatus },
-      { new: true }
-    ).populate({
-        path: 'doctorId',
-        select: 'userId bio specialization',
-        populate: {
-          path: 'userId',
-          select: 'fullName email'
-        }
-      })
-     .populate('userId', 'fullName email');
+    if (paymentSuccess) {
+      // 🎯 AUTO-ASSIGN DOCTOR & SCHEDULE khi payment thành công
+      
+      // 1. Tìm bác sĩ ít lịch nhất
+      const leastBookedDoctorId = await findLeastBookedDoctor();
+      console.log('🔍 [AUTO-ASSIGN] Found least booked doctor:', leastBookedDoctorId);
+      
+      // 2. Assign doctor và update status sang doctor_confirmed luôn
+      let updatedQA = await DoctorQA.findByIdAndUpdate(
+        qaId,
+        { 
+          doctorId: new mongoose.Types.ObjectId(leastBookedDoctorId),
+          status: 'doctor_confirmed'  // Skip manual doctor confirm
+        },
+        { new: true }
+      );
 
-    return updatedQA;
+      if (!updatedQA) {
+        throw new Error('Không thể cập nhật doctor cho yêu cầu tư vấn');
+      }
+
+      console.log('🔍 [AUTO-ASSIGN] Updated QA with doctor, status:', updatedQA.status);
+
+      // 3. Tự động schedule slot gần nhất
+      try {
+        const scheduleResult = await scheduleQA(qaId);
+        console.log('🔍 [AUTO-SCHEDULE] Scheduled successfully:', scheduleResult.autoBookedInfo);
+        
+        // Return the final scheduled QA
+        return scheduleResult.qa;
+        
+      } catch (scheduleError: any) {
+        console.error('🚨 [AUTO-SCHEDULE] Error:', scheduleError.message);
+        
+        // Nếu schedule thất bại, vẫn keep doctor_confirmed status
+        // User/staff có thể manually schedule sau
+        const finalQA = await DoctorQA.findById(qaId)
+          .populate({
+            path: 'doctorId',
+            select: 'userId bio specialization',
+            populate: {
+              path: 'userId',
+              select: 'fullName email'
+            }
+          })
+          .populate('userId', 'fullName email');
+
+        console.log('🔍 [AUTO-ASSIGN] Returning QA without auto-schedule due to error');
+        return finalQA;
+      }
+      
+    } else {
+      // Payment failed - cancel QA
+      const updatedQA = await DoctorQA.findByIdAndUpdate(
+        qaId,
+        { status: 'cancelled' },
+        { new: true }
+      ).populate({
+          path: 'doctorId',
+          select: 'userId bio specialization',
+          populate: {
+            path: 'userId',
+            select: 'fullName email'
+          }
+        })
+       .populate('userId', 'fullName email');
+
+      return updatedQA;
+    }
 
   } catch (error) {
     console.error('Error updating payment status:', error);
@@ -444,22 +496,11 @@ export const scheduleQA = async (qaId: string) => {
       })
      .populate('userId', 'fullName email');
 
-    // Tự động tạo meeting khi schedule thành công
-    try {
-      const meetingService = require('./meetingService');
-      const meeting = await meetingService.createMeeting({
-        qaId: qaId,
-        doctorId: doctorId.toString(),
-        userId: qa.userId.toString(),
-        scheduledStartTime,
-        scheduledEndTime
-      });
-
-      console.log('✅ [DEBUG] Meeting created automatically:', meeting._id);
-    } catch (meetingError: any) {
-      console.error('⚠️ [WARNING] Failed to create meeting, but schedule is successful:', meetingError.message);
-      // Meeting creation failure không làm fail toàn bộ schedule process
-    }
+    // ❌ KHÔNG tạo meeting ngay lập tức
+    // Meeting sẽ được tạo khi:
+    // 1. Gần đến giờ khám (30 phút trước)
+    // 2. Hoặc khi doctor/user join meeting
+    console.log('📅 [SCHEDULE] Slot booked successfully. Meeting will be created later when needed.');
 
     return {
       qa: updatedQA,
@@ -470,7 +511,7 @@ export const scheduleQA = async (qaId: string) => {
         slotId: nearestSlotId,
         scheduledStartTime: scheduledStartTime.toISOString(),
         scheduledEndTime: scheduledEndTime.toISOString(),
-        message: `Đã tự động đặt lịch slot gần nhất: ${nearestSlot.slotTime} ngày ${nearestDate.toISOString().split('T')[0]}. Meeting link sẽ được gửi qua email.`
+        message: `Đã đặt lịch khám: ${nearestSlot.slotTime} ngày ${nearestDate.toISOString().split('T')[0]}. Link Google Meet sẽ được gửi trước 30 phút.`
       }
     };
 

@@ -203,13 +203,48 @@ export const updatePaymentStatus = async (req: Request, res: Response): Promise<
 
     const updatedQA = await doctorQAService.updatePaymentStatus(id, paymentSuccess);
     
-    const message = paymentSuccess 
-      ? 'Thanh toán thành công! Yêu cầu tư vấn đã được gửi đến bác sĩ.'
-      : 'Thanh toán thất bại. Yêu cầu tư vấn đã bị hủy.';
+    if (!updatedQA) {
+      res.status(500).json({ 
+        message: 'Lỗi khi cập nhật trạng thái thanh toán' 
+      });
+      return;
+    }
+
+    let message;
+    let extraInfo = {};
+    
+    if (paymentSuccess) {
+      // Check if auto-scheduling worked
+      if (updatedQA.status === 'scheduled') {
+        message = '🎉 Thanh toán thành công! Đã tự động tìm bác sĩ và đặt lịch khám. Link tư vấn sẽ được gửi gần giờ khám.';
+        extraInfo = {
+          autoScheduled: true,
+          doctorAssigned: !!updatedQA.doctorId,
+          doctorName: (updatedQA.doctorId as any)?.userId?.fullName || 'Bác sĩ',
+          appointmentDate: updatedQA.appointmentDate,
+          appointmentSlot: updatedQA.appointmentSlot,
+          nextStep: 'Chờ link Google Meet được gửi trước 30 phút'
+        };
+      } else if (updatedQA.status === 'doctor_confirmed') {
+        message = '✅ Thanh toán thành công! Đã tự động tìm bác sĩ phù hợp. Đang tìm slot trống để đặt lịch...';
+        extraInfo = {
+          autoScheduled: false,
+          doctorAssigned: !!updatedQA.doctorId,
+          doctorName: (updatedQA.doctorId as any)?.userId?.fullName || 'Bác sĩ',
+          needManualSchedule: true,
+          nextStep: 'Staff sẽ sắp xếp lịch cụ thể trong 24h'
+        };
+      } else {
+        message = '✅ Thanh toán thành công! Yêu cầu tư vấn đã được tiếp nhận.';
+      }
+    } else {
+      message = '❌ Thanh toán thất bại. Yêu cầu tư vấn đã bị hủy.';
+    }
 
     res.status(200).json({
       message,
-      data: updatedQA
+      data: updatedQA,
+      ...extraInfo
     });
 
   } catch (error: any) {

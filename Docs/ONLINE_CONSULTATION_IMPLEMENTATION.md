@@ -626,12 +626,26 @@ npm start
 - ✅ **PaymentSuccessPage**: Success confirmation với next steps guide
 - ✅ **Online Consultation Form**: Submit form → payment → success navigation
 
+#### **🔥 AUTO-ASSIGNMENT & SCHEDULING LOGIC (NEW)**
+- ✅ **Smart Payment Flow**: Khi user nhấn "Xác nhận thanh toán" → tự động:
+  - 🎯 **Tìm bác sĩ ít lịch nhất** (findLeastBookedDoctor)
+  - 🎯 **Auto assign doctor** → status: `doctor_confirmed`
+  - 🎯 **Auto tìm slot Free gần nhất** → đặt slot = "Booked" → status: `scheduled`
+  - 🎯 **Fallback graceful**: Nếu schedule fail → keep `doctor_confirmed` cho manual schedule
+  - ❌ **KHÔNG tạo Google Meet ngay** (chỉ tạo khi gần giờ khám)
+- ✅ **Enhanced API Response**: Frontend nhận message phù hợp:
+  - 🎉 "Đã tự động tìm bác sĩ và đặt lịch khám. Link tư vấn sẽ được gửi gần giờ khám." (fully automated)
+  - ✅ "Đã tự động tìm bác sĩ phù hợp. Đang tìm slot trống để đặt lịch..." (partial automation)
+- ✅ **Updated doctorQAService.updatePaymentStatus()** với complete auto-assignment logic
+- ✅ **Enhanced frontend PaymentPage** để hiển thị exact backend messages với doctor name + next steps
+
 #### **Key Improvements**
 - ✅ **Consistent Architecture**: Tuân theo coding convention 20 năm kinh nghiệm
 - ✅ **Error Handling**: Proper error messages từ backend responses
 - ✅ **Type Safety**: TypeScript interfaces cho tất cả API calls
 - ✅ **Authentication**: Automatic token management qua axiosInstance
 - ✅ **Backward Compatibility**: Legacy API methods vẫn hoạt động
+- ✅ **User Experience**: Instant scheduling → user không cần chờ manual assign
 
 ---
 
