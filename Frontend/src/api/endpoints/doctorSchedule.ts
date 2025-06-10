@@ -65,7 +65,7 @@ export interface UpdateScheduleRequest {
 const doctorScheduleApi = {
   // Lấy tất cả lịch làm việc của tất cả bác sĩ (Staff/Manager/Admin only)
   getAll: async (): Promise<IDoctorSchedule[]> => {
-    const response = await axiosInstance.get('/doctors/schedules/all');
+    const response = await axiosInstance.get('doctors/schedules/all/staff');
     // Backend trả về {message: string, data: IDoctorSchedule[]}
     return response.data.data || response.data;
   },

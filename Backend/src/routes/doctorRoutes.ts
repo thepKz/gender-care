@@ -30,8 +30,14 @@ router.delete('/:id', verifyToken, verifyAdmin, doctorController.remove);
 // PUBLIC: Lấy tất cả lịch làm việc của tất cả bác sĩ (chỉ Free status)
 router.get('/schedules/all', doctorScheduleController.getAllDoctorsSchedules);
 
+// STAFF/MANAGER/ADMIN: Lấy tất cả lịch làm việc của tất cả bác sĩ (tất cả status)
+router.get('/schedules/all/staff', verifyToken, verifyStaff, doctorScheduleController.getAllDoctorsSchedulesForStaff);
+
 // PUBLIC: Tìm tất cả bác sĩ có lịch trống theo ngày/timeSlot (chỉ Free status)
 router.get('/available', doctorScheduleController.getAvailableDoctors);
+
+// STAFF/MANAGER/ADMIN: Tìm tất cả bác sĩ và slots theo ngày (tất cả status)
+router.get('/available/staff', verifyToken, verifyStaff, doctorScheduleController.getAvailableDoctorsForStaff);
 
 // DEBUG: Test schedule creation logic (PUBLIC cho dễ test)
 router.get('/debug/schedule-logic', doctorScheduleController.debugScheduleCreation);
@@ -50,6 +56,9 @@ router.get('/:id/schedules/staff', verifyToken, verifyStaff, doctorScheduleContr
 
 // STAFF/MANAGER/ADMIN: Xem tất cả slots theo ngày (tất cả status)
 router.get('/:id/available-slots/staff', verifyToken, verifyStaff, doctorScheduleController.getAvailableSlotsForStaff);
+
+// STAFF/MANAGER/ADMIN: Lấy thống kê tất cả bác sĩ (ĐẶT TRƯỚC /:id/statistics để tránh conflict)
+router.get('/statistics/all', verifyToken, verifyStaff, doctorScheduleController.getAllDoctorsStatistics);
 
 // STAFF/MANAGER/ADMIN: Lấy thống kê bác sĩ (số slot booked, absent, số ngày nghỉ)
 router.get('/:id/statistics', verifyToken, verifyStaff, doctorScheduleController.getDoctorStatistics);
