@@ -25,8 +25,6 @@ import {
 } from 'antd';
 import {
   SearchOutlined,
-  EditOutlined,
-  DeleteOutlined,
   UserOutlined,
   EyeOutlined,
   StopOutlined,
@@ -38,21 +36,13 @@ import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type { UploadChangeParam } from 'antd/es/upload';
 import { userApi, User, UserQueryParams, SystemStatistics, CreateUserRequest } from '../../../api/endpoints/userApi';
+import CustomPagination from '../../../components/ui/CustomPagination';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 
-interface RoleChangeFormValues {
-  newRole: string;
-  reason: string;
-  // Doctor specific fields (khi chuyển thành bác sĩ)
-  bio?: string;
-  experience?: number;
-  specialization?: string;
-  education?: string;
-  certificate?: string;
-}
+
 
 interface CreateUserFormValues {
   email: string;
@@ -76,11 +66,8 @@ const UserManagementPage: React.FC = () => {
   const [statistics, setStatistics] = useState<SystemStatistics['data'] | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isDetailDrawerOpen, setIsDetailDrawerOpen] = useState(false);
-  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>('customer');
-  const [selectedRoleChange, setSelectedRoleChange] = useState<string>('customer');
-  const [form] = Form.useForm();
   const [createForm] = Form.useForm();
 
   // Query params state
@@ -102,14 +89,13 @@ const UserManagementPage: React.FC = () => {
     size: 'default' as const
   });
 
-  // Role options (đã loại bỏ icon theo yêu cầu)
+  // Role options
   const roleOptions = [
     { value: 'all', label: 'Tất cả vai trò', color: 'default' },
     { value: 'customer', label: 'Khách hàng', color: 'blue' },
     { value: 'doctor', label: 'Bác sĩ', color: 'green' },
     { value: 'staff', label: 'Nhân viên', color: 'orange' },
-    { value: 'manager', label: 'Quản lý', color: 'purple' },
-    { value: 'admin', label: 'Admin', color: 'red' }
+    { value: 'manager', label: 'Quản lý', color: 'purple' }
   ];
 
   // Get role color
@@ -215,83 +201,6 @@ const UserManagementPage: React.FC = () => {
     }
   };
 
-  // Handle role change
-  const handleRoleChange = (user: User) => {
-    setSelectedUser(user);
-    setSelectedRoleChange(user.role);
-    form.setFieldsValue({ 
-      newRole: user.role,
-      reason: ''
-    });
-    setIsRoleModalOpen(true);
-  };
-
-  // Handle role change in role modal
-  const handleRoleChangeInModal = (role: string) => {
-    setSelectedRoleChange(role);
-    if (role !== 'doctor') {
-      // Clear doctor-specific fields when switching away from doctor
-      form.setFieldsValue({
-        bio: undefined,
-        experience: undefined,
-        specialization: undefined,
-        education: undefined,
-        certificate: undefined
-      });
-    }
-  };
-
-  // Handle role submit
-  const handleRoleSubmit = async (values: RoleChangeFormValues) => {
-    if (!selectedUser) return;
-
-    try {
-      setLoading(true);
-      const { newRole, reason, ...doctorData } = values;
-      
-      const requestData: {
-        newRole: string;
-        reason?: string;
-        doctorProfile?: {
-          bio?: string;
-          experience?: number;
-          specialization?: string;
-          education?: string;
-          certificate?: string;
-        };
-      } = {
-        newRole,
-        reason
-      };
-
-      // Nếu chuyển thành bác sĩ, thêm thông tin bác sĩ
-      if (newRole === 'doctor') {
-        requestData.doctorProfile = {
-          bio: doctorData.bio || '',
-          experience: doctorData.experience || 0,
-          specialization: doctorData.specialization || '',
-          education: doctorData.education || '',
-          certificate: doctorData.certificate || ''
-        };
-      }
-
-      const response = await userApi.updateUserRole(selectedUser._id, requestData);
-      
-      if (response.success) {
-        message.success('Thay đổi vai trò thành công!');
-        setIsRoleModalOpen(false);
-        form.resetFields();
-        fetchUsers();
-        fetchStatistics();
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
-      message.error('Lỗi khi thay đổi vai trò: ' + errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Handle create user
   const handleCreateUser = () => {
     setSelectedRole('customer');
@@ -363,26 +272,6 @@ const UserManagementPage: React.FC = () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
       message.error('Lỗi khi thay đổi trạng thái: ' + errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Handle delete user
-  const handleDeleteUser = async (user: User, reason?: string, hardDelete = false) => {
-    try {
-      setLoading(true);
-      const response = await userApi.deleteUser(user._id, { reason, hardDelete });
-      
-      if (response.success) {
-        const action = hardDelete ? 'xóa vĩnh viễn' : 'xóa';
-        message.success(`${action.charAt(0).toUpperCase() + action.slice(1)} tài khoản thành công!`);
-        fetchUsers();
-        fetchStatistics();
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
-      message.error('Lỗi khi xóa tài khoản: ' + errorMessage);
     } finally {
       setLoading(false);
     }
@@ -488,16 +377,7 @@ const UserManagementPage: React.FC = () => {
               onClick={() => handleViewUser(record)}
             />
           </Tooltip>
-          
-          <Tooltip title="Thay đổi vai trò">
-            <Button 
-              type="text" 
-              icon={<EditOutlined />} 
-              size="small"
-              onClick={() => handleRoleChange(record)}
-            />
-          </Tooltip>
-          
+
           <Tooltip title={record.isActive ? 'Khóa tài khoản' : 'Kích hoạt tài khoản'}>
             <Popconfirm
               title={`Bạn có muốn ${record.isActive ? 'khóa' : 'kích hoạt'} tài khoản này?`}
@@ -513,27 +393,9 @@ const UserManagementPage: React.FC = () => {
               />
             </Popconfirm>
           </Tooltip>
-          
-          <Tooltip title="Xóa tài khoản">
-            <Popconfirm
-              title="Bạn có chắc muốn xóa tài khoản này?"
-              description="Hành động này không thể hoàn tác."
-              onConfirm={() => handleDeleteUser(record)}
-              okText="Có"
-              cancelText="Không"
-              okType="danger"
-            >
-              <Button 
-                type="text" 
-                icon={<DeleteOutlined />} 
-                size="small"
-                danger
-              />
-            </Popconfirm>
-          </Tooltip>
         </Space>
       ),
-      width: 180,
+      width: 100,
     },
   ];
 
@@ -650,15 +512,27 @@ const UserManagementPage: React.FC = () => {
           dataSource={users}
           rowKey="_id"
           loading={loading}
-          pagination={{
-            ...pagination,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => 
-              `${range[0]}-${range[1]} của ${total} người dùng`,
-          }}
+          pagination={false}
           onChange={handleTableChange}
           scroll={{ x: 800 }}
+        />
+        <CustomPagination
+          current={pagination.current}
+          total={pagination.total}
+          pageSize={pagination.pageSize}
+          onChange={(page, pageSize) => {
+            setPagination(prev => ({
+              ...prev,
+              current: page,
+              pageSize: pageSize
+            }));
+            setQueryParams(prev => ({
+              ...prev,
+              page: page,
+              limit: pageSize
+            }));
+          }}
+          className="mt-4"
         />
       </Card>
 
@@ -745,112 +619,13 @@ const UserManagementPage: React.FC = () => {
         )}
       </Drawer>
 
-      {/* Role Change Modal */}
-      <Modal
-        title="Thay đổi vai trò người dùng"
-        open={isRoleModalOpen}
-        onCancel={() => setIsRoleModalOpen(false)}
-        footer={null}
-        width={600}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleRoleSubmit}
-        >
-          <Form.Item
-            label="Vai trò mới"
-            name="newRole"
-            rules={[{ required: true, message: 'Vui lòng chọn vai trò!' }]}
-          >
-            <Select onChange={handleRoleChangeInModal}>
-              {roleOptions.slice(1).map(role => (
-                <Option key={role.value} value={role.value}>
-                  {role.label}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            label="Lý do thay đổi"
-            name="reason"
-            rules={[{ required: true, message: 'Vui lòng nhập lý do!' }]}
-          >
-            <Input.TextArea rows={3} placeholder="Nhập lý do thay đổi vai trò..." />
-          </Form.Item>
-
-          {/* Doctor-specific fields */}
-          {selectedRoleChange === 'doctor' && (
-            <>
-              <Title level={5}>Thông tin bác sĩ</Title>
-              
-              <Form.Item
-                label="Chuyên khoa"
-                name="specialization"
-                rules={[{ required: true, message: 'Vui lòng nhập chuyên khoa!' }]}
-              >
-                <Input placeholder="Ví dụ: Sản phụ khoa, Nội tiết sinh sản..." />
-              </Form.Item>
-
-              <Form.Item
-                label="Kinh nghiệm (năm)"
-                name="experience"
-                rules={[
-                  { required: true, message: 'Vui lòng nhập số năm kinh nghiệm!' },
-                  { type: 'number', min: 0, max: 50, message: 'Kinh nghiệm từ 0-50 năm!' }
-                ]}
-              >
-                <InputNumber min={0} max={50} style={{ width: '100%' }} />
-              </Form.Item>
-
-              <Form.Item
-                label="Học vấn"
-                name="education"
-                rules={[{ required: true, message: 'Vui lòng nhập học vấn!' }]}
-              >
-                <Input placeholder="Ví dụ: Bác sĩ Đại học Y Hà Nội..." />
-              </Form.Item>
-
-              <Form.Item
-                label="Chứng chỉ"
-                name="certificate"
-              >
-                <Input placeholder="Các chứng chỉ chuyên môn..." />
-              </Form.Item>
-
-              <Form.Item
-                label="Giới thiệu"
-                name="bio"
-              >
-                <Input.TextArea 
-                  rows={3} 
-                  placeholder="Giới thiệu về bác sĩ..." 
-                />
-              </Form.Item>
-            </>
-          )}
-
-          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-            <Space>
-              <Button onClick={() => setIsRoleModalOpen(false)}>
-                Hủy
-              </Button>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                Xác nhận
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
-
       {/* Create User Modal */}
       <Modal
-        title={selectedRole === 'doctor' ? "Thêm bác sĩ mới" : "Tạo người dùng mới"}
+        title="Tạo người dùng mới"
         open={isCreateModalOpen}
         onCancel={() => setIsCreateModalOpen(false)}
         footer={null}
-        width={700}
+        width={800}
       >
         <Form
           form={createForm}
