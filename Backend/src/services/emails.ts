@@ -118,6 +118,65 @@ export const sendResetPasswordEmail = async (
   await sendEmail(to, subject, htmlContent);
 };
 
+export const sendWelcomeEmail = async (
+  to: string,
+  fullName: string,
+  password: string,
+  systemEmail?: string
+): Promise<void> => {
+  const subject = "Chào mừng bạn đến với Gender Healthcare - Thông tin đăng nhập";
+  
+  // Nếu có systemEmail khác to, nghĩa là gửi về email cá nhân
+  const loginEmail = systemEmail || to;
+  const isPersonalEmail = systemEmail && systemEmail !== to;
+  
+  const htmlContent = `
+    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e9e9e9; border-radius: 5px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #4A90E2;">Gender Healthcare</h2>
+      </div>
+      
+      <div style="padding: 20px; background-color: #f8f9fa; border-radius: 5px;">
+        <h3 style="margin-top: 0;">Chào mừng ${fullName}!</h3>
+        
+        <p>Tài khoản ${isPersonalEmail ? 'công việc' : ''} của bạn đã được tạo thành công trên hệ thống Gender Healthcare. Dưới đây là thông tin đăng nhập:</p>
+        
+        <div style="background-color: #ffffff; padding: 20px; margin: 20px 0; border-radius: 5px; border: 1px solid #ddd;">
+          <p style="margin: 5px 0;"><strong>Email đăng nhập:</strong> ${loginEmail}</p>
+          <p style="margin: 5px 0;"><strong>Mật khẩu:</strong> <span style="background-color: #f8f9fa; padding: 5px 10px; border-radius: 3px; font-family: monospace;">${password}</span></p>
+          ${isPersonalEmail ? `<p style="margin: 5px 0; font-size: 12px; color: #666;"><em>* Email này được gửi đến email cá nhân của bạn (${to})</em></p>` : ''}
+        </div>
+        
+        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0; color: #856404;"><strong>⚠️ Lưu ý quan trọng:</strong></p>
+          <ul style="margin: 10px 0; color: #856404;">
+            <li>Vui lòng đổi mật khẩu sau lần đăng nhập đầu tiên</li>
+            <li>Không chia sẻ thông tin này với người khác</li>
+            <li>Lưu trữ mật khẩu ở nơi an toàn</li>
+            ${isPersonalEmail ? '<li>Sử dụng email hệ thống để đăng nhập, không phải email cá nhân</li>' : ''}
+          </ul>
+        </div>
+        
+        <p>Bạn có thể đăng nhập vào hệ thống để bắt đầu sử dụng các dịch vụ của chúng tôi.</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/login" 
+             style="background-color: #4A90E2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            Đăng nhập ngay
+          </a>
+        </div>
+      </div>
+      
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e9e9e9; text-align: center; font-size: 12px; color: #999;">
+        <p>© ${new Date().getFullYear()} Gender Healthcare. Tất cả các quyền được bảo lưu.</p>
+        <p>Nếu bạn gặp vấn đề, vui lòng liên hệ với chúng tôi qua email hỗ trợ.</p>
+      </div>
+    </div>
+  `;
+  
+  await sendEmail(to, subject, htmlContent);
+};
+
 export const sendPasswordChangeAlert = async (
   email: string,
   username: string,

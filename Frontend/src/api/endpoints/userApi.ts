@@ -28,6 +28,7 @@ export interface User {
 
 export interface CreateUserRequest {
   email: string;
+  personalEmail?: string; // Email cá nhân cho bác sĩ/nhân viên/quản lý
   password: string;
   fullName: string;
   phone?: string;

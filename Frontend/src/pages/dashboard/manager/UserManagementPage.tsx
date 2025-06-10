@@ -20,7 +20,8 @@ import {
   Tooltip,
   Badge,
   Drawer,
-  Descriptions
+  Descriptions,
+  Upload
 } from 'antd';
 import {
   SearchOutlined,
@@ -35,6 +36,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
+import type { UploadChangeParam } from 'antd/es/upload';
 import { userApi, User, UserQueryParams, SystemStatistics, CreateUserRequest } from '../../../api/endpoints/userApi';
 
 const { Title, Text } = Typography;
@@ -54,18 +56,17 @@ interface RoleChangeFormValues {
 
 interface CreateUserFormValues {
   email: string;
-  password: string;
-  confirmPassword: string;
+  personalEmail?: string; // Email cá nhân cho bác sĩ/nhân viên/quản lý
   fullName: string;
-  phone?: string;
+  phone: string;
   role: string;
-  gender?: string;
+  gender: string;
   // Doctor specific fields
   bio?: string;
   experience?: number;
   specialization?: string;
   education?: string;
-  certificate?: string;
+  certificate?: File;
 }
 
 const UserManagementPage: React.FC = () => {
@@ -318,11 +319,13 @@ const UserManagementPage: React.FC = () => {
   const handleCreateSubmit = async (values: CreateUserFormValues) => {
     try {
       setLoading(true);
-      const { role, gender, ...userData } = values;
+      const { role, gender, personalEmail, ...userData } = values;
 
-      // Create regular user request
+      // Create regular user request với mật khẩu tự động sinh
       const userRequestData: CreateUserRequest = {
         ...userData,
+        personalEmail, // Thêm email cá nhân cho backend xử lý
+        password: 'auto-generated', // Placeholder - backend sẽ tự động sinh mật khẩu
         gender: gender as 'male' | 'female' | 'other' | undefined,
         role: role as 'customer' | 'doctor' | 'staff' | 'manager' | 'admin'
       };
@@ -330,7 +333,8 @@ const UserManagementPage: React.FC = () => {
       const response = await userApi.createUser(userRequestData);
       
       if (response.success) {
-        message.success('Tạo tài khoản thành công!');
+        const emailTarget = role === 'customer' ? 'email đã nhập' : 'email cá nhân';
+        message.success(`Tạo tài khoản thành công! Thông tin đăng nhập đã được gửi qua ${emailTarget}.`);
         setIsCreateModalOpen(false);
         createForm.resetFields();
         fetchUsers();
@@ -842,7 +846,7 @@ const UserManagementPage: React.FC = () => {
 
       {/* Create User Modal */}
       <Modal
-        title="Tạo người dùng mới"
+        title={selectedRole === 'doctor' ? "Thêm bác sĩ mới" : "Tạo người dùng mới"}
         open={isCreateModalOpen}
         onCancel={() => setIsCreateModalOpen(false)}
         footer={null}
@@ -853,6 +857,17 @@ const UserManagementPage: React.FC = () => {
           layout="vertical"
           onFinish={handleCreateSubmit}
         >
+          <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#e6f7ff', borderRadius: 6, border: '1px solid #91d5ff' }}>
+            <Text type="secondary">
+              <strong>Lưu ý:</strong> 
+              {selectedRole === 'customer' ? (
+                ' Mật khẩu sẽ được hệ thống tự động tạo và gửi qua email đã nhập.'
+              ) : (
+                ' Email hệ thống và mật khẩu sẽ được tự động tạo, thông tin đăng nhập sẽ được gửi về email cá nhân đã nhập.'
+              )}
+              {' Người dùng có thể thay đổi mật khẩu sau khi đăng nhập lần đầu.'}
+            </Text>
+          </div>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
@@ -869,53 +884,29 @@ const UserManagementPage: React.FC = () => {
             
             <Col span={12}>
               <Form.Item
-                label="Email"
-                name="email"
+                label={selectedRole === 'customer' ? 'Email' : 'Email cá nhân'}
+                name={selectedRole === 'customer' ? 'email' : 'personalEmail'}
                 rules={[
                   { required: true, message: 'Vui lòng nhập email!' },
                   { type: 'email', message: 'Email không hợp lệ!' }
                 ]}
               >
-                <Input placeholder="Nhập email..." />
+                <Input placeholder={selectedRole === 'customer' ? 'Nhập email...' : 'Nhập email cá nhân...'} />
               </Form.Item>
             </Col>
           </Row>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                label="Mật khẩu"
-                name="password"
-                rules={[
-                  { required: true, message: 'Vui lòng nhập mật khẩu!' },
-                  { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự!' }
-                ]}
-              >
-                <Input.Password placeholder="Nhập mật khẩu..." />
-              </Form.Item>
-            </Col>
-            
-            <Col span={12}>
-              <Form.Item
-                label="Xác nhận mật khẩu"
-                name="confirmPassword"
-                dependencies={['password']}
-                rules={[
-                  { required: true, message: 'Vui lòng xác nhận mật khẩu!' },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      if (!value || getFieldValue('password') === value) {
-                        return Promise.resolve();
-                      }
-                      return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
-                    },
-                  }),
-                ]}
-              >
-                <Input.Password placeholder="Xác nhận mật khẩu..." />
-              </Form.Item>
-            </Col>
-          </Row>
+          {selectedRole !== 'customer' && (
+            <Row gutter={16}>
+              <Col span={24}>
+                <div style={{ marginBottom: 16, padding: 12, backgroundColor: '#f0f2f5', borderRadius: 6, border: '1px solid #d9d9d9' }}>
+                  <Text type="secondary">
+                    <strong>Email hệ thống:</strong> Sẽ được tự động tạo theo định dạng {selectedRole === 'doctor' ? 'bs.' : selectedRole === 'staff' ? 'nv.' : 'ql.'}{createForm.getFieldValue('fullName') ? createForm.getFieldValue('fullName').toLowerCase().replace(/[^\w\s]/g, '').trim().split(' ').join('') : '[họtên]'}@genderhealthcare.com
+                  </Text>
+                </div>
+              </Col>
+            </Row>
+          )}
 
           <Row gutter={16}>
             <Col span={8}>
@@ -926,7 +917,7 @@ const UserManagementPage: React.FC = () => {
                 initialValue="customer"
               >
                 <Select onChange={handleCreateRoleChange}>
-                  {roleOptions.slice(1).map(role => (
+                  {roleOptions.slice(1).filter(role => role.value !== 'admin').map(role => (
                     <Option key={role.value} value={role.value}>
                       {role.label}
                     </Option>
@@ -939,6 +930,7 @@ const UserManagementPage: React.FC = () => {
               <Form.Item
                 label="Giới tính"
                 name="gender"
+                rules={[{ required: true, message: 'Vui lòng chọn giới tính!' }]}
               >
                 <Select placeholder="Chọn giới tính">
                   <Option value="male">Nam</Option>
@@ -953,6 +945,7 @@ const UserManagementPage: React.FC = () => {
                 label="Số điện thoại"
                 name="phone"
                 rules={[
+                  { required: true, message: 'Vui lòng nhập số điện thoại!' },
                   { pattern: /^[0-9]{10,11}$/, message: 'Số điện thoại không hợp lệ!' }
                 ]}
               >
@@ -1002,8 +995,25 @@ const UserManagementPage: React.FC = () => {
               <Form.Item
                 label="Chứng chỉ"
                 name="certificate"
+                rules={[{ required: true, message: 'Vui lòng tải lên chứng chỉ!' }]}
               >
-                <Input placeholder="Các chứng chỉ chuyên môn..." />
+                <Upload
+                  name="certificate"
+                  listType="picture-card"
+                  className="certificate-uploader"
+                  showUploadList={false}
+                  beforeUpload={() => false}
+                  onChange={(info: UploadChangeParam) => {
+                    if (info.file) {
+                      createForm.setFieldsValue({ certificate: info.file });
+                    }
+                  }}
+                >
+                  <div>
+                    <PlusOutlined />
+                    <div style={{ marginTop: 8 }}>Tải lên chứng chỉ</div>
+                  </div>
+                </Upload>
               </Form.Item>
 
               <Form.Item
@@ -1024,7 +1034,7 @@ const UserManagementPage: React.FC = () => {
                 Hủy
               </Button>
               <Button type="primary" htmlType="submit" loading={loading}>
-                Tạo tài khoản
+                {selectedRole === 'doctor' ? 'Thêm bác sĩ' : 'Tạo tài khoản'}
               </Button>
             </Space>
           </Form.Item>

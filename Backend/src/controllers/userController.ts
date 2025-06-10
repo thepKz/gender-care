@@ -441,14 +441,31 @@ export const searchUsers = async (req: Request, res: Response) => {
 
 export const createUser = async (req: Request, res: Response) => {
   try {
-    const { email, password, fullName, phone, avatar, gender, address, year, role } = req.body;
+    const { email, personalEmail, password, fullName, phone, avatar, gender, address, year, role } = req.body;
     const currentUserRole = (req as any).user?.role; // Get current user's role
     
-    if (!email || !password || !fullName) {
+    if (!fullName || !phone || !gender) {
       return res.status(400).json({ 
         success: false,
-        message: "Thiếu thông tin bắt buộc" 
+        message: "Thiếu thông tin bắt buộc (fullName, phone, gender)" 
       });
+    }
+
+    // Kiểm tra email tùy thuộc vào role
+    if (role === 'customer') {
+      if (!email) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Email là bắt buộc cho khách hàng" 
+        });
+      }
+    } else {
+      if (!personalEmail) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Email cá nhân là bắt buộc cho nhân viên/bác sĩ/quản lý" 
+        });
+      }
     }
     
     // Manager restrictions: cannot create admin users
@@ -459,17 +476,34 @@ export const createUser = async (req: Request, res: Response) => {
       });
     }
     
-    const existed = await User.findOne({ email });
+    // Tạo email hệ thống cho các vai trò không phải customer
+    let systemEmail = email;
+    if (role !== 'customer') {
+      const normalizedName = fullName
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .trim()
+        .split(' ')
+        .join('');
+      
+      const rolePrefix = role === 'doctor' ? 'bs' : role === 'staff' ? 'nv' : 'ql';
+      systemEmail = `${rolePrefix}.${normalizedName}@genderhealthcare.com`;
+    }
+    
+    const existed = await User.findOne({ email: systemEmail });
     if (existed) {
       return res.status(409).json({ 
         success: false,
-        message: "Email đã tồn tại" 
+        message: "Email này đã tồn tại trong hệ thống" 
       });
     }
     
-    const hash = await bcrypt.hash(password, 10);
+    // Tự động tạo mật khẩu
+    const autoPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4).toUpperCase() + '@';
+    const hash = await bcrypt.hash(autoPassword, 10);
+    
     const user = await User.create({
-      email,
+      email: systemEmail,
       password: hash,
       fullName,
       phone,
@@ -478,7 +512,19 @@ export const createUser = async (req: Request, res: Response) => {
       address,
       year,
       role: role || "customer",
+      emailVerified: role === 'customer' ? false : true, // Nhân viên không cần verify email
+      isActive: true
     });
+    
+    // Gửi email với thông tin đăng nhập
+    try {
+      const { sendWelcomeEmail } = await import('../services/emails');
+      const emailTarget = role === 'customer' ? systemEmail : personalEmail;
+      await sendWelcomeEmail(emailTarget, user.fullName, autoPassword, systemEmail);
+    } catch (emailError) {
+      console.error('Lỗi gửi email:', emailError);
+      // Không fail toàn bộ request nếu gửi email thất bại
+    }
     
     // Remove password from response
     const userResponse = user.toObject();
@@ -490,7 +536,7 @@ export const createUser = async (req: Request, res: Response) => {
     
     return res.status(201).json({ 
       success: true,
-      message: "Tạo người dùng thành công",
+      message: "Tạo người dùng thành công. Thông tin đăng nhập đã được gửi qua email.",
       data: userWithoutPassword 
     });
   } catch (error: any) {
