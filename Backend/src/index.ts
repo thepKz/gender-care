@@ -72,8 +72,15 @@ app.use((req, res, next) => {
 });
 
 // Phục vụ tài liệu Swagger
-const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+try {
+  const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  console.log('Swagger documentation loaded successfully');
+} catch (error) {
+  console.error('Error loading swagger.yaml:', error);
+  // Tạm thời skip swagger để server có thể chạy
+  console.log('Skipping Swagger documentation due to YAML error');
+}
 
 // Kết nối đến cơ sở dữ liệu MongoDB
 const connectDB = async () => {

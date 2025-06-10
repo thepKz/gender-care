@@ -14,6 +14,7 @@ import AdminDoctorProfilesPage from '../../pages/dashboard/admin/DoctorProfilesP
 import AdminDoctorSchedulePage from '../../pages/dashboard/admin/DoctorSchedulePage';
 import AdminDoctorPerformancePage from '../../pages/dashboard/admin/DoctorPerformancePage';
 import AdminDoctorSpecialtiesPage from '../../pages/dashboard/admin/DoctorSpecialtiesPage';
+import UserManagementPage from '../../pages/dashboard/admin/UserManagementPage';
 
 // Manager Pages
 import ManagerDoctorProfilesPage from '../../pages/dashboard/manager/DoctorProfilesPage';
@@ -51,6 +52,7 @@ const DashboardWrapper: React.FC = () => {
         {(userRole === 'admin') && (
           <>
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/users" element={<UserManagementPage />} />
             <Route path="/admin/doctors/profiles" element={<AdminDoctorProfilesPage />} />
             <Route path="/admin/doctors/schedule" element={<AdminDoctorSchedulePage />} />
             <Route path="/admin/doctors/performance" element={<AdminDoctorPerformancePage />} />

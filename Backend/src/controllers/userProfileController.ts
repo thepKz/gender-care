@@ -29,11 +29,11 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
     });
 
     res.status(201).json({
-      message: 'Tạo profile thành công',
+      message: 'Tạo hồ sơ bệnh án thành công',
       data: profile
     });
   } catch (error: any) {
-    res.status(500).json({ message: 'Lỗi server khi tạo profile' });
+    res.status(500).json({ message: 'Lỗi server khi tạo hồ sơ bệnh án' });
   }
 };
 
@@ -46,11 +46,11 @@ export const getAllProfiles = async (req: AuthRequest, res: Response) => {
     const result = await userProfileService.getAllUserProfiles(page, limit);
 
     res.json({
-      message: 'Lấy danh sách profiles thành công',
+      message: 'Lấy danh sách hồ sơ bệnh án thành công',
       ...result
     });
   } catch (error: any) {
-    res.status(500).json({ message: 'Lỗi server khi lấy danh sách profiles' });
+    res.status(500).json({ message: 'Lỗi server khi lấy danh sách hồ sơ bệnh án' });
   }
 };
 
@@ -64,7 +64,7 @@ export const getProfileById = async (req: AuthRequest, res: Response) => {
     const profile = await userProfileService.getUserProfileById(id, requesterId, requesterRole);
 
     res.json({
-      message: 'Lấy profile thành công',
+      message: 'Lấy hồ sơ bệnh án thành công',
       data: profile
     });
   } catch (error: any) {
@@ -77,7 +77,7 @@ export const getProfileById = async (req: AuthRequest, res: Response) => {
     if (error.message.includes('Không có quyền')) {
       return res.status(403).json({ message: error.message });
     }
-    res.status(500).json({ message: 'Lỗi server khi lấy profile' });
+    res.status(500).json({ message: 'Lỗi server khi lấy hồ sơ bệnh án' });
   }
 };
 
@@ -89,12 +89,12 @@ export const getMyProfile = async (req: AuthRequest, res: Response) => {
     const profiles = await userProfileService.getMyUserProfiles(ownerId);
 
     res.json({
-      message: 'Lấy profiles cá nhân thành công',
+      message: 'Lấy hồ sơ bệnh án thành công',
       data: profiles,
       count: profiles.length
     });
   } catch (error: any) {
-    res.status(500).json({ message: 'Lỗi server khi lấy profiles cá nhân' });
+    res.status(500).json({ message: 'Lỗi server khi lấy hồ sơ bệnh án' });
   }
 };
 
@@ -121,7 +121,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     );
 
     res.json({
-      message: 'Cập nhật profile thành công',
+      message: 'Cập nhật hồ sơ bệnh án thành công',
       data: updatedProfile
     });
   } catch (error: any) {
@@ -134,7 +134,7 @@ export const updateProfile = async (req: AuthRequest, res: Response) => {
     if (error.message.includes('Không có quyền')) {
       return res.status(403).json({ message: error.message });
     }
-    res.status(500).json({ message: 'Lỗi server khi cập nhật profile' });
+    res.status(500).json({ message: 'Lỗi server khi cập nhật hồ sơ bệnh án' });
   }
 };
 
@@ -158,6 +158,6 @@ export const deleteProfile = async (req: AuthRequest, res: Response) => {
     if (error.message.includes('Không có quyền')) {
       return res.status(403).json({ message: error.message });
     }
-    res.status(500).json({ message: 'Lỗi server khi xóa profile' });
+    res.status(500).json({ message: 'Lỗi server khi xóa hồ sơ bệnh án' });
   }
 }; 
