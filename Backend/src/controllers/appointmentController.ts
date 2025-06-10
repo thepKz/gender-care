@@ -398,8 +398,10 @@ export const updateAppointment = async (req: Request, res: Response) => {
 
 /**
  * Xóa mềm cuộc hẹn (cập nhật trạng thái thành cancelled)
+ * Admin và Staff có thể hủy bất kỳ lịch nào
+ * Customer chỉ có thể hủy lịch do mình đặt và sau khi đã đợi ít nhất 10 phút kể từ khi đặt lịch
  */
-export const deleteAppointment = async (req: Request, res: Response) => {
+export const deleteAppointment = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
 
@@ -412,6 +414,46 @@ export const deleteAppointment = async (req: Request, res: Response) => {
         const appointment = await Appointments.findById(id);
         if (!appointment) {
             throw new NotFoundError('Không tìm thấy cuộc hẹn');
+        }
+
+        // Kiểm tra quyền hủy lịch
+        const userRole = req.user?.role || '';
+        const userId = req.user?._id || '';
+
+        // Nếu là customer, kiểm tra thêm điều kiện
+        if (userRole === 'customer') {
+            // 1. Kiểm tra xem lịch hẹn có phải của customer này không
+            if (appointment.createdByUserId?.toString() !== userId.toString()) {
+                console.log('❌ [Debug] User không có quyền hủy lịch người khác:', { appointmentUserId: appointment.createdByUserId, requestUserId: userId });
+                throw new UnauthorizedError('Không có quyền truy cập');
+            }
+
+            // 2. Chỉ cho phép hủy sau khi đã đợi 10 phút kể từ khi đặt lịch
+            // Kiểm tra nếu createdAt tồn tại
+            if (!appointment.createdAt) {
+                console.log('❌ [Debug] Không tìm thấy thời gian tạo lịch');
+                throw new ValidationError({ time: 'Không thể xác định thời gian đặt lịch' });
+            }
+
+            // Đảm bảo createdAt là kiểu Date
+            const createdAt = appointment.createdAt instanceof Date
+                ? appointment.createdAt
+                : new Date(appointment.createdAt);
+
+            const now = new Date();
+            const diffMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+
+            console.log('🔍 [Debug] Thời gian từ khi tạo lịch đến giờ:', {
+                createdAt,
+                now,
+                diffMinutes,
+                appointmentId: id
+            });
+
+            if (diffMinutes < 10) {
+                console.log('❌ [Debug] Không thể hủy lịch khi chưa đủ 10 phút:', { diffMinutes, appointmentId: id });
+                throw new ValidationError({ time: 'Bạn phải đợi ít nhất 10 phút sau khi đặt lịch mới có thể hủy' });
+            }
         }
 
         // Chỉ cho phép hủy nếu trạng thái là pending hoặc confirmed

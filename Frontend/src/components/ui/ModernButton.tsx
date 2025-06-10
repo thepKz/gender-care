@@ -40,17 +40,22 @@ const ModernButton: React.FC<ModernButtonProps> = ({
     if (disabled || loading) return;
 
     // Ripple effect
-    if (ripple) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const newRipple = { id: Date.now(), x, y };
-      
-      setRipples(prev => [...prev, newRipple]);
-      
-      setTimeout(() => {
-        setRipples(prev => prev.filter(r => r.id !== newRipple.id));
-      }, 600);
+    if (ripple && e) {
+      try {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const newRipple = { id: Date.now(), x, y };
+        
+        setRipples(prev => [...prev, newRipple]);
+        
+        setTimeout(() => {
+          setRipples(prev => prev.filter(r => r.id !== newRipple.id));
+        }, 600);
+      } catch (error) {
+        console.log('Ripple effect error:', error);
+        // Ignore ripple effect errors
+      }
     }
 
     onClick?.();

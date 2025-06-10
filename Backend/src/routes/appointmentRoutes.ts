@@ -43,9 +43,9 @@ router.put('/:id', verifyToken, verifyStaff, updateAppointment);
 /**
  * @route   DELETE /api/appointments/:id
  * @desc    Hủy cuộc hẹn (soft delete)
- * @access  Private (Staff)
+ * @access  Private (Staff, Customer (có điều kiện 10 phút sau khi đặt))
  */
-router.delete('/:id', verifyToken, verifyStaff, deleteAppointment);
+router.delete('/:id', verifyToken, deleteAppointment);
 
 /**
  * @route   PUT /api/appointments/:id/status

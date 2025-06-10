@@ -1,4 +1,5 @@
-import { DatePicker, Empty, Input, Modal, Rate, Select, Spin, Tag, Timeline } from 'antd';
+import { Button, DatePicker, Empty, Input, Modal, Rate, Select, Spin, Tag, Timeline, Popconfirm } from 'antd';
+import axios from 'axios';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
@@ -287,10 +288,45 @@ const BookingHistory: React.FC = () => {
 
   const handleCancel = async (appointment: Appointment) => {
     try {
+      // Hiển thị loading message
+      const loadingMessage = message.loading('Đang hủy lịch hẹn...', 0);
+      
+      console.log('🔍 [Debug] Cancelling appointment:', appointment.id);
+      
+      // Gọi API hủy lịch - API mới đã được cập nhật để tự động trả lại slot trống
       const response = await appointmentApi.deleteAppointment(appointment.id);
+      
+      // Đóng loading message
+      loadingMessage();
+      
       if (response.success) {
-        message.success('Hủy cuộc hẹn thành công!');
-        // Refresh appointments
+        console.log('✅ [Debug] Cancel appointment response:', response);
+        message.success({
+          content: 'Hủy cuộc hẹn thành công! Lịch đã được trả lại.',
+          icon: <TickCircle size={20} className="text-green-500" />,
+          duration: 5
+        });
+        
+        // Cập nhật UI - đánh dấu lịch hẹn đã hủy
+        const updatedAppointments = appointments.map(apt => 
+          apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+        );
+        setAppointments(updatedAppointments);
+        setFilteredAppointments(
+          filteredAppointments.map(apt => 
+            apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+          )
+        );
+      } else {
+        // Xử lý trường hợp API trả về thành công nhưng không có success flag
+        console.log('✅ [Debug] Appointment cancelled without success flag');
+        message.success({
+          content: 'Hủy cuộc hẹn thành công! Lịch đã được trả lại.',
+          icon: <TickCircle size={20} className="text-green-500" />,
+          duration: 5
+        });
+        
+        // Vẫn cập nhật UI
         const updatedAppointments = appointments.map(apt => 
           apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
         );
@@ -302,11 +338,73 @@ const BookingHistory: React.FC = () => {
         );
       }
     } catch (error) {
-      console.error('Error cancelling appointment:', error);
-      message.error('Có lỗi xảy ra khi hủy cuộc hẹn. Vui lòng thử lại!');
+      console.error('❌ [Debug] Error cancelling appointment:', error);
+      
+      // Trích xuất thông báo lỗi chi tiết từ API response
+      let errorMessage = 'Có lỗi xảy ra khi hủy cuộc hẹn. Vui lòng thử lại!';
+      let errorType = 'general';
+      
+      if (axios.isAxiosError(error) && error.response?.data) {
+        // Trường hợp lỗi validation từ backend (400)
+        if (error.response.status === 400 && error.response.data.errors) {
+          const errorObj = error.response.data.errors;
+          // Lấy message lỗi đầu tiên tìm được
+          const firstErrorKey = Object.keys(errorObj)[0];
+          const firstErrorMessage = Object.values(errorObj)[0];
+          if (firstErrorMessage) {
+            errorMessage = firstErrorMessage as string;
+            errorType = firstErrorKey;
+            console.log('🔍 [Debug] Lỗi validation:', { key: firstErrorKey, message: errorMessage });
+          }
+        } 
+        // Trường hợp lỗi quyền truy cập (403)
+        else if (error.response.status === 403) {
+          errorMessage = 'Bạn không có quyền hủy lịch hẹn này';
+          errorType = 'permission';
+        }
+        // Trường hợp có message lỗi trong response
+        else if (error.response.data.message) {
+          errorMessage = error.response.data.message;
+        }
+      }
+      
+      // Hiển thị Modal thông báo thay vì message cho thông tin chi tiết hơn
+      if (errorType === 'time') {
+        Modal.error({
+          title: 'Chưa thể hủy lịch',
+          content: (
+            <div>
+              <p>{errorMessage}</p>
+              <p className="mt-2">Bạn cần đợi đủ 10 phút sau khi đặt lịch mới có thể hủy.</p>
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 font-medium">Lưu ý:</p>
+                <p className="text-yellow-700">Quy định này nhằm đảm bảo bạn có đủ thời gian cân nhắc trước khi quyết định hủy lịch, giúp hệ thống hoạt động ổn định.</p>
+              </div>
+            </div>
+          ),
+          okText: 'Đã hiểu',
+          className: 'custom-error-modal'
+        });
+      } 
+      // Các lỗi khác hiển thị thông báo thông thường
+      else {
+        message.error({
+          content: errorMessage,
+          icon: <CloseCircle size={20} className="text-red-500" />,
+          duration: 5
+        });
+      }
+    } finally {
+      // Đóng modal và reset selected appointment
+      setShowDetailModal(false);
+      setSelectedAppointment(null);
+      
+      // Làm mới danh sách lịch hẹn sau 1 giây
+      setTimeout(() => {
+        console.log('🔄 [Debug] Refreshing appointments after cancellation');
+        fetchAppointments();
+      }, 1000);
     }
-    setShowDetailModal(false);
-    setSelectedAppointment(null);
   };
 
   const handleReschedule = (appointment: Appointment) => {
@@ -676,7 +774,16 @@ const BookingHistory: React.FC = () => {
                                   variant="danger"
                                   className="text-sm"
                                   icon={<Trash size={16} />}
-                                  onClick={() => handleCancel(appointment)}
+                                  onClick={() => {
+                                    Modal.confirm({
+                                      title: 'Xác nhận hủy lịch',
+                                      content: 'Bạn có chắc chắn muốn hủy lịch hẹn này? Lịch sẽ được trả lại để người khác có thể đặt.',
+                                      okText: 'Đồng ý',
+                                      okButtonProps: { danger: true },
+                                      cancelText: 'Hủy',
+                                      onOk: () => handleCancel(appointment)
+                                    });
+                                  }}
                                 >
                                   Hủy lịch
                                 </ModernButton>
