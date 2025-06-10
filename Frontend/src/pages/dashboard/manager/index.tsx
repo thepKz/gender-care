@@ -1,8 +1,8 @@
 import React from 'react';
 import { Card, Row, Col, Statistic, Typography, Progress, List, Avatar, Tag } from 'antd';
-import { 
-  UserOutlined, 
-  CalendarOutlined, 
+import {
+  UserOutlined,
+  CalendarOutlined,
   DollarOutlined, 
   TrophyOutlined,
   MedicineBoxOutlined,
@@ -23,7 +23,7 @@ const ManagerDashboard: React.FC = () => {
           Chào mừng trở lại! Quản lý hoạt động phòng khám hiệu quả.
         </Text>
       </div>
-
+      
       {/* Statistics Cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
         <Col xs={24} sm={12} lg={6}>
@@ -88,7 +88,7 @@ const ManagerDashboard: React.FC = () => {
             </div>
           </Card>
         </Col>
-
+        
         {/* Top Doctors */}
         <Col xs={24} lg={8}>
           <Card title="Bác sĩ xuất sắc" extra={<a href="#">Xem tất cả</a>}>
