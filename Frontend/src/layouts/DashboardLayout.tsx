@@ -42,12 +42,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
       onClick: () => navigate('/dashboard/admin'),
     },
     {
-      key: 'users',
-      icon: <TeamOutlined />,
-      label: 'Quản lý người dùng',
-      onClick: () => navigate('/dashboard/admin/users'),
-    },
-    {
       key: 'doctors',
       icon: <MedicineBoxOutlined />,
       label: 'Quản lý bác sĩ',
@@ -95,6 +89,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
       icon: <DashboardOutlined />,
       label: 'Tổng quan',
       onClick: () => navigate('/dashboard/manager'),
+    },
+    {
+      key: 'users',
+      icon: <TeamOutlined />,
+      label: 'Quản lý người dùng',
+      onClick: () => navigate('/dashboard/manager/users'),
     },
     {
       key: 'doctors',

@@ -196,9 +196,9 @@ export const createDoctor = async (doctorInfo: any) => {
     const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'fullName email avatar phone');
     
     // Log thông tin account mới tạo cho admin
-    console.log(`✅ Đã tạo bác sĩ mới: ${doctorInfo.fullName}`);
-    console.log(`📧 Email: ${email}`);
-    console.log(`🔑 Password mặc định: ${defaultPassword}`);
+    console.log(`Đã tạo bác sĩ mới: ${doctorInfo.fullName}`);
+    console.log(`Email: ${email}`);
+    console.log(`Password mặc định: ${defaultPassword}`);
     
     return populatedDoctor;
   } catch (error: any) {
