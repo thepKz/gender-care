@@ -32,7 +32,10 @@ import {
   UserOutlined,
   ReloadOutlined,
   TableOutlined,
-  BarChartOutlined
+  BarChartOutlined,
+  CheckCircleOutlined,
+  MinusCircleOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
@@ -73,6 +76,66 @@ const DEFAULT_TIME_SLOTS = [
   '16:00-17:00'
 ];
 
+// Status Badge Component với Medical Design System
+const StatusBadge: React.FC<{ 
+  status: 'Free' | 'Booked' | 'Absent';
+  count: number;
+  size?: 'small' | 'default';
+}> = ({ status, count, size = 'default' }) => {
+  const statusConfig = {
+    Free: {
+      color: '#52c41a', // Success green
+      bgColor: '#f6ffed',
+      borderColor: '#b7eb8f',
+      icon: <CheckCircleOutlined />,
+      label: 'Trống'
+    },
+    Booked: {
+      color: '#1890ff', // Primary blue
+      bgColor: '#e6f7ff',
+      borderColor: '#91d5ff',
+      icon: <UserOutlined />,
+      label: 'Đã đặt'
+    },
+    Absent: {
+      color: '#fa8c16', // Warning orange
+      bgColor: '#fff7e6',
+      borderColor: '#ffd591',
+      icon: <MinusCircleOutlined />,
+      label: 'Vắng mặt'
+    }
+  };
+
+  const config = statusConfig[status];
+  const isSmall = size === 'small';
+
+  return (
+    <Tooltip title={`${config.label}: ${count} khung giờ`}>
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: isSmall ? '4px' : '6px',
+          padding: isSmall ? '2px 8px' : '4px 12px',
+          backgroundColor: config.bgColor,
+          border: `1px solid ${config.borderColor}`,
+          borderRadius: '6px',
+          fontSize: isSmall ? '12px' : '14px',
+          fontWeight: 500,
+          color: config.color,
+          cursor: 'default',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        <span style={{ fontSize: isSmall ? '12px' : '14px' }}>
+          {config.icon}
+        </span>
+        <span>{count}</span>
+      </div>
+    </Tooltip>
+  );
+};
+
 type CreateMode = 'dates' | 'month';
 
 interface ScheduleViewData {
@@ -83,9 +146,9 @@ interface ScheduleViewData {
   workDate: string; // Ngày làm việc cụ thể
   dayOfWeek: string; // Thứ trong tuần
   totalSlots: number;
-  availableSlots: number;
-  bookedSlots: number;
-  unavailableSlots: number;
+  freeSlots: number; // Trạng thái "Free"
+  bookedSlots: number; // Trạng thái "Booked"
+  absentSlots: number; // Trạng thái "Absent"
   scheduleId: string;
   timeSlots: string[]; // Danh sách các slot thời gian
 }
@@ -195,9 +258,9 @@ const DoctorSchedulePage: React.FC = () => {
     filteredSchedules.forEach(schedule => {
       schedule.weekSchedule.forEach(weekSchedule => {
         const workDate = dayjs(weekSchedule.dayOfWeek);
-        const freeSlots = weekSchedule.slots.filter(slot => slot.status === 'Free').length;
-        const bookedSlots = weekSchedule.slots.filter(slot => slot.status === 'Booked').length;
-        const unavailableSlots = weekSchedule.slots.filter(slot => slot.status === 'Absent').length;
+        const freeSlots = weekSchedule.slots.filter(slot => !slot.isBooked && slot.status !== 'Absent').length;
+        const bookedSlots = weekSchedule.slots.filter(slot => slot.isBooked).length;
+        const absentSlots = weekSchedule.slots.filter(slot => slot.status === 'Absent').length;
         
         data.push({
           key: `${schedule._id}-${weekSchedule._id}`,
@@ -207,9 +270,9 @@ const DoctorSchedulePage: React.FC = () => {
           workDate: workDate.format('DD/MM/YYYY'),
           dayOfWeek: workDate.format('dddd, DD/MM/YYYY'),
           totalSlots: weekSchedule.slots.length,
-          availableSlots: freeSlots,
+          freeSlots: freeSlots,
           bookedSlots: bookedSlots,
-          unavailableSlots: unavailableSlots,
+          absentSlots: absentSlots,
           scheduleId: schedule._id,
           timeSlots: weekSchedule.slots.map(slot => slot.slotTime)
         });
@@ -446,43 +509,49 @@ const DoctorSchedulePage: React.FC = () => {
       ),
     },
     {
-      title: 'Trống',
-      dataIndex: 'availableSlots',
-      key: 'availableSlots',
-      width: 80,
+      title: 'Trạng thái khung giờ',
+      key: 'slotStatus',
+      width: 280,
       align: 'center',
-      render: (available) => <Tag color="green">{available}</Tag>,
-      sorter: (a, b) => a.availableSlots - b.availableSlots,
+      render: (_, record) => (
+        <Space size="small" wrap>
+          <StatusBadge status="Free" count={record.freeSlots} size="small" />
+          <StatusBadge status="Booked" count={record.bookedSlots} size="small" />
+          <StatusBadge status="Absent" count={record.absentSlots} size="small" />
+        </Space>
+      ),
     },
     {
-      title: 'Đã đặt',
-      dataIndex: 'bookedSlots',
-      key: 'bookedSlots',
-      width: 80,
+      title: 'Tổng quan',
+      key: 'overview',
+      width: 120,
       align: 'center',
-      render: (booked) => <Tag color="red">{booked}</Tag>,
-      sorter: (a, b) => a.bookedSlots - b.bookedSlots,
-    },
-    {
-      title: 'Không khả dụng',
-      dataIndex: 'unavailableSlots',
-      key: 'unavailableSlots',
-      width: 100,
-      align: 'center',
-      render: (unavailable) => <Tag color="orange">{unavailable}</Tag>,
-    },
-    {
-      title: 'Trạng thái',
-      key: 'status',
-      width: 100,
       render: (_, record) => {
-        const { availableSlots, totalSlots } = record;
-        if (availableSlots === totalSlots) {
-          return <Tag color="green">Sẵn sàng</Tag>;
-        } else if (availableSlots === 0) {
-          return <Tag color="red">Hết slot</Tag>;
+        const { freeSlots, totalSlots } = record;
+        if (freeSlots === totalSlots) {
+          return (
+            <Tooltip title="Tất cả khung giờ đều trống">
+              <Tag color="success" icon={<CheckCircleOutlined />}>
+                Hoàn toàn trống
+              </Tag>
+            </Tooltip>
+          );
+        } else if (freeSlots === 0) {
+          return (
+            <Tooltip title="Không còn khung giờ trống">
+              <Tag color="error" icon={<ExclamationCircleOutlined />}>
+                Đã kín
+              </Tag>
+            </Tooltip>
+          );
         } else {
-          return <Tag color="orange">Một phần</Tag>;
+          return (
+            <Tooltip title={`${freeSlots}/${totalSlots} khung giờ còn trống`}>
+              <Tag color="warning" icon={<MinusCircleOutlined />}>
+                Một phần
+              </Tag>
+            </Tooltip>
+          );
         }
       },
     },
@@ -567,6 +636,37 @@ const DoctorSchedulePage: React.FC = () => {
         </Card>
       )}
 
+      {/* Status Legend */}
+      <Card style={{ marginBottom: 16, backgroundColor: '#f8f9fa' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <Text strong style={{ fontSize: '14px', color: '#2c3e50' }}>
+              📋 Trạng thái khung giờ làm việc:
+            </Text>
+          </div>
+          <Space size="large" wrap>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px' }} />
+              <Text style={{ fontSize: '13px' }}>
+                <strong style={{ color: '#52c41a' }}>Free</strong> - Có thể đặt lịch
+              </Text>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <UserOutlined style={{ color: '#1890ff', fontSize: '16px' }} />
+              <Text style={{ fontSize: '13px' }}>
+                <strong style={{ color: '#1890ff' }}>Booked</strong> - Đã có bệnh nhân đặt
+              </Text>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <MinusCircleOutlined style={{ color: '#fa8c16', fontSize: '16px' }} />
+              <Text style={{ fontSize: '13px' }}>
+                <strong style={{ color: '#fa8c16' }}>Absent</strong> - Bác sĩ vắng mặt
+              </Text>
+            </div>
+          </Space>
+        </div>
+      </Card>
+
       {/* Statistics */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={6}>
@@ -582,12 +682,15 @@ const DoctorSchedulePage: React.FC = () => {
         <Col xs={24} sm={6}>
           <Card>
             <Statistic
-              title="Có thể đặt"
+              title="Trống"
               value={scheduleStats.free}
               valueStyle={{ color: '#52c41a' }}
-              prefix={<CalendarOutlined />}
+              prefix={<CheckCircleOutlined />}
               formatter={(value) => value.toLocaleString()}
             />
+            <div style={{ fontSize: '12px', color: '#52c41a', marginTop: '4px' }}>
+              ✅ Có thể đặt lịch
+            </div>
           </Card>
         </Col>
         <Col xs={24} sm={6}>
@@ -604,12 +707,15 @@ const DoctorSchedulePage: React.FC = () => {
         <Col xs={24} sm={6}>
           <Card>
             <Statistic
-              title="Tỷ lệ sử dụng"
-              value={scheduleStats.utilization}
-              suffix="%"
-              valueStyle={{ color: scheduleStats.utilization > 75 ? '#52c41a' : '#faad14' }}
-              prefix={<BarChartOutlined />}
+              title="Vắng mặt"
+              value={scheduleStats.absent || 0}
+              valueStyle={{ color: '#fa8c16' }}
+              prefix={<MinusCircleOutlined />}
+              formatter={(value) => value.toLocaleString()}
             />
+            <div style={{ fontSize: '12px', color: '#fa8c16', marginTop: '4px' }}>
+              ⚠️ Không có mặt
+            </div>
           </Card>
         </Col>
       </Row>

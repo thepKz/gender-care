@@ -19,6 +19,10 @@ const ServiceSchema: Schema = new Schema({
     required: [true, 'Description is required'],
     trim: true
   },
+  image: {
+    type: String,
+    trim: true
+  },
   isDeleted: {
     type: Number,
     default: 0,
