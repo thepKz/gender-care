@@ -6,7 +6,7 @@ export interface IServices {
   description?: string;
   image?: string;
   isDeleted: boolean;
-  serviceType: "consultation" | "test" | "other";
+  serviceType: "consultation" | "test" | "treatmeant" | "other";
   availableAt: string[]; // ["Athome", "Online", "Center"]
 }
 

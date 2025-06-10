@@ -28,6 +28,11 @@ const ServiceSchema: Schema = new Schema({
     default: 0,
     enum: [0, 1]
   },
+  deleteNote: {
+    type: String,
+    trim: true,
+    default: null
+  },
   serviceType: {
     type: String,
     required: [true, 'Service type is required'],

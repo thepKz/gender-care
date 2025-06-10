@@ -96,8 +96,9 @@ export interface IService {
   serviceName: string;
   price: number;
   description: string;
-  isDeleted: boolean;
-  serviceType: 'consultation' | 'test' | 'other';
+  isDeleted: number;
+  deleteNote?: string;
+  serviceType: 'consultation' | 'test' | 'treatment' | 'other';
   availableAt: string[]; // ['Athome', 'Online', 'Center']
 }
 
@@ -109,7 +110,8 @@ export interface IServicePackage {
   priceBeforeDiscount: number;
   price: number;
   serviceIds: string[];
-  isActive: boolean;
+  isActive: number;
+  deleteNote?: string;
   createdAt: Date;
   updatedAt: Date;
 }
