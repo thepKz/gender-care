@@ -33,6 +33,10 @@ import BookingPage from '../pages/booking';
 import BookingHistoryPage from '../pages/booking-history';
 import FeedbackPage from '../pages/feedback';
 
+// Consultation Pages
+import PaymentPage from '../pages/consultation/PaymentPage';
+import PaymentSuccessPage from '../pages/consultation/PaymentSuccessPage';
+
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
@@ -121,6 +125,10 @@ const AppRoutes: React.FC = () => {
         <Route path="/booking" element={<BookingPage />} />
         <Route path="/booking-history" element={<BookingHistoryPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
+        
+        {/* Consultation Pages */}
+        <Route path="/consultation/payment/:qaId" element={<PaymentPage />} />
+        <Route path="/consultation/success/:qaId" element={<PaymentSuccessPage />} />
         
         {/* Demo Pages */}
         <Route path="/demo" element={<DemoIndexPage />} />

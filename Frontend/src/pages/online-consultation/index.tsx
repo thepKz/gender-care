@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Form, Input, message, Card, Row, Col, Typography, Space, Tag, Avatar, Progress, Timeline, Collapse, Statistic } from 'antd';
+import { Button, Form, Input, message, Card, Row, Col, Typography, Space, Tag, Avatar, Progress, Timeline, Collapse, Statistic, Modal } from 'antd';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
-import { VideoPlay, MessageQuestion, Profile, Shield, Clock, Heart, Send, Star1, Verify, Call, Messages2, TrendUp, Award, SecurityUser, VideoCircle } from 'iconsax-react';
+import { VideoPlay, MessageQuestion, Profile, Shield, Clock, Heart, Send, Star1, Verify, Call, Messages2, TrendUp, Award, SecurityUser, VideoCircle, InfoCircle } from 'iconsax-react';
+import { useNavigate } from 'react-router-dom';
 import GridMotion from '../../components/ui/GridMotion';
 import { FloatingAppointmentButton } from '../../components/common';
+import { consultationApi } from '../../api';
 import './styles.css';
 
 const { Title, Paragraph, Text } = Typography;
@@ -43,7 +45,9 @@ const CountUp: React.FC<{ end: number; duration?: number; suffix?: string }> = (
 
 const OnlineConsultationPage: React.FC = () => {
   const [form] = Form.useForm();
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [chatMessages, setChatMessages] = useState([
     { id: 1, sender: 'doctor', text: 'Xin chào! Tôi có thể giúp gì cho bạn hôm nay?', time: '14:30' },
     { id: 2, sender: 'user', text: 'Chào bác sĩ, tôi muốn tư vấn về vấn đề sức khỏe sinh sản', time: '14:31' },
@@ -122,19 +126,46 @@ const OnlineConsultationPage: React.FC = () => {
   };
 
   const handleSubmit = async (values: OnlineConsultationFormData) => {
+    // Check authentication first - simple token check
+    const token = localStorage.getItem('access_token');
+    if (!token) {
+      setShowLoginModal(true);
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {
-      // Mock API call - replace with actual API
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Call API to create consultation request
+      const response = await consultationApi.createOnlineConsultation({
+        fullName: values.fullName.trim(),
+        phone: values.phone.trim(),
+        question: values.question.trim(),
+        notes: values.notes?.trim()
+      });
+
+      message.success('Tạo yêu cầu tư vấn thành công! Chuyển đến trang thanh toán.');
       
-      message.success('Câu hỏi của bạn đã được gửi thành công! Chúng tôi sẽ liên hệ trong vòng 24h.');
-      form.resetFields();
-    } catch (error) {
-      message.error('Có lỗi xảy ra. Vui lòng thử lại sau.');
+      // Navigate to payment page
+      navigate(`/consultation/payment/${response.data.data._id}`);
+      
+    } catch (error: any) {
+      console.error('Error creating consultation:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.';
+      message.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleLoginRedirect = () => {
+    setShowLoginModal(false);
+    navigate('/login', { 
+      state: { 
+        from: '/online-consultation',
+        message: 'Vui lòng đăng nhập để đặt lịch tư vấn' 
+      }
+    });
   };
 
   const scrollToForm = () => {
@@ -1245,6 +1276,45 @@ const OnlineConsultationPage: React.FC = () => {
           }
         }}
       />
+
+      {/* Login Required Modal */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <InfoCircle size={24} color="#1890ff" />
+            <span>Yêu cầu đăng nhập</span>
+          </div>
+        }
+        open={showLoginModal}
+        onCancel={() => setShowLoginModal(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setShowLoginModal(false)}>
+            Hủy
+          </Button>,
+          <Button key="login" type="primary" onClick={handleLoginRedirect}>
+            Đăng nhập ngay
+          </Button>
+        ]}
+        centered
+      >
+        <div className="py-4">
+          <Paragraph className="text-gray-600 mb-4">
+            Bạn cần đăng nhập để sử dụng dịch vụ tư vấn trực tuyến. 
+            Việc đăng nhập giúp chúng tôi:
+          </Paragraph>
+          <ul className="text-gray-600 space-y-2 mb-4">
+            <li>• Bảo mật thông tin cá nhân của bạn</li>
+            <li>• Theo dõi lịch sử tư vấn</li>
+            <li>• Gửi link Google Meet an toàn</li>
+            <li>• Cung cấp dịch vụ chăm sóc tốt hơn</li>
+          </ul>
+          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+            <Text className="text-blue-700 text-sm">
+              💡 <strong>Lưu ý:</strong> Thông tin đăng nhập được mã hóa và bảo mật tuyệt đối.
+            </Text>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
