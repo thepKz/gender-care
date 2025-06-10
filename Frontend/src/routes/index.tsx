@@ -30,6 +30,7 @@ import DoctorDetail from '../pages/doctors/DoctorDetail';
 // Booking Pages
 import BookingPage from '../pages/booking';
 import BookingHistoryPage from '../pages/booking-history';
+import PaymentPage from '../pages/payment';
 import FeedbackPage from '../pages/feedback';
 
 // Demo Pages
@@ -118,6 +119,7 @@ const AppRoutes: React.FC = () => {
         {/* Booking Pages */}
         <Route path="/booking" element={<BookingPage />} />
         <Route path="/booking-history" element={<BookingHistoryPage />} />
+        <Route path="/payment" element={<PaymentPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
         
         {/* Demo Pages */}

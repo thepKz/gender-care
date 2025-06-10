@@ -112,7 +112,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
       
       setDoctors(enhancedBasicData);
       setFilteredDoctors(enhancedBasicData);
-      message.success('Tải danh sách bác sĩ thành công');
+     
       
     } catch (error: any) {
       console.error('API failed:', error);
@@ -120,6 +120,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
+    
   };
 
   const loadAvailableUsers = async () => {

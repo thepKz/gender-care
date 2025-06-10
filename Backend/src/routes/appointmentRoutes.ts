@@ -5,7 +5,8 @@ import {
     getAppointmentById,
     updateAppointment,
     deleteAppointment,
-    updateAppointmentStatus
+    updateAppointmentStatus,
+    updatePaymentStatus
 } from '../controllers/appointmentController';
 import { verifyToken, verifyAdmin, verifyCustomer, verifyStaff, verifyDoctor } from '../middleware';
 
@@ -52,5 +53,12 @@ router.delete('/:id', verifyToken, verifyStaff, deleteAppointment);
  * @access  Private (Staff)
  */
 router.put('/:id/status', verifyToken, verifyStaff, updateAppointmentStatus);
+
+/**
+ * @route   PUT /api/appointments/:id/payment
+ * @desc    Cập nhật trạng thái thanh toán (pending_payment -> confirmed)
+ * @access  Private (Customer)
+ */
+router.put('/:id/payment', verifyToken, verifyCustomer, updatePaymentStatus);
 
 export default router; 

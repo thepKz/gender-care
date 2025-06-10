@@ -136,13 +136,18 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
         // Kiểm tra slot có trống không (nếu slotId được cung cấp)
         if (slotId) {
+            console.log('🔍 [Debug] Checking slot availability:', { slotId, appointmentDate, appointmentTime });
+
             // Logic để kiểm tra slot có trống không
-            // Đây là ví dụ đơn giản, bạn cần điều chỉnh theo cấu trúc thực tế của bạn
+            // Tìm schedule có chứa slot với _id matching slotId
             const schedule = await DoctorSchedules.findOne({
-                'weekSchedule._id': slotId
+                'weekSchedule.slots._id': slotId
             });
 
+            console.log('🔍 [Debug] Found schedule for slot:', schedule ? 'YES' : 'NO');
+
             if (!schedule) {
+                console.log('❌ [Debug] No schedule found containing slotId:', slotId);
                 throw new NotFoundError('Không tìm thấy slot thời gian');
             }
 
@@ -470,7 +475,7 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
         }
 
         // Kiểm tra status có hợp lệ không
-        if (!['pending', 'confirmed', 'completed', 'cancelled'].includes(status)) {
+        if (!['pending', 'pending_payment', 'confirmed', 'completed', 'cancelled'].includes(status)) {
             throw new ValidationError({ status: 'Trạng thái không hợp lệ' });
         }
 
@@ -529,6 +534,85 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
         return res.status(500).json({
             success: false,
             message: 'Đã xảy ra lỗi khi cập nhật trạng thái cuộc hẹn'
+        });
+    }
+};
+
+/**
+ * Cập nhật trạng thái thanh toán - chuyển từ pending_payment sang confirmed
+ */
+export const updatePaymentStatus = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        console.log('updatePaymentStatus called with:', { id, status });
+
+        // Kiểm tra ID có hợp lệ không
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            throw new ValidationError({ id: 'ID cuộc hẹn không hợp lệ' });
+        }
+
+        // Kiểm tra status có hợp lệ không (chỉ cho phép confirmed)
+        if (status !== 'confirmed') {
+            throw new ValidationError({ status: 'Chỉ cho phép xác nhận thanh toán' });
+        }
+
+        // Tìm cuộc hẹn hiện tại
+        const appointment = await Appointments.findById(id);
+        if (!appointment) {
+            throw new NotFoundError('Không tìm thấy cuộc hẹn');
+        }
+
+        console.log('Current appointment status:', appointment.status);
+
+        // Nếu đã confirmed rồi thì trả về thành công luôn
+        if (appointment.status === 'confirmed') {
+            console.log('Appointment already confirmed, returning success');
+            return res.status(200).json({
+                success: true,
+                message: 'Cuộc hẹn đã được xác nhận trước đó',
+                data: appointment
+            });
+        }
+
+        // Chỉ cho phép cập nhật nếu trạng thái hiện tại là pending_payment
+        if (appointment.status !== 'pending_payment') {
+            throw new ValidationError({ status: `Chỉ có thể cập nhật thanh toán cho cuộc hẹn đang chờ thanh toán. Trạng thái hiện tại: ${appointment.status}` });
+        }
+
+        // Cập nhật trạng thái sang confirmed
+        const updatedAppointment = await Appointments.findByIdAndUpdate(
+            id,
+            { $set: { status: 'confirmed' } },
+            { new: true }
+        ).populate('profileId', 'fullName gender phone year')
+            .populate('serviceId', 'serviceName price serviceType')
+            .populate('packageId', 'name price serviceIds');
+
+        console.log('Payment status updated successfully');
+        return res.status(200).json({
+            success: true,
+            message: 'Xác nhận thanh toán thành công',
+            data: updatedAppointment
+        });
+    } catch (error) {
+        console.error('Error in updatePaymentStatus:', error);
+        if (error instanceof NotFoundError) {
+            return res.status(404).json({
+                success: false,
+                message: error.message
+            });
+        }
+        if (error instanceof ValidationError) {
+            return res.status(400).json({
+                success: false,
+                errors: error.errors
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi cập nhật trạng thái thanh toán'
         });
     }
 }; 
