@@ -1,0 +1,166 @@
+.gridmotion-wrapper {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  pointer-events: none;
+}
+
+.gridmotion-intro {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gridmotion-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  width: 120%;
+  max-width: none;
+}
+
+.gridmotion-row {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.gridmotion-row__item {
+  flex: 0 0 auto;
+  width: 140px;
+  height: 140px;
+}
+
+.gridmotion-row__item-inner {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 32px rgba(0, 100, 120, 0.1);
+}
+
+.gridmotion-row__item-inner:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(0, 100, 120, 0.2);
+  border-color: rgba(0, 100, 120, 0.3);
+}
+
+.gridmotion-row__item-content {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  text-align: center;
+  padding: 1rem;
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.gridmotion-row__item-img {
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border-radius: 16px;
+  position: relative;
+}
+
+.gridmotion-row__item-img::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(0, 100, 120, 0.3), rgba(0, 178, 121, 0.3));
+  border-radius: 16px;
+  transition: opacity 0.3s ease;
+}
+
+.gridmotion-row__item-inner:hover .gridmotion-row__item-img::before {
+  opacity: 0.7;
+}
+
+.healthcare-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.healthcare-icon {
+  font-size: 24px;
+  margin-bottom: 0.25rem;
+}
+
+.healthcare-item span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #006478;
+  line-height: 1.2;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .gridmotion-row__item {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .gridmotion-row {
+    gap: 1rem;
+  }
+  
+  .gridmotion-container {
+    gap: 1rem;
+  }
+  
+  .healthcare-icon {
+    font-size: 20px;
+  }
+  
+  .healthcare-item span {
+    font-size: 10px;
+  }
+  
+  .gridmotion-row__item-content {
+    font-size: 12px;
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .gridmotion-row__item {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .healthcare-icon {
+    font-size: 16px;
+  }
+  
+  .healthcare-item span {
+    font-size: 9px;
+  }
+  
+  .gridmotion-row__item-content {
+    font-size: 10px;
+    padding: 0.25rem;
+  }
+} 

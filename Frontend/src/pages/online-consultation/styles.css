@@ -450,4 +450,69 @@ html {
   .shimmer-effect {
     animation-duration: 3s;
   }
+}
+
+/* Future Healthcare Items */
+.future-healthcare-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.future-icon {
+  font-size: 28px;
+  margin-bottom: 0.25rem;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+}
+
+.future-healthcare-item span {
+  font-size: 12px;
+  font-weight: 700;
+  color: #e0e7ff;
+  line-height: 1.2;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+/* Gradient Animation for Background */
+.bg-300% {
+  background-size: 300% 300%;
+}
+
+/* Advanced Grid Motion Enhancements */
+.gridmotion-wrapper .gridmotion-row__item-inner {
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.gridmotion-wrapper .gridmotion-row__item-inner:hover {
+  transform: translateY(-8px) scale(1.05);
+  box-shadow: 0 20px 40px rgba(0, 100, 120, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+}
+
+/* Dark theme GridMotion items */
+.gridmotion-wrapper .future-healthcare-item {
+  padding: 0.5rem;
+}
+
+.gridmotion-wrapper .future-healthcare-item:hover {
+  transform: scale(1.1);
+}
+
+/* Pulse Animation for Glow Effects */
+@keyframes glow-pulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+}
+
+.animate-glow {
+  animation: glow-pulse 3s ease-in-out infinite;
 } 

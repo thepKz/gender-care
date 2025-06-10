@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button, Form, Input, message, Card, Row, Col, Typography, Space, Tag, Avatar, Progress, Timeline, Collapse, Statistic } from 'antd';
 import { motion, AnimatePresence, useInView } from 'framer-motion';
 import { VideoPlay, MessageQuestion, Profile, Shield, Clock, Heart, Send, Star1, Verify, Call, Messages2, TrendUp, Award, SecurityUser, VideoCircle } from 'iconsax-react';
+import GridMotion from '../../components/ui/GridMotion';
 import './styles.css';
 
 const { Title, Paragraph, Text } = Typography;
@@ -147,13 +148,18 @@ const OnlineConsultationPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
-      {/* Hero Section */}
+      {/* Hero Section with GridMotion Background */}
       <motion.section 
         className="relative py-20 overflow-hidden"
         initial="hidden"
         animate="visible"
         variants={containerVariants}
+        style={{ minHeight: '100vh' }}
       >
+        {/* Subtle Animated Background with GridMotion */}
+        <div className="absolute inset-0 opacity-10">
+          <GridMotion height="100vh" gradientColor="rgba(0, 100, 120, 0.02)" />
+        </div>
         <div className="absolute inset-0 bg-gradient-to-r from-blue-primary/10 to-green-primary/10"></div>
         <div className="container mx-auto px-4 relative z-10">
           <Row gutter={[48, 32]} align="middle">
@@ -199,22 +205,291 @@ const OnlineConsultationPage: React.FC = () => {
                 variants={itemVariants}
                 className="relative"
               >
-                <div className="relative z-10 bg-white rounded-3xl shadow-2xl p-8 border border-gray-100">
-                  <div 
-                    className="w-full h-80 bg-gradient-to-br from-blue-100 to-green-100 rounded-2xl flex items-center justify-center"
+                <div className="relative w-full aspect-square max-w-md mx-auto">
+                  <div className="absolute inset-0 bg-gradient-to-br from-green-primary/20 to-blue-primary/20 rounded-full animate-pulse"></div>
+                  <div className="absolute inset-4 bg-white rounded-full shadow-2xl flex items-center justify-center">
+                    <VideoCircle size={120} color="#006478" variant="Bold" />
+                  </div>
+                  {/* Floating elements */}
+                  <motion.div 
+                    className="absolute -top-4 -right-4 bg-white rounded-full p-4 shadow-lg"
+                    animate={{ y: [-10, 10, -10] }}
+                    transition={{ duration: 3, repeat: Infinity }}
                   >
-                    <VideoPlay size={64} color="#006478" variant="Bold" />
-                  </div>
-                  <div className="absolute -top-4 -right-4 bg-green-primary text-white px-4 py-2 rounded-full text-sm font-semibold">
-                    <Heart size={16} className="inline mr-1" variant="Bold" />
-                    Tin cậy #1
-                  </div>
+                    <Heart size={32} color="#00B279" variant="Bold" />
+                  </motion.div>
+                  <motion.div 
+                    className="absolute -bottom-4 -left-4 bg-white rounded-full p-4 shadow-lg"
+                    animate={{ y: [10, -10, 10] }}
+                    transition={{ duration: 2.5, repeat: Infinity }}
+                  >
+                    <Shield size={32} color="#006478" variant="Bold" />
+                  </motion.div>
                 </div>
-                <div className="absolute -bottom-4 -left-4 w-20 h-20 bg-blue-primary/20 rounded-full floating-element"></div>
-                <div className="absolute -top-6 -left-6 w-16 h-16 bg-green-primary/20 rounded-full bounce-slow"></div>
               </motion.div>
             </Col>
           </Row>
+        </div>
+      </motion.section>
+
+      {/* Medical Showcase Section - NEW GridMotion Feature Section */}
+      <motion.section 
+        className="py-20 relative overflow-hidden"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1 }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-white to-blue-50/50"></div>
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ y: 50, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-16"
+          >
+            <Title level={2} className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
+              Trải nghiệm Dịch vụ{' '}
+              <span className="gradient-text">Toàn diện</span>
+            </Title>
+            <Paragraph className="text-lg text-gray-600 max-w-2xl mx-auto">
+              Khám phá hệ sinh thái chăm sóc sức khỏe hiện đại với công nghệ tiên tiến
+            </Paragraph>
+          </motion.div>
+
+          {/* Interactive GridMotion Display */}
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1, delay: 0.3 }}
+            className="relative mb-16"
+          >
+            <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl overflow-hidden border border-gray-200/50">
+              <div className="p-8 text-center">
+                <Title level={3} className="mb-4 text-gray-800">
+                  🎯 Di chuyển chuột để khám phá
+                </Title>
+                <Paragraph className="text-gray-600 mb-6">
+                  Mỗi ô vuông đại diện cho một dịch vụ y tế chất lượng cao
+                </Paragraph>
+              </div>
+              <div style={{ height: '400px' }}>
+                <GridMotion 
+                  height="400px" 
+                  gradientColor="rgba(0, 178, 121, 0.08)"
+                />
+              </div>
+              <div className="p-6 bg-gradient-to-r from-blue-primary/5 to-green-primary/5">
+                <Row gutter={[24, 24]} justify="center">
+                  <Col xs={8} md={6}>
+                    <div className="text-center">
+                      <div className="text-2xl mb-2">🏥</div>
+                      <Text className="text-sm font-semibold">Bệnh viện</Text>
+                    </div>
+                  </Col>
+                  <Col xs={8} md={6}>
+                    <div className="text-center">
+                      <div className="text-2xl mb-2">👩‍⚕️</div>
+                      <Text className="text-sm font-semibold">Bác sĩ</Text>
+                    </div>
+                  </Col>
+                  <Col xs={8} md={6}>
+                    <div className="text-center">
+                      <div className="text-2xl mb-2">💻</div>
+                      <Text className="text-sm font-semibold">Online</Text>
+                    </div>
+                  </Col>
+                  <Col xs={8} md={6}>
+                    <div className="text-center">
+                      <div className="text-2xl mb-2">🛡️</div>
+                      <Text className="text-sm font-semibold">Bảo mật</Text>
+                    </div>
+                  </Col>
+                </Row>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </motion.section>
+
+      {/* Future Healthcare Vision Section - Advanced GridMotion */}
+      <motion.section 
+        className="py-32 relative overflow-hidden bg-gradient-to-br from-gray-900 via-blue-900 to-green-900"
+        initial={{ opacity: 0 }}
+        whileInView={{ opacity: 1 }}
+        viewport={{ once: true }}
+        transition={{ duration: 1.5 }}
+      >
+        {/* Stars Background Animation */}
+        <div className="absolute inset-0">
+          {Array.from({ length: 50 }).map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 bg-white rounded-full"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+              }}
+              animate={{
+                opacity: [0.3, 1, 0.3],
+                scale: [0.5, 1.2, 0.5],
+              }}
+              transition={{
+                duration: 2 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2,
+              }}
+            />
+          ))}
+        </div>
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ y: 50, opacity: 0 }}
+            whileInView={{ y: 0, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1 }}
+            className="text-center mb-20"
+          >
+            <Title level={2} className="text-4xl lg:text-5xl font-bold text-white mb-6">
+              Tương lai Y tế{' '}
+              <span className="bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">
+                Thông minh
+              </span>
+            </Title>
+            <Paragraph className="text-xl text-gray-300 max-w-3xl mx-auto">
+              Trải nghiệm cuộc cách mạng số trong lĩnh vực chăm sóc sức khỏe với công nghệ AI, IoT và Blockchain
+            </Paragraph>
+          </motion.div>
+
+          {/* Advanced GridMotion with Dark Theme */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            whileInView={{ scale: 1, opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 1.2, delay: 0.5 }}
+            className="relative"
+          >
+            <div className="bg-black/20 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/10">
+              <div className="p-8 text-center">
+                <motion.div
+                  animate={{ 
+                    backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] 
+                  }}
+                  transition={{ duration: 5, repeat: Infinity }}
+                  className="bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-300% text-transparent bg-clip-text font-bold text-2xl mb-4"
+                >
+                  ✨ Khám phá Thế giới Y tế 4.0 ✨
+                </motion.div>
+                <Paragraph className="text-gray-300 mb-8">
+                  Di chuyển chuột để cảm nhận sự kết nối giữa công nghệ và sức khỏe
+                </Paragraph>
+              </div>
+              
+              <div style={{ height: '500px' }} className="relative">
+                <GridMotion 
+                  height="500px" 
+                  gradientColor="rgba(59, 130, 246, 0.1)"
+                  items={[
+                    '🤖 AI Chẩn đoán',
+                    <div key="future-1" className="future-healthcare-item">
+                      <div className="future-icon">🧠</div>
+                      <span>Trí tuệ nhân tạo</span>
+                    </div>,
+                    'https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=2070&auto=format&fit=crop',
+                    '📱 IoT Devices',
+                    <div key="future-2" className="future-healthcare-item">
+                      <div className="future-icon">🔗</div>
+                      <span>Blockchain</span>
+                    </div>,
+                    '🏥 Smart Hospital',
+                    <div key="future-3" className="future-healthcare-item">
+                      <div className="future-icon">⚡</div>
+                      <span>Real-time</span>
+                    </div>,
+                    'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?q=80&w=2128&auto=format&fit=crop',
+                    '🔬 Nano Medicine',
+                    <div key="future-4" className="future-healthcare-item">
+                      <div className="future-icon">🌐</div>
+                      <span>Metaverse</span>
+                    </div>,
+                    '💊 Smart Pills',
+                    <div key="future-5" className="future-healthcare-item">
+                      <div className="future-icon">🛡️</div>
+                      <span>Cyber Security</span>
+                    </div>,
+                    'https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?q=80&w=2070&auto=format&fit=crop',
+                    '🧬 Gene Therapy',
+                    <div key="future-6" className="future-healthcare-item">
+                      <div className="future-icon">🚀</div>
+                      <span>Innovation</span>
+                    </div>,
+                    '👁️ AR Surgery',
+                    <div key="future-7" className="future-healthcare-item">
+                      <div className="future-icon">💎</div>
+                      <span>Premium Care</span>
+                    </div>,
+                    'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?q=80&w=2069&auto=format&fit=crop',
+                    '🌟 Future Health'
+                  ]}
+                />
+                
+                {/* Overlay glow effects */}
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute top-1/4 left-1/4 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl animate-pulse"></div>
+                  <div className="absolute bottom-1/4 right-1/4 w-40 h-40 bg-green-500/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+                  <div className="absolute top-1/2 left-1/2 w-24 h-24 bg-purple-500/20 rounded-full blur-2xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+                </div>
+              </div>
+              
+              <div className="p-8 bg-gradient-to-r from-blue-900/50 to-green-900/50">
+                <Row gutter={[32, 24]} justify="center">
+                  <Col xs={12} md={6}>
+                    <motion.div 
+                      className="text-center"
+                      whileHover={{ scale: 1.1 }}
+                      transition={{ type: "spring", stiffness: 300 }}
+                    >
+                      <div className="text-3xl mb-3">🤖</div>
+                      <Text className="text-white font-semibold">AI Powered</Text>
+                    </motion.div>
+                  </Col>
+                  <Col xs={12} md={6}>
+                    <motion.div 
+                      className="text-center"
+                      whileHover={{ scale: 1.1 }}
+                      transition={{ type: "spring", stiffness: 300 }}
+                    >
+                      <div className="text-3xl mb-3">🔗</div>
+                      <Text className="text-white font-semibold">Blockchain</Text>
+                    </motion.div>
+                  </Col>
+                  <Col xs={12} md={6}>
+                    <motion.div 
+                      className="text-center"
+                      whileHover={{ scale: 1.1 }}
+                      transition={{ type: "spring", stiffness: 300 }}
+                    >
+                      <div className="text-3xl mb-3">🌐</div>
+                      <Text className="text-white font-semibold">Metaverse</Text>
+                    </motion.div>
+                  </Col>
+                  <Col xs={12} md={6}>
+                    <motion.div 
+                      className="text-center"
+                      whileHover={{ scale: 1.1 }}
+                      transition={{ type: "spring", stiffness: 300 }}
+                    >
+                      <div className="text-3xl mb-3">🚀</div>
+                      <Text className="text-white font-semibold">Innovation</Text>
+                    </motion.div>
+                  </Col>
+                </Row>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </motion.section>
 
