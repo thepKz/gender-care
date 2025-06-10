@@ -18,7 +18,8 @@ import {
   Tooltip,
   Popconfirm,
   Radio,
-  Calendar
+  Calendar,
+  Checkbox
 } from 'antd';
 import { 
   CalendarOutlined, 
@@ -192,7 +193,8 @@ const AdminDoctorSchedulePage: React.FC = () => {
           month,
           year,
           timeSlots: selectedTimeSlots,
-          excludeWeekends: values.excludeWeekends !== false // default true
+          excludeWeekends: values.excludeWeekends !== false, // default true
+          overwrite: values.overwrite || false // default false
         };
 
         await doctorScheduleApi.createScheduleByMonth(createData);
@@ -626,6 +628,14 @@ const AdminDoctorSchedulePage: React.FC = () => {
                 </Col>
               </Row>
             </>
+          )}
+
+          {createMode === 'month' && (
+            <Form.Item name="overwrite" valuePropName="checked">
+              <Checkbox>
+                Ghi đè lịch đã tồn tại (nếu có)
+              </Checkbox>
+            </Form.Item>
           )}
 
           <Form.Item label="Khung giờ làm việc" name="timeSlots">

@@ -1,20 +1,20 @@
-import { Form, Input, message, Spin } from 'antd';
+import { Form, Input, message } from 'antd';
 import axios from 'axios';
 import {
     Activity,
-    Calendar,
     Heart,
-    Home,
     People
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appointmentApi } from '../../api/endpoints';
-import axiosInstance from '../../api/axiosConfig';
+import doctorApi from '../../api/endpoints/doctor';
+import servicesApi from '../../api/endpoints/services';
+import userProfileApiInstance from '../../api/endpoints/userProfileApi';
+
 import Image1 from '../../assets/images/image1.jpg';
 import Image2 from '../../assets/images/image2.jpg';
 import Image3 from '../../assets/images/image3.jpg';
-import Image4 from '../../assets/images/image4.jpg';
 import BookingLayout from '../../layouts/BookingLayout';
 
 const { TextArea } = Input;
@@ -68,8 +68,7 @@ interface UserProfile {
   id: string;
   fullName: string;
   phone: string;
-  email: string;
-  birthDate: string;
+  birthDate: string | Date;
   gender: string;
   relationship: string; // 'self' | 'family'
   isDefault: boolean;
@@ -128,171 +127,18 @@ const Booking: React.FC = () => {
   const [userProfiles, setUserProfiles] = useState<UserProfile[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
 
+  // State cho modal tạo profile mới
+  const [showCreateProfileModal, setShowCreateProfileModal] = useState(false);
+  const [createProfileForm] = Form.useForm();
+
   // Mock data với ID đúng định dạng MongoDB ObjectId
-  const mockServices: ServiceOption[] = [
-    {
-      id: '507f1f77bcf86cd799439011',
-      name: 'Tư vấn sức khỏe',
-      description: 'Tư vấn chuyên sâu với bác sĩ chuyên khoa về sức khỏe sinh sản và tình dục',
-      price: { online: 300000, clinic: 500000, home: 800000 },
-      duration: '45-60 phút',
-      icon: <People size={32} variant="Bold" />,
-      image: Image1,
-      gradient: 'from-blue-500 via-purple-500 to-pink-500',
-      category: 'consultation'
-    },
-    {
-      id: '507f1f77bcf86cd799439012',
-      name: 'Xét nghiệm STI/STD',
-      description: 'Gói xét nghiệm toàn diện các bệnh lây truyền qua đường tình dục',
-      price: { online: 0, clinic: 1200000, home: 1500000 },
-      duration: '30-45 phút',
-      icon: <Activity size={32} variant="Bold" />,
-      image: Image2,
-      gradient: 'from-green-500 via-teal-500 to-blue-500',
-      category: 'test',
-      packages: [
-        {
-          id: '507f1f77bcf86cd799439021',
-          name: 'Gói Cơ bản',
-          description: 'Xét nghiệm các STI phổ biến nhất',
-          price: { online: 0, clinic: 800000, home: 1000000 },
-          tests: ['HIV', 'Giang mai', 'Lậu', 'Chlamydia'],
-          duration: '30 phút',
-          gradient: 'from-blue-500 to-blue-600'
-        },
-        {
-          id: '507f1f77bcf86cd799439022',
-          name: 'Gói Tiêu chuẩn',
-          description: 'Xét nghiệm toàn diện các STI thường gặp',
-          price: { online: 0, clinic: 1200000, home: 1500000 },
-          tests: ['HIV', 'Giang mai', 'Lậu', 'Chlamydia', 'Herpes', 'HPV'],
-          duration: '45 phút',
-          isPopular: true,
-          gradient: 'from-green-500 to-green-600'
-        },
-        {
-          id: '507f1f77bcf86cd799439023',
-          name: 'Gói Cao cấp',
-          description: 'Xét nghiệm đầy đủ tất cả các STI và tư vấn chuyên sâu',
-          price: { online: 0, clinic: 1800000, home: 2200000 },
-          tests: ['HIV', 'Giang mai', 'Lậu', 'Chlamydia', 'Herpes', 'HPV', 'Hepatitis B', 'Hepatitis C', 'Trichomonas'],
-          duration: '60 phút',
-          gradient: 'from-purple-500 to-purple-600'
-        }
-      ]
-    },
-    {
-      id: 'health-checkup',
-      name: 'Khám sức khỏe tổng quát',
-      description: 'Khám sức khỏe định kỳ và tư vấn chăm sóc sức khỏe toàn diện',
-      price: { online: 0, clinic: 800000, home: 1200000 },
-      duration: '60-90 phút',
-      icon: <Heart size={32} variant="Bold" />,
-      image: Image3,
-      gradient: 'from-pink-500 via-rose-500 to-red-500',
-      category: 'test'
-    },
-    {
-      id: 'home-sampling',
-      name: 'Lấy mẫu tại nhà',
-      description: 'Dịch vụ lấy mẫu xét nghiệm tại nhà với đội ngũ y tế chuyên nghiệp',
-      price: { online: 0, clinic: 0, home: 800000 },
-      duration: '30-45 phút',
-      icon: <Home size={32} variant="Bold" />,
-      image: Image4,
-      gradient: 'from-emerald-500 via-green-500 to-teal-500',
-      category: 'test'
-    },
-    {
-      id: 'cycle-tracking',
-      name: 'Theo dõi chu kỳ kinh nguyệt',
-      description: 'Tư vấn và hướng dẫn theo dõi chu kỳ kinh nguyệt hiệu quả',
-      price: { online: 200000, clinic: 400000, home: 600000 },
-      duration: '30-45 phút',
-      icon: <Calendar size={32} variant="Bold" />,
-      image: Image1,
-      gradient: 'from-purple-500 via-pink-500 to-red-500',
-      category: 'consultation'
-    }
-  ];
+  // Mock data đã được loại bỏ - chỉ sử dụng API thật
 
-  const mockDoctors: Doctor[] = [
-    {
-      id: '507f1f77bcf86cd799439031',
-      name: 'BS. Nguyễn Thị Hương',
-      specialization: 'Sản phụ khoa',
-      experience: 8,
-      rating: 4.9,
-      reviewCount: 156,
-      avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-      workload: 12,
-      isAvailable: true,
-      bio: 'Chuyên gia về sức khỏe sinh sản phụ nữ với hơn 8 năm kinh nghiệm'
-    },
-    {
-      id: 'dr2',
-      name: 'BS. Trần Văn Minh',
-      specialization: 'Nam khoa',
-      experience: 10,
-      rating: 4.8,
-      reviewCount: 203,
-      avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150',
-      workload: 8,
-      isAvailable: true,
-      bio: 'Bác sĩ nam khoa giàu kinh nghiệm, chuyên điều trị các vấn đề sức khỏe nam giới'
-    },
-    {
-      id: 'dr3',
-      name: 'BS. Lê Thị Mai',
-      specialization: 'Tâm lý học',
-      experience: 6,
-      rating: 4.7,
-      reviewCount: 89,
-      avatar: 'https://images.unsplash.com/photo-1594824388853-d0c2b7b5e6b7?w=150',
-      workload: 15,
-      isAvailable: true,
-      bio: 'Chuyên gia tâm lý tình dục và tư vấn các vấn đề tâm lý liên quan đến giới tính'
-    }
-  ];
+  // Mock doctors đã được loại bỏ - chỉ sử dụng API thật
 
-  const mockUserProfiles: UserProfile[] = [
-    {
-      id: '507f1f77bcf86cd799439051',
-      fullName: 'Nguyễn Văn A',
-      phone: '0123456789',
-      email: 'nguyenvana@email.com',
-      birthDate: '1990-01-01',
-      gender: 'male',
-      relationship: 'self',
-      isDefault: true
-    },
-    {
-      id: '507f1f77bcf86cd799439052',
-      fullName: 'Nguyễn Thị B',
-      phone: '0987654321',
-      email: 'nguyenthib@email.com',
-      birthDate: '1992-05-15',
-      gender: 'female',
-      relationship: 'family',
-      isDefault: false
-    }
-  ];
+  // Mock user profiles đã được loại bỏ - chỉ sử dụng API thật
 
-  const mockTimeSlots: TimeSlot[] = [
-    { id: '507f1f77bcf86cd799439061', time: '08:00', isAvailable: true },
-    { id: '507f1f77bcf86cd799439062', time: '08:30', isAvailable: true },
-    { id: '507f1f77bcf86cd799439063', time: '09:00', isAvailable: false },
-    { id: '507f1f77bcf86cd799439064', time: '09:30', isAvailable: true },
-    { id: '507f1f77bcf86cd799439065', time: '10:00', isAvailable: true },
-    { id: '507f1f77bcf86cd799439066', time: '10:30', isAvailable: false },
-    { id: '507f1f77bcf86cd799439067', time: '11:00', isAvailable: true },
-    { id: '507f1f77bcf86cd799439068', time: '14:00', isAvailable: true },
-    { id: '507f1f77bcf86cd799439069', time: '14:30', isAvailable: true },
-    { id: '507f1f77bcf86cd79943906a', time: '15:00', isAvailable: true },
-    { id: '507f1f77bcf86cd79943906b', time: '15:30', isAvailable: false },
-    { id: '507f1f77bcf86cd79943906c', time: '16:00', isAvailable: true }
-  ];
+  // Mock time slots đã được loại bỏ - chỉ sử dụng API thật
 
   const steps = [
     { title: 'Chọn dịch vụ', description: 'Lựa chọn dịch vụ phù hợp' },
@@ -357,7 +203,9 @@ const Booking: React.FC = () => {
 
   const handleProfileSelect = (profileId: string) => {
     if (profileId === 'new') {
-      setSelectedProfile('new');
+      // Mở modal tạo profile mới
+      setShowCreateProfileModal(true);
+      createProfileForm.resetFields();
     } else {
       setSelectedProfile(profileId);
       const profile = userProfiles.find(p => p.id === profileId);
@@ -365,7 +213,6 @@ const Booking: React.FC = () => {
         form.setFieldsValue({
           fullName: profile.fullName,
           phone: profile.phone,
-          email: profile.email,
           birthDate: profile.birthDate,
           gender: profile.gender
         });
@@ -378,32 +225,52 @@ const Booking: React.FC = () => {
   const fetchServices = async () => {
     setLoadingServices(true);
     try {
-      // Trong môi trường thực tế, gọi API
-      // const response = await axiosInstance.get('/services');
-      // if (response.data.success) {
-      //   const mappedServices = response.data.data.map(service => ({
-      //     id: service._id,
-      //     name: service.serviceName,
-      //     description: service.description,
-      //     price: {
-      //       online: service.availableAt.includes('Online') ? service.price : 0,
-      //       clinic: service.availableAt.includes('Center') ? service.price : 0,
-      //       home: service.availableAt.includes('Athome') ? service.price * 1.5 : 0,
-      //     },
-      //     duration: '45-60 phút',
-      //     icon: getIconForServiceType(service.serviceType),
-      //     image: getImageForServiceType(service.serviceType),
-      //     gradient: getGradientForServiceType(service.serviceType),
-      //     category: service.serviceType,
-      //   }));
-      //   setServices(mappedServices);
-      // }
+      console.log('🔍 [Debug] Fetching services from API...');
       
-      // Sử dụng mock data cho development
-      setServices(mockServices);
+      // Gọi API lấy danh sách dịch vụ thật
+      const response = await servicesApi.getServices();
+      console.log('✅ [Debug] Full API response:', response);
+      console.log('✅ [Debug] Response data:', response.data);
+      console.log('✅ [Debug] Response status:', response.status);
+      
+      // Backend trả về: { success: true, data: { services: [...], pagination: {...} } }
+      const servicesData = response.data?.data?.services || response.data?.services || response.data;
+      console.log('✅ [Debug] Extracted services data:', servicesData);
+      console.log('✅ [Debug] Services data type:', typeof servicesData);
+      console.log('✅ [Debug] Is array?', Array.isArray(servicesData));
+      
+      if (servicesData && Array.isArray(servicesData)) {
+        const mappedServices: ServiceOption[] = servicesData.map(service => ({
+          id: service._id,
+          name: service.serviceName,
+          description: service.description,
+          price: {
+            online: service.availableAt.includes('Online') ? service.price : 0,
+            clinic: service.availableAt.includes('Center') ? service.price : 0,
+            home: service.availableAt.includes('Athome') ? service.price * 1.5 : 0,
+          },
+          duration: '45-60 phút',
+          icon: getIconForServiceType(service.serviceType),
+          image: getImageForServiceType(service.serviceType),
+          gradient: getGradientForServiceType(service.serviceType),
+          category: service.serviceType,
+        }));
+        
+        console.log('✅ [Debug] Mapped services:', mappedServices);
+        setServices(mappedServices);
+        
+        // Kiểm tra xem có dịch vụ nào không
+        if (mappedServices.length === 0) {
+          console.log('⚠️ [Debug] No services from API');
+          message.warning('Không có dịch vụ nào khả dụng');
+        }
+      } else {
+        console.log('⚠️ [Debug] Invalid API response format');
+        message.error('Dữ liệu dịch vụ không hợp lệ');
+      }
     } catch (error) {
-      console.error('Error fetching services:', error);
-      message.error('Không thể tải danh sách dịch vụ');
+      console.error('❌ [Debug] Error fetching services:', error);
+      message.error('Không thể tải danh sách dịch vụ từ server');
     } finally {
       setLoadingServices(false);
     }
@@ -412,17 +279,37 @@ const Booking: React.FC = () => {
   const fetchDoctors = async () => {
     setLoadingDoctors(true);
     try {
-      // Trong môi trường thực tế, gọi API
-      // const response = await axiosInstance.get('/doctors');
-      // if (response.data.success) {
-      //   setDoctors(response.data.data);
-      // }
+      console.log('🔍 [Debug] Fetching doctors from API...');
       
-      // Sử dụng mock data cho development
-      setDoctors(mockDoctors);
+      // Gọi API lấy danh sách bác sĩ cơ bản (endpoint có sẵn)
+      const apiDoctors = await doctorApi.getAll();
+      console.log('✅ [Debug] API doctors response:', apiDoctors);
+      
+      // Map dữ liệu từ API sang interface Doctor của booking
+      const mappedDoctors: Doctor[] = apiDoctors.map(doctor => ({
+        id: doctor._id,
+        name: doctor.userId.fullName,
+        specialization: doctor.specialization || 'Chưa xác định',
+        experience: doctor.experience || 0,
+        rating: doctor.rating || 4.5, // Sử dụng rating từ doctor object
+        reviewCount: 0, // Tạm thời set 0, có thể fetch riêng sau
+        avatar: doctor.userId.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+        workload: Math.floor(Math.random() * 20) + 5, // Random workload for now
+        isAvailable: doctor.userId.isActive, // Chỉ check user active status
+        bio: doctor.bio || 'Bác sĩ chuyên nghiệp với nhiều năm kinh nghiệm'
+      }));
+      
+      console.log('✅ [Debug] Mapped doctors:', mappedDoctors);
+      setDoctors(mappedDoctors);
+      
+      // Kiểm tra xem có bác sĩ nào không
+      if (mappedDoctors.length === 0) {
+        console.log('⚠️ [Debug] No doctors from API');
+        message.warning('Không có bác sĩ nào khả dụng');
+      }
     } catch (error) {
-      console.error('Error fetching doctors:', error);
-      message.error('Không thể tải danh sách bác sĩ');
+      console.error('❌ [Debug] Error fetching doctors:', error);
+      message.error('Không thể tải danh sách bác sĩ từ server');
     } finally {
       setLoadingDoctors(false);
     }
@@ -431,17 +318,40 @@ const Booking: React.FC = () => {
   const fetchProfiles = async () => {
     setLoadingProfiles(true);
     try {
-      // Trong môi trường thực tế, gọi API
-      // const response = await axiosInstance.get('/users/profiles');
-      // if (response.data.success) {
-      //   setUserProfiles(response.data.data);
-      // }
+      console.log('🔍 [Debug] Fetching user profiles...');
       
-      // Sử dụng mock data cho development
-      setUserProfiles(mockUserProfiles);
+      // Gọi API lấy profiles của user đăng nhập
+      const response = await userProfileApiInstance.getMyProfiles();
+      console.log('✅ [Debug] User profiles response:', response);
+      
+      if (response && Array.isArray(response)) {
+        // Map từ backend structure sang frontend interface
+        const mappedProfiles: UserProfile[] = response.map((profile: any) => ({
+          id: profile._id,
+          fullName: profile.fullName,
+          phone: profile.phone || '',
+          email: profile.email || '',
+          birthDate: typeof profile.year === 'string' ? profile.year : (profile.year ? String(profile.year) : ''),
+          gender: profile.gender,
+          relationship: 'self', // Default relationship
+          isDefault: false // Có thể thêm logic để determine default profile
+        }));
+        
+        console.log('✅ [Debug] Mapped profiles:', mappedProfiles);
+        setUserProfiles(mappedProfiles);
+        
+        if (mappedProfiles.length === 0) {
+          console.log('ℹ️ [Debug] No existing profiles found - user will need to create new profile');
+        }
+      } else {
+        console.log('⚠️ [Debug] Invalid profiles response structure');
+        setUserProfiles([]);
+      }
     } catch (error) {
-      console.error('Error fetching profiles:', error);
-      message.error('Không thể tải danh sách hồ sơ');
+      console.error('❌ [Debug] Error fetching profiles:', error);
+      console.log('ℹ️ [Debug] User may not be authenticated or no profiles exist - allowing manual profile creation');
+      // Không show error message vì user có thể chưa đăng nhập hoặc chưa có profile
+      setUserProfiles([]);
     } finally {
       setLoadingProfiles(false);
     }
@@ -452,26 +362,63 @@ const Booking: React.FC = () => {
     
     setLoadingTimeSlots(true);
     try {
-      // Trong môi trường thực tế, gọi API
-      // const response = await axiosInstance.get('/doctor-schedules/available-slots', {
-      //   params: {
-      //     date: selectedDate,
-      //     doctorId: selectedDoctor || undefined
-      //   }
-      // });
-      // if (response.data.success) {
-      //   setTimeSlots(response.data.data.map(slot => ({
-      //     id: slot._id,
-      //     time: slot.slotTime,
-      //     isAvailable: !slot.isBooked
-      //   })));
-      // }
+      console.log('🔍 [Debug] Fetching time slots for date:', selectedDate, 'doctor:', selectedDoctor);
       
-      // Sử dụng mock data cho development
-      setTimeSlots(mockTimeSlots);
+      if (selectedDoctor) {
+        // Lấy available slots cho doctor cụ thể
+        const response = await doctorApi.getAvailable(selectedDate);
+        console.log('🔍 [Debug] Raw response structure:', response);
+        
+        // Backend trả về: {message, data: [...], searchCriteria}
+        const availableDoctorsData = (response as any).data || response;
+        console.log('🔍 [Debug] Extracted data:', availableDoctorsData);
+        
+        const doctorSlots = availableDoctorsData.find((doc: any) => doc.doctorId === selectedDoctor || doc._id === selectedDoctor);
+        
+        if (doctorSlots && doctorSlots.availableSlots) {
+          const mappedTimeSlots: TimeSlot[] = doctorSlots.availableSlots.map((slot: any) => ({
+            id: slot.slotId,
+            time: slot.slotTime,
+            isAvailable: slot.status === 'Free'
+          }));
+          
+          console.log('✅ [Debug] Mapped time slots for doctor:', mappedTimeSlots);
+          setTimeSlots(mappedTimeSlots);
+        } else {
+          console.log('⚠️ [Debug] No slots found for selected doctor');
+          setTimeSlots([]);
+        }
+      } else {
+        // Lấy tất cả available slots trong ngày (tổng hợp từ tất cả doctors)
+        const response = await doctorApi.getAvailable(selectedDate);
+        console.log('🔍 [Debug] Raw response for all slots:', response);
+        
+        // Backend trả về: {message, data: [...], searchCriteria}
+        const availableDoctorsData = (response as any).data || response;
+        const allSlots: TimeSlot[] = [];
+        
+        availableDoctorsData.forEach((doctor: any) => {
+          if (doctor.availableSlots) {
+            doctor.availableSlots.forEach((slot: any) => {
+              // Tránh duplicate slots
+              if (!allSlots.find(s => s.time === slot.slotTime)) {
+                allSlots.push({
+                  id: slot.slotId,
+                  time: slot.slotTime,
+                  isAvailable: slot.status === 'Free'
+                });
+              }
+            });
+          }
+        });
+        
+        console.log('✅ [Debug] All available time slots:', allSlots);
+        setTimeSlots(allSlots);
+      }
     } catch (error) {
-      console.error('Error fetching time slots:', error);
+      console.error('❌ [Debug] Error fetching time slots:', error);
       message.error('Không thể tải danh sách slot thời gian');
+      setTimeSlots([]);
     } finally {
       setLoadingTimeSlots(false);
     }
@@ -551,6 +498,7 @@ const Booking: React.FC = () => {
         profileId: selectedProfile,
         packageId: selectedPackage || undefined,
         serviceId: selectedService || undefined,
+        doctorId: selectedDoctor || undefined, // Thêm doctorId vào request
         slotId: selectedTimeSlot,
         appointmentDate: selectedDate,
         appointmentTime: timeSlots.find(slot => slot.id === selectedTimeSlot)?.time || '',
@@ -561,7 +509,12 @@ const Booking: React.FC = () => {
         notes: values.notes
       };
       
-      console.log('Dữ liệu gửi đi:', JSON.stringify(appointmentData, null, 2));
+      console.log('🔍 [Debug] Appointment data being sent:', JSON.stringify(appointmentData, null, 2));
+      console.log('🔍 [Debug] Selected time slot details:', {
+        selectedTimeSlot,
+        slotFromArray: timeSlots.find(slot => slot.id === selectedTimeSlot),
+        allTimeSlots: timeSlots
+      });
       
       const response = await appointmentApi.createAppointment(appointmentData);
       
@@ -595,8 +548,132 @@ const Booking: React.FC = () => {
   useEffect(() => {
     if (selectedDate) {
       fetchTimeSlots();
+      // Cập nhật danh sách bác sĩ có sẵn lịch theo ngày được chọn
+      fetchAvailableDoctors();
     }
   }, [selectedDate, selectedDoctor]);
+  
+  // Fetch doctors available for selected date
+  const fetchAvailableDoctors = async () => {
+    if (!selectedDate) return;
+    
+    try {
+      console.log('🔍 [Debug] Fetching available doctors for date:', selectedDate);
+      const response = await doctorApi.getAvailable(selectedDate);
+      console.log('✅ [Debug] Available doctors response:', response);
+      
+      // Backend trả về: {message, data: [...], searchCriteria}
+      const availableDoctors = (response as any).data || response;
+      console.log('✅ [Debug] Available doctors count:', availableDoctors.length);
+      
+      // Debug: Log structure của available doctors
+      if (availableDoctors.length > 0) {
+        console.log('✅ [Debug] First available doctor structure:', availableDoctors[0]);
+      }
+      
+      // Debug: Log current doctors list
+      console.log('🔍 [Debug] Current doctors list:', doctors.length);
+      
+      // Update doctor availability based on API response
+      setDoctors(prevDoctors => {
+        const updatedDoctors = prevDoctors.map(doctor => {
+          // Check if this doctor is in available list
+                     const isInAvailableList = availableDoctors.some((available: any) => {
+             // Try different possible ID fields from API response
+             const availableId = available._id || available.doctorId || available.id;
+             const match = availableId === doctor.id;
+            
+            if (match) {
+              console.log('✅ [Debug] Found match for doctor:', doctor.name, 'ID:', doctor.id);
+            }
+            
+            return match;
+          });
+          
+          console.log(`🔍 [Debug] Doctor ${doctor.name} (${doctor.id}): isInAvailableList=${isInAvailableList}, originalAvailable=${doctor.isAvailable}`);
+          
+          return {
+            ...doctor,
+            isAvailable: isInAvailableList && doctor.isAvailable
+          };
+        });
+        
+        console.log('✅ [Debug] Updated doctors availability:', updatedDoctors.map(d => ({name: d.name, isAvailable: d.isAvailable})));
+        return updatedDoctors;
+      });
+    } catch (error) {
+      console.error('❌ [Debug] Error fetching available doctors:', error);
+      console.log('⚠️ [Debug] Keeping original availability state');
+      // Don't show error message as this is optional enhancement
+    }
+  };
+
+  // Hàm validate và chuyển từ step 6 sang step 7
+  const handleStep6Continue = async () => {
+    try {
+      // Validate form trước khi chuyển step
+      await form.validateFields(['description', 'agreement']);
+      
+      // Nếu là dịch vụ tại nhà, validate địa chỉ
+      if (typeLocation === 'home') {
+        await form.validateFields(['address']);
+      }
+      
+      // Validation thành công, chuyển sang step tiếp theo
+      handleNext();
+    } catch (error) {
+      console.log('❌ [Debug] Validation failed:', error);
+      // Form sẽ tự động hiển thị lỗi validation
+    }
+  };
+
+  // Hàm tạo profile mới
+  const handleCreateProfile = async (values: any) => {
+    try {
+      console.log('🔍 [Debug] Creating new profile:', values);
+      
+      // Gọi API tạo profile mới
+      const newProfile = await userProfileApiInstance.createProfile({
+        fullName: values.fullName,
+        phone: values.phone,
+        year: values.birthDate,
+        gender: values.gender
+      });
+      
+      console.log('✅ [Debug] Created profile:', newProfile);
+      
+      // Thêm profile mới vào danh sách
+      const mappedNewProfile: UserProfile = {
+        id: newProfile._id,
+        fullName: newProfile.fullName,
+        phone: newProfile.phone || '',
+        birthDate: typeof newProfile.year === 'string' ? newProfile.year : String(newProfile.year || ''),
+        gender: newProfile.gender,
+        relationship: 'self',
+        isDefault: false
+      };
+      
+      setUserProfiles(prev => [...prev, mappedNewProfile]);
+      setSelectedProfile(mappedNewProfile.id);
+      
+      // Set form values với profile mới
+      form.setFieldsValue({
+        fullName: mappedNewProfile.fullName,
+        phone: mappedNewProfile.phone,
+        birthDate: mappedNewProfile.birthDate,
+        gender: mappedNewProfile.gender
+      });
+      
+      // Đóng modal và chuyển step
+      setShowCreateProfileModal(false);
+      handleNext();
+      
+      message.success('Tạo hồ sơ thành công!');
+    } catch (error) {
+      console.error('❌ [Debug] Error creating profile:', error);
+      message.error('Không thể tạo hồ sơ. Vui lòng thử lại!');
+    }
+  };
 
   // Auto-select service from URL params
   useEffect(() => {
@@ -648,27 +725,65 @@ const Booking: React.FC = () => {
             {currentStep === 0 && (
               <div>
                 <h2 className="text-2xl font-bold mb-6">Chọn dịch vụ</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {services.map(service => (
-                    <div 
-                      key={service.id}
-                      onClick={() => handleServiceSelect(service.id)}
-                      className="bg-gradient-to-br border border-gray-100 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md"
-                    >
-                      <div className="flex items-center mb-4">
-                        <div className={`p-3 rounded-full bg-gradient-to-r ${service.gradient} text-white mr-4`}>
-                          {service.icon}
-                        </div>
-                        <h3 className="text-xl font-semibold">{service.name}</h3>
-                      </div>
-                      <p className="text-gray-600 mb-4">{service.description}</p>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500">{service.duration}</span>
-                        <span className="font-bold text-blue-600">{formatPrice(service.price.clinic)}</span>
-                      </div>
-                    </div>
-                  ))}
+                
+                {/* Debug info cho services */}
+                <div className="mb-4 p-3 bg-gray-100 rounded-lg text-sm">
+                  <p><strong>Debug Services:</strong></p>
+                  <p><strong>Tổng số dịch vụ:</strong> {services.length}</p>
+                  <p><strong>Trạng thái loading:</strong> {loadingServices ? 'Đang tải...' : 'Đã tải xong'}</p>
+                  <p><strong>Nguồn dữ liệu:</strong> API từ Backend</p>
+                  {services.length > 0 && (
+                    <p><strong>Dịch vụ đầu tiên:</strong> {services[0].name} - {services[0].category}</p>
+                  )}
                 </div>
+                
+                {/* Loading state */}
+                {loadingServices && (
+                  <div className="flex justify-center items-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <span className="ml-3 text-gray-600">Đang tải danh sách dịch vụ...</span>
+                  </div>
+                )}
+                
+                {/* Empty state */}
+                {!loadingServices && services.length === 0 && (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 text-6xl mb-4">🏥</div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Không có dịch vụ nào</h3>
+                    <p className="text-gray-500">Hiện tại không có dịch vụ nào khả dụng. Vui lòng thử lại sau.</p>
+                    <button 
+                      onClick={fetchServices}
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                      Tải lại
+                    </button>
+                  </div>
+                )}
+                
+                {/* Services grid */}
+                {!loadingServices && services.length > 0 && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {services.map(service => (
+                      <div 
+                        key={service.id}
+                        onClick={() => handleServiceSelect(service.id)}
+                        className="bg-gradient-to-br border border-gray-100 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md"
+                      >
+                        <div className="flex items-center mb-4">
+                          <div className={`p-3 rounded-full bg-gradient-to-r ${service.gradient} text-white mr-4`}>
+                            {service.icon}
+                          </div>
+                          <h3 className="text-xl font-semibold">{service.name}</h3>
+                        </div>
+                        <p className="text-gray-600 mb-4">{service.description}</p>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-500">{service.duration}</span>
+                          <span className="font-bold text-blue-600">{formatPrice(service.price.clinic)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             
@@ -676,15 +791,41 @@ const Booking: React.FC = () => {
             {currentStep === 1 && (
               <div>
                 <h2 className="text-2xl font-bold mb-6">Chọn bác sĩ</h2>
+                
+                {/* Debug info */}
+                <div className="mb-4 p-3 bg-gray-100 rounded-lg text-sm">
+                  <p><strong>Debug:</strong> Ngày đã chọn: {selectedDate || 'Chưa chọn'}</p>
+                  <p><strong>Tổng số bác sĩ:</strong> {doctors.length}</p>
+                  <p><strong>Bác sĩ có sẵn:</strong> {doctors.filter(d => d.isAvailable).length}</p>
+                  <p><strong>Bác sĩ không có sẵn:</strong> {doctors.filter(d => !d.isAvailable).length}</p>
+                  {!selectedDate && (
+                    <p className="text-orange-600 mt-2">
+                      <strong>Lưu ý:</strong> Chưa chọn ngày nên hiển thị tất cả bác sĩ. Chọn ngày ở bước tiếp theo để lọc bác sĩ có lịch trống.
+                    </p>
+                  )}
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {doctors.map(doctor => (
                     <div 
                       key={doctor.id}
                       onClick={() => {
+                        // Nếu chưa chọn ngày thì cho phép chọn bất kỳ bác sĩ nào
+                        if (selectedDate && !doctor.isAvailable) {
+                          message.warning('Bác sĩ này hiện không có sẵn cho ngày đã chọn');
+                          return;
+                        }
+                        console.log('🔍 [Debug] Selected doctor:', doctor);
                         setSelectedDoctor(doctor.id);
                         handleNext();
                       }}
-                      className="border border-gray-200 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md"
+                      className={`border rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md ${
+                        selectedDoctor === doctor.id 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : (selectedDate && !doctor.isAvailable)
+                            ? 'border-gray-200 opacity-50 cursor-not-allowed'
+                            : 'border-gray-200 hover:border-blue-300'
+                      }`}
                     >
                       <div className="flex items-center mb-4">
                         <img 
@@ -707,8 +848,19 @@ const Booking: React.FC = () => {
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-500">{doctor.experience} năm kinh nghiệm</span>
-                        <span className={`px-3 py-1 rounded-full text-xs ${doctor.isAvailable ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {doctor.isAvailable ? 'Có sẵn' : 'Không có sẵn'}
+                        <span className={`px-3 py-1 rounded-full text-xs ${
+                          !selectedDate 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : doctor.isAvailable 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                        }`}>
+                          {!selectedDate 
+                            ? 'Sẵn sàng' 
+                            : doctor.isAvailable 
+                              ? 'Có lịch trống' 
+                              : 'Không có lịch'
+                          }
                         </span>
                       </div>
                     </div>
@@ -892,10 +1044,9 @@ const Booking: React.FC = () => {
                         )}
                       </div>
                       <div className="space-y-2 text-sm text-gray-600">
-                        <p>SĐT: {profile.phone}</p>
-                        <p>Email: {profile.email}</p>
-                        <p>Ngày sinh: {new Date(profile.birthDate).toLocaleDateString('vi-VN')}</p>
-                        <p>Giới tính: {profile.gender === 'male' ? 'Nam' : 'Nữ'}</p>
+                        <p>SĐT: {profile.phone || 'Chưa có'}</p>
+                        <p>Năm sinh: {typeof profile.birthDate === 'string' ? profile.birthDate : (profile.birthDate instanceof Date ? profile.birthDate.getFullYear().toString() : 'Chưa có')}</p>
+                        <p>Giới tính: {profile.gender === 'male' ? 'Nam' : profile.gender === 'female' ? 'Nữ' : 'Khác'}</p>
                       </div>
                     </div>
                   ))}
@@ -943,10 +1094,17 @@ const Booking: React.FC = () => {
                   <Form.Item
                     name="description"
                     label="Mô tả triệu chứng/vấn đề"
+                    rules={[
+                      { required: true, message: 'Vui lòng mô tả triệu chứng hoặc vấn đề bạn đang gặp phải' },
+                      { min: 10, message: 'Mô tả phải có ít nhất 10 ký tự' },
+                      { max: 500, message: 'Mô tả không được vượt quá 500 ký tự' }
+                    ]}
                   >
                     <TextArea 
-                      placeholder="Mô tả ngắn gọn về triệu chứng hoặc vấn đề bạn đang gặp phải" 
+                      placeholder="Mô tả chi tiết về triệu chứng, vấn đề sức khỏe hoặc lý do cần tư vấn (tối thiểu 10 ký tự)" 
                       rows={4}
+                      showCount
+                      maxLength={500}
                     />
                   </Form.Item>
                   
@@ -982,7 +1140,7 @@ const Booking: React.FC = () => {
                   
                   <div className="mt-8 flex justify-end">
                     <button
-                      onClick={handleNext}
+                      onClick={handleStep6Continue}
                       className="px-6 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700"
                     >
                       Tiếp tục
@@ -1078,6 +1236,79 @@ const Booking: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal tạo profile mới */}
+      {showCreateProfileModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-xl font-bold mb-6">Tạo hồ sơ mới</h3>
+            
+            <Form
+              form={createProfileForm}
+              layout="vertical"
+              onFinish={handleCreateProfile}
+            >
+              <Form.Item
+                name="fullName"
+                label="Họ và tên"
+                rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
+              >
+                <Input placeholder="Nhập họ và tên đầy đủ" />
+              </Form.Item>
+
+              <Form.Item
+                name="phone"
+                label="Số điện thoại"
+                rules={[
+                  { required: true, message: 'Vui lòng nhập số điện thoại' },
+                  { pattern: /^[0-9]{10,11}$/, message: 'Số điện thoại không hợp lệ' }
+                ]}
+              >
+                <Input placeholder="Nhập số điện thoại" />
+              </Form.Item>
+
+
+
+              <Form.Item
+                name="birthDate"
+                label="Năm sinh"
+                rules={[{ required: true, message: 'Vui lòng nhập năm sinh' }]}
+              >
+                <Input placeholder="Ví dụ: 1990" />
+              </Form.Item>
+
+              <Form.Item
+                name="gender"
+                label="Giới tính"
+                rules={[{ required: true, message: 'Vui lòng chọn giới tính' }]}
+              >
+                <select className="w-full p-2 border border-gray-300 rounded-md">
+                  <option value="">Chọn giới tính</option>
+                  <option value="male">Nam</option>
+                  <option value="female">Nữ</option>
+                  <option value="other">Khác</option>
+                </select>
+              </Form.Item>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateProfileModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Tạo hồ sơ
+                </button>
+              </div>
+            </Form>
+          </div>
+        </div>
+      )}
     </BookingLayout>
   );
 };

@@ -20,7 +20,8 @@ import ManagerDoctorProfilesPage from '../../pages/dashboard/manager/DoctorProfi
 import ManagerDoctorSchedulePage from '../../pages/dashboard/manager/DoctorSchedulePage';
 import ManagerDoctorPerformancePage from '../../pages/dashboard/manager/DoctorPerformancePage';
 import ManagerDoctorSpecialtiesPage from '../../pages/dashboard/manager/DoctorSpecialtiesPage';
-import UserManagementPage from '../../pages/dashboard/manager/UserManagementPage';
+import ServicesPage from '../../pages/dashboard/manager/ServicesPage';
+import ServicePackagesPage from '../../pages/dashboard/manager/ServicePackagesPage';
 
 // Staff Pages
 import StaffDoctorSchedulePage from '../../pages/dashboard/staff/DoctorSchedulePage';
@@ -67,6 +68,8 @@ const DashboardWrapper: React.FC = () => {
             <Route path="/manager/doctors/schedule" element={<ManagerDoctorSchedulePage />} />
             <Route path="/manager/doctors/performance" element={<ManagerDoctorPerformancePage />} />
             <Route path="/manager/doctors/specialties" element={<ManagerDoctorSpecialtiesPage />} />
+            <Route path="/manager/services" element={<ServicesPage />} />
+            <Route path="/manager/service-packages" element={<ServicePackagesPage />} />
             <Route path="/" element={<Navigate to="/dashboard/manager" replace />} />
           </>
         )}

@@ -1,14 +1,10 @@
-import React, { useState } from 'react';
-import { Row, Col, Input, Select, Button, Empty, Spin, Card, Space, Statistic } from 'antd';
-import { SearchOutlined, FilterOutlined, SortAscendingOutlined, SortDescendingOutlined, ClearOutlined, PlusOutlined } from '@ant-design/icons';
+import React from 'react';
+import { Row, Col, Button, Empty, Spin, Card } from 'antd';
+import { ClearOutlined, PlusOutlined } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Profile2User, Man, Woman, Profile } from 'iconsax-react';
 import { UserProfile } from '../../types';
 import UserProfileCard from './UserProfileCard';
 import './UserProfile.css';
-
-const { Search } = Input;
-const { Option } = Select;
 
 interface UserProfileListProps {
   profiles: UserProfile[];
@@ -17,12 +13,7 @@ interface UserProfileListProps {
   onDelete: (id: string) => void;
   onAdd: () => void;
   searchQuery: string;
-  onSearch: (query: string) => void;
-  sortBy: 'name' | 'date' | 'gender';
-  sortOrder: 'asc' | 'desc';
-  onSort: (sortBy: 'name' | 'date' | 'gender', sortOrder: 'asc' | 'desc') => void;
   filterGender: 'all' | 'male' | 'female' | 'other';
-  onFilter: (gender: 'all' | 'male' | 'female' | 'other') => void;
   onResetFilters: () => void;
   onView: (id: string) => void;
 }
@@ -34,17 +25,10 @@ const UserProfileList: React.FC<UserProfileListProps> = ({
   onDelete,
   onAdd,
   searchQuery,
-  onSearch,
-  sortBy,
-  sortOrder,
-  onSort,
   filterGender,
-  onFilter,
   onResetFilters,
   onView
 }) => {
-  const [showFilters, setShowFilters] = useState(false);
-
   const getStatistics = () => {
     const total = profiles.length;
     const maleCount = profiles.filter(p => p.gender === 'male').length;
@@ -55,20 +39,6 @@ const UserProfileList: React.FC<UserProfileListProps> = ({
   };
 
   const stats = getStatistics();
-
-  const getSortIcon = () => {
-    return sortOrder === 'asc' ? <SortAscendingOutlined /> : <SortDescendingOutlined />;
-  };
-
-  const getSortText = () => {
-    const sortTexts = {
-      name: 'Tên',
-      date: 'Ngày tạo',
-      gender: 'Giới tính'
-    };
-    return `${sortTexts[sortBy]} (${sortOrder === 'asc' ? 'A→Z' : 'Z→A'})`;
-  };
-
   const hasActiveFilters = searchQuery.trim() !== '' || filterGender !== 'all';
 
   if (loading) {

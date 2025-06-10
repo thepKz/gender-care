@@ -22,7 +22,7 @@ import AboutGCCPage from '../pages/about-gcc';
 import BlogPage from '../pages/blog';
 import CounselorsPage from '../pages/counselors';
 import PicturePage from '../pages/picture';
-import ServicesPage from '../pages/services';
+import PublicServicesPage from '../pages/services';
 
 // Doctor Pages
 import DoctorDetail from '../pages/doctors/DoctorDetail';
@@ -30,6 +30,7 @@ import DoctorDetail from '../pages/doctors/DoctorDetail';
 // Booking Pages
 import BookingPage from '../pages/booking';
 import BookingHistoryPage from '../pages/booking-history';
+import PaymentPage from '../pages/payment';
 import FeedbackPage from '../pages/feedback';
 
 // Demo Pages
@@ -37,7 +38,12 @@ import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
 
 // Dashboard Wrapper Components
-import DashboardWrapper from '../components/dashboard/DashboardWrapper';// Import các trang hồ sơ bệnh án
+import DashboardWrapper from '../components/dashboard/DashboardWrapper';
+
+// Manager Dashboard Components  
+import ManagerDashboard from '../pages/dashboard/manager';
+
+// Import các trang hồ sơ bệnh án
 // XÓA: import HealthProfilesPage from '../pages/profile/health-profiles';
 import CreateProfilePage from '../pages/profile/create-profile';
 import EditProfilePage from '../pages/profile/edit-profile';
@@ -46,6 +52,8 @@ import ViewProfilePage from '../pages/profile/view-profile';
 
 // Hooks
 import { useAuth } from '../hooks/useAuth';
+
+
 
 const AppRoutes: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -104,7 +112,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/doctors/:id" element={<DoctorDetail />} />
         <Route path="/about-gcc" element={<AboutGCCPage />} />
         <Route path="/blog" element={<BlogPage />} />
-        <Route path="/services" element={<ServicesPage />} />
+        <Route path="/services" element={<PublicServicesPage />} />
         
         {/* All service booking routes redirect to main booking page */}
         <Route path="/services/consulting" element={<Navigate to="/booking?service=consultation" replace />} />
@@ -118,6 +126,7 @@ const AppRoutes: React.FC = () => {
         {/* Booking Pages */}
         <Route path="/booking" element={<BookingPage />} />
         <Route path="/booking-history" element={<BookingHistoryPage />} />
+        <Route path="/payment" element={<PaymentPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
         
         {/* Demo Pages */}

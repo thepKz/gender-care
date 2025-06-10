@@ -51,6 +51,7 @@ export interface CreateScheduleByMonthRequest {
   year: number;  // 2025
   timeSlots?: string[]; // optional, sẽ dùng default nếu không có
   excludeWeekends?: boolean; // default: true
+  overwrite?: boolean; // default: false
 }
 
 export interface UpdateScheduleRequest {
@@ -65,7 +66,7 @@ export interface UpdateScheduleRequest {
 const doctorScheduleApi = {
   // Lấy tất cả lịch làm việc của tất cả bác sĩ (Staff/Manager/Admin only)
   getAll: async (): Promise<IDoctorSchedule[]> => {
-    const response = await axiosInstance.get('/doctors/schedules/all/staff');
+    const response = await axiosInstance.get('/doctors/schedules/all');
     // Backend trả về {message: string, data: IDoctorSchedule[]}
     return response.data.data || response.data;
   },
@@ -102,15 +103,15 @@ const doctorScheduleApi = {
   // Tạo lịch theo ngày cụ thể - gửi array dates trực tiếp
   createScheduleByDates: async (data: CreateScheduleByDatesRequest): Promise<IDoctorSchedule> => {
     const { doctorId, dates, timeSlots } = data;
-    
+
     // Validate chỉ cho phép thứ 2-6 (1-5, Monday = 1, Sunday = 0)
     const weekendDates: string[] = [];
     const validDates: string[] = [];
-    
+
     dates.forEach(dateStr => {
       const date = new Date(dateStr);
       const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-      
+
       if (dayOfWeek === 0 || dayOfWeek === 6) {
         // Thứ 7 (6) hoặc Chủ nhật (0)
         weekendDates.push(dateStr);
@@ -119,7 +120,7 @@ const doctorScheduleApi = {
         validDates.push(dateStr);
       }
     });
-    
+
     // Nếu có ngày cuối tuần, throw error
     if (weekendDates.length > 0) {
       const weekendNames = weekendDates.map(dateStr => {
@@ -127,41 +128,42 @@ const doctorScheduleApi = {
         const dayName = date.getDay() === 0 ? 'Chủ nhật' : 'Thứ 7';
         return `${dayName} (${dateStr})`;
       });
-      
+
       throw new Error(`Không thể tạo lịch cho các ngày cuối tuần: ${weekendNames.join(', ')}. Chỉ cho phép tạo lịch từ thứ 2 đến thứ 6.`);
     }
-    
+
     // Nếu không có ngày hợp lệ nào
     if (validDates.length === 0) {
       throw new Error('Vui lòng chọn ít nhất một ngày từ thứ 2 đến thứ 6.');
     }
-    
+
     // Gửi object chứa array dates
     const requestData = {
       dates: validDates, // Gửi array dates trực tiếp
       timeSlots: timeSlots || []
     };
-    
+
     console.log('📤 Sending request to API:', {
       url: `/doctors/${doctorId}/schedules/bulk-days`,
       method: 'POST',
       data: requestData
     });
-    
+
     const response = await axiosInstance.post(`/doctors/${doctorId}/schedules/bulk-days`, requestData);
     return response.data.data || response.data;
   },
 
   // Tạo lịch theo tháng - sử dụng bulk-month endpoint
   createScheduleByMonth: async (data: CreateScheduleByMonthRequest): Promise<IDoctorSchedule> => {
-    const { doctorId, month, year, timeSlots, excludeWeekends } = data;
-    
+    const { doctorId, month, year, timeSlots, excludeWeekends, overwrite } = data;
+
     const bulkData = {
       year,
       month,
-      timeSlots: timeSlots || []
+      timeSlots: timeSlots || [],
+      overwrite: overwrite || false
     };
-    
+
     const response = await axiosInstance.post(`/doctors/${doctorId}/schedules/bulk-month`, bulkData);
     return response.data.data || response.data;
   },
@@ -217,7 +219,7 @@ const doctorScheduleApi = {
     const params = new URLSearchParams();
     if (date) params.append('date', date);
     if (timeSlot) params.append('timeSlot', timeSlot);
-    
+
     const endpoint = `/doctors/available${params.toString() ? '?' + params.toString() : ''}`;
     const response = await axiosInstance.get(endpoint);
     return response.data.data || response.data;
@@ -228,7 +230,7 @@ const doctorScheduleApi = {
     const params = new URLSearchParams();
     if (date) params.append('date', date);
     if (timeSlot) params.append('timeSlot', timeSlot);
-    
+
     const endpoint = `/doctors/available/staff${params.toString() ? '?' + params.toString() : ''}`;
     const response = await axiosInstance.get(endpoint);
     return response.data.data || response.data;
