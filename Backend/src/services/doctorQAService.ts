@@ -417,6 +417,12 @@ export const scheduleQA = async (qaId: string) => {
 
     console.log('✅ [DEBUG] Slot updated to Booked');
 
+    // Tạo scheduled time cho meeting (kết hợp ngày và giờ)
+    const [slotHour, slotMinute] = nearestSlot.slotTime.split(':').map(Number);
+    const scheduledStartTime = new Date(nearestDate);
+    scheduledStartTime.setHours(slotHour, slotMinute, 0, 0);
+    const scheduledEndTime = new Date(scheduledStartTime.getTime() + 60 * 60 * 1000); // 1 tiếng
+
     // Cập nhật DoctorQA với thông tin lịch hẹn
     const updatedQA = await DoctorQA.findByIdAndUpdate(
       qaId,
@@ -438,6 +444,23 @@ export const scheduleQA = async (qaId: string) => {
       })
      .populate('userId', 'fullName email');
 
+    // Tự động tạo meeting khi schedule thành công
+    try {
+      const meetingService = require('./meetingService');
+      const meeting = await meetingService.createMeeting({
+        qaId: qaId,
+        doctorId: doctorId.toString(),
+        userId: qa.userId.toString(),
+        scheduledStartTime,
+        scheduledEndTime
+      });
+
+      console.log('✅ [DEBUG] Meeting created automatically:', meeting._id);
+    } catch (meetingError: any) {
+      console.error('⚠️ [WARNING] Failed to create meeting, but schedule is successful:', meetingError.message);
+      // Meeting creation failure không làm fail toàn bộ schedule process
+    }
+
     return {
       qa: updatedQA,
       autoBookedInfo: {
@@ -445,7 +468,9 @@ export const scheduleQA = async (qaId: string) => {
         appointmentDate: nearestDate.toISOString().split('T')[0], // YYYY-MM-DD
         appointmentSlot: nearestSlot.slotTime,
         slotId: nearestSlotId,
-        message: `Đã tự động đặt lịch slot gần nhất: ${nearestSlot.slotTime} ngày ${nearestDate.toISOString().split('T')[0]}`
+        scheduledStartTime: scheduledStartTime.toISOString(),
+        scheduledEndTime: scheduledEndTime.toISOString(),
+        message: `Đã tự động đặt lịch slot gần nhất: ${nearestSlot.slotTime} ngày ${nearestDate.toISOString().split('T')[0]}. Meeting link sẽ được gửi qua email.`
       }
     };
 

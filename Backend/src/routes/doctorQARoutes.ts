@@ -12,7 +12,10 @@ import {
   doctorConfirmQA,
   scheduleQA,
   updateQAStatus,
-  deleteDoctorQA
+  deleteDoctorQA,
+  getQAMeeting,
+  joinQAMeeting,
+  completeQAMeeting
 } from '../controllers/doctorQAController';
 
 const router = express.Router();
@@ -54,5 +57,15 @@ router.delete('/doctor-qa/:id', verifyToken, verifyStaff, deleteDoctorQA);
 // =============== PAYMENT GATEWAY ROUTES ===============
 // PUT /api/doctor-qa/:id/payment - Cập nhật trạng thái thanh toán (webhook)
 router.put('/doctor-qa/:id/payment', updatePaymentStatus);
+
+// =============== MEETING INTEGRATION ROUTES ===============
+// GET /api/doctor-qa/:id/meeting - Lấy meeting info của QA (USER/DOCTOR/STAFF)
+router.get('/doctor-qa/:id/meeting', verifyToken, getQAMeeting);
+
+// POST /api/doctor-qa/:id/join-meeting - Join meeting (USER/DOCTOR)
+router.post('/doctor-qa/:id/join-meeting', verifyToken, joinQAMeeting);
+
+// PUT /api/doctor-qa/:id/complete-meeting - Hoàn thành meeting và QA (DOCTOR only)
+router.put('/doctor-qa/:id/complete-meeting', verifyToken, completeQAMeeting);
 
 export default router; 

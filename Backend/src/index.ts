@@ -6,7 +6,7 @@ import mongoose from "mongoose";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
-import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes, doctorQARoutes, userProfileRoutes, 
+import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes, doctorQARoutes, meetingRoutes, userProfileRoutes, 
   appointmentRoutes, testCategoriesRoutes, appointmentTestsRoutes, testResultsRoutes, testResultItemsRoutes, medicalRecordsRoutes, 
   medicinesRoutes, medicationRemindersRoutes, notificationDaysRoutes } from "./routes";
 
@@ -118,8 +118,9 @@ apiRouter.use('/appointment-tests', appointmentTestsRoutes);
 apiRouter.use('/test-results', testResultsRoutes);
 apiRouter.use('/test-result-items', testResultItemsRoutes);
 
-// Thêm DoctorQA routes
+// Thêm DoctorQA & Meeting routes
 apiRouter.use('/', doctorQARoutes);
+apiRouter.use('/', meetingRoutes);
 apiRouter.use('/medical-records', medicalRecordsRoutes);
 apiRouter.use('/medicines', medicinesRoutes);
 apiRouter.use('/medication-reminders', medicationRemindersRoutes);
