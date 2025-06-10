@@ -7,7 +7,6 @@ import { UserProfile } from '../../types';
 import { CreateUserProfileRequest, UpdateUserProfileRequest } from '../../api/endpoints/userProfileApi';
 import './UserProfile.css';
 
-const { Option } = Select;
 
 interface UserProfileModalProps {
   visible: boolean;
@@ -69,7 +68,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
     onCancel();
   };
 
-  const validatePhone = (_: any, value: string) => {
+  const validatePhone = (_: unknown, value: string) => {
     if (!value) return Promise.resolve();
     
     const phoneRegex = /^[0-9]{10,11}$/;
@@ -107,10 +106,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
       >
         <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
           <p className="text-sm text-blue-700 mb-2">
-            💡 <strong>Lưu ý:</strong> Hồ sơ bệnh án có thể được tạo cho bản thân hoặc người thân trong gia đình.
-          </p>
-          <p className="text-xs text-blue-600">
-            Thông tin này sẽ được sử dụng để đặt lịch khám và quản lý lịch sử y tế.
+           <strong>Lưu ý:</strong> Hồ sơ bệnh án có thể được tạo cho bản thân hoặc người thân.
           </p>
         </div>
 
@@ -167,9 +163,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   placeholder="Chọn giới tính"
                   size="large"
                   options={[
-                    { value: 'male', label: '👨 Nam' },
-                    { value: 'female', label: '👩 Nữ' },
-                    { value: 'other', label: '🧑 Khác' }
+                    { value: 'male', label: 'Nam' },
+                    { value: 'female', label: 'Nữ' },
+                    { value: 'other', label: 'Khác' }
                   ]}
                 />
               </Form.Item>
@@ -223,7 +219,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
         <div className="mt-6 p-3 bg-gray-50 rounded-lg">
           <p className="text-xs text-gray-600 flex items-start space-x-2">
-            <span>🔒</span>
             <span>
               Thông tin cá nhân sẽ được bảo mật và chỉ sử dụng cho mục đích y tế. 
               Bạn có thể cập nhật hoặc xóa thông tin này bất kỳ lúc nào.

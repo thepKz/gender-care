@@ -1,6 +1,6 @@
 import { Avatar, Drawer, Dropdown, MenuProps } from "antd";
 import { motion } from 'framer-motion';
-import { CalendarEdit, Logout, Menu, Profile2User, ProfileCircle, User } from "iconsax-react";
+import { Calendar, CalendarEdit, Logout, Menu, Profile2User, ProfileCircle, User } from "iconsax-react";
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -108,6 +108,7 @@ const Header: React.FC = () => {
     },
     {
       key: "3",
+      icon: <Calendar size={20} className="profile-icon" />,
       label: "Lịch sử đặt lịch",
       onClick: () => navigate('/booking-history'),
     },

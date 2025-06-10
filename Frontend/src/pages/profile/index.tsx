@@ -1,30 +1,29 @@
-import { CalendarOutlined, CameraOutlined, EditOutlined, HomeFilled, LockOutlined, TeamOutlined, UserOutlined, PlusOutlined } from '@ant-design/icons';
-import { Avatar, Button, Card, Skeleton, Spin, Tabs, Tag, Upload, notification } from 'antd';
-import { AnimatePresence, motion } from 'framer-motion';
+import { CameraOutlined, EditOutlined, HomeFilled, LockOutlined, UserOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
+import { Avatar, Button, Skeleton, Spin, Upload, notification, Form, Input, Select, DatePicker, Divider } from 'antd';
+import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import userApi from '../../api/endpoints/userApi';
 import Image1 from '../../assets/images/image1.jpg';
 import ChangePasswordForm from '../../components/auth/ChangePasswordForm';
-import ProfilesList from '../../components/profile/ProfilesList';
 import { useAuth } from '../../hooks/useAuth';
+import dayjs from 'dayjs';
 
 import './profile.css';
 
-const TabItems = [
-  { key: "1", label: "Thông tin cá nhân", icon: <UserOutlined /> },
-  { key: "2", label: "Lịch sử đặt lịch", icon: <CalendarOutlined /> },
-  { key: "3", label: "Hồ sơ bệnh án", icon: <TeamOutlined /> },
-  { key: "4", label: "Đổi mật khẩu", icon: <LockOutlined /> },
-];
+const { Option } = Select;
+
+// Removed tab navigation - display content directly
 
 const ProfilePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("1");
   const { user, isAuthenticated, fetchProfile } = useAuth();
   const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
   const [currentAvatar, setCurrentAvatar] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [editForm] = Form.useForm();
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -70,8 +69,45 @@ const ProfilePage: React.FC = () => {
     }
   }, [user?.avatar]);
 
-  const handleTabChange = (key: string) => {
-    setActiveTab(key);
+  const handleEditToggle = () => {
+    if (isEditing) {
+      editForm.resetFields();
+      setIsEditing(false);
+    } else {
+      editForm.setFieldsValue({
+        fullName: user?.fullName || '',
+        phone: user?.phone || '',
+        gender: user?.gender || '',
+        year: user?.year ? dayjs(user.year) : null
+      });
+      setIsEditing(true);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      const values = await editForm.validateFields();
+      const updateData = {
+        ...values,
+        year: values.year ? values.year.toISOString() : undefined
+      };
+      
+      await userApi.updateUserProfile(updateData);
+      
+      notification.success({
+        message: 'Cập nhật thành công',
+        description: 'Thông tin cá nhân đã được cập nhật',
+      });
+      
+      setIsEditing(false);
+      await fetchProfile();
+    } catch (error) {
+      console.error('Lỗi cập nhật profile:', error);
+      notification.error({
+        message: 'Lỗi cập nhật',
+        description: 'Không thể cập nhật thông tin',
+      });
+    }
   };
 
   if (isLoading) {
@@ -156,11 +192,9 @@ const ProfilePage: React.FC = () => {
                 }}
                 customRequest={async ({ file, onSuccess, onError }) => {
                   setUploading(true);
-                  const formData = new FormData();
-                  formData.append('avatar', file as File);
                   try {
-                    const res = await userApi.uploadAvatarImage(formData);
-                    const url = res.url;
+                    const res = await userApi.uploadAvatarImage(file as File);
+                    const url = res.data.url;
                     await userApi.updateAvatar(url);
                     
                     setCurrentAvatar(url);
@@ -223,7 +257,7 @@ const ProfilePage: React.FC = () => {
               </div>
             </div>
           </div>
-          {/* Main Tabs Content */}
+          {/* Main Content */}
           <div className="border-0 shadow-lg rounded-2xl p-6 md:p-10 bg-white mb-12">
             <div className="flex items-center mb-8">
               <div className="p-3 bg-[#0C3C54]/10 rounded-full">
@@ -231,119 +265,195 @@ const ProfilePage: React.FC = () => {
               </div>
               <h3 className="text-xl font-semibold text-[#0C3C54] ml-4">Thông tin chi tiết</h3>
             </div>
-            <div className="flex gap-4 mb-8">
-              {TabItems.map(item => (
-                <button
-                  key={item.key}
-                  onClick={() => setActiveTab(item.key)}
-                  className={`flex items-center gap-2 px-6 py-2 rounded-lg text-base font-semibold transition-all duration-200
-                    ${activeTab === item.key ? 'bg-[#0C3C54] text-white' : 'bg-[#0C3C54]/10 text-[#0C3C54] hover:bg-[#0C3C54]/20'}`}
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>
-            {/* Nội dung từng tab */}
-            {activeTab === "1" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Họ và tên</h4>
-                    <p className="text-lg font-medium text-gray-800">{user.fullName}</p>
-                  </div>
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Email</h4>
-                    <p className="text-lg text-gray-800 flex items-center">
-                      {user.email}
-                      {user.emailVerified ? (
-                        <div className="bg-green-500/30 border-green-300 text-white px-2 py-1 text-base font-medium rounded-lg ml-2">
-                          ✓ Đã xác thực
-                        </div>
-                      ) : (
-                        <div className="bg-yellow-500/30 border-yellow-300 text-white px-2 py-1 text-base font-medium rounded-lg ml-2">
-                          Chưa xác thực
-                          <Link to="/verify-email" className="ml-2 text-[#0C3C54] hover:text-[#0C3C54]/80 hover:underline">
-                            Xác thực ngay
-                          </Link>
-                        </div>
-                      )}
-                    </p>
+            {/* Nội dung thông tin cá nhân */}
+            <div>
+              <div className="space-y-8">
+                {/* Header với nút Edit */}
+                <div className="flex justify-between items-center">
+                  <h4 className="text-lg font-semibold text-gray-800">Thông tin cá nhân</h4>
+                  <div className="flex gap-2">
+                    {isEditing ? (
+                      <>
+                        <Button 
+                          icon={<SaveOutlined />} 
+                          type="primary"
+                          onClick={handleSaveProfile}
+                          className="bg-[#0C3C54] hover:bg-[#0C3C54]/90"
+                        >
+                          Lưu thay đổi
+                        </Button>
+                        <Button 
+                          icon={<CloseOutlined />} 
+                          onClick={handleEditToggle}
+                        >
+                          Hủy
+                        </Button>
+                      </>
+                    ) : (
+                      <Button 
+                        icon={<EditOutlined />} 
+                        onClick={handleEditToggle}
+                        className="border-[#0C3C54] text-[#0C3C54] hover:bg-[#0C3C54] hover:text-white"
+                      >
+                        Chỉnh sửa
+                      </Button>
+                    )}
                   </div>
                 </div>
-                <div>
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Số điện thoại</h4>
-                    <p className="text-lg text-gray-800">{user.phone || "Chưa cập nhật"}</p>
+
+                {/* Thông tin cá nhân */}
+                {isEditing ? (
+                  <Form form={editForm} layout="vertical" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Form.Item
+                      label="Họ và tên"
+                      name="fullName"
+                      rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
+                    >
+                      <Input size="large" placeholder="Nhập họ và tên" />
+                    </Form.Item>
+                    
+                    <Form.Item
+                      label="Số điện thoại"
+                      name="phone"
+                      rules={[
+                        { pattern: /^[0-9]{10,11}$/, message: 'Số điện thoại không hợp lệ' }
+                      ]}
+                    >
+                      <Input size="large" placeholder="Nhập số điện thoại" />
+                    </Form.Item>
+                    
+                    <Form.Item
+                      label="Giới tính"
+                      name="gender"
+                    >
+                      <Select size="large" placeholder="Chọn giới tính">
+                        <Option value="male">Nam</Option>
+                        <Option value="female">Nữ</Option>
+                        <Option value="other">Khác</Option>
+                      </Select>
+                    </Form.Item>
+                    
+                    <Form.Item
+                      label="Ngày sinh"
+                      name="year"
+                    >
+                      <DatePicker 
+                        size="large" 
+                        placeholder="Chọn ngày sinh"
+                        format="DD/MM/YYYY"
+                        className="w-full"
+                      />
+                    </Form.Item>
+                  </Form>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <div className="mb-6">
+                        <h4 className="text-sm font-medium text-gray-500 mb-1">Họ và tên</h4>
+                        <p className="text-lg font-medium text-gray-800">{user.fullName || 'Chưa cập nhật'}</p>
+                      </div>
+                      <div className="mb-6">
+                        <h4 className="text-sm font-medium text-gray-500 mb-1">Email</h4>
+                        <p className="text-lg text-gray-800 flex items-center">
+                          {user.email}
+                          {user.emailVerified ? (
+                            <div className="bg-green-500/30 border-green-300 text-white px-2 py-1 text-xs font-medium rounded-lg ml-2">
+                              ✓ Đã xác thực
+                            </div>
+                          ) : (
+                            <div className="bg-yellow-500/30 border-yellow-300 text-white px-2 py-1 text-xs font-medium rounded-lg ml-2">
+                              Chưa xác thực
+                              <Link to="/verify-email" className="ml-2 text-[#0C3C54] hover:text-[#0C3C54]/80 hover:underline">
+                                Xác thực ngay
+                              </Link>
+                            </div>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="mb-6">
+                        <h4 className="text-sm font-medium text-gray-500 mb-1">Số điện thoại</h4>
+                        <p className="text-lg text-gray-800">{user.phone || "Chưa cập nhật"}</p>
+                      </div>
+                      <div className="mb-6">
+                        <h4 className="text-sm font-medium text-gray-500 mb-1">Giới tính</h4>
+                        <p className="text-lg text-gray-800">
+                          {user.gender === 'male'
+                            ? 'Nam'
+                            : user.gender === 'female'
+                            ? 'Nữ'
+                            : user.gender === 'other'
+                            ? 'Khác'
+                            : 'Chưa cập nhật'}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500 mb-1">Ngày sinh</h4>
+                      <p className="text-lg text-gray-800">
+                        {user.year ? new Date(user.year).toLocaleDateString('vi-VN') : "Chưa cập nhật"}
+                      </p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-500 mb-1">Ngày tham gia</h4>
+                      <p className="text-lg text-gray-800">
+                        {new Date(user.createdAt).toLocaleDateString('vi-VN', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </p>
+                    </div>
                   </div>
-                  <div className="mb-6">
-                    <h4 className="text-sm font-medium text-gray-500 mb-1">Giới tính</h4>
-                    <p className="text-lg text-gray-800">
-                      {user.gender === 'male'
-                        ? 'Nam'
-                        : user.gender === 'female'
-                        ? 'Nữ'
-                        : user.gender === 'other'
-                        ? 'Khác'
-                        : 'Chưa cập nhật'}
-                    </p>
+                )}
+
+                {/* Phần bảo mật */}
+                <Divider />
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-red-100 rounded-lg">
+                        <LockOutlined className="text-red-600 text-lg" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-semibold text-gray-800">Bảo mật tài khoản</h4>
+                        <p className="text-sm text-gray-600">Quản lý mật khẩu và bảo mật tài khoản</p>
+                      </div>
+                    </div>
+                    <Button 
+                      type="primary"
+                      danger
+                      icon={<LockOutlined />}
+                      onClick={() => setShowChangePassword(!showChangePassword)}
+                      className="bg-red-600 hover:bg-red-700 border-red-600"
+                    >
+                      {showChangePassword ? 'Ẩn' : 'Đổi mật khẩu'}
+                    </Button>
                   </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Ngày sinh</h4>
-                  <p className="text-lg text-gray-800">
-                    {user.year ? new Date(user.year).toLocaleDateString('vi-VN') : "Chưa cập nhật"}
-                  </p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500 mb-1">Ngày tham gia</h4>
-                  <p className="text-lg text-gray-800">
-                    {new Date(user.createdAt).toLocaleDateString('vi-VN', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </p>
-                </div>
-              </div>
-            )}
-            {activeTab === "2" && (
-              <div className="text-center py-12">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                  <CalendarOutlined className="text-3xl text-gray-400" />
-                </div>
-                <p className="text-gray-600 mb-6 text-lg">Chưa có lịch sử đặt lịch</p>
-                <p className="text-gray-500 mb-8">Hãy đặt lịch ngay để trải nghiệm dịch vụ của chúng tôi.</p>
-                <button className="bg-[#0C3C54] hover:bg-[#0C3C54]/90 text-white rounded-lg px-8 py-3 h-auto transition-all duration-200 hover:shadow-lg hover:scale-105 font-semibold">
-                  Đặt lịch ngay
-                </button>
-              </div>
-            )}
-            {activeTab === "3" && (
-              <div>
-                <ProfilesList />
-                <div className="mt-6 text-center">
-                  <button
-                    className="bg-[#0C3C54] hover:bg-[#0C3C54]/90 text-white rounded-lg px-8 py-3 h-auto transition-all duration-200 hover:shadow-lg hover:scale-105 font-semibold flex items-center gap-2 mx-auto"
-                    onClick={() => navigate('/user-profiles')}
-                  >
-                    <TeamOutlined /> Xem tất cả hồ sơ bệnh án
-                  </button>
-                </div>
-              </div>
-            )}
-            {activeTab === "4" && (
-              <div>
-                <ChangePasswordForm 
-                  onSuccess={() => {
-                    notification.success({
-                      message: 'Cập nhật thành công',
-                      description: 'Mật khẩu đã được thay đổi an toàn',
-                    });
-                  }}
-                />
-              </div>
-            )}
+                  
+                  {showChangePassword && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="bg-gray-50 rounded-lg p-6"
+                    >
+                      <ChangePasswordForm 
+                        onSuccess={() => {
+                          setShowChangePassword(false);
+                          notification.success({
+                            message: 'Cập nhật thành công',
+                            description: 'Mật khẩu đã được thay đổi an toàn',
+                          });
+                        }}
+                      />
+                    </motion.div>
+                  )}
+                                 </div>
+               </div>
+             </div>
           </div>
         </motion.div>
       </div>
