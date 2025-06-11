@@ -6,9 +6,26 @@ import mongoose from "mongoose";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
-import { authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes, doctorQARoutes, meetingRoutes, userProfileRoutes, 
-  appointmentRoutes, testCategoriesRoutes, appointmentTestsRoutes, testResultsRoutes, testResultItemsRoutes, medicalRecordsRoutes, 
-  medicinesRoutes, medicationRemindersRoutes, notificationDaysRoutes } from "./routes";
+import {
+    appointmentRoutes,
+    appointmentTestsRoutes,
+    authRoutes,
+    doctorQARoutes,
+    doctorRoutes,
+    loginHistoryRoutes,
+    medicalRecordsRoutes,
+    medicationRemindersRoutes,
+    medicinesRoutes,
+    meetingRoutes,
+    notificationDaysRoutes,
+    servicePackageRoutes,
+    serviceRoutes,
+    testCategoriesRoutes,
+    testResultItemsRoutes,
+    testResultsRoutes,
+    userProfileRoutes,
+    userRoutes
+} from "./routes";
 
 import { runAllSeeds } from "./seeds";
 
@@ -88,8 +105,8 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.MONGO_URI as string);
     console.log(`MongoDB đã kết nối: ${conn.connection.host}`);
 
-    // Chạy seed data sau khi kết nối DB thành công
-    if (process.env.NODE_ENV !== 'production') {
+    // Chạy seed data sau khi kết nối DB thành công - Disable để tránh memory issues
+    if (process.env.NODE_ENV === 'development' && process.env.RUN_SEEDS === 'true') {
       await runAllSeeds();
     }
 
