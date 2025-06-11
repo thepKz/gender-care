@@ -1,0 +1,287 @@
+/* Cycle Page Styles */
+.cycle-page {
+  min-height: 100vh;
+}
+
+/* Calendar Styles */
+.cycle-calendar-card .ant-card-body {
+  padding: 20px;
+}
+
+.cycle-calendar .ant-picker-calendar {
+  background: transparent;
+}
+
+.cycle-calendar .ant-picker-calendar-header {
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+.cycle-calendar .ant-picker-calendar-date-today {
+  border: 2px solid #ec4899;
+}
+
+.cycle-calendar .ant-picker-cell {
+  position: relative;
+}
+
+/* Cycle Day Indicators */
+.cycle-day {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cycle-indicator {
+  font-size: 12px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse 2s infinite;
+}
+
+.period-indicator {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+}
+
+.ovulation-indicator {
+  background: rgba(251, 146, 60, 0.1);
+  border: 1px solid #fb923c;
+}
+
+.fertile-indicator {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid #22c55e;
+}
+
+.predicted-indicator {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid #3b82f6;
+}
+
+/* Animation */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(236, 72, 153, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(236, 72, 153, 0);
+  }
+}
+
+/* Card Enhancements */
+.cycle-page .ant-card {
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.cycle-page .ant-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+/* Statistics Cards */
+.cycle-page .ant-statistic-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #6b7280;
+}
+
+.cycle-page .ant-statistic-content {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+/* Timeline Enhancements */
+.cycle-page .ant-timeline-item-content {
+  margin-left: 20px;
+  padding-left: 16px;
+}
+
+.cycle-page .ant-timeline-item-tail {
+  border-left: 2px solid #e5e7eb;
+}
+
+/* Button Enhancements */
+.cycle-page .ant-btn {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.cycle-page .ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Modal Styles */
+.cycle-log-modal .ant-modal-content {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.cycle-log-modal .ant-modal-header {
+  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+  border-bottom: 1px solid #f3e8ff;
+}
+
+.cycle-log-modal .ant-modal-title {
+  color: #be185d;
+  font-weight: 600;
+}
+
+/* Form Enhancements */
+.cycle-log-modal .ant-form-item-label > label {
+  font-weight: 500;
+  color: #374151;
+}
+
+.cycle-log-modal .ant-input,
+.cycle-log-modal .ant-select-selector,
+.cycle-log-modal .ant-picker {
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.cycle-log-modal .ant-input:focus,
+.cycle-log-modal .ant-input-focused,
+.cycle-log-modal .ant-select-focused .ant-select-selector,
+.cycle-log-modal .ant-picker:hover,
+.cycle-log-modal .ant-picker.ant-picker-focused {
+  border-color: #ec4899;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.1);
+}
+
+/* Tags */
+.cycle-page .ant-tag {
+  border-radius: 12px;
+  padding: 4px 12px;
+  font-weight: 500;
+  border: none;
+  font-size: 12px;
+}
+
+/* Progress Bars */
+.cycle-page .ant-progress-bg {
+  background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .cycle-page {
+    padding: 16px 8px;
+  }
+  
+  .cycle-page .ant-card {
+    margin-bottom: 16px;
+  }
+  
+  .cycle-calendar .ant-picker-calendar-date-content {
+    height: 40px;
+  }
+  
+  .cycle-indicator {
+    font-size: 10px;
+    width: 16px;
+    height: 16px;
+  }
+  
+  .cycle-log-modal {
+    margin: 16px;
+    width: calc(100vw - 32px) !important;
+    max-width: 500px;
+  }
+}
+
+@media (max-width: 576px) {
+  .cycle-page .container {
+    padding: 0 8px;
+  }
+  
+  .cycle-page .ant-statistic-content {
+    font-size: 20px;
+  }
+  
+  .cycle-page .ant-timeline-item-content {
+    margin-left: 16px;
+    padding-left: 12px;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .cycle-page {
+    background: linear-gradient(135deg, #1f1f23 0%, #2d1b69 100%);
+  }
+  
+  .cycle-page .ant-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+  }
+  
+  .cycle-page .ant-statistic-title {
+    color: #9ca3af;
+  }
+  
+  .cycle-page .ant-timeline-item-tail {
+    border-left-color: #4b5563;
+  }
+}
+
+/* Glassmorphism Effect */
+.bg-white\/80 {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.bg-white\/90 {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+}
+
+/* Additional Animations */
+.cycle-page .ant-card {
+  animation: slideInUp 0.6s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Hover Effects for Interactive Elements */
+.cycle-page .ant-calendar-date:hover {
+  background: rgba(236, 72, 153, 0.05);
+  border-radius: 8px;
+}
+
+.cycle-page .ant-btn-block {
+  margin-bottom: 8px;
+}
+
+.cycle-page .ant-btn-block:last-child {
+  margin-bottom: 0;
+} 

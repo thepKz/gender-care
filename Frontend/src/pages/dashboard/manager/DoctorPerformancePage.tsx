@@ -1,32 +1,30 @@
-import React, { useState } from 'react';
-import { 
-  Card, 
-  Table, 
-  Row, 
-  Col, 
-  Statistic, 
-  Typography, 
-  Select, 
-  DatePicker,
-  Button,
-  Space,
-  Progress,
-  Avatar,
-  Tag,
-  Tooltip
-} from 'antd';
-import { 
-  TrophyOutlined,
-  UserOutlined,
-  CalendarOutlined,
-  DollarOutlined,
-  StarOutlined,
-  RiseOutlined,
-  DownloadOutlined,
-  EyeOutlined
+import {
+    DollarOutlined,
+    DownloadOutlined,
+    EyeOutlined,
+    RiseOutlined,
+    StarOutlined,
+    TrophyOutlined,
+    UserOutlined
 } from '@ant-design/icons';
+import {
+    Avatar,
+    Button,
+    Card,
+    Col,
+    DatePicker,
+    Progress,
+    Row,
+    Select,
+    Statistic,
+    Table,
+    Tag,
+    Tooltip,
+    Typography
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { MOCK_DOCTORS, type DoctorProfile } from '../../../share/doctorMockData';
+import React, { useState } from 'react';
+import { MOCK_DOCTORS } from '../../../share/doctorMockData';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -55,7 +53,7 @@ const ManagerDoctorPerformancePage: React.FC = () => {
   // Generate mock performance data
   const generatePerformanceData = (): DoctorPerformance[] => {
     return MOCK_DOCTORS.map((doctor, index) => ({
-      id: doctor.id,
+      id: doctor._id,
       doctorName: doctor.userId.fullName,
       specialty: doctor.specialization || 'Chưa xác định',
       avatar: doctor.userId.avatar || '',

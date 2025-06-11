@@ -30,8 +30,8 @@ import DoctorDetail from '../pages/doctors/DoctorDetail';
 // Booking Pages
 import BookingPage from '../pages/booking';
 import BookingHistoryPage from '../pages/booking-history';
-import PaymentPage from '../pages/payment';
 import FeedbackPage from '../pages/feedback';
+import PaymentPage from '../pages/payment';
 
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
@@ -41,7 +41,6 @@ import ComponentShowcasePage from '../pages/demo/components';
 import DashboardWrapper from '../components/dashboard/DashboardWrapper';
 
 // Manager Dashboard Components  
-import ManagerDashboard from '../pages/dashboard/manager';
 
 // Import các trang hồ sơ bệnh án
 // XÓA: import HealthProfilesPage from '../pages/profile/health-profiles';
@@ -49,6 +48,9 @@ import CreateProfilePage from '../pages/profile/create-profile';
 import EditProfilePage from '../pages/profile/edit-profile';
 import UserProfilesPage from '../pages/profile/UserProfilesPage';
 import ViewProfilePage from '../pages/profile/view-profile';
+
+// Import Cycle Page
+import CyclePage from '../pages/cycle';
 
 // Hooks
 import { useAuth } from '../hooks/useAuth';
@@ -122,6 +124,9 @@ const AppRoutes: React.FC = () => {
         
         {/* User Profiles Page */}
         <Route path="/user-profiles" element={isAuthenticated ? <UserProfilesPage /> : <Navigate to="/login" replace />} />
+        
+        {/* Cycle Tracking Page */}
+        <Route path="/cycle" element={isAuthenticated ? <CyclePage /> : <Navigate to="/login" replace />} />
         
         {/* Booking Pages */}
         <Route path="/booking" element={<BookingPage />} />

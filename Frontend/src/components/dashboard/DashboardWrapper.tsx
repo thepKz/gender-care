@@ -22,6 +22,7 @@ import ManagerDoctorPerformancePage from '../../pages/dashboard/manager/DoctorPe
 import ManagerDoctorSpecialtiesPage from '../../pages/dashboard/manager/DoctorSpecialtiesPage';
 import ServicesPage from '../../pages/dashboard/manager/ServicesPage';
 import ServicePackagesPage from '../../pages/dashboard/manager/ServicePackagesPage';
+import UserManagementPage from '../../pages/dashboard/manager/UserManagementPage';
 
 // Staff Pages
 import StaffDoctorSchedulePage from '../../pages/dashboard/staff/DoctorSchedulePage';

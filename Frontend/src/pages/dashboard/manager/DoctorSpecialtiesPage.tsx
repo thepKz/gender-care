@@ -1,37 +1,36 @@
-import React, { useState } from 'react';
-import { 
-  Card, 
-  Table, 
-  Button, 
-  Space, 
-  Tag, 
-  Modal, 
-  Form, 
-  Input, 
-  Select, 
-  message,
-  Typography,
-  Row,
-  Col,
-  Statistic,
-  Progress,
-  Avatar,
-  List,
-  Descriptions
-} from 'antd';
-import { 
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  UserOutlined,
-  MedicineBoxOutlined,
-  DollarOutlined,
+import {
   CalendarOutlined,
+  DeleteOutlined,
+  DollarOutlined,
+  EditOutlined,
+  MedicineBoxOutlined,
+  PlusOutlined,
   TeamOutlined,
-  BarChartOutlined
+  UserOutlined
 } from '@ant-design/icons';
+import {
+  Avatar,
+  Button,
+  Card,
+  Col,
+  Descriptions,
+  Form,
+  Input,
+  List,
+  message,
+  Modal,
+  Progress,
+  Row,
+  Select,
+  Space,
+  Statistic,
+  Table,
+  Tag,
+  Typography
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { MOCK_DOCTORS, type DoctorProfile } from '../../../share/doctorMockData';
+import React, { useState } from 'react';
+import { MOCK_DOCTORS } from '../../../share/doctorMockData';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -116,11 +115,11 @@ const ManagerDoctorSpecialtiesPage: React.FC = () => {
   // Get doctors by specialty
   const getDoctorsBySpecialty = (specialtyName: string): SpecialtyDoctor[] => {
     return MOCK_DOCTORS
-      .filter(doctor => doctor.specialization.toLowerCase().includes(specialtyName.toLowerCase()))
+      .filter(doctor => doctor.specialization?.toLowerCase().includes(specialtyName.toLowerCase()))
       .map(doctor => ({
-        id: doctor.id,
+        id: doctor._id,
         name: doctor.userId.fullName,
-        experience: doctor.experience,
+                  experience: doctor.experience || 0,
         consultations: Math.floor(Math.random() * 100) + 50,
         rating: Math.round((Math.random() * 1.5 + 3.5) * 10) / 10,
         avatar: doctor.userId.avatar || ''

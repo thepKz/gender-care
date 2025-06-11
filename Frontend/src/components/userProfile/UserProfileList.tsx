@@ -13,6 +13,7 @@ interface UserProfileListProps {
   onDelete: (id: string) => void;
   onAdd: () => void;
   searchQuery: string;
+  onSearch?: (query: string) => void;
   filterGender: 'all' | 'male' | 'female' | 'other';
   onResetFilters: () => void;
   onView: (id: string) => void;

@@ -1,28 +1,27 @@
-import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Modal,
-  Form,
-  Input,
-  InputNumber,
-  Select,
-  Button,
-  message,
-  Space,
-  Divider,
-  Alert,
-  Typography,
-  Spin
-} from 'antd';
-import { 
-  DollarOutlined, 
-  EditOutlined, 
-  PlusOutlined,
-  PictureOutlined,
-  GiftOutlined,
-  TeamOutlined
+    DollarOutlined,
+    EditOutlined,
+    GiftOutlined,
+    PictureOutlined,
+    PlusOutlined,
+    TeamOutlined
 } from '@ant-design/icons';
-import { ServicePackage, CreateServicePackageRequest, UpdateServicePackageRequest, Service } from '../../types';
+import {
+    Alert,
+    Button,
+    Divider,
+    Form,
+    Input,
+    InputNumber,
+    message,
+    Modal,
+    Select,
+    Space,
+    Typography
+} from 'antd';
+import React, { useCallback, useEffect, useState } from 'react';
 import { getServices } from '../../api/endpoints/serviceApi';
+import { CreateServicePackageRequest, Service, ServicePackage, UpdateServicePackageRequest } from '../../types';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -316,9 +315,9 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
             className="rounded-lg"
             loading={servicesLoading}
             showSearch
-            filterOption={(input, option) =>
-              (option?.children as string)?.toLowerCase().includes(input.toLowerCase())
-            }
+                          filterOption={(input, option) =>
+                ((option?.label as string) || '').toLowerCase().includes(input.toLowerCase())
+              }
             onChange={handleServiceSelectionChange}
           >
             {availableServices.map(service => (
@@ -371,7 +370,10 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
               max={100000000}
               step={1000}
               formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+              parser={(value) => {
+                const parsed = parseInt(value!.replace(/\$\s?|(,*)/g, ''), 10) || 1000;
+                return Math.max(1000, Math.min(100000000, parsed)) as 1000 | 100000000;
+              }}
               prefix={<DollarOutlined className="text-blue-primary" />}
             />
           </Form.Item>
@@ -393,7 +395,10 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
               max={100000000}
               step={1000}
               formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
+              parser={(value) => {
+                const parsed = parseInt(value!.replace(/\$\s?|(,*)/g, ''), 10) || 1000;
+                return Math.max(1000, Math.min(100000000, parsed)) as 1000 | 100000000;
+              }}
               prefix={<DollarOutlined className="text-green-primary" />}
             />
           </Form.Item>

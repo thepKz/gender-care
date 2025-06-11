@@ -1,25 +1,25 @@
-import { Button, DatePicker, Empty, Input, Modal, Rate, Select, Spin, Tag, Timeline, Popconfirm } from 'antd';
+import { DatePicker, Empty, Input, message, Modal, Rate, Select, Spin, Tag, Timeline } from 'antd';
 import axios from 'axios';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Activity,
-  Calendar,
-  Clock,
-  CloseCircle,
-  DocumentText,
-  Eye,
-  Heart,
-  Home,
-  Location,
-  MonitorMobbile,
-  People,
-  Refresh,
-  SearchNormal1,
-  Star,
-  TickCircle,
-  Timer,
-  Trash,
-  User
+    Activity,
+    Calendar,
+    Clock,
+    CloseCircle,
+    DocumentText,
+    Eye,
+    Heart,
+    Home,
+    Location,
+    MonitorMobbile,
+    People,
+    Refresh,
+    SearchNormal1,
+    Star,
+    TickCircle,
+    Timer,
+    Trash,
+    User
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -27,7 +27,6 @@ import { appointmentApi } from '../../api/endpoints';
 import Image1 from '../../assets/images/image1.jpg';
 import ModernButton from '../../components/ui/ModernButton';
 import ModernCard from '../../components/ui/ModernCard';
-import { message } from 'antd';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -183,9 +182,9 @@ const BookingHistory: React.FC = () => {
         }));
         console.log('✅ [Debug] Formatted appointments:', formattedAppointments);
         console.log('🔍 [Debug] Appointments with pending_payment status:', 
-          formattedAppointments.filter(apt => apt.status === 'pending_payment'));
+          formattedAppointments.filter((apt: Appointment) => apt.status === 'pending_payment'));
         console.log('🔍 [Debug] Appointments with confirmed status:', 
-          formattedAppointments.filter(apt => apt.status === 'confirmed'));
+          formattedAppointments.filter((apt: Appointment) => apt.status === 'confirmed'));
         setAppointments(formattedAppointments);
         setFilteredAppointments(formattedAppointments);
       }

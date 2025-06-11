@@ -1,11 +1,11 @@
 import { Form, Input, message } from 'antd';
 import axios from 'axios';
 import {
-    Activity,
-    Heart,
-    People
+  Activity,
+  Heart,
+  People
 } from 'iconsax-react';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appointmentApi } from '../../api/endpoints';
 import doctorApi from '../../api/endpoints/doctor';
@@ -131,14 +131,54 @@ const Booking: React.FC = () => {
   const [showCreateProfileModal, setShowCreateProfileModal] = useState(false);
   const [createProfileForm] = Form.useForm();
 
-  // Mock data với ID đúng định dạng MongoDB ObjectId
-  // Mock data đã được loại bỏ - chỉ sử dụng API thật
+  // State để lưu availability của doctors theo ngày
+  const [doctorAvailability, setDoctorAvailability] = useState<string[]>([]);
 
-  // Mock doctors đã được loại bỏ - chỉ sử dụng API thật
+  // Fetch doctors available for selected date
+  const fetchAvailableDoctors = useCallback(async () => {
+    if (!selectedDate) {
+      setDoctorAvailability([]);
+      return;
+    }
+    
+    try {
+      console.log('🔍 [Debug] Fetching available doctors for date:', selectedDate);
+      const response = await doctorApi.getAvailable(selectedDate);
+      console.log('✅ [Debug] Available doctors response:', response);
+      
+      // Backend trả về: {message, data: [...], searchCriteria}
+      const availableDoctors = (response as any).data || response;
+      console.log('✅ [Debug] Available doctors count:', availableDoctors.length);
+      
+      // Debug: Log structure của available doctors
+      if (availableDoctors.length > 0) {
+        console.log('✅ [Debug] First available doctor structure:', availableDoctors[0]);
+      }
+      
+      // Lưu danh sách ID của doctors có sẵn
+      const availableIds = availableDoctors.map((available: any) => 
+        available._id || available.doctorId || available.id
+      ).filter(Boolean);
+      
+      console.log('✅ [Debug] Available doctor IDs:', availableIds);
+      setDoctorAvailability(availableIds);
+      
+    } catch (error) {
+      console.error('❌ [Debug] Error fetching available doctors:', error);
+      console.log('⚠️ [Debug] Keeping original availability state');
+      setDoctorAvailability([]);
+    }
+  }, [selectedDate]);
 
-  // Mock user profiles đã được loại bỏ - chỉ sử dụng API thật
-
-  // Mock time slots đã được loại bỏ - chỉ sử dụng API thật
+  // Computed doctors với availability
+  const doctorsWithAvailability = useMemo(() => {
+    return doctors.map((doctor: Doctor) => ({
+      ...doctor,
+      isAvailable: selectedDate ? 
+        (doctorAvailability.includes(doctor.id) && doctor.isAvailable) : 
+        doctor.isAvailable
+    }));
+  }, [doctors, doctorAvailability, selectedDate]);
 
   const steps = [
     { title: 'Chọn dịch vụ', description: 'Lựa chọn dịch vụ phù hợp' },
@@ -162,7 +202,7 @@ const Booking: React.FC = () => {
     const service = getSelectedService();
     return service?.packages?.find(p => p.id === selectedPackage);
   };
-  const getSelectedDoctor = () => doctors.find(d => d.id === selectedDoctor);
+  const getSelectedDoctor = () => doctorsWithAvailability.find((d: Doctor) => d.id === selectedDoctor);
   const getCurrentPrice = () => {
     const service = getSelectedService();
     const pkg = getSelectedPackage();
@@ -218,6 +258,73 @@ const Booking: React.FC = () => {
         });
       }
       handleNext();
+    }
+  };
+
+  // Hàm validate và chuyển từ step 6 sang step 7
+  const handleStep6Continue = async () => {
+    try {
+      // Validate form trước khi chuyển step
+      await form.validateFields(['description', 'agreement']);
+      
+      // Nếu là dịch vụ tại nhà, validate địa chỉ
+      if (typeLocation === 'home') {
+        await form.validateFields(['address']);
+      }
+      
+      // Validation thành công, chuyển sang step tiếp theo
+      handleNext();
+    } catch (error) {
+      console.log('❌ [Debug] Validation failed:', error);
+      // Form sẽ tự động hiển thị lỗi validation
+    }
+  };
+
+  // Hàm tạo profile mới
+  const handleCreateProfile = async (values: any) => {
+    try {
+      console.log('🔍 [Debug] Creating new profile:', values);
+      
+      // Gọi API tạo profile mới
+      const newProfile = await userProfileApiInstance.createProfile({
+        fullName: values.fullName,
+        phone: values.phone,
+        year: values.birthDate,
+        gender: values.gender
+      });
+      
+      console.log('✅ [Debug] Created profile:', newProfile);
+      
+      // Thêm profile mới vào danh sách
+      const mappedNewProfile: UserProfile = {
+        id: newProfile._id,
+        fullName: newProfile.fullName,
+        phone: newProfile.phone || '',
+        birthDate: typeof newProfile.year === 'string' ? newProfile.year : String(newProfile.year || ''),
+        gender: newProfile.gender,
+        relationship: 'self',
+        isDefault: false
+      };
+      
+      setUserProfiles(prev => [...prev, mappedNewProfile]);
+      setSelectedProfile(mappedNewProfile.id);
+      
+      // Set form values với profile mới
+      form.setFieldsValue({
+        fullName: mappedNewProfile.fullName,
+        phone: mappedNewProfile.phone,
+        birthDate: mappedNewProfile.birthDate,
+        gender: mappedNewProfile.gender
+      });
+      
+      // Đóng modal và chuyển step
+      setShowCreateProfileModal(false);
+      handleNext();
+      
+      message.success('Tạo hồ sơ thành công!');
+    } catch (error) {
+      console.error('❌ [Debug] Error creating profile:', error);
+      message.error('Không thể tạo hồ sơ. Vui lòng thử lại!');
     }
   };
 
@@ -544,136 +651,14 @@ const Booking: React.FC = () => {
     fetchProfiles();
   }, []);
 
-  // Load time slots when date or doctor changes
+  // Load time slots when date changes
   useEffect(() => {
     if (selectedDate) {
       fetchTimeSlots();
       // Cập nhật danh sách bác sĩ có sẵn lịch theo ngày được chọn
       fetchAvailableDoctors();
     }
-  }, [selectedDate, selectedDoctor]);
-  
-  // Fetch doctors available for selected date
-  const fetchAvailableDoctors = async () => {
-    if (!selectedDate) return;
-    
-    try {
-      console.log('🔍 [Debug] Fetching available doctors for date:', selectedDate);
-      const response = await doctorApi.getAvailable(selectedDate);
-      console.log('✅ [Debug] Available doctors response:', response);
-      
-      // Backend trả về: {message, data: [...], searchCriteria}
-      const availableDoctors = (response as any).data || response;
-      console.log('✅ [Debug] Available doctors count:', availableDoctors.length);
-      
-      // Debug: Log structure của available doctors
-      if (availableDoctors.length > 0) {
-        console.log('✅ [Debug] First available doctor structure:', availableDoctors[0]);
-      }
-      
-      // Debug: Log current doctors list
-      console.log('🔍 [Debug] Current doctors list:', doctors.length);
-      
-      // Update doctor availability based on API response
-      setDoctors(prevDoctors => {
-        const updatedDoctors = prevDoctors.map(doctor => {
-          // Check if this doctor is in available list
-                     const isInAvailableList = availableDoctors.some((available: any) => {
-             // Try different possible ID fields from API response
-             const availableId = available._id || available.doctorId || available.id;
-             const match = availableId === doctor.id;
-            
-            if (match) {
-              console.log('✅ [Debug] Found match for doctor:', doctor.name, 'ID:', doctor.id);
-            }
-            
-            return match;
-          });
-          
-          console.log(`🔍 [Debug] Doctor ${doctor.name} (${doctor.id}): isInAvailableList=${isInAvailableList}, originalAvailable=${doctor.isAvailable}`);
-          
-          return {
-            ...doctor,
-            isAvailable: isInAvailableList && doctor.isAvailable
-          };
-        });
-        
-        console.log('✅ [Debug] Updated doctors availability:', updatedDoctors.map(d => ({name: d.name, isAvailable: d.isAvailable})));
-        return updatedDoctors;
-      });
-    } catch (error) {
-      console.error('❌ [Debug] Error fetching available doctors:', error);
-      console.log('⚠️ [Debug] Keeping original availability state');
-      // Don't show error message as this is optional enhancement
-    }
-  };
-
-  // Hàm validate và chuyển từ step 6 sang step 7
-  const handleStep6Continue = async () => {
-    try {
-      // Validate form trước khi chuyển step
-      await form.validateFields(['description', 'agreement']);
-      
-      // Nếu là dịch vụ tại nhà, validate địa chỉ
-      if (typeLocation === 'home') {
-        await form.validateFields(['address']);
-      }
-      
-      // Validation thành công, chuyển sang step tiếp theo
-      handleNext();
-    } catch (error) {
-      console.log('❌ [Debug] Validation failed:', error);
-      // Form sẽ tự động hiển thị lỗi validation
-    }
-  };
-
-  // Hàm tạo profile mới
-  const handleCreateProfile = async (values: any) => {
-    try {
-      console.log('🔍 [Debug] Creating new profile:', values);
-      
-      // Gọi API tạo profile mới
-      const newProfile = await userProfileApiInstance.createProfile({
-        fullName: values.fullName,
-        phone: values.phone,
-        year: values.birthDate,
-        gender: values.gender
-      });
-      
-      console.log('✅ [Debug] Created profile:', newProfile);
-      
-      // Thêm profile mới vào danh sách
-      const mappedNewProfile: UserProfile = {
-        id: newProfile._id,
-        fullName: newProfile.fullName,
-        phone: newProfile.phone || '',
-        birthDate: typeof newProfile.year === 'string' ? newProfile.year : String(newProfile.year || ''),
-        gender: newProfile.gender,
-        relationship: 'self',
-        isDefault: false
-      };
-      
-      setUserProfiles(prev => [...prev, mappedNewProfile]);
-      setSelectedProfile(mappedNewProfile.id);
-      
-      // Set form values với profile mới
-      form.setFieldsValue({
-        fullName: mappedNewProfile.fullName,
-        phone: mappedNewProfile.phone,
-        birthDate: mappedNewProfile.birthDate,
-        gender: mappedNewProfile.gender
-      });
-      
-      // Đóng modal và chuyển step
-      setShowCreateProfileModal(false);
-      handleNext();
-      
-      message.success('Tạo hồ sơ thành công!');
-    } catch (error) {
-      console.error('❌ [Debug] Error creating profile:', error);
-      message.error('Không thể tạo hồ sơ. Vui lòng thử lại!');
-    }
-  };
+  }, [selectedDate]);
 
   // Auto-select service from URL params
   useEffect(() => {
@@ -795,9 +780,9 @@ const Booking: React.FC = () => {
                 {/* Debug info */}
                 <div className="mb-4 p-3 bg-gray-100 rounded-lg text-sm">
                   <p><strong>Debug:</strong> Ngày đã chọn: {selectedDate || 'Chưa chọn'}</p>
-                  <p><strong>Tổng số bác sĩ:</strong> {doctors.length}</p>
-                  <p><strong>Bác sĩ có sẵn:</strong> {doctors.filter(d => d.isAvailable).length}</p>
-                  <p><strong>Bác sĩ không có sẵn:</strong> {doctors.filter(d => !d.isAvailable).length}</p>
+                  <p><strong>Tổng số bác sĩ:</strong> {doctorsWithAvailability.length}</p>
+                  <p><strong>Bác sĩ có sẵn:</strong> {doctorsWithAvailability.filter((d: Doctor) => d.isAvailable).length}</p>
+                  <p><strong>Bác sĩ không có sẵn:</strong> {doctorsWithAvailability.filter((d: Doctor) => !d.isAvailable).length}</p>
                   {!selectedDate && (
                     <p className="text-orange-600 mt-2">
                       <strong>Lưu ý:</strong> Chưa chọn ngày nên hiển thị tất cả bác sĩ. Chọn ngày ở bước tiếp theo để lọc bác sĩ có lịch trống.
@@ -806,7 +791,7 @@ const Booking: React.FC = () => {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {doctors.map(doctor => (
+                  {doctorsWithAvailability.map((doctor: Doctor) => (
                     <div 
                       key={doctor.id}
                       onClick={() => {
@@ -1266,8 +1251,6 @@ const Booking: React.FC = () => {
               >
                 <Input placeholder="Nhập số điện thoại" />
               </Form.Item>
-
-
 
               <Form.Item
                 name="birthDate"

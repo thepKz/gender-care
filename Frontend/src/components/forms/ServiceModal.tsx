@@ -1,22 +1,21 @@
-import React, { useEffect } from 'react';
 import {
-  Modal,
-  Form,
-  Input,
-  InputNumber,
-  Select,
-  Button,
-  message,
-  Space,
-  Checkbox
-} from 'antd';
-import { 
-  DollarOutlined, 
-  EditOutlined, 
-  PlusOutlined,
-  PictureOutlined 
+    EditOutlined,
+    PictureOutlined,
+    PlusOutlined
 } from '@ant-design/icons';
-import { Service, CreateServiceRequest, UpdateServiceRequest } from '../../types';
+import {
+    Button,
+    Checkbox,
+    Form,
+    Input,
+    InputNumber,
+    message,
+    Modal,
+    Select,
+    Space
+} from 'antd';
+import React, { useEffect } from 'react';
+import { CreateServiceRequest, Service, UpdateServiceRequest } from '../../types';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -203,14 +202,15 @@ const ServiceModal: React.FC<ServiceModalProps> = ({
           ]}
         >
           <InputNumber
-            placeholder="Nhập giá dịch vụ"
-            className="w-full rounded-lg"
             min={1000}
             max={100000000}
             step={1000}
             formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-            parser={(value) => value!.replace(/\$\s?|(,*)/g, '')}
-            prefix={<DollarOutlined className="text-green-primary" />}
+            parser={(value) => {
+              const parsed = parseInt(value!.replace(/\$\s?|(,*)/g, ''), 10) || 1000;
+              return Math.max(1000, Math.min(100000000, parsed)) as 1000 | 100000000;
+            }}
+            placeholder="Nhập giá dịch vụ"
           />
         </Form.Item>
 
