@@ -1,14 +1,13 @@
-import { CalendarOutlined, CameraOutlined, EditOutlined, HomeFilled, LockOutlined, TeamOutlined, UserOutlined, PlusOutlined } from '@ant-design/icons';
-import { Avatar, Button, Card, Skeleton, Spin, Tabs, Tag, Upload, notification } from 'antd';
-import { AnimatePresence, motion } from 'framer-motion';
+import { CalendarOutlined, CameraOutlined, HomeFilled, LockOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons';
+import { Avatar, Button, Skeleton, Spin, Upload, notification } from 'antd';
+import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import userApi from '../../api/endpoints/userApi';
 import Image1 from '../../assets/images/image1.jpg';
-import ChangePasswordForm from '../../components/auth/ChangePasswordForm';
-import ProfilesList from '../../components/profile/ProfilesList';
+import ChangePasswordForm from '../../components/feature/auth/ChangePasswordForm';
+import ProfilesList from '../../components/feature/profile/ProfilesList';
 import { useAuth } from '../../hooks/useAuth';
-
 import './profile.css';
 
 const TabItems = [
@@ -70,9 +69,7 @@ const ProfilePage: React.FC = () => {
     }
   }, [user?.avatar]);
 
-  const handleTabChange = (key: string) => {
-    setActiveTab(key);
-  };
+
 
   if (isLoading) {
     return (
@@ -159,8 +156,8 @@ const ProfilePage: React.FC = () => {
                   const formData = new FormData();
                   formData.append('avatar', file as File);
                   try {
-                    const res = await userApi.uploadAvatarImage(formData);
-                    const url = res.url;
+                    const res = await userApi.uploadAvatarImage(formData as unknown as File);
+                    const url = res.data.url;
                     await userApi.updateAvatar(url);
                     
                     setCurrentAvatar(url);

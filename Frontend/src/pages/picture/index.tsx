@@ -10,7 +10,7 @@ import Facility1 from "../../assets/images/image4.jpg";
 import Facility2 from "../../assets/images/image5.jpg";
 import Facility3 from "../../assets/images/image6.jpg";
 import Facility4 from "../../assets/images/image7.jpg";
-import { AnimatedSection } from "../../share";
+import { AnimatedSection } from "../../shared";
 
 interface GalleryImage {
   id: number;

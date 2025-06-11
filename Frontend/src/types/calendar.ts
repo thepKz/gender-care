@@ -1,4 +1,3 @@
-import { Dayjs } from 'dayjs';
 
 // Calendar Event Types
 export interface CalendarEvent {
@@ -19,7 +18,7 @@ export interface CalendarEvent {
   className?: string;
 }
 
-// Calendar View Types
+// Calendar View Types - Changed 'list' to 'agenda' to match react-big-calendar
 export type CalendarView = 'month' | 'week' | 'day' | 'agenda';
 
 // Doctor Schedule Event
@@ -53,13 +52,13 @@ export interface AdvancedCalendarProps {
 
 // Calendar Toolbar Props
 export interface CalendarToolbarProps {
-  onNavigate: (action: 'PREV' | 'NEXT' | 'TODAY') => void;
+  onNavigate: (action: 'prev' | 'next' | 'today') => void;
   onView: (view: CalendarView) => void;
   onToday: () => void;
   label: string;
   view: CalendarView;
   views: CalendarView[];
-  date: Date;
+  date?: Date;
 }
 
 // Event Style Getter

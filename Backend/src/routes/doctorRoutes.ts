@@ -13,6 +13,9 @@ router.get('/', doctorController.getAll);
 
 // ===== STATIC ROUTES FIRST (tránh conflict với /:id) =====
 
+// PUBLIC: Xem thông tin cơ bản bác sĩ (không cần authentication)
+router.get('/:id/public', doctorController.getPublicById);
+
 // PUBLIC: Tìm tất cả bác sĩ có lịch trống theo ngày/timeSlot (chỉ Free status)
 router.get('/available', doctorScheduleController.getAvailableDoctors);
 

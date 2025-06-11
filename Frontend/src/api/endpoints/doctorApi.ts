@@ -1,14 +1,17 @@
 import axiosInstance from '../axiosConfig';
 
+export interface DoctorInfo {
+  _id: string;
+  fullName: string;
+  email: string;
+  avatar?: string;
+  phone?: string;
+  role?: string;
+}
+
 export interface Doctor {
   _id: string;
-  userId: {
-    _id: string;
-    fullName: string;
-    email: string;
-    avatar?: string;
-    phone?: string;
-  };
+  userId: DoctorInfo;
   bio?: string;
   experience?: number;
   rating?: number;
@@ -53,6 +56,12 @@ export const doctorApi = {
 
   // Lấy thông tin bác sĩ theo ID (public)
   getDoctorById: async (id: string): Promise<Doctor> => {
+    const response = await axiosInstance.get(`/doctors/${id}/public`);
+    return response.data.data; // API trả về { success, message, data }
+  },
+
+  // Lấy thông tin bác sĩ theo ID với full access (staff only)
+  getDoctorByIdFull: async (id: string): Promise<Doctor> => {
     const response = await axiosInstance.get(`/doctors/${id}`);
     return response.data;
   },

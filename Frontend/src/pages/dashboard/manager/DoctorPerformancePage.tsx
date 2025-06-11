@@ -24,7 +24,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import React, { useState } from 'react';
-import { MOCK_DOCTORS } from '../../../share/doctorMockData';
+// doctorMockData removed - using empty array until API is implemented
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -52,7 +52,9 @@ const ManagerDoctorPerformancePage: React.FC = () => {
 
   // Generate mock performance data
   const generatePerformanceData = (): DoctorPerformance[] => {
-    return MOCK_DOCTORS.map((doctor, index) => ({
+    // TODO: Replace with actual API call
+    const doctors: any[] = []; // Empty until API is implemented
+    return doctors.map((doctor: any, index: number) => ({
       id: doctor._id,
       doctorName: doctor.userId.fullName,
       specialty: doctor.specialization || 'Chưa xác định',

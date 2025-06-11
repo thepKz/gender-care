@@ -9,7 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 interface FormValues {
   fullName: string;
   phone: string;
-  gender: 'male' | 'female' | 'other' | string;
+  gender: 'male' | 'female' | 'other';
   year?: dayjs.Dayjs;
 }
 

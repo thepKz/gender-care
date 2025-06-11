@@ -23,7 +23,7 @@ import {
 } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import React, { useEffect, useState } from 'react';
-import { MOCK_DOCTORS, MOCK_DOCTOR_SCHEDULES } from '../../../share/doctorMockData';
+// doctorMockData removed - using empty arrays until API is implemented
 
 const { Option } = Select;
 
@@ -42,8 +42,18 @@ interface DaySchedule {
 
 const DoctorMySchedulePage: React.FC = () => {
   // Giả sử doctor hiện tại đăng nhập
-  const currentDoctorId = MOCK_DOCTORS[0]._id; // Mock current doctor
-  const currentDoctor = MOCK_DOCTORS[0];
+  // TODO: Get current doctor ID from auth context or API
+  const currentDoctorId = 'current_doctor_id'; // Mock current doctor
+  const currentDoctor = { 
+    userId: { 
+      fullName: 'Current Doctor', 
+      avatar: undefined,
+      email: 'doctor@example.com' 
+    },
+    specialization: 'General Medicine',
+    experience: 5,
+    rating: 4.5
+  }; // Mock current doctor
   
   const [schedules, setSchedules] = useState<DaySchedule[]>([]);
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
@@ -56,14 +66,16 @@ const DoctorMySchedulePage: React.FC = () => {
     setTimeout(() => {
       // Convert MOCK_DOCTOR_SCHEDULES to DaySchedule format
       const mySchedules: DaySchedule[] = [];
-      const doctorSchedule = MOCK_DOCTOR_SCHEDULES.find(s => s.doctorId === currentDoctorId);
+      // TODO: Replace with actual API call
+    const doctorSchedules: any[] = []; // Empty until API is implemented
+    const doctorSchedule = doctorSchedules.find((s: any) => s.doctorId === currentDoctorId);
       
       if (doctorSchedule) {
-        doctorSchedule.weekSchedule.forEach(weekDay => {
+        doctorSchedule?.weekSchedule?.forEach((weekDay: any) => {
           mySchedules.push({
             date: dayjs(weekDay.dayOfWeek).format('YYYY-MM-DD'),
             doctorId: currentDoctorId,
-            slots: weekDay.slots.map(slot => ({
+            slots: weekDay.slots?.map((slot: any) => ({
               id: slot._id,
               time: slot.slotTime,
               status: slot.status,

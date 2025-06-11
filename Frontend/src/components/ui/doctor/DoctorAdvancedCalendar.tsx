@@ -1,18 +1,16 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { Calendar, momentLocalizer, View } from 'react-big-calendar';
+import { Card, Empty, message, Spin } from 'antd';
 import moment from 'moment';
 import 'moment/locale/vi'; // Vietnamese locale
-import { Card, Spin, Empty, message } from 'antd';
-import type { DoctorCalendarEvent } from '../../../utils/doctorCalendarUtils';
-import '../../../styles/calendar.css';
+import React, { useCallback, useState } from 'react';
+import { Calendar, momentLocalizer, View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import '../../../styles/calendar.css';
+import { CalendarView } from '../../../types/calendar';
+import type { DoctorCalendarEvent } from '../../../utils/doctorCalendarUtils';
 
 // Setup localizer with Vietnamese
 moment.locale('vi');
 const localizer = momentLocalizer(moment);
-
-// Calendar view types
-export type CalendarView = 'month' | 'week' | 'day' | 'agenda';
 
 // Props interface
 interface DoctorAdvancedCalendarProps {
@@ -84,7 +82,7 @@ const DoctorAdvancedCalendar: React.FC<DoctorAdvancedCalendarProps> = ({
       style: {
         backgroundColor: event.backgroundColor,
         borderColor: event.borderColor,
-        color: event.textColor,
+        color: event.borderColor,
         border: 'none',
         borderRadius: '6px',
         fontSize: '12px',

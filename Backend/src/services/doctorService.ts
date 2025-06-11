@@ -1,9 +1,9 @@
-import  Doctor  from '../models/Doctor';
-import User from '../models/User';
-import Feedbacks from '../models/Feedbacks';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
+import Doctor from '../models/Doctor';
 import DoctorSchedules from '../models/DoctorSchedules';
+import Feedbacks from '../models/Feedbacks';
+import User from '../models/User';
 
 // Thêm function validation ObjectId
 const isValidObjectId = (id: string): boolean => {
@@ -140,6 +140,44 @@ export const getDoctorByIdWithDetails = async (id: string) => {
 
 export const getAllDoctors = () => Doctor.find().populate('userId', 'fullName email avatar phone');
 export const getDoctorById = (id: string) => Doctor.findById(id).populate('userId', 'fullName email avatar phone');
+
+// PUBLIC: Lấy thông tin cơ bản của bác sĩ (không bao gồm thông tin nhạy cảm)
+export const getDoctorPublicInfo = async (id: string) => {
+  try {
+    // Validate ObjectId format
+    if (!isValidObjectId(id)) {
+      throw new Error('ID bác sĩ không hợp lệ');
+    }
+
+    const doctor = await Doctor.findById(id).populate('userId', 'fullName avatar');
+    
+    if (!doctor) {
+      return null;
+    }
+
+    // Chỉ trả về thông tin công khai, không bao gồm thông tin nhạy cảm
+    return {
+      _id: doctor._id,
+      userId: {
+        _id: (doctor as any).userId._id,
+        fullName: (doctor as any).userId.fullName,
+        avatar: (doctor as any).userId.avatar,
+      },
+      bio: doctor.bio,
+      experience: doctor.experience,
+      rating: doctor.rating,
+      image: doctor.image,
+      specialization: doctor.specialization,
+      education: doctor.education,
+      certificate: doctor.certificate,
+      createdAt: doctor.createdAt,
+      updatedAt: doctor.updatedAt,
+    };
+  } catch (error) {
+    console.error('Error getting doctor public info:', error);
+    throw error;
+  }
+};
 
 // Sửa createDoctor để tự tạo user account từ doctorInfo
 export const createDoctor = async (doctorInfo: any) => {

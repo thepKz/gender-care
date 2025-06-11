@@ -1,32 +1,31 @@
-import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Card,
-  Button,
-  Input,
-  Select,
-  Space,
-  Row,
-  Col,
-  Typography,
-  Spin,
-  Empty,
-  Pagination,
-  Divider
-} from 'antd';
-import {
-  SearchOutlined,
-  FilterOutlined,
-  ReloadOutlined,
   CustomerServiceOutlined,
   GiftOutlined,
   HeartOutlined,
+  ReloadOutlined,
+  SearchOutlined,
   StarOutlined
 } from '@ant-design/icons';
-import { ServicePackage, GetServicePackagesParams } from '../../types';
+import {
+  Button,
+  Card,
+  Col,
+  Divider,
+  Empty,
+  Input,
+  Pagination,
+  Row,
+  Select,
+  Space,
+  Spin,
+  Typography
+} from 'antd';
+import React, { useCallback, useEffect, useState } from 'react';
 import { getServicePackages } from '../../api/endpoints/servicePackageApi';
-import ServiceDisplayCard from '../../components/medical/ServiceDisplayCard';
-import ServicePackageDisplayCard from '../../components/medical/ServicePackageDisplayCard';
+import ServiceDisplayCard from '../../components/feature/medical/ServiceDisplayCard';
+import ServicePackageDisplayCard from '../../components/feature/medical/ServicePackageDisplayCard';
 import { useServicesData } from '../../hooks/useServicesData';
+import { GetServicePackagesParams, ServicePackage } from '../../types';
 
 const { Title, Text } = Typography;
 const { Option } = Select;

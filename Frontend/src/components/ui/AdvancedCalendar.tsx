@@ -1,17 +1,17 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { Calendar, momentLocalizer, View } from 'react-big-calendar';
+import { Card, Empty, message, Spin } from 'antd';
 import moment from 'moment';
 import 'moment/locale/vi'; // Vietnamese locale
-import { Card, Spin, Empty, message } from 'antd';
-import CalendarToolbar from './CalendarToolbar';
-import type { 
-  AdvancedCalendarProps, 
-  CalendarEvent, 
-  CalendarView,
-  EventStyleGetter 
-} from '../../types/calendar';
-import '../../styles/calendar.css';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Calendar, momentLocalizer, View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import '../../styles/calendar.css';
+import type {
+    AdvancedCalendarProps,
+    CalendarEvent,
+    CalendarView,
+    EventStyleGetter
+} from '../../types/calendar';
+import CalendarToolbar from './CalendarToolbar';
 
 // Setup localizer with Vietnamese
 moment.locale('vi');
@@ -149,11 +149,11 @@ const AdvancedCalendar: React.FC<AdvancedCalendarProps> = ({
   }, [onView]);
 
   // Custom toolbar handlers
-  const handleToolbarNavigate = useCallback((action: 'PREV' | 'NEXT' | 'TODAY') => {
+  const handleToolbarNavigate = useCallback((action: 'prev' | 'next' | 'today') => {
     let newDate = new Date(currentDate);
     
     switch (action) {
-      case 'PREV':
+      case 'prev':
         if (currentView === 'month') {
           newDate = moment(currentDate).subtract(1, 'month').toDate();
         } else if (currentView === 'week') {
@@ -164,7 +164,7 @@ const AdvancedCalendar: React.FC<AdvancedCalendarProps> = ({
           newDate = moment(currentDate).subtract(1, 'month').toDate();
         }
         break;
-      case 'NEXT':
+      case 'next':
         if (currentView === 'month') {
           newDate = moment(currentDate).add(1, 'month').toDate();
         } else if (currentView === 'week') {
@@ -175,7 +175,7 @@ const AdvancedCalendar: React.FC<AdvancedCalendarProps> = ({
           newDate = moment(currentDate).add(1, 'month').toDate();
         }
         break;
-      case 'TODAY':
+      case 'today':
         newDate = new Date();
         break;
     }

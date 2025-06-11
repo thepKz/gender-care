@@ -1,11 +1,9 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
+import ManagerDoctorPerformancePage from '../pages/dashboard/manager/DoctorPerformancePage';
 import ManagerDoctorProfilesPage from '../pages/dashboard/manager/DoctorProfilesPage';
-import { 
-  DoctorSchedulePage as ManagerDoctorSchedulePage,
-  DoctorPerformancePage as ManagerDoctorPerformancePage,
-  DoctorSpecialtiesPage as ManagerDoctorSpecialtiesPage
-} from '../pages/dashboard/admin'; // Reuse admin components
+import ManagerDoctorSchedulePage from '../pages/dashboard/manager/DoctorSchedulePage';
+import ManagerDoctorSpecialtiesPage from '../pages/dashboard/manager/DoctorSpecialtiesPage';
 
 const ManagerDoctorRoutes: React.FC = () => {
   return (

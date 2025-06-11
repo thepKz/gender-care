@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Button, Form, Input, message, Card, Row, Col, Typography, Space, Tag, Avatar, Progress, Timeline, Collapse, Statistic, Modal } from 'antd';
-import { motion, AnimatePresence, useInView } from 'framer-motion';
-import { VideoPlay, MessageQuestion, Profile, Shield, Clock, Heart, Send, Star1, Verify, Call, Messages2, TrendUp, Award, SecurityUser, VideoCircle, InfoCircle } from 'iconsax-react';
+import { Avatar, Button, Card, Col, Collapse, Form, Input, message, Modal, Progress, Row, Space, Tag, Timeline, Typography } from 'antd';
+import { AnimatePresence, motion, useInView } from 'framer-motion';
+import { Call, Clock, Heart, InfoCircle, MessageQuestion, Messages2, Profile, SecurityUser, Send, Shield, Star1, TrendUp, Verify, VideoCircle, VideoPlay } from 'iconsax-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import GridMotion from '../../components/ui/GridMotion';
-import { FloatingAppointmentButton } from '../../components/common';
 import { consultationApi } from '../../api';
+import GridMotion from '../../components/ui/GridMotion';
+import { FloatingAppointmentButton } from '../../components/ui/common';
 import './styles.css';
 
 const { Title, Paragraph, Text } = Typography;

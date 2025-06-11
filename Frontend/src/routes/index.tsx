@@ -43,7 +43,7 @@ import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
 
 // Dashboard Wrapper Components
-import DashboardWrapper from '../components/dashboard/DashboardWrapper';
+import DashboardWrapper from '../components/feature/dashboard/DashboardWrapper';
 
 // Manager Dashboard Components  
 

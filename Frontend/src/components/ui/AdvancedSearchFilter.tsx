@@ -1,27 +1,26 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { 
-  Input, 
-  Select, 
-  DatePicker, 
-  Button, 
-  Space, 
-  Card, 
-  Row, 
-  Col, 
-  Tag, 
-  Badge,
-  Collapse
-} from 'antd';
-import { 
-  SearchOutlined, 
-  FilterOutlined, 
-  ClearOutlined,
-  UserOutlined,
-  ClockCircleOutlined,
-  CalendarOutlined
+import {
+    CalendarOutlined,
+    ClearOutlined,
+    ClockCircleOutlined,
+    FilterOutlined,
+    SearchOutlined,
+    UserOutlined
 } from '@ant-design/icons';
+import {
+    Badge,
+    Button,
+    Card,
+    Col,
+    Collapse,
+    DatePicker,
+    Input,
+    Row,
+    Select,
+    Space,
+    Tag
+} from 'antd';
 import type { Dayjs } from 'dayjs';
-import dayjs from 'dayjs';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { IDoctor } from '../../api/endpoints/doctor';
 
 const { Option } = Select;
@@ -51,7 +50,7 @@ export interface DoctorOption {
 
 export interface AdvancedSearchFilterProps {
   onFilterChange: (filters: SearchFilterOptions) => void;
-  onDoctorSearch: (searchTerm: string) => Promise<DoctorOption[]>;
+  onDoctorSearch?: (searchTerm: string) => Promise<DoctorOption[]>;
   availableTimeSlots: string[];
   availableSpecializations: string[];
   allDoctors: IDoctor[];
@@ -364,7 +363,13 @@ const AdvancedSearchFilter: React.FC<AdvancedSearchFilterProps> = ({
                 </label>
                 <RangePicker
                   value={filters.dateRange}
-                  onChange={(dates) => updateFilters({ dateRange: dates })}
+                  onChange={(dates) => {
+                    if (dates && dates[0] && dates[1]) {
+                      updateFilters({ dateRange: [dates[0], dates[1]] });
+                    } else {
+                      updateFilters({ dateRange: null });
+                    }
+                  }}
                   style={{ width: '100%' }}
                   format="DD/MM/YYYY"
                 />

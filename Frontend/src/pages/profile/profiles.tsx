@@ -1,32 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Button, 
-  Empty, 
-  Spin, 
-  Modal, 
-  notification, 
-  Typography,
-  Row,
-  Col,
-  Card,
-  Statistic
-} from 'antd';
-import { 
-  UserAddOutlined, 
-  TeamOutlined, 
-  ExclamationCircleOutlined,
-  InfoCircleOutlined,
-  HeartOutlined,
-  SafetyCertificateOutlined
+import {
+    HeartOutlined,
+    InfoCircleOutlined,
+    SafetyCertificateOutlined,
+    TeamOutlined,
+    UserAddOutlined
 } from '@ant-design/icons';
+import {
+    Button,
+    Card,
+    Col,
+    Empty,
+    Modal,
+    notification,
+    Row,
+    Spin,
+    Statistic,
+    Typography
+} from 'antd';
+import { AnimatePresence, motion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import ProfileCard from '../../components/profile/ProfileCard';
-import ProfileForm from '../../components/profile/ProfileForm';
-import { UserProfile } from '../../types';
 import userProfileApi from '../../api/endpoints/userProfileApi';
+import ProfileCard from '../../components/feature/profile/ProfileCard';
+import ProfileForm from '../../components/feature/profile/ProfileForm';
+import QuickAddProfile from '../../components/feature/userProfile/QuickAddProfile';
 import { useAuth } from '../../hooks/useAuth';
-import QuickAddProfile from '../../components/userProfile/QuickAddProfile';
+import { UserProfile } from '../../types';
 
 const { Title, Text } = Typography;
 

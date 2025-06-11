@@ -35,6 +35,7 @@ export interface IDoctor {
   bio?: string;
   experience?: number;
   rating?: number;
+  image?: string;
   specialization?: string;
   education?: string;
   certificate?: string;
@@ -49,6 +50,7 @@ export interface CreateDoctorRequest {
   userId: string;
   bio?: string;
   experience?: number;
+  image?: string;
   specialization?: string;
   education?: string;
   certificate?: string;
@@ -57,6 +59,7 @@ export interface CreateDoctorRequest {
 export interface UpdateDoctorRequest {
   bio?: string;
   experience?: number;
+  image?: string;
   specialization?: string;
   education?: string;
   certificate?: string;

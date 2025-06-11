@@ -1,43 +1,43 @@
 import {
-  BarChartOutlined,
-  BookOutlined,
-  CalendarOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  EditOutlined,
-  MedicineBoxOutlined,
-  SaveOutlined,
-  StarOutlined,
-  TeamOutlined,
-  TrophyOutlined,
-  UserOutlined
+    BarChartOutlined,
+    BookOutlined,
+    CalendarOutlined,
+    CheckCircleOutlined,
+    ClockCircleOutlined,
+    EditOutlined,
+    MedicineBoxOutlined,
+    SaveOutlined,
+    StarOutlined,
+    TeamOutlined,
+    TrophyOutlined,
+    UserOutlined
 } from '@ant-design/icons';
 import {
-  Alert,
-  Avatar,
-  Button,
-  Card,
-  Col,
-  Divider,
-  Form,
-  Input,
-  InputNumber,
-  List,
-  message,
-  Modal,
-  Progress,
-  Rate,
-  Row,
-  Select,
-  Space,
-  Spin,
-  Statistic,
-  Tag,
-  Tooltip,
-  Typography
+    Alert,
+    Avatar,
+    Button,
+    Card,
+    Col,
+    Divider,
+    Form,
+    Input,
+    InputNumber,
+    List,
+    message,
+    Modal,
+    Progress,
+    Rate,
+    Row,
+    Select,
+    Space,
+    Spin,
+    Statistic,
+    Tag,
+    Tooltip,
+    Typography
 } from 'antd';
 import React, { useEffect, useState } from 'react';
-import doctorApi, { Doctor } from '../../../api/endpoints/doctorApi';
+import doctorApi, { Doctor, DoctorSchedule } from '../../../api/endpoints/doctorApi';
 import { useAuth } from '../../../hooks/useAuth';
 import { getDoctorScheduleStats, getTodayStats } from '../../../utils/doctorCalendarUtils';
 
@@ -155,8 +155,8 @@ const DoctorOverviewPage: React.FC = () => {
   };
 
   // Calculate statistics
-  const overallStats = schedules.length > 0 ? getDoctorScheduleStats(schedules) : null;
-  const todayStats = schedules.length > 0 ? getTodayStats(schedules) : null;
+  const overallStats = schedules.length > 0 ? getDoctorScheduleStats(schedules as any) : null;
+  const todayStats = schedules.length > 0 ? getTodayStats(schedules as any) : null;
 
   // Check if user is doctor
   if (!user || user.role !== 'doctor') {

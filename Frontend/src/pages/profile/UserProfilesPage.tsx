@@ -1,16 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Typography, Breadcrumb, Alert } from 'antd';
-import { HomeOutlined, UserOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, UserOutlined } from '@ant-design/icons';
+import { Alert, Breadcrumb, Button, Typography } from 'antd';
 import { motion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { UserProfileProvider } from '../../context/UserProfileContext';
-import { useUserProfiles } from '../../hooks/useUserProfiles';
-import { useAuth } from '../../hooks/useAuth';
-import UserProfileList from '../../components/userProfile/UserProfileList';
-import UserProfileModal from '../../components/userProfile/UserProfileModal';
-import { UserProfile } from '../../types';
 import { CreateUserProfileRequest, UpdateUserProfileRequest } from '../../api/endpoints/userProfileApi';
-import '../../components/userProfile/UserProfile.css';
+import '../../components/feature/userProfile/UserProfile.css';
+import UserProfileList from '../../components/feature/userProfile/UserProfileList';
+import UserProfileModal from '../../components/feature/userProfile/UserProfileModal';
+import { UserProfileProvider } from '../../context/UserProfileContext';
+import { useAuth } from '../../hooks/useAuth';
+import { useUserProfiles } from '../../hooks/useUserProfiles';
+import { UserProfile } from '../../types';
 
 const { Title, Text } = Typography;
 
@@ -213,7 +213,7 @@ const UserProfilesPageContent: React.FC = () => {
             onSearch={searchProfiles}
             sortBy={sortBy}
             sortOrder={sortOrder}
-            onSort={sortProfiles}
+            onSort={(sortBy) => sortProfiles(sortBy as any, sortOrder)}
             filterGender={filterGender}
             onFilter={filterByGender}
             onResetFilters={resetFilters}

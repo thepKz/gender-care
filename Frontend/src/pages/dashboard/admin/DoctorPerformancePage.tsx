@@ -1,40 +1,54 @@
-import React, { useState } from 'react';
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Statistic, 
-  Table, 
-  Progress, 
-  Rate, 
-  Select, 
-  DatePicker, 
-  Button,
-  Space,
-  Typography,
-  Avatar,
-  Tag,
-  Tooltip,
-  message
-} from 'antd';
-import { 
-  TrophyOutlined, 
-  RiseOutlined, 
-  FallOutlined, 
-  UserOutlined,
+import {
   CalendarOutlined,
   DollarOutlined,
+  DownloadOutlined,
+  FallOutlined,
+  RiseOutlined,
   StarOutlined,
-  DownloadOutlined
+  TrophyOutlined,
+  UserOutlined
 } from '@ant-design/icons';
+import {
+  Avatar,
+  Button,
+  Card,
+  Col,
+  DatePicker,
+  Progress,
+  Rate,
+  Row,
+  Select,
+  Space,
+  Statistic,
+  Table,
+  Tag,
+  Typography,
+  message
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { 
-  MOCK_DOCTORS, 
-  MOCK_DOCTOR_STATISTICS,
-  type DoctorProfile,
-  type DoctorStatistics
-} from '../../../share/doctorMockData';
+import React, { useEffect, useState } from 'react';
+
+// Define interfaces since doctorMockData is removed
+interface DoctorProfile {
+  id: string;
+  userId: {
+    fullName: string;
+    avatar?: string;
+  };
+  specialization: string;
+}
+
+interface DoctorStatistics {
+  doctorId: string;
+  totalSlots: number;
+  bookedSlots: number;
+  absentSlots: number;
+  monthlyRevenue: number;
+  averageRating: number;
+  completedConsultations: number;
+  absentDays: number;
+}
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -50,8 +64,8 @@ interface PerformanceData extends DoctorStatistics {
 }
 
 const DoctorPerformancePage: React.FC = () => {
-  const [doctors] = useState<DoctorProfile[]>(MOCK_DOCTORS);
-  const [statistics] = useState<DoctorStatistics[]>(MOCK_DOCTOR_STATISTICS);
+  const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
+  const [statistics, setStatistics] = useState<DoctorStatistics[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<string | undefined>(undefined);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
     dayjs().subtract(30, 'day'),
@@ -59,10 +73,40 @@ const DoctorPerformancePage: React.FC = () => {
   ]);
   const [loading, setLoading] = useState(false);
 
+  // Fetch data from API
+  useEffect(() => {
+    fetchDoctorPerformanceData();
+  }, [dateRange]);
+
+  const fetchDoctorPerformanceData = async () => {
+    setLoading(true);
+    try {
+      // TODO: Replace with actual API calls
+      // const doctorsResponse = await api.get('/doctors');
+      // const statisticsResponse = await api.get('/doctor-statistics');
+      // setDoctors(doctorsResponse.data);
+      // setStatistics(statisticsResponse.data);
+      
+      // Temporary empty state until API is implemented
+      setDoctors([]);
+      setStatistics([]);
+      
+    } catch (error) {
+      console.error('Error fetching doctor performance data:', error);
+      message.error('Không thể tải dữ liệu hiệu suất bác sĩ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Tạo dữ liệu hiệu suất
   const getPerformanceData = (): PerformanceData[] => {
+    if (statistics.length === 0 || doctors.length === 0) return [];
+    
     return statistics.map(stat => {
-      const doctor = doctors.find(d => d.id === stat.doctorId)!;
+      const doctor = doctors.find(d => d.id === stat.doctorId);
+      if (!doctor) return null;
+      
       const efficiency = stat.totalSlots > 0 ? (stat.bookedSlots / stat.totalSlots) * 100 : 0;
       const attendanceRate = stat.totalSlots > 0 ? ((stat.totalSlots - stat.absentSlots) / stat.totalSlots) * 100 : 0;
       
@@ -75,7 +119,7 @@ const DoctorPerformancePage: React.FC = () => {
         revenue: stat.monthlyRevenue,
         growth: -10 + Math.random() * 30 // Mock growth data
       };
-    }).sort((a, b) => b.efficiency - a.efficiency);
+          }).filter((item): item is PerformanceData => item !== null).sort((a, b) => b.efficiency - a.efficiency);
   };
 
   const performanceData = getPerformanceData();
@@ -407,7 +451,11 @@ const DoctorPerformancePage: React.FC = () => {
             </Select>
             <RangePicker
               value={dateRange}
-              onChange={(dates) => dates && setDateRange(dates)}
+              onChange={(dates) => {
+                if (dates && dates[0] && dates[1]) {
+                  setDateRange([dates[0], dates[1]]);
+                }
+              }}
             />
           </Space>
           
@@ -423,7 +471,7 @@ const DoctorPerformancePage: React.FC = () => {
 
         <Table
           columns={columns}
-          dataSource={selectedDoctor ? performanceData.filter(p => p.doctorId === selectedDoctor) : performanceData}
+          dataSource={selectedDoctor ? performanceData.filter(p => p.doctor.id === selectedDoctor) : performanceData}
           rowKey="doctorId"
           pagination={{
             pageSize: 10,

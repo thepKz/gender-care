@@ -1,32 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  DatePicker, 
-  Table, 
-  Tag, 
-  Button, 
-  Space, 
-  message,
-  Typography,
-  Row,
-  Col,
-  Empty,
-  Spin,
-  Tooltip
-} from 'antd';
-import { 
-  CalendarOutlined, 
-  UserOutlined,
-  ReloadOutlined,
-  EyeOutlined
+import {
+    CalendarOutlined,
+    EyeOutlined,
+    ReloadOutlined,
+    UserOutlined
 } from '@ant-design/icons';
+import {
+    Button,
+    Card,
+    Col,
+    DatePicker,
+    Empty,
+    message,
+    Row,
+    Space,
+    Spin,
+    Table,
+    Tag,
+    Tooltip,
+    Typography
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import doctorScheduleApi, { 
-  type IDoctorSchedule, 
-  type IWeekScheduleObject,
-  type ITimeSlot 
+import React, { useEffect, useState } from 'react';
+import doctorScheduleApi, {
+    type IDoctorSchedule
 } from '../../../api/endpoints/doctorSchedule';
 
 const { Title, Text } = Typography;
@@ -83,8 +81,8 @@ const StaffDoctorSchedulePage: React.FC = () => {
           return;
         }
 
-        const availableSlots = weekDay.slots.filter(slot => !slot.isBooked).length;
-        const bookedSlots = weekDay.slots.filter(slot => slot.isBooked).length;
+        const availableSlots = weekDay.slots.filter(slot => slot.status === 'Free').length;
+        const bookedSlots = weekDay.slots.filter(slot => slot.status === 'Booked').length;
 
         tableData.push({
           key: `${schedule._id}_${weekDay._id}`,

@@ -31,4 +31,18 @@ export {
     userProfileApi
 };
 
-export default api; 
+export default api;
+
+// API Configuration and Services
+export { default as api } from './axiosConfig';
+
+// API Services  
+export { doctorAPI, type CreateDoctorRequest as CreateDoctorAPIRequest, type IDoctor } from './services/doctorAPI';
+export * from './services/handleAPI';
+export * from './services/userAPI';
+
+// API Endpoints
+export * from './endpoints';
+
+// Types & Interfaces
+export type { Doctor, DoctorSchedule } from './endpoints/doctorApi';

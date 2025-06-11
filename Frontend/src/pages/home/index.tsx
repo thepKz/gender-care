@@ -15,7 +15,7 @@ import Facility3 from "../../assets/images/image6.jpg";
 import Facility4 from "../../assets/images/image7.jpg";
 
 import HealthBanner from "../../assets/images/doctor-banner.jpg";
-import { AnimatedSection, DividerComponent } from "../../share";
+import { AnimatedSection, DividerComponent } from "../../shared";
 
 
 const responsive = {

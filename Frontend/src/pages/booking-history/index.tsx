@@ -308,12 +308,12 @@ const BookingHistory: React.FC = () => {
         
         // Cập nhật UI - đánh dấu lịch hẹn đã hủy
         const updatedAppointments = appointments.map(apt => 
-          apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+          apt.id === appointment.id ? { ...apt, status: 'cancelled' as const, canCancel: false, canReschedule: false } : apt
         );
         setAppointments(updatedAppointments);
         setFilteredAppointments(
           filteredAppointments.map(apt => 
-            apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+            apt.id === appointment.id ? { ...apt, status: 'cancelled' as const, canCancel: false, canReschedule: false } : apt
           )
         );
       } else {
@@ -327,12 +327,12 @@ const BookingHistory: React.FC = () => {
         
         // Vẫn cập nhật UI
         const updatedAppointments = appointments.map(apt => 
-          apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+          apt.id === appointment.id ? { ...apt, status: 'cancelled' as const, canCancel: false, canReschedule: false } : apt
         );
         setAppointments(updatedAppointments);
         setFilteredAppointments(
           filteredAppointments.map(apt => 
-            apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+            apt.id === appointment.id ? { ...apt, status: 'cancelled' as const, canCancel: false, canReschedule: false } : apt
           )
         );
       }

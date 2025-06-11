@@ -15,7 +15,7 @@ import {
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { doctorApi, type Doctor } from "../../api/endpoints/doctorApi";
-import { AnimatedSection } from "../../share";
+import { AnimatedSection } from "../../shared";
 
 interface Achievement {
   id: number;

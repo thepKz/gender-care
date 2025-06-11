@@ -30,7 +30,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import React, { useState } from 'react';
-import { MOCK_DOCTORS } from '../../../share/doctorMockData';
+// doctorMockData removed - using empty array until API is implemented
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -113,10 +113,12 @@ const AdminDoctorSpecialtiesPage: React.FC = () => {
   const [form] = Form.useForm();
 
   // Get doctors by specialty
-  const getDoctorsBySpecialty = (specialtyName: string): SpecialtyDoctor[] => {
-    return MOCK_DOCTORS
-      .filter(doctor => doctor.specialization?.toLowerCase().includes(specialtyName.toLowerCase()))
-      .map(doctor => ({
+      const getDoctorsBySpecialty = (specialtyName: string): SpecialtyDoctor[] => {
+      // TODO: Replace with actual API call to get doctors by specialty
+      const doctors: any[] = []; // Empty until API is implemented
+      return doctors
+        .filter((doctor: any) => doctor.specialization?.toLowerCase().includes(specialtyName.toLowerCase())) 
+      .map((doctor: any) => ({
         id: doctor._id,
         name: doctor.userId.fullName,
                   experience: doctor.experience || 0,

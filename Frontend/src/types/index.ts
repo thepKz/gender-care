@@ -6,7 +6,7 @@ export interface User {
   fullName: string;
   phone?: string;
   avatar?: string;
-  gender: string;
+  gender: 'male' | 'female' | 'other';
   address?: string;
   year?: string;
   role: 'guest' | 'customer' | 'doctor' | 'staff' | 'manager' | 'admin';
@@ -97,6 +97,7 @@ export interface Doctor {
   bio: string;
   experience: number;
   rating: number;
+  image?: string;
   specialization: string;
   education: string;
   certificate: string;
@@ -125,6 +126,9 @@ export interface DoctorSchedule {
   updatedAt: string;
 }
 
+// Export DoctorSchedule type for external use
+export type { DoctorSchedule as DoctorScheduleType };
+
 // Service types
 export interface Service {
   _id: string;
@@ -152,6 +156,7 @@ export interface CreateServiceRequest {
   availableAt: ('Athome' | 'Online' | 'Center')[];
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface UpdateServiceRequest extends Partial<CreateServiceRequest> {}
 
 export interface GetServicesParams {
@@ -164,6 +169,13 @@ export interface GetServicesParams {
   search?: string;
   isActive?: boolean;
   includeDeleted?: boolean; // For manager to view deleted services
+}
+
+// Create schedule form values
+export interface CreateScheduleFormValues {
+  doctorId: string;
+  weekSchedule: WeekScheduleObject[];
+  overwrite?: boolean; // For overwriting existing schedules
 }
 
 export interface ServicesResponse {
@@ -284,6 +296,19 @@ export interface UserProfile {
   year?: Date | string;
   createdAt: string;
   updatedAt: string;
+}
+
+// User Profile List Props
+export interface UserProfileListProps {
+  profiles: UserProfile[];
+  loading: boolean;
+  onEdit: (profile: UserProfile) => void;
+  onDelete: (id: string) => Promise<void>;
+  onAdd: () => void;
+  searchQuery: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  onView: (id: string) => void;
 }
 
 // Menstrual cycle types

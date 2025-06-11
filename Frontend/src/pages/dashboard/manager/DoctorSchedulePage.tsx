@@ -1,63 +1,57 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Card, 
-  Select, 
-  DatePicker, 
-  Table, 
-  Tag, 
-  Button, 
-  Space, 
-  Modal, 
-  message,
-  Typography,
-  Row,
-  Col,
-  Form,
-  Empty,
-  Spin,
-  Tooltip,
-  Popconfirm,
-  Radio,
-  Calendar,
-  Badge,
-  Statistic,
-  Switch
-} from 'antd';
-import { 
-  CalendarOutlined, 
-  ClockCircleOutlined, 
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  UserOutlined,
-  ReloadOutlined,
-  TableOutlined,
-  BarChartOutlined,
-  CheckCircleOutlined,
-  MinusCircleOutlined,
-  ExclamationCircleOutlined
+import {
+    CalendarOutlined,
+    CheckCircleOutlined,
+    ClockCircleOutlined,
+    DeleteOutlined,
+    EditOutlined,
+    ExclamationCircleOutlined,
+    MinusCircleOutlined,
+    PlusOutlined,
+    ReloadOutlined,
+    TableOutlined,
+    UserOutlined
 } from '@ant-design/icons';
+import {
+    Button,
+    Calendar,
+    Card,
+    Col,
+    DatePicker,
+    Empty,
+    Form,
+    message,
+    Modal,
+    Popconfirm,
+    Radio,
+    Row,
+    Select,
+    Space,
+    Spin,
+    Statistic,
+    Switch,
+    Table,
+    Tag,
+    Tooltip,
+    Typography
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import doctorApi, { type IDoctor } from '../../../api/endpoints/doctor';
-import doctorScheduleApi, { 
-  type IDoctorSchedule, 
-  type IWeekScheduleObject,
-  type ITimeSlot,
-  type CreateScheduleByDatesRequest,
-  type CreateScheduleByMonthRequest
+import React, { useEffect, useMemo, useState } from 'react';
+import doctorScheduleApi, {
+    type CreateScheduleByDatesRequest,
+    type CreateScheduleByMonthRequest,
+    type IDoctorSchedule
 } from '../../../api/endpoints/doctorSchedule';
 import AdvancedCalendar from '../../../components/ui/AdvancedCalendar';
 import AdvancedSearchFilter from '../../../components/ui/AdvancedSearchFilter';
 import { useAdvancedSearch } from '../../../hooks/useAdvancedSearch';
 import { useVirtualizedCalendar } from '../../../hooks/useVirtualizedCalendar';
 import type { CalendarEvent, CalendarView, DoctorScheduleEvent } from '../../../types/calendar';
-import type { SearchFilterOptions } from '../../../components/ui/AdvancedSearchFilter';
-import { 
-  convertSchedulesToCalendarEvents, 
-  getScheduleStats,
-  formatEventTime 
+import {
+    convertSchedulesToCalendarEvents,
+    formatEventTime,
+    getScheduleStats
 } from '../../../utils/calendarUtils';
 
 const { Title, Text } = Typography;
@@ -258,8 +252,8 @@ const DoctorSchedulePage: React.FC = () => {
     filteredSchedules.forEach(schedule => {
       schedule.weekSchedule.forEach(weekSchedule => {
         const workDate = dayjs(weekSchedule.dayOfWeek);
-        const freeSlots = weekSchedule.slots.filter(slot => !slot.isBooked && slot.status !== 'Absent').length;
-        const bookedSlots = weekSchedule.slots.filter(slot => slot.isBooked).length;
+        const freeSlots = weekSchedule.slots.filter(slot => slot.status === 'Free').length;
+        const bookedSlots = weekSchedule.slots.filter(slot => slot.status === 'Booked').length;
         const absentSlots = weekSchedule.slots.filter(slot => slot.status === 'Absent').length;
         
         data.push({
@@ -600,7 +594,10 @@ const DoctorSchedulePage: React.FC = () => {
       {/* Advanced Search & Filter */}
       <AdvancedSearchFilter
         onFilterChange={applyFilters}
-        onDoctorSearch={searchDoctors}
+        onDoctorSearch={async (searchTerm: string) => {
+          const result = searchDoctors(searchTerm);
+          return result instanceof Promise ? await result : [];
+        }}
         availableTimeSlots={availableTimeSlots}
         availableSpecializations={availableSpecializations}
         allDoctors={allDoctors}
@@ -809,7 +806,7 @@ const DoctorSchedulePage: React.FC = () => {
             }}
             onView={handleCalendarViewChange}
             defaultView="month"
-            views={['month', 'week', 'day', 'agenda']}
+            views={['month', 'week', 'day', 'agenda'] as CalendarView[]}
             loading={loading || searchLoading}
             height={700}
           />

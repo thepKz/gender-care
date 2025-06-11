@@ -1,49 +1,45 @@
-import React, { useState, useEffect } from 'react';
 import {
-  Card,
-  Button,
-  Input,
-  Select,
-  Typography,
-  message,
-  Modal,
-  Pagination,
-  Empty,
-  Spin,
-  Space,
-  Tooltip,
-  Tag,
-  Switch
-} from 'antd';
-import {
-  PlusOutlined,
-  SearchOutlined,
-  FilterOutlined,
-  ExclamationCircleOutlined,
-  GiftOutlined,
-  ReloadOutlined
+    FilterOutlined,
+    GiftOutlined,
+    PlusOutlined,
+    ReloadOutlined,
+    SearchOutlined
 } from '@ant-design/icons';
+import {
+    Button,
+    Card,
+    Input,
+    message,
+    Modal,
+    Pagination,
+    Select,
+    Space,
+    Spin,
+    Switch,
+    Typography
+} from 'antd';
+import React, { useEffect, useState } from 'react';
 
 // API imports
 import {
-  getServicePackages,
-  createServicePackage,
-  updateServicePackage,
-  deleteServicePackage,
-  recoverServicePackage,
-  GetServicePackagesParams
+    createServicePackage,
+    deleteServicePackage,
+    getServicePackages,
+    GetServicePackagesParams,
+    recoverServicePackage,
+    updateServicePackage
 } from '../../../api/endpoints/servicePackageApi';
 
 // Component imports
-import ServicePackageCard from '../../../components/cards/ServicePackageCard';
-import ServicePackageModal from '../../../components/forms/ServicePackageModal';
-import DeleteConfirmModal from '../../../components/modals/DeleteConfirmModal';
+import ServicePackageCard from '../../../components/ui/cards/ServicePackageCard';
+import ServicePackageModal from '../../../components/ui/forms/ServicePackageModal';
+import DeleteConfirmModal from '../../../components/ui/modals/DeleteConfirmModal';
 
 // Type imports
 import {
-  ServicePackage,
-  CreateServicePackageRequest,
-  UpdateServicePackageRequest
+    CreateServicePackageRequest,
+    ServicePackage,
+    UpdateServicePackageRequest
 } from '../../../types';
 
 const { Title, Text } = Typography;

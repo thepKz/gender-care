@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import Image1 from "../../assets/images/image1.jpg";
 import Image2 from "../../assets/images/image2.jpg";
 import Image3 from "../../assets/images/image3.jpg";
-import { AnimatedSection } from "../../share";
+import { AnimatedSection } from "../../shared";
 
 const { Search } = Input;
 const { Option } = Select;

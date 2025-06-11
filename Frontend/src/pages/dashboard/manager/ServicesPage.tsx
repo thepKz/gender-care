@@ -1,40 +1,36 @@
+import {
+    CustomerServiceOutlined,
+    FilterOutlined,
+    PlusOutlined,
+    ReloadOutlined,
+    SearchOutlined
+} from '@ant-design/icons';
+import {
+    Button,
+    Card,
+    Col,
+    Input,
+    message,
+    Modal,
+    Pagination,
+    Row,
+    Select,
+    Spin,
+    Switch,
+    Typography
+} from 'antd';
 import React, { useState } from 'react';
 import {
-  Card,
-  Button,
-  Input,
-  Select,
-  Space,
-  Row,
-  Col,
-  Typography,
-  message,
-  Spin,
-  Empty,
-  Pagination,
-  Modal,
-  Tooltip,
-  Switch
-} from 'antd';
-import {
-  PlusOutlined,
-  SearchOutlined,
-  FilterOutlined,
-  ReloadOutlined,
-  ExclamationCircleOutlined,
-  CustomerServiceOutlined
-} from '@ant-design/icons';
-import { Service, CreateServiceRequest, UpdateServiceRequest } from '../../../types';
-import {
-  createService,
-  updateService,
-  deleteService,
-  recoverService
+    createService,
+    deleteService,
+    recoverService,
+    updateService
 } from '../../../api/endpoints/serviceApi';
-import ServiceManagementCard from '../../../components/medical/ServiceManagementCard';
+import ServiceManagementCard from '../../../components/feature/medical/ServiceManagementCard';
+import ServiceModal from '../../../components/ui/forms/ServiceModal';
+import DeleteConfirmModal from '../../../components/ui/modals/DeleteConfirmModal';
 import { useServicesData } from '../../../hooks/useServicesData';
-import ServiceModal from '../../../components/forms/ServiceModal';
-import DeleteConfirmModal from '../../../components/modals/DeleteConfirmModal';
+import { CreateServiceRequest, Service, UpdateServiceRequest } from '../../../types';
 
 const { Title, Text } = Typography;
 const { Option } = Select;

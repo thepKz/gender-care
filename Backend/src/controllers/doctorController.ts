@@ -73,6 +73,37 @@ export const getByIdWithDetails = async (req: Request, res: Response) => {
   }
 };
 
+// PUBLIC: Lấy thông tin cơ bản của bác sĩ (không cần authentication)
+export const getPublicById = async (req: Request, res: Response) => {
+  try {
+    const doctor = await doctorService.getDoctorPublicInfo(req.params.id);
+    if (!doctor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy bác sĩ',
+      });
+    }
+    res.json({
+      success: true,
+      message: 'Lấy thông tin bác sĩ thành công',
+      data: doctor,
+    });
+  } catch (error: any) {
+    if (error.message && error.message.includes('ID bác sĩ không hợp lệ')) {
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
+    }
+
+    console.error('Error getting doctor public info:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy thông tin bác sĩ',
+    });
+  }
+};
+
 // Chỉ lấy feedback
 export const getDoctorFeedbacks = async (req: Request, res: Response) => {
   try {

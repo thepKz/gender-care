@@ -1,22 +1,22 @@
-import React, { useState } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Badge, Button, Space, Typography } from 'antd';
-import { 
-  MenuOutlined,
-  BellOutlined,
-  UserOutlined,
-  LogoutOutlined,
-  SettingOutlined,
-  DashboardOutlined,
-  TeamOutlined,
-  BarChartOutlined,
-  DatabaseOutlined,
-  CalendarOutlined,
-  HeartOutlined,
-  MedicineBoxOutlined,
-  ClockCircleOutlined,
-  CaretRightOutlined,
-  CustomerServiceOutlined
+import {
+    BarChartOutlined,
+    BellOutlined,
+    CalendarOutlined,
+    CaretRightOutlined,
+    ClockCircleOutlined,
+    CustomerServiceOutlined,
+    DashboardOutlined,
+    DatabaseOutlined,
+    HeartOutlined,
+    LogoutOutlined,
+    MedicineBoxOutlined,
+    MenuOutlined,
+    SettingOutlined,
+    TeamOutlined,
+    UserOutlined
 } from '@ant-design/icons';
+import { Avatar, Badge, Button, Dropdown, Layout, Menu, Space, Typography } from 'antd';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
@@ -25,7 +25,7 @@ const { Title, Text } = Typography;
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  userRole: 'admin' | 'manager' | 'staff' | 'doctor';
+  userRole: 'guest' | 'customer' | 'doctor' | 'staff' | 'manager' | 'admin';
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole }) => {

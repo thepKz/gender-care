@@ -1,43 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Select, 
-  DatePicker, 
-  Table, 
-  Tag, 
-  Button, 
-  Space, 
-  Modal, 
-  message,
-  Typography,
-  Row,
-  Col,
-  Form,
-  Empty,
-  Spin,
-  Tooltip,
-  Popconfirm,
-  Radio,
-  Calendar,
-  Checkbox
-} from 'antd';
-import { 
-  CalendarOutlined, 
-  ClockCircleOutlined, 
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  UserOutlined,
-  ReloadOutlined
+import {
+    CalendarOutlined,
+    ClockCircleOutlined,
+    DeleteOutlined,
+    EditOutlined,
+    PlusOutlined,
+    ReloadOutlined,
+    UserOutlined
 } from '@ant-design/icons';
+import {
+    Button,
+    Calendar,
+    Card,
+    Checkbox,
+    Col,
+    DatePicker,
+    Empty,
+    Form,
+    message,
+    Modal,
+    Popconfirm,
+    Radio,
+    Row,
+    Select,
+    Space,
+    Spin,
+    Table,
+    Tag,
+    Tooltip,
+    Typography
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import React, { useEffect, useState } from 'react';
 import doctorApi, { type IDoctor } from '../../../api/endpoints/doctor';
-import doctorScheduleApi, { 
-  type IDoctorSchedule, 
-  type CreateScheduleByDatesRequest,
-  type CreateScheduleByMonthRequest
+import doctorScheduleApi, {
+    type CreateScheduleByDatesRequest,
+    type CreateScheduleByMonthRequest,
+    type IDoctorSchedule
 } from '../../../api/endpoints/doctorSchedule';
 
 const { Title, Text } = Typography;
@@ -194,7 +194,7 @@ const AdminDoctorSchedulePage: React.FC = () => {
           year,
           timeSlots: selectedTimeSlots,
           excludeWeekends: values.excludeWeekends !== false, // default true
-          overwrite: values.overwrite || false // default false
+          overwrite: false // default false
         };
 
         await doctorScheduleApi.createScheduleByMonth(createData);

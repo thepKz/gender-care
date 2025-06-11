@@ -1,13 +1,13 @@
-import React from 'react';
-import { Button, Space, Typography, Tooltip } from 'antd';
-import { 
-  LeftOutlined, 
-  RightOutlined, 
-  CalendarOutlined,
-  UnorderedListOutlined,
+import {
   AppstoreOutlined,
-  BarsOutlined
+  BarsOutlined,
+  CalendarOutlined,
+  LeftOutlined,
+  RightOutlined,
+  UnorderedListOutlined
 } from '@ant-design/icons';
+import { Button, Space, Tooltip, Typography } from 'antd';
+import React from 'react';
 import type { CalendarToolbarProps, CalendarView } from '../../types/calendar';
 
 const { Text } = Typography;
@@ -47,12 +47,12 @@ const CalendarToolbar: React.FC<CalendarToolbarProps> = ({
   label,
   view,
   views,
-  date
+
 }) => {
   
   // Handle navigation
-  const handlePrevious = () => onNavigate('PREV');
-  const handleNext = () => onNavigate('NEXT');
+  const handlePrevious = () => onNavigate('prev');
+  const handleNext = () => onNavigate('next');
   const handleToday = () => onToday();
   
   // Handle view change
@@ -102,7 +102,7 @@ const CalendarToolbar: React.FC<CalendarToolbarProps> = ({
       <div className="calendar-toolbar-right">
         {/* View Switcher */}
         <Space className="calendar-view-switcher">
-          {views.map((viewType) => {
+          {views.map((viewType: CalendarView) => {
             const config = VIEW_CONFIGS[viewType];
             const isActive = view === viewType;
             

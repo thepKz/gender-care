@@ -14,7 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { doctorApi, type Doctor, type DoctorSchedule } from "../../api/endpoints/doctorApi";
-import { AnimatedSection } from "../../share";
+import { AnimatedSection } from "../../shared";
 
 const DoctorDetail = () => {
   const navigate = useNavigate();

@@ -27,15 +27,37 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import React, { useState } from 'react';
-import { MOCK_DOCTORS, type DoctorProfile } from '../../../share/doctorMockData';
+
+// Define DoctorProfile interface since doctorMockData is removed
+interface DoctorProfile {
+  id: string;
+  userId: {
+    _id: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    avatar?: string;
+    role: string;
+    emailVerified: boolean;
+    isActive: boolean;
+  };
+  bio: string;
+  experience: number;
+  rating: number;
+  specialization: string;
+  education: string;
+  certificate: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 
 const DoctorProfilesPage: React.FC = () => {
-  const [doctors, setDoctors] = useState<DoctorProfile[]>(MOCK_DOCTORS);
-  const [filteredDoctors, setFilteredDoctors] = useState<DoctorProfile[]>(MOCK_DOCTORS);
+  const [doctors, setDoctors] = useState<DoctorProfile[]>([]);
+  const [filteredDoctors, setFilteredDoctors] = useState<DoctorProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState<DoctorProfile | null>(null);
@@ -290,7 +312,7 @@ const DoctorProfilesPage: React.FC = () => {
           <Tooltip title={record.userId.isActive ? 'Tạm dừng' : 'Kích hoạt'}>
             <Popconfirm
               title={`Bạn có chắc muốn ${record.userId.isActive ? 'tạm dừng' : 'kích hoạt'} bác sĩ này?`}
-              onConfirm={() => toggleDoctorStatus(record._id)}
+              onConfirm={() => toggleDoctorStatus(record.id)}
               okText="Đồng ý"
               cancelText="Hủy"
             >
@@ -305,7 +327,7 @@ const DoctorProfilesPage: React.FC = () => {
           <Tooltip title="Xóa">
             <Popconfirm
               title="Bạn có chắc muốn xóa bác sĩ này?"
-              onConfirm={() => handleDelete(record._id)}
+              onConfirm={() => handleDelete(record.id)}
               okText="Đồng ý"
               cancelText="Hủy"
             >
