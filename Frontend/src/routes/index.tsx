@@ -23,7 +23,7 @@ import BlogPage from '../pages/blog';
 import CounselorsPage from '../pages/counselors';
 import OnlineConsultationPage from '../pages/online-consultation';
 import PicturePage from '../pages/picture';
-import PublicServicesPage from '../pages/services';
+import PublicServicesPage from '../pages/services/PublicServicesPage';
 
 // Doctor Pages
 import DoctorDetail from '../pages/doctors/DoctorDetail';
@@ -35,8 +35,8 @@ import FeedbackPage from '../pages/feedback';
 import PaymentPage from '../pages/payment';
 
 // Consultation Pages
-import PaymentPage from '../pages/consultation/PaymentPage';
 import PaymentSuccessPage from '../pages/consultation/PaymentSuccessPage';
+import ServicesPage from '../pages/services';
 
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
@@ -122,7 +122,7 @@ const AppRoutes: React.FC = () => {
 
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/online-consultation" element={<OnlineConsultationPage />} />
-
+        <Route path="/services/public" element={<PublicServicesPage />} />
         
         {/* All service booking routes redirect to main booking page */}
         <Route path="/services/consulting" element={<Navigate to="/booking?service=consultation" replace />} />
