@@ -2,13 +2,32 @@ import { Request, Response } from 'express';
 import { AuthRequest } from '../types/auth';
 import mongoose from 'mongoose';
 import * as doctorQAService from '../services/doctorQAService';
+import * as meetingService from '../services/meetingService';
 
 // Validate ObjectId helper
 const isValidObjectId = (id: string): boolean => {
   return mongoose.Types.ObjectId.isValid(id);
 };
 
-// GET /api/doctor-qa/least-booked-doctor - Tìm bác sĩ có ít slot booked nhất (STAFF ONLY)
+// GET /api/doctor-qa/best-assignment - Tìm assignment tốt nhất cho slot gần nhất (STAFF ONLY)
+export const getBestAssignment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const bestAssignment = await doctorQAService.findBestDoctorForNextSlot();
+    
+    res.status(200).json({
+      message: 'Tìm assignment tốt nhất thành công',
+      data: bestAssignment
+    });
+
+  } catch (error: any) {
+    console.error('Error getting best assignment:', error);
+    res.status(500).json({ 
+      message: error.message || 'Lỗi server khi tìm assignment' 
+    });
+  }
+};
+
+// Legacy endpoint để backward compatibility
 export const getLeastBookedDoctor = async (req: Request, res: Response): Promise<void> => {
   try {
     const leastBookedDoctorId = await doctorQAService.findLeastBookedDoctor();
@@ -202,13 +221,49 @@ export const updatePaymentStatus = async (req: Request, res: Response): Promise<
 
     const updatedQA = await doctorQAService.updatePaymentStatus(id, paymentSuccess);
     
-    const message = paymentSuccess 
-      ? 'Thanh toán thành công! Yêu cầu tư vấn đã được gửi đến bác sĩ.'
-      : 'Thanh toán thất bại. Yêu cầu tư vấn đã bị hủy.';
+    if (!updatedQA) {
+      res.status(500).json({ 
+        message: 'Lỗi khi cập nhật trạng thái thanh toán' 
+      });
+      return;
+    }
+
+    let message;
+    let extraInfo = {};
+    
+    if (paymentSuccess) {
+      // Check if smart auto-scheduling worked
+      if (updatedQA.status === 'scheduled') {
+        message = '🎉 Thanh toán thành công! Đã tự động tìm slot gần nhất và phân công bác sĩ phù hợp. Link tư vấn sẽ được gửi trước 30 phút.';
+        extraInfo = {
+          smartScheduled: true,
+          doctorAssigned: !!updatedQA.doctorId,
+          doctorName: (updatedQA.doctorId as any)?.userId?.fullName || 'Bác sĩ',
+          appointmentDate: updatedQA.appointmentDate,
+          appointmentSlot: updatedQA.appointmentSlot,
+          nextStep: 'Chờ link Google Meet được gửi trước giờ khám',
+          note: 'Hệ thống đã tự động chọn slot sớm nhất và bác sĩ ít bận nhất'
+        };
+      } else if (updatedQA.status === 'doctor_confirmed') {
+        message = '✅ Thanh toán thành công! Đã tìm bác sĩ phù hợp nhưng chưa thể tự động đặt lịch. Staff sẽ sắp xếp thủ công.';
+        extraInfo = {
+          smartScheduled: false,
+          doctorAssigned: !!updatedQA.doctorId,
+          doctorName: (updatedQA.doctorId as any)?.userId?.fullName || 'Bác sĩ',
+          needManualSchedule: true,
+          nextStep: 'Staff sẽ liên hệ trong 24h để xác nhận lịch khám'
+        };
+      } else {
+        message = '✅ Thanh toán thành công! Yêu cầu tư vấn đã được tiếp nhận.';
+      }
+    } else {
+      message = '❌ Thanh toán thất bại. Yêu cầu tư vấn đã bị hủy.';
+    }
 
     res.status(200).json({
       message,
-      data: updatedQA
+      data: updatedQA,
+      ...extraInfo
     });
 
   } catch (error: any) {
@@ -353,6 +408,124 @@ export const deleteDoctorQA = async (req: Request, res: Response): Promise<void>
     console.error('Error deleting DoctorQA:', error);
     res.status(404).json({ 
       message: error.message || 'Không tìm thấy yêu cầu tư vấn để xóa' 
+    });
+  }
+};
+
+// =============== MEETING INTEGRATION APIS ===============
+
+// GET /api/doctor-qa/:id/meeting - Lấy meeting info của QA (USER/DOCTOR/STAFF)
+export const getQAMeeting = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ 
+        message: 'ID yêu cầu tư vấn không hợp lệ' 
+      });
+      return;
+    }
+
+    const meeting = await meetingService.getMeetingByQaId(id);
+
+    res.status(200).json({
+      message: 'Lấy thông tin meeting thành công',
+      data: {
+        meetLink: meeting.meetingLink,
+        meetId: meeting.meetingId,
+        scheduledStartTime: meeting.scheduledStartTime,
+        scheduledEndTime: meeting.scheduledEndTime,
+        actualStartTime: meeting.actualStartTime,
+        actualEndTime: meeting.actualEndTime,
+        status: meeting.status,
+        participants: meeting.participants,
+        notes: meeting.notes
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error getting QA meeting:', error);
+    res.status(404).json({ 
+      message: error.message || 'Không tìm thấy meeting cho yêu cầu tư vấn này' 
+    });
+  }
+};
+
+// POST /api/doctor-qa/:id/join-meeting - Join meeting (USER/DOCTOR)
+export const joinQAMeeting = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { participantType } = req.body;
+    const currentUserId = req.user?._id;
+
+    if (!isValidObjectId(id) || !currentUserId) {
+      res.status(400).json({ 
+        message: 'ID yêu cầu tư vấn không hợp lệ hoặc user chưa đăng nhập' 
+      });
+      return;
+    }
+
+    if (!participantType || !['doctor', 'user'].includes(participantType)) {
+      res.status(400).json({ 
+        message: 'Vui lòng cung cấp participantType: doctor hoặc user' 
+      });
+      return;
+    }
+
+    const updatedMeeting = await meetingService.participantJoinMeeting(
+      id, 
+      currentUserId.toString(), 
+      participantType
+    );
+
+    res.status(200).json({
+      message: `Bạn đã tham gia meeting thành công với vai trò ${participantType}`,
+      data: {
+        meetingStatus: updatedMeeting.status,
+        actualStartTime: updatedMeeting.actualStartTime,
+        participants: updatedMeeting.participants
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error joining QA meeting:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi tham gia meeting' 
+    });
+  }
+};
+
+// PUT /api/doctor-qa/:id/complete-meeting - Hoàn thành meeting và QA (DOCTOR only)
+export const completeQAMeeting = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { doctorNotes } = req.body;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ 
+        message: 'ID yêu cầu tư vấn không hợp lệ' 
+      });
+      return;
+    }
+
+    const completedMeeting = await meetingService.completeMeeting(id, doctorNotes);
+
+    res.status(200).json({
+      message: 'Hoàn thành tư vấn và meeting thành công!',
+      data: {
+        meetingStatus: completedMeeting.status,
+        actualEndTime: completedMeeting.actualEndTime,
+        notes: completedMeeting.notes,
+        duration: completedMeeting.actualStartTime && completedMeeting.actualEndTime
+          ? Math.round((completedMeeting.actualEndTime.getTime() - completedMeeting.actualStartTime.getTime()) / 60000)
+          : null
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error completing QA meeting:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi hoàn thành meeting' 
     });
   }
 }; 

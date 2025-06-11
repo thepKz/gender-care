@@ -25,8 +25,9 @@ import NotificationDays from './NotificationDays';
 import MedicalRecords, { IMedicalRecords, IMedicalRecordMedicines } from './MedicalRecords';
 import Medicines, { IMedicines as IMedicinesData } from './Medicines';
 
-// Doctor QA
+// Doctor QA & Meeting
 import DoctorQA from './DoctorQA';
+import Meeting from './Meeting';
 
 // Content & Community
 import BlogCategories from './BlogCategories';
@@ -72,8 +73,9 @@ export {
   MedicalRecords,
   Medicines,
   
-  // Doctor QA
+  // Doctor QA & Meeting
   DoctorQA,
+  Meeting,
   
   // Content & Community
   BlogCategories,
