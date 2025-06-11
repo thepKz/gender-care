@@ -11,6 +11,19 @@ const router = Router();
 // Xem danh sách bác sĩ - tất cả mọi người đều được phép (kể cả guest)
 router.get('/', doctorController.getAll);
 
+// ===== STATIC ROUTES FIRST (tránh conflict với /:id) =====
+
+// PUBLIC: Tìm tất cả bác sĩ có lịch trống theo ngày/timeSlot (chỉ Free status)
+router.get('/available', doctorScheduleController.getAvailableDoctors);
+
+// PUBLIC: Lấy tất cả lịch làm việc của tất cả bác sĩ (chỉ Free status)
+router.get('/schedules/all', doctorScheduleController.getAllDoctorsSchedules);
+
+// DEBUG: Test schedule creation logic (PUBLIC cho dễ test)
+router.get('/debug/schedule-logic', doctorScheduleController.debugScheduleCreation);
+
+// ===== DYNAMIC ROUTES WITH :id =====
+
 // Xem thông tin chi tiết bác sĩ theo ID - chỉ staff/admin được phép (bao gồm contact info)
 router.get('/:id', verifyToken, verifyStaff, doctorController.getById);
 
@@ -24,6 +37,7 @@ router.put('/:id', verifyToken, verifyStaff, doctorController.update);
 router.delete('/:id', verifyToken, verifyAdmin, doctorController.remove);
 
 // ===== DOCTOR SCHEDULE ROUTES =====
+
 
 // ===== PUBLIC ROUTES (không cần xác thực) =====
 
@@ -41,6 +55,7 @@ router.get('/available/staff', verifyToken, verifyStaff, doctorScheduleControlle
 
 // DEBUG: Test schedule creation logic (PUBLIC cho dễ test)
 router.get('/debug/schedule-logic', doctorScheduleController.debugScheduleCreation);
+
 
 // DEBUG: Real test cho thứ 6 - tạo lịch thật để verify
 router.post('/:id/debug/test-friday', doctorScheduleController.realTestFridaySchedule);

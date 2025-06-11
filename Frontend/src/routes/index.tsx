@@ -23,7 +23,7 @@ import BlogPage from '../pages/blog';
 import CounselorsPage from '../pages/counselors';
 import OnlineConsultationPage from '../pages/online-consultation';
 import PicturePage from '../pages/picture';
-import ServicesPage from '../pages/services';
+import PublicServicesPage from '../pages/services';
 
 // Doctor Pages
 import DoctorDetail from '../pages/doctors/DoctorDetail';
@@ -32,6 +32,7 @@ import DoctorDetail from '../pages/doctors/DoctorDetail';
 import BookingPage from '../pages/booking';
 import BookingHistoryPage from '../pages/booking-history';
 import FeedbackPage from '../pages/feedback';
+import PaymentPage from '../pages/payment';
 
 // Consultation Pages
 import PaymentPage from '../pages/consultation/PaymentPage';
@@ -42,15 +43,24 @@ import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
 
 // Dashboard Wrapper Components
-import DashboardWrapper from '../components/dashboard/DashboardWrapper';// Import các trang hồ sơ bệnh án
+import DashboardWrapper from '../components/dashboard/DashboardWrapper';
+
+// Manager Dashboard Components  
+
+// Import các trang hồ sơ bệnh án
 // XÓA: import HealthProfilesPage from '../pages/profile/health-profiles';
 import CreateProfilePage from '../pages/profile/create-profile';
 import EditProfilePage from '../pages/profile/edit-profile';
 import UserProfilesPage from '../pages/profile/UserProfilesPage';
 import ViewProfilePage from '../pages/profile/view-profile';
 
+// Import Cycle Page
+import CyclePage from '../pages/cycle';
+
 // Hooks
 import { useAuth } from '../hooks/useAuth';
+
+
 
 const AppRoutes: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -109,8 +119,10 @@ const AppRoutes: React.FC = () => {
         <Route path="/doctors/:id" element={<DoctorDetail />} />
         <Route path="/about-gcc" element={<AboutGCCPage />} />
         <Route path="/blog" element={<BlogPage />} />
+
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/online-consultation" element={<OnlineConsultationPage />} />
+
         
         {/* All service booking routes redirect to main booking page */}
         <Route path="/services/consulting" element={<Navigate to="/booking?service=consultation" replace />} />
@@ -121,9 +133,13 @@ const AppRoutes: React.FC = () => {
         {/* User Profiles Page */}
         <Route path="/user-profiles" element={isAuthenticated ? <UserProfilesPage /> : <Navigate to="/login" replace />} />
         
+        {/* Cycle Tracking Page */}
+        <Route path="/cycle" element={isAuthenticated ? <CyclePage /> : <Navigate to="/login" replace />} />
+        
         {/* Booking Pages */}
         <Route path="/booking" element={<BookingPage />} />
         <Route path="/booking-history" element={<BookingHistoryPage />} />
+        <Route path="/payment" element={<PaymentPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
         
         {/* Consultation Pages */}

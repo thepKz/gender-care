@@ -1,29 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Table, 
-  Select, 
-  DatePicker, 
-  Tag, 
-  Space,
-  Row,
-  Col,
-  Statistic,
-  Avatar,
-  Timeline,
-  Alert
-} from 'antd';
-import { 
-  CalendarOutlined, 
-  ClockCircleOutlined, 
-  UserOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
-  BookOutlined,
-  BellOutlined
+import {
+    BellOutlined,
+    BookOutlined,
+    CalendarOutlined,
+    CheckCircleOutlined,
+    ClockCircleOutlined,
+    CloseCircleOutlined,
+    UserOutlined
 } from '@ant-design/icons';
-import { MOCK_DOCTORS, MOCK_DOCTOR_SCHEDULES, type DoctorProfile } from '../../../share/doctorMockData';
+import {
+    Alert,
+    Avatar,
+    Card,
+    Col,
+    DatePicker,
+    Row,
+    Select,
+    Space,
+    Statistic,
+    Table,
+    Tag,
+    Timeline
+} from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
+import React, { useEffect, useState } from 'react';
+import { MOCK_DOCTORS, MOCK_DOCTOR_SCHEDULES } from '../../../share/doctorMockData';
 
 const { Option } = Select;
 
@@ -42,7 +42,7 @@ interface DaySchedule {
 
 const DoctorMySchedulePage: React.FC = () => {
   // Giả sử doctor hiện tại đăng nhập
-  const currentDoctorId = MOCK_DOCTORS[0].id; // Mock current doctor
+  const currentDoctorId = MOCK_DOCTORS[0]._id; // Mock current doctor
   const currentDoctor = MOCK_DOCTORS[0];
   
   const [schedules, setSchedules] = useState<DaySchedule[]>([]);
@@ -326,7 +326,6 @@ const DoctorMySchedulePage: React.FC = () => {
             {todaySchedule ? (
               <Timeline
                 items={getTodayTimeline()}
-                size="small"
               />
             ) : (
               <div style={{ textAlign: 'center', padding: '24px 0', color: '#999' }}>

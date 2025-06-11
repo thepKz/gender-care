@@ -37,6 +37,11 @@ const ServicePackageSchema: Schema = new Schema({
     type: Number,
     default: 1,
     enum: [0, 1]
+  },
+  deleteNote: {
+    type: String,
+    trim: true,
+    default: null
   }
 }, {
   timestamps: true

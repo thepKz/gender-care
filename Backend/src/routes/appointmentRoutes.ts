@@ -5,7 +5,8 @@ import {
     getAppointmentById,
     updateAppointment,
     deleteAppointment,
-    updateAppointmentStatus
+    updateAppointmentStatus,
+    updatePaymentStatus
 } from '../controllers/appointmentController';
 import { verifyToken, verifyAdmin, verifyCustomer, verifyStaff, verifyDoctor } from '../middleware';
 
@@ -42,9 +43,9 @@ router.put('/:id', verifyToken, verifyStaff, updateAppointment);
 /**
  * @route   DELETE /api/appointments/:id
  * @desc    Hủy cuộc hẹn (soft delete)
- * @access  Private (Staff)
+ * @access  Private (Staff, Customer (có điều kiện 10 phút sau khi đặt))
  */
-router.delete('/:id', verifyToken, verifyStaff, deleteAppointment);
+router.delete('/:id', verifyToken, deleteAppointment);
 
 /**
  * @route   PUT /api/appointments/:id/status
@@ -52,5 +53,12 @@ router.delete('/:id', verifyToken, verifyStaff, deleteAppointment);
  * @access  Private (Staff)
  */
 router.put('/:id/status', verifyToken, verifyStaff, updateAppointmentStatus);
+
+/**
+ * @route   PUT /api/appointments/:id/payment
+ * @desc    Cập nhật trạng thái thanh toán (pending_payment -> confirmed)
+ * @access  Private (Customer)
+ */
+router.put('/:id/payment', verifyToken, verifyCustomer, updatePaymentStatus);
 
 export default router; 

@@ -9,6 +9,7 @@
     "seed:doctors": "ts-node src/seeds/doctorSeed.ts",
     "seed:staff": "ts-node src/seeds/staffSeed.ts",
     "seed:medicines": "ts-node src/seeds/medicinesSeed.ts",
+    "seed:services": "ts-node src/scripts/seedServices.ts",
     "seed": "ts-node src/scripts/seedAll.ts",
     "seed:all": "npm run seed:staff && npm run seed:doctors && npm run seed:medicines",
     "test": "jest --detectOpenHandles",

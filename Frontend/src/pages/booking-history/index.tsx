@@ -1,24 +1,25 @@
-import { DatePicker, Empty, Input, Modal, Rate, Select, Spin, Tag, Timeline } from 'antd';
+import { DatePicker, Empty, Input, message, Modal, Rate, Select, Spin, Tag, Timeline } from 'antd';
+import axios from 'axios';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Activity,
-  Calendar,
-  Clock,
-  CloseCircle,
-  DocumentText,
-  Eye,
-  Heart,
-  Home,
-  Location,
-  MonitorMobbile,
-  People,
-  Refresh,
-  SearchNormal1,
-  Star,
-  TickCircle,
-  Timer,
-  Trash,
-  User
+    Activity,
+    Calendar,
+    Clock,
+    CloseCircle,
+    DocumentText,
+    Eye,
+    Heart,
+    Home,
+    Location,
+    MonitorMobbile,
+    People,
+    Refresh,
+    SearchNormal1,
+    Star,
+    TickCircle,
+    Timer,
+    Trash,
+    User
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +27,6 @@ import { appointmentApi } from '../../api/endpoints';
 import Image1 from '../../assets/images/image1.jpg';
 import ModernButton from '../../components/ui/ModernButton';
 import ModernCard from '../../components/ui/ModernCard';
-import { message } from 'antd';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -41,8 +41,8 @@ interface Appointment {
   doctorAvatar?: string;
   appointmentDate: string;
   appointmentTime: string;
-  typeLocation: 'online' | 'clinic' | 'home';
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  typeLocation: 'online' | 'Online' | 'clinic' | 'home';
+  status: 'pending' | 'pending_payment' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
   price: number;
   createdAt: string;
   description?: string;
@@ -110,7 +110,7 @@ const BookingHistory: React.FC = () => {
       appointmentDate: '2024-01-25',
       appointmentTime: '10:00',
       typeLocation: 'clinic',
-      status: 'pending',
+      status: 'pending_payment',
       price: 800000,
       createdAt: '2024-01-22',
       description: 'Khám sức khỏe định kỳ',
@@ -132,51 +132,89 @@ const BookingHistory: React.FC = () => {
       notes: 'Hủy do bận việc đột xuất',
       canCancel: false,
       canReschedule: false
+    },
+    {
+      id: 'apt5',
+      serviceId: 'sti-testing',
+      serviceName: 'Xét nghiệm STI/STD mới',
+      doctorName: 'BS. Nguyễn Văn A',
+      doctorAvatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150',
+      appointmentDate: '2024-06-10',
+      appointmentTime: '10:00',
+      typeLocation: 'clinic',
+      status: 'pending_payment',
+      price: 1200000,
+      createdAt: '2024-06-08',
+      description: 'Xét nghiệm STI/STD định kỳ',
+      canCancel: true,
+      canReschedule: true
     }
   ];
 
-  useEffect(() => {
-    // Fetch appointments from API
-    const fetchAppointments = async () => {
-      setLoading(true);
-      try {
-        const response = await appointmentApi.getAllAppointments();
-        if (response.success) {
-          const formattedAppointments = response.data.appointments.map((apt: any) => ({
-            id: apt._id,
-            serviceId: apt.serviceId?._id || '',
-            serviceName: apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
-            packageName: apt.packageId?.name,
-            doctorName: apt.doctorId?.fullName,
-            doctorAvatar: apt.doctorId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-            appointmentDate: new Date(apt.appointmentDate).toISOString().split('T')[0],
-            appointmentTime: apt.appointmentTime,
-            typeLocation: apt.typeLocation,
-            status: apt.status,
-            price: apt.packageId?.price || apt.serviceId?.price || 0,
-            createdAt: new Date(apt.createdAt).toISOString(),
-            description: apt.description,
-            notes: apt.notes,
-            address: apt.address,
-            canCancel: ['pending', 'confirmed'].includes(apt.status),
-            canReschedule: ['pending', 'confirmed'].includes(apt.status),
-            rating: apt.rating,
-            feedback: apt.feedback
-          }));
-          setAppointments(formattedAppointments);
-          setFilteredAppointments(formattedAppointments);
-        }
-      } catch (error) {
-        console.error('Error fetching appointments:', error);
-        // Fallback to mock data if API fails
-        setAppointments(mockAppointments);
-        setFilteredAppointments(mockAppointments);
-      } finally {
-        setLoading(false);
+  const fetchAppointments = async () => {
+    setLoading(true);
+    try {
+      console.log('🔍 [Debug] Fetching appointments from API...');
+      const response = await appointmentApi.getAllAppointments();
+      console.log('🔍 [Debug] Appointments API response:', response);
+      
+      if (response.success) {
+        const formattedAppointments = response.data.appointments.map((apt: any) => ({
+          id: apt._id,
+          serviceId: apt.serviceId?._id || '',
+          serviceName: apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
+          packageName: apt.packageId?.name,
+          doctorName: apt.doctorId?.fullName || 'Chưa chỉ định', // Backend không populate doctorId
+          doctorAvatar: apt.doctorId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+          appointmentDate: new Date(apt.appointmentDate).toISOString().split('T')[0],
+          appointmentTime: apt.appointmentTime,
+          typeLocation: apt.typeLocation,
+          status: apt.status === 'pending' ? 'pending_payment' : apt.status, // Convert legacy pending to pending_payment
+          price: apt.packageId?.price || apt.serviceId?.price || 0,
+          createdAt: new Date(apt.createdAt).toISOString(),
+          description: apt.description,
+          notes: apt.notes,
+          address: apt.address,
+          canCancel: ['pending', 'pending_payment', 'confirmed'].includes(apt.status),
+          canReschedule: ['pending', 'pending_payment', 'confirmed'].includes(apt.status),
+          rating: apt.rating,
+          feedback: apt.feedback
+        }));
+        console.log('✅ [Debug] Formatted appointments:', formattedAppointments);
+        console.log('🔍 [Debug] Appointments with pending_payment status:', 
+          formattedAppointments.filter((apt: Appointment) => apt.status === 'pending_payment'));
+        console.log('🔍 [Debug] Appointments with confirmed status:', 
+          formattedAppointments.filter((apt: Appointment) => apt.status === 'confirmed'));
+        setAppointments(formattedAppointments);
+        setFilteredAppointments(formattedAppointments);
       }
+    } catch (error) {
+      console.error('❌ [Debug] Error fetching appointments:', error);
+      console.log('ℹ️ [Debug] Falling back to mock data');
+      // Fallback to mock data if API fails
+      setAppointments(mockAppointments);
+      setFilteredAppointments(mockAppointments);
+      console.log('✅ [Debug] Mock appointments loaded:', mockAppointments);
+      console.log('🔍 [Debug] Mock appointments with pending_payment status:', 
+        mockAppointments.filter(apt => apt.status === 'pending_payment'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  // Listen for focus event to refresh data when returning from payment page
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔄 [Debug] Page focused - refreshing appointments...');
+      fetchAppointments();
     };
 
-    fetchAppointments();
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   useEffect(() => {
@@ -217,6 +255,7 @@ const BookingHistory: React.FC = () => {
 
   const statusConfig = {
     pending: { color: '#faad14', text: 'Chờ xác nhận', icon: <Timer size={16} /> },
+    pending_payment: { color: '#ff7a00', text: 'Chờ thanh toán', icon: <DocumentText size={16} /> },
     confirmed: { color: '#52c41a', text: 'Đã xác nhận', icon: <TickCircle size={16} /> },
     in_progress: { color: '#1890ff', text: 'Đang thực hiện', icon: <Activity size={16} /> },
     completed: { color: '#722ed1', text: 'Hoàn thành', icon: <TickCircle size={16} /> },
@@ -225,6 +264,7 @@ const BookingHistory: React.FC = () => {
 
   const locationConfig = {
     online: { icon: <MonitorMobbile size={16} />, text: 'Online' },
+    Online: { icon: <MonitorMobbile size={16} />, text: 'Online' }, // Backend trả về "Online" với O hoa
     clinic: { icon: <Location size={16} />, text: 'Phòng khám' },
     home: { icon: <Home size={16} />, text: 'Tại nhà' }
   };
@@ -247,10 +287,45 @@ const BookingHistory: React.FC = () => {
 
   const handleCancel = async (appointment: Appointment) => {
     try {
+      // Hiển thị loading message
+      const loadingMessage = message.loading('Đang hủy lịch hẹn...', 0);
+      
+      console.log('🔍 [Debug] Cancelling appointment:', appointment.id);
+      
+      // Gọi API hủy lịch - API mới đã được cập nhật để tự động trả lại slot trống
       const response = await appointmentApi.deleteAppointment(appointment.id);
+      
+      // Đóng loading message
+      loadingMessage();
+      
       if (response.success) {
-        message.success('Hủy cuộc hẹn thành công!');
-        // Refresh appointments
+        console.log('✅ [Debug] Cancel appointment response:', response);
+        message.success({
+          content: 'Hủy cuộc hẹn thành công! Lịch đã được trả lại.',
+          icon: <TickCircle size={20} className="text-green-500" />,
+          duration: 5
+        });
+        
+        // Cập nhật UI - đánh dấu lịch hẹn đã hủy
+        const updatedAppointments = appointments.map(apt => 
+          apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+        );
+        setAppointments(updatedAppointments);
+        setFilteredAppointments(
+          filteredAppointments.map(apt => 
+            apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+          )
+        );
+      } else {
+        // Xử lý trường hợp API trả về thành công nhưng không có success flag
+        console.log('✅ [Debug] Appointment cancelled without success flag');
+        message.success({
+          content: 'Hủy cuộc hẹn thành công! Lịch đã được trả lại.',
+          icon: <TickCircle size={20} className="text-green-500" />,
+          duration: 5
+        });
+        
+        // Vẫn cập nhật UI
         const updatedAppointments = appointments.map(apt => 
           apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
         );
@@ -262,11 +337,73 @@ const BookingHistory: React.FC = () => {
         );
       }
     } catch (error) {
-      console.error('Error cancelling appointment:', error);
-      message.error('Có lỗi xảy ra khi hủy cuộc hẹn. Vui lòng thử lại!');
+      console.error('❌ [Debug] Error cancelling appointment:', error);
+      
+      // Trích xuất thông báo lỗi chi tiết từ API response
+      let errorMessage = 'Có lỗi xảy ra khi hủy cuộc hẹn. Vui lòng thử lại!';
+      let errorType = 'general';
+      
+      if (axios.isAxiosError(error) && error.response?.data) {
+        // Trường hợp lỗi validation từ backend (400)
+        if (error.response.status === 400 && error.response.data.errors) {
+          const errorObj = error.response.data.errors;
+          // Lấy message lỗi đầu tiên tìm được
+          const firstErrorKey = Object.keys(errorObj)[0];
+          const firstErrorMessage = Object.values(errorObj)[0];
+          if (firstErrorMessage) {
+            errorMessage = firstErrorMessage as string;
+            errorType = firstErrorKey;
+            console.log('🔍 [Debug] Lỗi validation:', { key: firstErrorKey, message: errorMessage });
+          }
+        } 
+        // Trường hợp lỗi quyền truy cập (403)
+        else if (error.response.status === 403) {
+          errorMessage = 'Bạn không có quyền hủy lịch hẹn này';
+          errorType = 'permission';
+        }
+        // Trường hợp có message lỗi trong response
+        else if (error.response.data.message) {
+          errorMessage = error.response.data.message;
+        }
+      }
+      
+      // Hiển thị Modal thông báo thay vì message cho thông tin chi tiết hơn
+      if (errorType === 'time') {
+        Modal.error({
+          title: 'Chưa thể hủy lịch',
+          content: (
+            <div>
+              <p>{errorMessage}</p>
+              <p className="mt-2">Bạn cần đợi đủ 10 phút sau khi đặt lịch mới có thể hủy.</p>
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-800 font-medium">Lưu ý:</p>
+                <p className="text-yellow-700">Quy định này nhằm đảm bảo bạn có đủ thời gian cân nhắc trước khi quyết định hủy lịch, giúp hệ thống hoạt động ổn định.</p>
+              </div>
+            </div>
+          ),
+          okText: 'Đã hiểu',
+          className: 'custom-error-modal'
+        });
+      } 
+      // Các lỗi khác hiển thị thông báo thông thường
+      else {
+        message.error({
+          content: errorMessage,
+          icon: <CloseCircle size={20} className="text-red-500" />,
+          duration: 5
+        });
+      }
+    } finally {
+      // Đóng modal và reset selected appointment
+      setShowDetailModal(false);
+      setSelectedAppointment(null);
+      
+      // Làm mới danh sách lịch hẹn sau 1 giây
+      setTimeout(() => {
+        console.log('🔄 [Debug] Refreshing appointments after cancellation');
+        fetchAppointments();
+      }, 1000);
     }
-    setShowDetailModal(false);
-    setSelectedAppointment(null);
   };
 
   const handleReschedule = (appointment: Appointment) => {
@@ -286,6 +423,12 @@ const BookingHistory: React.FC = () => {
 
   const handleFeedback = (appointment: Appointment) => {
     navigate(`/feedback?appointment=${appointment.id}`);
+  };
+
+  const handlePayment = (appointment: Appointment) => {
+    // Redirect đến trang thanh toán với thông tin appointment
+    const paymentUrl = `/payment?appointmentId=${appointment.id}&amount=${appointment.price}&service=${encodeURIComponent(appointment.serviceName)}`;
+    navigate(paymentUrl);
   };
 
   if (loading) {
@@ -379,6 +522,7 @@ const BookingHistory: React.FC = () => {
             >
               <Option value="all">Tất cả trạng thái</Option>
               <Option value="pending">Chờ xác nhận</Option>
+              <Option value="pending_payment">Chờ thanh toán</Option>
               <Option value="confirmed">Đã xác nhận</Option>
               <Option value="in_progress">Đang thực hiện</Option>
               <Option value="completed">Hoàn thành</Option>
@@ -458,10 +602,10 @@ const BookingHistory: React.FC = () => {
               icon: <TickCircle size={24} />
             },
             {
-              label: 'Sắp tới',
-              value: appointments.filter(a => a.status === 'confirmed').length,
+              label: 'Chờ thanh toán', 
+              value: appointments.filter(a => a.status === 'pending_payment').length,
               color: 'orange',
-              icon: <Timer size={24} />
+              icon: <DocumentText size={24} />
             },
             {
               label: 'Đã hủy',
@@ -554,8 +698,8 @@ const BookingHistory: React.FC = () => {
                                 <span>{appointment.doctorName}</span>
                               </div>
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                {locationConfig[appointment.typeLocation].icon}
-                                <span>{locationConfig[appointment.typeLocation].text}</span>
+                                {locationConfig[appointment.typeLocation]?.icon || <Location size={16} />}
+                                <span>{locationConfig[appointment.typeLocation]?.text || appointment.typeLocation}</span>
                               </div>
                             </div>
 
@@ -613,12 +757,32 @@ const BookingHistory: React.FC = () => {
                                 </ModernButton>
                               )}
 
+                              {appointment.status === 'pending_payment' && (
+                                <ModernButton
+                                  variant="primary"
+                                  className="text-sm bg-orange-500 hover:bg-orange-600"
+                                  icon={<DocumentText size={16} />}
+                                  onClick={() => handlePayment(appointment)}
+                                >
+                                  Thanh toán
+                                </ModernButton>
+                              )}
+
                               {appointment.canCancel && (
                                 <ModernButton
                                   variant="danger"
                                   className="text-sm"
                                   icon={<Trash size={16} />}
-                                  onClick={() => handleCancel(appointment)}
+                                  onClick={() => {
+                                    Modal.confirm({
+                                      title: 'Xác nhận hủy lịch',
+                                      content: 'Bạn có chắc chắn muốn hủy lịch hẹn này? Lịch sẽ được trả lại để người khác có thể đặt.',
+                                      okText: 'Đồng ý',
+                                      okButtonProps: { danger: true },
+                                      cancelText: 'Hủy',
+                                      onOk: () => handleCancel(appointment)
+                                    });
+                                  }}
                                 >
                                   Hủy lịch
                                 </ModernButton>
@@ -713,7 +877,7 @@ const BookingHistory: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Hình thức:</span>
-                  <span className="font-medium">{locationConfig[selectedAppointment.typeLocation].text}</span>
+                  <span className="font-medium">{locationConfig[selectedAppointment.typeLocation]?.text || selectedAppointment.typeLocation}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Chi phí:</span>
@@ -807,14 +971,15 @@ const BookingHistory: React.FC = () => {
                     },
                     ...(selectedAppointment.status !== 'cancelled' ? [
                       {
-                        color: selectedAppointment.status === 'pending' ? 'blue' : 'green',
-                        children: 'Chờ xác nhận'
+                        color: selectedAppointment.status === 'pending_payment' ? 'orange' : 
+                               selectedAppointment.status === 'pending' ? 'blue' : 'green',
+                        children: selectedAppointment.status === 'pending_payment' ? 'Chờ thanh toán' : 'Chờ xác nhận'
                       }
                     ] : []),
                     ...(selectedAppointment.status === 'confirmed' || selectedAppointment.status === 'in_progress' || selectedAppointment.status === 'completed' ? [
                       {
                         color: 'green',
-                        children: 'Đã xác nhận'
+                        children: 'Đã thanh toán & xác nhận'
                       }
                     ] : []),
                     ...(selectedAppointment.status === 'completed' ? [

@@ -14,7 +14,8 @@ import {
   HeartOutlined,
   MedicineBoxOutlined,
   ClockCircleOutlined,
-  CaretRightOutlined
+  CaretRightOutlined,
+  CustomerServiceOutlined
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
@@ -40,12 +41,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
       icon: <DashboardOutlined />,
       label: 'Tổng quan',
       onClick: () => navigate('/dashboard/admin'),
-    },
-    {
-      key: 'users',
-      icon: <TeamOutlined />,
-      label: 'Quản lý người dùng',
-      onClick: () => navigate('/dashboard/admin/users'),
     },
     {
       key: 'doctors',
@@ -97,6 +92,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
       onClick: () => navigate('/dashboard/manager'),
     },
     {
+      key: 'users',
+      icon: <TeamOutlined />,
+      label: 'Quản lý người dùng',
+      onClick: () => navigate('/dashboard/manager/users'),
+    },
+    {
       key: 'doctors',
       icon: <MedicineBoxOutlined />,
       label: 'Quản lý bác sĩ',
@@ -120,6 +121,23 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
           key: 'doctors-specialties',
           label: 'Chuyên khoa bác sĩ',
           onClick: () => navigate('/dashboard/manager/doctors/specialties'),
+        },
+      ],
+    },
+    {
+      key: 'services',
+      icon: <CustomerServiceOutlined />,
+      label: 'Quản lý dịch vụ',
+      children: [
+        {
+          key: 'services-management',
+          label: 'Quản lý các loại dịch vụ',
+          onClick: () => navigate('/dashboard/manager/services'),
+        },
+        {
+          key: 'service-packages-management',
+          label: 'Quản lý các gói dịch vụ',
+          onClick: () => navigate('/dashboard/manager/service-packages'),
         },
       ],
     },
@@ -300,6 +318,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
               height: 48px;
               color: rgba(255,255,255,0.85);
               transition: all 0.3s ease;
+              display: flex !important;
+              align-items: center !important;
+              padding: 12px 16px !important;
+              font-size: 14px !important;
+              line-height: 1.5 !important;
+              overflow: visible !important;
             }
             
             .ant-menu-dark .ant-menu-item-selected {
@@ -319,6 +343,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
               height: 48px;
               color: rgba(255,255,255,0.85);
               transition: all 0.3s ease;
+              display: flex !important;
+              align-items: center !important;
+              line-height: 48px !important;
             }
             
             .ant-menu-dark .ant-menu-submenu-open > .ant-menu-submenu-title {
@@ -329,6 +356,74 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
             .ant-menu-dark .ant-menu-submenu-title:hover {
               background-color: rgba(255,255,255,0.1) !important;
               color: white !important;
+            }
+
+            /* Submenu items styling */
+            .ant-menu-dark .ant-menu-submenu .ant-menu-item {
+              background-color: rgba(255,255,255,0.05) !important;
+              margin: 2px 24px 2px 40px;
+              border-radius: 6px;
+              height: 44px;
+              line-height: 44px !important;
+              display: flex !important;
+              align-items: center !important;
+              padding: 8px 16px !important;
+              font-size: 14px !important;
+              overflow: visible !important;
+            }
+            
+            .ant-menu-dark .ant-menu-submenu .ant-menu-item:hover {
+              background-color: rgba(255,255,255,0.15) !important;
+              color: white !important;
+            }
+            
+            .ant-menu-dark .ant-menu-submenu .ant-menu-item-selected {
+              background-color: rgba(255,255,255,0.2) !important;
+              color: white !important;
+            }
+
+            /* Fix submenu icon alignment */
+            .ant-menu-dark .ant-menu-submenu-title .ant-menu-submenu-arrow {
+              color: rgba(255,255,255,0.85) !important;
+            }
+
+            /* Fix menu item content alignment */
+            .ant-menu-dark .ant-menu-item-icon {
+              font-size: 16px !important;
+              width: 16px !important;
+              display: inline-flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+            }
+            
+            .ant-menu-dark .ant-menu-title-content {
+              margin-left: 12px !important;
+              vertical-align: middle !important;
+              display: inline-block !important;
+              line-height: 1.5 !important;
+              font-size: 14px !important;
+              padding-bottom: 2px !important;
+              overflow: visible !important;
+              text-align: left !important;
+              white-space: nowrap !important;
+            }
+
+            /* Fix Vietnamese character rendering */
+            .ant-menu-dark .ant-menu-item-selected,
+            .ant-menu-dark .ant-menu-submenu .ant-menu-item-selected,
+            .ant-menu-dark .ant-menu-item:hover,
+            .ant-menu-dark .ant-menu-submenu .ant-menu-item:hover {
+              font-weight: 500 !important;
+              text-rendering: optimizeLegibility !important;
+              -webkit-font-smoothing: antialiased !important;
+            }
+
+            /* Ensure proper spacing for Vietnamese characters */
+            .ant-menu-dark .ant-menu-submenu-title,
+            .ant-menu-dark .ant-menu-item {
+              font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+              letter-spacing: 0.02em !important;
+              text-rendering: optimizeLegibility !important;
             }
 
             /* Submenu items styling - KHÔNG can thiệp vào default layout */

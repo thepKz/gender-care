@@ -211,6 +211,7 @@ export const toggleUserStatus = async (req: Request, res: Response): Promise<voi
   try {
     const { userId } = req.params;
     const { reason } = req.body;
+    const currentUserRole = (req as any).user?.role; // Get current user's role
     
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       res.status(400).json({
@@ -245,7 +246,8 @@ export const toggleUserStatus = async (req: Request, res: Response): Promise<voi
     
     // Log the change
     const action = newStatus ? 'activated' : 'deactivated';
-    console.log(`[ADMIN ACTION] User ${user.email} ${action}. Reason: ${reason || 'No reason provided'}`);
+    const actionBy = currentUserRole === 'manager' ? 'MANAGER' : 'ADMIN';
+    console.log(`[${actionBy} ACTION] User ${user.email} ${action}. Reason: ${reason || 'No reason provided'}`);
     
     res.status(200).json({
       success: true,
@@ -440,12 +442,23 @@ export const searchUsers = async (req: Request, res: Response) => {
 export const createUser = async (req: Request, res: Response) => {
   try {
     const { email, password, fullName, phone, avatar, gender, address, year, role } = req.body;
+    const currentUserRole = (req as any).user?.role; // Get current user's role
+    
     if (!email || !password || !fullName) {
       return res.status(400).json({ 
         success: false,
         message: "Thiếu thông tin bắt buộc" 
       });
     }
+    
+    // Manager restrictions: cannot create admin users
+    if (currentUserRole === 'manager' && role === 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Manager không thể tạo tài khoản Admin'
+      });
+    }
+    
     const existed = await User.findOne({ email });
     if (existed) {
       return res.status(409).json({ 
@@ -453,6 +466,7 @@ export const createUser = async (req: Request, res: Response) => {
         message: "Email đã tồn tại" 
       });
     }
+    
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({
       email,
@@ -469,6 +483,10 @@ export const createUser = async (req: Request, res: Response) => {
     // Remove password from response
     const userResponse = user.toObject();
     const { password: _, ...userWithoutPassword } = userResponse;
+    
+    // Log the creation
+    const actionBy = currentUserRole === 'manager' ? 'MANAGER' : 'ADMIN';
+    console.log(`[${actionBy} ACTION] Created new user: ${user.email} with role: ${user.role}`);
     
     return res.status(201).json({ 
       success: true,
@@ -766,11 +784,12 @@ export const uploadAvatarImage = async (req: any, res: Response) => {
   }
 };
 
-// ADMIN ONLY: Cập nhật role của người dùng
+// ADMIN & MANAGER: Cập nhật role của người dùng
 export const updateUserRole = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.params;
-    const { newRole, reason } = req.body;
+    const { newRole, reason, doctorProfile } = req.body;
+    const currentUserRole = (req as any).user?.role; // Get current user's role
     
     // Validation
     if (!mongoose.Types.ObjectId.isValid(userId)) {
@@ -801,7 +820,28 @@ export const updateUserRole = async (req: Request, res: Response): Promise<void>
       return;
     }
     
-    // Prevent changing admin role (security)
+    // Manager restrictions
+    if (currentUserRole === 'manager') {
+      // Manager cannot change admin roles
+      if (user.role === 'admin') {
+        res.status(403).json({
+          success: false,
+          message: 'Manager không thể thay đổi role của Admin'
+        });
+        return;
+      }
+      
+      // Manager cannot promote users to admin
+      if (newRole === 'admin') {
+        res.status(403).json({
+          success: false,
+          message: 'Manager không thể thăng cấp user thành Admin'
+        });
+        return;
+      }
+    }
+    
+    // Prevent changing admin role (security) - applies to both admin and manager
     if (user.role === 'admin' && newRole !== 'admin') {
       res.status(403).json({
         success: false,
@@ -817,8 +857,39 @@ export const updateUserRole = async (req: Request, res: Response): Promise<void>
     user.updatedAt = new Date();
     await user.save();
     
+    // If changing to doctor role, create or update doctor profile
+    if (newRole === 'doctor' && doctorProfile) {
+      try {
+        const Doctor = await import('../models/Doctor');
+        
+        // Check if doctor profile already exists
+        const existingDoctor = await Doctor.default.findOne({ userId: user._id });
+        
+        if (existingDoctor) {
+          // Update existing doctor profile
+          await Doctor.default.findByIdAndUpdate(existingDoctor._id, {
+            ...doctorProfile,
+            updatedAt: new Date()
+          });
+        } else {
+          // Create new doctor profile
+          await Doctor.default.create({
+            userId: user._id,
+            ...doctorProfile,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
+      } catch (doctorError) {
+        console.error('Error handling doctor profile:', doctorError);
+        // Role update succeeded, but doctor profile failed
+        // Log this for manual review
+      }
+    }
+    
     // Log the change
-    console.log(`[ADMIN ACTION] User ${user.email} role changed from ${oldRole} to ${newRole}. Reason: ${reason || 'No reason provided'}`);
+    const actionBy = currentUserRole === 'manager' ? 'MANAGER' : 'ADMIN';
+    console.log(`[${actionBy} ACTION] User ${user.email} role changed from ${oldRole} to ${newRole}. Reason: ${reason || 'No reason provided'}`);
     
     res.status(200).json({
       success: true,
@@ -843,11 +914,12 @@ export const updateUserRole = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// ADMIN ONLY: Xóa người dùng (soft delete)
+// ADMIN & MANAGER: Xóa người dùng (soft delete)
 export const deleteUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.params;
     const { reason, hardDelete = false } = req.body;
+    const currentUserRole = (req as any).user?.role; // Get current user's role
     
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       res.status(400).json({
@@ -875,8 +947,17 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
       return;
     }
     
-    if (hardDelete) {
-      // Hard delete - permanently remove
+    // Manager restrictions: only soft delete allowed
+    if (currentUserRole === 'manager' && hardDelete) {
+      res.status(403).json({
+        success: false,
+        message: 'Manager chỉ được phép vô hiệu hóa tài khoản, không thể xóa vĩnh viễn'
+      });
+      return;
+    }
+    
+    if (hardDelete && currentUserRole === 'admin') {
+      // Hard delete - permanently remove (Admin only)
       await User.findByIdAndDelete(userId);
       console.log(`[ADMIN ACTION] User ${user.email} permanently deleted. Reason: ${reason || 'No reason provided'}`);
       
@@ -892,7 +973,8 @@ export const deleteUser = async (req: Request, res: Response): Promise<void> => 
       user.updatedAt = new Date();
       await user.save();
       
-      console.log(`[ADMIN ACTION] User ${user.email} soft deleted. Reason: ${reason || 'No reason provided'}`);
+      const actionBy = currentUserRole === 'manager' ? 'MANAGER' : 'ADMIN';
+      console.log(`[${actionBy} ACTION] User ${user.email} soft deleted. Reason: ${reason || 'No reason provided'}`);
       
       res.status(200).json({
         success: true,

@@ -1,45 +1,44 @@
-import React, { useState, useEffect } from 'react';
 import {
-  Card,
-  Row,
-  Col,
-  Typography,
+  BarChartOutlined,
+  BookOutlined,
+  CalendarOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  EditOutlined,
+  MedicineBoxOutlined,
+  SaveOutlined,
+  StarOutlined,
+  TeamOutlined,
+  TrophyOutlined,
+  UserOutlined
+} from '@ant-design/icons';
+import {
+  Alert,
   Avatar,
-  Statistic,
-  Tag,
-  Space,
   Button,
-  Modal,
+  Card,
+  Col,
+  Divider,
   Form,
   Input,
-  Select,
   InputNumber,
-  message,
-  Spin,
-  Alert,
-  Divider,
   List,
-  Rate,
+  message,
+  Modal,
   Progress,
-  Tooltip
+  Rate,
+  Row,
+  Select,
+  Space,
+  Spin,
+  Statistic,
+  Tag,
+  Tooltip,
+  Typography
 } from 'antd';
-import {
-  UserOutlined,
-  EditOutlined,
-  SaveOutlined,
-  CalendarOutlined,
-  ClockCircleOutlined,
-  CheckCircleOutlined,
-  TeamOutlined,
-  StarOutlined,
-  BookOutlined,
-  TrophyOutlined,
-  MedicineBoxOutlined,
-  BarChartOutlined
-} from '@ant-design/icons';
-import dayjs from 'dayjs';
+import React, { useEffect, useState } from 'react';
+import doctorApi, { Doctor } from '../../../api/endpoints/doctorApi';
 import { useAuth } from '../../../hooks/useAuth';
-import doctorApi, { Doctor, IDoctorSchedule } from '../../../api/endpoints/doctorApi';
 import { getDoctorScheduleStats, getTodayStats } from '../../../utils/doctorCalendarUtils';
 
 const { Title, Text, Paragraph } = Typography;
@@ -51,13 +50,13 @@ interface DoctorInfo extends Doctor {
   totalAppointments?: number;
   averageRating?: number;
   experienceYears?: number;
-  currentSchedules?: IDoctorSchedule[];
+  currentSchedules?: DoctorSchedule[];
 }
 
 const DoctorOverviewPage: React.FC = () => {
   const { user } = useAuth();
   const [doctorInfo, setDoctorInfo] = useState<DoctorInfo | null>(null);
-  const [schedules, setSchedules] = useState<IDoctorSchedule[]>([]);
+  const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [form] = Form.useForm();
@@ -77,11 +76,11 @@ const DoctorOverviewPage: React.FC = () => {
       const [doctorData, schedulesData] = await Promise.all([
         // Tìm thông tin doctor từ user ID (cần implement API endpoint)
         loadDoctorInfo(),
-        doctorApi.getMySchedules()
+        doctorApi.getDoctorSchedules(user?._id || '')
       ]);
 
       setDoctorInfo(doctorData);
-      setSchedules(schedulesData);
+      setSchedules([schedulesData]);
     } catch (error: any) {
       console.error('Error loading doctor data:', error);
       message.error('Không thể tải thông tin bác sĩ');
@@ -94,14 +93,13 @@ const DoctorOverviewPage: React.FC = () => {
     // Tạm thời sử dụng thông tin từ user, sau này có thể gọi API riêng
     // để lấy thông tin doctor chi tiết từ bảng Doctor
     const mockDoctorInfo: DoctorInfo = {
-      _id: 'doctor_' + user?.id,
+      _id: 'doctor_' + user?._id,
       userId: {
-        _id: user?.id || '',
+                  _id: user?._id || '',
         fullName: user?.fullName || '',
         email: user?.email || '',
-        avatar: user?.avatar,
-        phone: user?.phone,
-        isActive: true,
+                  avatar: user?.avatar,
+          phone: user?.phone,
         role: 'doctor'
       },
       bio: 'Bác sĩ chuyên khoa với nhiều năm kinh nghiệm trong lĩnh vực chăm sóc sức khỏe phụ nữ.',

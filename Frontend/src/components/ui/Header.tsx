@@ -1,3 +1,4 @@
+import { CalendarOutlined } from "@ant-design/icons";
 import { Avatar, Drawer, Dropdown, MenuProps } from "antd";
 import { motion } from 'framer-motion';
 import { CalendarEdit, Logout, Menu, Profile2User, ProfileCircle, User } from "iconsax-react";
@@ -108,6 +109,12 @@ const Header: React.FC = () => {
     },
     {
       key: "3",
+      icon: <CalendarOutlined className="profile-icon" />,
+      label: "Chu kỳ kinh nguyệt",
+      onClick: () => navigate('/cycle'),
+    },
+    {
+      key: "4",
       label: "Lịch sử đặt lịch",
       onClick: () => navigate('/booking-history'),
     },
@@ -115,7 +122,7 @@ const Header: React.FC = () => {
       type: "divider",
     },
     {
-      key: "4",
+      key: "5",
       label: "Đăng xuất",
       icon: <Logout size={20} className="logout-icon" />,
       onClick: onLogout,

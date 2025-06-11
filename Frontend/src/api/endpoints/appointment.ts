@@ -111,8 +111,14 @@ export const appointmentApi = {
     },
 
     // Cập nhật trạng thái cuộc hẹn
-    updateAppointmentStatus: async (id: string, status: 'pending' | 'confirmed' | 'completed' | 'cancelled') => {
+    updateAppointmentStatus: async (id: string, status: 'pending' | 'pending_payment' | 'confirmed' | 'completed' | 'cancelled') => {
         const response = await axiosInstance.put(`/appointments/${id}/status`, { status });
+        return response.data;
+    },
+
+    // Cập nhật trạng thái thanh toán
+    updatePaymentStatus: async (id: string, status: 'confirmed') => {
+        const response = await axiosInstance.put(`/appointments/${id}/payment`, { status });
         return response.data;
     }
 };

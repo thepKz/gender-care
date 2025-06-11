@@ -131,9 +131,58 @@ export interface Service {
   serviceName: string;
   price: number;
   description: string;
-  isDeleted: boolean;
-  serviceType: 'consultation' | 'test' | 'other';
-  availableAt: string[]; // ['Athome', 'Online', 'Center']
+  image?: string;
+  serviceType: 'consultation' | 'test' | 'treatment' | 'other';
+  availableAt: ('Athome' | 'Online' | 'Center')[];
+  duration?: number;
+  specialRequirements?: string;
+  isActive?: boolean;
+  isDeleted: number;
+  deleteNote?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateServiceRequest {
+  serviceName: string;
+  price: number;
+  description: string;
+  image?: string;
+  serviceType: 'consultation' | 'test' | 'treatment' | 'other';
+  availableAt: ('Athome' | 'Online' | 'Center')[];
+}
+
+export interface UpdateServiceRequest extends Partial<CreateServiceRequest> {}
+
+export interface GetServicesParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  serviceType?: 'consultation' | 'test' | 'treatment' | 'other';
+  availableAt?: 'Athome' | 'Online' | 'Center';
+  search?: string;
+  isActive?: boolean;
+  includeDeleted?: boolean; // For manager to view deleted services
+}
+
+export interface ServicesResponse {
+  success: boolean;
+  data: {
+    services: Service[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  };
+}
+
+export interface ServiceResponse {
+  success: boolean;
+  data: Service;
+  message?: string;
 }
 
 // Service package types
@@ -141,12 +190,56 @@ export interface ServicePackage {
   _id: string;
   name: string;
   description: string;
+  image?: string;
+  priceBeforeDiscount: number;
   price: number;
-  discountPrice: number;
-  serviceIds: string[];
-  isActive: boolean;
+  serviceIds: (string | Service)[];
+  isActive: number;
+  deleteNote?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CreateServicePackageRequest {
+  name: string;
+  description: string;
+  image?: string;
+  priceBeforeDiscount: number;
+  price: number;
+  serviceIds: string[];
+}
+
+export interface UpdateServicePackageRequest extends Partial<CreateServicePackageRequest> {
+  isActive?: boolean;
+}
+
+export interface GetServicePackagesParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  isActive?: boolean;
+  includeDeleted?: boolean; // For manager to view deleted packages
+}
+
+export interface ServicePackagesResponse {
+  success: boolean;
+  data: {
+    packages: ServicePackage[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+  };
+}
+
+export interface ServicePackageResponse {
+  success: boolean;
+  data: ServicePackage;
+  message?: string;
 }
 
 // Appointment types

@@ -14,13 +14,15 @@ import AdminDoctorProfilesPage from '../../pages/dashboard/admin/DoctorProfilesP
 import AdminDoctorSchedulePage from '../../pages/dashboard/admin/DoctorSchedulePage';
 import AdminDoctorPerformancePage from '../../pages/dashboard/admin/DoctorPerformancePage';
 import AdminDoctorSpecialtiesPage from '../../pages/dashboard/admin/DoctorSpecialtiesPage';
-import UserManagementPage from '../../pages/dashboard/admin/UserManagementPage';
 
 // Manager Pages
 import ManagerDoctorProfilesPage from '../../pages/dashboard/manager/DoctorProfilesPage';
 import ManagerDoctorSchedulePage from '../../pages/dashboard/manager/DoctorSchedulePage';
 import ManagerDoctorPerformancePage from '../../pages/dashboard/manager/DoctorPerformancePage';
 import ManagerDoctorSpecialtiesPage from '../../pages/dashboard/manager/DoctorSpecialtiesPage';
+import ServicesPage from '../../pages/dashboard/manager/ServicesPage';
+import ServicePackagesPage from '../../pages/dashboard/manager/ServicePackagesPage';
+import UserManagementPage from '../../pages/dashboard/manager/UserManagementPage';
 
 // Staff Pages
 import StaffDoctorSchedulePage from '../../pages/dashboard/staff/DoctorSchedulePage';
@@ -50,7 +52,6 @@ const DashboardWrapper: React.FC = () => {
         {(userRole === 'admin') && (
           <>
             <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<UserManagementPage />} />
             <Route path="/admin/doctors/profiles" element={<AdminDoctorProfilesPage />} />
             <Route path="/admin/doctors/schedule" element={<AdminDoctorSchedulePage />} />
             <Route path="/admin/doctors/performance" element={<AdminDoctorPerformancePage />} />
@@ -63,10 +64,13 @@ const DashboardWrapper: React.FC = () => {
         {(userRole === 'manager') && (
           <>
             <Route path="/manager" element={<ManagerDashboard />} />
+            <Route path="/manager/users" element={<UserManagementPage />} />
             <Route path="/manager/doctors/profiles" element={<ManagerDoctorProfilesPage />} />
             <Route path="/manager/doctors/schedule" element={<ManagerDoctorSchedulePage />} />
             <Route path="/manager/doctors/performance" element={<ManagerDoctorPerformancePage />} />
             <Route path="/manager/doctors/specialties" element={<ManagerDoctorSpecialtiesPage />} />
+            <Route path="/manager/services" element={<ServicesPage />} />
+            <Route path="/manager/service-packages" element={<ServicePackagesPage />} />
             <Route path="/" element={<Navigate to="/dashboard/manager" replace />} />
           </>
         )}

@@ -7,12 +7,23 @@ export interface User {
   email: string;
   phone?: string;
   avatar?: string;
+  profilePicture?: string;
+  gender?: 'male' | 'female' | 'other';
+  address?: string;
+  year?: string;
   role: 'customer' | 'doctor' | 'staff' | 'manager' | 'admin';
   isActive: boolean;
   emailVerified: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+  doctorProfile?: {
+    bio?: string;
+    experience?: number;
+    specialization?: string;
+    education?: string;
+    certificate?: string;
+  };
 }
 
 export interface CreateUserRequest {
@@ -134,44 +145,49 @@ export interface UserQueryParams {
 
 // API Functions
 export const userApi = {
-  // Lấy danh sách tất cả người dùng (Admin only)
+  // Lấy danh sách tất cả người dùng (Admin & Manager)
   getAllUsers: async (params?: UserQueryParams): Promise<UserListResponse> => {
     const response = await axiosInstance.get('/users', { params });
     return response.data;
   },
 
-  // Lấy thông tin chi tiết một người dùng (Admin only)
+  // Lấy thông tin chi tiết một người dùng (Admin & Manager)
   getUserById: async (userId: string): Promise<UserDetailResponse> => {
     const response = await axiosInstance.get(`/users/${userId}`);
     return response.data;
   },
 
-  // Cập nhật role của người dùng (Admin only)
-  updateUserRole: async (userId: string, newRole: string, reason?: string): Promise<{ success: boolean; message: string }> => {
-    const response = await axiosInstance.put(`/users/${userId}/role`, {
-      newRole,
-      reason
-    });
+  // Cập nhật role của người dùng (Admin & Manager)
+  updateUserRole: async (userId: string, roleData: { 
+    newRole: string; 
+    reason?: string; 
+    doctorProfile?: {
+      bio?: string;
+      experience?: number;
+      specialization?: string;
+      education?: string;
+      certificate?: string;
+    }
+  }): Promise<{ success: boolean; message: string }> => {
+    const response = await axiosInstance.put(`/users/${userId}/role`, roleData);
     return response.data;
   },
 
-  // Khóa/Mở khóa tài khoản (Admin only)
-  toggleUserStatus: async (userId: string, reason?: string): Promise<{ success: boolean; message: string }> => {
-    const response = await axiosInstance.patch(`/users/${userId}/toggle-status`, {
-      reason
-    });
+  // Khóa/Mở khóa tài khoản (Admin & Manager)
+  toggleUserStatus: async (userId: string, requestData?: { reason?: string }): Promise<{ success: boolean; message: string }> => {
+    const response = await axiosInstance.patch(`/users/${userId}/toggle-status`, requestData);
     return response.data;
   },
 
-  // Xóa người dùng (Admin only)
-  deleteUser: async (userId: string, reason?: string, hardDelete = false): Promise<{ success: boolean; message: string }> => {
+  // Xóa người dùng (Admin & Manager)
+  deleteUser: async (userId: string, requestData?: { reason?: string; hardDelete?: boolean }): Promise<{ success: boolean; message: string }> => {
     const response = await axiosInstance.delete(`/users/${userId}`, {
-      data: { reason, hardDelete }
+      data: requestData
     });
     return response.data;
   },
 
-  // Lấy thống kê hệ thống (Admin only)
+  // Lấy thống kê hệ thống (Admin & Manager)
   getSystemStatistics: async (): Promise<SystemStatistics> => {
     const response = await axiosInstance.get('/users/statistics');
     return response.data;

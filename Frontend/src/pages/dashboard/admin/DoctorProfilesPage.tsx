@@ -1,33 +1,32 @@
-import React, { useState } from 'react';
-import { 
-  Table, 
-  Card, 
-  Avatar, 
-  Tag, 
-  Button, 
-  Space, 
-  Input, 
-  Select, 
-  Modal, 
-  Form, 
-  Rate,
-  Typography,
-  Tooltip,
-  Popconfirm,
-  message
-} from 'antd';
-import { 
-  SearchOutlined, 
-  PlusOutlined, 
-  EditOutlined, 
-  DeleteOutlined, 
-  EyeOutlined,
-  UserOutlined,
-  MailOutlined,
-  PhoneOutlined,
-  MedicineBoxOutlined
+import {
+    DeleteOutlined,
+    EditOutlined,
+    EyeOutlined,
+    MailOutlined,
+    MedicineBoxOutlined,
+    PhoneOutlined,
+    PlusOutlined,
+    UserOutlined
 } from '@ant-design/icons';
+import {
+    Avatar,
+    Button,
+    Card,
+    Form,
+    Input,
+    Modal,
+    Popconfirm,
+    Rate,
+    Select,
+    Space,
+    Table,
+    Tag,
+    Tooltip,
+    Typography,
+    message
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import React, { useState } from 'react';
 import { MOCK_DOCTORS, type DoctorProfile } from '../../../share/doctorMockData';
 
 const { Title, Text } = Typography;
@@ -291,7 +290,7 @@ const DoctorProfilesPage: React.FC = () => {
           <Tooltip title={record.userId.isActive ? 'Tạm dừng' : 'Kích hoạt'}>
             <Popconfirm
               title={`Bạn có chắc muốn ${record.userId.isActive ? 'tạm dừng' : 'kích hoạt'} bác sĩ này?`}
-              onConfirm={() => toggleDoctorStatus(record.id)}
+              onConfirm={() => toggleDoctorStatus(record._id)}
               okText="Đồng ý"
               cancelText="Hủy"
             >
@@ -306,7 +305,7 @@ const DoctorProfilesPage: React.FC = () => {
           <Tooltip title="Xóa">
             <Popconfirm
               title="Bạn có chắc muốn xóa bác sĩ này?"
-              onConfirm={() => handleDelete(record.id)}
+              onConfirm={() => handleDelete(record._id)}
               okText="Đồng ý"
               cancelText="Hủy"
             >

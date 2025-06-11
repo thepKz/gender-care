@@ -13,69 +13,69 @@ export interface IAppointments {
   address?: string;
   description?: string;
   notes?: string;
-  status: "pending" | "confirmed" | "completed" | "cancelled";
+  status: "pending" | "pending_payment" | "confirmed" | "completed" | "cancelled";
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 const AppointmentsSchema = new mongoose.Schema<IAppointments>({
-  createdByUserId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+  createdByUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
-  profileId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'UserProfiles', 
-    required: true 
+  profileId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserProfiles',
+    required: true
   },
-  packageId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'ServicePackages' 
+  packageId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ServicePackages'
   },
-  serviceId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Services' 
+  serviceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Services'
   },
-  slotId: { 
+  slotId: {
     type: mongoose.Schema.Types.ObjectId // embedded document reference
   },
-  appointmentDate: { 
-    type: Date, 
-    required: true 
+  appointmentDate: {
+    type: Date,
+    required: true
   },
-  appointmentTime: { 
-    type: String, 
-    required: true 
+  appointmentTime: {
+    type: String,
+    required: true
   },
-  appointmentType: { 
-    type: String, 
+  appointmentType: {
+    type: String,
     enum: ["consultation", "test", "other"],
-    required: true 
+    required: true
   },
-  typeLocation: { 
-    type: String, 
+  typeLocation: {
+    type: String,
     enum: ["clinic", "home", "Online"],
-    required: true 
+    required: true
   },
-  address: { 
-    type: String 
+  address: {
+    type: String
   },
-  description: { 
-    type: String 
+  description: {
+    type: String
   },
-  notes: { 
-    type: String 
+  notes: {
+    type: String
   },
-  status: { 
-    type: String, 
-    enum: ["pending", "confirmed", "completed", "cancelled"],
-    default: "pending" 
+  status: {
+    type: String,
+    enum: ["pending", "pending_payment", "confirmed", "completed", "cancelled"],
+    default: "pending_payment"
   }
 }, { timestamps: true });
 
 // Validation: packageId hoặc serviceId phải có ít nhất 1 cái
-AppointmentsSchema.pre('save', function() {
+AppointmentsSchema.pre('save', function () {
   if (!this.packageId && !this.serviceId) {
     throw new Error('Ít nhất một trong packageId hoặc serviceId phải được cung cấp');
   }

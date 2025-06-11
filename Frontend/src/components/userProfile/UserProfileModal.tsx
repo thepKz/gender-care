@@ -7,7 +7,6 @@ import { UserProfile } from '../../types';
 import { CreateUserProfileRequest, UpdateUserProfileRequest } from '../../api/endpoints/userProfileApi';
 import './UserProfile.css';
 
-const { Option } = Select;
 
 interface UserProfileModalProps {
   visible: boolean;
@@ -69,7 +68,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
     onCancel();
   };
 
-  const validatePhone = (_: any, value: string) => {
+  const validatePhone = (_: unknown, value: string) => {
     if (!value) return Promise.resolve();
     
     const phoneRegex = /^[0-9]{10,11}$/;
