@@ -3,6 +3,7 @@ import { verifyToken, verifyStaff } from '../middleware/auth';
 import { roleMiddleware } from '../middleware/roleMiddleware';
 import {
   getLeastBookedDoctor,
+  getBestAssignment,
   createDoctorQA,
   getAllDoctorQAs,
   getDoctorQAById,
@@ -21,7 +22,10 @@ import {
 const router = express.Router();
 
 // =============== SPECIFIC ROUTES FIRST (Tránh conflict với :id) ===============
-// GET /api/doctor-qa/least-booked-doctor - Tìm bác sĩ có ít slot booked nhất (STAFF/MANAGER/ADMIN)
+// GET /api/doctor-qa/best-assignment - Tìm assignment tốt nhất cho slot gần nhất (STAFF/MANAGER/ADMIN)
+router.get('/doctor-qa/best-assignment', verifyToken, verifyStaff, getBestAssignment);
+
+// GET /api/doctor-qa/least-booked-doctor - Legacy: Tìm bác sĩ có ít slot booked nhất (STAFF/MANAGER/ADMIN)
 router.get('/doctor-qa/least-booked-doctor', verifyToken, verifyStaff, getLeastBookedDoctor);
 
 // GET /api/doctor-qa/my-requests - Lấy yêu cầu tư vấn của user đang đăng nhập

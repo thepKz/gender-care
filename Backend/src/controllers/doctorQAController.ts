@@ -9,7 +9,25 @@ const isValidObjectId = (id: string): boolean => {
   return mongoose.Types.ObjectId.isValid(id);
 };
 
-// GET /api/doctor-qa/least-booked-doctor - Tìm bác sĩ có ít slot booked nhất (STAFF ONLY)
+// GET /api/doctor-qa/best-assignment - Tìm assignment tốt nhất cho slot gần nhất (STAFF ONLY)
+export const getBestAssignment = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const bestAssignment = await doctorQAService.findBestDoctorForNextSlot();
+    
+    res.status(200).json({
+      message: 'Tìm assignment tốt nhất thành công',
+      data: bestAssignment
+    });
+
+  } catch (error: any) {
+    console.error('Error getting best assignment:', error);
+    res.status(500).json({ 
+      message: error.message || 'Lỗi server khi tìm assignment' 
+    });
+  }
+};
+
+// Legacy endpoint để backward compatibility
 export const getLeastBookedDoctor = async (req: Request, res: Response): Promise<void> => {
   try {
     const leastBookedDoctorId = await doctorQAService.findLeastBookedDoctor();
@@ -214,25 +232,26 @@ export const updatePaymentStatus = async (req: Request, res: Response): Promise<
     let extraInfo = {};
     
     if (paymentSuccess) {
-      // Check if auto-scheduling worked
+      // Check if smart auto-scheduling worked
       if (updatedQA.status === 'scheduled') {
-        message = '🎉 Thanh toán thành công! Đã tự động tìm bác sĩ và đặt lịch khám. Link tư vấn sẽ được gửi gần giờ khám.';
+        message = '🎉 Thanh toán thành công! Đã tự động tìm slot gần nhất và phân công bác sĩ phù hợp. Link tư vấn sẽ được gửi trước 30 phút.';
         extraInfo = {
-          autoScheduled: true,
+          smartScheduled: true,
           doctorAssigned: !!updatedQA.doctorId,
           doctorName: (updatedQA.doctorId as any)?.userId?.fullName || 'Bác sĩ',
           appointmentDate: updatedQA.appointmentDate,
           appointmentSlot: updatedQA.appointmentSlot,
-          nextStep: 'Chờ link Google Meet được gửi trước 30 phút'
+          nextStep: 'Chờ link Google Meet được gửi trước giờ khám',
+          note: 'Hệ thống đã tự động chọn slot sớm nhất và bác sĩ ít bận nhất'
         };
       } else if (updatedQA.status === 'doctor_confirmed') {
-        message = '✅ Thanh toán thành công! Đã tự động tìm bác sĩ phù hợp. Đang tìm slot trống để đặt lịch...';
+        message = '✅ Thanh toán thành công! Đã tìm bác sĩ phù hợp nhưng chưa thể tự động đặt lịch. Staff sẽ sắp xếp thủ công.';
         extraInfo = {
-          autoScheduled: false,
+          smartScheduled: false,
           doctorAssigned: !!updatedQA.doctorId,
           doctorName: (updatedQA.doctorId as any)?.userId?.fullName || 'Bác sĩ',
           needManualSchedule: true,
-          nextStep: 'Staff sẽ sắp xếp lịch cụ thể trong 24h'
+          nextStep: 'Staff sẽ liên hệ trong 24h để xác nhận lịch khám'
         };
       } else {
         message = '✅ Thanh toán thành công! Yêu cầu tư vấn đã được tiếp nhận.';
