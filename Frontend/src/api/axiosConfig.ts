@@ -2,8 +2,9 @@ import axios from 'axios';
 import { getValidTokenFromStorage } from '../utils/helpers';
 
 // Create axios instance with base URL from environment
+const apiBase = import.meta.env.VITE_API_URL || '/api';
 const axiosInstance = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL}/api`,
+  baseURL: apiBase.endsWith('/api') ? apiBase : `${apiBase}/api`,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',

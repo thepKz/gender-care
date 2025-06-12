@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node dist/index.js",
+    "start:prod": "NODE_OPTIONS='--max-old-space-size=1024' node dist/index.js",
     "build": "tsc && copyfiles -f src/swagger.yaml dist/",
+    "build:prod": "NODE_OPTIONS='--max-old-space-size=1024' tsc && copyfiles -f src/swagger.yaml dist/",
     "dev": "nodemon --exec ts-node src/index.ts",
     "seed:doctors": "ts-node src/seeds/doctorSeed.ts",
     "seed:staff": "ts-node src/seeds/staffSeed.ts",

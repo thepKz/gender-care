@@ -20,7 +20,8 @@ export const handleAPI = async <T = any>(
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'POST'
 ): Promise<ApiResponse<T>> => {
   try {
-    const apiUrl = `${import.meta.env.VITE_API_URL}/api`;
+    const apiBase = import.meta.env.VITE_API_URL || '/api';
+    const apiUrl = apiBase.endsWith('/api') ? apiBase : `${apiBase}/api`;
     const url = `${apiUrl}${endpoint}`;
     
     // Sử dụng helper function để lấy token hợp lệ
