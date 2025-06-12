@@ -1,13 +1,12 @@
 import axios from 'axios';
-import { 
-  ServicePackage, 
-  CreateServicePackageRequest, 
-  UpdateServicePackageRequest, 
-  ServicePackagesResponse, 
-  ServicePackageResponse 
+import {
+    CreateServicePackageRequest,
+    ServicePackageResponse,
+    ServicePackagesResponse,
+    UpdateServicePackageRequest
 } from '../../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
 
 // Create axios instance with auth token
 const servicePackageApi = axios.create({

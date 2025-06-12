@@ -20,7 +20,7 @@ export const handleAPI = async <T = any>(
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'POST'
 ): Promise<ApiResponse<T>> => {
   try {
-    const apiUrl = process.env.REACT_APP_API_URL || '';
+    const apiUrl = `${import.meta.env.VITE_API_URL}/api`;
     const url = `${apiUrl}${endpoint}`;
     
     // Sử dụng helper function để lấy token hợp lệ
@@ -34,7 +34,7 @@ export const handleAPI = async <T = any>(
     };
     
     // Debug log để kiểm tra token
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.MODE === 'development') {
       console.log('[handleAPI] Endpoint:', endpoint);
       console.log('[handleAPI] Token exists:', !!token);
       console.log('[handleAPI] Token preview:', token ? `${token.substring(0, 20)}...` : 'none');

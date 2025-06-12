@@ -3,7 +3,7 @@ import { getValidTokenFromStorage } from '../utils/helpers';
 
 // Create axios instance with base URL from environment
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: `${import.meta.env.VITE_API_URL}/api`,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
