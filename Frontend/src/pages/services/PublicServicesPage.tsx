@@ -68,7 +68,7 @@ const PublicServicesPage: React.FC = () => {
       if (response.success) {
         setServicePackages(response.data.packages);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching service packages:', error);
     } finally {
       setPackagesLoading(false);
@@ -79,6 +79,11 @@ const PublicServicesPage: React.FC = () => {
   useEffect(() => {
     fetchServicePackages();
   }, [fetchServicePackages]);
+
+  // Ensure page starts at top on mount – UX cải thiện
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   // Handle package search
   const handlePackageSearch = () => {
@@ -111,7 +116,7 @@ const PublicServicesPage: React.FC = () => {
               </div>
             </div>
             
-            <Title level={1} className="mb-4 text-white text-4xl lg:text-5xl">
+            <Title level={1} className="mb-4 text-white text-4xl lg:text-5xl" style={{ color: '#FFFFFF' }}>
               Dịch vụ chăm sóc sức khỏe
             </Title>
             <Text className="text-blue-100 text-xl max-w-3xl mx-auto block leading-relaxed">

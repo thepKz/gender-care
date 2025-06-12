@@ -112,19 +112,9 @@
   transition: all 0.3s ease !important;
 }
 
-/* Success message styling */
-.ant-message-success {
-  background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(82, 196, 26, 0.3);
-}
-
-/* Error message styling */
-.ant-message-error {
-  background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.3);
-}
+/* Success message styling DISABLED - use default Ant Design */
+/* .ant-message-success { }
+   .ant-message-error { } */
 
 /* Responsive improvements */
 @media (max-width: 768px) {

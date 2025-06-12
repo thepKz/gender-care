@@ -48,6 +48,11 @@ const OnlineConsultationPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
+  // Ensure page starts at top on mount – UX cải thiện
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
   // Mock data for features - Simplified and reduced
   const features = [
     {
@@ -120,9 +125,10 @@ const OnlineConsultationPage: React.FC = () => {
       // Navigate to payment page
       navigate(`/consultation/payment/${response.data.data._id}`);
       
-    } catch (error: any) {
-      console.error('Error creating consultation:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra. Vui lòng thử lại sau.';
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      console.error('Error creating consultation:', err);
+      const errorMessage = err?.response?.data?.message ?? err?.message ?? 'Có lỗi xảy ra. Vui lòng thử lại sau.';
       message.error(errorMessage);
     } finally {
       setIsSubmitting(false);
