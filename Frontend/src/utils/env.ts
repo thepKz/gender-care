@@ -5,7 +5,7 @@
 
 export const env = {
   // API Configuration
-  API_URL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  API_URL: `${import.meta.env.VITE_API_URL}/api`,
   
   // Environment info
   NODE_ENV: import.meta.env.MODE || 'development',
