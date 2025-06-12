@@ -2,6 +2,7 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import axios, { AxiosError } from 'axios';
 import { authApi } from '../../api';
 import { User } from '../../types';
+import { clearAllCookies } from '../../utils/cookieUtils';
 
 interface AuthState {
   user: User | null;
@@ -130,7 +131,7 @@ export const register = createAsyncThunk(
   }
 );
 
-// 4. Khi logout, clear user_info khỏi localStorage
+// 4. Khi logout, clear user_info khỏi localStorage và cookies
 export const logout = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
@@ -138,8 +139,13 @@ export const logout = createAsyncThunk(
       await authApi.logout();
       clearTokensFromLocalStorage();
       localStorage.removeItem('user_info');
+      clearAllCookies();
       return true;
     } catch (error: unknown) {
+      // Ngay cả khi API logout lỗi, vẫn xóa thông tin phía client
+      clearTokensFromLocalStorage();
+      localStorage.removeItem('user_info');
+      clearAllCookies();
       return rejectWithValue(handleApiError(error));
     }
   }

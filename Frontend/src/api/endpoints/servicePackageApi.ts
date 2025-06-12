@@ -7,7 +7,7 @@ import {
   ServicePackageResponse 
 } from '../../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Create axios instance with auth token
 const servicePackageApi = axios.create({
@@ -28,12 +28,14 @@ servicePackageApi.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   
-  console.log('Service Package API Request:', {
-    url: config.url,
-    method: config.method,
-    hasToken: !!token,
-    tokenPrefix: token ? token.substring(0, 20) + '...' : 'no token'
-  });
+  // Debug only in development
+  if (import.meta.env.DEV) {
+    console.log('Service Package API Request:', {
+      url: config.url,
+      method: config.method,
+      hasToken: !!token
+    });
+  }
   
   return config;
 });
@@ -41,11 +43,15 @@ servicePackageApi.interceptors.request.use((config) => {
 // Add response interceptor for debugging
 servicePackageApi.interceptors.response.use(
   (response) => {
-    console.log('Service Package API Response success:', response.status, response.config.url);
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.log('Service Package API Response:', response.status, response.config.url);
+    }
     return response;
   },
   (error) => {
-    console.error('Service Package API Response error:', {
+    // Always log errors
+    console.error('Service Package API Error:', {
       status: error.response?.status,
       message: error.response?.data?.message,
       url: error.config?.url

@@ -1,4 +1,4 @@
-import { Button, Card, Input, Rate, Select, Spin, Tag, message } from "antd";
+import { Button, Card, Input, Rate, Select, Spin, Tag } from "antd";
 import { motion } from "framer-motion";
 import {
     Award,
@@ -42,7 +42,8 @@ const Counselors = () => {
       setDoctors(uniqueDoctors);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách bác sĩ:', error);
-      message.error('Không thể tải danh sách bác sĩ');
+      // TODO: Implement proper toast notification system to replace antd message
+      console.error('Không thể tải danh sách bác sĩ');
     } finally {
       setLoadingDoctors(false);
     }
