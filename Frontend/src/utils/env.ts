@@ -5,7 +5,7 @@
 
 export const env = {
   // API Configuration
-  API_URL: `${import.meta.env.VITE_API_URL}/api`,
+  API_URL: (import.meta.env.VITE_API_URL || '/api').replace(/\/api$/, '') + '/api',
   
   // Environment info
   NODE_ENV: import.meta.env.MODE || 'development',

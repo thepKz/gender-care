@@ -6,7 +6,8 @@ import {
     UpdateServicePackageRequest
 } from '../../types';
 
-const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api`;
+const apiBase = import.meta.env.VITE_API_URL || '/api';
+const API_BASE_URL = apiBase.endsWith('/api') ? apiBase : `${apiBase}/api`;
 
 // Create axios instance with auth token
 const servicePackageApi = axios.create({
