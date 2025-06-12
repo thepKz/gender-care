@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axiosInstance from '../axiosConfig';
 import { 
   Service, 
   CreateServiceRequest, 
@@ -7,52 +7,13 @@ import {
   ServiceResponse 
 } from '../../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
-
-// Create axios instance with auth token
-const serviceApi = axios.create({
-  baseURL: `${API_BASE_URL}/services`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Add auth token to requests
-serviceApi.interceptors.request.use((config) => {
-  // Try different possible token keys
-  const token = localStorage.getItem('access_token') || 
-                localStorage.getItem('token') || 
-                localStorage.getItem('authToken');
-  
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  
-  console.log('API Request:', {
-    url: config.url,
-    method: config.method,
-    hasToken: !!token,
-    tokenPrefix: token ? token.substring(0, 20) + '...' : 'no token'
-  });
-  
-  return config;
-});
-
-// Add response interceptor for debugging
-serviceApi.interceptors.response.use(
-  (response) => {
-    console.log('API Response success:', response.status, response.config.url);
-    return response;
-  },
-  (error) => {
-    console.error('API Response error:', {
-      status: error.response?.status,
-      message: error.response?.data?.message,
-      url: error.config?.url
-    });
-    return Promise.reject(error);
-  }
-);
+// Use shared axios instance for consistent configuration
+const serviceApi = {
+  get: (url: string, config?: any) => axiosInstance.get(`/services${url}`, config),
+  post: (url: string, data?: any, config?: any) => axiosInstance.post(`/services${url}`, data, config),
+  put: (url: string, data?: any, config?: any) => axiosInstance.put(`/services${url}`, data, config),
+  delete: (url: string, config?: any) => axiosInstance.delete(`/services${url}`, config),
+};
 
 export interface GetServicesParams {
   page?: number;

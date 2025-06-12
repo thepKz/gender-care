@@ -1,18 +1,24 @@
 import axios from 'axios';
 import { getValidTokenFromStorage } from '../utils/helpers';
 
-// Create axios instance with base URL
+// Create axios instance with base URL from environment
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 15000, // Tăng timeout từ 10s lên 15s cho Google OAuth
+  baseURL: import.meta.env.VITE_API_URL || '/api',
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // Quan trọng: cho phép gửi/nhận cookie qua các domain khác nhau
+  withCredentials: true,
 });
 
-// Log baseURL for debugging
-console.log('Axios baseURL:', axiosInstance.defaults.baseURL);
+// Log configuration in development only
+if (import.meta.env.DEV) {
+  console.log('🔧 Axios Config:', {
+    baseURL: axiosInstance.defaults.baseURL,
+    mode: import.meta.env.MODE,
+    hasViteApiUrl: !!import.meta.env.VITE_API_URL,
+  });
+}
 
 // Danh sách các endpoint sẽ không hiển thị lỗi 401
 const silentEndpoints = [
@@ -24,7 +30,7 @@ axiosInstance.interceptors.request.use(
   (config) => {
     // Tăng timeout riêng cho Google OAuth
     if (config.url?.includes('/auth/login-google')) {
-      config.timeout = 30000; // 30 giây cho Google OAuth
+      config.timeout = 30000;
     }
 
     // Sử dụng helper function để lấy token hợp lệ
@@ -33,24 +39,11 @@ axiosInstance.interceptors.request.use(
       config.headers = config.headers || {};
       config.headers['Authorization'] = `Bearer ${token}`;
 
-      // Debug log
       if (import.meta.env.DEV) {
-        console.log('[axiosConfig] Adding valid token to request:', config.url);
-        console.log('[axiosConfig] Token preview:', token.substring(0, 20) + '...');
+        console.log('[axiosConfig] Adding token to request:', config.url);
       }
-    } else if (import.meta.env.DEV) {
-      console.log('[axiosConfig] No valid token found for request:', config.url);
     }
 
-    // Không log các request URL của các endpoint im lặng 
-    const isSilentEndpoint = silentEndpoints.some(endpoint => config.url?.includes(endpoint));
-
-    if (import.meta.env.DEV && !isSilentEndpoint) {
-      console.log('Request URL:', config.url);
-      console.log('BaseURL:', config.baseURL);
-    }
-
-    // Tất cả request đều tự động gửi cookie (bao gồm token), không cần thêm Authorization header
     return config;
   },
   (error) => {
@@ -64,7 +57,7 @@ axiosInstance.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Nếu request bị cancel bởi interceptor, ngăn không báo lỗi vào console
+    // Nếu request bị cancel bởi interceptor
     if (axios.isCancel(error)) {
       return Promise.reject(new Error('Request cancelled'));
     }
@@ -72,26 +65,8 @@ axiosInstance.interceptors.response.use(
     // Xử lý lỗi 401 - Token không hợp lệ
     if (error.response?.status === 401) {
       const token = localStorage.getItem('access_token');
-      if (token) {
-        console.log('401 Error detected, but NOT clearing localStorage for debugging');
-        console.log('Current token in localStorage:', token.substring(0, 20) + '...');
-
-        // Tạm thời comment để debug
-        /*
-        console.log('Token localStorage invalid, đã clear');
-        // Clear token và user info
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user_info');
-        
-        // Chỉ redirect về login nếu không phải đang ở trang public
-        const currentPath = window.location.pathname;
-        const publicPaths = ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password'];
-        
-        if (!publicPaths.includes(currentPath)) {
-          window.location.href = '/login';
-        }
-        */
+      if (token && import.meta.env.DEV) {
+        console.log('401 Error detected, token exists but invalid');
       }
     }
 
@@ -101,13 +76,16 @@ axiosInstance.interceptors.response.use(
     );
 
     if (error.response?.status === 401 && isSilentEndpoint) {
-      // Không log lỗi 401 cho các endpoint im lặng
       return Promise.reject(error);
     }
 
     // Log các lỗi khác trong môi trường development
     if (import.meta.env.DEV && (!isSilentEndpoint || error.response?.status !== 401)) {
-      console.error('Axios Error:', error.response?.status, error.response?.data);
+      console.error('❌ API Error:', {
+        status: error.response?.status,
+        message: error.response?.data?.message || error.message,
+        url: error.config?.url,
+      });
     }
 
     return Promise.reject(error);
