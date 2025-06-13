@@ -4,7 +4,7 @@ import seedMedicines from './medicinesSeed';
 import seedServices from './servicesSeed';
 import seedStaff from './staffSeed';
 import seedUserProfiles from './userProfilesSeed';
-
+import seedPosts from './blogPostsSeed';
 export const runAllSeeds = async () => {
   try {
     console.log('🌱 Bắt đầu chạy tất cả seed data...');
@@ -15,7 +15,7 @@ export const runAllSeeds = async () => {
     // await seedUserProfiles(); // UserProfiles (cần tạo user + profiles cho medical records)
     // await seedDoctors();      // Doctors sau
     // await seedDoctorQA();     // DoctorQA cuối (cần doctor + user)
-
+    await seedPosts();
     console.log('✅ Hoàn thành việc chạy tất cả seed data!');
   } catch (error) {
     console.error('❌ Lỗi khi chạy seeds:', error);

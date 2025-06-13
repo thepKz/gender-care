@@ -20,6 +20,7 @@ import ProfileEditPage from '../pages/profile/edit';
 // New Pages
 import AboutGCCPage from '../pages/about-gcc';
 import BlogPage from '../pages/blog';
+import BlogDetailPage from '../pages/blog/BlogDetailPage';
 import CounselorsPage from '../pages/counselors';
 import OnlineConsultationPage from '../pages/online-consultation';
 import PicturePage from '../pages/picture';
@@ -41,6 +42,7 @@ import ServicesPage from '../pages/services';
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
+import RichTextComposerDemo from '../pages/demo/RichTextComposerDemo';
 
 // Dashboard Wrapper Components
 import DashboardWrapper from '../components/feature/dashboard/DashboardWrapper';
@@ -119,6 +121,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/doctors/:id" element={<DoctorDetail />} />
         <Route path="/about-gcc" element={<AboutGCCPage />} />
         <Route path="/blog" element={<BlogPage />} />
+        <Route path="/blog/:slugId" element={<BlogDetailPage />} />
 
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/online-consultation" element={<OnlineConsultationPage />} />
@@ -149,6 +152,7 @@ const AppRoutes: React.FC = () => {
         {/* Demo Pages */}
         <Route path="/demo" element={<DemoIndexPage />} />
         <Route path="/demo/components" element={<ComponentShowcasePage />} />
+        <Route path="/demo/composer" element={<RichTextComposerDemo />} />
         
         {/* Các route khác */}
         <Route path="*" element={<NotFoundPage />} />

@@ -1,4 +1,4 @@
-import { Button, Card, Input, Pagination, Select, Spin, Tag } from "antd";
+import { Input, Pagination, Spin, Card, Tag, Button } from "antd";
 import { motion } from "framer-motion";
 import {
     DocumentText,
@@ -13,9 +13,18 @@ import Image1 from "../../assets/images/image1.jpg";
 import Image2 from "../../assets/images/image2.jpg";
 import Image3 from "../../assets/images/image3.jpg";
 import { AnimatedSection } from "../../shared";
+import BlogCard from "../../components/ui/cards/BlogCard";
+import { slugify } from "../../utils/slugify";
+import blogPostsData from "../../assets/data/blogPosts";
+
+// MagicUI Components
+import { BlurFade } from '../../components/ui/blur-fade';
+import { WarpBackground } from '../../components/ui/warp-background';
+import { BoxReveal } from '../../components/ui/box-reveal';
+import { SparklesText } from '../../components/ui/sparkles-text';
+import { NumberTicker } from '../../components/ui/number-ticker';
 
 const { Search } = Input;
-const { Option } = Select;
 
 interface BlogPost {
   id: number;
@@ -54,159 +63,38 @@ const Blog = () => {
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
   const pageSize = 6;
 
-  // Mock data cho blog posts
-  const blogPosts: BlogPost[] = [
-    {
-      id: 1,
-      title: "Hướng dẫn chăm sóc sức khỏe sinh sản cho phụ nữ",
-      excerpt: "Những kiến thức cơ bản và quan trọng mà mọi phụ nữ cần biết để chăm sóc sức khỏe sinh sản một cách hiệu quả và an toàn.",
-      content: "Nội dung chi tiết về chăm sóc sức khỏe sinh sản...",
-      author: {
-        name: "BS. Nguyễn Thị Hương",
-        avatar: Image1,
-        title: "Bác sĩ Sản phụ khoa"
-      },
-      category: "women-health",
-      tags: ["Sức khỏe phụ nữ", "Sinh sản", "Chăm sóc"],
-      publishDate: "2024-01-15",
-      readTime: 8,
-      views: 2450,
-      likes: 156,
-      image: Image1,
-      isFeatured: true
+  // Dữ liệu blog thực tế dùng trong trang (có thể đến từ API sau này)
+  const blogPosts = blogPostsData;
+
+  // Statistics data
+  const stats = [
+    { 
+      icon: <DocumentText size={32} variant="Bold" />, 
+      number: blogPosts.length, 
+      suffix: '+', 
+      label: 'Bài viết hữu ích',
+      color: '#0C3C54'
     },
-    {
-      id: 2,
-      title: "Tầm quan trọng của xét nghiệm STI định kỳ",
-      excerpt: "Tại sao việc xét nghiệm các bệnh lây truyền qua đường tình dục định kỳ lại quan trọng và cần thiết cho mọi người.",
-      content: "Nội dung chi tiết về xét nghiệm STI...",
-      author: {
-        name: "BS. Trần Văn Nam",
-        avatar: Image2,
-        title: "Chuyên gia Xét nghiệm"
-      },
-      category: "testing",
-      tags: ["STI", "Xét nghiệm", "Phòng ngừa"],
-      publishDate: "2024-01-12",
-      readTime: 6,
-      views: 1890,
-      likes: 98,
-      image: Image2,
-      isFeatured: false
+    { 
+      icon: <Eye size={32} variant="Bold" />, 
+      number: 250000, 
+      suffix: '+', 
+      label: 'Lượt đọc mỗi tháng',
+      color: '#2A7F9E'
     },
-    {
-      id: 3,
-      title: "Tư vấn tâm lý trong các mối quan hệ tình dục",
-      excerpt: "Những vấn đề tâm lý phổ biến trong các mối quan hệ tình dục và cách giải quyết hiệu quả.",
-      content: "Nội dung chi tiết về tư vấn tâm lý...",
-      author: {
-        name: "TS. Lê Thị Lan",
-        avatar: Image3,
-        title: "Chuyên gia Tâm lý"
-      },
-      category: "psychology",
-      tags: ["Tâm lý", "Tình dục", "Mối quan hệ"],
-      publishDate: "2024-01-10",
-      readTime: 10,
-      views: 3200,
-      likes: 245,
-      image: Image3,
-      isFeatured: true
+    { 
+      icon: <Heart size={32} variant="Bold" />, 
+      number: 15000, 
+      suffix: '+', 
+      label: 'Lượt thích',
+      color: '#E91E63'
     },
-    {
-      id: 4,
-      title: "Kế hoạch hóa gia đình hiện đại",
-      excerpt: "Các phương pháp kế hoạch hóa gia đình hiện đại và cách lựa chọn phương pháp phù hợp.",
-      content: "Nội dung chi tiết về kế hoạch hóa gia đình...",
-      author: {
-        name: "BS. Hoàng Thị Mai",
-        avatar: Image1,
-        title: "Chuyên gia Kế hoạch hóa gia đình"
-      },
-      category: "family-planning",
-      tags: ["Kế hoạch gia đình", "Tránh thai", "Gia đình"],
-      publishDate: "2024-01-08",
-      readTime: 7,
-      views: 1650,
-      likes: 89,
-      image: Image2,
-      isFeatured: false
-    },
-    {
-      id: 5,
-      title: "Sức khỏe nam giới: Những điều cần biết",
-      excerpt: "Hướng dẫn toàn diện về chăm sóc sức khỏe sinh sản và tình dục dành cho nam giới.",
-      content: "Nội dung chi tiết về sức khỏe nam giới...",
-      author: {
-        name: "BS. Phạm Minh Tuấn",
-        avatar: Image3,
-        title: "Chuyên gia Nam học"
-      },
-      category: "men-health",
-      tags: ["Sức khỏe nam giới", "Nam học", "Sinh sản"],
-      publishDate: "2024-01-05",
-      readTime: 9,
-      views: 2100,
-      likes: 134,
-      image: Image1,
-      isFeatured: false
-    },
-    {
-      id: 6,
-      title: "Chuẩn bị cho cuộc sống hôn nhân",
-      excerpt: "Những điều cần chuẩn bị về mặt sức khỏe và tâm lý trước khi bước vào cuộc sống hôn nhân.",
-      content: "Nội dung chi tiết về chuẩn bị hôn nhân...",
-      author: {
-        name: "BS. Đỗ Văn Hùng",
-        avatar: Image2,
-        title: "Chuyên gia Tư vấn hôn nhân"
-      },
-      category: "marriage",
-      tags: ["Hôn nhân", "Tư vấn", "Chuẩn bị"],
-      publishDate: "2024-01-03",
-      readTime: 12,
-      views: 2800,
-      likes: 198,
-      image: Image3,
-      isFeatured: true
-    },
-    {
-      id: 7,
-      title: "Dinh dưỡng cho sức khỏe sinh sản",
-      excerpt: "Vai trò của dinh dưỡng trong việc duy trì và cải thiện sức khỏe sinh sản.",
-      content: "Nội dung chi tiết về dinh dưỡng...",
-      author: {
-        name: "BS. Nguyễn Thị Hương",
-        avatar: Image1,
-        title: "Bác sĩ Dinh dưỡng"
-      },
-      category: "nutrition",
-      tags: ["Dinh dưỡng", "Sức khỏe", "Sinh sản"],
-      publishDate: "2024-01-01",
-      readTime: 6,
-      views: 1420,
-      likes: 76,
-      image: Image2,
-      isFeatured: false
-    },
-    {
-      id: 8,
-      title: "Xu hướng chăm sóc sức khỏe 2024",
-      excerpt: "Những xu hướng mới trong lĩnh vực chăm sóc sức khỏe sinh sản và tình dục năm 2024.",
-      content: "Nội dung chi tiết về xu hướng 2024...",
-      author: {
-        name: "TS. Lê Thị Lan",
-        avatar: Image3,
-        title: "Chuyên gia Y tế"
-      },
-      category: "trends",
-      tags: ["Xu hướng", "2024", "Công nghệ y tế"],
-      publishDate: "2023-12-28",
-      readTime: 8,
-      views: 3500,
-      likes: 267,
-      image: Image1,
-      isFeatured: true
+    { 
+      icon: <Share size={32} variant="Bold" />, 
+      number: 5000, 
+      suffix: '+', 
+      label: 'Lượt chia sẻ',
+      color: '#4CAF50'
     }
   ];
 
@@ -276,21 +164,23 @@ const Blog = () => {
     setLikedPosts(newLikedPosts);
   };
 
+  const getPostUrl = (post: BlogPost) => `/blog/${slugify(post.title)}-${post.id}`;
+
   const handleShare = (post: BlogPost, e: React.MouseEvent) => {
     e.stopPropagation();
     if (navigator.share) {
       navigator.share({
         title: post.title,
         text: post.excerpt,
-        url: `${window.location.origin}/blog/${post.id}`
+        url: `${window.location.origin}${getPostUrl(post)}`
       });
     } else {
-      navigator.clipboard.writeText(`${window.location.origin}/blog/${post.id}`);
+      navigator.clipboard.writeText(`${window.location.origin}${getPostUrl(post)}`);
     }
   };
 
-  const handlePostClick = (postId: number) => {
-    navigate(`/blog/${postId}`);
+  const handlePostClick = (post: BlogPost) => {
+    navigate(getPostUrl(post), { state: post });
   };
 
   const formatDate = (dateString: string) => {
@@ -303,446 +193,485 @@ const Blog = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-50">
-        <Spin size="large" />
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="relative">
+            {/* Animated background particles */}
+            {[...Array(20)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-2 h-2 bg-[#0C3C54] rounded-full"
+                style={{
+                  left: `${Math.random() * 200}px`,
+                  top: `${Math.random() * 200}px`,
+                }}
+                animate={{
+                  scale: [0, 1, 0],
+                  opacity: [0, 0.7, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  delay: i * 0.1,
+                }}
+              />
+            ))}
+            
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="w-12 h-12 border-4 border-[#0C3C54] border-t-transparent rounded-full mx-auto mb-4"
+            />
+          </div>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-lg text-[#0C3C54] font-medium text-enhanced"
+          >
+            Đang tải nội dung...
+          </motion.div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
-      {/* Hero Section */}
-      <div className="relative pt-12 pb-12 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0C3C54] to-[#2A7F9E] opacity-90"></div>
+    <div className="min-h-screen bg-white">
+      {/* Hero Section với MagicUI */}
+      <section className="relative pt-20 pb-20 overflow-hidden bg-[#0C3C54]">
+        {/* Animated grid background */}
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-[url('../../assets/images/pattern.png')] opacity-10"></div>
-          {[...Array(25)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-1 h-1 rounded-full bg-white/20"
-              animate={{
-                x: [Math.random() * window.innerWidth, Math.random() * window.innerWidth],
-                y: [Math.random() * 400, Math.random() * 400],
-                opacity: [0.2, 0.8, 0.2],
-              }}
-              transition={{
-                duration: Math.random() * 20 + 15,
-                repeat: Infinity,
-                repeatType: "reverse",
-              }}
-            />
-          ))}
-        </div>
-        
-        <div className="relative container mx-auto px-4 text-center">
-          <AnimatedSection animation="slideUp">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="inline-flex items-center justify-center w-20 h-20 bg-white/20 rounded-full mb-6 backdrop-blur-sm"
-            >
-              <DocumentText size={40} className="text-white" variant="Bold" />
-            </motion.div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
-              Blog sức khỏe
-            </h1>
-            <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-8">
-              Kiến thức chuyên sâu về sức khỏe giới tính và sinh sản từ các chuyên gia hàng đầu
-            </p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  size="large"
-                  className="bg-white text-[#0C3C54] border-none font-semibold px-8 py-6 h-auto rounded-full"
-                  onClick={() => document.getElementById('blog-posts')?.scrollIntoView({ behavior: 'smooth' })}
-                >
-                  Khám phá bài viết
-                </Button>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  size="large"
-                  ghost
-                  className="border-white text-white font-semibold px-8 py-6 h-auto rounded-full hover:!bg-white hover:!text-[#0C3C54]"
-                  onClick={() => navigate('/counselors')}
-                >
-                  Tư vấn với chuyên gia
-                </Button>
-              </motion.div>
-            </div>
-          </AnimatedSection>
-        </div>
-      </div>
-
-      {/* Featured Posts */}
-      <div className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <AnimatedSection animation="slideUp">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4">
-                Bài viết nổi bật
-              </h2>
-              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                Những bài viết được quan tâm và đánh giá cao nhất từ cộng đồng
-              </p>
-            </div>
-          </AnimatedSection>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featuredPosts.map((post, index) => (
+          <div className="absolute inset-0 opacity-30">
+            {[...Array(100)].map((_, i) => (
               <motion.div
-                key={post.id}
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                whileHover={{ y: -10 }}
-                className="group cursor-pointer"
-                onClick={() => handlePostClick(post.id)}
-              >
-                <Card
-                  hoverable
-                  className="h-full border-0 shadow-lg group-hover:shadow-2xl transition-all duration-500 overflow-hidden"
-                  cover={
-                    <div className="relative h-48 overflow-hidden">
-                      <img
-                        src={post.image}
-                        alt={post.title}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                      
-                      {/* Featured Badge */}
-                      <div className="absolute top-4 left-4">
-                        <div className="bg-gradient-to-r from-orange-400 to-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">
-                          Nổi bật
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={(e) => handleLike(post.id, e)}
-                          className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
-                            likedPosts.has(post.id)
-                              ? "bg-red-500 text-white"
-                              : "bg-white/20 text-white hover:bg-red-500"
-                          }`}
-                        >
-                          <Heart size={16} variant={likedPosts.has(post.id) ? "Bold" : "Outline"} />
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={(e) => handleShare(post, e)}
-                          className="p-2 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-blue-500 transition-colors"
-                        >
-                          <Share size={16} />
-                        </motion.button>
-                      </div>
-
-                      {/* Stats */}
-                      <div className="absolute bottom-4 left-4 flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div className="flex items-center gap-1 text-white text-sm">
-                          <Eye size={14} />
-                          <span>{post.views}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-white text-sm">
-                          <Heart size={14} />
-                          <span>{post.likes + (likedPosts.has(post.id) ? 1 : 0)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  }
-                >
-                  <div className="p-6">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Tag color={categories.find(c => c.key === post.category)?.color}>
-                        {categories.find(c => c.key === post.category)?.label}
-                      </Tag>
-                      <span className="text-sm text-gray-500">{post.readTime} phút đọc</span>
-                    </div>
-                    
-                    <h3 className="text-xl font-bold text-gray-800 mb-3 group-hover:text-[#0C3C54] transition-colors line-clamp-2">
-                      {post.title}
-                    </h3>
-                    
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                      {post.excerpt}
-                    </p>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={post.author.avatar}
-                          alt={post.author.name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                        <div>
-                          <div className="text-sm font-medium text-gray-800">
-                            {post.author.name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {formatDate(post.publishDate)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
+                key={i}
+                className="absolute w-px h-px bg-[#2A7F9E]"
+                style={{
+                  left: `${(i % 10) * 10}%`,
+                  top: `${Math.floor(i / 10) * 10}%`,
+                }}
+                animate={{
+                  opacity: [0.1, 0.8, 0.1],
+                  scale: [1, 1.5, 1],
+                }}
+                transition={{
+                  duration: Math.random() * 3 + 2,
+                  repeat: Infinity,
+                  delay: Math.random() * 2,
+                }}
+              />
             ))}
           </div>
         </div>
-      </div>
 
-      {/* Search and Filter */}
-      <div className="py-12 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <AnimatedSection animation="slideUp">
-            <div className="max-w-6xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                <Search
-                  placeholder="Tìm kiếm bài viết..."
-                  allowClear
-                  size="large"
-                  prefix={<SearchNormal1 size={20} className="text-gray-400" />}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="rounded-lg"
-                />
-                
-                <Select
-                  size="large"
-                  value={selectedCategory}
-                  onChange={setSelectedCategory}
-                  className="w-full"
-                >
-                  {categories.map(category => (
-                    <Option key={category.key} value={category.key}>
-                      {category.label} ({category.count})
-                    </Option>
-                  ))}
-                </Select>
-
-                <Select
-                  size="large"
-                  value={sortBy}
-                  onChange={setSortBy}
-                  className="w-full"
-                >
-                  {sortOptions.map(option => (
-                    <Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Option>
-                  ))}
-                </Select>
-              </div>
-              
-              <div className="text-center text-gray-600">
-                Tìm thấy <span className="font-semibold text-[#0C3C54]">{filteredPosts.length}</span> bài viết
-              </div>
+        <div className="relative z-10 container mx-auto px-4 text-center">
+          <BlurFade delay={0.2} inView>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="inline-flex items-center justify-center w-24 h-24 bg-white/10 rounded-full mb-8 backdrop-blur-sm border border-white/20"
+            >
+              <DocumentText size={48} className="text-white" variant="Bold" />
+            </motion.div>
+          </BlurFade>
+          
+          <BlurFade delay={0.4} inView>
+            <div className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
+              Blog sức khỏe
             </div>
-          </AnimatedSection>
-        </div>
-      </div>
-
-      {/* Blog Posts Grid */}
-      <div id="blog-posts" className="py-20">
-        <div className="container mx-auto px-4">
-          <motion.div 
-            layout
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-          >
-            {currentPosts.map((post, index) => (
-              <motion.div
-                key={post.id}
-                layout
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                whileHover={{ y: -10 }}
-                className="group cursor-pointer"
-                onClick={() => handlePostClick(post.id)}
-              >
-                <Card
-                  hoverable
-                  className="h-full border-0 shadow-lg group-hover:shadow-2xl transition-all duration-500 overflow-hidden"
-                  cover={
-                    <div className="relative h-48 overflow-hidden">
-                      <img
-                        src={post.image}
-                        alt={post.title}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                      
-                      {/* Action Buttons */}
-                      <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={(e) => handleLike(post.id, e)}
-                          className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
-                            likedPosts.has(post.id)
-                              ? "bg-red-500 text-white"
-                              : "bg-white/20 text-white hover:bg-red-500"
-                          }`}
-                        >
-                          <Heart size={16} variant={likedPosts.has(post.id) ? "Bold" : "Outline"} />
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={(e) => handleShare(post, e)}
-                          className="p-2 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-blue-500 transition-colors"
-                        >
-                          <Share size={16} />
-                        </motion.button>
-                      </div>
-
-                      {/* Stats */}
-                      <div className="absolute bottom-4 left-4 flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div className="flex items-center gap-1 text-white text-sm">
-                          <Eye size={14} />
-                          <span>{post.views}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-white text-sm">
-                          <Heart size={14} />
-                          <span>{post.likes + (likedPosts.has(post.id) ? 1 : 0)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  }
-                >
-                  <div className="p-6">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Tag color={categories.find(c => c.key === post.category)?.color}>
-                        {categories.find(c => c.key === post.category)?.label}
-                      </Tag>
-                      <span className="text-sm text-gray-500">{post.readTime} phút đọc</span>
-                    </div>
-                    
-                    <h3 className="text-xl font-bold text-gray-800 mb-3 group-hover:text-[#0C3C54] transition-colors line-clamp-2">
-                      {post.title}
-                    </h3>
-                    
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                      {post.excerpt}
-                    </p>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={post.author.avatar}
-                          alt={post.author.name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                        <div>
-                          <div className="text-sm font-medium text-gray-800">
-                            {post.author.name}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {formatDate(post.publishDate)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Tags */}
-                    <div className="flex flex-wrap gap-1 mt-4">
-                      {post.tags.slice(0, 2).map((tag, idx) => (
-                        <span key={idx} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                          {tag}
-                        </span>
-                      ))}
-                      {post.tags.length > 2 && (
-                        <span className="text-xs text-gray-500">+{post.tags.length - 2}</span>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          {/* Pagination */}
-          {filteredPosts.length > pageSize && (
-            <AnimatedSection animation="fadeIn" delay={0.5}>
-              <div className="flex justify-center mt-16">
-                <Pagination
-                  current={currentPage}
-                  total={filteredPosts.length}
-                  pageSize={pageSize}
-                  onChange={setCurrentPage}
-                  showSizeChanger={false}
-                  showQuickJumper
-                  showTotal={(total, range) => 
-                    `${range[0]}-${range[1]} của ${total} bài viết`
-                  }
-                  className="custom-pagination"
-                />
-              </div>
-            </AnimatedSection>
-          )}
-
-          {/* No Results */}
-          {filteredPosts.length === 0 && (
-            <div className="text-center py-16">
-              <div className="text-gray-400 mb-4">
-                <DocumentText size={64} />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                Không tìm thấy bài viết phù hợp
-              </h3>
-              <p className="text-gray-500 mb-6">
-                Hãy thử thay đổi từ khóa tìm kiếm hoặc bộ lọc
-              </p>
-              <Button
-                type="primary"
-                size="large"
-                className="bg-[#0C3C54] border-[#0C3C54] rounded-full px-8"
-                onClick={() => {
-                  setSearchTerm("");
-                  setSelectedCategory("all");
-                }}
-              >
-                Xóa bộ lọc
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Newsletter Subscription */}
-      <div className="py-20 bg-gradient-to-r from-[#0C3C54] to-[#2A7F9E]">
-        <div className="container mx-auto px-4 text-center">
-          <AnimatedSection animation="slideUp">
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-              Đăng ký nhận bài viết mới
-            </h2>
-            <p className="text-xl text-white/90 max-w-2xl mx-auto mb-8">
-              Nhận những bài viết mới nhất về sức khỏe giới tính và sinh sản qua email
-            </p>
-            <div className="max-w-md mx-auto flex gap-4">
+          </BlurFade>
+          
+          <BlurFade delay={0.6} inView>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-8 text-enhanced"
+            >
+              Khám phá những kiến thức hữu ích về sức khỏe và chăm sóc bản thân
+            </motion.div>
+          </BlurFade>
+          
+          <BlurFade delay={0.8} inView>
+            <div className="max-w-md mx-auto">
               <Input
                 size="large"
-                placeholder="Nhập email của bạn"
-                className="rounded-full"
+                placeholder="Tìm kiếm bài viết..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                prefix={<SearchNormal1 size={20} className="text-gray-400" />}
+                className="rounded-full border-2 bg-white/10 backdrop-blur-sm text-white placeholder-white/70 border-white/30 focus:border-white"
               />
-              <Button
-                type="primary"
-                size="large"
-                className="bg-white text-[#0C3C54] border-none font-semibold px-8 rounded-full hover:!bg-gray-100"
-              >
-                Đăng ký
-              </Button>
             </div>
-          </AnimatedSection>
+          </BlurFade>
         </div>
-      </div>
+      </section>
+
+      {/* Statistics Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <BlurFade delay={0.2} inView>
+            <div className="text-center mb-12">
+              <motion.h2 
+                className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                Cộng đồng đọc giả
+              </motion.h2>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-lg text-gray-600 max-w-2xl mx-auto text-enhanced"
+              >
+                Hàng nghìn người đang theo dõi và chia sẻ những kiến thức hữu ích
+              </motion.div>
+            </div>
+          </BlurFade>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {stats.map((stat, index) => (
+              <BlurFade key={index} delay={0.2 + index * 0.1} inView>
+                <WarpBackground className="h-full group cursor-pointer">
+                  <div className="p-8 text-center">
+                    <motion.div
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6"
+                      style={{ backgroundColor: `${stat.color}20` }}
+                    >
+                      <div style={{ color: stat.color }}>
+                        {stat.icon}
+                      </div>
+                    </motion.div>
+                    
+                    <BoxReveal align="center">
+                      <div className="text-3xl font-bold mb-2" style={{ color: stat.color }}>
+                        <NumberTicker value={stat.number} />
+                        {stat.suffix}
+                      </div>
+                    </BoxReveal>
+                    
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.8, delay: 0.3 }}
+                      className="text-gray-600 text-enhanced text-sm"
+                    >
+                      {stat.label}
+                    </motion.div>
+                  </div>
+                </WarpBackground>
+              </BlurFade>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Categories Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <BlurFade delay={0.2} inView>
+            <div className="text-center mb-12">
+              <motion.h2 
+                className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                Chủ đề <span className="text-[#2A7F9E]">nổi bật</span>
+              </motion.h2>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-lg text-gray-600 max-w-2xl mx-auto text-enhanced"
+              >
+                Khám phá những chủ đề thú vị và bổ ích về sức khỏe
+              </motion.div>
+            </div>
+          </BlurFade>
+
+          <BlurFade delay={0.4} inView>
+            <WarpBackground className="p-8 mb-12">
+              <div className="flex flex-wrap justify-center gap-3">
+                {categories.map((category, index) => (
+                  <motion.button
+                    key={category.key}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setSelectedCategory(category.key)}
+                    className={`px-6 py-3 rounded-full transition-all duration-300 font-medium ${
+                      selectedCategory === category.key
+                        ? 'text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                    style={{
+                      backgroundColor: selectedCategory === category.key ? category.color : undefined
+                    }}
+                  >
+                    {category.label} ({category.count})
+                  </motion.button>
+                ))}
+              </div>
+            </WarpBackground>
+          </BlurFade>
+        </div>
+      </section>
+
+      {/* Blog Posts Grid */}
+      <section id="blog-posts" className="py-20 bg-gray-50">
+        <div className="container mx-auto px-4">
+          {currentPosts.length > 0 ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {currentPosts.map((post, index) => (
+                  <BlurFade key={post.id} delay={0.2 + index * 0.1} inView>
+                    <WarpBackground className="h-full group cursor-pointer" onClick={() => handlePostClick(post)}>
+                      <Card
+                        className="h-full border-0 shadow-none overflow-hidden"
+                        cover={
+                          <div className="relative h-48 overflow-hidden">
+                            <img
+                              src={post.image}
+                              alt={post.title}
+                              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                            
+                            {/* Action Buttons */}
+                            <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={(e) => handleLike(post.id, e)}
+                                className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
+                                  likedPosts.has(post.id)
+                                    ? "bg-red-500 text-white"
+                                    : "bg-white/20 text-white hover:bg-red-500"
+                                }`}
+                              >
+                                <Heart size={16} variant={likedPosts.has(post.id) ? "Bold" : "Outline"} />
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={(e) => handleShare(post, e)}
+                                className="p-2 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-blue-500 transition-colors"
+                              >
+                                <Share size={16} />
+                              </motion.button>
+                            </div>
+
+                            {/* Stats */}
+                            <div className="absolute bottom-4 left-4 flex gap-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                              <div className="flex items-center gap-1 text-white text-sm">
+                                <Eye size={14} />
+                                <span>{post.views}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-white text-sm">
+                                <Heart size={14} />
+                                <span>{post.likes + (likedPosts.has(post.id) ? 1 : 0)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        }
+                      >
+                        <div className="p-6">
+                          <div className="flex items-center gap-2 mb-3">
+                            <Tag color={categories.find(c => c.key === post.category)?.color}>
+                              {categories.find(c => c.key === post.category)?.label}
+                            </Tag>
+                            <span className="text-sm text-gray-500">{post.readTime} phút đọc</span>
+                          </div>
+                          
+                          <BoxReveal align="left">
+                            <h3 className="text-xl font-bold text-gray-800 mb-3 group-hover:text-[#0C3C54] transition-colors line-clamp-2">
+                              {post.title}
+                            </h3>
+                          </BoxReveal>
+                          
+                          <motion.p
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.8, delay: 0.3 }}
+                            className="text-gray-600 text-sm mb-4 line-clamp-3 text-enhanced"
+                          >
+                            {post.excerpt}
+                          </motion.p>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <img
+                                src={post.author.avatar}
+                                alt={post.author.name}
+                                className="w-8 h-8 rounded-full object-cover"
+                              />
+                              <div>
+                                <div className="text-sm font-medium text-gray-800">
+                                  {post.author.name}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {formatDate(post.publishDate)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Tags */}
+                          <div className="flex flex-wrap gap-1 mt-4">
+                            {post.tags.slice(0, 2).map((tag, idx) => (
+                              <span key={idx} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                                {tag}
+                              </span>
+                            ))}
+                            {post.tags.length > 2 && (
+                              <span className="text-xs text-gray-500">+{post.tags.length - 2}</span>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    </WarpBackground>
+                  </BlurFade>
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {filteredPosts.length > pageSize && (
+                <BlurFade delay={0.5} inView>
+                  <div className="flex justify-center mt-16">
+                    <WarpBackground className="p-4">
+                      <Pagination
+                        current={currentPage}
+                        total={filteredPosts.length}
+                        pageSize={pageSize}
+                        onChange={setCurrentPage}
+                        showSizeChanger={false}
+                        showQuickJumper
+                        showTotal={(total, range) => 
+                          `${range[0]}-${range[1]} của ${total} bài viết`
+                        }
+                        className="custom-pagination"
+                      />
+                    </WarpBackground>
+                  </div>
+                </BlurFade>
+              )}
+            </>
+          ) : (
+            <BlurFade delay={0.2} inView>
+              <WarpBackground className="text-center py-16">
+                <div className="text-gray-400 mb-4">
+                  <DocumentText size={64} />
+                </div>
+                <BoxReveal align="center">
+                  <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                    Không tìm thấy bài viết phù hợp
+                  </h3>
+                </BoxReveal>
+                <motion.p
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.3 }}
+                  className="text-gray-500 mb-6 text-enhanced"
+                >
+                  Hãy thử thay đổi từ khóa tìm kiếm hoặc bộ lọc
+                </motion.p>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    type="primary"
+                    size="large"
+                    className="!bg-[#0C3C54] !border-[#0C3C54] !rounded-full !px-8 !font-bold"
+                    onClick={() => {
+                      setSearchTerm("");
+                      setSelectedCategory("all");
+                    }}
+                  >
+                    Xóa bộ lọc
+                  </Button>
+                </motion.div>
+              </WarpBackground>
+            </BlurFade>
+          )}
+        </div>
+      </section>
+
+      {/* Newsletter Subscription */}
+      <section className="py-20 bg-[#0C3C54] relative overflow-hidden">
+        {/* Animated background */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 opacity-30">
+            {[...Array(60)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-px h-px bg-[#2A7F9E]"
+                style={{
+                  left: `${(i % 10) * 10}%`,
+                  top: `${Math.floor(i / 10) * 16.67}%`,
+                }}
+                animate={{
+                  opacity: [0.2, 0.8, 0.2],
+                }}
+                transition={{
+                  duration: Math.random() * 3 + 2,
+                  repeat: Infinity,
+                  delay: Math.random() * 2,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="relative z-10 container mx-auto px-4 text-center">
+          <BlurFade delay={0.2} inView>
+            <motion.h2 
+              className="text-3xl md:text-4xl font-bold text-white mb-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              Đăng ký nhận bài viết mới
+            </motion.h2>
+          </BlurFade>
+          
+          <BlurFade delay={0.4} inView>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+              className="text-xl text-white/90 max-w-2xl mx-auto mb-8 text-enhanced"
+            >
+              Nhận những bài viết mới nhất về sức khỏe và chăm sóc bản thân qua email
+            </motion.div>
+          </BlurFade>
+          
+          <BlurFade delay={0.6} inView>
+            <WarpBackground className="max-w-md mx-auto">
+              <div className="p-6">
+                <div className="flex gap-4">
+                  <Input
+                    size="large"
+                    placeholder="Nhập email của bạn"
+                    className="rounded-full flex-1"
+                  />
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <Button
+                      type="primary"
+                      size="large"
+                      className="!bg-[#0C3C54] !text-white !border-none !font-semibold !px-8 !rounded-full"
+                    >
+                      Đăng ký
+                    </Button>
+                  </motion.div>
+                </div>
+              </div>
+            </WarpBackground>
+          </BlurFade>
+        </div>
+      </section>
     </div>
   );
 };

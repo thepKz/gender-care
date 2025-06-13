@@ -1,37 +1,45 @@
-import {
-  CustomerServiceOutlined,
-  GiftOutlined,
-  HeartOutlined,
-  ReloadOutlined,
-  SearchOutlined,
-  StarOutlined
-} from '@ant-design/icons';
-import {
-  Button,
-  Card,
-  Col,
-  Divider,
-  Empty,
-  Input,
-  Pagination,
-  Row,
-  Select,
-  Space,
-  Spin,
-  Typography
-} from 'antd';
+"use client";
+
 import React, { useCallback, useEffect, useState } from 'react';
+import { Button, Card, Spin, Empty, message, Row, Col, Input, Select } from 'antd';
+import { motion } from 'framer-motion';
+import { 
+  Heart, 
+  Shield, 
+  Award, 
+  SearchNormal1, 
+  Filter, 
+  Star1,
+  People,
+  Hospital,
+  HeartAdd,
+  ClipboardTick,
+  MonitorMobbile,
+  Profile2User
+} from 'iconsax-react';
+import { useNavigate } from 'react-router-dom';
+
 import { getServicePackages } from '../../api/endpoints/servicePackageApi';
 import ServiceDisplayCard from '../../components/feature/medical/ServiceDisplayCard';
 import ServicePackageDisplayCard from '../../components/feature/medical/ServicePackageDisplayCard';
 import { useServicesData } from '../../hooks/useServicesData';
 import { GetServicePackagesParams, ServicePackage } from '../../types';
+import { AnimatedSection } from '../../shared';
+import Background from "../../assets/images/background.jpg";
 
-const { Title, Text } = Typography;
+// MagicUI Components
+import { BlurFade } from '../../components/ui/blur-fade';
+import { WarpBackground } from '../../components/ui/warp-background';
+import { BoxReveal } from '../../components/ui/box-reveal';
+import { SparklesText } from '../../components/ui/sparkles-text';
+import { NumberTicker } from '../../components/ui/number-ticker';
+
 const { Option } = Select;
 
 const PublicServicesPage: React.FC = () => {
-  // Sử dụng custom hook cho services data - Use custom hook for services data
+  const navigate = useNavigate();
+  
+  // Sử dụng custom hook cho services data
   const {
     services,
     loading,
@@ -46,11 +54,67 @@ const PublicServicesPage: React.FC = () => {
   // State cho service packages
   const [servicePackages, setServicePackages] = useState<ServicePackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(false);
-  const [packageFilters, setPackageFilters] = useState({
-    searchText: '',
-    sortBy: 'createdAt',
-    sortOrder: 'desc' as 'asc' | 'desc'
-  });
+  const [searchText, setSearchText] = useState('');
+
+  // Statistics data
+  const stats = [
+    { 
+      icon: <Heart size={32} variant="Bold" />, 
+      number: 10000, 
+      suffix: '+', 
+      label: 'Bệnh nhân đã điều trị',
+      color: '#E91E63'
+    },
+    { 
+      icon: <People size={32} variant="Bold" />, 
+      number: 50, 
+      suffix: '+', 
+      label: 'Chuyên gia y tế',
+      color: '#0C3C54'
+    },
+    { 
+      icon: <Award size={32} variant="Bold" />, 
+      number: 15, 
+      suffix: ' năm', 
+      label: 'Kinh nghiệm phục vụ',
+      color: '#FF9800'
+    },
+    { 
+      icon: <Star1 size={32} variant="Bold" />, 
+      number: 99, 
+      suffix: '%', 
+      label: 'Tỷ lệ hài lòng',
+      color: '#4CAF50'
+    }
+  ];
+
+  // Service highlights
+  const highlights = [
+    {
+      icon: <Shield size={28} color="#0C3C54" variant="Bold" />,
+      title: 'Trang thiết bị hiện đại',
+      description: 'Đầu tư công nghệ y tế tiên tiến nhất hiện nay',
+      color: '#0C3C54'
+    },
+    {
+      icon: <Profile2User size={28} color="#2A7F9E" variant="Bold" />,
+      title: 'Đội ngũ chuyên gia',
+      description: 'Bác sĩ giàu kinh nghiệm và tận tâm',
+      color: '#2A7F9E'
+    },
+    {
+      icon: <ClipboardTick size={28} color="#4CAF50" variant="Bold" />,
+      title: 'Quy trình chuẩn',
+      description: 'Tuân thủ tiêu chuẩn y tế quốc tế',
+      color: '#4CAF50'
+    },
+    {
+      icon: <MonitorMobbile size={28} color="#FF9800" variant="Bold" />,
+      title: 'Công nghệ số',
+      description: 'Hệ thống quản lý và tư vấn trực tuyến',
+      color: '#FF9800'
+    }
+  ];
 
   // Fetch service packages từ API
   const fetchServicePackages = useCallback(async () => {
@@ -58,375 +122,507 @@ const PublicServicesPage: React.FC = () => {
     try {
       const response = await getServicePackages({
         page: 1,
-        limit: 6, // Hiển thị 6 gói đầu tiên trên trang chủ
-        sortBy: packageFilters.sortBy,
-        sortOrder: packageFilters.sortOrder,
-        isActive: true, // Chỉ hiển thị gói đang hoạt động
-        ...(packageFilters.searchText && { search: packageFilters.searchText })
+        limit: 6,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        isActive: true,
+        ...(searchText && { search: searchText })
       } as GetServicePackagesParams);
       
       if (response.success) {
         setServicePackages(response.data.packages);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching service packages:', error);
+      message.error('Không thể tải danh sách gói dịch vụ');
     } finally {
       setPackagesLoading(false);
     }
-  }, [packageFilters]);
+  }, [searchText]);
 
   // Load service packages khi component mount
   useEffect(() => {
     fetchServicePackages();
   }, [fetchServicePackages]);
 
-  // Handle package search
-  const handlePackageSearch = () => {
-    fetchServicePackages();
-  };
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   // Handle booking package
   const handleBookingPackage = (servicePackage: ServicePackage) => {
     console.log('Booking package:', servicePackage);
-    // TODO: Navigate to booking page
+    navigate('/booking');
   };
 
   return (
-    <div className="public-services-page bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
-      {/* Hero Section - Phần giới thiệu */}
-      <div className="relative bg-gradient-to-r from-blue-primary via-green-primary to-blue-secondary overflow-hidden">
-        {/* Background Pattern - Họa tiết nền */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
-        </div>
-        
-        {/* Content - Nội dung */}
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center text-white">
-            <div className="flex items-center justify-center gap-3 mb-6">
-              <div className="p-4 bg-white/20 rounded-xl backdrop-blur-sm">
-                <CustomerServiceOutlined className="text-4xl text-white" />
-              </div>
-            </div>
-            
-            <Title level={1} className="mb-4 text-white text-4xl lg:text-5xl">
-              Dịch vụ chăm sóc sức khỏe
-            </Title>
-            <Text className="text-blue-100 text-xl max-w-3xl mx-auto block leading-relaxed">
-              Khám phá các dịch vụ chăm sóc sức khỏe toàn diện với đội ngũ chuyên gia hàng đầu
-            </Text>
-
-            {/* Feature highlights - Điểm nổi bật */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-                <HeartOutlined className="text-3xl text-white mb-3" />
-                <h3 className="text-lg font-semibold text-white mb-2">Chăm sóc tận tâm</h3>
-                <p className="text-blue-100 text-sm">Đội ngũ y bác sĩ chuyên nghiệp</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-                <StarOutlined className="text-3xl text-white mb-3" />
-                <h3 className="text-lg font-semibold text-white mb-2">Chất lượng cao</h3>
-                <p className="text-blue-100 text-sm">Thiết bị hiện đại, công nghệ tiên tiến</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
-                <GiftOutlined className="text-3xl text-white mb-3" />
-                <h3 className="text-lg font-semibold text-white mb-2">Giá cả hợp lý</h3>
-                <p className="text-blue-100 text-sm">Nhiều gói dịch vụ ưu đãi</p>
-              </div>
-            </div>
+    <div className="min-h-screen bg-white">
+      {/* Hero Section với MagicUI */}
+      <section className="relative pt-20 pb-20 overflow-hidden bg-[#0C3C54]">
+        {/* Animated grid background */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 opacity-30">
+            {[...Array(120)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-px h-px bg-[#2A7F9E]"
+                style={{
+                  left: `${(i % 12) * 8.33}%`,
+                  top: `${Math.floor(i / 12) * 10}%`,
+                }}
+                animate={{
+                  opacity: [0.1, 0.8, 0.1],
+                  scale: [1, 1.5, 1],
+                }}
+                transition={{
+                  duration: Math.random() * 3 + 2,
+                  repeat: Infinity,
+                  delay: Math.random() * 2,
+                }}
+              />
+            ))}
           </div>
         </div>
-      </div>
 
-      {/* Main Content - Nội dung chính */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Service Packages Section - Phần gói dịch vụ */}
-          <section className="mb-16">
-            <div className="text-center mb-8">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="p-3 bg-green-primary/10 rounded-xl">
-                <GiftOutlined className="text-2xl text-green-primary" />
-              </div>
-            </div>
-              <Title level={2} className="text-gray-900 mb-4">
-                Gói dịch vụ đặc biệt
-              </Title>
-            <Text className="text-gray-600 text-lg max-w-2xl mx-auto block">
-              Các gói dịch vụ được thiết kế riêng với mức giá ưu đãi, kết hợp nhiều dịch vụ chăm sóc sức khỏe
-              </Text>
-            </div>
-
-          {/* Package Search and Filters */}
-          <Card className="mb-8 shadow-sm border-0 rounded-xl bg-gradient-to-r from-green-50 to-blue-50">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-green-primary/10 rounded-lg">
-                  <GiftOutlined className="text-green-primary text-lg" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-0">Tìm kiếm gói dịch vụ</h3>
-                  <p className="text-sm text-gray-600 mb-0">Khám phá các gói ưu đãi phù hợp với nhu cầu</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Package Search Input */}
-                <Input
-                  placeholder="Tìm kiếm gói dịch vụ..."
-                  prefix={<SearchOutlined className="text-green-primary" />}
-                  value={packageFilters.searchText}
-                  onChange={(e) => setPackageFilters(prev => ({ ...prev, searchText: e.target.value }))}
-                  onPressEnter={handlePackageSearch}
-                  className="rounded-lg border-green-200 focus:border-green-primary hover:border-green-primary"
-                  size="large"
-                />
-
-                {/* Package Sort Options */}
-                <Select
-                  placeholder="Sắp xếp theo"
-                  value={`${packageFilters.sortBy}-${packageFilters.sortOrder}`}
-                  onChange={(value) => {
-                    const [field, order] = value.split('-');
-                    setPackageFilters(prev => ({
-                      ...prev,
-                      sortBy: field,
-                      sortOrder: order as 'asc' | 'desc'
-                    }));
-                  }}
-                  className="rounded-lg"
-                  size="large"
-                >
-                  <Option value="createdAt-desc">🕒 Mới nhất</Option>
-                  <Option value="createdAt-asc">🕐 Cũ nhất</Option>
-                  <Option value="name-asc">🔤 Tên A-Z</Option>
-                  <Option value="name-desc">🔤 Tên Z-A</Option>
-                  <Option value="price-asc">💰 Giá thấp - cao</Option>
-                  <Option value="price-desc">💰 Giá cao - thấp</Option>
-                </Select>
-
-                {/* Package Search Button */}
+        <div className="relative z-10 container mx-auto px-4 text-center">
+          <BlurFade delay={0.2} inView>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="inline-flex items-center justify-center w-24 h-24 bg-white/10 rounded-full mb-8 backdrop-blur-sm border border-white/20"
+            >
+              <Hospital size={48} className="text-white" variant="Bold" />
+            </motion.div>
+          </BlurFade>
+          
+                     <BlurFade delay={0.4} inView>
+             <div className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
+               Dịch vụ y tế hàng đầu
+             </div>
+           </BlurFade>
+          
+          <BlurFade delay={0.6} inView>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-8 text-enhanced"
+            >
+              Khám phá hệ thống dịch vụ chăm sóc sức khỏe toàn diện với công nghệ hiện đại và đội ngũ chuyên gia y tế hàng đầu Việt Nam
+            </motion.div>
+          </BlurFade>
+          
+          <BlurFade delay={0.8} inView>
+            <div className="flex flex-wrap justify-center gap-4">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button
                   type="primary"
-                  icon={<SearchOutlined />}
-                  onClick={handlePackageSearch}
-                  className="bg-green-primary hover:bg-green-secondary border-green-primary rounded-lg"
                   size="large"
+                  onClick={() => navigate('/booking')}
+                  className="!bg-white !text-[#0C3C54] !border-white !font-bold !px-8 !py-6 !text-lg !shadow-2xl hover:!bg-gray-50"
                 >
-                  Tìm kiếm gói
+                  <Heart className="mr-2" size={20} variant="Bold" />
+                  Đặt lịch khám ngay
                 </Button>
-              </div>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  size="large"
+                  onClick={() => navigate('/online-consultation')}
+                  className="!bg-transparent !text-white !border-white !border-2 !font-bold !px-8 !py-6 !text-lg hover:!bg-white hover:!text-[#0C3C54] backdrop-blur-sm"
+                >
+                  <MonitorMobbile className="mr-2" size={20} />
+                  Tư vấn trực tuyến
+                </Button>
+              </motion.div>
             </div>
-          </Card>
+          </BlurFade>
+        </div>
+      </section>
 
-          {/* Service Packages Grid */}
-            <Spin spinning={packagesLoading}>
-            {servicePackages.length > 0 ? (
+      {/* Statistics Section */}
+      <section className="py-16 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <BlurFade delay={0.2} inView>
+            <div className="text-center mb-12">
+              <motion.h2 
+                className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                Thành tựu của chúng tôi
+              </motion.h2>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-lg text-gray-600 max-w-2xl mx-auto text-enhanced"
+              >
+                Hàng nghìn bệnh nhân đã tin tưởng và điều trị thành công tại bệnh viện
+              </motion.div>
+            </div>
+          </BlurFade>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {stats.map((stat, index) => (
+              <BlurFade key={index} delay={0.2 + index * 0.1} inView>
+                <WarpBackground className="h-full group cursor-pointer">
+                  <div className="p-8 text-center">
+                    <motion.div
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6"
+                      style={{ backgroundColor: `${stat.color}20` }}
+                    >
+                      <div style={{ color: stat.color }}>
+                        {stat.icon}
+                      </div>
+                    </motion.div>
+                    
+                    <BoxReveal align="center">
+                      <div className="text-3xl font-bold mb-2" style={{ color: stat.color }}>
+                        <NumberTicker value={stat.number} />
+                        {stat.suffix}
+                      </div>
+                    </BoxReveal>
+                    
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.8, delay: 0.3 }}
+                      className="text-gray-600 text-enhanced text-sm"
+                    >
+                      {stat.label}
+                    </motion.div>
+                  </div>
+                </WarpBackground>
+              </BlurFade>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Highlights Section */}
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <BlurFade delay={0.2} inView>
+            <div className="text-center mb-16">
+              <motion.h2 
+                className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                Tại sao chọn chúng tôi?
+              </motion.h2>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-lg text-gray-600 max-w-2xl mx-auto text-enhanced"
+              >
+                Những điểm vượt trội giúp chúng tôi trở thành lựa chọn hàng đầu
+              </motion.div>
+            </div>
+          </BlurFade>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {highlights.map((highlight, index) => (
+              <BlurFade key={index} delay={0.2 + index * 0.1} inView>
+                <WarpBackground className="h-full group cursor-pointer">
+                  <div className="p-8 text-center">
+                    <motion.div
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6"
+                      style={{ backgroundColor: `${highlight.color}20` }}
+                    >
+                      {highlight.icon}
+                    </motion.div>
+                    
+                    <BoxReveal align="center">
+                      <h4 className="text-xl font-bold text-gray-800 mb-3">
+                        {highlight.title}
+                      </h4>
+                    </BoxReveal>
+                    
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.8, delay: 0.3 }}
+                      className="text-gray-600 text-sm leading-relaxed text-enhanced"
+                    >
+                      {highlight.description}
+                    </motion.div>
+                  </div>
+                </WarpBackground>
+              </BlurFade>
+            ))}
+          </div>
+        </div>
+      </section>
+
+ 
+
+      {/* Individual Services Section */}
+      <section id="services" className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <BlurFade delay={0.2} inView>
+            <div className="text-center mb-16">
+              <motion.div
+                initial={{ scale: 0 }}
+                whileInView={{ scale: 1 }}
+                transition={{ duration: 0.6 }}
+                viewport={{ once: true }}
+                className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#2A7F9E] to-cyan-400 rounded-full mb-8 shadow-xl"
+              >
+                <HeartAdd size={40} className="text-white" variant="Bold" />
+              </motion.div>
+              
+              <motion.h2 
+                className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                Dịch vụ <span className="text-[#2A7F9E]">chuyên khoa</span>
+              </motion.h2>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-lg text-gray-600 max-w-2xl mx-auto text-enhanced"
+              >
+                Đa dạng các dịch vụ chăm sóc sức khỏe từ khám tổng quát đến chuyên khoa, đáp ứng mọi nhu cầu của bạn và gia đình
+              </motion.div>
+            </div>
+          </BlurFade>
+
+          <Spin spinning={loading} size="large">
+            {services.length > 0 ? (
               <>
-                <Row gutter={[24, 24]} className="mb-8">
-                {servicePackages.map((pkg) => (
-                  <Col xs={24} sm={12} lg={8} key={pkg._id}>
-                      <ServicePackageDisplayCard
-                      servicePackage={pkg}
-                      className="h-full"
-                        showBookingButton={true}
-                        onBookingClick={handleBookingPackage}
-                    />
-                  </Col>
-                ))}
-              </Row>
-
-                {/* View All Packages Button */}
-                <div className="text-center">
-                  <Button
-                    type="primary"
-                    size="large"
-                    className="bg-green-primary hover:bg-green-secondary border-green-primary px-8 py-6 h-auto rounded-xl font-semibold"
-                    onClick={() => {
-                      // TODO: Navigate to full service packages page
-                      console.log('Navigate to service packages page');
-                    }}
-                  >
-                    Xem tất cả gói dịch vụ →
-                  </Button>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {services.map((service, index) => (
+                    <BlurFade key={service._id} delay={0.2 + index * 0.1} inView>
+                      <WarpBackground className="h-full group cursor-pointer">
+                        <ServiceDisplayCard
+                          service={service}
+                          className="h-full border-0 shadow-none"
+                        />
+                      </WarpBackground>
+                    </BlurFade>
+                  ))}
                 </div>
+
+                {pagination.totalPages > 1 && (
+                  <div className="flex justify-center mt-16">
+                    <div className="flex items-center gap-3">
+                      {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => i + 1).map((page) => (
+                        <motion.div key={page} whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
+                          <Button
+                            onClick={() => actions.handlePaginationChange(page)}
+                            className={`!w-12 !h-12 !rounded-full !border-0 !font-semibold !text-lg !shadow-lg ${
+                              page === pagination.current
+                                ? '!bg-[#0C3C54] !text-white'
+                                : '!bg-gray-100 !text-gray-600 hover:!bg-[#0C3C54] hover:!text-white'
+                            }`}
+                          >
+                            {page}
+                          </Button>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
-              <div className="text-center py-12">
-                <div className="mb-4">
-                  <GiftOutlined className="text-6xl text-gray-300" />
-                </div>
-                <Text className="text-gray-500 text-lg">
-                  {packageFilters.searchText ? 'Không tìm thấy gói dịch vụ phù hợp' : 'Hiện tại chưa có gói dịch vụ nào'}
-                </Text>
-                {packageFilters.searchText && (
-                  <div className="mt-4">
+              <div className="text-center py-20">
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={
+                    <span className="text-gray-500 text-xl">
+                      {loading ? 'Đang tải dịch vụ...' : 'Không tìm thấy dịch vụ nào phù hợp'}
+                    </span>
+                  }
+                />
+              </div>
+            )}
+          </Spin>
+        </div>
+      </section>
+     {/* Service Packages Section */}
+      <section id="packages" className="py-20 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <BlurFade delay={0.2} inView>
+            <div className="text-center mb-16">
+              <motion.div
+                initial={{ scale: 0 }}
+                whileInView={{ scale: 1 }}
+                transition={{ duration: 0.6 }}
+                viewport={{ once: true }}
+                className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-[#0C3C54] to-[#2A7F9E] rounded-full mb-8 shadow-xl"
+              >
+                <ClipboardTick size={40} className="text-white" variant="Bold" />
+              </motion.div>
+              
+              <motion.h2 
+                className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                Gói dịch vụ <span className="text-[#2A7F9E]">khám sức khỏe</span>
+              </motion.h2>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-lg text-gray-600 max-w-2xl mx-auto text-enhanced"
+              >
+                Các gói khám sức khỏe được thiết kế phù hợp với từng độ tuổi và nhu cầu
+              </motion.div>
+            </div>
+          </BlurFade>
+
+
+          <Spin spinning={packagesLoading} size="large">
+            {servicePackages.length > 0 ? (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {servicePackages.map((pkg, index) => (
+                  <BlurFade key={pkg._id} delay={0.2 + index * 0.1} inView>
+                    <WarpBackground className="h-full group cursor-pointer">
+                                             <ServicePackageDisplayCard
+                         servicePackage={pkg}
+                         onBookingClick={handleBookingPackage}
+                         className="h-full border-0 shadow-none"
+                       />
+                    </WarpBackground>
+                  </BlurFade>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-20">
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={
+                    <h3 className="text-gray-500 text-xl mb-4">
+                      {searchText ? 'Không tìm thấy gói dịch vụ phù hợp' : 'Hiện tại chưa có gói dịch vụ nào'}
+                    </h3>
+                  }
+                />
+                {searchText && (
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                     <Button
                       type="primary"
                       onClick={() => {
-                        setPackageFilters(prev => ({ ...prev, searchText: '' }));
-                        handlePackageSearch();
+                        setSearchText('');
+                        fetchServicePackages();
                       }}
-                      className="bg-green-primary border-green-primary"
+                      className="!bg-[#0C3C54] !border-[#0C3C54] !rounded-xl !px-8 !py-6 !text-lg !font-bold"
                     >
                       Xóa bộ lọc
                     </Button>
-                  </div>
+                  </motion.div>
                 )}
               </div>
             )}
-            </Spin>
-
-            <Divider className="my-12" />
-          </section>
-
-        {/* Services Section - Phần dịch vụ */}
-        <section>
-          <div className="text-center mb-8">
-            <Title level={2} className="text-gray-900 mb-4">
-              Dịch vụ chăm sóc sức khỏe
-            </Title>
-            <Text className="text-gray-600 text-lg">
-              Tìm kiếm và đặt lịch các dịch vụ phù hợp với nhu cầu của bạn
-            </Text>
-          </div>
-
-          {/* Search and Filters - Tìm kiếm và bộ lọc */}
-          <Card className="mb-8 shadow-sm border-0 rounded-xl">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Search Input - Ô tìm kiếm */}
-              <Input
-                placeholder="Tìm kiếm dịch vụ..."
-                prefix={<SearchOutlined className="text-gray-400" />}
-                value={filters.searchText}
-                onChange={(e) => actions.setSearchText(e.target.value)}
-                onPressEnter={actions.handleSearch}
-                className="rounded-lg"
-                size="large"
+          </Spin>
+        </div>
+      </section>
+      {/* Call to Action Section */}
+      <section className="py-20 bg-[#0C3C54] relative overflow-hidden">
+        {/* Animated background */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 opacity-30">
+            {[...Array(80)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-px h-px bg-[#2A7F9E]"
+                style={{
+                  left: `${(i % 10) * 10}%`,
+                  top: `${Math.floor(i / 10) * 12.5}%`,
+                }}
+                animate={{
+                  opacity: [0.2, 0.8, 0.2],
+                }}
+                transition={{
+                  duration: Math.random() * 3 + 2,
+                  repeat: Infinity,
+                  delay: Math.random() * 2,
+                }}
               />
-
-              {/* Service Type Filter - Bộ lọc loại dịch vụ */}
-                             <Select
-                 placeholder="Loại dịch vụ"
-                 value={filters.serviceType || undefined}
-                 onChange={actions.setServiceType}
-                 className="rounded-lg"
-                 size="large"
-                 allowClear
-               >
-                 <Option value="">Tất cả</Option>
-                 <Option value="consultation">Tư vấn</Option>
-                 <Option value="test">Xét nghiệm</Option>
-                 <Option value="treatment">Điều trị</Option>
-               </Select>
-
-              {/* Location Filter - Bộ lọc địa điểm */}
-                             <Select
-                 placeholder="Địa điểm thực hiện"
-                 value={filters.availableAt || undefined}
-                 onChange={actions.setAvailableAt}
-                 className="rounded-lg"
-                 size="large"
-                 allowClear
-               >
-                 <Option value="">Tất cả</Option>
-                 <Option value="center">Tại trung tâm</Option>
-                 <Option value="athome">Tại nhà</Option>
-                 <Option value="online">Trực tuyến</Option>
-               </Select>
-
-              {/* Action Buttons - Các nút hành động */}
-              <Space>
+            ))}
+          </div>
+        </div>
+        
+        <div className="relative z-10 container mx-auto px-4 text-center">
+          <BlurFade delay={0.2} inView>
+            <motion.div
+              initial={{ scale: 0 }}
+              whileInView={{ scale: 1 }}
+              transition={{ duration: 0.8 }}
+              viewport={{ once: true }}
+              className="inline-flex items-center justify-center w-24 h-24 bg-white/20 rounded-full mb-10 backdrop-blur-sm border border-white/30"
+            >
+              <People size={48} className="text-white" variant="Bold" />
+            </motion.div>
+          </BlurFade>
+          
+          <BlurFade delay={0.4} inView>
+            <motion.h2 
+              className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-8 leading-tight"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+            >
+              Bắt đầu hành trình chăm sóc{' '}
+              <span className="bg-gradient-to-r from-cyan-200 to-blue-200 bg-clip-text text-transparent">
+                sức khỏe
+              </span>
+            </motion.h2>
+          </BlurFade>
+          
+          <BlurFade delay={0.6} inView>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="text-xl md:text-2xl text-white/90 max-w-4xl mx-auto mb-16 leading-relaxed text-enhanced"
+            >
+              Liên hệ với chúng tôi ngay để được tư vấn và đặt lịch khám với đội ngũ chuyên gia hàng đầu. Sức khỏe của bạn là ưu tiên số một của chúng tôi.
+            </motion.div>
+          </BlurFade>
+          
+          <BlurFade delay={0.8} inView>
+            <div className="flex flex-col sm:flex-row justify-center gap-6">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button
                   type="primary"
-                  icon={<SearchOutlined />}
-                  onClick={actions.handleSearch}
                   size="large"
-                  className="bg-blue-primary hover:bg-blue-secondary border-blue-primary hover:border-blue-secondary rounded-lg"
+                  onClick={() => navigate('/booking')}
+                  className="!bg-white !text-[#0C3C54] !border-white !font-bold !px-12 !py-7 !text-xl !shadow-2xl hover:!bg-gray-50"
                 >
-                  Tìm kiếm
+                  <Heart className="mr-3" size={24} variant="Bold" />
+                  Đặt lịch khám ngay
                 </Button>
+              </motion.div>
+              
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  icon={<ReloadOutlined />}
-                  onClick={actions.handleResetFilters}
                   size="large"
-                  className="rounded-lg"
+                  onClick={() => navigate('/online-consultation')}
+                  className="!bg-white/10 !text-white !border-white !border-2 !font-bold !px-12 !py-7 !text-xl hover:!bg-white hover:!text-[#0C3C54] backdrop-blur-sm"
                 >
-                  Làm mới
+                  <MonitorMobbile className="mr-3" size={24} />
+                  Tư vấn trực tuyến
                 </Button>
-              </Space>
+              </motion.div>
             </div>
-          </Card>
-
-          {/* Services Grid - Lưới dịch vụ */}
-          <Spin spinning={loading}>
-            {services.length > 0 ? (
-              <>
-                <Row gutter={[24, 24]}>
-                  {services.map((service) => (
-                    <Col xs={24} sm={12} lg={8} key={service._id}>
-                      <ServiceDisplayCard
-                        service={service}
-                        className="h-full"
-                      />
-                    </Col>
-                  ))}
-                </Row>
-
-                {/* Pagination - Phân trang */}
-                {pagination.total > 0 && (
-                  <div className="text-center mt-12">
-                    <Pagination
-                      current={pagination.current}
-                      pageSize={pagination.pageSize}
-                      total={pagination.total}
-                      onChange={actions.handlePaginationChange}
-                      showSizeChanger
-                      showQuickJumper
-                      showTotal={(total, range) =>
-                        `${range[0]}-${range[1]} của ${total} dịch vụ`
-                      }
-                      className="inline-flex"
-                    />
-                  </div>
-                )}
-              </>
-            ) : (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={
-                  <span className="text-gray-500">
-                    {loading ? 'Đang tải dịch vụ...' : 'Không tìm thấy dịch vụ nào'}
-                  </span>
-                }
-              />
-            )}
-          </Spin>
-        </section>
-
-        {/* Call to Action - Lời kêu gọi hành động */}
-        <section className="mt-16 text-center">
-          <Card className="bg-gradient-to-r from-blue-50 to-green-50 border-0 rounded-2xl overflow-hidden">
-            <div className="py-12">
-              <Title level={3} className="text-gray-900 mb-4">
-                Cần hỗ trợ tư vấn?
-              </Title>
-              <Text className="text-gray-600 text-lg mb-6 block">
-                Đội ngũ chuyên gia của chúng tôi luôn sẵn sàng hỗ trợ bạn
-              </Text>
-              <Button
-                type="primary"
-                size="large"
-                className="bg-blue-primary hover:bg-blue-secondary border-blue-primary hover:border-blue-secondary rounded-xl px-8 h-12 text-lg font-medium"
-                onClick={() => window.location.href = '/counselors'}
-              >
-                Liên hệ tư vấn ngay
-              </Button>
-            </div>
-          </Card>
-        </section>
-      </div>
+          </BlurFade>
+        </div>
+      </section>
     </div>
   );
 };

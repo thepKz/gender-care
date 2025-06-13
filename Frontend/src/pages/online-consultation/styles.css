@@ -194,29 +194,7 @@ html {
   transform: rotateY(5deg) rotateX(5deg);
 }
 
-/* Ant Design customizations */
-.ant-timeline-item-head {
-  background-color: #006478;
-  border-color: #006478;
-}
-
-.ant-collapse > .ant-collapse-item > .ant-collapse-header {
-  background: rgba(0, 100, 120, 0.05);
-  border-radius: 12px;
-  margin-bottom: 8px;
-  padding: 16px 20px;
-  font-weight: 500;
-}
-
-.ant-collapse-content {
-  border-radius: 0 0 12px 12px;
-  background: white;
-}
-
-/* Progress bar customization */
-.ant-progress-bg {
-  background: linear-gradient(90deg, #006478, #00A693) !important;
-}
+/* Custom component styles - No antd dependencies */
 
 /* Mobile optimizations */
 @media (max-width: 768px) {
@@ -258,16 +236,14 @@ html {
 }
 
 /* Focus styles for accessibility */
-button:focus-visible,
-.ant-btn:focus-visible {
-  outline: 2px solid #006478;
+button:focus-visible {
+  outline: 2px solid #0C3C54;
   outline-offset: 2px;
 }
 
 input:focus-visible,
-textarea:focus-visible,
-.ant-input:focus-visible {
-  outline: 2px solid #006478;
+textarea:focus-visible {
+  outline: 2px solid #0C3C54;
   outline-offset: 1px;
 }
 

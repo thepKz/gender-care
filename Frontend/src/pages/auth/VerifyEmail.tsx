@@ -71,33 +71,30 @@ const VerifyEmail: React.FC = () => {
     }
   }, [user, navigate]);
 
-  // Kiểm tra và gửi OTP khi trang load lần đầu
+  // Kiểm tra OTP timer khi trang tải lần đầu nhưng KHÔNG tự động gửi lại OTP
+  // Tránh gửi thêm email OTP không cần thiết khi vừa đăng ký thành công.
   useEffect(() => {
     if (!isInitialLoad || !email) return;
-    
-    // Kiểm tra xem đã gửi OTP gần đây chưa
+
     const storedOtpTimer = localStorage.getItem('otpTimer');
     if (storedOtpTimer) {
       try {
         const otpTimer: OtpTimerStorage = JSON.parse(storedOtpTimer);
         const now = Date.now();
         const elapsedTime = Math.floor((now - otpTimer.timestamp) / 1000);
-        
-        // Nếu OTP đã được gửi cho email này và còn thời gian chờ
+
+        // Nếu OTP đã được gửi cho cùng email và còn thời gian chờ thì khôi phục countdown
         if (otpTimer.email === email && elapsedTime < 60) {
           setCountdown(60 - elapsedTime);
           setVerificationSent(true);
-          setIsInitialLoad(false);
-          return;
         }
       } catch (_) {
-        // Nếu có lỗi khi parse, xóa dữ liệu cũ
+        // Nếu lỗi parse JSON, xóa timer để tránh trạng thái sai
         localStorage.removeItem('otpTimer');
       }
     }
-    
-    // Gửi OTP mới nếu chưa gửi gần đây
-    handleSendVerification(true);
+
+    // Đánh dấu đã xử lý lần khởi tạo đầu tiên
     setIsInitialLoad(false);
   }, [email, isInitialLoad]);
 

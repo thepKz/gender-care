@@ -55,7 +55,9 @@ Table Doctors {
    education String 
   createdAt DateTime 
   updatedAt DateTime 
-  certificate String 
+  certificate String
+  image String
+  workplace String
 } 
 Table DoctorSchedules { 
   _id ObjectId [pk] 

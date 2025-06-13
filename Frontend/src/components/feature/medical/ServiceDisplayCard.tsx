@@ -39,6 +39,8 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
         return '🔬';
       case 'treatment':
         return '💉';
+      case 'checkup':
+        return '🩺';
       default:
         return '🏥';
     }
@@ -53,6 +55,8 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
         return 'Xét nghiệm';
       case 'treatment':
         return 'Điều trị';
+      case 'checkup':
+        return 'Khám sức khỏe';
       default:
         return 'Khác';
     }
@@ -109,7 +113,7 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
       hoverable
       className={`medical-service-display-card h-full rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-0 overflow-hidden group ${className}`}
       cover={
-        <div className="relative h-48 bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center overflow-hidden">
+        <div className="relative h-48 bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center overflow-hidden">
           {/* Background Pattern - Họa tiết nền */}
           <div className="absolute inset-0 opacity-5">
             <div className="absolute inset-0" style={{
@@ -125,15 +129,23 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
-            <div className="text-6xl text-blue-primary/20 group-hover:scale-110 transition-transform duration-300">
-              {getServiceTypeIcon(service.serviceType)}
+            <div className="text-center">
+              <div className="text-6xl text-[#2A7F9E]/20 group-hover:scale-110 transition-transform duration-300 mb-2">
+                {getServiceTypeIcon(service.serviceType)}
+              </div>
+              {/* Decorative medical icons */}
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-2xl animate-pulse text-[#2A7F9E]/30">🩺</span>
+                <span className="text-xl text-[#2A7F9E]/20">+</span>
+                <span className="text-2xl animate-pulse text-[#2A7F9E]/30" style={{ animationDelay: '0.5s' }}>❤️</span>
+              </div>
             </div>
           )}
 
           {/* Service Type Badge - Nhãn loại dịch vụ */}
           <div className="absolute top-3 left-3">
             <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm">
-              <span className="text-xs font-medium text-blue-primary flex items-center gap-1">
+              <span className="text-xs font-medium text-[#2A7F9E] flex items-center gap-1">
                 <span>{getServiceTypeIcon(service.serviceType)}</span>
                 {getServiceTypeLabel(service.serviceType)}
               </span>
@@ -157,22 +169,22 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
         </div>
       }
     >
-      <div className="p-4">
+      <div className="p-5">
         {/* Service Name - Tên dịch vụ */}
         <h3 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2 min-h-[3.5rem]">
           {service.serviceName}
         </h3>
 
         {/* Service Description - Mô tả dịch vụ */}
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2 min-h-[2.5rem]">
+        <p className="text-gray-600 text-sm mb-4 line-clamp-2 min-h-[2.5rem] leading-relaxed">
           {service.description || 'Dịch vụ chăm sóc sức khỏe chuyên nghiệp với đội ngũ y bác sĩ giàu kinh nghiệm.'}
         </p>
 
         {/* Service Details - Chi tiết dịch vụ */}
-        <div className="space-y-2 mb-4">
+        <div className="space-y-3 mb-4">
           {/* Available Location - Địa điểm có sẵn */}
           <div className="flex items-center gap-2 text-sm">
-            <EnvironmentOutlined className="text-blue-primary" />
+            <EnvironmentOutlined className="text-[#2A7F9E]" />
             <span className="text-gray-600">
               {service.availableAt && service.availableAt.length > 0 ? (
                 <>
@@ -191,7 +203,7 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
 
           {/* Duration - Thời gian */}
           <div className="flex items-center gap-2 text-sm">
-            <ClockCircleOutlined className="text-blue-primary" />
+            <ClockCircleOutlined className="text-[#2A7F9E]" />
             <span className="text-gray-600">
               {service.duration ? `${service.duration} phút` : 'Thời gian linh hoạt'}
             </span>
@@ -199,51 +211,40 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
         </div>
 
         {/* Price - Giá tiền */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <span className="text-2xl font-bold text-blue-primary">
-              {formatPrice(service.price)}
-            </span>
-            <span className="text-gray-500 ml-1">VNĐ</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <StarOutlined className="text-yellow-500 text-sm" />
-            <span className="text-sm text-gray-600">4.8</span>
+        <div className="bg-gradient-to-br from-cyan-50 to-blue-50 p-4 rounded-xl border border-cyan-200/50 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-2xl font-bold text-[#2A7F9E]">
+                {service.price ? formatPrice(service.price) : 'Liên hệ'}
+              </span>
+              {service.price && <span className="text-gray-500 ml-1">VNĐ</span>}
+            </div>
+            <div className="flex items-center gap-1">
+              <StarOutlined className="text-yellow-500 text-sm" />
+              <span className="text-sm text-gray-600 font-medium">4.8</span>
+            </div>
           </div>
         </div>
 
         {/* Action Buttons - Nút hành động */}
         {showBookingButton && (
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <Button
               type="primary"
-              className="flex-1 bg-blue-primary hover:bg-blue-secondary border-blue-primary hover:border-blue-secondary rounded-xl h-10 font-medium"
+              className="flex-1 bg-[#2A7F9E] hover:bg-[#0C3C54] border-[#2A7F9E] hover:border-[#0C3C54] rounded-xl h-11 font-medium"
               onClick={handleBooking}
-              icon={<HeartOutlined />}
             >
               Đặt lịch ngay
             </Button>
-            
             <Button
-              className="px-3 rounded-xl border-gray-300 hover:border-blue-primary hover:text-blue-primary"
-              icon={<CustomerServiceOutlined />}
-              onClick={() => navigate('/counselors')}
-            />
+              className="border-[#2A7F9E] text-[#2A7F9E] hover:bg-[#2A7F9E] hover:text-white rounded-xl h-11 font-medium px-4"
+              onClick={() => navigate(`/services/${service._id}`)}
+            >
+              Chi tiết
+            </Button>
           </div>
         )}
       </div>
-
-      {/* Deleted Service Overlay - Overlay cho dịch vụ đã xóa */}
-      {service.isDeleted === 1 && (
-        <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-[1px] rounded-2xl flex items-center justify-center">
-          <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1 border border-gray-200">
-            <span className="text-sm font-medium text-gray-700">Đã ngừng hoạt động</span>
-          </div>
-        </div>
-      )}
-
-      {/* Hover Effect Overlay - Hiệu ứng hover */}
-      <div className="absolute inset-0 bg-gradient-to-t from-blue-primary/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-2xl" />
     </Card>
   );
 };

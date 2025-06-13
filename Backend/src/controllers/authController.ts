@@ -239,14 +239,29 @@ export const sendNewVerifyEmail = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Email đã được xác thực trước đó" });
     }
 
-    // Tạo OTP cho xác thực email
+    // Kiểm tra xem đã tồn tại OTP hợp lệ chưa
+    const existingOtp = await OtpCode.findOne({
+      userId: user._id,
+      type: "email_verification",
+      verified: false,
+      expires: { $gt: new Date() }
+    }).sort({ createdAt: -1 });
+
+    if (existingOtp) {
+      // Nếu đã có OTP còn hiệu lực, không tạo OTP mới để tránh spam email
+      return res.status(200).json({
+        message: "Mã OTP hiện tại vẫn còn hiệu lực, vui lòng kiểm tra email của bạn"
+      });
+    }
+
+    // Tạo OTP mới cho xác thực email
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Tạo thời gian hết hạn (60 phút)
+
+    // Thời gian hết hạn (60 phút)
     const expiryDate = new Date();
     expiryDate.setMinutes(expiryDate.getMinutes() + 60);
-    
-    // Lưu OTP vào database
+
+    // Lưu OTP mới vào database
     await OtpCode.create({
       userId: user._id,
       type: "email_verification",
@@ -259,9 +274,7 @@ export const sendNewVerifyEmail = async (req: Request, res: Response) => {
     // Gửi email xác thực
     await sendVerificationEmail(email, otp, user.fullName);
 
-    return res
-      .status(200)
-      .json({ message: "Mã OTP đã được gửi đến email của bạn" });
+    return res.status(200).json({ message: "Mã OTP đã được gửi đến email của bạn" });
   } catch (error: any) {
     console.log(error);
     return res.status(500).json({ message: error.message });

@@ -103,12 +103,12 @@ const FloatingAppointmentButton: React.FC<FloatingAppointmentButtonProps> = ({
         className={`
           group relative overflow-hidden
           w-16 h-16 md:w-18 md:h-18 lg:w-20 lg:h-20
-          bg-gradient-to-br from-green-primary to-green-secondary
-          hover:from-green-secondary hover:to-green-primary
+          bg-gradient-to-br from-[#0C3C54] to-[#2A7F9E]
+          hover:from-[#2A7F9E] hover:to-[#0C3C54]
           text-white rounded-full shadow-xl
           transition-all duration-300 ease-out
           hover:scale-110 hover:shadow-2xl
-          focus:outline-none focus:ring-4 focus:ring-green-primary focus:ring-opacity-30
+          focus:outline-none focus:ring-4 focus:ring-[#0C3C54] focus:ring-opacity-30
           advanced-pulse magnetic-hover floating-bounce
           ${showAttentionSeeker ? 'attention-seeking' : ''}
           ${isHovered ? 'heartbeat-button' : ''}
@@ -187,7 +187,7 @@ const FloatingAppointmentButton: React.FC<FloatingAppointmentButtonProps> = ({
       `}>
         <div className="bg-white rounded-2xl shadow-2xl p-4 min-w-[280px]">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-green-primary to-green-secondary rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-gradient-to-br from-[#0C3C54] to-[#2A7F9E] rounded-full flex items-center justify-center">
               <Heart className="w-6 h-6 text-white" />
             </div>
             <div>

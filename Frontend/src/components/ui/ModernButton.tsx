@@ -103,9 +103,9 @@ const ModernButton: React.FC<ModernButtonProps> = ({
       focus:ring-white/50
     `,
     outline: `
-      bg-transparent border-2 border-blue-500 text-blue-500
-      hover:bg-blue-500 hover:text-white hover:shadow-lg hover:shadow-blue-500/25
-      focus:ring-blue-500
+      bg-transparent border-2 border-white text-white
+      hover:bg-cyan-500 hover:text-[#0C3C54] hover:shadow-lg hover:shadow-cyan-400/25
+      focus:ring-white
     `,
     ghost: `
       bg-transparent text-gray-600 border-0
