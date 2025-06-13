@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Eye, Heart } from "iconsax-react";
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { getPostId } from "../../../utils/blogUtils";
 
 // Reuse lightweight type for UI purposes (can be replaced by shared type)
 interface BlogPostUI {
@@ -33,7 +34,14 @@ const BlogCard: React.FC<BlogCardProps> = ({ post, onClick, className = "" }) =>
 
   const handleClick = () => {
     if (onClick) onClick(post);
-    else navigate(`/blog/${post.id}`, { state: post });
+    else {
+      const postId = getPostId(post);
+      if (postId) {
+        navigate(`/blog/${postId}`, { state: post });
+      } else {
+        console.error('BlogCard: Cannot navigate - no valid post ID found');
+      }
+    }
   };
 
   return (
