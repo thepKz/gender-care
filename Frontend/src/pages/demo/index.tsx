@@ -50,6 +50,15 @@ const DemoIndex: React.FC = () => {
       icon: <Heart size={32} variant="Bold" />,
       gradient: 'from-pink-500 via-rose-500 to-red-500',
       features: ['Rating System', 'Emoji Selection', 'Image Upload', 'Progress Tracking']
+    },
+    {
+      id: 'rich-text',
+      title: 'Rich Text Composer',
+      description: 'Soạn thảo văn bản WYSIWYG với TipTap + Radix Toolbar',
+      path: '/demo/composer',
+      icon: <DocumentText size={32} variant="Bold" />,
+      gradient: 'from-cyan-500 via-sky-500 to-blue-500',
+      features: ['Bold/Italic', 'Upload ảnh', 'Undo/Redo', 'Sanitize']
     }
   ];
 

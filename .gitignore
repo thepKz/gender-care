@@ -27,3 +27,4 @@ coverage/*
 
 jest-results.xml    
 jest-results.json
+.cursor/

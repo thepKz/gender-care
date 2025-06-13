@@ -25,6 +25,21 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  
+  /* Fix text spacing for MagicUI components */
+  .text-animate-fix {
+    word-spacing: normal !important;
+    letter-spacing: normal !important;
+    white-space: normal !important;
+  }
+  
+  .text-animate-fix > span {
+    margin-right: 0.25rem !important;
+  }
+  
+  .text-animate-fix > span:last-child {
+    margin-right: 0 !important;
+  }
 }
 
 @layer components {
@@ -60,6 +75,23 @@
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Enhanced text animation components */
+  .text-enhanced {
+    word-spacing: normal;
+    letter-spacing: normal;
+    white-space: normal;
+    line-height: 1.6;
+  }
+  
+  .text-enhanced span {
+    display: inline-block;
+    margin-right: 0.2em;
+  }
+  
+  .text-enhanced span:last-child {
+    margin-right: 0;
   }
 }
 

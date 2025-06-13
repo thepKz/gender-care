@@ -91,16 +91,26 @@ export interface LoginHistory {
 }
 
 // Doctor types
+export interface DoctorInfo {
+  _id: string;
+  fullName: string;
+  email: string;
+  avatar?: string;
+  phone?: string;
+  role?: string;
+}
+
 export interface Doctor {
   _id: string;
-  userId: string;
-  bio: string;
-  experience: number;
-  rating: number;
+  userId: DoctorInfo;
+  bio?: string;
+  experience?: number;
+  rating?: number;
   image?: string;
-  specialization: string;
-  education: string;
-  certificate: string;
+  specialization?: string;
+  education?: string;
+  certificate?: string;
+  workplace?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,15 +1,33 @@
-import { Button, Card, Col, Collapse, Form, Input, message, Modal, Row, Space, Tag, Typography } from 'antd';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
-import { Call, Clock, Heart, InfoCircle, MessageQuestion, Profile, Send, Shield, Star1, Verify, VideoPlay } from 'iconsax-react';
-import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import {
+  VideoPlay,
+  Clock,
+  Shield,
+  Verify,
+  Heart,
+  Profile,
+  Star1,
+  Call,
+  InfoCircle,
+  MessageQuestion,
+  Send,
+  MonitorMobbile,
+  Profile2User,
+  Award
+} from 'iconsax-react';
+import PrimaryButton from '../../components/ui/primitives/PrimaryButton';
+import TagChip from '../../components/ui/primitives/TagChip';
+import CardBox from '../../components/ui/primitives/CardBox';
+import FloatingAppointmentButton from '../../components/ui/common/FloatingAppointmentButton';
+import ModalDialog from '../../components/ui/primitives/ModalDialog';
+import Accordion, { AccordionItem } from '../../components/ui/primitives/Accordion';
 import { consultationApi } from '../../api';
-import { FloatingAppointmentButton } from '../../components/ui/common';
-import './styles.css';
 
-const { Title, Paragraph, Text } = Typography;
-const { TextArea } = Input;
-const { Panel } = Collapse;
+// MagicUI Components
+import { BlurFade } from '../../components/ui/blur-fade';
+import { WarpBackground } from '../../components/ui/warp-background';
+import { BoxReveal } from '../../components/ui/box-reveal';
 
 interface OnlineConsultationFormData {
   fullName: string;
@@ -18,91 +36,168 @@ interface OnlineConsultationFormData {
   question: string;
 }
 
-// Custom CountUp Component
-const CountUp: React.FC<{ end: number; duration?: number; suffix?: string }> = ({ end, duration = 2000, suffix = "" }) => {
+// CountUp component – không cần thư viện ngoài
+const CountUp: React.FC<{ end: number; duration?: number; suffix?: string }> = ({ end, duration = 2000, suffix = '' }) => {
   const [count, setCount] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true });
 
   useEffect(() => {
-    if (inView) {
-      let startTime: number;
-      const animate = (currentTime: number) => {
-        if (!startTime) startTime = currentTime;
-        const progress = Math.min((currentTime - startTime) / duration, 1);
-        setCount(Math.floor(progress * end));
-        if (progress < 1) {
-          requestAnimationFrame(animate);
-        }
-      };
-      requestAnimationFrame(animate);
-    }
+    if (!inView) return;
+    let startTime: number;
+    const step = (time: number) => {
+      if (!startTime) startTime = time;
+      const progress = Math.min((time - startTime) / duration, 1);
+      setCount(Math.floor(progress * end));
+      if (progress < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
   }, [inView, end, duration]);
 
-  return <div ref={ref}>{count}{suffix}</div>;
+  return (
+    <span ref={ref}>
+      {count}
+      {suffix}
+    </span>
+  );
 };
 
 const OnlineConsultationPage: React.FC = () => {
-  const [form] = Form.useForm();
-  const navigate = useNavigate();
+  // Form state
+  const [form, setForm] = useState<OnlineConsultationFormData>({
+    fullName: '',
+    phone: '',
+    notes: '',
+    question: ''
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Ensure page starts at top on mount – UX cải thiện
+  // Scroll to top on mount – UX
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Mock data for features - Simplified and reduced
+  // Toast auto-hide
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(id);
+  }, [toast]);
+
+  // Features data (icon + title + desc)
   const features = [
     {
-      icon: <VideoPlay size={32} color="#006478" variant="Bold" />,
-      title: "Tư vấn qua Video Call",
-      description: "Gặp gỡ trực tiếp với chuyên gia qua video call chất lượng cao với Google Meet"
+      icon: <VideoPlay size={28} color="#0C3C54" variant="Bold" />,
+      title: 'Tư vấn qua Video Call',
+      description: 'Gặp gỡ trực tiếp với chuyên gia qua Google Meet chất lượng cao.',
+      color: '#0C3C54'
     },
     {
-      icon: <Shield size={32} color="#006478" variant="Bold" />,
-      title: "Bảo mật tuyệt đối",
-      description: "Thông tin cá nhân được mã hóa và bảo vệ theo tiêu chuẩn quốc tế"
+      icon: <Shield size={28} color="#2A7F9E" variant="Bold" />,
+      title: 'Bảo mật dữ liệu',
+      description: 'Thông tin cá nhân được mã hoá và bảo vệ theo tiêu chuẩn y tế.',
+      color: '#2A7F9E'
     },
     {
-      icon: <Clock size={32} color="#006478" variant="Bold" />,
-      title: "Linh hoạt thời gian",
-      description: "Đặt lịch theo thời gian phù hợp, hỗ trợ tư vấn 24/7"
+      icon: <Clock size={28} color="#4CAF50" variant="Bold" />,
+      title: 'Linh hoạt thời gian',
+      description: 'Đặt lịch tư vấn 24/7 theo khung giờ bạn muốn.',
+      color: '#4CAF50'
     },
     {
-      icon: <Verify size={32} color="#006478" variant="Bold" />,
-      title: "Chuyên gia uy tín",
-      description: "Đội ngũ bác sĩ và tư vấn viên có chứng chỉ hành nghề"
+      icon: <Verify size={28} color="#FF9800" variant="Bold" />,
+      title: 'Chuyên gia uy tín',
+      description: 'Đội ngũ bác sĩ giàu kinh nghiệm và có chứng chỉ hành nghề.',
+      color: '#FF9800'
     }
   ];
 
-  // Animation variants - Simplified
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        delayChildren: 0.2,
-        staggerChildren: 0.1
-      }
+  // Statistics data
+  const stats = [
+    { 
+      icon: <Profile2User size={32} variant="Bold" />, 
+      number: 5000, 
+      suffix: '+', 
+      label: 'Cuộc tư vấn thành công',
+      color: '#0C3C54'
+    },
+    { 
+      icon: <Star1 size={32} variant="Bold" />, 
+      number: 4.8, 
+      suffix: '/5', 
+      label: 'Đánh giá từ khách hàng',
+      color: '#4CAF50'
+    },
+    { 
+      icon: <Clock size={32} variant="Bold" />, 
+      number: 24, 
+      suffix: '/7', 
+      label: 'Hỗ trợ liên tục',
+      color: '#2A7F9E'
+    },
+    { 
+      icon: <Award size={32} variant="Bold" />, 
+      number: 98, 
+      suffix: '%', 
+      label: 'Tỷ lệ hài lòng',
+      color: '#FF9800'
     }
-  };
+  ];
 
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: {
-        duration: 0.5,
-        ease: "easeOut"
-      }
+  // FAQ data
+  const faqItems: AccordionItem[] = [
+    {
+      header: 'Làm thế nào để đặt lịch tư vấn trực tuyến?',
+      content: (
+        <p>
+          Bạn chỉ cần điền biểu mẫu dưới đây với thông tin cá nhân và câu hỏi. Chúng tôi sẽ liên hệ trong vòng 24h để xác
+          nhận và gửi link Google Meet.
+        </p>
+      )
+    },
+    {
+      header: 'Chi phí tư vấn trực tuyến là bao nhiêu?',
+      content: (
+        <p>
+          Phí tư vấn từ 200.000 – 500.000 VNĐ tuỳ theo loại dịch vụ và thời lượng. Phiên tư vấn đầu tiên miễn phí 15 phút.
+        </p>
+      )
+    },
+    {
+      header: 'Thông tin cá nhân có được bảo mật không?',
+      content: (
+        <p>
+          Hoàn toàn! Chúng tôi sử dụng mã hoá end-to-end và tuân thủ tiêu chuẩn bảo mật y tế quốc tế. Thông tin của bạn được
+          bảo vệ tuyệt đối.
+        </p>
+      )
+    },
+    {
+      header: 'Tôi có thể huỷ lịch hẹn không?',
+      content: <p>Có. Bạn có thể huỷ hoặc đổi lịch trước 24 giờ và được hoàn phí hoặc chuyển lịch.</p>
     }
-  };
+  ];
 
-  const handleSubmit = async (values: OnlineConsultationFormData) => {
-    // Check authentication first - simple token check
+  // Handle submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Basic validation
+    if (form.fullName.trim().length < 3) {
+      setToast({ type: 'error', message: 'Họ tên phải có ít nhất 3 ký tự.' });
+      return;
+    }
+    if (!/^[0-9]{10,11}$/.test(form.phone.trim())) {
+      setToast({ type: 'error', message: 'Số điện thoại không hợp lệ.' });
+      return;
+    }
+    if (form.question.trim().length < 10) {
+      setToast({ type: 'error', message: 'Câu hỏi phải có ít nhất 10 ký tự.' });
+      return;
+    }
+
     const token = localStorage.getItem('access_token');
     if (!token) {
       setShowLoginModal(true);
@@ -110,524 +205,432 @@ const OnlineConsultationPage: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    
     try {
-      // Call API to create consultation request
-      const response = await consultationApi.createOnlineConsultation({
-        fullName: values.fullName.trim(),
-        phone: values.phone.trim(),
-        question: values.question.trim(),
-        notes: values.notes?.trim()
+      const res = await consultationApi.createOnlineConsultation({
+        fullName: form.fullName.trim(),
+        phone: form.phone.trim(),
+        notes: form.notes?.trim(),
+        question: form.question.trim()
       });
-
-      message.success('Tạo yêu cầu tư vấn thành công! Chuyển đến trang thanh toán.');
-      
-      // Navigate to payment page
-      navigate(`/consultation/payment/${response.data.data._id}`);
-      
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { message?: string } }; message?: string };
-      console.error('Error creating consultation:', err);
-      const errorMessage = err?.response?.data?.message ?? err?.message ?? 'Có lỗi xảy ra. Vui lòng thử lại sau.';
-      message.error(errorMessage);
+      setToast({ type: 'success', message: 'Tạo yêu cầu tư vấn thành công! Vui lòng thanh toán.' });
+      window.location.href = `/consultation/payment/${res.data.data._id}`;
+    } catch (err: any) {
+      setToast({ type: 'error', message: err?.response?.data?.message || err.message || 'Có lỗi xảy ra.' });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleLoginRedirect = () => {
-    setShowLoginModal(false);
-    navigate('/login', { 
-      state: { 
-        from: '/online-consultation',
-        message: 'Vui lòng đăng nhập để đặt lịch tư vấn' 
-      }
+  // Input change helper
+  const onInputChange = (field: keyof OnlineConsultationFormData) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => setForm(prev => ({ ...prev, [field]: e.target.value }));
+
+  // Scroll to form
+  const scrollToForm = () => {
+    document.getElementById('consultation-form')?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'start'
     });
   };
 
-  const scrollToForm = () => {
-    const formElement = document.getElementById('consultation-form');
-    if (formElement) {
-      formElement.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'start'
-      });
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50">
-      {/* Hero Section - Simplified */}
-      <motion.section 
-        className="relative py-20 overflow-hidden"
-        initial="hidden"
-        animate="visible"
-        variants={containerVariants}
-        style={{ minHeight: '30vh' }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-primary/5 to-green-primary/5"></div>
-        <div className="container mx-auto px-4 relative z-10">
-          <Row gutter={[48, 32]} align="middle">
-            <Col xs={24} lg={12}>
-              <motion.div variants={itemVariants}>
-                <Title 
-                  level={1} 
-                  className="text-5xl lg:text-6xl font-extrabold text-gray-900 mb-6"
+    <div className="min-h-screen bg-white">
+      {/* Hero Section với MagicUI */}
+      <section className="relative pt-20 pb-20 overflow-hidden bg-[#0C3C54]">
+        {/* Animated grid background */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 opacity-30">
+            {[...Array(100)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-px h-px bg-[#2A7F9E]"
+                style={{
+                  left: `${(i % 10) * 10}%`,
+                  top: `${Math.floor(i / 10) * 10}%`,
+                }}
+                animate={{
+                  opacity: [0.1, 0.8, 0.1],
+                  scale: [1, 1.5, 1],
+                }}
+                transition={{
+                  duration: Math.random() * 3 + 2,
+                  repeat: Infinity,
+                  delay: Math.random() * 2,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="relative z-10 container mx-auto px-4 text-center">
+          <BlurFade delay={0.2} inView>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="inline-flex items-center justify-center w-24 h-24 bg-white/10 rounded-full mb-8 backdrop-blur-sm border border-white/20"
+            >
+              <VideoPlay size={48} className="text-white" variant="Bold" />
+            </motion.div>
+          </BlurFade>
+          
+          <BlurFade delay={0.4} inView>
+            <motion.h1 
+              className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+            >
+              Tư vấn trực tuyến
+            </motion.h1>
+          </BlurFade>
+          
+          <BlurFade delay={0.6} inView>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-8 text-enhanced"
+            >
+              Kết nối với chuyên gia sức khỏe mọi lúc, mọi nơi
+            </motion.div>
+          </BlurFade>
+          
+          <BlurFade delay={0.8} inView>
+            <div className="flex flex-wrap justify-center gap-4">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <PrimaryButton
+                  className="!bg-white !text-[#0C3C54] !font-bold !px-8 !py-6 !text-lg !shadow-2xl hover:!bg-gray-50"
+                  onClick={scrollToForm}
                 >
-                  Tư vấn Sức khỏe{' '}
-                  <span className="gradient-text">Trực tuyến</span>
-                </Title>
-                <Paragraph className="text-xl text-gray-600 mb-8 leading-relaxed">
-                  Kết nối trực tiếp với các chuyên gia y tế hàng đầu qua Google Meet. 
-                  Nhận tư vấn chuyên nghiệp, riêng tư và an toàn ngay tại nhà.
-                </Paragraph>
-                <Space size="large" wrap>
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button 
-                      type="primary" 
-                      size="large"
-                      onClick={scrollToForm}
-                      className="bg-green-primary hover:bg-green-secondary border-none px-10 py-4 h-auto text-xl font-bold rounded-2xl shadow-xl flex items-center gap-2"
-                      icon={<VideoPlay size={24} />}
-                    >
-                      Đặt lịch ngay
-                    </Button>
-                  </motion.div>
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button 
-                      size="large"
-                      className="border-green-primary text-green-primary px-10 py-4 h-auto text-xl font-bold rounded-2xl flex items-center gap-2"
-                      icon={<MessageQuestion size={24} />}
-                    >
-                      Tìm hiểu thêm
-                    </Button>
-                  </motion.div>
-                </Space>
+                  Bắt đầu tư vấn
+                </PrimaryButton>
               </motion.div>
-            </Col>
-           
-          </Row>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <PrimaryButton
+                  variant="outline"
+                  className="!border-white !text-white !font-bold !px-8 !py-6 !text-lg hover:!bg-white hover:!text-[#0C3C54]"
+                  onClick={() => window.location.href = '/#/counselors'}
+                >
+                  Xem bác sĩ
+                </PrimaryButton>
+              </motion.div>
+            </div>
+          </BlurFade>
         </div>
-      </motion.section>
+      </section>
 
-      {/* Features Section - Simplified */}
-      <motion.section 
-        className="py-20 bg-white"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        variants={containerVariants}
-      >
+
+
+      {/* Features Section */}
+      <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
-          <motion.div variants={itemVariants} className="text-center mb-16">
-            <Title level={2} className="text-3xl lg:text-4xl font-bold text-gray-900 mb-6">
-              Tại sao chọn{' '}
-              <span className="gradient-text">chúng tôi?</span>
-            </Title>
-            <Paragraph className="text-lg text-gray-600 max-w-3xl mx-auto">
-              Dịch vụ tư vấn sức khỏe trực tuyến tiên tiến với công nghệ hiện đại
-            </Paragraph>
-          </motion.div>
+          <BlurFade delay={0.2} inView>
+            <div className="text-center mb-16">
+              <motion.h2 
+                className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                Tại sao chọn tư vấn trực tuyến?
+              </motion.h2>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-lg text-gray-600 max-w-2xl mx-auto text-enhanced"
+              >
+                Những ưu điểm vượt trội của dịch vụ tư vấn sức khỏe trực tuyến
+              </motion.div>
+            </div>
+          </BlurFade>
 
-          <Row gutter={[32, 32]} align="stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((feature, index) => (
-              <Col xs={24} sm={12} lg={6} key={index} className="h-full">
-                <motion.div variants={itemVariants} className="h-full">
-                  <Card className="feature-card h-full flex flex-col justify-between text-center border-0 shadow-lg rounded-2xl">
-                    <div className="p-6 flex flex-col flex-1 justify-between">
-                      <div className="w-16 h-16 bg-gradient-to-br from-green-primary/10 to-blue-primary/10 rounded-xl mx-auto mb-4 flex items-center justify-center">
-                        {feature.icon}
-                      </div>
-                      <Title level={4} className="text-gray-900 mb-3">
+              <BlurFade key={index} delay={0.2 + index * 0.1} inView>
+                <WarpBackground className="h-full group cursor-pointer">
+                  <div className="p-8 text-center">
+                    <motion.div
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6"
+                      style={{ backgroundColor: `${feature.color}20` }}
+                    >
+                      {feature.icon}
+                    </motion.div>
+                    
+                    <BoxReveal align="center">
+                      <h4 className="text-xl font-bold text-gray-800 mb-3">
                         {feature.title}
-                      </Title>
-                      <Paragraph className="text-gray-600">
-                        {feature.description}
-                      </Paragraph>
-                    </div>
-                  </Card>
-                </motion.div>
-              </Col>
+                      </h4>
+                    </BoxReveal>
+                    
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.8, delay: 0.3 }}
+                      className="text-gray-600 text-sm leading-relaxed text-enhanced"
+                    >
+                      {feature.description}
+                    </motion.div>
+                  </div>
+                </WarpBackground>
+              </BlurFade>
             ))}
-          </Row>
+          </div>
         </div>
-      </motion.section>
-
-      {/* Stats Section */}
-      <motion.section 
-        className="py-20 bg-gradient-to-r from-blue-primary to-green-primary"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        variants={containerVariants}
-      >
-        <div className="container mx-auto px-4">
-          <Row gutter={[32, 32]} justify="center">
-            <Col xs={24} sm={12} md={6}>
-              <motion.div variants={itemVariants}>
-                <Card className="rounded-3xl shadow-2xl bg-gradient-to-br from-green-400 to-blue-500 border-0 text-center py-8 px-4 flex flex-col items-center" style={{background: 'linear-gradient(135deg, #00A693 0%, #006478 100%)'}}>
-                  <Heart size={48} color="#fff" variant="Bold" className="mb-4" />
-                  <Title level={1} className="text-white font-extrabold mb-2" style={{color:'#fff'}}>
-                    <CountUp end={5000} suffix="+" />
-                  </Title>
-                  <Text className="text-white text-lg font-medium">Khách hàng tin tưởng</Text>
-                </Card>
-              </motion.div>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <motion.div variants={itemVariants}>
-                <Card className="rounded-3xl shadow-2xl bg-gradient-to-br from-green-400 to-blue-500 border-0 text-center py-8 px-4 flex flex-col items-center" style={{background: 'linear-gradient(135deg, #00A693 0%, #006478 100%)'}}>
-                  <Profile size={48} color="#fff" variant="Bold" className="mb-4" />
-                  <Title level={1} className="text-white font-extrabold mb-2" style={{color:'#fff'}}>
-                    <CountUp end={50} suffix="+" />
-                  </Title>
-                  <Text className="text-white text-lg font-medium">Chuyên gia y tế</Text>
-                </Card>
-              </motion.div>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <motion.div variants={itemVariants}>
-                <Card className="rounded-3xl shadow-2xl bg-gradient-to-br from-green-400 to-blue-500 border-0 text-center py-8 px-4 flex flex-col items-center" style={{background: 'linear-gradient(135deg, #00A693 0%, #006478 100%)'}}>
-                  <Star1 size={48} color="#fff" variant="Bold" className="mb-4" />
-                  <Title level={1} className="text-white font-extrabold mb-2" style={{color:'#fff'}}>
-                    <CountUp end={98} suffix="%" />
-                  </Title>
-                  <Text className="text-white text-lg font-medium">Hài lòng dịch vụ</Text>
-                </Card>
-              </motion.div>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <motion.div variants={itemVariants}>
-                <Card className="rounded-3xl shadow-2xl bg-gradient-to-br from-green-400 to-blue-500 border-0 text-center py-8 px-4 flex flex-col items-center" style={{background: 'linear-gradient(135deg, #00A693 0%, #006478 100%)'}}>
-                  <Call size={48} color="#fff" variant="Bold" className="mb-4" />
-                  <Title level={1} className="text-white font-extrabold mb-2" style={{color:'#fff'}}>
-                    24/7
-                  </Title>
-                  <Text className="text-white text-lg font-medium">Hỗ trợ khách hàng</Text>
-                </Card>
-              </motion.div>
-            </Col>
-          </Row>
-        </div>
-      </motion.section>
-
-      {/* Process Steps */}
-      <motion.section 
-        className="py-20 bg-gray-50"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        variants={containerVariants}
-      >
-        <div className="container mx-auto px-4">
-          <motion.div variants={itemVariants} className="text-center mb-16">
-            <Title level={2} className="text-3xl lg:text-4xl font-bold text-gray-900 mb-6">
-              Quy trình tư vấn
-            </Title>
-            <Paragraph className="text-lg text-gray-600 max-w-3xl mx-auto">
-              Chỉ 3 bước đơn giản để bắt đầu hành trình chăm sóc sức khỏe
-            </Paragraph>
-          </motion.div>
-
-          <Row gutter={[32, 32]} justify="center">
-            {[
-              {
-                step: "01",
-                title: "Đặt lịch",
-                description: "Điền form thông tin và câu hỏi của bạn"
-              },
-              {
-                step: "02", 
-                title: "Xác nhận",
-                description: "Chúng tôi liên hệ xác nhận trong 24h"
-              },
-              {
-                step: "03",
-                title: "Tư vấn",
-                description: "Gặp gỡ chuyên gia qua video call"
-              }
-            ].map((process, index) => (
-              <Col xs={24} md={8} key={index}>
-                <motion.div variants={itemVariants}>
-                  <Card className="text-center border-0 shadow-lg rounded-2xl">
-                    <div className="p-8">
-                      <div className="w-16 h-16 bg-gradient-to-br from-green-primary to-blue-primary rounded-full mx-auto mb-4 flex items-center justify-center">
-                        <Text className="text-white text-xl font-bold">{process.step}</Text>
-                      </div>
-                      <Title level={4} className="text-gray-900 mb-3">
-                        {process.title}
-                      </Title>
-                      <Paragraph className="text-gray-600">
-                        {process.description}
-                      </Paragraph>
-                    </div>
-                  </Card>
-                </motion.div>
-              </Col>
-            ))}
-          </Row>
-        </div>
-      </motion.section>
+      </section>
 
       {/* FAQ Section */}
-      <motion.section 
-        className="py-20 bg-white"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        variants={containerVariants}
-      >
+      <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
-          <motion.div variants={itemVariants} className="text-center mb-16">
-            <Title level={2} className="text-3xl lg:text-4xl font-bold text-gray-900 mb-6">
-              Câu hỏi thường gặp
-            </Title>
-            <Paragraph className="text-lg text-gray-600 max-w-3xl mx-auto">
-              Những thắc mắc phổ biến về dịch vụ tư vấn trực tuyến
-            </Paragraph>
-          </motion.div>
-
-          <Row gutter={[32, 32]}>
-            <Col xs={24} lg={16} offset={4}>
-              <motion.div variants={itemVariants}>
-                <Collapse 
-                  size="large"
-                  className="bg-white rounded-2xl shadow-lg border-0"
-                >
-                  <Panel 
-                    header="Làm thế nào để đặt lịch tư vấn trực tuyến?"
-                    key="1"
-                    className="border-0"
-                  >
-                    <Paragraph>
-                      Bạn chỉ cần điền form ở phía dưới với thông tin cá nhân và câu hỏi. 
-                      Chúng tôi sẽ liên hệ trong vòng 24h để xác nhận và gửi link Google Meet.
-                    </Paragraph>
-                  </Panel>
-                  <Panel 
-                    header="Chi phí tư vấn trực tuyến là bao nhiêu?"
-                    key="2"
-                    className="border-0"
-                  >
-                    <Paragraph>
-                      Phí tư vấn từ 200.000 - 500.000 VNĐ tùy theo loại dịch vụ và thời gian tư vấn. 
-                      Consultation đầu tiên miễn phí 15 phút.
-                    </Paragraph>
-                  </Panel>
-                  <Panel 
-                    header="Thông tin cá nhân có được bảo mật không?"
-                    key="3"
-                    className="border-0"
-                  >
-                    <Paragraph>
-                      Hoàn toàn! Chúng tôi sử dụng mã hóa end-to-end và tuân thủ các tiêu chuẩn 
-                      bảo mật y tế quốc tế. Thông tin của bạn được bảo vệ tuyệt đối.
-                    </Paragraph>
-                  </Panel>
-                  <Panel 
-                    header="Tôi có thể hủy lịch hẹn không?"
-                    key="4"
-                    className="border-0"
-                  >
-                    <Paragraph>
-                      Có thể hủy hoặc đổi lịch trước 24h. Phí đã thanh toán sẽ được hoàn lại 
-                      hoặc chuyển sang lịch hẹn mới theo yêu cầu.
-                    </Paragraph>
-                  </Panel>
-                </Collapse>
+          <BlurFade delay={0.2} inView>
+            <div className="text-center mb-16">
+              <motion.div
+                initial={{ scale: 0 }}
+                whileInView={{ scale: 1 }}
+                transition={{ duration: 0.6 }}
+                viewport={{ once: true }}
+                className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-orange-400 to-red-400 rounded-full mb-8 shadow-xl"
+              >
+                <MessageQuestion size={40} className="text-white" variant="Bold" />
               </motion.div>
-            </Col>
-          </Row>
+              
+              <motion.h2 
+                className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                Câu hỏi <span className="text-[#2A7F9E]">thường gặp</span>
+              </motion.h2>
+              
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-lg text-gray-600 max-w-2xl mx-auto text-enhanced"
+              >
+                Những thắc mắc phổ biến về dịch vụ tư vấn trực tuyến mà khách hàng quan tâm nhất
+              </motion.div>
+            </div>
+          </BlurFade>
+          
+          <BlurFade delay={0.4} inView>
+            <WarpBackground className="max-w-4xl mx-auto">
+              <div className="p-8">
+                <Accordion items={faqItems} />
+              </div>
+            </WarpBackground>
+          </BlurFade>
         </div>
-      </motion.section>
+      </section>
 
-      {/* Contact Form Section */}
-      <motion.section 
-        id="consultation-form"
-        className="py-20 bg-gradient-to-br from-blue-primary/5 to-green-primary/5"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        variants={containerVariants}
-      >
+      {/* Consultation Form Section */}
+      <section id="consultation-form" className="py-20 bg-white">
         <div className="container mx-auto px-4">
-          <Row gutter={[48, 32]}>
-            <Col xs={24} lg={12}>
-              <motion.div variants={itemVariants}>
-                <Title level={2} className="text-3xl lg:text-4xl font-bold text-gray-900 mb-6">
-                  Có câu hỏi về sức khỏe?
-                </Title>
-                <Paragraph className="text-lg text-gray-600 mb-8">
-                  Đừng ngại chia sẻ những thắc mắc về sức khỏe của bạn. 
-                  Đội ngũ chuyên gia của chúng tôi sẽ liên hệ và tư vấn trong vòng 24 giờ.
-                </Paragraph>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center">
-                    <Tag color="green" className="px-3 py-1">
-                      <Clock size={16} className="mr-1" />
-                      Phản hồi trong 24h
-                    </Tag>
-                  </div>
-                  <div className="flex items-center">
-                    <Tag color="blue" className="px-3 py-1">
-                      <Shield size={16} className="mr-1" />
-                      Bảo mật thông tin
-                    </Tag>
-                  </div>
-                  <div className="flex items-center">
-                    <Tag color="orange" className="px-3 py-1">
-                      <Profile size={16} className="mr-1" />
-                      Chuyên gia có chứng chỉ
-                    </Tag>
-                  </div>
+          <div className="grid lg:grid-cols-2 gap-16 items-center max-w-7xl mx-auto">
+            {/* left intro */}
+            <BlurFade delay={0.2} direction="left" inView>
+              <div className="space-y-8">
+                <div>
+                  <motion.h2 
+                    className="text-4xl md:text-5xl font-bold text-[#0C3C54] mb-6 leading-tight"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.2 }}
+                  >
+                    Có câu hỏi về <span className="text-[#2A7F9E]">sức khỏe?</span>
+                  </motion.h2>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.3 }}
+                    className="text-xl text-gray-600 leading-relaxed text-enhanced"
+                  >
+                    Đừng ngại chia sẻ vấn đề của bạn. Chúng tôi phản hồi trong 24 giờ với đội ngũ chuyên gia hàng đầu.
+                  </motion.div>
                 </div>
-              </motion.div>
-            </Col>
-            
-            <Col xs={24} lg={12}>
-              <motion.div variants={itemVariants}>
-                <Card className="border-0 shadow-xl rounded-2xl">
-                  <div className="p-8">
-                    <Title level={3} className="text-center mb-6 text-gray-900">
-                      Gửi câu hỏi của bạn
-                    </Title>
-                    
-                    <Form
-                      form={form}
-                      layout="vertical"
-                      onFinish={handleSubmit}
-                      size="large"
+
+                <div className="space-y-4">
+                  <TagChip className="bg-emerald-100 text-emerald-700 px-4 py-2 text-base">
+                    <Clock size={18} className="mr-2" /> Phản hồi trong 24h
+                  </TagChip>
+                  <TagChip className="bg-blue-100 text-blue-700 px-4 py-2 text-base">
+                    <Shield size={18} className="mr-2" /> Bảo mật thông tin
+                  </TagChip>
+                  <TagChip className="bg-orange-100 text-orange-700 px-4 py-2 text-base">
+                    <Profile size={18} className="mr-2" /> Chuyên gia chứng chỉ
+                  </TagChip>
+                </div>
+              </div>
+            </BlurFade>
+
+            {/* form */}
+            <BlurFade delay={0.4} direction="right" inView>
+              <WarpBackground className="group">
+                <div className="p-10">
+                  <div className="text-center mb-8">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ duration: 0.5, delay: 0.4 }}
+                      className="inline-flex items-center justify-center w-16 h-16 bg-[#0C3C54]/10 rounded-full mb-4"
                     >
-                      <Form.Item
-                        name="fullName"
-                        label="Họ và tên"
-                        rules={[
-                          { required: true, message: 'Vui lòng nhập họ tên!' },
-                          { min: 3, message: 'Họ tên phải có ít nhất 3 ký tự!' }
-                        ]}
-                      >
-                        <Input 
-                          placeholder="Nhập họ và tên của bạn"
-                          className="custom-input rounded-lg"
-                        />
-                      </Form.Item>
-
-                      <Form.Item
-                        name="phone"
-                        label="Số điện thoại"
-                        rules={[
-                          { required: true, message: 'Vui lòng nhập số điện thoại!' },
-                          { pattern: /^[0-9]{10,11}$/, message: 'Số điện thoại không hợp lệ!' }
-                        ]}
-                      >
-                        <Input 
-                          placeholder="Nhập số điện thoại"
-                          className="custom-input rounded-lg"
-                        />
-                      </Form.Item>
-
-                      <Form.Item
-                        name="notes"
-                        label="Ghi chú thêm (tùy chọn)"
-                      >
-                        <Input 
-                          placeholder="Thông tin bổ sung (tuổi, giới tính, v.v.)"
-                          className="custom-input rounded-lg"
-                        />
-                      </Form.Item>
-
-                      <Form.Item
-                        name="question"
-                        label="Câu hỏi của bạn"
-                        rules={[
-                          { required: true, message: 'Vui lòng nhập câu hỏi!' },
-                          { min: 10, message: 'Câu hỏi phải có ít nhất 10 ký tự!' }
-                        ]}
-                      >
-                        <TextArea
-                          rows={4}
-                          placeholder="Mô tả chi tiết các triệu chứng, thắc mắc về sức khỏe..."
-                          className="custom-input rounded-lg"
-                        />
-                      </Form.Item>
-
-                      <Form.Item>
-                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                          <Button
-                            type="primary"
-                            htmlType="submit"
-                            loading={isSubmitting}
-                            icon={<Send size={20} />}
-                            className="w-full bg-green-primary hover:bg-green-secondary border-none h-12 text-lg font-semibold rounded-xl"
-                          >
-                            {isSubmitting ? 'Đang gửi...' : 'Gửi câu hỏi'}
-                          </Button>
-                        </motion.div>
-                      </Form.Item>
-                    </Form>
+                      <Send size={24} className="text-[#0C3C54]" variant="Bold" />
+                    </motion.div>
+                    <BoxReveal align="center">
+                      <h3 className="text-2xl font-bold text-[#0C3C54] mb-2">Gửi câu hỏi của bạn</h3>
+                    </BoxReveal>
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.8, delay: 0.5 }}
+                      className="text-gray-600 text-enhanced"
+                    >
+                      Chúng tôi sẽ phản hồi sớm nhất có thể
+                    </motion.div>
                   </div>
-                </Card>
-              </motion.div>
-            </Col>
-          </Row>
-        </div>
-      </motion.section>
 
-      {/* Floating Appointment Button */}
-      <FloatingAppointmentButton 
-        onAppointmentClick={() => {
-          // Scroll to form when clicked
-          const formElement = document.getElementById('consultation-form');
-          if (formElement) {
-            formElement.scrollIntoView({ 
-              behavior: 'smooth',
-              block: 'start'
-            });
-          }
-        }}
-      />
-
-      {/* Login Required Modal */}
-      <Modal
-        title={
-          <div className="flex items-center gap-2">
-            <InfoCircle size={24} color="#1890ff" />
-            <span>Yêu cầu đăng nhập</span>
+                  <form className="space-y-6" onSubmit={handleSubmit}>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-[#0C3C54]" htmlFor="fullName">
+                        Họ và tên
+                      </label>
+                      <input
+                        id="fullName"
+                        type="text"
+                        value={form.fullName}
+                        onChange={onInputChange('fullName')}
+                        className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#0C3C54] focus:border-transparent text-lg transition-all duration-300"
+                        placeholder="Nhập họ tên đầy đủ"
+                        required
+                        minLength={3}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-[#0C3C54]" htmlFor="phone">
+                        Số điện thoại
+                      </label>
+                      <input
+                        id="phone"
+                        type="tel"
+                        value={form.phone}
+                        onChange={onInputChange('phone')}
+                        pattern="[0-9]{10,11}"
+                        className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#0C3C54] focus:border-transparent text-lg transition-all duration-300"
+                        placeholder="Nhập số điện thoại"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-[#0C3C54]" htmlFor="notes">
+                        Ghi chú thêm (tuỳ chọn)
+                      </label>
+                      <input
+                        id="notes"
+                        type="text"
+                        value={form.notes}
+                        onChange={onInputChange('notes')}
+                        className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#0C3C54] focus:border-transparent text-lg transition-all duration-300"
+                        placeholder="Thông tin bổ sung"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2 text-[#0C3C54]" htmlFor="question">
+                        Câu hỏi của bạn
+                      </label>
+                      <textarea
+                        id="question"
+                        rows={5}
+                        value={form.question}
+                        onChange={onInputChange('question')}
+                        className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#0C3C54] focus:border-transparent text-lg resize-none transition-all duration-300"
+                        placeholder="Mô tả chi tiết triệu chứng hoặc thắc mắc của bạn..."
+                        required
+                        minLength={10}
+                      />
+                    </div>
+                    <div className="pt-4">
+                      <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        <PrimaryButton 
+                          type="submit" 
+                          fullWidth 
+                          icon={<Send size={20} />} 
+                          disabled={isSubmitting} 
+                          className="!py-4 !text-lg !font-bold !shadow-2xl"
+                        >
+                          {isSubmitting ? 'Đang gửi...' : 'Gửi câu hỏi tư vấn'}
+                        </PrimaryButton>
+                      </motion.div>
+                    </div>
+                  </form>
+                </div>
+              </WarpBackground>
+            </BlurFade>
           </div>
-        }
+        </div>
+      </section>
+
+      {/* Toast notification */}
+      {toast && (
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 50 }}
+          className={`fixed bottom-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg text-white ${
+            toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+          }`}
+        >
+          {toast.message}
+        </motion.div>
+      )}
+
+      {/* Floating button */}
+      <FloatingAppointmentButton onAppointmentClick={scrollToForm} />
+
+      {/* Modal yêu cầu đăng nhập */}
+      <ModalDialog
         open={showLoginModal}
-        onCancel={() => setShowLoginModal(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setShowLoginModal(false)}>
-            Hủy
-          </Button>,
-          <Button key="login" type="primary" onClick={handleLoginRedirect}>
-            Đăng nhập ngay
-          </Button>
-        ]}
-        centered
+        onClose={() => setShowLoginModal(false)}
+        title={
+          <>
+            <InfoCircle size={22} color="#0C3C54" /> <span>Yêu cầu đăng nhập</span>
+          </>
+        }
+        actions={
+          <>
+            <PrimaryButton 
+              variant="outline" 
+              onClick={() => setShowLoginModal(false)}
+              className="!border-gray-300 !text-gray-600 hover:!border-gray-400 hover:!text-gray-700"
+            >
+              Đóng
+            </PrimaryButton>
+            <PrimaryButton
+              onClick={() => {
+                setShowLoginModal(false);
+                window.location.href = '/login';
+              }}
+            >
+              Đăng nhập ngay
+            </PrimaryButton>
+          </>
+        }
       >
-        <div className="py-4">
-          <Paragraph className="text-gray-600 mb-4">
-            Bạn cần đăng nhập để sử dụng dịch vụ tư vấn trực tuyến. 
-            Việc đăng nhập giúp chúng tôi:
-          </Paragraph>
-          <ul className="text-gray-600 space-y-2 mb-4">
-            <li>• Bảo mật thông tin cá nhân của bạn</li>
-            <li>• Theo dõi lịch sử tư vấn</li>
-            <li>• Gửi link Google Meet an toàn</li>
-            <li>• Cung cấp dịch vụ chăm sóc tốt hơn</li>
-          </ul>
-          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-            <Text className="text-blue-700 text-sm">
-              💡 <strong>Lưu ý:</strong> Thông tin đăng nhập được mã hóa và bảo mật tuyệt đối.
-            </Text>
-          </div>
-        </div>
-      </Modal>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="text-sm text-enhanced"
+        >
+          Bạn cần đăng nhập để sử dụng dịch vụ tư vấn trực tuyến. Việc đăng nhập giúp chúng tôi bảo mật dữ liệu và theo dõi lịch
+          sử tư vấn của bạn.
+        </motion.div>
+      </ModalDialog>
     </div>
   );
 };
 
-export default OnlineConsultationPage;
+export default OnlineConsultationPage; 

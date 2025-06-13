@@ -16,10 +16,12 @@ import testResultsRoutes from "./testResultsRoutes";
 import testResultItemsRoutes from "./testResultItemsRoutes";
 import userProfileRoutes from "./userProfileRoutes";
 import appointmentRoutes from "./appointmentRoutes";
+import blogPostRoutes from './blogPostRoutes';
 export {
     authRoutes, loginHistoryRoutes, userRoutes, doctorRoutes, serviceRoutes, servicePackageRoutes, doctorQARoutes, meetingRoutes, userProfileRoutes, appointmentRoutes,
     testCategoriesRoutes, appointmentTestsRoutes, testResultsRoutes, testResultItemsRoutes,
-    medicalRecordsRoutes, medicinesRoutes, medicationRemindersRoutes, notificationDaysRoutes
+    medicalRecordsRoutes, medicinesRoutes, medicationRemindersRoutes, notificationDaysRoutes,
+    blogPostRoutes
 };
 
 
