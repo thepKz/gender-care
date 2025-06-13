@@ -33,6 +33,24 @@ export const appointmentApi = {
         return response.data;
     },
 
+    // Lấy danh sách cuộc hẹn theo doctorId
+    getAppointmentsByDoctorId: async (doctorId: string, filters: AppointmentFilters = {}) => {
+        const response = await axiosInstance.get(`/appointments/doctor/${doctorId}`, { params: filters });
+        return response.data;
+    },
+
+    // Lấy danh sách cuộc hẹn của bác sĩ hiện tại (không cần doctorId)
+    getMyAppointments: async (filters: AppointmentFilters = {}) => {
+        try {
+            const response = await axiosInstance.get('/appointments/my', { params: filters });
+            return response.data;
+        } catch (error) {
+            // Handle case khi doctor chưa có record trong hệ thống
+            console.error('Error fetching doctor appointments:', error);
+            throw error;
+        }
+    },
+
     // Lấy chi tiết cuộc hẹn theo ID
     getAppointmentById: async (id: string) => {
         const response = await axiosInstance.get(`/appointments/${id}`);

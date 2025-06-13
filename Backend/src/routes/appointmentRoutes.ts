@@ -6,7 +6,9 @@ import {
     updateAppointment,
     deleteAppointment,
     updateAppointmentStatus,
-    updatePaymentStatus
+    updatePaymentStatus,
+    getAppointmentsByDoctorId,
+    getMyAppointments
 } from '../controllers/appointmentController';
 import { verifyToken, verifyAdmin, verifyCustomer, verifyStaff, verifyDoctor } from '../middleware';
 
@@ -25,6 +27,20 @@ router.get('/', getAllAppointments);
  * @access  Private (Customer, Staff)
  */
 router.post('/', verifyToken, createAppointment);
+
+/**
+ * @route   GET /api/appointments/my
+ * @desc    Lấy danh sách cuộc hẹn của bác sĩ hiện tại
+ * @access  Private (Doctor only)
+ */
+router.get('/my', verifyToken, verifyDoctor, getMyAppointments);
+
+/**
+ * @route   GET /api/appointments/doctor/:doctorId
+ * @desc    Lấy danh sách cuộc hẹn theo doctorId
+ * @access  Private (Doctor, Staff)
+ */
+router.get('/doctor/:doctorId', verifyToken, getAppointmentsByDoctorId);
 
 /**
  * @route   GET /api/appointments/:id

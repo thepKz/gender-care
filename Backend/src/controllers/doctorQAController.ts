@@ -199,6 +199,75 @@ export const getDoctorQAByDoctorId = async (req: Request, res: Response): Promis
   }
 };
 
+// GET /api/doctor-qa/my - Lấy yêu cầu tư vấn của bác sĩ hiện tại (DOCTOR ONLY)
+export const getMyDoctorQAAsDoctor = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?._id;
+    
+    if (!userId) {
+      res.status(401).json({ 
+        message: 'Không tìm thấy thông tin user từ token' 
+      });
+      return;
+    }
+
+    // Kiểm tra user có phải doctor không
+    if (req.user?.role !== 'doctor') {
+      res.status(403).json({ 
+        message: 'Chỉ bác sĩ mới có thể truy cập endpoint này' 
+      });
+      return;
+    }
+
+    // Import Doctor model dynamically để tránh circular dependency
+    const { Doctor } = await import('../models');
+    
+    // Tìm doctor record dựa trên userId từ token
+    const doctor = await Doctor.findOne({ userId: userId });
+    
+    if (!doctor) {
+      // Nếu chưa có doctor record, trả về empty list thay vì error
+      res.status(200).json({
+        success: true,
+        message: 'Chưa có thông tin bác sĩ trong hệ thống. Vui lòng liên hệ admin để thiết lập hồ sơ.',
+        data: {
+          consultations: [],
+          pagination: {
+            total: 0,
+            page: 1,
+            limit: 0,
+            pages: 0
+          }
+        }
+      });
+      return;
+    }
+    
+    // Lấy yêu cầu tư vấn của bác sĩ này
+    const qas = await doctorQAService.getDoctorQAByDoctorId(doctor._id.toString());
+    
+    res.status(200).json({
+      success: true,
+      message: `Lấy danh sách yêu cầu tư vấn của bạn thành công (${qas.length} yêu cầu)`,
+      data: {
+        consultations: qas,
+        pagination: {
+          total: qas.length,
+          page: 1,
+          limit: qas.length,
+          pages: 1
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error getting my DoctorQAs as doctor:', error);
+    res.status(500).json({ 
+      message: error.message || 'Lỗi server khi lấy yêu cầu tư vấn của bác sĩ' 
+    });
+  }
+};
+
 // PUT /api/doctor-qa/:id/payment - Cập nhật trạng thái thanh toán (PAYMENT GATEWAY CALLBACK)
 export const updatePaymentStatus = async (req: Request, res: Response): Promise<void> => {
   try {

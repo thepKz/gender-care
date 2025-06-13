@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { Appointments, DoctorSchedules, Services, ServicePackages, UserProfiles } from '../models';
+import { Appointments, DoctorSchedules, Services, ServicePackages, UserProfiles, Doctor } from '../models';
 import { NotFoundError } from '../errors/notFoundError';
 import { ValidationError } from '../errors/validationError';
 import { UnauthorizedError } from '../errors/unauthorizedError';
@@ -655,6 +655,421 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
         return res.status(500).json({
             success: false,
             message: 'Đã xảy ra lỗi khi cập nhật trạng thái thanh toán'
+        });
+    }
+};
+
+/**
+ * Lấy danh sách cuộc hẹn theo doctorId từ slot schedule
+ * Phân trang và lọc theo các tiêu chí khác nhau
+ */
+export const getAppointmentsByDoctorId = async (req: AuthRequest, res: Response) => {
+    try {
+        const { doctorId } = req.params;
+        const {
+            page = 1,
+            limit = 10,
+            status,
+            appointmentType,
+            startDate,
+            endDate
+        } = req.query;
+
+        // Kiểm tra doctorId có hợp lệ không
+        if (!mongoose.Types.ObjectId.isValid(doctorId)) {
+            throw new ValidationError({ doctorId: 'ID bác sĩ không hợp lệ' });
+        }
+
+        // Tạo aggregation pipeline để tìm appointments dựa trên doctorId từ slot
+        const matchStage: any = {};
+
+        // Áp dụng các bộ lọc nếu có
+        if (status) matchStage.status = status;
+        if (appointmentType) matchStage.appointmentType = appointmentType;
+
+        // Lọc theo khoảng thời gian
+        if (startDate && endDate) {
+            matchStage.appointmentDate = {
+                $gte: new Date(startDate as string),
+                $lte: new Date(endDate as string)
+            };
+        } else if (startDate) {
+            matchStage.appointmentDate = { $gte: new Date(startDate as string) };
+        } else if (endDate) {
+            matchStage.appointmentDate = { $lte: new Date(endDate as string) };
+        }
+
+        // Pipeline để tìm appointments của doctor cụ thể
+        const pipeline: any[] = [
+            // Bước 1: Match appointments có slotId
+            {
+                $match: {
+                    slotId: { $exists: true, $ne: null },
+                    ...matchStage
+                }
+            },
+            // Bước 2: Lookup để join với DoctorSchedules
+            {
+                $lookup: {
+                    from: 'doctorschedules',
+                    let: { slotId: '$slotId' },
+                    pipeline: [
+                        {
+                            $match: {
+                                doctorId: new mongoose.Types.ObjectId(doctorId),
+                                $expr: {
+                                    $in: ['$$slotId', {
+                                        $reduce: {
+                                            input: '$weekSchedule',
+                                            initialValue: [],
+                                            in: {
+                                                $concatArrays: ['$$value', {
+                                                    $map: {
+                                                        input: '$$this.slots',
+                                                        as: 'slot',
+                                                        in: '$$slot._id'
+                                                    }
+                                                }]
+                                            }
+                                        }
+                                    }]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'doctorSchedule'
+                }
+            },
+            // Bước 3: Chỉ lấy appointments có matching doctor schedule
+            {
+                $match: {
+                    'doctorSchedule.0': { $exists: true }
+                }
+            },
+            // Bước 4: Lookup các thông tin liên quan
+            {
+                $lookup: {
+                    from: 'userprofiles',
+                    localField: 'profileId',
+                    foreignField: '_id',
+                    as: 'profileId',
+                    pipeline: [
+                        { $project: { fullName: 1, gender: 1, phone: 1, year: 1 } }
+                    ]
+                }
+            },
+            {
+                $lookup: {
+                    from: 'services',
+                    localField: 'serviceId',
+                    foreignField: '_id',
+                    as: 'serviceId',
+                    pipeline: [
+                        { $project: { serviceName: 1, price: 1, serviceType: 1 } }
+                    ]
+                }
+            },
+            {
+                $lookup: {
+                    from: 'servicepackages',
+                    localField: 'packageId',
+                    foreignField: '_id',
+                    as: 'packageId',
+                    pipeline: [
+                        { $project: { name: 1, price: 1 } }
+                    ]
+                }
+            },
+            // Bước 5: Unwind để flatten arrays
+            {
+                $unwind: {
+                    path: '$profileId',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $unwind: {
+                    path: '$serviceId',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $unwind: {
+                    path: '$packageId',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            // Bước 6: Sort theo thời gian
+            {
+                $sort: { appointmentDate: -1, appointmentTime: -1 }
+            }
+        ];
+
+        // Tính toán skip value cho phân trang
+        const pageNumber = parseInt(page as string, 10);
+        const limitNumber = parseInt(limit as string, 10);
+        const skip = (pageNumber - 1) * limitNumber;
+
+        // Đếm tổng số bản ghi
+        const countPipeline = [...pipeline, { $count: 'total' }];
+        const countResult = await Appointments.aggregate(countPipeline);
+        const total = countResult.length > 0 ? countResult[0].total : 0;
+
+        // Lấy dữ liệu với phân trang
+        const resultPipeline = [
+            ...pipeline,
+            { $skip: skip },
+            { $limit: limitNumber }
+        ];
+
+        const appointments = await Appointments.aggregate(resultPipeline);
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                appointments,
+                pagination: {
+                    total,
+                    page: pageNumber,
+                    limit: limitNumber,
+                    pages: Math.ceil(total / limitNumber)
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error in getAppointmentsByDoctorId:', error);
+        if (error instanceof ValidationError) {
+            return res.status(400).json({
+                success: false,
+                errors: error.errors
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi lấy danh sách cuộc hẹn theo bác sĩ'
+        });
+    }
+};
+
+/**
+ * Lấy danh sách cuộc hẹn của bác sĩ hiện tại (từ token)
+ * Không cần truyền doctorId trong params
+ */
+export const getMyAppointments = async (req: AuthRequest, res: Response) => {
+    try {
+        const {
+            page = 1,
+            limit = 10,
+            status,
+            appointmentType,
+            startDate,
+            endDate
+        } = req.query;
+
+        // Kiểm tra user có trong token không
+        if (!req.user?._id) {
+            throw new UnauthorizedError('Không tìm thấy thông tin người dùng trong token');
+        }
+
+        // Kiểm tra user có phải doctor không
+        if (req.user.role !== 'doctor') {
+            throw new UnauthorizedError('Chỉ bác sĩ mới có thể truy cập endpoint này');
+        }
+
+        // Tìm doctor record dựa trên userId từ token
+        const doctor = await Doctor.findOne({ userId: req.user._id });
+        
+        if (!doctor) {
+            // Nếu chưa có doctor record, trả về empty list thay vì error
+            return res.status(200).json({
+                success: true,
+                data: {
+                    appointments: [],
+                    pagination: {
+                        total: 0,
+                        page: parseInt(page as string, 10),
+                        limit: parseInt(limit as string, 10),
+                        pages: 0
+                    }
+                },
+                message: 'Chưa có thông tin bác sĩ trong hệ thống. Vui lòng liên hệ admin để thiết lập hồ sơ.'
+            });
+        }
+
+        // Sử dụng logic tương tự getAppointmentsByDoctorId
+        const doctorId = doctor._id.toString();
+        const matchStage: any = {};
+
+        // Áp dụng các bộ lọc nếu có
+        if (status) matchStage.status = status;
+        if (appointmentType) matchStage.appointmentType = appointmentType;
+
+        // Lọc theo khoảng thời gian
+        if (startDate && endDate) {
+            matchStage.appointmentDate = {
+                $gte: new Date(startDate as string),
+                $lte: new Date(endDate as string)
+            };
+        } else if (startDate) {
+            matchStage.appointmentDate = { $gte: new Date(startDate as string) };
+        } else if (endDate) {
+            matchStage.appointmentDate = { $lte: new Date(endDate as string) };
+        }
+
+        // Pipeline để tìm appointments của doctor cụ thể
+        const pipeline: any[] = [
+            // Bước 1: Match appointments có slotId
+            {
+                $match: {
+                    slotId: { $exists: true, $ne: null },
+                    ...matchStage
+                }
+            },
+            // Bước 2: Lookup để join với DoctorSchedules
+            {
+                $lookup: {
+                    from: 'doctorschedules',
+                    let: { slotId: '$slotId' },
+                    pipeline: [
+                        {
+                            $match: {
+                                doctorId: new mongoose.Types.ObjectId(doctorId),
+                                $expr: {
+                                    $in: ['$$slotId', {
+                                        $reduce: {
+                                            input: '$weekSchedule',
+                                            initialValue: [],
+                                            in: {
+                                                $concatArrays: ['$$value', {
+                                                    $map: {
+                                                        input: '$$this.slots',
+                                                        as: 'slot',
+                                                        in: '$$slot._id'
+                                                    }
+                                                }]
+                                            }
+                                        }
+                                    }]
+                                }
+                            }
+                        }
+                    ],
+                    as: 'doctorSchedule'
+                }
+            },
+            // Bước 3: Chỉ lấy appointments có matching doctor schedule
+            {
+                $match: {
+                    'doctorSchedule.0': { $exists: true }
+                }
+            },
+            // Bước 4: Lookup các thông tin liên quan
+            {
+                $lookup: {
+                    from: 'userprofiles',
+                    localField: 'profileId',
+                    foreignField: '_id',
+                    as: 'profileId',
+                    pipeline: [
+                        { $project: { fullName: 1, gender: 1, phone: 1, year: 1 } }
+                    ]
+                }
+            },
+            {
+                $lookup: {
+                    from: 'services',
+                    localField: 'serviceId',
+                    foreignField: '_id',
+                    as: 'serviceId',
+                    pipeline: [
+                        { $project: { serviceName: 1, price: 1, serviceType: 1 } }
+                    ]
+                }
+            },
+            {
+                $lookup: {
+                    from: 'servicepackages',
+                    localField: 'packageId',
+                    foreignField: '_id',
+                    as: 'packageId',
+                    pipeline: [
+                        { $project: { name: 1, price: 1 } }
+                    ]
+                }
+            },
+            // Bước 5: Unwind để flatten arrays
+            {
+                $unwind: {
+                    path: '$profileId',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $unwind: {
+                    path: '$serviceId',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {
+                $unwind: {
+                    path: '$packageId',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            // Bước 6: Sort theo thời gian
+            {
+                $sort: { appointmentDate: -1, appointmentTime: -1 }
+            }
+        ];
+
+        // Tính toán skip value cho phân trang
+        const pageNumber = parseInt(page as string, 10);
+        const limitNumber = parseInt(limit as string, 10);
+        const skip = (pageNumber - 1) * limitNumber;
+
+        // Đếm tổng số bản ghi
+        const countPipeline = [...pipeline, { $count: 'total' }];
+        const countResult = await Appointments.aggregate(countPipeline);
+        const total = countResult.length > 0 ? countResult[0].total : 0;
+
+        // Lấy dữ liệu với phân trang
+        const resultPipeline = [
+            ...pipeline,
+            { $skip: skip },
+            { $limit: limitNumber }
+        ];
+
+        const appointments = await Appointments.aggregate(resultPipeline);
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                appointments,
+                pagination: {
+                    total,
+                    page: pageNumber,
+                    limit: limitNumber,
+                    pages: Math.ceil(total / limitNumber)
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error in getMyAppointments:', error);
+        if (error instanceof ValidationError) {
+            return res.status(400).json({
+                success: false,
+                errors: error.errors
+            });
+        }
+        if (error instanceof UnauthorizedError || error instanceof NotFoundError) {
+            return res.status(error instanceof UnauthorizedError ? 401 : 404).json({
+                success: false,
+                message: error.message
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi lấy danh sách cuộc hẹn của bác sĩ'
         });
     }
 }; 

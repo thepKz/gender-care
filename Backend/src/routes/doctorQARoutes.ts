@@ -1,6 +1,5 @@
 import express from 'express';
-import { verifyToken, verifyStaff } from '../middleware/auth';
-import { roleMiddleware } from '../middleware/roleMiddleware';
+import { verifyToken, verifyStaff, verifyDoctor } from '../middleware/auth';
 import {
   getLeastBookedDoctor,
   getBestAssignment,
@@ -9,6 +8,7 @@ import {
   getDoctorQAById,
   getMyDoctorQAs,
   getDoctorQAByDoctorId,
+  getMyDoctorQAAsDoctor,
   updatePaymentStatus,
   doctorConfirmQA,
   scheduleQA,
@@ -30,6 +30,9 @@ router.get('/doctor-qa/least-booked-doctor', verifyToken, verifyStaff, getLeastB
 
 // GET /api/doctor-qa/my-requests - Lấy yêu cầu tư vấn của user đang đăng nhập
 router.get('/doctor-qa/my-requests', verifyToken, getMyDoctorQAs);
+
+// GET /api/doctor-qa/my - Lấy yêu cầu tư vấn của bác sĩ hiện tại (DOCTOR ONLY)
+router.get('/doctor-qa/my', verifyToken, verifyDoctor, getMyDoctorQAAsDoctor);
 
 // =============== USER ROUTES (Cần auth) ===============
 // POST /api/doctor-qa - Tạo yêu cầu tư vấn mới

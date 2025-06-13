@@ -159,6 +159,22 @@ const consultationApi = {
   getDoctorConsultations: (doctorId: string, params?: QueryParams) => {
     return axiosInstance.get(`/doctor-qa/doctor/${doctorId}`, { params });
   },
+
+  // Alias method cho getDoctorConsultations (để consistent với naming)
+  getDoctorQAByDoctorId: (doctorId: string, params?: QueryParams) => {
+    return axiosInstance.get(`/doctor-qa/doctor/${doctorId}`, { params });
+  },
+  
+  // Lấy yêu cầu tư vấn của bác sĩ hiện tại (không cần doctorId)
+  getMyConsultations: (params?: QueryParams) => {
+    try {
+      return axiosInstance.get('/doctor-qa/my', { params });
+    } catch (error) {
+      // Handle case khi doctor chưa có record trong hệ thống
+      console.error('Error fetching doctor consultations:', error);
+      throw error;
+    }
+  },
   
   // Tìm bác sĩ có ít lịch đặt nhất (STAFF only)
   getLeastBookedDoctor: () => {
