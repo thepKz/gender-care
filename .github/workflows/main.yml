@@ -89,6 +89,7 @@ jobs:
   # Deploy frontend via FTP
   deploy-frontend:
     needs: test-and-build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Download frontend artifact
