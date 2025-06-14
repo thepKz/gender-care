@@ -598,7 +598,11 @@ const ServiceManagement: React.FC = () => {
                 placeholder="Nhập giá dịch vụ"
                 style={{ width: '100%' }}
                 formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={value => value!.replace(/\$\s?|(,*)/g, '')}
+                parser={(value: string | number) => {
+                  if (!value) return 0;
+                  const cleaned = value.toString().replace(/\$\s?|(,*)/g, '');
+                  return parseFloat(cleaned) || 0;
+                }}
                 min={0}
               />
             </Form.Item>

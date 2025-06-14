@@ -174,7 +174,7 @@ const TableWidget: React.FC<TableWidgetProps> = ({
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} mục`,
-          ...pagination
+          ...(typeof pagination === 'object' ? pagination : {})
         }}
         scroll={{ x: 800 }}
         size="small"
