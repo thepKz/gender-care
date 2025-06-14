@@ -11,7 +11,7 @@ interface TableWidgetProps {
   title?: string;
   loading?: boolean;
   showViewAll?: boolean;
-  pagination?: boolean;
+  pagination?: boolean | object;
 }
 
 const TableWidget: React.FC<TableWidgetProps> = ({ 
@@ -137,7 +137,6 @@ const TableWidget: React.FC<TableWidgetProps> = ({
           {record.priority && (
             <Tag 
               color={getPriorityColor(record.priority)} 
-              size="small"
               style={{ margin: 0, fontSize: '10px' }}
             >
               {record.priority.toUpperCase()}
@@ -173,13 +172,6 @@ const TableWidget: React.FC<TableWidgetProps> = ({
         pagination={pagination}
         size="small"
         scroll={{ x: 800 }}
-        style={{
-          '.ant-table-thead > tr > th': {
-            backgroundColor: '#f8fafc',
-            fontWeight: 600,
-            fontSize: '13px'
-          }
-        }}
       />
     </Card>
   );

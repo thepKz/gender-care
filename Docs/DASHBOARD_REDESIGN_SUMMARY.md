@@ -20,7 +20,7 @@ src/
 │       ├── widgets/                   # Shared UI components
 │       │   ├── StatsCard.tsx         # Card thống kê tái sử dụng
 │       │   ├── ActivityFeed.tsx      # Feed hoạt động
-│       │   └── TableWidget.tsx       # Bảng dữ liệu
+│       │   └── TableWidget.tsx       # Bảng dữ liệu (đã sửa CSS bug)
 │       └── templates/                # Dashboard templates
 │           ├── ManagementTemplate.tsx # Template cho Admin/Manager
 │           └── OperationalTemplate.tsx # Template cho Staff/Doctor
@@ -28,7 +28,9 @@ src/
     └── dashboard/
         ├── management/               # Admin + Manager pages
         │   ├── index.tsx            # Dashboard chính
-        │   └── UserManagement.tsx   # Quản lý người dùng (MOCKDATA)
+        │   ├── UserManagement.tsx   # Quản lý người dùng (MOCKDATA)
+        │   ├── DoctorManagement.tsx # Quản lý bác sĩ (MOCKDATA)
+        │   └── ServiceManagement.tsx # Quản lý dịch vụ (MOCKDATA)
         └── operational/             # Staff + Doctor pages
             └── index.tsx            # Dashboard chính
 ```
@@ -38,7 +40,7 @@ src/
 #### Shared Widgets
 - **StatsCard**: Component card thống kê với icon, trend, description
 - **ActivityFeed**: Component hiển thị hoạt động gần đây
-- **TableWidget**: Component bảng dữ liệu với filter và pagination
+- **TableWidget**: Component bảng dữ liệu với filter và pagination (đã sửa CSS-in-JS bug)
 
 #### Templates
 - **ManagementTemplate**: Template chung cho Admin/Manager
@@ -72,6 +74,16 @@ Tất cả đều có comment `// NOTE: MOCKDATA` để dễ nhận biết.
   - Search & filter
   - Role-based permissions
   - Modal add/edit
+- **DoctorManagement.tsx**: Trang quản lý bác sĩ với MOCKDATA đầy đủ
+  - Quản lý hồ sơ bác sĩ
+  - Chuyên khoa, kinh nghiệm, đánh giá
+  - Status toggle và delete
+  - Modal view details
+- **ServiceManagement.tsx**: Trang quản lý dịch vụ với MOCKDATA đầy đủ
+  - Quản lý các dịch vụ y tế
+  - Loại dịch vụ, giá cả, thời gian
+  - Địa điểm thực hiện
+  - CRUD operations
 
 #### Operational Dashboard (`/dashboard/operational`)  
 - **index.tsx**: Dashboard chính sử dụng OperationalTemplate
@@ -131,11 +143,14 @@ Tất cả đều có comment `// NOTE: MOCKDATA` để dễ nhận biết.
 - [x] OperationalTemplate cho Staff/Doctor
 - [x] Management dashboard pages
 - [x] UserManagement page với CRUD đầy đủ
+- [x] DoctorManagement page với CRUD đầy đủ
+- [x] ServiceManagement page với CRUD đầy đủ
 - [x] Responsive design system
+- [x] Sửa CSS-in-JS bug trong TableWidget
 
 ### 🔄 Cần hoàn thiện
 - [ ] Fix TypeScript linter errors (thiếu type declarations)
-- [ ] Tạo thêm management pages (DoctorManagement, ServiceManagement, etc.)
+- [ ] Tạo thêm management pages (ReportsAnalytics, SystemSettings)
 - [ ] Tạo thêm operational pages (AppointmentManagement, PatientRecords, etc.)
 - [ ] Update routing system
 - [ ] Integration testing
@@ -143,8 +158,8 @@ Tất cả đều có comment `// NOTE: MOCKDATA` để dễ nhận biết.
 ### 📋 Các trang cần tạo thêm
 
 #### Management Pages (Admin/Manager)
-- [ ] DoctorManagement.tsx - Quản lý bác sĩ
-- [ ] ServiceManagement.tsx - Quản lý dịch vụ  
+- [x] ~~DoctorManagement.tsx~~ - ✅ Đã hoàn thành
+- [x] ~~ServiceManagement.tsx~~ - ✅ Đã hoàn thành
 - [ ] ReportsAnalytics.tsx - Báo cáo thống kê
 - [ ] SystemSettings.tsx - Cài đặt hệ thống (Admin only)
 
@@ -153,6 +168,11 @@ Tất cả đều có comment `// NOTE: MOCKDATA` để dễ nhận biết.
 - [ ] PatientRecords.tsx - Hồ sơ bệnh nhân
 - [ ] ScheduleManagement.tsx - Quản lý lịch làm việc
 - [ ] TaskManagement.tsx - Quản lý công việc
+
+### 🐛 Bugs đã sửa
+- [x] CSS-in-JS syntax error trong TableWidget
+- [x] TypeScript errors với Tag size prop
+- [x] Boolean pagination type error
 
 ## Hướng dẫn sử dụng
 
@@ -195,6 +215,25 @@ export const newMockData = [
 ];
 ```
 
+## Các trang đã có sẵn trong codebase cũ
+
+Đã phát hiện các trang sau trong thư mục cũ có thể tái sử dụng:
+
+### Admin Dashboard (Frontend/src/pages/dashboard/admin/)
+- [x] ~~DoctorProfilesPage.tsx~~ - Đã tạo lại thành DoctorManagement.tsx
+- [ ] DoctorPerformancePage.tsx - Có thể di chuyển
+- [ ] DoctorSchedulePage.tsx - Có thể di chuyển  
+- [ ] DoctorSpecialtiesPage.tsx - Có thể di chuyển
+
+### Manager Dashboard (Frontend/src/pages/dashboard/manager/)
+- [x] ~~ServicesPage.tsx~~ - Đã tạo lại thành ServiceManagement.tsx
+- [ ] ServicePackagesPage.tsx - Có thể di chuyển
+- [ ] UserManagementPage.tsx - Có thể tham khảo
+- [ ] DoctorProfilesPage.tsx - Có thể di chuyển
+- [ ] DoctorPerformancePage.tsx - Có thể di chuyển
+- [ ] DoctorSchedulePage.tsx - Có thể di chuyển
+- [ ] DoctorSpecialtiesPage.tsx - Có thể di chuyển
+
 ## Kết luận
 
 Hệ thống template-based dashboard đã được thiết kế thành công với:
@@ -202,11 +241,13 @@ Hệ thống template-based dashboard đã được thiết kế thành công v�
 - **Kiến trúc modular** dễ maintain và scale
 - **Mock data comprehensive** cho development
 - **Design system nhất quán** 
+- **3 trang quản lý hoàn chỉnh** với CRUD operations
 
 Hệ thống sẵn sàng cho việc phát triển tiếp theo và tích hợp với backend API thực tế.
 
 ---
 
 *Created: 2025-01-27*  
+*Updated: 2025-01-27*  
 *Author: AI Assistant*  
 *Protocol: Multi-Dimensional Thinking + Agent-Execution*
