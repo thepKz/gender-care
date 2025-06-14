@@ -261,18 +261,6 @@ const Header: React.FC = () => {
                   Về chúng tôi
                 </Link>
               </motion.div>
-              
-             
-              
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.3 }}
-              >
-                <Link to="/blog" className={`nav-link ${getFontSize()} ${isActive('/blog')}`}>
-                  Blog
-                </Link>
-              </motion.div>
             </nav>
 
             {/* Mobile menu button */}
@@ -423,10 +411,6 @@ const Header: React.FC = () => {
               
               <Link to="/faq" className="py-2 border-b border-gray-100 text-blue-primary text-lg">
                 Hỏi & Đáp
-              </Link>
-              
-              <Link to="/blog" className="py-2 border-b border-gray-100 text-blue-primary text-lg">
-                Blog
               </Link>
             </nav>
           </div>

@@ -1,8 +1,6 @@
 import {
     ClockCircleOutlined,
-    CustomerServiceOutlined,
     EnvironmentOutlined,
-    HeartOutlined,
     StarOutlined
 } from '@ant-design/icons';
 import { Button, Card } from 'antd';
@@ -113,7 +111,7 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
       hoverable
       className={`medical-service-display-card h-full rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-0 overflow-hidden group ${className}`}
       cover={
-        <div className="relative h-48 bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center overflow-hidden">
+        <div className="relative h-40 bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center overflow-hidden">
           {/* Background Pattern - Họa tiết nền */}
           <div className="absolute inset-0 opacity-5">
             <div className="absolute inset-0" style={{
@@ -121,26 +119,12 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
             }} />
           </div>
 
-          {/* Service Image or Icon - Hình ảnh hoặc icon dịch vụ */}
-          {service.image ? (
-            <img
-              src={service.image}
-              alt={service.serviceName}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <div className="text-center">
-              <div className="text-6xl text-[#2A7F9E]/20 group-hover:scale-110 transition-transform duration-300 mb-2">
-                {getServiceTypeIcon(service.serviceType)}
-              </div>
-              {/* Decorative medical icons */}
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-2xl animate-pulse text-[#2A7F9E]/30">🩺</span>
-                <span className="text-xl text-[#2A7F9E]/20">+</span>
-                <span className="text-2xl animate-pulse text-[#2A7F9E]/30" style={{ animationDelay: '0.5s' }}>❤️</span>
-              </div>
+          {/* Service Icon (luôn hiển thị, không dùng ảnh) */}
+          <div className="text-center">
+            <div className="text-7xl text-[#2A7F9E]/30 group-hover:scale-110 transition-transform duration-300">
+              {getServiceTypeIcon(service.serviceType)}
             </div>
-          )}
+          </div>
 
           {/* Service Type Badge - Nhãn loại dịch vụ */}
           <div className="absolute top-3 left-3">
@@ -163,9 +147,6 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
               </div>
             </div>
           )}
-
-          {/* Gradient Overlay - Lớp phủ gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </div>
       }
     >
