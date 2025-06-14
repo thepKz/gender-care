@@ -347,7 +347,11 @@ const ServiceManagement: React.FC = () => {
           </Text>
         </div>
       ),
-      sorter: (a, b) => a.price - b.price
+      sorter: (a, b) => {
+        const aPrice = parseFloat(a.price.toString()) || 0;
+        const bPrice = parseFloat(b.price.toString()) || 0;
+        return aPrice - bPrice;
+      }
     },
     {
       title: 'Thời gian',

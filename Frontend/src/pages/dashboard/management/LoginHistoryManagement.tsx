@@ -270,7 +270,7 @@ const LoginHistoryManagement: React.FC = () => {
               {record.userEmail}
             </Descriptions.Item>
             <Descriptions.Item label="Vai trò" span={2}>
-              <Tag color={getRoleColor(record.userRole)}>
+              <Tag color={getRoleColor(record.userRole)} style={{ marginTop: '2px' }}>
                 {getRoleText(record.userRole)}
               </Tag>
             </Descriptions.Item>
@@ -329,7 +329,7 @@ const LoginHistoryManagement: React.FC = () => {
           <div style={{ fontSize: '12px', color: '#6b7280' }}>
             {record.userEmail}
           </div>
-          <Tag color={getRoleColor(record.userRole)} size="small" style={{ marginTop: '2px' }}>
+          <Tag color={getRoleColor(record.userRole)} style={{ marginTop: '2px' }}>
             {getRoleText(record.userRole)}
           </Tag>
         </div>
@@ -532,7 +532,13 @@ const LoginHistoryManagement: React.FC = () => {
             </Select>
             <RangePicker
               placeholder={['Từ ngày', 'Đến ngày']}
-              onChange={(dates) => setDateRange(dates)}
+              onChange={(dates) => {
+                if (dates && dates[0] && dates[1]) {
+                  setDateRange([dates[0], dates[1]]);
+                } else {
+                  setDateRange(null);
+                }
+              }}
               style={{ width: 250 }}
             />
           </Space>

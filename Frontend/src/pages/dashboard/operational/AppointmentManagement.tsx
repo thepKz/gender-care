@@ -328,7 +328,7 @@ const AppointmentManagement: React.FC = () => {
             </Descriptions.Item>
             <Descriptions.Item label="Dịch vụ" span={2}>
               <Tag color={getTypeColor(appointment.appointmentType)}>
-                {appointment.serviceName}
+                {getTypeText(appointment.appointmentType)}
               </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Bác sĩ" span={2}>
@@ -401,7 +401,7 @@ const AppointmentManagement: React.FC = () => {
           <div style={{ fontWeight: 'bold', fontSize: '13px', marginBottom: '4px' }}>
             {serviceName}
           </div>
-          <Tag color={getTypeColor(record.appointmentType)} size="small">
+          <Tag color={getTypeColor(record.appointmentType)}>
             {getTypeText(record.appointmentType)}
           </Tag>
         </div>

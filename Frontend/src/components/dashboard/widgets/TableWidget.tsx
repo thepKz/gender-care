@@ -167,11 +167,17 @@ const TableWidget: React.FC<TableWidgetProps> = ({
       loading={loading}
     >
       <Table
-        dataSource={data}
         columns={columns}
-        pagination={pagination}
-        size="small"
+        dataSource={data}
+        pagination={pagination === false ? false : {
+          pageSize: 10,
+          showSizeChanger: true,
+          showQuickJumper: true,
+          showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} mục`,
+          ...pagination
+        }}
         scroll={{ x: 800 }}
+        size="small"
       />
     </Card>
   );
