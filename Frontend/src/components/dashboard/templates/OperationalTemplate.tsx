@@ -1,8 +1,18 @@
-import React from 'react';
-import { Row, Col, Typography, Progress, Card } from 'antd';
+import React, { useState } from 'react';
+import { Layout, Menu, Row, Col, Typography, Progress, Card } from 'antd';
+import {
+  DashboardOutlined,
+  CalendarOutlined,
+  FileTextOutlined,
+  UserOutlined,
+  ScheduleOutlined,
+  BarChartOutlined
+} from '@ant-design/icons';
 import StatsCard from '../widgets/StatsCard';
 import ActivityFeed from '../widgets/ActivityFeed';
 import TableWidget from '../widgets/TableWidget';
+import AppointmentManagement from '../../../pages/dashboard/operational/AppointmentManagement';
+import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
 import { 
   operationalStats, 
   recentActivities, 
@@ -11,6 +21,7 @@ import {
 } from '../../../data/mockdata/dashboardStats';
 
 const { Title, Text } = Typography;
+const { Sider, Content } = Layout;
 
 interface OperationalTemplateProps {
   userRole: 'staff' | 'doctor';
@@ -18,11 +29,47 @@ interface OperationalTemplateProps {
   welcomeMessage?: string;
 }
 
+const menuItems = [
+  {
+    key: 'dashboard',
+    icon: <DashboardOutlined />,
+    label: 'Tổng quan',
+  },
+  {
+    key: 'appointments',
+    icon: <CalendarOutlined />,
+    label: 'Quản lý lịch hẹn',
+  },
+  {
+    key: 'medical-records',
+    icon: <FileTextOutlined />,
+    label: 'Hồ sơ y tế',
+  },
+  {
+    key: 'patients',
+    icon: <UserOutlined />,
+    label: 'Bệnh nhân',
+  },
+  {
+    key: 'schedule',
+    icon: <ScheduleOutlined />,
+    label: 'Lịch làm việc',
+  },
+  {
+    key: 'reports',
+    icon: <BarChartOutlined />,
+    label: 'Báo cáo',
+  },
+];
+
 const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   userRole,
   userName = 'User',
   welcomeMessage
 }) => {
+  const [selectedKey, setSelectedKey] = useState('dashboard');
+  const [collapsed, setCollapsed] = useState(false);
+
   // Customize content based on role
   const roleSpecificActivities = userRole === 'doctor' 
     ? recentActivities.filter(activity => 
@@ -38,7 +85,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
 
   const metrics = performanceMetrics.operational;
 
-  return (
+  const renderDashboard = () => (
     <div style={{ padding: '0' }}>
       {/* Welcome Section */}
       <div style={{ marginBottom: '32px' }}>
@@ -193,6 +240,89 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         </Col>
       </Row>
     </div>
+  );
+
+  const renderContent = () => {
+    switch (selectedKey) {
+      case 'dashboard':
+        return renderDashboard();
+      case 'appointments':
+        return <AppointmentManagement />;
+      case 'medical-records':
+        return <MedicalRecordsManagement />;
+      case 'patients':
+        return (
+          <div style={{ padding: '24px' }}>
+            <Title level={2}>Quản lý bệnh nhân</Title>
+            <p>Trang quản lý bệnh nhân đang được phát triển...</p>
+          </div>
+        );
+      case 'schedule':
+        return (
+          <div style={{ padding: '24px' }}>
+            <Title level={2}>Lịch làm việc</Title>
+            <p>Trang lịch làm việc đang được phát triển...</p>
+          </div>
+        );
+      case 'reports':
+        return (
+          <div style={{ padding: '24px' }}>
+            <Title level={2}>Báo cáo</Title>
+            <p>Trang báo cáo đang được phát triển...</p>
+          </div>
+        );
+      default:
+        return renderDashboard();
+    }
+  };
+
+  return (
+    <Layout style={{ minHeight: '100vh', background: '#f5f5f5' }}>
+      <Sider
+        collapsible
+        collapsed={collapsed}
+        onCollapse={setCollapsed}
+        width={250}
+        style={{
+          background: '#fff',
+          boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+        }}
+      >
+        <div style={{ 
+          padding: '16px', 
+          textAlign: 'center',
+          borderBottom: '1px solid #f0f0f0',
+          marginBottom: '8px'
+        }}>
+          <Title level={4} style={{ margin: 0, color: '#1890ff' }}>
+            {collapsed ? 'GHC' : 'Gender Healthcare'}
+          </Title>
+          {!collapsed && (
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              {userRole === 'doctor' ? 'Bác sĩ' : 'Nhân viên'}
+            </Text>
+          )}
+        </div>
+        
+        <Menu
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          items={menuItems}
+          onClick={({ key }) => setSelectedKey(key)}
+          style={{ border: 'none' }}
+        />
+      </Sider>
+      
+      <Layout>
+        <Content style={{ 
+          padding: '24px',
+          background: '#f5f5f5',
+          overflow: 'auto'
+        }}>
+          {renderContent()}
+        </Content>
+      </Layout>
+    </Layout>
   );
 };
 
