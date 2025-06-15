@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useInView } from "framer-motion";
 import { cn } from "../../utils/cn";
 
 interface NumberTickerProps {
@@ -21,21 +20,16 @@ export function NumberTicker({
 }: NumberTickerProps) {
   const ref = useRef<HTMLSpanElement>(null);
   const [currentValue, setCurrentValue] = useState(direction === "down" ? value : 0);
-  const isInView = useInView(ref, { once: true, margin: "0px" });
 
   useEffect(() => {
-    if (!isInView) return;
-
     const controls = setTimeout(() => {
       setCurrentValue(direction === "down" ? 0 : value);
     }, delay * 1000);
 
     return () => clearTimeout(controls);
-  }, [isInView, delay, value, direction]);
+  }, [delay, value, direction]);
 
   useEffect(() => {
-    if (!isInView) return;
-
     const startValue = direction === "down" ? value : 0;
     const endValue = direction === "down" ? 0 : value;
     const duration = 2000; // 2 seconds
@@ -64,7 +58,7 @@ export function NumberTicker({
     }, delay * 1000);
 
     return () => clearTimeout(timer);
-  }, [isInView, value, direction, delay]);
+  }, [value, direction, delay]);
 
   const formatNumber = (num: number) => {
     return new Intl.NumberFormat("vi-VN", {

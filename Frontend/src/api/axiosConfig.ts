@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosRequestHeaders } from 'axios';
 import { getValidTokenFromStorage } from '../utils/helpers';
 
 // Create axios instance with base URL from environment
@@ -37,7 +37,7 @@ axiosInstance.interceptors.request.use(
     // Sử dụng helper function để lấy token hợp lệ
     const token = getValidTokenFromStorage('access_token');
     if (token) {
-      config.headers = config.headers || {};
+      config.headers = config.headers || {} as AxiosRequestHeaders;
       config.headers['Authorization'] = `Bearer ${token}`;
 
       if (import.meta.env.DEV) {

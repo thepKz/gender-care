@@ -19,8 +19,6 @@ import ProfileEditPage from '../pages/profile/edit';
 
 // New Pages
 import AboutGCCPage from '../pages/about-gcc';
-import BlogPage from '../pages/blog';
-import BlogDetailPage from '../pages/blog/BlogDetailPage';
 import CounselorsPage from '../pages/counselors';
 import OnlineConsultationPage from '../pages/online-consultation';
 import PicturePage from '../pages/picture';
@@ -120,9 +118,6 @@ const AppRoutes: React.FC = () => {
         <Route path="/counselors" element={<CounselorsPage />} />
         <Route path="/doctors/:id" element={<DoctorDetail />} />
         <Route path="/about-gcc" element={<AboutGCCPage />} />
-        <Route path="/blog" element={<BlogPage />} />
-        <Route path="/blog/:slugId" element={<BlogDetailPage />} />
-
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/online-consultation" element={<OnlineConsultationPage />} />
         <Route path="/services/public" element={<PublicServicesPage />} />

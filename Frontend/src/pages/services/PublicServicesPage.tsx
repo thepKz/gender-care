@@ -1,22 +1,20 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from 'react';
-import { Button, Card, Spin, Empty, message, Row, Col, Input, Select } from 'antd';
+import { Button, Empty, message, Spin } from 'antd';
 import { motion } from 'framer-motion';
-import { 
-  Heart, 
-  Shield, 
-  Award, 
-  SearchNormal1, 
-  Filter, 
-  Star1,
-  People,
-  Hospital,
-  HeartAdd,
+import {
+  Award,
   ClipboardTick,
+  Heart,
+  HeartAdd,
+  Hospital,
   MonitorMobbile,
-  Profile2User
+  People,
+  Profile2User,
+  Shield,
+  Star1
 } from 'iconsax-react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { getServicePackages } from '../../api/endpoints/servicePackageApi';
@@ -24,27 +22,23 @@ import ServiceDisplayCard from '../../components/feature/medical/ServiceDisplayC
 import ServicePackageDisplayCard from '../../components/feature/medical/ServicePackageDisplayCard';
 import { useServicesData } from '../../hooks/useServicesData';
 import { GetServicePackagesParams, ServicePackage } from '../../types';
-import { AnimatedSection } from '../../shared';
-import Background from "../../assets/images/background.jpg";
 
 // MagicUI Components
 import { BlurFade } from '../../components/ui/blur-fade';
-import { WarpBackground } from '../../components/ui/warp-background';
 import { BoxReveal } from '../../components/ui/box-reveal';
-import { SparklesText } from '../../components/ui/sparkles-text';
-import { NumberTicker } from '../../components/ui/number-ticker';
+import { WarpBackground } from '../../components/ui/warp-background';
 
-const { Option } = Select;
+
 
 const PublicServicesPage: React.FC = () => {
   const navigate = useNavigate();
+
   
   // Sử dụng custom hook cho services data
   const {
     services,
     loading,
     pagination,
-    filters,
     actions
   } = useServicesData({
     isPublicView: true,
@@ -56,37 +50,6 @@ const PublicServicesPage: React.FC = () => {
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
 
-  // Statistics data
-  const stats = [
-    { 
-      icon: <Heart size={32} variant="Bold" />, 
-      number: 10000, 
-      suffix: '+', 
-      label: 'Bệnh nhân đã điều trị',
-      color: '#E91E63'
-    },
-    { 
-      icon: <People size={32} variant="Bold" />, 
-      number: 50, 
-      suffix: '+', 
-      label: 'Chuyên gia y tế',
-      color: '#0C3C54'
-    },
-    { 
-      icon: <Award size={32} variant="Bold" />, 
-      number: 15, 
-      suffix: ' năm', 
-      label: 'Kinh nghiệm phục vụ',
-      color: '#FF9800'
-    },
-    { 
-      icon: <Star1 size={32} variant="Bold" />, 
-      number: 99, 
-      suffix: '%', 
-      label: 'Tỷ lệ hài lòng',
-      color: '#4CAF50'
-    }
-  ];
 
   // Service highlights
   const highlights = [
@@ -240,69 +203,6 @@ const PublicServicesPage: React.FC = () => {
           </BlurFade>
         </div>
       </section>
-
-      {/* Statistics Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <BlurFade delay={0.2} inView>
-            <div className="text-center mb-12">
-              <motion.h2 
-                className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-              >
-                Thành tựu của chúng tôi
-              </motion.h2>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.3 }}
-                className="text-lg text-gray-600 max-w-2xl mx-auto text-enhanced"
-              >
-                Hàng nghìn bệnh nhân đã tin tưởng và điều trị thành công tại bệnh viện
-              </motion.div>
-            </div>
-          </BlurFade>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <BlurFade key={index} delay={0.2 + index * 0.1} inView>
-                <WarpBackground className="h-full group cursor-pointer">
-                  <div className="p-8 text-center">
-                    <motion.div
-                      whileHover={{ scale: 1.1, rotate: 5 }}
-                      className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6"
-                      style={{ backgroundColor: `${stat.color}20` }}
-                    >
-                      <div style={{ color: stat.color }}>
-                        {stat.icon}
-                      </div>
-                    </motion.div>
-                    
-                    <BoxReveal align="center">
-                      <div className="text-3xl font-bold mb-2" style={{ color: stat.color }}>
-                        <NumberTicker value={stat.number} />
-                        {stat.suffix}
-                      </div>
-                    </BoxReveal>
-                    
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.8, delay: 0.3 }}
-                      className="text-gray-600 text-enhanced text-sm"
-                    >
-                      {stat.label}
-                    </motion.div>
-                  </div>
-                </WarpBackground>
-              </BlurFade>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Highlights Section */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
