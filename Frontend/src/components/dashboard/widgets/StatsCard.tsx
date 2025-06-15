@@ -12,7 +12,7 @@ import {
   ClockCircleOutlined,
   HeartOutlined
 } from '@ant-design/icons';
-import type { DashboardStat } from '../../../data/mockdata/dashboardStats';
+import type { DashboardStat } from '../../../types/dashboard';
 
 interface StatsCardProps {
   stat: DashboardStat;

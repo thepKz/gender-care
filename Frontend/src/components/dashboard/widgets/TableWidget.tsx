@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, Table, Tag, Button, Space, Typography } from 'antd';
 import { EyeOutlined, MoreOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import type { AppointmentItem } from '../../../data/mockdata/dashboardStats';
+import type { AppointmentItem } from '../../../types/dashboard';
 
 const { Text } = Typography;
 
@@ -82,8 +82,8 @@ const TableWidget: React.FC<TableWidgetProps> = ({
     },
     {
       title: 'Bệnh nhân',
-      dataIndex: 'patient',
-      key: 'patient',
+      dataIndex: 'patientName',
+      key: 'patientName',
       render: (name: string, record: AppointmentItem) => (
         <div>
           <Text strong style={{ fontSize: '14px', color: '#1f2937' }}>
@@ -110,12 +110,12 @@ const TableWidget: React.FC<TableWidgetProps> = ({
     },
     {
       title: 'Bác sĩ',
-      dataIndex: 'doctor',
-      key: 'doctor',
-      render: (doctor?: string) => (
-        doctor ? (
+      dataIndex: 'doctorName',
+      key: 'doctorName',
+      render: (doctorName?: string) => (
+        doctorName ? (
           <Text style={{ fontSize: '13px', color: '#6b7280' }}>
-            {doctor}
+            {doctorName}
           </Text>
         ) : (
           <Text type="secondary" style={{ fontSize: '12px' }}>

@@ -1,121 +1,60 @@
-import React, { useState } from 'react';
-import { 
-  Card, 
-  Table, 
-  Button, 
-  Space, 
-  Tag, 
-  Input, 
-  Select, 
-  Modal, 
-  Form, 
+import React, { useState, useEffect } from 'react';
+import {
+  Card,
+  Table,
+  Button,
+  Space,
+  Tag,
+  Input,
+  Select,
+  Modal,
+  Form,
   Typography,
-  Avatar,
   Tooltip,
-  Popconfirm
+  Popconfirm,
+  message,
+  Avatar
 } from 'antd';
-import { 
-  SearchOutlined, 
-  PlusOutlined, 
-  EditOutlined, 
+import {
+  SearchOutlined,
+  PlusOutlined,
+  EditOutlined,
   DeleteOutlined,
+  EyeOutlined,
   UserOutlined,
-  EyeOutlined
+  MailOutlined,
+  PhoneOutlined,
+  CalendarOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { userApi, User as ApiUser, CreateUserRequest } from '../../../api/endpoints';
+import { 
+  canCreateUser, 
+  canUpdateUser, 
+  canDeleteUser, 
+  getCurrentUserRole 
+} from '../../../utils/permissions';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
+const { Search } = Input;
 const { Option } = Select;
 
-// NOTE: MOCKDATA - Dữ liệu giả cho development
 interface User {
   key: string;
   id: string;
-  name: string;
+  username: string;
   email: string;
-  phone: string;
-  role: 'admin' | 'manager' | 'staff' | 'doctor' | 'customer';
+  fullName: string;
+  phoneNumber: string;
+  role: 'admin' | 'manager' | 'doctor' | 'staff' | 'customer';
   status: 'active' | 'inactive' | 'suspended';
-  createdAt: string;
   lastLogin: string;
-  avatar?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-const mockUsers: User[] = [
-  {
-    key: '1',
-    id: 'USR001',
-    name: 'Nguyễn Văn Admin',
-    email: 'admin@genderhealthcare.com',
-    phone: '0901234567',
-    role: 'admin',
-    status: 'active',
-    createdAt: '2024-01-15',
-    lastLogin: '2024-01-27 09:30',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face'
-  },
-  {
-    key: '2',
-    id: 'USR002',
-    name: 'Trần Thị Manager',
-    email: 'manager@genderhealthcare.com',
-    phone: '0901234568',
-    role: 'manager',
-    status: 'active',
-    createdAt: '2024-01-16',
-    lastLogin: '2024-01-27 08:45',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b776?w=32&h=32&fit=crop&crop=face'
-  },
-  {
-    key: '3',
-    id: 'USR003',
-    name: 'Lê Thị Staff',
-    email: 'staff@genderhealthcare.com',
-    phone: '0901234569',
-    role: 'staff',
-    status: 'active',
-    createdAt: '2024-01-17',
-    lastLogin: '2024-01-27 07:20',
-    avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face'
-  },
-  {
-    key: '4',
-    id: 'DOC001',
-    name: 'Dr. Phạm Minh Tuấn',
-    email: 'doctor1@genderhealthcare.com',
-    phone: '0901234570',
-    role: 'doctor',
-    status: 'active',
-    createdAt: '2024-01-18',
-    lastLogin: '2024-01-27 06:15',
-    avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=32&h=32&fit=crop&crop=face'
-  },
-  {
-    key: '5',
-    id: 'CUS001',
-    name: 'Hoàng Thị Lan',
-    email: 'customer1@gmail.com',
-    phone: '0901234571',
-    role: 'customer',
-    status: 'active',
-    createdAt: '2024-01-19',
-    lastLogin: '2024-01-26 20:30'
-  },
-  {
-    key: '6',
-    id: 'CUS002',
-    name: 'Vũ Văn Nam',
-    email: 'customer2@gmail.com',
-    phone: '0901234572',
-    role: 'customer',
-    status: 'inactive',
-    createdAt: '2024-01-20',
-    lastLogin: '2024-01-25 15:45'
-  }
-];
-
 const UserManagement: React.FC = () => {
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedRole, setSelectedRole] = useState<string>('all');
@@ -123,12 +62,50 @@ const UserManagement: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form] = Form.useForm();
+  
+  // Get current user role for permissions
+  const userRole = getCurrentUserRole();
 
-  // Filter users based on search and filters
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const response = await userApi.getAllUsers({
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      });
+      
+      if (response.success) {
+        // Convert API user format to component format
+        const convertedUsers = response.data.users.map((user: ApiUser) => ({
+          key: user._id,
+          id: user._id,
+          username: user.email.split('@')[0], // Generate username from email
+          email: user.email,
+          fullName: user.fullName,
+          phoneNumber: user.phone || '',
+          role: user.role,
+          status: (user.isActive ? 'active' : 'inactive') as 'active' | 'inactive',
+          lastLogin: user.updatedAt,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }));
+        setUsers(convertedUsers);
+      }
+    } catch (err: any) {
+      message.error(err?.message || 'Không thể tải danh sách người dùng');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchText.toLowerCase()) ||
+    const matchesSearch = user.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchText.toLowerCase()) ||
-                         user.phone.includes(searchText);
+                         user.username.toLowerCase().includes(searchText.toLowerCase());
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
     const matchesStatus = selectedStatus === 'all' || user.status === selectedStatus;
     
@@ -139,8 +116,8 @@ const UserManagement: React.FC = () => {
     const colors = {
       admin: 'red',
       manager: 'orange',
-      staff: 'blue',
-      doctor: 'green',
+      doctor: 'blue',
+      staff: 'green',
       customer: 'default'
     };
     return colors[role];
@@ -150,8 +127,8 @@ const UserManagement: React.FC = () => {
     const texts = {
       admin: 'Quản trị viên',
       manager: 'Quản lý',
-      staff: 'Nhân viên',
       doctor: 'Bác sĩ',
+      staff: 'Nhân viên',
       customer: 'Khách hàng'
     };
     return texts[role];
@@ -169,8 +146,8 @@ const UserManagement: React.FC = () => {
   const getStatusText = (status: User['status']) => {
     const texts = {
       active: 'Hoạt động',
-      inactive: 'Không hoạt động',
-      suspended: 'Tạm khóa'
+      inactive: 'Tạm dừng',
+      suspended: 'Bị khóa'
     };
     return texts[status];
   };
@@ -181,57 +158,92 @@ const UserManagement: React.FC = () => {
     setIsModalVisible(true);
   };
 
-  const handleDelete = (userId: string) => {
-    setUsers(users.filter(user => user.id !== userId));
+  const handleDelete = async (userId: string) => {
+    try {
+      await userApi.deleteUser(userId, {
+        reason: 'Xóa từ quản lý',
+        hardDelete: false
+      });
+      message.success('Xóa người dùng thành công');
+      loadData();
+    } catch (err: any) {
+      message.error(err?.message || 'Không thể xóa người dùng');
+    }
   };
 
-  const handleModalOk = () => {
-    form.validateFields().then(values => {
+  const handleModalOk = async () => {
+    try {
+      const values = await form.validateFields();
       if (editingUser) {
-        // Update existing user
-        setUsers(users.map(user => 
-          user.id === editingUser.id ? { ...user, ...values } : user
-        ));
+        await userApi.updateUserRole(editingUser.id, {
+          newRole: values.role,
+          reason: 'Cập nhật từ quản lý'
+        });
+        message.success('Cập nhật người dùng thành công');
       } else {
-        // Add new user
-        const newUser: User = {
-          key: Date.now().toString(),
-          id: `USR${Date.now()}`,
-          ...values,
-          createdAt: new Date().toISOString().split('T')[0],
-          lastLogin: 'Chưa đăng nhập'
+        const createData: CreateUserRequest = {
+          email: values.email,
+          password: values.password || '123456',
+          fullName: values.fullName,
+          phone: values.phoneNumber,
+          role: values.role,
+          gender: values.gender,
+          address: values.address
         };
-        setUsers([...users, newUser]);
+        await userApi.createUser(createData);
+        message.success('Tạo người dùng thành công');
       }
       setIsModalVisible(false);
-      setEditingUser(null);
       form.resetFields();
-    });
+      setEditingUser(null);
+      loadData();
+    } catch (err: any) {
+      message.error(err?.message || 'Có lỗi xảy ra');
+    }
   };
 
   const handleModalCancel = () => {
     setIsModalVisible(false);
-    setEditingUser(null);
     form.resetFields();
+    setEditingUser(null);
+  };
+
+  const showUserDetails = (user: User) => {
+    Modal.info({
+      title: 'Chi tiết người dùng',
+      width: 600,
+      content: (
+        <div style={{ marginTop: 16 }}>
+          <p><strong>ID:</strong> {user.id}</p>
+          <p><strong>Tên đăng nhập:</strong> {user.username}</p>
+          <p><strong>Họ tên:</strong> {user.fullName}</p>
+          <p><strong>Email:</strong> {user.email}</p>
+          <p><strong>Số điện thoại:</strong> {user.phoneNumber}</p>
+          <p><strong>Vai trò:</strong> {getRoleText(user.role)}</p>
+          <p><strong>Trạng thái:</strong> {getStatusText(user.status)}</p>
+          <p><strong>Đăng nhập cuối:</strong> {new Date(user.lastLogin).toLocaleString('vi-VN')}</p>
+          <p><strong>Ngày tạo:</strong> {new Date(user.createdAt).toLocaleDateString('vi-VN')}</p>
+          <p><strong>Cập nhật:</strong> {new Date(user.updatedAt).toLocaleDateString('vi-VN')}</p>
+        </div>
+      ),
+    });
   };
 
   const columns: ColumnsType<User> = [
     {
       title: 'Người dùng',
-      dataIndex: 'name',
-      key: 'name',
-      render: (name: string, record: User) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Avatar 
-            src={record.avatar} 
-            size={40}
-            style={{ backgroundColor: '#667eea' }}
-          >
-            {!record.avatar && <UserOutlined />}
-          </Avatar>
+      dataIndex: 'fullName',
+      key: 'fullName',
+      width: 200,
+      render: (text: string, record: User) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Avatar icon={<UserOutlined />} />
           <div>
-            <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{name}</div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>{record.id}</div>
+            <Text strong>{text}</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              @{record.username}
+            </Text>
           </div>
         </div>
       )
@@ -239,11 +251,18 @@ const UserManagement: React.FC = () => {
     {
       title: 'Liên hệ',
       dataIndex: 'email',
-      key: 'contact',
+      key: 'email',
+      width: 200,
       render: (email: string, record: User) => (
         <div>
-          <div style={{ fontSize: '13px' }}>{email}</div>
-          <div style={{ fontSize: '12px', color: '#6b7280' }}>{record.phone}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+            <MailOutlined style={{ color: '#1890ff' }} />
+            <Text style={{ fontSize: '12px' }}>{email}</Text>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <PhoneOutlined style={{ color: '#52c41a' }} />
+            <Text style={{ fontSize: '12px' }}>{record.phoneNumber}</Text>
+          </div>
         </div>
       )
     },
@@ -251,6 +270,7 @@ const UserManagement: React.FC = () => {
       title: 'Vai trò',
       dataIndex: 'role',
       key: 'role',
+      width: 120,
       render: (role: User['role']) => (
         <Tag color={getRoleColor(role)}>
           {getRoleText(role)}
@@ -261,6 +281,7 @@ const UserManagement: React.FC = () => {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
+      width: 120,
       render: (status: User['status']) => (
         <Tag color={getStatusColor(status)}>
           {getStatusText(status)}
@@ -268,121 +289,118 @@ const UserManagement: React.FC = () => {
       )
     },
     {
-      title: 'Ngày tạo',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      render: (date: string) => (
-        <span style={{ fontSize: '13px' }}>{date}</span>
-      )
-    },
-    {
       title: 'Đăng nhập cuối',
       dataIndex: 'lastLogin',
       key: 'lastLogin',
+      width: 150,
       render: (date: string) => (
-        <span style={{ fontSize: '13px' }}>{date}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <CalendarOutlined style={{ color: '#8c8c8c' }} />
+          <Text style={{ fontSize: '12px' }}>
+            {new Date(date).toLocaleDateString('vi-VN')}
+          </Text>
+        </div>
       )
     },
     {
       title: 'Thao tác',
-      key: 'actions',
+      key: 'action',
       width: 150,
       render: (_, record: User) => (
-        <Space>
+        <Space size="small">
           <Tooltip title="Xem chi tiết">
-            <Button type="text" icon={<EyeOutlined />} size="small" />
-          </Tooltip>
-          <Tooltip title="Chỉnh sửa">
             <Button 
               type="text" 
-              icon={<EditOutlined />} 
-              size="small"
-              onClick={() => handleEdit(record)}
+              icon={<EyeOutlined />} 
+              onClick={() => showUserDetails(record)}
             />
           </Tooltip>
-          <Tooltip title="Xóa">
-            <Popconfirm
-              title="Bạn có chắc chắn muốn xóa người dùng này?"
-              onConfirm={() => handleDelete(record.id)}
-              okText="Xóa"
-              cancelText="Hủy"
-            >
+          {canUpdateUser(userRole) && (
+            <Tooltip title="Chỉnh sửa">
               <Button 
                 type="text" 
-                icon={<DeleteOutlined />} 
-                size="small"
-                danger
+                icon={<EditOutlined />} 
+                onClick={() => handleEdit(record)}
               />
-            </Popconfirm>
-          </Tooltip>
+            </Tooltip>
+          )}
+          {canDeleteUser(userRole) && (
+            <Tooltip title="Xóa">
+              <Popconfirm
+                title="Bạn có chắc chắn muốn xóa người dùng này?"
+                onConfirm={() => handleDelete(record.id)}
+                okText="Có"
+                cancelText="Không"
+              >
+                <Button 
+                  type="text" 
+                  danger 
+                  icon={<DeleteOutlined />}
+                />
+              </Popconfirm>
+            </Tooltip>
+          )}
         </Space>
       )
     }
   ];
 
   return (
-    <div>
-      <div style={{ marginBottom: '24px' }}>
-        <Title level={2} style={{ margin: 0 }}>
-          Quản lý người dùng
-        </Title>
-        <p style={{ color: '#6b7280', margin: '8px 0 0 0' }}>
-          NOTE: MOCKDATA - Quản lý tất cả người dùng trong hệ thống
-        </p>
-      </div>
-
+    <div style={{ padding: '24px' }}>
       <Card>
-        {/* Filters */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '16px',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <Space>
-            <Input
-              placeholder="Tìm kiếm người dùng..."
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              style={{ width: 250 }}
-            />
-            <Select
-              value={selectedRole}
-              onChange={setSelectedRole}
-              style={{ width: 150 }}
+        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
+            <UserOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+            Quản lý người dùng
+          </Title>
+          {canCreateUser(userRole) && (
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              onClick={() => setIsModalVisible(true)}
             >
-              <Option value="all">Tất cả vai trò</Option>
-              <Option value="admin">Quản trị viên</Option>
-              <Option value="manager">Quản lý</Option>
-              <Option value="staff">Nhân viên</Option>
-              <Option value="doctor">Bác sĩ</Option>
-              <Option value="customer">Khách hàng</Option>
-            </Select>
-            <Select
-              value={selectedStatus}
-              onChange={setSelectedStatus}
-              style={{ width: 150 }}
-            >
-              <Option value="all">Tất cả trạng thái</Option>
-              <Option value="active">Hoạt động</Option>
-              <Option value="inactive">Không hoạt động</Option>
-              <Option value="suspended">Tạm khóa</Option>
-            </Select>
-          </Space>
-          
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={() => setIsModalVisible(true)}
-          >
-            Thêm người dùng
-          </Button>
+              Thêm người dùng mới
+            </Button>
+          )}
         </div>
 
-        {/* Table */}
+        <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <Search
+            placeholder="Tìm kiếm theo tên, email hoặc username..."
+            allowClear
+            style={{ width: 300 }}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            prefix={<SearchOutlined />}
+          />
+          
+          <Select
+            placeholder="Vai trò"
+            style={{ width: 150 }}
+            value={selectedRole}
+            onChange={setSelectedRole}
+          >
+            <Option value="all">Tất cả vai trò</Option>
+            <Option value="admin">Quản trị viên</Option>
+            <Option value="manager">Quản lý</Option>
+            <Option value="doctor">Bác sĩ</Option>
+            <Option value="staff">Nhân viên</Option>
+            <Option value="customer">Khách hàng</Option>
+          </Select>
+
+          <Select
+            placeholder="Trạng thái"
+            style={{ width: 150 }}
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+          >
+            <Option value="all">Tất cả trạng thái</Option>
+            <Option value="active">Hoạt động</Option>
+            <Option value="inactive">Tạm dừng</Option>
+            <Option value="suspended">Bị khóa</Option>
+          </Select>
+        </div>
+
         <Table
           columns={columns}
           dataSource={filteredUsers}
@@ -399,27 +417,36 @@ const UserManagement: React.FC = () => {
         />
       </Card>
 
-      {/* Add/Edit Modal */}
       <Modal
         title={editingUser ? 'Chỉnh sửa người dùng' : 'Thêm người dùng mới'}
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
         width={600}
+        okText={editingUser ? 'Cập nhật' : 'Tạo mới'}
+        cancelText="Hủy"
       >
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ status: 'active' }}
+          style={{ marginTop: 16 }}
         >
           <Form.Item
-            name="name"
-            label="Họ và tên"
-            rules={[{ required: true, message: 'Vui lòng nhập họ và tên!' }]}
+            name="username"
+            label="Tên đăng nhập"
+            rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập!' }]}
           >
-            <Input />
+            <Input placeholder="Nhập tên đăng nhập" />
           </Form.Item>
-          
+
+          <Form.Item
+            name="fullName"
+            label="Họ tên"
+            rules={[{ required: true, message: 'Vui lòng nhập họ tên!' }]}
+          >
+            <Input placeholder="Nhập họ tên đầy đủ" />
+          </Form.Item>
+
           <Form.Item
             name="email"
             label="Email"
@@ -428,40 +455,40 @@ const UserManagement: React.FC = () => {
               { type: 'email', message: 'Email không hợp lệ!' }
             ]}
           >
-            <Input />
+            <Input placeholder="Nhập địa chỉ email" />
           </Form.Item>
-          
+
           <Form.Item
-            name="phone"
+            name="phoneNumber"
             label="Số điện thoại"
             rules={[{ required: true, message: 'Vui lòng nhập số điện thoại!' }]}
           >
-            <Input />
+            <Input placeholder="Nhập số điện thoại" />
           </Form.Item>
-          
+
           <Form.Item
             name="role"
             label="Vai trò"
             rules={[{ required: true, message: 'Vui lòng chọn vai trò!' }]}
           >
-            <Select>
+            <Select placeholder="Chọn vai trò">
               <Option value="admin">Quản trị viên</Option>
               <Option value="manager">Quản lý</Option>
-              <Option value="staff">Nhân viên</Option>
               <Option value="doctor">Bác sĩ</Option>
+              <Option value="staff">Nhân viên</Option>
               <Option value="customer">Khách hàng</Option>
             </Select>
           </Form.Item>
-          
+
           <Form.Item
             name="status"
             label="Trạng thái"
             rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
           >
-            <Select>
+            <Select placeholder="Chọn trạng thái">
               <Option value="active">Hoạt động</Option>
-              <Option value="inactive">Không hoạt động</Option>
-              <Option value="suspended">Tạm khóa</Option>
+              <Option value="inactive">Tạm dừng</Option>
+              <Option value="suspended">Bị khóa</Option>
             </Select>
           </Form.Item>
         </Form>

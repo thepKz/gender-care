@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   Table,
@@ -13,11 +13,7 @@ import {
   Tooltip,
   Popconfirm,
   DatePicker,
-  message,
-  Avatar,
-  Descriptions,
-  Upload,
-  Image
+  message
 } from 'antd';
 import {
   SearchOutlined,
@@ -25,13 +21,12 @@ import {
   EditOutlined,
   DeleteOutlined,
   EyeOutlined,
-  UserOutlined,
   FileTextOutlined,
-  MedicineBoxOutlined,
-  PictureOutlined,
-  UploadOutlined
+  UserOutlined,
+  MedicineBoxOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { medicalApi } from '../../../api/endpoints';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -39,249 +34,177 @@ const { Search } = Input;
 const { Option } = Select;
 const { TextArea } = Input;
 
-// NOTE: MOCKDATA - Dữ liệu giả dựa trên ERD MedicalRecords
 interface MedicalRecord {
   key: string;
-  _id: string;
-  doctorId: string;
-  doctorName: string;
-  profileId: string;
+  id: string;
   patientName: string;
+  patientEmail: string;
   patientPhone: string;
-  appointmentId: string;
+  doctorName: string;
+  appointmentDate: string;
   diagnosis: string;
-  symptoms: string;
   treatment: string;
-  notes?: string;
-  pictures: string[];
+  prescription: string;
+  notes: string;
+  status: 'draft' | 'completed' | 'reviewed';
   createdAt: string;
   updatedAt: string;
 }
 
-const mockMedicalRecords: MedicalRecord[] = [
-  {
-    key: '1',
-    _id: 'MR001',
-    doctorId: 'DOC001',
-    doctorName: 'Dr. Nguyễn Thị Hương',
-    profileId: 'PROF001',
-    patientName: 'Nguyễn Thị Lan',
-    patientPhone: '0901234567',
-    appointmentId: 'APT001',
-    diagnosis: 'Viêm nhiễm phụ khoa nhẹ',
-    symptoms: 'Ngứa, khí hư bất thường, đau bụng dưới',
-    treatment: 'Kê đơn thuốc kháng sinh, vệ sinh cá nhân, tái khám sau 1 tuần',
-    notes: 'Bệnh nhân cần tuân thủ điều trị đầy đủ',
-    pictures: ['/images/medical/mr001_1.jpg', '/images/medical/mr001_2.jpg'],
-    createdAt: '2024-01-28',
-    updatedAt: '2024-01-28'
-  },
-  {
-    key: '2',
-    _id: 'MR002',
-    doctorId: 'DOC002',
-    doctorName: 'Dr. Trần Minh Đức',
-    profileId: 'PROF002',
-    patientName: 'Trần Văn Nam',
-    patientPhone: '0901234568',
-    appointmentId: 'APT002',
-    diagnosis: 'Kết quả xét nghiệm STI âm tính',
-    symptoms: 'Không có triệu chứng bất thường',
-    treatment: 'Tư vấn phòng ngừa, duy trì vệ sinh cá nhân',
-    notes: 'Khuyến khích xét nghiệm định kỳ 6 tháng/lần',
-    pictures: ['/images/medical/mr002_test.jpg'],
-    createdAt: '2024-01-28',
-    updatedAt: '2024-01-28'
-  },
-  {
-    key: '3',
-    _id: 'MR003',
-    doctorId: 'DOC003',
-    doctorName: 'Dr. Lê Thị Mai',
-    profileId: 'PROF003',
-    patientName: 'Lê Thị Mai',
-    patientPhone: '0901234569',
-    appointmentId: 'APT003',
-    diagnosis: 'Rối loạn lo âu liên quan đến tình dục',
-    symptoms: 'Lo lắng, căng thẳng, mất ngủ, giảm ham muốn',
-    treatment: 'Liệu pháp tâm lý nhận thức hành vi, thuốc an thần nhẹ',
-    notes: 'Cần theo dõi tiến triển tâm lý, hẹn tái khám sau 2 tuần',
-    pictures: [],
-    createdAt: '2024-01-29',
-    updatedAt: '2024-01-29'
-  },
-  {
-    key: '4',
-    _id: 'MR004',
-    doctorId: 'DOC002',
-    doctorName: 'Dr. Trần Minh Đức',
-    profileId: 'PROF004',
-    patientName: 'Phạm Văn Hùng',
-    patientPhone: '0901234570',
-    appointmentId: 'APT004',
-    diagnosis: 'Sức khỏe tổng quát tốt',
-    symptoms: 'Không có triệu chứng bất thường',
-    treatment: 'Duy trì lối sống lành mạnh, tập thể dục đều đặn',
-    notes: 'Theo dõi huyết áp do có tiền sử bệnh tim',
-    pictures: ['/images/medical/mr004_checkup.jpg'],
-    createdAt: '2024-01-30',
-    updatedAt: '2024-01-30'
-  },
-  {
-    key: '5',
-    _id: 'MR005',
-    doctorId: 'DOC004',
-    doctorName: 'Dr. Hoàng Thị Nga',
-    profileId: 'PROF005',
-    patientName: 'Hoàng Thị Nga',
-    patientPhone: '0901234571',
-    appointmentId: 'APT005',
-    diagnosis: 'Thai kỳ 20 tuần bình thường',
-    symptoms: 'Buồn nôn nhẹ, mệt mỏi',
-    treatment: 'Bổ sung vitamin, dinh dưỡng hợp lý, nghỉ ngơi đầy đủ',
-    notes: 'Thai nhi phát triển bình thường, hẹn siêu âm lần sau',
-    pictures: ['/images/medical/mr005_ultrasound.jpg'],
-    createdAt: '2024-01-31',
-    updatedAt: '2024-01-31'
-  }
-];
-
 const MedicalRecordsManagement: React.FC = () => {
-  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>(mockMedicalRecords);
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDoctor, setSelectedDoctor] = useState<string>('all');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
   const [form] = Form.useForm();
 
-  // Filter medical records based on search and filters
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const response = await medicalApi.getMedicalRecords({
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      });
+      
+      // Convert API response to component format
+      const convertedRecords = response.data.map((record: any) => ({
+        key: record._id,
+        id: record._id,
+        patientName: record.profileId?.fullName || 'N/A',
+        patientEmail: record.profileId?.email || 'N/A',
+        patientPhone: record.profileId?.phone || 'N/A',
+        doctorName: record.doctorId?.fullName || 'N/A',
+        appointmentDate: record.createdAt,
+        diagnosis: record.diagnosis || '',
+        treatment: record.treatment || '',
+        prescription: record.prescription || '',
+        notes: record.notes || '',
+        status: 'completed', // Default status
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt
+      }));
+      setMedicalRecords(convertedRecords);
+    } catch (err: any) {
+      message.error(err?.message || 'Không thể tải danh sách hồ sơ y tế');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
   const filteredRecords = medicalRecords.filter(record => {
     const matchesSearch = record.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
-                         record.diagnosis.toLowerCase().includes(searchText.toLowerCase()) ||
-                         record.patientPhone.includes(searchText) ||
-                         record._id.toLowerCase().includes(searchText.toLowerCase());
-    const matchesDoctor = selectedDoctor === 'all' || record.doctorId === selectedDoctor;
+                         record.patientEmail.toLowerCase().includes(searchText.toLowerCase()) ||
+                         record.doctorName.toLowerCase().includes(searchText.toLowerCase()) ||
+                         record.diagnosis.toLowerCase().includes(searchText.toLowerCase());
+    const matchesStatus = selectedStatus === 'all' || record.status === selectedStatus;
+    const matchesDoctor = selectedDoctor === 'all' || record.doctorName === selectedDoctor;
     
-    return matchesSearch && matchesDoctor;
+    return matchesSearch && matchesStatus && matchesDoctor;
   });
+
+  const getStatusColor = (status: MedicalRecord['status']) => {
+    const colors = {
+      draft: 'orange',
+      completed: 'green',
+      reviewed: 'blue'
+    };
+    return colors[status];
+  };
+
+  const getStatusText = (status: MedicalRecord['status']) => {
+    const texts = {
+      draft: 'Bản nháp',
+      completed: 'Hoàn thành',
+      reviewed: 'Đã xem xét'
+    };
+    return texts[status];
+  };
 
   const handleEdit = (record: MedicalRecord) => {
     setEditingRecord(record);
     form.setFieldsValue({
       ...record,
-      createdAt: dayjs(record.createdAt)
+      appointmentDate: dayjs(record.appointmentDate)
     });
     setIsModalVisible(true);
   };
 
-  const handleDelete = (recordId: string) => {
-    setMedicalRecords(medicalRecords.filter(record => record._id !== recordId));
-    message.success('Xóa hồ sơ y tế thành công!');
+  const handleDelete = async (recordId: string) => {
+    try {
+      // Note: medicalApi doesn't have delete method, so we'll show a message
+      message.warning('Chức năng xóa hồ sơ y tế chưa được hỗ trợ');
+    } catch (err: any) {
+      message.error(err?.message || 'Không thể xóa hồ sơ y tế');
+    }
   };
 
-  const handleModalOk = () => {
-    form.validateFields().then(values => {
+  const handleModalOk = async () => {
+    try {
+      const values = await form.validateFields();
       const formattedValues = {
         ...values,
-        createdAt: values.createdAt.format('YYYY-MM-DD'),
-        pictures: values.pictures || []
+        appointmentDate: values.appointmentDate.format('YYYY-MM-DD')
       };
-
+      
       if (editingRecord) {
-        // Update existing record
-        setMedicalRecords(medicalRecords.map(record => 
-          record._id === editingRecord._id 
-            ? { ...record, ...formattedValues, updatedAt: new Date().toISOString().split('T')[0] }
-            : record
-        ));
-        message.success('Cập nhật hồ sơ y tế thành công!');
+        await medicalApi.updateMedicalRecord(editingRecord.id, {
+          diagnosis: formattedValues.diagnosis,
+          treatment: formattedValues.treatment,
+          notes: formattedValues.notes
+        });
+        message.success('Cập nhật hồ sơ y tế thành công');
       } else {
-        // Add new record
-        const newRecord: MedicalRecord = {
-          key: Date.now().toString(),
-          _id: `MR${Date.now()}`,
-          ...formattedValues,
-          updatedAt: new Date().toISOString().split('T')[0]
-        };
-        setMedicalRecords([...medicalRecords, newRecord]);
-        message.success('Thêm hồ sơ y tế mới thành công!');
+        await medicalApi.createMedicalRecord({
+          profileId: formattedValues.profileId,
+          appointmentId: formattedValues.appointmentId,
+          diagnosis: formattedValues.diagnosis,
+          symptoms: formattedValues.symptoms || '',
+          treatment: formattedValues.treatment,
+          notes: formattedValues.notes
+        });
+        message.success('Tạo hồ sơ y tế thành công');
       }
       setIsModalVisible(false);
-      setEditingRecord(null);
       form.resetFields();
-    });
+      setEditingRecord(null);
+      loadData();
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || 'Có lỗi xảy ra');
+    }
   };
 
   const handleModalCancel = () => {
     setIsModalVisible(false);
-    setEditingRecord(null);
     form.resetFields();
+    setEditingRecord(null);
   };
 
   const showRecordDetails = (record: MedicalRecord) => {
     Modal.info({
       title: 'Chi tiết hồ sơ y tế',
-      width: 800,
+      width: 700,
       content: (
-        <div style={{ marginTop: '16px' }}>
-          <Descriptions column={2} bordered size="small">
-            <Descriptions.Item label="Mã hồ sơ" span={2}>
-              <Text code>{record._id}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Bệnh nhân">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Avatar icon={<UserOutlined />} size="small" />
-                {record.patientName}
-              </div>
-            </Descriptions.Item>
-            <Descriptions.Item label="Số điện thoại">
-              {record.patientPhone}
-            </Descriptions.Item>
-            <Descriptions.Item label="Bác sĩ điều trị" span={2}>
-              <MedicineBoxOutlined style={{ marginRight: '4px' }} />
-              {record.doctorName}
-            </Descriptions.Item>
-            <Descriptions.Item label="Mã lịch hẹn" span={2}>
-              <Text code>{record.appointmentId}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Chẩn đoán" span={2}>
-              <Text strong style={{ color: '#1890ff' }}>{record.diagnosis}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label="Triệu chứng" span={2}>
-              {record.symptoms}
-            </Descriptions.Item>
-            <Descriptions.Item label="Điều trị" span={2}>
-              {record.treatment}
-            </Descriptions.Item>
-            {record.notes && (
-              <Descriptions.Item label="Ghi chú" span={2}>
-                {record.notes}
-              </Descriptions.Item>
-            )}
-            <Descriptions.Item label="Ngày tạo">
-              {record.createdAt}
-            </Descriptions.Item>
-            <Descriptions.Item label="Cập nhật lần cuối">
-              {record.updatedAt}
-            </Descriptions.Item>
-            {record.pictures.length > 0 && (
-              <Descriptions.Item label="Hình ảnh" span={2}>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {record.pictures.map((pic, index) => (
-                    <Image
-                      key={index}
-                      width={100}
-                      height={100}
-                      src={pic}
-                      style={{ objectFit: 'cover', borderRadius: '4px' }}
-                      fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgeHANwDrkl1AuO+pmgAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAwqADAAQAAAABAAAAwwAAAAD9b/HnAAAHlklEQVR4Ae3dP3Ik1RnG4W+FgYxN"
-                    />
-                  ))}
-                </div>
-              </Descriptions.Item>
-            )}
-          </Descriptions>
+        <div style={{ marginTop: 16 }}>
+          <p><strong>Mã hồ sơ:</strong> {record.id}</p>
+          <p><strong>Bệnh nhân:</strong> {record.patientName}</p>
+          <p><strong>Email:</strong> {record.patientEmail}</p>
+          <p><strong>Số điện thoại:</strong> {record.patientPhone}</p>
+          <p><strong>Bác sĩ:</strong> {record.doctorName}</p>
+          <p><strong>Ngày khám:</strong> {new Date(record.appointmentDate).toLocaleDateString('vi-VN')}</p>
+          <p><strong>Chẩn đoán:</strong> {record.diagnosis}</p>
+          <p><strong>Điều trị:</strong> {record.treatment}</p>
+          <p><strong>Đơn thuốc:</strong> {record.prescription}</p>
+          <p><strong>Ghi chú:</strong> {record.notes || 'Không có'}</p>
+          <p><strong>Trạng thái:</strong> {getStatusText(record.status)}</p>
+          <p><strong>Ngày tạo:</strong> {new Date(record.createdAt).toLocaleDateString('vi-VN')}</p>
+          <p><strong>Cập nhật:</strong> {new Date(record.updatedAt).toLocaleDateString('vi-VN')}</p>
         </div>
       ),
     });
@@ -290,32 +213,40 @@ const MedicalRecordsManagement: React.FC = () => {
   const columns: ColumnsType<MedicalRecord> = [
     {
       title: 'Bệnh nhân',
-      key: 'patient',
+      dataIndex: 'patientName',
+      key: 'patientName',
       width: 200,
-      render: (_, record) => (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <Avatar icon={<UserOutlined />} size="small" />
-            <Text strong style={{ fontSize: '14px' }}>{record.patientName}</Text>
-          </div>
-          <div style={{ fontSize: '12px', color: '#6b7280' }}>
-            {record.patientPhone}
-          </div>
-          <div style={{ fontSize: '12px', color: '#6b7280' }}>
-            ID: {record._id}
+      render: (text: string, record: MedicalRecord) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <UserOutlined style={{ color: '#1890ff' }} />
+          <div>
+            <Text strong>{text}</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              {record.patientEmail}
+            </Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              {record.patientPhone}
+            </Text>
           </div>
         </div>
       )
     },
     {
-      title: 'Bác sĩ điều trị',
+      title: 'Bác sĩ & Ngày khám',
       dataIndex: 'doctorName',
       key: 'doctorName',
-      width: 150,
-      render: (doctorName: string) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <MedicineBoxOutlined style={{ color: '#52c41a' }} />
-          <Text style={{ fontSize: '13px' }}>{doctorName}</Text>
+      width: 180,
+      render: (text: string, record: MedicalRecord) => (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+            <MedicineBoxOutlined style={{ color: '#52c41a' }} />
+            <Text strong style={{ fontSize: '12px' }}>{text}</Text>
+          </div>
+          <Text style={{ fontSize: '12px' }}>
+            {new Date(record.appointmentDate).toLocaleDateString('vi-VN')}
+          </Text>
         </div>
       )
     },
@@ -323,60 +254,45 @@ const MedicalRecordsManagement: React.FC = () => {
       title: 'Chẩn đoán',
       dataIndex: 'diagnosis',
       key: 'diagnosis',
-      width: 250,
-      render: (diagnosis: string) => (
-        <Text strong style={{ color: '#1890ff', fontSize: '13px' }}>
-          {diagnosis}
-        </Text>
-      )
-    },
-    {
-      title: 'Triệu chứng',
-      dataIndex: 'symptoms',
-      key: 'symptoms',
       width: 200,
-      render: (symptoms: string) => (
+      render: (text: string) => (
         <Text style={{ fontSize: '12px' }}>
-          {symptoms.length > 50 ? `${symptoms.substring(0, 50)}...` : symptoms}
+          {text.length > 50 ? `${text.substring(0, 50)}...` : text}
         </Text>
       )
     },
     {
-      title: 'Hình ảnh',
-      key: 'pictures',
-      width: 100,
-      render: (_, record) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <PictureOutlined style={{ color: '#722ed1' }} />
-          <Text style={{ fontSize: '12px' }}>{record.pictures.length}</Text>
-        </div>
+      title: 'Điều trị',
+      dataIndex: 'treatment',
+      key: 'treatment',
+      width: 200,
+      render: (text: string) => (
+        <Text style={{ fontSize: '12px' }}>
+          {text.length > 50 ? `${text.substring(0, 50)}...` : text}
+        </Text>
       )
     },
     {
-      title: 'Ngày tạo',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      key: 'status',
       width: 120,
-      render: (createdAt: string) => (
-        <Text style={{ fontSize: '13px' }}>
-          {dayjs(createdAt).format('DD/MM/YYYY')}
-        </Text>
-      ),
-      sorter: (a, b) => dayjs(a.createdAt).unix() - dayjs(b.createdAt).unix(),
-      defaultSortOrder: 'descend'
+      render: (status: MedicalRecord['status']) => (
+        <Tag color={getStatusColor(status)}>
+          {getStatusText(status)}
+        </Tag>
+      )
     },
     {
       title: 'Thao tác',
-      key: 'actions',
-      fixed: 'right',
+      key: 'action',
       width: 150,
-      render: (_, record) => (
-        <Space>
+      render: (_, record: MedicalRecord) => (
+        <Space size="small">
           <Tooltip title="Xem chi tiết">
             <Button 
               type="text" 
               icon={<EyeOutlined />} 
-              size="small"
               onClick={() => showRecordDetails(record)}
             />
           </Tooltip>
@@ -384,22 +300,20 @@ const MedicalRecordsManagement: React.FC = () => {
             <Button 
               type="text" 
               icon={<EditOutlined />} 
-              size="small"
               onClick={() => handleEdit(record)}
             />
           </Tooltip>
           <Tooltip title="Xóa">
             <Popconfirm
               title="Bạn có chắc chắn muốn xóa hồ sơ y tế này?"
-              onConfirm={() => handleDelete(record._id)}
-              okText="Xóa"
-              cancelText="Hủy"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Có"
+              cancelText="Không"
             >
               <Button 
                 type="text" 
-                icon={<DeleteOutlined />} 
-                size="small"
-                danger
+                danger 
+                icon={<DeleteOutlined />}
               />
             </Popconfirm>
           </Tooltip>
@@ -409,57 +323,57 @@ const MedicalRecordsManagement: React.FC = () => {
   ];
 
   return (
-    <div>
-      <div style={{ marginBottom: '24px' }}>
-        <Title level={2} style={{ margin: 0 }}>
-          Quản lý hồ sơ y tế
-        </Title>
-        <p style={{ color: '#6b7280', margin: '8px 0 0 0' }}>
-          NOTE: MOCKDATA - Quản lý hồ sơ y tế và kết quả khám bệnh
-        </p>
-      </div>
-
+    <div style={{ padding: '24px' }}>
       <Card>
-        {/* Filters */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '16px',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <Space wrap>
-            <Search
-              placeholder="Tìm kiếm bệnh nhân, chẩn đoán..."
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              style={{ width: 250 }}
-            />
-            <Select
-              value={selectedDoctor}
-              onChange={setSelectedDoctor}
-              style={{ width: 200 }}
-            >
-              <Option value="all">Tất cả bác sĩ</Option>
-              <Option value="DOC001">Dr. Nguyễn Thị Hương</Option>
-              <Option value="DOC002">Dr. Trần Minh Đức</Option>
-              <Option value="DOC003">Dr. Lê Thị Mai</Option>
-              <Option value="DOC004">Dr. Hoàng Thị Nga</Option>
-            </Select>
-          </Space>
-          
+        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
+            <FileTextOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+            Quản lý hồ sơ y tế
+          </Title>
           <Button 
             type="primary" 
             icon={<PlusOutlined />}
             onClick={() => setIsModalVisible(true)}
           >
-            Thêm hồ sơ y tế
+            Thêm hồ sơ mới
           </Button>
         </div>
 
-        {/* Table */}
+        <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <Search
+            placeholder="Tìm kiếm theo tên bệnh nhân, bác sĩ hoặc chẩn đoán..."
+            allowClear
+            style={{ width: 350 }}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            prefix={<SearchOutlined />}
+          />
+          
+          <Select
+            placeholder="Trạng thái"
+            style={{ width: 150 }}
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+          >
+            <Option value="all">Tất cả trạng thái</Option>
+            <Option value="draft">Bản nháp</Option>
+            <Option value="completed">Hoàn thành</Option>
+            <Option value="reviewed">Đã xem xét</Option>
+          </Select>
+
+          <Select
+            placeholder="Bác sĩ"
+            style={{ width: 200 }}
+            value={selectedDoctor}
+            onChange={setSelectedDoctor}
+          >
+            <Option value="all">Tất cả bác sĩ</Option>
+            <Option value="Dr. Nguyễn Thị Hương">Dr. Nguyễn Thị Hương</Option>
+            <Option value="Dr. Trần Minh Đức">Dr. Trần Minh Đức</Option>
+            <Option value="Dr. Lê Thị Mai">Dr. Lê Thị Mai</Option>
+          </Select>
+        </div>
+
         <Table
           columns={columns}
           dataSource={filteredRecords}
@@ -470,119 +384,117 @@ const MedicalRecordsManagement: React.FC = () => {
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total, range) => 
-              `${range[0]}-${range[1]} của ${total} hồ sơ`
+              `${range[0]}-${range[1]} của ${total} hồ sơ y tế`
           }}
           scroll={{ x: 1200 }}
         />
       </Card>
 
-      {/* Add/Edit Modal */}
       <Modal
         title={editingRecord ? 'Chỉnh sửa hồ sơ y tế' : 'Thêm hồ sơ y tế mới'}
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
-        width={800}
-        okText={editingRecord ? 'Cập nhật' : 'Thêm mới'}
+        width={700}
+        okText={editingRecord ? 'Cập nhật' : 'Tạo mới'}
         cancelText="Hủy"
       >
         <Form
           form={form}
           layout="vertical"
+          style={{ marginTop: 16 }}
         >
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <Form.Item
-              name="patientName"
-              label="Tên bệnh nhân"
-              rules={[{ required: true, message: 'Vui lòng nhập tên bệnh nhân!' }]}
-              style={{ flex: 1 }}
-            >
-              <Input placeholder="Nhập tên bệnh nhân" />
-            </Form.Item>
-            
-            <Form.Item
-              name="patientPhone"
-              label="Số điện thoại"
-              rules={[{ required: true, message: 'Vui lòng nhập số điện thoại!' }]}
-              style={{ flex: 1 }}
-            >
-              <Input placeholder="Nhập số điện thoại" />
-            </Form.Item>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '16px' }}>
+          <Form.Item
+            name="patientName"
+            label="Tên bệnh nhân"
+            rules={[{ required: true, message: 'Vui lòng nhập tên bệnh nhân!' }]}
+          >
+            <Input placeholder="Nhập tên bệnh nhân" />
+          </Form.Item>
+
+          <Form.Item
+            name="patientEmail"
+            label="Email bệnh nhân"
+            rules={[
+              { required: true, message: 'Vui lòng nhập email!' },
+              { type: 'email', message: 'Email không hợp lệ!' }
+            ]}
+          >
+            <Input placeholder="Nhập email bệnh nhân" />
+          </Form.Item>
+
+          <Form.Item
+            name="patientPhone"
+            label="Số điện thoại"
+            rules={[{ required: true, message: 'Vui lòng nhập số điện thoại!' }]}
+          >
+            <Input placeholder="Nhập số điện thoại" />
+          </Form.Item>
+
+          <div style={{ display: 'flex', gap: 16 }}>
             <Form.Item
               name="doctorName"
-              label="Bác sĩ điều trị"
-              rules={[{ required: true, message: 'Vui lòng nhập tên bác sĩ!' }]}
+              label="Bác sĩ"
+              rules={[{ required: true, message: 'Vui lòng chọn bác sĩ!' }]}
               style={{ flex: 1 }}
             >
-              <Input placeholder="Nhập tên bác sĩ" />
+              <Select placeholder="Chọn bác sĩ">
+                <Option value="Dr. Nguyễn Thị Hương">Dr. Nguyễn Thị Hương</Option>
+                <Option value="Dr. Trần Minh Đức">Dr. Trần Minh Đức</Option>
+                <Option value="Dr. Lê Thị Mai">Dr. Lê Thị Mai</Option>
+              </Select>
             </Form.Item>
-            
+
             <Form.Item
-              name="appointmentId"
-              label="Mã lịch hẹn"
-              rules={[{ required: true, message: 'Vui lòng nhập mã lịch hẹn!' }]}
+              name="appointmentDate"
+              label="Ngày khám"
+              rules={[{ required: true, message: 'Vui lòng chọn ngày khám!' }]}
               style={{ flex: 1 }}
             >
-              <Input placeholder="Nhập mã lịch hẹn" />
+              <DatePicker style={{ width: '100%' }} />
             </Form.Item>
           </div>
-          
+
           <Form.Item
             name="diagnosis"
             label="Chẩn đoán"
             rules={[{ required: true, message: 'Vui lòng nhập chẩn đoán!' }]}
           >
-            <Input placeholder="Nhập chẩn đoán" />
+            <TextArea rows={3} placeholder="Nhập chẩn đoán chi tiết" />
           </Form.Item>
-          
-          <Form.Item
-            name="symptoms"
-            label="Triệu chứng"
-            rules={[{ required: true, message: 'Vui lòng nhập triệu chứng!' }]}
-          >
-            <TextArea rows={3} placeholder="Mô tả triệu chứng" />
-          </Form.Item>
-          
+
           <Form.Item
             name="treatment"
             label="Điều trị"
             rules={[{ required: true, message: 'Vui lòng nhập phương pháp điều trị!' }]}
           >
-            <TextArea rows={3} placeholder="Mô tả phương pháp điều trị" />
+            <TextArea rows={3} placeholder="Nhập phương pháp điều trị" />
           </Form.Item>
-          
+
+          <Form.Item
+            name="prescription"
+            label="Đơn thuốc"
+          >
+            <TextArea rows={3} placeholder="Nhập đơn thuốc (tùy chọn)" />
+          </Form.Item>
+
           <Form.Item
             name="notes"
             label="Ghi chú"
           >
-            <TextArea rows={2} placeholder="Nhập ghi chú (tùy chọn)" />
+            <TextArea rows={2} placeholder="Nhập ghi chú thêm (tùy chọn)" />
           </Form.Item>
-          
+
           <Form.Item
-            name="createdAt"
-            label="Ngày tạo"
-            rules={[{ required: true, message: 'Vui lòng chọn ngày!' }]}
+            name="status"
+            label="Trạng thái"
+            rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
           >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          
-          <Form.Item
-            name="pictures"
-            label="Hình ảnh"
-          >
-            <Upload
-              listType="picture-card"
-              multiple
-              beforeUpload={() => false}
-            >
-              <div>
-                <UploadOutlined />
-                <div style={{ marginTop: 8 }}>Tải lên</div>
-              </div>
-            </Upload>
+            <Select placeholder="Chọn trạng thái">
+              <Option value="draft">Bản nháp</Option>
+              <Option value="completed">Hoàn thành</Option>
+              <Option value="reviewed">Đã xem xét</Option>
+            </Select>
           </Form.Item>
         </Form>
       </Modal>

@@ -107,9 +107,9 @@ const LoginPage: React.FC = () => {
                 // Chuyển hướng dựa trên role
                 const userRole = result.user?.role;
                 if (userRole && ['admin', 'manager'].includes(userRole)) {
-                  navigate('/admin-dashboard');
+                  navigate('/dashboard/management');
                 } else if (userRole && ['staff', 'doctor'].includes(userRole)) {
-                  navigate('/staff-dashboard');
+                  navigate('/dashboard/operational');
                 } else {
                   // Customer hoặc role khác thì về trang chủ
                   navigate('/');
@@ -214,9 +214,9 @@ const LoginPage: React.FC = () => {
         // Chuyển hướng dựa trên role
         const userRole = result.user?.role;
         if (userRole && ['admin', 'manager'].includes(userRole)) {
-          navigate('/admin-dashboard');
+          navigate('/dashboard/management');
         } else if (userRole && ['staff', 'doctor'].includes(userRole)) {
-          navigate('/staff-dashboard');
+          navigate('/dashboard/operational');
         } else {
           // Customer hoặc role khác thì về trang chủ
           navigate('/');
