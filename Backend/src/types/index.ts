@@ -310,7 +310,7 @@ export interface IDoctorQA {
   phone: string;
   notes: string;
   question: string;
-  status: 'pending' | 'contacted' | 'resolved' | 'cancelled';
+  status: 'pending_payment' | 'contacted' | 'resolved' | 'cancelled';
   createdAt: Date;
   updatedAt: Date;
 }

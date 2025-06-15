@@ -471,7 +471,7 @@ export interface DoctorQA {
   phone: string;
   notes: string;
   question: string;
-  status: 'pending' | 'contacted' | 'resolved' | 'cancelled';
+  status: 'pending_payment' | 'contacted' | 'resolved' | 'cancelled';
   createdAt: string;
   updatedAt: string;
 }

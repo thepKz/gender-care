@@ -597,4 +597,145 @@ export const completeQAMeeting = async (req: Request, res: Response): Promise<vo
       message: error.message || 'Lỗi server khi hoàn thành meeting' 
     });
   }
+};
+
+// PUT /api/doctor-qa/:id/manual-schedule - Manually trigger auto-scheduling cho QA đã paid (STAFF ONLY)
+export const manualTriggerScheduling = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ 
+        message: 'ID yêu cầu tư vấn không hợp lệ' 
+      });
+      return;
+    }
+
+    // Gọi lại logic updatePaymentStatus với paymentSuccess=true
+    const updatedQA = await doctorQAService.updatePaymentStatus(id, true);
+    
+    if (!updatedQA) {
+      res.status(500).json({ 
+        message: 'Lỗi khi trigger auto-scheduling' 
+      });
+      return;
+    }
+
+    let message;
+    let extraInfo = {};
+    
+    // Check if smart auto-scheduling worked
+    if (updatedQA.status === 'scheduled') {
+      message = '🎉 Auto-scheduling thành công! Đã tự động tìm slot gần nhất và phân công bác sĩ.';
+      extraInfo = {
+        smartScheduled: true,
+        doctorAssigned: !!updatedQA.doctorId,
+        doctorName: (updatedQA.doctorId as any)?.userId?.fullName || 'Bác sĩ',
+        appointmentDate: updatedQA.appointmentDate,
+        appointmentSlot: updatedQA.appointmentSlot,
+        nextStep: 'Đã book slot thành công',
+        note: 'Hệ thống đã tự động chọn slot sớm nhất và bác sĩ ít bận nhất'
+      };
+    } else if (updatedQA.status === 'doctor_confirmed') {
+      message = '⚠️ Đã assign bác sĩ nhưng chưa thể auto-schedule. Cần manual scheduling.';
+      extraInfo = {
+        smartScheduled: false,
+        doctorAssigned: !!updatedQA.doctorId,
+        doctorName: (updatedQA.doctorId as any)?.userId?.fullName || 'Bác sĩ',
+        needManualSchedule: true,
+        nextStep: 'Gọi API scheduleQA để xếp lịch thủ công'
+      };
+    } else {
+      message = '✅ Đã process QA thành công.';
+    }
+
+    res.status(200).json({
+      message,
+      data: updatedQA,
+      ...extraInfo
+    });
+
+  } catch (error: any) {
+    console.error('Error manually triggering scheduling:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi trigger auto-scheduling' 
+    });
+  }
+};
+
+// POST /api/doctor-qa/batch-process-paid - Batch process tất cả QA có status "paid" (STAFF ONLY)
+export const batchProcessPaidQAs = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Tìm tất cả QA có status "paid" nhưng chưa scheduled
+    const { DoctorQA } = await import('../models');
+    
+    const paidQAs = await DoctorQA.find({ 
+      status: 'paid'
+    }).select('_id fullName phone question');
+
+    if (paidQAs.length === 0) {
+      res.status(200).json({
+        message: 'Không có QA nào cần process',
+        processed: 0,
+        total: 0
+      });
+      return;
+    }
+
+    const results = [];
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const qa of paidQAs) {
+      try {
+        console.log(`🔄 Processing QA ${qa._id} - ${qa.fullName}`);
+        
+        const updatedQA = await doctorQAService.updatePaymentStatus(qa._id.toString(), true);
+        
+        results.push({
+          qaId: qa._id,
+          fullName: qa.fullName,
+          status: updatedQA?.status || 'unknown',
+          success: true,
+          scheduled: updatedQA?.status === 'scheduled',
+          appointmentDate: updatedQA?.appointmentDate,
+          appointmentSlot: updatedQA?.appointmentSlot
+        });
+        
+        successCount++;
+        
+      } catch (error: any) {
+        console.error(`❌ Error processing QA ${qa._id}:`, error.message);
+        
+        results.push({
+          qaId: qa._id,
+          fullName: qa.fullName,
+          success: false,
+          error: error.message
+        });
+        
+        errorCount++;
+      }
+    }
+
+    const scheduledCount = results.filter(r => r.scheduled).length;
+    
+    res.status(200).json({
+      message: `Batch process hoàn tất: ${successCount}/${paidQAs.length} thành công, ${scheduledCount} được schedule tự động`,
+      summary: {
+        total: paidQAs.length,
+        successful: successCount,
+        errors: errorCount,
+        autoScheduled: scheduledCount,
+        needManualSchedule: successCount - scheduledCount
+      },
+      results
+    });
+
+  } catch (error: any) {
+    console.error('Error batch processing paid QAs:', error);
+    res.status(500).json({ 
+      message: error.message || 'Lỗi server khi batch process QAs' 
+    });
+  }
 }; 

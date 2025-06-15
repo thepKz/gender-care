@@ -17,6 +17,11 @@ export interface IDoctorQA {
   updatedAt?: Date;
 }
 
+// 🔥 FORCE CLEAR MONGOOSE CACHE
+if (mongoose.models.DoctorQA) {
+  delete mongoose.models.DoctorQA;
+}
+
 const DoctorQASchema = new mongoose.Schema<IDoctorQA>({
   doctorId: { 
     type: mongoose.Schema.Types.ObjectId, 

@@ -83,7 +83,7 @@ interface DoctorQA {
   phone: string;
   question: string;
   notes?: string;
-  status: 'pending' | 'pending_payment' | 'assigned' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'pending_payment' | 'paid' | 'doctor_confirmed' | 'scheduled' | 'consulting' | 'completed' | 'cancelled';
   doctorId?: string;
   scheduledSlotId?: string;
   scheduledDate?: string;
@@ -316,11 +316,11 @@ const DoctorMySchedulePage: React.FC = () => {
   // Status helpers
   const getStatusColor = (status: string) => {
     const colorMap: Record<string, string> = {
-      pending: 'orange',
       pending_payment: 'gold',
-      confirmed: 'blue',
-      assigned: 'blue',
-      in_progress: 'purple',
+      paid: 'blue',
+      doctor_confirmed: 'cyan',
+      scheduled: 'purple',
+      consulting: 'lime',
       completed: 'green',
       cancelled: 'red'
     };
@@ -329,11 +329,11 @@ const DoctorMySchedulePage: React.FC = () => {
 
   const getStatusText = (status: string) => {
     const textMap: Record<string, string> = {
-      pending: 'Chờ xác nhận',
       pending_payment: 'Chờ thanh toán',
-      confirmed: 'Đã xác nhận',
-      assigned: 'Đã phân công',
-      in_progress: 'Đang tư vấn',
+      paid: 'Đã thanh toán',
+      doctor_confirmed: 'Bác sĩ đã xác nhận',
+      scheduled: 'Đã xếp lịch',
+      consulting: 'Đang tư vấn',
       completed: 'Hoàn thành',
       cancelled: 'Đã hủy'
     };

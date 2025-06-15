@@ -16,7 +16,9 @@ import {
   deleteDoctorQA,
   getQAMeeting,
   joinQAMeeting,
-  completeQAMeeting
+  completeQAMeeting,
+  manualTriggerScheduling,
+  batchProcessPaidQAs
 } from '../controllers/doctorQAController';
 
 const router = express.Router();
@@ -74,5 +76,12 @@ router.post('/doctor-qa/:id/join-meeting', verifyToken, joinQAMeeting);
 
 // PUT /api/doctor-qa/:id/complete-meeting - Hoàn thành meeting và QA (DOCTOR only)
 router.put('/doctor-qa/:id/complete-meeting', verifyToken, completeQAMeeting);
+
+// =============== MANUAL TRIGGER ROUTES ===============
+// PUT /api/doctor-qa/:id/manual-schedule - Manually trigger auto-scheduling (STAFF)
+router.put('/doctor-qa/:id/manual-schedule', verifyToken, verifyStaff, manualTriggerScheduling);
+
+// POST /api/doctor-qa/batch-process-paid - Batch process tất cả paid QAs (STAFF)
+router.post('/doctor-qa/batch-process-paid', verifyToken, verifyStaff, batchProcessPaidQAs);
 
 export default router; 
