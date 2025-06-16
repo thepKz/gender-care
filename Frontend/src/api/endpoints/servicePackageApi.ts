@@ -66,8 +66,17 @@ export interface GetServicePackagesParams {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   isActive?: boolean;
-  search?: string;
   includeDeleted?: boolean; // For manager to view deleted packages
+  serviceId?: string; // Filter by service ID
+}
+
+export interface SearchServicePackagesParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  serviceId?: string; // Filter by service ID
 }
 
 /**
@@ -126,24 +135,33 @@ export const updateServicePackage = async (id: string, data: UpdateServicePackag
 };
 
 /**
- * Xóa service package (Soft delete với deleteNote, Manager only)
+ * Tìm kiếm service packages (POST method - chỉ chạy khi nhấn nút)
  */
-export const deleteServicePackage = async (id: string, deleteNote: string): Promise<{ success: boolean; message: string }> => {
+export const searchServicePackages = async (params: SearchServicePackagesParams): Promise<ServicePackagesResponse> => {
   try {
-    const response = await servicePackageApi.delete(`/${id}`, {
-      data: { deleteNote }
-    });
+    const { page, limit, sortBy, sortOrder, ...searchData } = params;
+    const queryParams = { page, limit, sortBy, sortOrder };
+    
+    const response = await servicePackageApi.post('/search', searchData, { params: queryParams });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Lỗi khi tìm kiếm gói dịch vụ');
+  }
+};
+
+/**
+ * Xóa service package (Soft delete, Manager only) - Đã xóa deleteNote theo backend mới
+ */
+export const deleteServicePackage = async (id: string): Promise<{ success: boolean; message: string }> => {
+  try {
+    const response = await servicePackageApi.delete(`/${id}`);
     return response.data;
   } catch (error: any) {
     if (error.response?.status === 404) {
       throw new Error('Không tìm thấy gói dịch vụ');
     }
     if (error.response?.status === 400) {
-      const errors = error.response.data?.errors || {};
-      if (errors.deleteNote) {
-        throw new Error('Vui lòng nhập lý do xóa');
-      }
-      throw new Error(error.response.data?.message || 'Dữ liệu không hợp lệ');
+      throw new Error(error.response.data?.message || 'Không thể xóa gói dịch vụ này');
     }
     throw new Error(error.response?.data?.message || 'Lỗi khi xóa gói dịch vụ');
   }

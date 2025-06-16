@@ -22,8 +22,17 @@ export interface GetServicesParams {
   sortOrder?: 'asc' | 'desc';
   serviceType?: 'consultation' | 'test' | 'treatment' | 'other';
   availableAt?: 'Athome' | 'Online' | 'Center';
-  search?: string;
   includeDeleted?: boolean; // For manager to view deleted services
+}
+
+export interface SearchServicesParams {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  serviceType?: 'consultation' | 'test' | 'treatment' | 'other';
+  availableAt?: 'Athome' | 'Online' | 'Center';
 }
 
 /**
@@ -82,26 +91,35 @@ export const updateService = async (id: string, data: UpdateServiceRequest): Pro
 };
 
 /**
- * Xóa service (Soft delete với deleteNote, Manager only)
+ * Xóa service (Soft delete, Manager only) - Đã xóa deleteNote theo backend mới
  */
-export const deleteService = async (id: string, deleteNote: string): Promise<{ success: boolean; message: string }> => {
+export const deleteService = async (id: string): Promise<{ success: boolean; message: string }> => {
   try {
-    const response = await serviceApi.delete(`/${id}`, {
-      data: { deleteNote }
-    });
+    const response = await serviceApi.delete(`/${id}`);
     return response.data;
   } catch (error: any) {
     if (error.response?.status === 404) {
       throw new Error('Không tìm thấy dịch vụ');
     }
     if (error.response?.status === 400) {
-      const errors = error.response.data?.errors || {};
-      if (errors.deleteNote) {
-        throw new Error('Vui lòng nhập lý do xóa');
-      }
-      throw new Error(error.response.data?.message || 'Dữ liệu không hợp lệ');
+      throw new Error(error.response.data?.message || 'Không thể xóa dịch vụ này');
     }
     throw new Error(error.response?.data?.message || 'Lỗi khi xóa dịch vụ');
+  }
+};
+
+/**
+ * Tìm kiếm services (POST method - chỉ chạy khi nhấn nút)
+ */
+export const searchServices = async (params: SearchServicesParams): Promise<ServicesResponse> => {
+  try {
+    const { page, limit, sortBy, sortOrder, ...searchData } = params;
+    const queryParams = { page, limit, sortBy, sortOrder };
+    
+    const response = await serviceApi.post('/search', searchData, { params: queryParams });
+    return response.data;
+  } catch (error: any) {
+    throw new Error(error.response?.data?.message || 'Lỗi khi tìm kiếm dịch vụ');
   }
 };
 
