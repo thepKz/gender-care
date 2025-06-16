@@ -196,7 +196,7 @@ const AdvancedSearchFilter: React.FC<AdvancedSearchFilterProps> = ({
     (filters.specializations.length > 0 ? 1 : 0);
 
   return (
-    <Card className={`advanced-search-filter ${className}`} bodyStyle={{ padding: '16px' }}>
+    <Card className={`advanced-search-filter ${className}`} styles={{ body: { padding: '16px' } }}>
       {/* Main Search Bar */}
       <Row gutter={[16, 16]} align="middle">
         <Col flex="auto">

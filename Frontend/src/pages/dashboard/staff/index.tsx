@@ -1,29 +1,28 @@
-import React from 'react';
-import { 
-  Row, 
-  Col, 
-  Card, 
-  Statistic, 
-  Table, 
-  Tag, 
-  Space, 
-  Button,
-  Avatar,
-  Typography,
-  List,
-  Progress
-} from 'antd';
-import { 
-  CalendarOutlined,
-  RiseOutlined,
-  FallOutlined,
-  EyeOutlined,
-  MoreOutlined,
-  HeartOutlined,
-  ClockCircleOutlined,
-  CheckCircleOutlined
+import {
+    CalendarOutlined,
+    CheckCircleOutlined,
+    ClockCircleOutlined,
+    EyeOutlined,
+    FallOutlined,
+    HeartOutlined,
+    MoreOutlined,
+    RiseOutlined
 } from '@ant-design/icons';
+import {
+    Button,
+    Card,
+    Col,
+    List,
+    Progress,
+    Row,
+    Space,
+    Statistic,
+    Table,
+    Tag,
+    Typography
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import React from 'react';
 
 const { Title, Text } = Typography;
 
@@ -200,7 +199,7 @@ const StaffDashboard: React.FC = () => {
                 boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                 border: '1px solid #e5e7eb'
               }}
-              bodyStyle={{ padding: '24px' }}
+              styles={{ body: { padding: '24px' } }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div style={{ 

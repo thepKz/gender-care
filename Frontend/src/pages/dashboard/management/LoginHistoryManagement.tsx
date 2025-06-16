@@ -1,30 +1,28 @@
-import React, { useState, useEffect } from 'react';
 import {
-  Card,
-  Table,
-  Button,
-  Space,
-  Tag,
-  Input,
-  Select,
-  Typography,
-  Tooltip,
-  DatePicker,
-  message
-} from 'antd';
-import {
-  SearchOutlined,
-  EyeOutlined,
-  HistoryOutlined,
-  UserOutlined,
-  DesktopOutlined,
-  MobileOutlined,
-  TabletOutlined,
-  GlobalOutlined
+    DesktopOutlined,
+    EyeOutlined,
+    GlobalOutlined,
+    HistoryOutlined,
+    MobileOutlined,
+    SearchOutlined,
+    TabletOutlined,
+    UserOutlined
 } from '@ant-design/icons';
+import {
+    Button,
+    Card,
+    DatePicker,
+    Input,
+    message,
+    Select,
+    Table,
+    Tag,
+    Tooltip,
+    Typography
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-// Note: No specific loginHistory API endpoint available, will use userApi for related data
 import dayjs from 'dayjs';
+import React, { useEffect, useState } from 'react';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -61,8 +59,49 @@ const LoginHistoryManagement: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      // TODO: Implement API when backend is ready
-      // For now, use mock data
+      console.log('🔄 Loading login history...');
+      
+      const params = {
+        search: searchText || undefined,
+        status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        dateFrom: dateRange?.[0]?.format('YYYY-MM-DD'),
+        dateTo: dateRange?.[1]?.format('YYYY-MM-DD'),
+        sortBy: 'loginTime',
+        sortOrder: 'desc' as const
+      };
+
+      const response = await loginHistoryApi.getAllLoginHistory(params);
+      console.log('📋 Login history response:', response.data);
+      
+      if (response.data.success) {
+        const formattedData = response.data.data.map((record: any) => ({
+          key: record.id,
+          id: record.id,
+          userId: record.userId,
+          username: record.username,
+          fullName: record.fullName,
+          email: record.email,
+          loginTime: record.loginTime,
+          logoutTime: record.logoutTime,
+          ipAddress: record.ipAddress,
+          userAgent: record.userAgent,
+          deviceType: record.deviceType,
+          browser: record.browser,
+          os: record.os,
+          location: record.location,
+          status: record.status,
+          sessionDuration: record.sessionDuration
+        }));
+        
+        setLoginHistory(formattedData);
+        console.log('✅ Login history loaded:', formattedData.length, 'records');
+      }
+    } catch (err: any) {
+      console.error('❌ Error loading login history:', err);
+      message.error(err?.response?.data?.message || 'Không thể tải lịch sử đăng nhập');
+      
+      // Fallback to demo data for development
+      console.log('🔄 Using fallback demo data...');
       const mockData: LoginHistory[] = [
         {
           key: '1',
@@ -100,8 +139,6 @@ const LoginHistoryManagement: React.FC = () => {
         }
       ];
       setLoginHistory(mockData);
-    } catch (err: any) {
-      message.error(err?.response?.data?.message || 'Không thể tải lịch sử đăng nhập');
     } finally {
       setLoading(false);
     }
@@ -109,7 +146,7 @@ const LoginHistoryManagement: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [searchText, selectedStatus, selectedDevice, dateRange]);
 
   const filteredHistory = loginHistory.filter(record => {
     const matchesSearch = record.username.toLowerCase().includes(searchText.toLowerCase()) ||

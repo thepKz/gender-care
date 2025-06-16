@@ -1,17 +1,17 @@
-import React from 'react';
-import { Card, Statistic, Button } from 'antd';
-import { 
-  RiseOutlined, 
-  FallOutlined, 
-  MoreOutlined,
-  UserOutlined,
-  DollarOutlined,
-  CalendarOutlined,
-  StarOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  HeartOutlined
+import {
+    CalendarOutlined,
+    CheckCircleOutlined,
+    ClockCircleOutlined,
+    DollarOutlined,
+    FallOutlined,
+    HeartOutlined,
+    MoreOutlined,
+    RiseOutlined,
+    StarOutlined,
+    UserOutlined
 } from '@ant-design/icons';
+import { Button, Card, Statistic } from 'antd';
+import React from 'react';
 import type { DashboardStat } from '../../../types/dashboard';
 
 interface StatsCardProps {
@@ -43,7 +43,7 @@ const StatsCard: React.FC<StatsCardProps> = ({ stat, loading = false }) => {
         border: '1px solid #e5e7eb',
         height: '100%'
       }}
-      bodyStyle={{ padding: '24px' }}
+      styles={{ body: { padding: '24px' } }}
     >
       {/* Header với icon và menu */}
       <div style={{ 
