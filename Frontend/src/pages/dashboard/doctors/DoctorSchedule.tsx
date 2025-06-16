@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   Calendar,
@@ -29,6 +29,8 @@ import {
 import type { CalendarProps } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import doctorScheduleApi from '../../../api/endpoints/doctorSchedule';
+import doctorApi from '../../../api/endpoints/doctor';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -53,61 +55,54 @@ interface Doctor {
   avatar?: string;
 }
 
-// Mock data doctors
-const mockDoctors: Doctor[] = [
-  {
-    id: 'DOC001',
-    name: 'Dr. Nguyễn Minh Anh',
-    specialty: 'Sản phụ khoa',
-    avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=64&h=64&fit=crop&crop=face'
-  },
-  {
-    id: 'DOC002',
-    name: 'Dr. Trần Văn Bình',
-    specialty: 'Tư vấn sức khỏe sinh sản',
-    avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=64&h=64&fit=crop&crop=face'
-  },
-  {
-    id: 'DOC003',
-    name: 'Dr. Lê Thị Cẩm',
-    specialty: 'Xét nghiệm & Chẩn đoán',
-    avatar: 'https://images.unsplash.com/photo-1594824949093-c6c13da5e7ac?w=64&h=64&fit=crop&crop=face'
-  }
-];
-
-// Mock data schedules
-const mockSchedules: Schedule[] = [
-  {
-    id: '1',
-    doctorId: 'DOC001',
-    doctorName: 'Dr. Nguyễn Minh Anh',
-    date: '2024-12-07',
-    startTime: '08:00',
-    endTime: '12:00',
-    status: 'scheduled',
-    shift: 'morning',
-    room: 'P201',
-    notes: 'Ca sáng khám tổng quát'
-  },
-  {
-    id: '2',
-    doctorId: 'DOC001',
-    doctorName: 'Dr. Nguyễn Minh Anh',
-    date: '2024-12-07',
-    startTime: '14:00',
-    endTime: '18:00',
-    status: 'scheduled',
-    shift: 'afternoon',
-    room: 'P201',
-    notes: 'Ca chiều tư vấn'
-  }
-];
-
 const DoctorSchedule: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
-  const [schedules, setSchedules] = useState<Schedule[]>(mockSchedules);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [form] = Form.useForm();
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [scheduleResponse, doctorResponse] = await Promise.all([
+        doctorScheduleApi.getAll(),
+        doctorApi.getAll()
+      ]);
+      
+      // Convert API response to component format
+      const convertedSchedules = scheduleResponse.map((schedule: any) => ({
+        id: schedule._id,
+        doctorId: schedule.doctorId._id,
+        doctorName: schedule.doctorId.userId.fullName,
+        date: new Date(schedule.weekSchedule[0]?.dayOfWeek).toISOString().split('T')[0],
+        startTime: schedule.weekSchedule[0]?.slots[0]?.slotTime.split('-')[0] || '08:00',
+        endTime: schedule.weekSchedule[0]?.slots[0]?.slotTime.split('-')[1] || '09:00',
+        status: 'scheduled' as const,
+        shift: 'morning' as const,
+        room: 'Phòng khám'
+      }));
+      
+      const convertedDoctors = doctorResponse.map((doctor: any) => ({
+        id: doctor._id,
+        name: doctor.userId.fullName,
+        specialty: doctor.specialization || 'Bác sĩ đa khoa',
+        avatar: doctor.avatar
+      }));
+      
+      setSchedules(convertedSchedules);
+      setDoctors(convertedDoctors);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -262,7 +257,7 @@ const DoctorSchedule: React.FC = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <Avatar 
-                            src={mockDoctors.find(d => d.id === schedule.doctorId)?.avatar}
+                            src={doctors.find(d => d.id === schedule.doctorId)?.avatar}
                             size={32}
                             style={{ backgroundColor: '#667eea' }}
                           >
@@ -273,7 +268,7 @@ const DoctorSchedule: React.FC = () => {
                               {schedule.doctorName}
                             </Text>
                             <Text type="secondary" style={{ fontSize: '12px' }}>
-                              {mockDoctors.find(d => d.id === schedule.doctorId)?.specialty}
+                              {doctors.find(d => d.id === schedule.doctorId)?.specialty}
                             </Text>
                           </div>
                         </div>
@@ -329,7 +324,7 @@ const DoctorSchedule: React.FC = () => {
             <Col span={12}>
               <Form.Item label="Bác sĩ" name="doctorId">
                 <Select placeholder="Chọn bác sĩ">
-                  {mockDoctors.map(doctor => (
+                  {doctors.map(doctor => (
                     <Option key={doctor.id} value={doctor.id}>
                       {doctor.name}
                     </Option>
