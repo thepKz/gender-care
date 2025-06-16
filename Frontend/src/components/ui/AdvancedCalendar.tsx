@@ -6,10 +6,10 @@ import { Calendar, momentLocalizer, View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '../../styles/calendar.css';
 import type {
-    AdvancedCalendarProps,
-    CalendarEvent,
-    CalendarView,
-    EventStyleGetter
+  AdvancedCalendarProps,
+  CalendarEvent,
+  CalendarView,
+  EventStyleGetter
 } from '../../types/calendar';
 import CalendarToolbar from './CalendarToolbar';
 
@@ -281,9 +281,7 @@ const AdvancedCalendar: React.FC<AdvancedCalendarProps> = ({
       case 'month':
         return moment(currentDate).format('MMMM YYYY');
       case 'week':
-        const weekStart = moment(currentDate).startOf('week');
-        const weekEnd = moment(currentDate).endOf('week');
-        return `${weekStart.format('DD/MM')} - ${weekEnd.format('DD/MM/YYYY')}`;
+        return `${moment(currentDate).format('DD/MM')} - ${moment(currentDate).format('DD/MM/YYYY')}`;
       case 'day':
         return moment(currentDate).format('dddd, DD/MM/YYYY');
       case 'agenda':
@@ -334,7 +332,7 @@ const AdvancedCalendar: React.FC<AdvancedCalendarProps> = ({
   }
 
   return (
-    <Card className={`advanced-calendar ${className}`} bodyStyle={{ padding: 0 }}>
+    <Card className={`advanced-calendar ${className}`} styles={{ body: { padding: 0 } }}>
       {/* Custom Toolbar */}
       <CalendarToolbar
         onNavigate={handleToolbarNavigate}

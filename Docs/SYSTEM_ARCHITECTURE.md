@@ -26,6 +26,33 @@ flowchart TD
     class Security sec;
 ```
 
+## API Architecture
+
+### Dashboard APIs
+- **GET /api/dashboard/management** - Dashboard cho Admin/Manager
+- **GET /api/dashboard/operational** - Dashboard cho Staff/Doctor
+
+### Authentication & User Management
+- **POST /api/auth/login** - Đăng nhập
+- **POST /api/auth/register** - Đăng ký
+- **GET /api/users** - Quản lý người dùng (Admin/Manager)
+
+### Login History
+- **GET /api/login-history** - Lấy lịch sử đăng nhập (Admin/Manager)
+- **GET /api/login-history/:userId** - Lịch sử theo user
+- **POST /api/login-history** - Tạo record đăng nhập
+
+### Medical Services
+- **GET /api/doctors** - Quản lý bác sĩ
+- **GET /api/services** - Quản lý dịch vụ y tế
+- **GET /api/service-packages** - Gói dịch vụ
+- **GET /api/appointments** - Quản lý lịch hẹn
+
+### Health Data
+- **GET /api/medical-records** - Hồ sơ y tế
+- **GET /api/medicines** - Quản lý thuốc
+- **GET /api/medication-reminders** - Nhắc nhở uống thuốc
+
 ## Giải thích các thành phần
 
 - **DNS:** Quản lý tên miền, chuyển domain thành IP.
