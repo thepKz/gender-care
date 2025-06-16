@@ -10,7 +10,7 @@ export const runAllSeeds = async () => {
     console.log('🌱 Bắt đầu chạy tất cả seed data...');
 
     // Chạy seeds theo thứ tự dependency
-    await seedServices();     // Services trước (independent)
+    // await seedServices();     // Services trước (independent)
     // await seedMedicines();    // Medicines trước (independent)
     // await seedUserProfiles(); // UserProfiles (cần tạo user + profiles cho medical records)
     // await seedDoctors();      // Doctors sau
