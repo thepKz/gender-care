@@ -1,74 +1,76 @@
-import {
-    FilterOutlined,
-    GiftOutlined,
-    PlusOutlined,
-    ReloadOutlined,
-    SearchOutlined
-} from '@ant-design/icons';
-import {
-    Button,
-    Card,
-    Input,
-    message,
-    Modal,
-    Pagination,
-    Select,
-    Space,
-    Spin,
-    Switch,
-    Typography
+import React, { useState, useEffect } from 'react';
+import { 
+  Card, 
+  Table, 
+  Button, 
+  Input, 
+  Select, 
+  Space, 
+  Modal, 
+  Form, 
+  message, 
+  Tag,
+  Switch,
+  Row,
+  Col,
+  Statistic,
+  Tooltip,
+  Badge,
+  Typography,
+  Dropdown
 } from 'antd';
-import React, { useEffect, useState } from 'react';
-
-// API imports
-import {
-    createServicePackage,
-    deleteServicePackage,
-    getServicePackages,
-    GetServicePackagesParams,
-    recoverServicePackage,
-    updateServicePackage
+import { 
+  PlusOutlined, 
+  EditOutlined, 
+  DeleteOutlined, 
+  SearchOutlined,
+  GiftOutlined,
+  EyeOutlined,
+  CheckCircleOutlined,
+  StopOutlined,
+  ReloadOutlined,
+  FilterOutlined,
+  CopyOutlined,
+  UndoOutlined as RecoverOutlined
+} from '@ant-design/icons';
+import { 
+  getServicePackages, 
+  searchServicePackages, 
+  createServicePackage, 
+  updateServicePackage, 
+  deleteServicePackage, 
+  recoverServicePackage,
+  type GetServicePackagesParams,
+  type SearchServicePackagesParams
 } from '../../../api/endpoints/servicePackageApi';
+import { getServices } from '../../../api/endpoints/serviceApi';
+import type { ServicePackage, CreateServicePackageRequest, UpdateServicePackageRequest, Service } from '../../../types';
 
-// Component imports
-import ServicePackageCard from '../../../components/ui/cards/ServicePackageCard';
-import ServicePackageModal from '../../../components/ui/forms/ServicePackageModal';
-import DeleteConfirmModal from '../../../components/ui/modals/DeleteConfirmModal';
-
-// Type imports
-import {
-    CreateServicePackageRequest,
-    ServicePackage,
-    UpdateServicePackageRequest
-} from '../../../types';
-
-const { Title, Text } = Typography;
 const { Option } = Select;
+const { Search } = Input;
+const { Text, Title } = Typography;
 const { confirm } = Modal;
 
-const ServicePackagesPage: React.FC = () => {
-  // State management
+const ManagerServicePackagesPage: React.FC = () => {
   const [servicePackages, setServicePackages] = useState<ServicePackage[]>([]);
+  const [filteredServicePackages, setFilteredServicePackages] = useState<ServicePackage[]>([]);
+  const [availableServices, setAvailableServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(false);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalLoading, setModalLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingServicePackage, setEditingServicePackage] = useState<ServicePackage | null>(null);
-  
-  // Delete modal states
-  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [deletingServicePackage, setDeletingServicePackage] = useState<ServicePackage | null>(null);
+  const [form] = Form.useForm();
 
   // Filter states
   const [searchText, setSearchText] = useState('');
-  const [isActiveFilter, setIsActiveFilter] = useState<boolean | undefined>(undefined);
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('');
   const [includeDeleted, setIncludeDeleted] = useState(false);
-  const [sortBy, setSortBy] = useState('createdAt');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [isSearchMode, setIsSearchMode] = useState(false);
 
   // Pagination state
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 12,
+    pageSize: 10,
     total: 0,
     showSizeChanger: true,
     showQuickJumper: true,
@@ -76,612 +78,675 @@ const ServicePackagesPage: React.FC = () => {
       `${range[0]}-${range[1]} của ${total} gói dịch vụ`,
   });
 
-  // Fetch service packages
-  const fetchServicePackages = async () => {
-    setLoading(true);
+  // Load data
+  useEffect(() => {
+    loadAvailableServices();
+    if (!isSearchMode) {
+      loadServicePackages();
+    }
+  }, [pagination.current, pagination.pageSize, includeDeleted, isSearchMode]);
+
+  const loadAvailableServices = async () => {
     try {
+      const response = await getServices({ limit: 1000 }); // Load all services for selection
+      if (response.success) {
+        setAvailableServices(response.data.services.filter(s => s.isDeleted === 0));
+      }
+    } catch (error: any) {
+      console.error('Error loading services:', error);
+    }
+  };
+
+  const loadServicePackages = async () => {
+    try {
+      setLoading(true);
+      
       const params: GetServicePackagesParams = {
         page: pagination.current,
         limit: pagination.pageSize,
-        sortBy,
-        sortOrder,
-        ...(searchText && { search: searchText }),
-        ...(isActiveFilter !== undefined && { isActive: isActiveFilter }),
-        ...(includeDeleted && { includeDeleted: true })
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        includeDeleted
       };
 
-      const response = await getServicePackages(params);
+      if (selectedServiceId) {
+        params.serviceId = selectedServiceId;
+      }
 
+      const response = await getServicePackages(params);
+      
       if (response.success) {
         setServicePackages(response.data.packages);
+        setFilteredServicePackages(response.data.packages);
         setPagination(prev => ({
           ...prev,
           total: response.data.pagination.total
         }));
       }
     } catch (error: any) {
-      console.error('Error fetching service packages:', error);
-      message.error(error.message || 'Lỗi khi tải danh sách gói dịch vụ');
+      console.error('Error loading service packages:', error);
+      message.error('Không thể tải dữ liệu gói dịch vụ');
     } finally {
       setLoading(false);
     }
   };
 
-  // Load data on component mount and when dependencies change
-  useEffect(() => {
-    fetchServicePackages();
-  }, [pagination.current, pagination.pageSize, sortBy, sortOrder, includeDeleted]);
+  // Handle search - chỉ chạy khi nhấn nút
+  const handleSearch = async () => {
+    if (!searchText.trim() && !selectedServiceId) {
+      // Nếu không có gì để search, quay về mode bình thường
+      setIsSearchMode(false);
+      setPagination(prev => ({ ...prev, current: 1 }));
+      return;
+    }
 
-  // Handle create service package
-  const handleCreateServicePackage = async (data: CreateServicePackageRequest) => {
-    setModalLoading(true);
     try {
-      console.log('Creating service package with data:', data);
+      setSearchLoading(true);
+      setIsSearchMode(true);
       
-      // Debug token
-      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
-      console.log('Current token:', token ? 'exists' : 'not found');
-      
-      const response = await createServicePackage(data);
+      const params: SearchServicePackagesParams = {
+        page: 1, // Reset về trang 1 khi search
+        limit: pagination.pageSize,
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      };
+
+      if (searchText.trim()) {
+        params.search = searchText.trim();
+      }
+      if (selectedServiceId) {
+        params.serviceId = selectedServiceId;
+      }
+
+      const response = await searchServicePackages(params);
       
       if (response.success) {
-        message.success('Tạo gói dịch vụ thành công!');
-        setModalVisible(false);
-        fetchServicePackages(); // Reload data
+        setServicePackages(response.data.packages);
+        setFilteredServicePackages(response.data.packages);
+        setPagination(prev => ({
+          ...prev,
+          current: 1,
+          total: response.data.pagination.total
+        }));
       }
     } catch (error: any) {
-      console.error('Error creating service package:', error);
-      console.error('Error details:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message
-      });
-      message.error(error.message || 'Lỗi khi tạo gói dịch vụ');
+      console.error('Error searching service packages:', error);
+      message.error('Lỗi khi tìm kiếm gói dịch vụ');
     } finally {
-      setModalLoading(false);
+      setSearchLoading(false);
     }
   };
 
-  // Handle update service package
-  const handleUpdateServicePackage = async (data: UpdateServicePackageRequest) => {
-    if (!editingServicePackage) return;
-    
-    setModalLoading(true);
+  // Handle pagination change trong search mode
+  const handleSearchPagination = async (page: number, pageSize?: number) => {
+    if (!isSearchMode) return;
+
     try {
-      const response = await updateServicePackage(editingServicePackage._id, data);
+      setSearchLoading(true);
+      
+      const params: SearchServicePackagesParams = {
+        page,
+        limit: pageSize || pagination.pageSize,
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      };
+
+      if (searchText.trim()) {
+        params.search = searchText.trim();
+      }
+      if (selectedServiceId) {
+        params.serviceId = selectedServiceId;
+      }
+
+      const response = await searchServicePackages(params);
       
       if (response.success) {
-        message.success('Cập nhật gói dịch vụ thành công!');
-        setModalVisible(false);
-        setEditingServicePackage(null);
-        fetchServicePackages(); // Reload data
+        setServicePackages(response.data.packages);
+        setFilteredServicePackages(response.data.packages);
+        setPagination(prev => ({
+          ...prev,
+          current: page,
+          pageSize: pageSize || prev.pageSize,
+          total: response.data.pagination.total
+        }));
       }
     } catch (error: any) {
-      console.error('Error updating service package:', error);
-      message.error(error.message || 'Lỗi khi cập nhật gói dịch vụ');
+      console.error('Error in search pagination:', error);
+      message.error('Lỗi khi chuyển trang');
     } finally {
-      setModalLoading(false);
+      setSearchLoading(false);
     }
   };
 
-  // Handle delete service package với deleteNote
-  const handleDeleteServicePackage = (servicePackage: ServicePackage) => {
-    setDeletingServicePackage(servicePackage);
-    setDeleteModalVisible(true);
-  };
-
-  // Handle xác nhận xóa service package với deleteNote
-  const handleConfirmDeletePackage = async (deleteNote: string) => {
-    if (!deletingServicePackage) return;
-    
-        try {
-      const response = await deleteServicePackage(deletingServicePackage._id, deleteNote);
-          
-          if (response.success) {
-            message.success('Xóa gói dịch vụ thành công!');
-        setDeleteModalVisible(false);
-        setDeletingServicePackage(null);
-            fetchServicePackages(); // Reload data
-          }
-        } catch (error: any) {
-          console.error('Error deleting service package:', error);
-          message.error(error.message || 'Lỗi khi xóa gói dịch vụ');
-      throw error; // Để modal vẫn mở nếu có lỗi
-        }
-  };
-
-  // Handle khôi phục service package
-  const handleRecoverServicePackage = async (servicePackage: ServicePackage) => {
-    try {
-      const response = await recoverServicePackage(servicePackage._id);
-      
-      if (response.success) {
-        message.success('Khôi phục gói dịch vụ thành công!');
-        fetchServicePackages(); // Reload data
-      }
-    } catch (error: any) {
-      console.error('Error recovering service package:', error);
-      message.error(error.message || 'Lỗi khi khôi phục gói dịch vụ');
-    }
-  };
-
-  // Handle edit service package
-  const handleEditServicePackage = (servicePackage: ServicePackage) => {
-    setEditingServicePackage(servicePackage);
-    setModalVisible(true);
-  };
-
-  // Handle view service package details
-  const handleViewServicePackage = (servicePackage: ServicePackage) => {
-    // TODO: Implement view details modal or navigate to detail page
-    console.log('View service package:', servicePackage);
-    message.info('Chức năng xem chi tiết sẽ được triển khai sau');
-  };
-
-  // Handle duplicate service package - Lấy thông tin hiện có giống như edit
-  const handleDuplicateServicePackage = (servicePackage: ServicePackage) => {
-    // Tạo một bản sao service package với tên mới
-    const duplicatedServicePackage = {
-      ...servicePackage,
-      name: `${servicePackage.name} (Bản sao)`,
-      _id: '' // Xóa ID để tạo service package mới
-    };
-    
-    setEditingServicePackage(duplicatedServicePackage);
-    setModalVisible(true);
-  };
-
-  // Handle modal close
-  const handleModalClose = () => {
-    setModalVisible(false);
-    setEditingServicePackage(null);
-  };
-
-  // Handle modal submit
-  const handleModalSubmit = async (data: CreateServicePackageRequest | UpdateServicePackageRequest) => {
-    if (editingServicePackage) {
-      await handleUpdateServicePackage(data);
-    } else {
-      await handleCreateServicePackage(data as CreateServicePackageRequest);
-    }
-  };
-
-  // Handle pagination change
-  const handlePaginationChange = (page: number, pageSize?: number) => {
-    setPagination(prev => ({
-      ...prev,
-      current: page,
-      pageSize: pageSize || prev.pageSize
-    }));
-  };
-
-  // Handle search
-  const handleSearch = () => {
-    setPagination(prev => ({ ...prev, current: 1 }));
-    fetchServicePackages();
-  };
-
-  // Handle reset filters
   const handleResetFilters = () => {
     setSearchText('');
-    setIsActiveFilter(undefined);
-    setIncludeDeleted(false);
-    setSortBy('createdAt');
-    setSortOrder('desc');
+    setSelectedServiceId('');
+    setIsSearchMode(false);
     setPagination(prev => ({ ...prev, current: 1 }));
   };
 
+  const handleEdit = (servicePackage: ServicePackage) => {
+    setEditingServicePackage(servicePackage);
+    form.setFieldsValue({
+      name: servicePackage.name,
+      description: servicePackage.description,
+      priceBeforeDiscount: servicePackage.priceBeforeDiscount,
+      price: servicePackage.price,
+      serviceIds: servicePackage.serviceIds.map(s => typeof s === 'object' ? s._id : s)
+    });
+    setIsModalVisible(true);
+  };
+
+  const handleDelete = async (servicePackage: ServicePackage) => {
+    confirm({
+      title: 'Xác nhận xóa gói dịch vụ',
+      content: `Bạn có chắc chắn muốn xóa gói dịch vụ "${servicePackage.name}" không?`,
+      okText: 'Xóa',
+      cancelText: 'Hủy',
+      okType: 'danger',
+      onOk: async () => {
+        try {
+          await deleteServicePackage(servicePackage._id);
+          message.success('Xóa gói dịch vụ thành công!');
+          if (isSearchMode) {
+            handleSearch();
+          } else {
+            loadServicePackages();
+          }
+        } catch (error: any) {
+          message.error(error.message || 'Không thể xóa gói dịch vụ');
+        }
+      }
+    });
+  };
+
+  const handleRecover = async (servicePackage: ServicePackage) => {
+    try {
+      await recoverServicePackage(servicePackage._id);
+      message.success('Khôi phục gói dịch vụ thành công!');
+      if (isSearchMode) {
+        handleSearch();
+      } else {
+        loadServicePackages();
+      }
+    } catch (error: any) {
+      message.error(error.message || 'Không thể khôi phục gói dịch vụ');
+    }
+  };
+
+  const handleDuplicate = (servicePackage: ServicePackage) => {
+    setEditingServicePackage({
+      ...servicePackage,
+      name: `${servicePackage.name} (Bản sao)`,
+      _id: '' // Clear ID để tạo mới
+    });
+    form.setFieldsValue({
+      name: `${servicePackage.name} (Bản sao)`,
+      description: servicePackage.description,
+      priceBeforeDiscount: servicePackage.priceBeforeDiscount,
+      price: servicePackage.price,
+      serviceIds: servicePackage.serviceIds.map(s => typeof s === 'object' ? s._id : s)
+    });
+    setIsModalVisible(true);
+  };
+
+  const handleSubmit = async (values: any) => {
+    try {
+      if (editingServicePackage && editingServicePackage._id) {
+        // Update existing service package
+        const updateData: UpdateServicePackageRequest = {
+          name: values.name,
+          description: values.description,
+          priceBeforeDiscount: values.priceBeforeDiscount,
+          price: values.price,
+          serviceIds: values.serviceIds
+        };
+        await updateServicePackage(editingServicePackage._id, updateData);
+        message.success('Cập nhật gói dịch vụ thành công!');
+      } else {
+        // Create new service package
+        const createData: CreateServicePackageRequest = {
+          name: values.name,
+          description: values.description,
+          priceBeforeDiscount: values.priceBeforeDiscount,
+          price: values.price,
+          serviceIds: values.serviceIds
+        };
+        await createServicePackage(createData);
+        message.success('Tạo gói dịch vụ thành công!');
+      }
+      
+      setIsModalVisible(false);
+      setEditingServicePackage(null);
+      form.resetFields();
+      
+      if (isSearchMode) {
+        handleSearch();
+      } else {
+        loadServicePackages();
+      }
+    } catch (error: any) {
+      message.error(error.message || 'Có lỗi xảy ra');
+    }
+  };
+
+  const handleModalClose = () => {
+    setIsModalVisible(false);
+    setEditingServicePackage(null);
+    form.resetFields();
+  };
+
+  // Tính toán tự động giá gốc từ dịch vụ được chọn
+  const calculateTotalPrice = (serviceIds: string[]) => {
+    if (!serviceIds || serviceIds.length === 0) return 0;
+    
+    return serviceIds.reduce((total, serviceId) => {
+      const service = availableServices.find(s => s._id === serviceId);
+      return total + (service ? service.price : 0);
+    }, 0);
+  };
+
+  // Watch changes trong form để cập nhật giá gốc
+  const watchServiceIds = Form.useWatch('serviceIds', form);
+  
+  useEffect(() => {
+    if (watchServiceIds && watchServiceIds.length > 0) {
+      const totalPrice = calculateTotalPrice(watchServiceIds);
+      form.setFieldValue('priceBeforeDiscount', totalPrice);
+    } else {
+      form.setFieldValue('priceBeforeDiscount', 0);
+    }
+  }, [watchServiceIds, availableServices, form]);
+
+  // Table columns
+  const columns = [
+    {
+      title: 'Tên gói',
+      dataIndex: 'name',
+      key: 'name',
+      width: 200,
+      render: (text: string, record: ServicePackage) => (
+        <div>
+          <Text strong>{text}</Text>
+          {record.isActive === 0 && (
+            <Tag color="red" style={{ marginLeft: 8 }}>Đã tạm dừng</Tag>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Giá gốc (VNĐ)',
+      dataIndex: 'priceBeforeDiscount',
+      key: 'priceBeforeDiscount',
+      width: 120,
+      render: (price: number) => (
+        <Text style={{ textDecoration: 'line-through', color: '#999' }}>
+          {price.toLocaleString('vi-VN')}
+        </Text>
+      ),
+    },
+    {
+      title: 'Giá ưu đãi (VNĐ)',
+      dataIndex: 'price',
+      key: 'price',
+      width: 120,
+      render: (price: number, record: ServicePackage) => {
+        const discount = Math.round(((record.priceBeforeDiscount - price) / record.priceBeforeDiscount) * 100);
+        return (
+          <div>
+            <Text strong style={{ color: '#1890ff' }}>
+              {price.toLocaleString('vi-VN')}
+            </Text>
+            <Tag color="green" style={{ marginLeft: 8 }}>
+              -{discount}%
+            </Tag>
+          </div>
+        );
+      },
+    },
+    {
+      title: 'Dịch vụ bao gồm',
+      dataIndex: 'serviceIds',
+      key: 'serviceIds',
+      width: 250,
+      render: (services: any[]) => (
+        <div>
+          {services.slice(0, 2).map((service, index) => (
+            <Tag key={index} color="blue" style={{ marginBottom: 4 }}>
+              {typeof service === 'object' ? service.serviceName : 'Dịch vụ'}
+            </Tag>
+          ))}
+          {services.length > 2 && (
+            <Tag color="default">+{services.length - 2} khác</Tag>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Mô tả',
+      dataIndex: 'description',
+      key: 'description',
+      ellipsis: true,
+      render: (text: string) => (
+        <Tooltip title={text}>
+          <Text>{text}</Text>
+        </Tooltip>
+      ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      width: 120,
+      fixed: 'right' as const,
+      render: (_, record: ServicePackage) => {
+        const items = [
+          {
+            key: 'edit',
+            icon: <EditOutlined />,
+            label: 'Chỉnh sửa',
+            onClick: () => handleEdit(record),
+            disabled: record.isActive === 0
+          },
+          {
+            key: 'duplicate',
+            icon: <CopyOutlined />,
+            label: 'Nhân bản',
+            onClick: () => handleDuplicate(record),
+            disabled: record.isActive === 0
+          },
+          {
+            type: 'divider' as const
+          },
+          record.isActive === 0 ? {
+            key: 'recover',
+            icon: <RecoverOutlined />,
+            label: 'Khôi phục',
+            onClick: () => handleRecover(record)
+          } : {
+            key: 'delete',
+            icon: <DeleteOutlined />,
+            label: 'Tạm dừng',
+            danger: true,
+            onClick: () => handleDelete(record)
+          }
+        ];
+
+        return (
+          <Dropdown menu={{ items }} trigger={['click']}>
+            <Button type="text" icon={<EyeOutlined />} />
+          </Dropdown>
+        );
+      },
+    },
+  ];
+
+  // Statistics
+  const activePackages = servicePackages.filter(p => p.isActive === 1).length;
+  const inactivePackages = servicePackages.filter(p => p.isActive === 0).length;
+  const totalSavings = servicePackages
+    .filter(p => p.isActive === 1)
+    .reduce((sum, p) => sum + (p.priceBeforeDiscount - p.price), 0);
+
   return (
-    <div className="service-packages-page bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
-      {/* Hero Section với Medical Imagery */}
-      <div className="relative bg-gradient-to-r from-green-primary via-blue-primary to-green-secondary overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }} />
-        </div>
-        
-        {/* Content */}
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-            {/* Left Column - Content */}
-            <div className="text-white">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <GiftOutlined className="text-3xl text-white" />
-                </div>
-                <div>
-                  <Title level={1} className="mb-0 text-white text-3xl lg:text-4xl">
-                    Quản lý gói dịch vụ
-                  </Title>
-                  <Text className="text-blue-100 text-lg">
-                    Tạo và quản lý các gói dịch vụ combo chăm sóc sức khỏe toàn diện
-                  </Text>
-                </div>
-              </div>
+    <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
+      {/* Header Statistics */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="Tổng số gói"
+              value={servicePackages.length}
+              prefix={<GiftOutlined style={{ color: '#1890ff' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="Đang hoạt động"
+              value={activePackages}
+              prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="Đã tạm dừng"
+              value={inactivePackages}
+              prefix={<StopOutlined style={{ color: '#ff4d4f' }} />}
+            />
+          </Card>
+        </Col>
 
-              {/* Stats Cards */}
-              <div className="grid grid-cols-2 gap-4 mt-8">
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                  <div className="text-2xl font-bold text-white">{pagination.total}</div>
-                  <div className="text-blue-100 text-sm">Tổng gói dịch vụ</div>
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                  <div className="text-2xl font-bold text-white">
-                    {servicePackages.filter(pkg => pkg.isActive).length}
-                  </div>
-                  <div className="text-blue-100 text-sm">Đang hoạt động</div>
-                </div>
-              </div>
+      </Row>
 
-              {/* CTA Button - Removed as requested */}
-            </div>
-
-            {/* Right Column - Medical Illustration */}
-            <div className="relative hidden lg:block">
-              <div className="relative">
-                {/* Medical Package Illustration */}
-                <div className="w-full max-w-md mx-auto">
-                  <div className="relative">
-                    {/* Main Package */}
-                    <div className="bg-white/20 backdrop-blur-sm rounded-3xl p-8 border border-white/30">
-                      <div className="grid grid-cols-2 gap-4">
-                        {/* Service Icons */}
-                        <div className="bg-white/30 rounded-2xl p-4 text-center">
-                          <div className="w-12 h-12 bg-white/40 rounded-xl flex items-center justify-center mx-auto mb-2">
-                            <span className="text-2xl">🩺</span>
-                          </div>
-                          <div className="text-white text-xs">Tư vấn</div>
-                        </div>
-                        <div className="bg-white/30 rounded-2xl p-4 text-center">
-                          <div className="w-12 h-12 bg-white/40 rounded-xl flex items-center justify-center mx-auto mb-2">
-                            <span className="text-2xl">🧪</span>
-                          </div>
-                          <div className="text-white text-xs">Xét nghiệm</div>
-                        </div>
-                        <div className="bg-white/30 rounded-2xl p-4 text-center">
-                          <div className="w-12 h-12 bg-white/40 rounded-xl flex items-center justify-center mx-auto mb-2">
-                            <span className="text-2xl">💊</span>
-                          </div>
-                          <div className="text-white text-xs">Điều trị</div>
-                        </div>
-                        <div className="bg-white/30 rounded-2xl p-4 text-center">
-                          <div className="w-12 h-12 bg-white/40 rounded-xl flex items-center justify-center mx-auto mb-2">
-                            <span className="text-2xl">📱</span>
-                          </div>
-                          <div className="text-white text-xs">Theo dõi</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Floating Elements */}
-                    <div className="absolute -top-4 -right-4 w-16 h-16 bg-yellow-400/30 rounded-full flex items-center justify-center animate-bounce">
-                      <span className="text-2xl">💰</span>
-                    </div>
-                    <div className="absolute -bottom-4 -left-4 w-12 h-12 bg-pink-400/30 rounded-full flex items-center justify-center animate-pulse">
-                      <span className="text-xl">❤️</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Decorative Elements */}
-                <div className="absolute top-10 left-0 w-20 h-20 bg-white/10 rounded-full animate-pulse" />
-                <div className="absolute bottom-10 right-0 w-16 h-16 bg-white/10 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
-              </div>
+      {/* Main Content */}
+      <Card
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+            <Title level={4} style={{ margin: 0 }}>
+              Quản lý gói dịch vụ ({pagination.total})
+            </Title>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Text>Hiện đã tạm dừng:</Text>
+              <Switch
+                checked={includeDeleted}
+                onChange={setIncludeDeleted}
+                size="small"
+              />
             </div>
           </div>
-        </div>
-
-        {/* Wave Border */}
-        <div className="absolute bottom-0 left-0 w-full">
-          <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0,64L48,69.3C96,75,192,85,288,80C384,75,480,53,576,48C672,43,768,53,864,64C960,75,1056,85,1152,80C1248,75,1344,53,1392,42.7L1440,32L1440,120L1392,120C1344,120,1248,120,1152,120C1056,120,960,120,864,120C768,120,672,120,576,120C480,120,384,120,288,120C192,120,96,120,48,120L0,120Z" fill="rgb(249, 250, 251)"/>
-          </svg>
-        </div>
-      </div>
-
-      {/* Advanced Filters & Search */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8 -mt-8 relative z-10">
-        <Card className="shadow-xl border-0 bg-white/95 backdrop-blur-sm rounded-2xl">
-          <div className="p-6">
-            {/* Filter Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-primary/10 rounded-lg">
-                  <FilterOutlined className="text-blue-primary text-lg" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-0">Bộ lọc & tìm kiếm</h3>
-                  <p className="text-sm text-gray-600 mb-0">Tìm kiếm và lọc gói dịch vụ theo tiêu chí</p>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Filter Controls */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {/* Enhanced Search */}
-              <div className="lg:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tìm kiếm gói dịch vụ
-                </label>
-                <Input
-                  placeholder="Nhập tên gói dịch vụ..."
-                  value={searchText}
-                  onChange={(e) => setSearchText(e.target.value)}
-                  onPressEnter={handleSearch}
-                  prefix={<SearchOutlined className="text-blue-primary" />}
-                  className="rounded-xl border-gray-300 focus:border-blue-primary hover:border-blue-primary h-12"
-                  suffix={
-                    searchText && (
-                      <Button
-                        type="text"
-                        size="small"
-                        onClick={() => setSearchText('')}
-                        className="text-gray-400 hover:text-gray-600 p-0 h-auto"
-                      >
-                        ✕
-                      </Button>
-                    )
+        }
+      >
+        {/* All Filters and Actions in One Row */}
+        <Row gutter={[8, 8]} style={{ marginBottom: 16 }}>
+          <Col xs={24} sm={12} md={6} lg={4}>
+            <Input
+              placeholder="Tìm kiếm theo tên hoặc mô tả..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              prefix={<SearchOutlined />}
+            />
+          </Col>
+          <Col xs={24} sm={12} md={6} lg={6}>
+            <Select
+              placeholder="Lọc theo dịch vụ"
+              value={selectedServiceId}
+              onChange={setSelectedServiceId}
+              style={{ width: '100%' }}
+              allowClear
+              showSearch
+              optionFilterProp="children"
+            >
+              {availableServices.map(service => (
+                <Option key={service._id} value={service._id}>
+                  {service.serviceName}
+                </Option>
+              ))}
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={12} lg={14}>
+            <Space wrap style={{ width: '100%', justifyContent: 'flex-end' }}>
+              <Button
+                icon={<SearchOutlined />}
+                onClick={handleSearch}
+                loading={searchLoading}
+                type="primary"
+              >
+                Tìm kiếm
+              </Button>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => {
+                  if (isSearchMode) {
+                    handleSearch();
+                  } else {
+                    loadServicePackages();
                   }
-                />
-              </div>
-
-              {/* Status Filter with Icons */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Trạng thái hoạt động
-                </label>
-                <Select
-                  placeholder="Chọn trạng thái"
-                  value={isActiveFilter}
-                  onChange={setIsActiveFilter}
-                  allowClear
-                  className="w-full"
-                  size="large"
-                >
-                  <Option value={true}>
-                    <Space>
-                      <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                      Đang hoạt động
-                    </Space>
-                  </Option>
-                  <Option value={false}>
-                    <Space>
-                      <span className="w-2 h-2 bg-gray-400 rounded-full inline-block"></span>
-                      Tạm dừng
-                    </Space>
-                  </Option>
-                </Select>
-              </div>
-
-              {/* Enhanced Sort */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Sắp xếp theo
-                </label>
-                <Select
-                  placeholder="Chọn cách sắp xếp"
-                  value={`${sortBy}-${sortOrder}`}
-                  onChange={(value) => {
-                    const [field, order] = value.split('-');
-                    setSortBy(field);
-                    setSortOrder(order as 'asc' | 'desc');
-                  }}
-                  className="w-full"
-                  size="large"
-                >
-                  <Option value="createdAt-desc">🕒 Mới nhất</Option>
-                  <Option value="createdAt-asc">🕐 Cũ nhất</Option>
-                  <Option value="name-asc">🔤 Tên A-Z</Option>
-                  <Option value="name-desc">🔤 Tên Z-A</Option>
-                  <Option value="price-asc">💰 Giá thấp - cao</Option>
-                  <Option value="price-desc">💰 Giá cao - thấp</Option>
-                </Select>
-              </div>
-
-              {/* Include Deleted Toggle */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hiển thị đã xóa
-                </label>
-                <div className="h-12 flex items-center">
-                  <Switch
-                    checked={includeDeleted}
-                    onChange={setIncludeDeleted}
-                    checkedChildren="🗂️ Bao gồm"
-                    unCheckedChildren="📦 Chỉ active"
-                    className="bg-gray-300"
-                  />
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {includeDeleted ? 'Hiển thị cả gói đã xóa' : 'Chỉ hiển thị gói hoạt động'}
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Action Buttons */}
-            <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
-              <div className="flex gap-3">
-                <Button
-                  type="primary"
-                  icon={<SearchOutlined />}
-                  onClick={handleSearch}
-                  className="bg-blue-primary hover:bg-blue-secondary border-blue-primary rounded-xl h-10 px-6"
-                >
-                  Tìm kiếm
-                </Button>
-                <Button
-                  icon={<ReloadOutlined />}
-                  onClick={fetchServicePackages}
-                  className="border-gray-300 hover:border-blue-primary rounded-xl h-10 px-6"
-                >
-                  Làm mới
-                </Button>
-              </div>
-              
-              {/* Quick Stats */}
-              <div className="hidden md:flex items-center gap-6 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                  <span className="text-gray-600">Tổng: <strong>{pagination.total}</strong></span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                  <span className="text-gray-600">Hoạt động: <strong>{servicePackages.filter(pkg => pkg.isActive).length}</strong></span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Enhanced Content Area */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-8">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <div className="relative">
-              <Spin size="large" className="text-blue-primary" />
-              <div className="absolute -inset-4 bg-blue-primary/5 rounded-full animate-ping" />
-            </div>
-            <Text className="mt-4 text-gray-600">Đang tải dữ liệu gói dịch vụ...</Text>
-          </div>
-        ) : servicePackages.length > 0 ? (
-          <>
-            {/* Results Summary */}
-            <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-primary/10 rounded-lg">
-                  <GiftOutlined className="text-blue-primary" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-0">
-                    Danh sách gói dịch vụ
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-0">
-                    Hiển thị {servicePackages.length} trên tổng {pagination.total} gói dịch vụ
-                  </p>
-                </div>
-              </div>
-              
-              {/* Quick Add Button */}
+                }}
+                loading={loading || searchLoading}
+              >
+                Làm mới
+              </Button>
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
-                onClick={() => setModalVisible(true)}
-                className="bg-green-primary hover:bg-green-secondary border-green-primary rounded-xl px-6 h-12 font-medium shadow-lg"
+                onClick={() => setIsModalVisible(true)}
               >
-                Thêm gói mới
+                Thêm gói dịch vụ
               </Button>
-            </div>
+            </Space>
+          </Col>
+        </Row>
 
-            {/* Enhanced Service Package Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-12">
-              {servicePackages.map((servicePackage, index) => (
-                <div 
-                  key={servicePackage._id}
-                  className="animate-fadeInUp"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                >
-                  <ServicePackageCard
-                    servicePackage={servicePackage}
-                    onEdit={handleEditServicePackage}
-                    onDelete={handleDeleteServicePackage}
-                    onView={handleViewServicePackage}
-                    onRecover={handleRecoverServicePackage}
-                    onDuplicate={handleDuplicateServicePackage}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Enhanced Pagination */}
-            <div className="flex justify-center">
-              <div className="bg-white rounded-2xl shadow-lg border-0 p-4">
-                <Pagination
-                  {...pagination}
-                  onChange={handlePaginationChange}
-                  onShowSizeChange={handlePaginationChange}
-                  className="custom-pagination"
-                  showSizeChanger
-                  showQuickJumper
-                  showTotal={(total, range) => (
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span>📄</span>
-                      <span>{range[0]}-{range[1]} của {total} gói dịch vụ</span>
-                    </div>
-                  )}
-                />
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="text-center py-16">
-            <div className="max-w-md mx-auto">
-              {/* Enhanced Empty State */}
-              <div className="relative mb-8">
-                <div className="w-32 h-32 mx-auto bg-gradient-to-br from-blue-50 to-green-50 rounded-3xl flex items-center justify-center">
-                  <div className="relative">
-                    <GiftOutlined className="text-5xl text-gray-300" />
-                    <div className="absolute -top-2 -right-2 text-2xl animate-bounce">🎁</div>
-                  </div>
-                </div>
-                <div className="absolute -inset-4 bg-gradient-to-r from-blue-primary/10 to-green-primary/10 rounded-full blur-xl" />
-              </div>
-              
-              <Title level={3} className="text-gray-800 mb-2">
-                {searchText || isActiveFilter !== undefined
-                  ? 'Không tìm thấy gói dịch vụ phù hợp'
-                  : 'Chưa có gói dịch vụ nào'
-                }
-              </Title>
-              
-              <Text className="text-gray-600 mb-6 block leading-relaxed">
-                {searchText || isActiveFilter !== undefined
-                  ? 'Hãy thử điều chỉnh bộ lọc hoặc từ khóa tìm kiếm để tìm thấy gói dịch vụ phù hợp.'
-                  : 'Tạo gói dịch vụ đầu tiên để bắt đầu quản lý các combo dịch vụ chăm sóc sức khỏe.'
-                }
-              </Text>
-              
-              {!searchText && isActiveFilter === undefined && (
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={() => setModalVisible(true)}
-                  className="bg-green-primary hover:bg-green-secondary border-green-primary rounded-xl px-8 h-12 text-base font-medium shadow-lg"
-                >
-                  Tạo gói dịch vụ đầu tiên
-                </Button>
-              )}
-            </div>
+        {/* Search Mode Indicator */}
+        {isSearchMode && (
+          <div style={{ marginBottom: 16 }}>
+            <Tag color="blue" closable onClose={() => {
+              setIsSearchMode(false);
+              setPagination(prev => ({ ...prev, current: 1 }));
+            }}>
+              Đang trong chế độ tìm kiếm
+              {searchText && `: "${searchText}"`}
+            </Tag>
           </div>
         )}
-      </div>
+
+        {/* Table */}
+        <Table
+          columns={columns}
+          dataSource={filteredServicePackages}
+          rowKey="_id"
+          loading={loading || searchLoading}
+          pagination={{
+            ...pagination,
+            onChange: isSearchMode ? handleSearchPagination : (page, pageSize) => {
+              setPagination(prev => ({ ...prev, current: page, pageSize: pageSize || prev.pageSize }));
+            },
+          }}
+          scroll={{ x: 1000 }}
+          size="middle"
+        />
+      </Card>
 
       {/* Service Package Modal */}
-      <ServicePackageModal
-        visible={modalVisible}
+      <Modal
+        title={editingServicePackage?._id ? 'Chỉnh sửa gói dịch vụ' : 'Thêm gói dịch vụ mới'}
+        open={isModalVisible}
         onCancel={handleModalClose}
-        onSubmit={handleModalSubmit}
-        servicePackage={editingServicePackage}
-        loading={modalLoading}
-      />
+        footer={null}
+        width={700}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+        >
+          <Form.Item
+            name="name"
+            label="Tên gói dịch vụ"
+            rules={[{ required: true, message: 'Vui lòng nhập tên gói dịch vụ' }]}
+          >
+            <Input placeholder="Nhập tên gói dịch vụ" />
+          </Form.Item>
 
-      {/* Delete Confirmation Modal */}
-      <DeleteConfirmModal
-        visible={deleteModalVisible}
-        onConfirm={handleConfirmDeletePackage}
-        onCancel={() => {
-          setDeleteModalVisible(false);
-          setDeletingServicePackage(null);
-        }}
-        title="Xác nhận xóa gói dịch vụ"
-        itemName={deletingServicePackage?.name || ''}
-        description="Gói dịch vụ sẽ bị ẩn khỏi hệ thống nhưng vẫn có thể khôi phục lại sau này."
-      />
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="priceBeforeDiscount"
+                label="Giá gốc (VNĐ)"
+              >
+                <Input 
+                  disabled 
+                  placeholder="Tự động tính từ tổng giá dịch vụ" 
+                  style={{ backgroundColor: '#f5f5f5' }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="price"
+                label="Giá ưu đãi (VNĐ)"
+                rules={[
+                  { required: true, message: 'Vui lòng nhập giá ưu đãi' },
+                  { 
+                    pattern: /^[0-9]*$/,
+                    message: 'Giá chỉ được chứa số'
+                  },
+                  {
+                    validator: (_, value) => {
+                      if (!value) return Promise.resolve();
+                      const numValue = Number(value);
+                      if (numValue < 0) {
+                        return Promise.reject(new Error('Giá phải lớn hơn hoặc bằng 0'));
+                      }
+                      if (numValue > 100000000) {
+                        return Promise.reject(new Error('Giá không được vượt quá 100 triệu'));
+                      }
+                      return Promise.resolve();
+                    },
+                  },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const originalPrice = getFieldValue('priceBeforeDiscount');
+                      if (!value || !originalPrice || Number(value) <= Number(originalPrice)) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject(new Error('Giá ưu đãi phải nhỏ hơn hoặc bằng giá gốc'));
+                    },
+                  }),
+                ]}
+              >
+                <Input placeholder="Nhập giá ưu đãi" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            name="serviceIds"
+            label="Dịch vụ bao gồm"
+            rules={[{ required: true, message: 'Vui lòng chọn ít nhất một dịch vụ' }]}
+          >
+            <Select
+              mode="multiple"
+              placeholder="Chọn các dịch vụ trong gói"
+              showSearch
+              optionFilterProp="children"
+            >
+              {availableServices.map(service => (
+                <Option key={service._id} value={service._id}>
+                  {service.serviceName} - {service.price.toLocaleString('vi-VN')} VNĐ
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="description"
+            label="Mô tả"
+            rules={[{ required: true, message: 'Vui lòng nhập mô tả' }]}
+          >
+            <Input.TextArea
+              rows={4}
+              placeholder="Nhập mô tả chi tiết về gói dịch vụ"
+            />
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
+            <Space>
+              <Button onClick={handleModalClose}>
+                Hủy
+              </Button>
+              <Button type="primary" htmlType="submit">
+                {editingServicePackage?._id ? 'Cập nhật' : 'Tạo mới'}
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };
 
-export default ServicePackagesPage; 
+export default ManagerServicePackagesPage; 

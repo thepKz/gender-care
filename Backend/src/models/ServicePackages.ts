@@ -3,7 +3,6 @@ import mongoose from 'mongoose';
 export interface IServicePackages {
   name: string;
   description?: string;
-  image?: string;
   priceBeforeDiscount: number;
   price: number;
   serviceIds: mongoose.Types.ObjectId[];
@@ -19,10 +18,6 @@ const ServicePackagesSchema = new mongoose.Schema<IServicePackages>({
   },
   description: { 
     type: String 
-  },
-  image: {
-    type: String,
-    trim: true
   },
   priceBeforeDiscount: { 
     type: Number, 

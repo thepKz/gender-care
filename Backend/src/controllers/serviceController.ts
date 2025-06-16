@@ -3,7 +3,7 @@ import Service from '../models/Service';
 import ServicePackage from '../models/ServicePackage';
 import { AuthRequest, ApiResponse, PaginationQuery } from '../types';
 
-// GET /services - Get all services with enhanced search and filter options
+// GET /services - Get all services (removed search functionality)
 export const getAllServices = async (req: Request, res: Response) => {
   try {
     const { 
@@ -14,7 +14,7 @@ export const getAllServices = async (req: Request, res: Response) => {
       includeDeleted = false 
     } = req.query as PaginationQuery & { includeDeleted?: boolean | string };
     
-    const { serviceType, availableAt, search } = req.query;
+    const { serviceType, availableAt } = req.query;
 
     // Build filter object
     const filter: any = {};
@@ -43,14 +43,6 @@ export const getAllServices = async (req: Request, res: Response) => {
     
     if (availableAt) {
       filter.availableAt = { $in: [availableAt] };
-    }
-    
-    // Enhanced search - case insensitive, partial match
-    if (search && typeof search === 'string') {
-      filter.$or = [
-        { serviceName: { $regex: search.trim(), $options: 'i' } },
-        { description: { $regex: search.trim(), $options: 'i' } }
-      ];
     }
 
     // Execute query with pagination
@@ -85,6 +77,76 @@ export const getAllServices = async (req: Request, res: Response) => {
     const response: ApiResponse<any> = {
       success: false,
       message: 'Error fetching services',
+      errors: { general: error.message }
+    };
+    res.status(500).json(response);
+  }
+};
+
+// POST /services/search - Search services (new endpoint)
+export const searchServices = async (req: Request, res: Response) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc' 
+    } = req.query as PaginationQuery;
+    
+    const { search, serviceType, availableAt } = req.body;
+
+    // Build filter object
+    const filter: any = { isDeleted: 0 }; // Only active services for search
+    
+    if (serviceType) {
+      filter.serviceType = serviceType;
+    }
+    
+    if (availableAt) {
+      filter.availableAt = { $in: [availableAt] };
+    }
+    
+    // Enhanced search - case insensitive, partial match
+    if (search && typeof search === 'string' && search.trim()) {
+      filter.$or = [
+        { serviceName: { $regex: search.trim(), $options: 'i' } },
+        { description: { $regex: search.trim(), $options: 'i' } }
+      ];
+    }
+
+    // Execute query with pagination
+    const skip = (Number(page) - 1) * Number(limit);
+    const sortObj: any = {};
+    sortObj[sortBy as string] = sortOrder === 'asc' ? 1 : -1;
+
+    const [services, total] = await Promise.all([
+      Service.find(filter)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      Service.countDocuments(filter)
+    ]);
+
+    const response: ApiResponse<any> = {
+      success: true,
+      data: {
+        services,
+        pagination: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit))
+        },
+        searchQuery: search?.trim() || ''
+      }
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    const response: ApiResponse<any> = {
+      success: false,
+      message: 'Error searching services',
       errors: { general: error.message }
     };
     res.status(500).json(response);
@@ -229,17 +291,6 @@ export const updateService = async (req: AuthRequest, res: Response) => {
 export const deleteService = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { deleteNote } = req.body;
-
-    // Validation
-    if (!deleteNote || !deleteNote.trim()) {
-      const response: ApiResponse<any> = {
-        success: false,
-        message: 'Delete note is required',
-        errors: { deleteNote: 'Please provide a reason for deletion' }
-      };
-      return res.status(400).json(response);
-    }
 
     // Check if service exists and is not already deleted
     const service = await Service.findOne({ _id: id, isDeleted: 0 });
@@ -265,10 +316,9 @@ export const deleteService = async (req: AuthRequest, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Soft delete the service with delete note
+    // Soft delete the service
     await Service.findByIdAndUpdate(id, { 
-      isDeleted: 1,
-      deleteNote: deleteNote.trim()
+      isDeleted: 1
     });
 
     const response: ApiResponse<any> = {
@@ -321,8 +371,7 @@ export const recoverService = async (req: AuthRequest, res: Response) => {
     const recoveredService = await Service.findByIdAndUpdate(
       id,
       { 
-        isDeleted: 0,
-        deleteNote: null
+        isDeleted: 0
       },
       { new: true }
     );
