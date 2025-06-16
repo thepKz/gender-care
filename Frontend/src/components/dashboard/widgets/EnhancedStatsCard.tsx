@@ -15,7 +15,7 @@ interface EnhancedStatsCardProps {
   icon: React.ReactNode;
   color: string;
   change: string;
-  trend: 'up' | 'down';
+  trend: 'up' | 'down' | 'stable';
   onClick?: () => void;
 }
 

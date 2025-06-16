@@ -242,21 +242,19 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         const demoActivities = [
           {
             id: '1',
-            type: 'appointment',
-            title: 'Lịch hẹn mới từ Nguyễn Văn A',
-            description: 'Khám phụ khoa - 15:30 hôm nay',
-            time: new Date(),
-            icon: 'CalendarOutlined',
-            color: '#1890ff'
+            user: 'Nguyễn Văn A',
+            action: 'đã đặt lịch hẹn mới',
+            time: new Date().toISOString(),
+            status: 'success' as const,
+            type: 'appointment' as const
           },
           {
             id: '2',
-            type: 'doctor',
-            title: 'BS. Trần Thị B đã cập nhật lịch làm việc',
-            description: 'Thêm 5 slot khám trong tuần',
-            time: new Date(Date.now() - 1800000),
-            icon: 'UserOutlined',
-            color: '#52c41a'
+            user: 'BS. Trần Thị B',
+            action: 'đã cập nhật lịch làm việc',
+            time: new Date(Date.now() - 1800000).toISOString(),
+            status: 'info' as const,
+            type: 'user' as const
           }
         ];
         setActivities(demoActivities);
@@ -268,7 +266,8 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
             patientName: 'Nguyễn Văn A',
             doctorName: 'BS. Trần Thị B',
             time: '09:00',
-            status: 'confirmed',
+            status: 'confirmed' as const,
+            service: 'Khám phụ khoa',
             phone: '0901234567'
           },
           {
@@ -276,7 +275,8 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
             patientName: 'Lê Thị C',
             doctorName: 'BS. Phạm Văn D',
             time: '10:30',
-            status: 'pending',
+            status: 'pending' as const,
+            service: 'Tư vấn dinh dưỡng',
             phone: '0912345678'
           }
         ];
@@ -540,14 +540,14 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                 fontSize: '24px',
                 fontWeight: 'bold'
               }}>
-                {Math.round((todayList.length / Math.max(stats[2]?.value || 1, 1)) * 100)}%
+                {Math.round((todayList.length / Math.max(Number(stats[2]?.value) || 1, 1)) * 100)}%
               </div>
               <Text style={{ fontSize: '14px', color: '#666' }}>
                 Tiến độ lịch hẹn hôm nay
               </Text>
               <div style={{ marginTop: '12px' }}>
                 <Text style={{ fontSize: '12px', color: '#999' }}>
-                  {todayList.length} / {stats[2]?.value || 0} lịch hẹn đã được xử lý
+                  {todayList.length} / {Number(stats[2]?.value) || 0} lịch hẹn đã được xử lý
                 </Text>
               </div>
             </div>

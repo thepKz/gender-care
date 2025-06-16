@@ -197,17 +197,10 @@ const AppointmentManagement: React.FC = () => {
   const columns: ColumnsType<Appointment> = [
     {
       title: 'Bệnh nhân',
-      dataIndex: 'patientName',
-      key: 'patientName',
-      width: 200,
-      render: (text: string, record: Appointment) => (
+      key: 'patient',
+      render: (_, record) => (
         <div>
-          <Text strong>{text}</Text>
-          <br />
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            {record.patientEmail}
-          </Text>
-          <br />
+          <div style={{ fontWeight: 500 }}>{record.patientName}</div>
           <Text type="secondary" style={{ fontSize: '12px' }}>
             {record.patientPhone}
           </Text>
@@ -215,37 +208,26 @@ const AppointmentManagement: React.FC = () => {
       )
     },
     {
-      title: 'Bác sĩ & Dịch vụ',
-      dataIndex: 'doctorName',
-      key: 'doctorName',
-      width: 200,
-      render: (text: string, record: Appointment) => (
+      title: 'Dịch vụ',
+      key: 'service',
+      render: (_, record) => (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-            <UserOutlined style={{ color: '#1890ff' }} />
-            <Text strong style={{ fontSize: '12px' }}>{text}</Text>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <MedicineBoxOutlined style={{ color: '#52c41a' }} />
-            <Text style={{ fontSize: '12px' }}>{record.serviceName}</Text>
-          </div>
+          <div style={{ fontWeight: 500, fontSize: '13px' }}>{record.serviceName}</div>
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            {record.doctorName}
+          </Text>
         </div>
       )
     },
     {
       title: 'Thời gian',
-      dataIndex: 'appointmentDate',
-      key: 'appointmentDate',
-      width: 150,
-      render: (date: string, record: Appointment) => (
+      key: 'time',
+      render: (_, record) => (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-            <CalendarOutlined style={{ color: '#1890ff' }} />
-            <Text style={{ fontSize: '12px' }}>
-              {new Date(date).toLocaleDateString('vi-VN')}
-            </Text>
+          <div style={{ fontWeight: 500 }}>
+            {new Date(record.appointmentDate).toLocaleDateString('vi-VN')}
           </div>
-          <Text style={{ fontSize: '12px', fontWeight: 'bold' }}>
+          <Text type="secondary" style={{ fontSize: '12px' }}>
             {record.appointmentTime}
           </Text>
         </div>
@@ -253,71 +235,44 @@ const AppointmentManagement: React.FC = () => {
     },
     {
       title: 'Trạng thái',
-      dataIndex: 'status',
       key: 'status',
-      width: 120,
-      render: (status: Appointment['status']) => (
-        <Tag color={getStatusColor(status)}>
-          {getStatusText(status)}
+      render: (_, record) => (
+        <Tag color={getStatusColor(record.status)}>
+          {getStatusText(record.status)}
         </Tag>
       )
     },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 200,
-      render: (_, record: Appointment) => (
-        <Space size="small" wrap>
-          <Tooltip title="Xem chi tiết">
-            <Button 
-              type="text" 
-              icon={<EyeOutlined />} 
-              onClick={() => showAppointmentDetails(record)}
-            />
-          </Tooltip>
-          <Tooltip title="Chỉnh sửa">
-            <Button 
-              type="text" 
-              icon={<EditOutlined />} 
-              onClick={() => handleEdit(record)}
-            />
-          </Tooltip>
+      render: (_, record) => (
+        <Space size="small">
+          <Button 
+            type="link" 
+            icon={<EyeOutlined />} 
+            onClick={() => showAppointmentDetails(record)}
+            size="small"
+          >
+            Chi tiết
+          </Button>
           {record.status === 'pending' && (
-            <Tooltip title="Xác nhận">
-              <Button 
-                type="text" 
-                style={{ color: '#52c41a' }}
-                onClick={() => handleStatusUpdate(record.id, 'confirmed')}
-              >
-                Xác nhận
-              </Button>
-            </Tooltip>
+            <Button 
+              type="primary"
+              size="small"
+              onClick={() => handleStatusUpdate(record.id, 'confirmed')}
+            >
+              Xác nhận
+            </Button>
           )}
           {record.status === 'confirmed' && (
-            <Tooltip title="Hoàn thành">
-              <Button 
-                type="text" 
-                style={{ color: '#1890ff' }}
-                onClick={() => handleStatusUpdate(record.id, 'completed')}
-              >
-                Hoàn thành
-              </Button>
-            </Tooltip>
-          )}
-          <Tooltip title="Xóa">
-            <Popconfirm
-              title="Bạn có chắc chắn muốn xóa lịch hẹn này?"
-              onConfirm={() => handleDelete(record.id)}
-              okText="Có"
-              cancelText="Không"
+            <Button 
+              type="primary"
+              size="small" 
+              onClick={() => handleStatusUpdate(record.id, 'completed')}
             >
-              <Button 
-                type="text" 
-                danger 
-                icon={<DeleteOutlined />}
-              />
-            </Popconfirm>
-          </Tooltip>
+              Hoàn thành
+            </Button>
+          )}
         </Space>
       )
     }
@@ -383,7 +338,7 @@ const AppointmentManagement: React.FC = () => {
             showTotal: (total, range) => 
               `${range[0]}-${range[1]} của ${total} lịch hẹn`
           }}
-          scroll={{ x: 1200 }}
+          size="small"
         />
       </Card>
 

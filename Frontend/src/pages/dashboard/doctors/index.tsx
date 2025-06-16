@@ -1,43 +1,22 @@
 import React from 'react';
-import { Card, Row, Col, Statistic, Typography, Timeline, Avatar, List, Tag, Progress } from 'antd';
+import { Card, Row, Col, Statistic, Typography, Timeline, Avatar, List, Tag, Progress, Divider } from 'antd';
 import { 
   CalendarOutlined,
   ClockCircleOutlined,
   UserOutlined,
   StarOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  VideoCameraOutlined,
+  DollarOutlined
 } from '@ant-design/icons';
+import DoctorSchedulePreview from '../../../components/feature/dashboard/DoctorSchedulePreview';
+import { calculateDashboardStats } from '../../../shared/mockData/doctorScheduleMockData';
 
 const { Title, Text } = Typography;
 
 const DoctorDashboard: React.FC = () => {
-  const todayAppointments = [
-    {
-      time: '08:00',
-      patient: 'Nguyễn Thị Lan',
-      type: 'Khám thai',
-      status: 'completed'
-    },
-    {
-      time: '09:00',
-      patient: 'Trần Minh Anh',
-      type: 'Tư vấn dinh dưỡng',
-      status: 'completed'
-    },
-    {
-      time: '10:00',
-      patient: 'Lê Thị Hoa',
-      type: 'Khám định kỳ',
-      status: 'in-progress'
-    },
-    {
-      time: '11:00',
-      patient: 'Phạm Văn Nam',
-      type: 'Tư vấn kế hoạch hóa gia đình',
-      status: 'pending'
-    }
-  ];
+  const stats = calculateDashboardStats();
 
   return (
     <div>
@@ -46,17 +25,17 @@ const DoctorDashboard: React.FC = () => {
           Bảng điều khiển bác sĩ
         </Title>
         <Text type="secondary">
-          Chào mừng trở lại! Hôm nay bạn có {todayAppointments.length} lịch hẹn.
+          Chào mừng trở lại! Hôm nay bạn có {stats.todayTotal} lịch hẹn.
         </Text>
       </div>
 
-      {/* Statistics Cards */}
+      {/* Enhanced Statistics Cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
               title="Lịch hẹn hôm nay"
-              value={todayAppointments.length}
+              value={stats.todayTotal}
               prefix={<CalendarOutlined />}
               valueStyle={{ color: '#1890ff' }}
             />
@@ -65,72 +44,50 @@ const DoctorDashboard: React.FC = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Bệnh nhân tháng này"
-              value={127}
-              prefix={<UserOutlined />}
-              valueStyle={{ color: '#3f8600' }}
+              title="Tư vấn online"
+              value={stats.online}
+              prefix={<VideoCameraOutlined />}
+              valueStyle={{ color: '#722ed1' }}
             />
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Đánh giá trung bình"
-              value={4.8}
-              prefix={<StarOutlined />}
-              suffix="/5"
-              valueStyle={{ color: '#faad14' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Tỷ lệ hoàn thành"
-              value={95}
-              prefix={<CheckCircleOutlined />}
-              suffix="%"
+              title="Doanh thu tháng"
+              value={stats.totalRevenue}
+              prefix={<DollarOutlined />}
+              suffix="VNĐ"
               valueStyle={{ color: '#52c41a' }}
+              formatter={(value) => `${Number(value).toLocaleString('vi-VN')}`}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="Đã hoàn thành"
+              value={stats.completed}
+              prefix={<StarOutlined />}
+              valueStyle={{ color: '#faad14' }}
             />
           </Card>
         </Col>
       </Row>
 
+      {/* Main Schedule Dashboard */}
       <Row gutter={[16, 16]}>
-        {/* Today's Schedule */}
         <Col xs={24} lg={16}>
-          <Card title="Lịch hẹn hôm nay" extra={<a href="/dashboard/doctor/my-schedule">Xem chi tiết</a>}>
-            <Timeline>
-              {todayAppointments.map((appointment, index) => (
-                <Timeline.Item
-                  key={index}
-                  color={
-                    appointment.status === 'completed' ? 'green' :
-                    appointment.status === 'in-progress' ? 'blue' : 'orange'
-                  }
-                  dot={
-                    appointment.status === 'completed' ? <CheckCircleOutlined style={{ color: 'green' }} /> :
-                    appointment.status === 'in-progress' ? <ClockCircleOutlined style={{ color: 'blue' }} /> :
-                    <ExclamationCircleOutlined style={{ color: 'orange' }} />
-                  }
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <Text strong>{appointment.time}</Text> - {appointment.patient}
-                      <br />
-                      <Text type="secondary">{appointment.type}</Text>
-                    </div>
-                    <Tag color={
-                      appointment.status === 'completed' ? 'green' :
-                      appointment.status === 'in-progress' ? 'blue' : 'orange'
-                    }>
-                      {appointment.status === 'completed' ? 'Hoàn thành' :
-                       appointment.status === 'in-progress' ? 'Đang khám' : 'Chờ khám'}
-                    </Tag>
-                  </div>
-                </Timeline.Item>
-              ))}
-            </Timeline>
+          <Card 
+            title="Lịch làm việc hôm nay" 
+            extra={<a href="/dashboard/doctor/my-schedule">Xem chi tiết</a>}
+            style={{ height: '100%' }}
+          >
+            <DoctorSchedulePreview 
+              showStats={false} 
+              showActions={true}
+              maxItems={5}
+            />
           </Card>
         </Col>
 
@@ -138,27 +95,64 @@ const DoctorDashboard: React.FC = () => {
         <Col xs={24} lg={8}>
           <Card title="Hiệu suất công việc" style={{ marginBottom: '16px' }}>
             <div style={{ marginBottom: '16px' }}>
-              <Text>Tỷ lệ đúng giờ</Text>
-              <Progress percent={88} size="small" />
+              <Text>Tỷ lệ hoàn thành</Text>
+              <Progress percent={Math.round((stats.completed / Math.max(stats.todayTotal, 1)) * 100)} size="small" strokeColor="#52c41a" />
             </div>
             <div style={{ marginBottom: '16px' }}>
-              <Text>Thời gian khám trung bình</Text>
-              <Progress percent={75} size="small" strokeColor="#faad14" />
+              <Text>Lịch hẹn tháng này</Text>
+              <Progress 
+                percent={Math.round((stats.totalAppointments / 30) * 100)} 
+                size="small" 
+                strokeColor="#1890ff" 
+              />
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <Text>Tư vấn online</Text>
+              <Progress 
+                percent={Math.round((stats.totalConsultations / 25) * 100)} 
+                size="small" 
+                strokeColor="#722ed1" 
+              />
             </div>
             <div>
-              <Text>Mức độ hài lòng</Text>
-              <Progress percent={92} size="small" strokeColor="#52c41a" />
+              <Text>Tỷ lệ xác nhận</Text>
+              <Progress 
+                percent={Math.round((stats.confirmed / Math.max(stats.todayTotal, 1)) * 100)} 
+                size="small" 
+                strokeColor="#faad14" 
+              />
             </div>
+          </Card>
+
+          <Card title="Thống kê chi tiết" style={{ marginBottom: '16px' }}>
+            <List
+              size="small"
+              dataSource={[
+                { label: 'Tổng lịch hẹn', value: stats.totalAppointments },
+                { label: 'Đã hoàn thành', value: stats.completed },
+                { label: 'Chờ xác nhận', value: stats.pending },
+                { label: 'Tư vấn online', value: stats.totalConsultations },
+                { label: 'Doanh thu tháng', value: `${stats.totalRevenue.toLocaleString('vi-VN')} VNĐ` }
+              ]}
+              renderItem={(item) => (
+                <List.Item>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                    <Text type="secondary">{item.label}:</Text>
+                    <Text strong>{item.value}</Text>
+                  </div>
+                </List.Item>
+              )}
+            />
           </Card>
 
           <Card title="Thông tin cá nhân">
             <List
               size="small"
               dataSource={[
-                { label: 'Chuyên khoa', value: 'Sản khoa & Phụ khoa' },
+                { label: 'Chuyên khoa', value: 'Sản phụ khoa' },
                 { label: 'Kinh nghiệm', value: '8 năm' },
                 { label: 'Bằng cấp', value: 'Thạc sĩ Y khoa' },
-                { label: 'Tỷ lệ tái khám', value: '87%' }
+                { label: 'Tỷ lệ hoàn thành', value: `${Math.round((stats.completed / Math.max(stats.todayTotal, 1)) * 100)}%` }
               ]}
               renderItem={(item) => (
                 <List.Item>
