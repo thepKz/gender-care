@@ -111,14 +111,14 @@ export const getServicePackages = async (params?: {
  * Tạo service package mới với subscription model (Manager only)
  */
 export const createServicePackage = (data: CreateServicePackageRequest): Promise<ServicePackageResponse> => {
-  return servicePackageApi.post('', data);
+  return servicePackageApi.post('', data).then(res => res.data);
 };
 
 /**
  * Cập nhật service package với subscription fields (Manager only)
  */
 export const updateServicePackage = (id: string, data: UpdateServicePackageRequest): Promise<ServicePackageResponse> => {
-  return servicePackageApi.put(`/${id}`, data);
+  return servicePackageApi.put(`/${id}`, data).then(res => res.data);
 };
 
 /**
@@ -132,35 +132,35 @@ export const searchServicePackages = (data: {
   search?: string;
   serviceId?: string;
 }): Promise<ServicePackagesResponse> => {
-  return servicePackageApi.post('/search', data);
+  return servicePackageApi.post('/search', data).then(res => res.data);
 };
 
 /**
  * Xóa service package (Soft delete, Manager only)
  */
 export const deleteServicePackage = (id: string): Promise<{ success: boolean; message: string }> => {
-  return servicePackageApi.delete(`/${id}`);
+  return servicePackageApi.delete(`/${id}`).then(res => res.data);
 };
 
 /**
  * Khôi phục service package đã xóa (Manager only)
  */
 export const recoverServicePackage = (id: string): Promise<ServicePackageResponse> => {
-  return servicePackageApi.put(`/${id}/recover`);
+  return servicePackageApi.put(`/${id}/recover`).then(res => res.data);
 };
 
 /**
  * Lấy thông tin pricing cho một gói dịch vụ cụ thể với value metrics
  */
 export const getPackagePricing = (id: string): Promise<PackagePricingResponse> => {
-  return servicePackageApi.get(`/${id}/pricing`);
+  return servicePackageApi.get(`/${id}/pricing`).then(res => res.data);
 };
 
 /**
  * Tính toán usage projection cho planning (thay thế profile-based pricing)
  */
 export const getUsageProjection = (id: string, expectedUsagePerWeek: number): Promise<UsageProjectionResponse> => {
-  return servicePackageApi.post(`/${id}/usage-projection`, { expectedUsagePerWeek });
+  return servicePackageApi.post(`/${id}/usage-projection`, { expectedUsagePerWeek }).then(res => res.data);
 };
 
 // 🔹 NEW: Tính giá gốc tự động từ services và maxUsages
@@ -172,5 +172,5 @@ export const calculateAutoPrice = (data: {
 };
 
 export const getServicePackageById = (id: string): Promise<ServicePackageResponse> => {
-  return servicePackageApi.get(`/${id}`);
+  return servicePackageApi.get(`/${id}`).then(res => res.data);
 }; 
