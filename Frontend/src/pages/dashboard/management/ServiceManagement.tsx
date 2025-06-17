@@ -13,7 +13,11 @@ import {
   Tooltip,
   Popconfirm,
   InputNumber,
-  message
+  message,
+  Row,
+  Col,
+  Statistic,
+  Switch
 } from 'antd';
 import {
   SearchOutlined,
@@ -23,7 +27,9 @@ import {
   EyeOutlined,
   CustomerServiceOutlined,
   DollarOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  ReloadOutlined,
+  UndoOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { servicesApi } from '../../../api/endpoints';
@@ -33,6 +39,8 @@ import {
   canDeleteService, 
   getCurrentUserRole 
 } from '../../../utils/permissions';
+import { getServices, deleteService, GetServicesParams } from '../../../api/endpoints/serviceApi';
+import { recoverService, updateService, createService } from '../../../api/endpoints/serviceApi';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -46,9 +54,9 @@ interface Service {
   serviceType: 'consultation' | 'test' | 'treatment' | 'other';
   description: string;
   price: number;
-  duration: number; // phút
   availableAt: 'Athome' | 'Online' | 'Center';
   status: 'active' | 'inactive' | 'suspended';
+  isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -63,6 +71,7 @@ const ServiceManagement: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [form] = Form.useForm();
+  const [showDeleted, setShowDeleted] = useState(false);
   
   // Get current user role for permissions
   const userRole = getCurrentUserRole();
@@ -71,9 +80,10 @@ const ServiceManagement: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const response = await servicesApi.getServices({
+      const response = await getServices({
         sortBy: 'createdAt',
-        sortOrder: 'desc'
+        sortOrder: 'desc',
+        includeDeleted: showDeleted
       });
       
       console.log('🔍 API Response:', response);
@@ -112,10 +122,10 @@ const ServiceManagement: React.FC = () => {
             serviceName: service.serviceName || service.name || 'N/A',
             description: service.description || '',
             price: service.price || 0,
-            duration: service.duration || 30,
             serviceType: service.serviceType || 'other',
             availableAt,
             status: (service.isDeleted === 0 ? 'active' : 'inactive') as Service['status'],
+            isDeleted: service.isDeleted === 1,
             createdAt: service.createdAt || new Date().toISOString(),
             updatedAt: service.updatedAt || new Date().toISOString()
           };
@@ -133,9 +143,9 @@ const ServiceManagement: React.FC = () => {
             serviceType: 'consultation',
             description: 'Tư vấn về sức khỏe sinh sản và kế hoạch hóa gia đình',
             price: 500000,
-            duration: 45,
             availableAt: 'Center',
             status: 'active',
+            isDeleted: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           },
@@ -146,9 +156,9 @@ const ServiceManagement: React.FC = () => {
             serviceType: 'test',
             description: 'Xét nghiệm các bệnh lây truyền qua đường tình dục',
             price: 800000,
-            duration: 30,
             availableAt: 'Center',
             status: 'active',
+            isDeleted: false,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           }
@@ -164,10 +174,19 @@ const ServiceManagement: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [showDeleted]);
 
   // Filter services based on search and filters
   const filteredServices = services.filter(service => {
+    // Filter by showDeleted state first
+    if (showDeleted) {
+      // When showDeleted=true, show all (active + deleted)
+      // No filtering by isDeleted needed
+    } else {
+      // When showDeleted=false, only show active services
+      if (service.isDeleted) return false;
+    }
+    
     const matchesSearch = service.serviceName.toLowerCase().includes(searchText.toLowerCase()) ||
                          service.description.toLowerCase().includes(searchText.toLowerCase());
     const matchesType = selectedType === 'all' || service.serviceType === selectedType;
@@ -215,23 +234,15 @@ const ServiceManagement: React.FC = () => {
     return texts[location];
   };
 
-  const getStatusColor = (status: Service['status']) => {
-    const colors = {
-      active: 'success',
-      inactive: 'default',
-      suspended: 'error'
-    };
-    return colors[status];
-  };
+  const getStatusColor = (service: Service) => {
+    if (service.isDeleted) return 'error'
+    return service.status === 'active' ? 'success' : 'warning'
+  }
 
-  const getStatusText = (status: Service['status']) => {
-    const texts = {
-      active: 'Hoạt động',
-      inactive: 'Tạm dừng',
-      suspended: 'Bị khóa'
-    };
-    return texts[status];
-  };
+  const getStatusText = (service: Service) => {
+    if (service.isDeleted) return 'Đã xóa'
+    return service.status === 'active' ? 'Hoạt động' : 'Không hoạt động'
+  }
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -242,17 +253,34 @@ const ServiceManagement: React.FC = () => {
 
   const handleEdit = (service: Service) => {
     setEditingService(service);
-    form.setFieldsValue(service);
+    form.setFieldsValue({
+      serviceName: service.serviceName,
+      serviceType: service.serviceType,
+      description: service.description,
+      price: service.price,
+      availableAt: service.availableAt,
+      status: service.status
+    });
     setIsModalVisible(true);
   };
 
   const handleDelete = async (serviceId: string) => {
     try {
-      // TODO: Implement delete API when backend is ready
-      message.success('Xóa dịch vụ thành công (Mock)');
-      // loadData();
+      await deleteService(serviceId);
+      message.success('Dịch vụ đã được xóa thành công');
+      loadData();
     } catch (err: any) {
       message.error(err?.message || 'Không thể xóa dịch vụ');
+    }
+  };
+
+  const handleRecover = async (serviceId: string) => {
+    try {
+      await recoverService(serviceId);
+      message.success('Dịch vụ đã được khôi phục thành công');
+      loadData();
+    } catch (err: any) {
+      message.error(err?.message || 'Không thể khôi phục dịch vụ');
     }
   };
 
@@ -268,16 +296,18 @@ const ServiceManagement: React.FC = () => {
     try {
       const values = await form.validateFields();
       if (editingService) {
-        // TODO: Implement update API when backend is ready
-        message.success('Cập nhật dịch vụ thành công (Mock)');
+        // Cập nhật dịch vụ hiện có
+        await updateService(editingService.id, values);
+        message.success('Cập nhật dịch vụ thành công');
       } else {
-        // TODO: Implement create API when backend is ready
-        message.success('Tạo dịch vụ thành công (Mock)');
+        // Tạo dịch vụ mới
+        await createService(values);
+        message.success('Tạo dịch vụ thành công');
       }
       setIsModalVisible(false);
       form.resetFields();
       setEditingService(null);
-      // loadData();
+      loadData();
     } catch (err: any) {
       message.error(err?.message || 'Có lỗi xảy ra');
     }
@@ -300,9 +330,8 @@ const ServiceManagement: React.FC = () => {
           <p><strong>Loại dịch vụ:</strong> {getServiceTypeText(service.serviceType)}</p>
           <p><strong>Mô tả:</strong> {service.description}</p>
           <p><strong>Giá:</strong> {formatPrice(service.price)}</p>
-          <p><strong>Thời gian:</strong> {service.duration} phút</p>
           <p><strong>Hình thức:</strong> {getLocationText(service.availableAt)}</p>
-          <p><strong>Trạng thái:</strong> {getStatusText(service.status)}</p>
+          <p><strong>Trạng thái:</strong> {getStatusText(service)}</p>
           <p><strong>Ngày tạo:</strong> {new Date(service.createdAt).toLocaleDateString('vi-VN')}</p>
           <p><strong>Cập nhật:</strong> {new Date(service.updatedAt).toLocaleDateString('vi-VN')}</p>
         </div>
@@ -359,18 +388,6 @@ const ServiceManagement: React.FC = () => {
       sorter: (a, b) => a.price - b.price
     },
     {
-      title: 'Thời gian',
-      dataIndex: 'duration',
-      key: 'duration',
-      width: 100,
-      render: (duration: number) => (
-        <Space>
-          <ClockCircleOutlined />
-          <Text>{duration} phút</Text>
-        </Space>
-      )
-    },
-    {
       title: 'Hình thức',
       dataIndex: 'availableAt',
       key: 'availableAt',
@@ -386,9 +403,9 @@ const ServiceManagement: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       width: 120,
-      render: (status: Service['status']) => (
-        <Tag color={getStatusColor(status)}>
-          {getStatusText(status)}
+      render: (_, record: Service) => (
+        <Tag color={getStatusColor(record)}>
+          {getStatusText(record)}
         </Tag>
       )
     },
@@ -405,7 +422,7 @@ const ServiceManagement: React.FC = () => {
               onClick={() => showServiceDetails(record)}
             />
           </Tooltip>
-          {canUpdateService(userRole) && (
+          {canUpdateService(userRole) && !record.isDeleted && (
             <Tooltip title="Chỉnh sửa">
               <Button 
                 type="text" 
@@ -414,7 +431,7 @@ const ServiceManagement: React.FC = () => {
               />
             </Tooltip>
           )}
-          {canDeleteService(userRole) && (
+          {canDeleteService(userRole) && !record.isDeleted && (
             <Tooltip title="Xóa">
               <Popconfirm
                 title="Bạn có chắc chắn muốn xóa dịch vụ này?"
@@ -430,28 +447,96 @@ const ServiceManagement: React.FC = () => {
               </Popconfirm>
             </Tooltip>
           )}
+          {canDeleteService(userRole) && record.isDeleted && (
+            <Tooltip title="Khôi phục">
+              <Button 
+                type="text" 
+                icon={<UndoOutlined />} 
+                onClick={() => handleRecover(record.id)}
+                style={{ color: '#52c41a' }}
+              />
+            </Tooltip>
+          )}
         </Space>
       )
     }
   ];
 
+  // Calculate stats
+  const stats = {
+    total: services.length,
+    active: services.filter(s => !s.isDeleted).length,
+    deleted: services.filter(s => s.isDeleted).length
+  };
+
   return (
     <div style={{ padding: '24px' }}>
+      <div style={{ marginBottom: '24px' }}>
+        <Title level={2}>
+          <CustomerServiceOutlined style={{ marginRight: '8px' }} />
+          Quản lý dịch vụ
+        </Title>
+      </div>
+
+      {/* Statistics */}
+      <Row gutter={16} style={{ marginBottom: '24px' }}>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="Tổng dịch vụ"
+              value={stats.total}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="Đang hoạt động"
+              value={stats.active}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="Đã xóa"
+              value={stats.deleted}
+              valueStyle={{ color: '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
       <Card>
         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
-            <CustomerServiceOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-            Quản lý dịch vụ
+          <Title level={4} style={{ margin: 0 }}>
+            Danh sách dịch vụ
           </Title>
-          {canCreateService(userRole) && (
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />}
-              onClick={() => setIsModalVisible(true)}
+          <Space>
+            <Switch
+              checked={showDeleted}
+              onChange={setShowDeleted}
+              checkedChildren="Hiện tất cả"
+              unCheckedChildren="Chỉ hoạt động"
+            />
+            {canCreateService(userRole) && (
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />}
+                onClick={() => setIsModalVisible(true)}
+              >
+                Thêm dịch vụ mới
+              </Button>
+            )}
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={loadData}
             >
-              Thêm dịch vụ mới
+              Làm mới
             </Button>
-          )}
+          </Space>
         </div>
 
         <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -497,8 +582,6 @@ const ServiceManagement: React.FC = () => {
           >
             <Option value="all">Tất cả trạng thái</Option>
             <Option value="active">Hoạt động</Option>
-            <Option value="inactive">Tạm dừng</Option>
-            <Option value="suspended">Bị khóa</Option>
           </Select>
         </div>
 
@@ -561,35 +644,19 @@ const ServiceManagement: React.FC = () => {
             <TextArea rows={3} placeholder="Nhập mô tả chi tiết về dịch vụ" />
           </Form.Item>
 
-          <div style={{ display: 'flex', gap: 16 }}>
-            <Form.Item
-              name="price"
-              label="Giá (VNĐ)"
-              rules={[{ required: true, message: 'Vui lòng nhập giá!' }]}
-              style={{ flex: 1 }}
-            >
-              <InputNumber
-                style={{ width: '100%' }}
-                min={0}
-                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(value: any) => (value || '').replace(/\$\s?|(,*)/g, '')}
-                placeholder="Nhập giá dịch vụ"
-              />
-            </Form.Item>
-
-            <Form.Item
-              name="duration"
-              label="Thời gian (phút)"
-              rules={[{ required: true, message: 'Vui lòng nhập thời gian!' }]}
-              style={{ flex: 1 }}
-            >
-              <InputNumber
-                style={{ width: '100%' }}
-                min={1}
-                placeholder="Nhập thời gian"
-              />
-            </Form.Item>
-          </div>
+          <Form.Item
+            name="price"
+            label="Giá (VNĐ)"
+            rules={[{ required: true, message: 'Vui lòng nhập giá!' }]}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              min={0}
+              formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={(value: any) => (value || '').replace(/\$\s?|(,*)/g, '')}
+              placeholder="Nhập giá dịch vụ"
+            />
+          </Form.Item>
 
           <Form.Item
             name="availableAt"
@@ -610,8 +677,6 @@ const ServiceManagement: React.FC = () => {
           >
             <Select placeholder="Chọn trạng thái">
               <Option value="active">Hoạt động</Option>
-              <Option value="inactive">Tạm dừng</Option>
-              <Option value="suspended">Bị khóa</Option>
             </Select>
           </Form.Item>
         </Form>

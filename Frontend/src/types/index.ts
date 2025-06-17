@@ -146,13 +146,10 @@ export interface Service {
   price: number;
   description: string;
   image?: string;
-  serviceType: 'consultation' | 'test' | 'treatment' | 'other';
-  availableAt: ('Athome' | 'Online' | 'Center')[];
-  duration?: number;
-  specialRequirements?: string;
-  isActive?: boolean;
   isDeleted: number;
-  deleteNote?: string;
+  serviceType: 'consultation' | 'test' | 'treatment' | 'other';
+  availableAt: string[]; // ['Athome', 'Online', 'Center']
+  specialRequirements?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -207,17 +204,45 @@ export interface ServiceResponse {
   message?: string;
 }
 
-// Service package types
+// Service package types - Hybrid model with subscription + multi-profile support
 export interface ServicePackage {
   _id: string;
   name: string;
   description: string;
-  image?: string;
-  priceBeforeDiscount: number;
-  price: number;
-  serviceIds: (string | Service)[];
-  isActive: number;
-  deleteNote?: string;
+  price: number;                // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
+  discountPrice: number;        // Giá đã giảm (nếu có) – không dùng mã
+  serviceIds: string[] | Service[];
+  isActive: boolean;
+  durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
+  maxUsages: number;           // 🔹 Số lượt được dùng tối đa cho toàn gói
+  maxProfiles: number[];       // 🔹 [1, 2, 4] - Số người tối đa có thể sử dụng gói
+  isMultiProfile: boolean;     // 🔹 Gói này có hỗ trợ nhiều hồ sơ không
+  pricingInfo?: {
+    packageId: string;
+    packageName: string;
+    baseServicePrice: number;       // Tổng giá của các dịch vụ trong gói
+    originalPrice: number;          // Giá gốc được tính tự động
+    discountPrice: number;          // Giá đã giảm (nếu có)
+    discountPercentage: number;     // % giảm giá
+    durationInDays: number;         // Thời hạn sử dụng
+    maxUsages: number;             // Số lượt được dùng tối đa
+    maxProfiles: number[];         // Tùy chọn số profile
+    isMultiProfile: boolean;       // Hỗ trợ nhiều hồ sơ
+    pricePerUsage: number;         // Giá mỗi lượt sử dụng
+    pricePerDay: number;           // Giá mỗi ngày sử dụng
+    pricePerProfile: number;       // Giá trung bình mỗi profile (cho multi-profile)
+  };
+  valueMetrics?: {
+    savingsAmount: number;
+    savingsPercentage: number;
+    valueRating: 'excellent' | 'good' | 'fair' | 'poor';
+  };
+  autoCalculation?: {
+    totalServicePrice: number;     // Tổng giá các dịch vụ
+    calculatedPrice: number;       // Giá được tính tự động
+    formula: string;               // Công thức tính giá
+  };
+  pricingSummary?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -225,10 +250,11 @@ export interface ServicePackage {
 export interface CreateServicePackageRequest {
   name: string;
   description: string;
-  image?: string;
-  priceBeforeDiscount: number;
-  price: number;
+  discountPrice: number;        // Chỉ cần nhập giá khuyến mãi, price sẽ được tính tự động
   serviceIds: string[];
+  durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
+  maxUsages: number;           // 🔹 Số lượt được dùng tối đa cho toàn gói
+  maxProfiles: number[];       // 🔹 [1, 2, 4] - Số người tối đa có thể sử dụng gói
 }
 
 export interface UpdateServicePackageRequest extends Partial<CreateServicePackageRequest> {
@@ -509,13 +535,18 @@ export interface Payment {
   paymentAt: string;
 }
 
-// Package purchase types
+// Package purchase types - Updated with new subscription fields
 export interface PackagePurchase {
   _id: string;
-  profileId: string;
-  userId: string;
-  packageId: string;
-  billId: string;
+  userId: string;              // Ai là người mua
+  profileId: string;           // Hồ sơ bệnh án nào sử dụng gói này
+  packageId: string;           // FK đến ServicePackages._id
+  billId: string;              // Liên kết hóa đơn thanh toán
+  activatedAt: string;         // 🔹 Ngày bắt đầu sử dụng gói
+  expiredAt: string;           // 🔹 Ngày hết hạn (tính từ activatedAt + durationInDays)
+  remainingUsages: number;     // 🔹 Số lượt còn lại có thể dùng
+  totalAllowedUses: number;    // 🔹 Tổng lượt ban đầu được dùng
+  isActive: boolean;           // 🔹 Gói còn hiệu lực hay đã hết hạn/lượt
   createdAt: string;
   updatedAt: string;
 }

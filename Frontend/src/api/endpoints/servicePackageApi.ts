@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axiosInstance from '../axiosConfig';
 import {
     CreateServicePackageRequest,
     ServicePackageResponse,
@@ -6,59 +6,69 @@ import {
     UpdateServicePackageRequest
 } from '../../types';
 
-const apiBase = import.meta.env.VITE_API_URL || '/api';
-const API_BASE_URL = apiBase.endsWith('/api') ? apiBase : `${apiBase}/api`;
+// Use shared axios instance for consistent configuration
+const servicePackageApi = {
+  get: (url: string, config?: any) => axiosInstance.get(`/service-packages${url}`, config),
+  post: (url: string, data?: any, config?: any) => axiosInstance.post(`/service-packages${url}`, data, config),
+  put: (url: string, data?: any, config?: any) => axiosInstance.put(`/service-packages${url}`, data, config),
+  delete: (url: string, config?: any) => axiosInstance.delete(`/service-packages${url}`, config),
+};
 
-// Create axios instance with auth token
-const servicePackageApi = axios.create({
-  baseURL: `${API_BASE_URL}/service-packages`,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+export interface AutoCalculatedPriceResponse {
+  success: boolean;
+  data: {
+    totalServicePrice: number;     // Tổng giá các dịch vụ
+    calculatedPrice: number;       // Giá được tính tự động
+    formula: string;               // Công thức tính giá
+  };
+  message?: string;
+}
 
-// Add auth token to requests
-servicePackageApi.interceptors.request.use((config) => {
-  // Try different possible token keys
-  const token = localStorage.getItem('access_token') || 
-                localStorage.getItem('token') || 
-                localStorage.getItem('authToken');
-  
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  
-  // Debug only in development
-  if (import.meta.env.DEV) {
-    console.log('Service Package API Request:', {
-      url: config.url,
-      method: config.method,
-      hasToken: !!token
-    });
-  }
-  
-  return config;
-});
+export interface PackagePricingResponse {
+  success: boolean;
+  data: {
+    package: any;
+    pricingInfo: {
+      packageId: string;
+      packageName: string;
+      baseServicePrice: number;
+      originalPrice: number;
+      discountPrice: number;
+      discountPercentage: number;
+      durationInDays: number;
+      maxUsages: number;
+      maxProfiles: number[];
+      isMultiProfile: boolean;
+      pricePerUsage: number;
+      pricePerDay: number;
+      pricePerProfile: number;
+    };
+    valueMetrics: {
+      savingsAmount: number;
+      savingsPercentage: number;
+      valueRating: 'excellent' | 'good' | 'fair' | 'poor';
+    };
+  };
+  message?: string;
+}
 
-// Add response interceptor for debugging
-servicePackageApi.interceptors.response.use(
-  (response) => {
-    // Only log in development
-    if (import.meta.env.DEV) {
-      console.log('Service Package API Response:', response.status, response.config.url);
-    }
-    return response;
-  },
-  (error) => {
-    // Always log errors
-    console.error('Service Package API Error:', {
-      status: error.response?.status,
-      message: error.response?.data?.message,
-      url: error.config?.url
-    });
-    return Promise.reject(error);
-  }
-);
+export interface UsageProjectionResponse {
+  success: boolean;
+  data: {
+    packageId: string;
+    packageName: string;
+    durationInDays: number;
+    maxUsages: number;
+    expectedUsagePerWeek: number;
+    projection: {
+      projectedTotalUsage: number;
+      utilizationRate: number;
+      recommendation: 'perfect' | 'over' | 'under';
+    };
+    recommendation: string;
+  };
+  message?: string;
+}
 
 export interface GetServicePackagesParams {
   page?: number;
@@ -83,110 +93,84 @@ export interface SearchServicePackagesParams {
 /**
  * Lấy danh sách service packages với phân trang và bộ lọc
  */
-export const getServicePackages = async (params: GetServicePackagesParams = {}): Promise<ServicePackagesResponse> => {
-  try {
-    const response = await servicePackageApi.get('/', { params });
+export const getServicePackages = async (params?: {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  isActive?: boolean;
+  includeDeleted?: boolean;
+  serviceId?: string;
+  search?: string;
+}): Promise<ServicePackagesResponse> => {
+  const response = await servicePackageApi.get('', { params });
     return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.message || 'Lỗi khi lấy danh sách gói dịch vụ');
-  }
 };
 
 /**
- * Tạo service package mới (Manager only)
+ * Tạo service package mới với subscription model (Manager only)
  */
-export const createServicePackage = async (data: CreateServicePackageRequest): Promise<ServicePackageResponse> => {
-  try {
-    const response = await servicePackageApi.post('/', data);
-    return response.data;
-  } catch (error: any) {
-    if (error.response?.status === 409) {
-      throw new Error('Tên gói dịch vụ đã tồn tại');
-    }
-    if (error.response?.status === 400) {
-      const errors = error.response.data?.errors || {};
-      const errorMessages = Object.values(errors).filter(Boolean).join(', ');
-      throw new Error(errorMessages || 'Dữ liệu không hợp lệ');
-    }
-    throw new Error(error.response?.data?.message || 'Lỗi khi tạo gói dịch vụ');
-  }
+export const createServicePackage = (data: CreateServicePackageRequest): Promise<ServicePackageResponse> => {
+  return servicePackageApi.post('', data);
 };
 
 /**
- * Cập nhật service package (Manager only)
+ * Cập nhật service package với subscription fields (Manager only)
  */
-export const updateServicePackage = async (id: string, data: UpdateServicePackageRequest): Promise<ServicePackageResponse> => {
-  try {
-    const response = await servicePackageApi.put(`/${id}`, data);
-    return response.data;
-  } catch (error: any) {
-    if (error.response?.status === 404) {
-      throw new Error('Không tìm thấy gói dịch vụ');
-    }
-    if (error.response?.status === 409) {
-      throw new Error('Tên gói dịch vụ đã tồn tại');
-    }
-    if (error.response?.status === 400) {
-      const errors = error.response.data?.errors || {};
-      const errorMessages = Object.values(errors).filter(Boolean).join(', ');
-      throw new Error(errorMessages || 'Dữ liệu không hợp lệ');
-    }
-    throw new Error(error.response?.data?.message || 'Lỗi khi cập nhật gói dịch vụ');
-  }
+export const updateServicePackage = (id: string, data: UpdateServicePackageRequest): Promise<ServicePackageResponse> => {
+  return servicePackageApi.put(`/${id}`, data);
 };
 
 /**
  * Tìm kiếm service packages (POST method - chỉ chạy khi nhấn nút)
  */
-export const searchServicePackages = async (params: SearchServicePackagesParams): Promise<ServicePackagesResponse> => {
-  try {
-    const { page, limit, sortBy, sortOrder, ...searchData } = params;
-    const queryParams = { page, limit, sortBy, sortOrder };
-    
-    const response = await servicePackageApi.post('/search', searchData, { params: queryParams });
-    return response.data;
-  } catch (error: any) {
-    throw new Error(error.response?.data?.message || 'Lỗi khi tìm kiếm gói dịch vụ');
-  }
+export const searchServicePackages = (data: {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  search?: string;
+  serviceId?: string;
+}): Promise<ServicePackagesResponse> => {
+  return servicePackageApi.post('/search', data);
 };
 
 /**
- * Xóa service package (Soft delete, Manager only) - Đã xóa deleteNote theo backend mới
+ * Xóa service package (Soft delete, Manager only)
  */
-export const deleteServicePackage = async (id: string, deleteNote?: string): Promise<{ success: boolean; message: string }> => {
-  try {
-    const response = await servicePackageApi.delete(`/${id}`, {
-      data: deleteNote ? { deleteNote } : undefined
-    });
-    return response.data;
-  } catch (error: any) {
-    if (error.response?.status === 404) {
-      throw new Error('Không tìm thấy gói dịch vụ');
-    }
-    if (error.response?.status === 400) {
-      throw new Error(error.response.data?.message || 'Không thể xóa gói dịch vụ này');
-    }
-    throw new Error(error.response?.data?.message || 'Lỗi khi xóa gói dịch vụ');
-  }
+export const deleteServicePackage = (id: string): Promise<{ success: boolean; message: string }> => {
+  return servicePackageApi.delete(`/${id}`);
 };
 
 /**
  * Khôi phục service package đã xóa (Manager only)
  */
-export const recoverServicePackage = async (id: string): Promise<ServicePackageResponse> => {
-  try {
-    const response = await servicePackageApi.post(`/${id}/recover`);
-    return response.data;
-  } catch (error: any) {
-    if (error.response?.status === 404) {
-      throw new Error('Không tìm thấy gói dịch vụ hoặc gói dịch vụ chưa bị xóa');
-    }
-    if (error.response?.status === 409) {
-      throw new Error('Không thể khôi phục. Đã tồn tại gói dịch vụ khác có cùng tên');
-    }
-    if (error.response?.status === 400) {
-      throw new Error('Không thể khôi phục. Một số dịch vụ trong gói đã bị xóa');
-    }
-    throw new Error(error.response?.data?.message || 'Lỗi khi khôi phục gói dịch vụ');
-  }
+export const recoverServicePackage = (id: string): Promise<ServicePackageResponse> => {
+  return servicePackageApi.put(`/${id}/recover`);
+};
+
+/**
+ * Lấy thông tin pricing cho một gói dịch vụ cụ thể với value metrics
+ */
+export const getPackagePricing = (id: string): Promise<PackagePricingResponse> => {
+  return servicePackageApi.get(`/${id}/pricing`);
+};
+
+/**
+ * Tính toán usage projection cho planning (thay thế profile-based pricing)
+ */
+export const getUsageProjection = (id: string, expectedUsagePerWeek: number): Promise<UsageProjectionResponse> => {
+  return servicePackageApi.post(`/${id}/usage-projection`, { expectedUsagePerWeek });
+};
+
+// 🔹 NEW: Tính giá gốc tự động từ services và maxUsages
+export const calculateAutoPrice = (data: {
+  serviceIds: string[];
+  maxUsages: number;
+}): Promise<AutoCalculatedPriceResponse> => {
+  return axiosInstance.post('/service-packages/calculate-price', data);
+};
+
+export const getServicePackageById = (id: string): Promise<ServicePackageResponse> => {
+  return servicePackageApi.get(`/${id}`);
 }; 
