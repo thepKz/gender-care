@@ -15,7 +15,7 @@ interface EnhancedStatsCardProps {
   icon: React.ReactNode;
   color: string;
   change: string;
-  trend: 'up' | 'down';
+  trend: 'up' | 'down' | 'stable';
   onClick?: () => void;
 }
 
@@ -113,14 +113,19 @@ const EnhancedStatsCard: React.FC<EnhancedStatsCardProps> = ({
             color: '#10b981', 
             fontSize: '12px' 
           }} />
-        ) : (
+        ) : trend === 'down' ? (
           <FallOutlined style={{ 
             color: '#ef4444', 
             fontSize: '12px' 
           }} />
+        ) : (
+          <span style={{
+            width: 0,
+            height: 0
+          }} />
         )}
         <span style={{ 
-          color: trend === 'up' ? '#10b981' : '#ef4444',
+          color: trend === 'up' ? '#10b981' : trend === 'down' ? '#ef4444' : '#6b7280',
           fontSize: '12px',
           fontWeight: 500
         }}>

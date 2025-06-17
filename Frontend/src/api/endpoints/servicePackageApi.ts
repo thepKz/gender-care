@@ -68,6 +68,7 @@ export interface GetServicePackagesParams {
   isActive?: boolean;
   includeDeleted?: boolean; // For manager to view deleted packages
   serviceId?: string; // Filter by service ID
+  search?: string; // Search keyword (optional)
 }
 
 export interface SearchServicePackagesParams {
@@ -152,9 +153,11 @@ export const searchServicePackages = async (params: SearchServicePackagesParams)
 /**
  * Xóa service package (Soft delete, Manager only) - Đã xóa deleteNote theo backend mới
  */
-export const deleteServicePackage = async (id: string): Promise<{ success: boolean; message: string }> => {
+export const deleteServicePackage = async (id: string, deleteNote?: string): Promise<{ success: boolean; message: string }> => {
   try {
-    const response = await servicePackageApi.delete(`/${id}`);
+    const response = await servicePackageApi.delete(`/${id}`, {
+      data: deleteNote ? { deleteNote } : undefined
+    });
     return response.data;
   } catch (error: any) {
     if (error.response?.status === 404) {

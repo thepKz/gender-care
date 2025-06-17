@@ -41,9 +41,6 @@ import ServiceManagement from '../../../pages/dashboard/management/ServiceManage
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
 import { 
-  defaultManagementStats, 
-  defaultActivities, 
-  defaultAppointments,
   type DashboardStat,
   type ActivityItem,
   type AppointmentItem
@@ -129,9 +126,9 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
   const { handleLogout } = useAuth();
 
   // Customize stats based on role
-  const [stats, setStats] = useState(defaultManagementStats);
-  const [activities, setActivities] = useState(defaultActivities);
-  const [todayList, setTodayList] = useState(defaultAppointments);
+  const [stats, setStats] = useState<DashboardStat[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [todayList, setTodayList] = useState<AppointmentItem[]>([]);
 
   // Scroll to top when component mounts or page changes
   useEffect(() => {
@@ -199,88 +196,6 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         }
       } catch (err) {
         console.error('❌ fetchManagementDashboard error', err);
-        console.log('🔄 Using fallback demo data for development...');
-        
-        // Fallback to demo data when API fails (useful for development)
-        const demoStats = [
-          {
-            title: 'Tổng bác sĩ',
-            value: 12,
-            icon: 'UserOutlined',
-            color: '#3b82f6',
-            change: '+2 tuần này',
-            trend: 'up'
-          },
-          {
-            title: 'Tổng dịch vụ',
-            value: 25,
-            icon: 'StarOutlined',
-            color: '#10b981',
-            change: '+3 dịch vụ mới',
-            trend: 'up'
-          },
-          {
-            title: 'Lịch hẹn hôm nay',
-            value: 8,
-            icon: 'CalendarOutlined',
-            color: '#f59e0b',
-            change: '6/8 đã hoàn thành',
-            trend: 'up'
-          },
-          {
-            title: 'Doanh thu tháng',
-            value: 45000000,
-            icon: 'DollarOutlined',
-            color: '#ef4444',
-            change: '+15% so với tháng trước',
-            trend: 'up'
-          }
-        ];
-        setStats(demoStats as any);
-        
-        // Demo activities
-        const demoActivities = [
-          {
-            id: '1',
-            type: 'appointment',
-            title: 'Lịch hẹn mới từ Nguyễn Văn A',
-            description: 'Khám phụ khoa - 15:30 hôm nay',
-            time: new Date(),
-            icon: 'CalendarOutlined',
-            color: '#1890ff'
-          },
-          {
-            id: '2',
-            type: 'doctor',
-            title: 'BS. Trần Thị B đã cập nhật lịch làm việc',
-            description: 'Thêm 5 slot khám trong tuần',
-            time: new Date(Date.now() - 1800000),
-            icon: 'UserOutlined',
-            color: '#52c41a'
-          }
-        ];
-        setActivities(demoActivities);
-        
-        // Demo today appointments
-        const demoAppointments = [
-          {
-            id: '1',
-            patientName: 'Nguyễn Văn A',
-            doctorName: 'BS. Trần Thị B',
-            time: '09:00',
-            status: 'confirmed',
-            phone: '0901234567'
-          },
-          {
-            id: '2',
-            patientName: 'Lê Thị C',
-            doctorName: 'BS. Phạm Văn D',
-            time: '10:30',
-            status: 'pending',
-            phone: '0912345678'
-          }
-        ];
-        setTodayList(demoAppointments);
       }
     })();
   }, []);
@@ -540,14 +455,14 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                 fontSize: '24px',
                 fontWeight: 'bold'
               }}>
-                {Math.round((todayList.length / Math.max(stats[2]?.value || 1, 1)) * 100)}%
+                {Math.round((todayList.length / Math.max(Number(stats[2]?.value) || 1, 1)) * 100)}%
               </div>
               <Text style={{ fontSize: '14px', color: '#666' }}>
                 Tiến độ lịch hẹn hôm nay
               </Text>
               <div style={{ marginTop: '12px' }}>
                 <Text style={{ fontSize: '12px', color: '#999' }}>
-                  {todayList.length} / {stats[2]?.value || 0} lịch hẹn đã được xử lý
+                  {todayList.length} / {Number(stats[2]?.value) || 0} lịch hẹn đã được xử lý
                 </Text>
               </div>
             </div>

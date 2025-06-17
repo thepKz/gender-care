@@ -32,10 +32,8 @@ import TableWidget from '../widgets/TableWidget';
 import AppointmentManagement from '../../../pages/dashboard/operational/AppointmentManagement';
 import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
 
-import { 
-  defaultOperationalStats, 
-  defaultActivities, 
-  defaultAppointments,
+import {
+  defaultOperationalStats,
   defaultPerformanceMetrics,
   type DashboardStat,
   type ActivityItem,
@@ -114,19 +112,12 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   const { handleLogout } = useAuth();
 
   const [statsCards, setStatsCards] = useState(defaultOperationalStats);
-
-  // Customize content based on role
-  const roleSpecificActivities = userRole === 'doctor' 
-    ? defaultActivities.filter(activity => 
-        activity.action.includes('tư vấn') || 
-        activity.action.includes('khám') ||
-        activity.user.startsWith('Dr.')
-      )
-    : defaultActivities;
+  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
 
   const defaultWelcomeMessage = userRole === 'doctor'
-    ? `Chào mừng Dr. ${userName}! Hôm nay bạn có ${defaultAppointments.length} lịch hẹn và 4 công việc cần hoàn thành.`
-    : `Chào mừng ${userName}! Hôm nay có ${defaultAppointments.length} lịch hẹn cần xử lý và 5 nhiệm vụ đang chờ.`;
+    ? `Chào mừng Dr. ${userName}! Hôm nay bạn có ${appointments.length} lịch hẹn và 4 công việc cần hoàn thành.`
+    : `Chào mừng ${userName}! Hôm nay có ${appointments.length} lịch hẹn cần xử lý và 5 nhiệm vụ đang chờ.`;
 
   const metrics = defaultPerformanceMetrics;
 
@@ -203,7 +194,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         {/* Today's Appointments */}
         <Col xs={24} lg={16}>
           <TableWidget 
-            data={defaultAppointments}
+            data={appointments}
             title={userRole === 'doctor' ? 'Lịch khám hôm nay' : 'Lịch hẹn cần xử lý'}
             pagination={false}
           />
@@ -239,7 +230,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
                       textAlign: 'center'
                     }}>
                       <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>
-                        {Math.round(defaultAppointments.length * metrics.appointmentCompletion / 100)}/{defaultAppointments.length}
+                        {Math.round(appointments.length * metrics.appointmentCompletion / 100)}/{appointments.length}
                       </div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>
                         Hoàn thành
@@ -306,7 +297,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
       <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
         <Col xs={24}>
           <ActivityFeed 
-            activities={roleSpecificActivities.slice(0, 5)}
+            activities={activities.slice(0, 5)}
             title={userRole === 'doctor' ? 'Hoạt động khám bệnh' : 'Hoạt động gần đây'}
           />
         </Col>

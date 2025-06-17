@@ -15,4 +15,4 @@ const OperationalDashboard: React.FC = () => {
   );
 };
 
-export default OperationalDashboard;
+export default OperationalDashboard; 
