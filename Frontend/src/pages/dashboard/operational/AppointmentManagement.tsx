@@ -139,7 +139,11 @@ const AppointmentManagement: React.FC = () => {
   const getStatusColor = (status: Appointment['status']) => {
     const colors = {
       pending: 'orange',
+      pending_payment: 'gold',
+      paid: 'cyan',
       confirmed: 'blue',
+      scheduled: 'purple',
+      consulting: 'lime',
       completed: 'green',
       cancelled: 'red'
     };
@@ -149,7 +153,11 @@ const AppointmentManagement: React.FC = () => {
   const getStatusText = (status: Appointment['status']) => {
     const texts = {
       pending: 'Chờ xác nhận',
+      pending_payment: 'Chờ thanh toán',
+      paid: 'Đã thanh toán',
       confirmed: 'Đã xác nhận',
+      scheduled: 'Đã lên lịch',
+      consulting: 'Đang tư vấn',
       completed: 'Hoàn thành',
       cancelled: 'Đã hủy'
     };
@@ -217,9 +225,8 @@ const AppointmentManagement: React.FC = () => {
     appointmentType: 'appointment' | 'consultation'
   ) => {
     try {
-      const success = await appointmentManagementService.updateAppointmentStatus(
+      const success = await appointmentManagementService.confirmAppointment(
         appointmentId, 
-        newStatus as any, 
         appointmentType
       );
       
@@ -230,13 +237,13 @@ const AppointmentManagement: React.FC = () => {
             apt._id === appointmentId ? { ...apt, status: newStatus } : apt
           )
         );
-        message.success('Cập nhật trạng thái thành công');
+        message.success('Xác nhận lịch hẹn thành công');
       } else {
-        message.error('Cập nhật trạng thái thất bại');
+        message.error('Xác nhận lịch hẹn thất bại');
       }
     } catch (err: any) {
-      console.error('❌ [ERROR] Failed to update appointment status:', err);
-      message.error('Cập nhật trạng thái thất bại');
+      console.error('❌ [ERROR] Failed to confirm appointment:', err);
+      message.error('Xác nhận lịch hẹn thất bại');
     }
   };
 
@@ -536,7 +543,7 @@ const AppointmentManagement: React.FC = () => {
               onClick={() => showAppointmentDetails(record)}
             />
           </Tooltip>
-          {record.status === 'pending' && (
+          {record.status === 'paid' && (
             <Tooltip title="Xác nhận">
               <Popconfirm
                 title="Xác nhận lịch hẹn này?"
@@ -553,21 +560,23 @@ const AppointmentManagement: React.FC = () => {
               </Popconfirm>
             </Tooltip>
           )}
-          <Tooltip title="Xóa">
-            <Popconfirm
-              title="Bạn có chắc chắn muốn xóa lịch hẹn này?"
-              onConfirm={() => handleDelete(record._id, record.type)}
-              okText="Xóa"
-              cancelText="Hủy"
-            >
-              <Button 
-                type="text" 
-                icon={<DeleteOutlined />} 
-                size="small"
-                danger
-              />
-            </Popconfirm>
-          </Tooltip>
+          {(record.status === 'paid' || record.status === 'confirmed') && (
+            <Tooltip title="Hủy lịch hẹn">
+              <Popconfirm
+                title="Bạn có chắc chắn muốn hủy lịch hẹn này?"
+                onConfirm={() => handleDelete(record._id, record.type)}
+                okText="Hủy lịch"
+                cancelText="Không"
+              >
+                <Button 
+                  type="text" 
+                  icon={<DeleteOutlined />} 
+                  size="small"
+                  danger
+                />
+              </Popconfirm>
+            </Tooltip>
+          )}
         </Space>
       )
     }
@@ -626,11 +635,15 @@ const AppointmentManagement: React.FC = () => {
             <Select
               value={selectedStatus}
               onChange={setSelectedStatus}
-              style={{ width: 130 }}
+              style={{ width: 150 }}
             >
               <Option value="all">Tất cả trạng thái</Option>
               <Option value="pending">Chờ xác nhận</Option>
+              <Option value="pending_payment">Chờ thanh toán</Option>
+              <Option value="paid">Đã thanh toán</Option>
               <Option value="confirmed">Đã xác nhận</Option>
+              <Option value="scheduled">Đã lên lịch</Option>
+              <Option value="consulting">Đang tư vấn</Option>
               <Option value="completed">Hoàn thành</Option>
               <Option value="cancelled">Đã hủy</Option>
             </Select>

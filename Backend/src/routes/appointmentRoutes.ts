@@ -8,7 +8,8 @@ import {
     updateAppointmentStatus,
     updatePaymentStatus,
     getAppointmentsByDoctorId,
-    getMyAppointments
+    getMyAppointments,
+    confirmAppointment
 } from '../controllers/appointmentController';
 import { verifyToken, verifyAdmin, verifyCustomer, verifyStaff, verifyDoctor } from '../middleware';
 
@@ -76,5 +77,12 @@ router.put('/:id/status', verifyToken, verifyStaff, updateAppointmentStatus);
  * @access  Private (Customer)
  */
 router.put('/:id/payment', verifyToken, verifyCustomer, updatePaymentStatus);
+
+/**
+ * @route   PUT /api/appointments/:id/confirm
+ * @desc    Xác nhận cuộc hẹn (paid -> confirmed)
+ * @access  Private (Doctor, Staff)
+ */
+router.put('/:id/confirm', verifyToken, confirmAppointment);
 
 export default router; 

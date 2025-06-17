@@ -51,7 +51,7 @@ export interface ApiConsultation {
   phone: string;
   question: string;
   notes?: string;
-  status: 'pending_payment' | 'paid' | 'doctor_confirmed' | 'scheduled' | 'consulting' | 'completed' | 'cancelled';
+  status: 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'scheduled' | 'consulting' | 'completed' | 'cancelled';
   appointmentDate?: string;
   appointmentSlot?: string;
   doctorNotes?: string;
@@ -75,7 +75,7 @@ export interface UnifiedAppointment {
   address?: string;
   description: string;
   notes?: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'completed' | 'cancelled';
   createdAt: string;
   updatedAt: string;
   type: 'appointment' | 'consultation'; // To distinguish data source

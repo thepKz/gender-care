@@ -517,7 +517,7 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
         }
 
         // Kiểm tra status có hợp lệ không
-        if (!['pending', 'pending_payment', 'confirmed', 'completed', 'cancelled'].includes(status)) {
+        if (!['pending', 'pending_payment', 'paid', 'confirmed', 'completed', 'cancelled'].includes(status)) {
             throw new ValidationError({ status: 'Trạng thái không hợp lệ' });
         }
 
@@ -847,6 +847,64 @@ export const getAppointmentsByDoctorId = async (req: AuthRequest, res: Response)
         return res.status(500).json({
             success: false,
             message: 'Đã xảy ra lỗi khi lấy danh sách cuộc hẹn theo bác sĩ'
+        });
+    }
+};
+
+/**
+ * Xác nhận cuộc hẹn (chuyển từ paid sang confirmed)
+ */
+export const confirmAppointment = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+
+        // Kiểm tra ID có hợp lệ không
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            throw new ValidationError({ id: 'ID cuộc hẹn không hợp lệ' });
+        }
+
+        // Tìm cuộc hẹn hiện tại
+        const appointment = await Appointments.findById(id);
+        if (!appointment) {
+            throw new NotFoundError('Không tìm thấy cuộc hẹn');
+        }
+
+        // Chỉ cho phép xác nhận nếu trạng thái hiện tại là paid
+        if (appointment.status !== 'paid') {
+            throw new ValidationError({ status: 'Chỉ có thể xác nhận cuộc hẹn đã thanh toán' });
+        }
+
+        // Cập nhật trạng thái sang confirmed
+        const updatedAppointment = await Appointments.findByIdAndUpdate(
+            id,
+            { $set: { status: 'confirmed' } },
+            { new: true }
+        ).populate('profileId', 'fullName gender phone year')
+            .populate('serviceId', 'serviceName price serviceType')
+            .populate('packageId', 'name price serviceIds');
+
+        return res.status(200).json({
+            success: true,
+            message: 'Xác nhận cuộc hẹn thành công',
+            data: updatedAppointment
+        });
+    } catch (error) {
+        console.error('Error in confirmAppointment:', error);
+        if (error instanceof NotFoundError) {
+            return res.status(404).json({
+                success: false,
+                message: error.message
+            });
+        }
+        if (error instanceof ValidationError) {
+            return res.status(400).json({
+                success: false,
+                errors: error.errors
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi xác nhận cuộc hẹn'
         });
     }
 };

@@ -138,6 +138,12 @@ export const appointmentApi = {
     updatePaymentStatus: async (id: string, status: 'confirmed') => {
         const response = await axiosInstance.put(`/appointments/${id}/payment`, { status });
         return response.data;
+    },
+
+    // Xác nhận cuộc hẹn (paid -> confirmed)
+    confirmAppointment: async (id: string) => {
+        const response = await axiosInstance.put(`/appointments/${id}/confirm`);
+        return response.data;
     }
 };
 

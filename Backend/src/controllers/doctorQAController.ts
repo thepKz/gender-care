@@ -348,7 +348,7 @@ export const updatePaymentStatus = async (req: Request, res: Response): Promise<
           nextStep: 'Chờ link Google Meet được gửi trước giờ khám',
           note: 'Hệ thống đã tự động chọn slot sớm nhất và bác sĩ ít bận nhất'
         };
-      } else if (updatedQA.status === 'doctor_confirmed') {
+      } else if (updatedQA.status === 'confirmed') {
         message = '✅ Thanh toán thành công! Đã tìm bác sĩ phù hợp nhưng chưa thể tự động đặt lịch. Staff sẽ sắp xếp thủ công.';
         extraInfo = {
           smartScheduled: false,
@@ -374,6 +374,43 @@ export const updatePaymentStatus = async (req: Request, res: Response): Promise<
     console.error('Error updating payment status:', error);
     res.status(400).json({ 
       message: error.message || 'Lỗi server khi cập nhật trạng thái thanh toán' 
+    });
+  }
+};
+
+// PUT /api/doctor-qa/:id/confirm-consultation - Xác nhận cuộc tư vấn đã thanh toán (chuyển từ paid sang confirmed) (DOCTOR/STAFF)
+export const confirmConsultation = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ 
+        message: 'ID yêu cầu tư vấn không hợp lệ' 
+      });
+      return;
+    }
+
+    const qa = await doctorQAService.getDoctorQAById(id);
+
+    // Chỉ cho phép xác nhận nếu trạng thái hiện tại là paid
+    if (qa.status !== 'paid') {
+      res.status(400).json({ 
+        message: 'Chỉ có thể xác nhận cuộc tư vấn đã thanh toán' 
+      });
+      return;
+    }
+
+    const updatedQA = await doctorQAService.updateQAStatus(id, 'confirmed');
+
+    res.status(200).json({
+      message: 'Xác nhận cuộc tư vấn thành công',
+      data: updatedQA
+    });
+
+  } catch (error: any) {
+    console.error('Error confirming consultation:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi xác nhận cuộc tư vấn' 
     });
   }
 };
@@ -465,7 +502,7 @@ export const updateQAStatus = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const validStatuses = ["pending_payment", "paid", "doctor_confirmed", "scheduled", "consulting", "completed", "cancelled"];
+    const validStatuses = ["pending", "pending_payment", "paid", "confirmed", "scheduled", "consulting", "completed", "cancelled"];
     if (!validStatuses.includes(status)) {
       res.status(400).json({ 
         message: `Status không hợp lệ. Chỉ chấp nhận: ${validStatuses.join(', ')}` 
@@ -670,7 +707,7 @@ export const manualTriggerScheduling = async (req: Request, res: Response): Prom
         nextStep: 'Đã book slot thành công',
         note: 'Hệ thống đã tự động chọn slot sớm nhất và bác sĩ ít bận nhất'
       };
-    } else if (updatedQA.status === 'doctor_confirmed') {
+            } else if (updatedQA.status === 'confirmed') {
       message = '⚠️ Đã assign bác sĩ nhưng chưa thể auto-schedule. Cần manual scheduling.';
       extraInfo = {
         smartScheduled: false,

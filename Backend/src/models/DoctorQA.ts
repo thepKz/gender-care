@@ -7,7 +7,7 @@ export interface IDoctorQA {
   phone: string;
   notes?: string;
   question: string;
-  status: "pending_payment" | "paid" | "doctor_confirmed" | "scheduled" | "consulting" | "completed" | "cancelled";
+  status: "pending" | "pending_payment" | "paid" | "confirmed" | "scheduled" | "consulting" | "completed" | "cancelled";
   consultationFee: number;
   serviceId?: mongoose.Types.ObjectId;  // Service được sử dụng
   serviceName?: string;  // Tên service cho tiện
@@ -52,7 +52,7 @@ const DoctorQASchema = new mongoose.Schema<IDoctorQA>({
   },
   status: { 
     type: String, 
-    enum: ["pending_payment", "paid", "doctor_confirmed", "scheduled", "consulting", "completed", "cancelled"],
+    enum: ["pending", "pending_payment", "paid", "confirmed", "scheduled", "consulting", "completed", "cancelled"],
     default: "pending_payment" 
   },
   consultationFee: {

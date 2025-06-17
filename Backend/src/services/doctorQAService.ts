@@ -678,7 +678,7 @@ export const doctorConfirmQA = async (qaId: string, action: 'confirm' | 'reject'
 
     let newStatus;
     if (action === 'confirm') {
-      newStatus = 'scheduled';
+      newStatus = 'confirmed';
     } else {
       newStatus = 'cancelled';
       // Release slot if rejected

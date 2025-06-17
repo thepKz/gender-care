@@ -13,7 +13,7 @@ export interface IAppointments {
   address?: string;
   description?: string;
   notes?: string;
-  status: "pending" | "pending_payment" | "confirmed" | "completed" | "cancelled";
+  status: "pending" | "pending_payment" | "paid" | "confirmed" | "completed" | "cancelled";
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -69,7 +69,7 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   status: {
     type: String,
-    enum: ["pending", "pending_payment", "confirmed", "completed", "cancelled"],
+    enum: ["pending", "pending_payment", "paid", "confirmed", "completed", "cancelled"],
     default: "pending_payment"
   }
 }, { timestamps: true });

@@ -209,6 +209,11 @@ const consultationApi = {
   // Lấy chi tiết câu hỏi (legacy)
   getQuestionDetail: (id: string) => {
     return consultationApi.getConsultationById(id);
+  },
+
+  // Xác nhận cuộc tư vấn (paid -> confirmed)
+  confirmConsultation: (qaId: string) => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/confirm-consultation`);
   }
 };
 

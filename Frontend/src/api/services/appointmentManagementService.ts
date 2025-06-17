@@ -316,11 +316,14 @@ class AppointmentManagementService {
   /**
    * Map backend appointment status to UI status
    */
-  private mapAppointmentStatus(status: string): 'pending' | 'confirmed' | 'completed' | 'cancelled' {
+  private mapAppointmentStatus(status: string): 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'completed' | 'cancelled' {
     switch (status) {
       case 'pending':
-      case 'pending_payment':
         return 'pending';
+      case 'pending_payment':
+        return 'pending_payment';
+      case 'paid':
+        return 'paid';
       case 'confirmed':
         return 'confirmed';
       case 'completed':
@@ -335,12 +338,14 @@ class AppointmentManagementService {
   /**
    * Map backend consultation status to UI status
    */
-  private mapConsultationStatus(status: string): 'pending' | 'confirmed' | 'completed' | 'cancelled' {
+  private mapConsultationStatus(status: string): 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'completed' | 'cancelled' {
     switch (status) {
       case 'pending_payment':
+        return 'pending_payment';
       case 'paid':
-      case 'doctor_confirmed':
-        return 'pending';
+        return 'paid';
+      case 'confirmed':
+        return 'confirmed';
       case 'scheduled':
       case 'consulting':
         return 'confirmed';
@@ -391,6 +396,23 @@ class AppointmentManagementService {
       return true;
     } catch (error) {
       console.error(`❌ [ERROR] Failed to update ${type} status:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Xác nhận appointment (paid -> confirmed)
+   */
+  async confirmAppointment(id: string, type: 'appointment' | 'consultation'): Promise<boolean> {
+    try {
+      if (type === 'appointment') {
+        await appointmentApi.confirmAppointment(id);
+      } else {
+        await consultationApi.confirmConsultation(id);
+      }
+      return true;
+    } catch (error) {
+      console.error(`❌ [ERROR] Failed to confirm ${type}:`, error);
       return false;
     }
   }

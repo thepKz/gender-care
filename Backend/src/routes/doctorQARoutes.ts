@@ -11,6 +11,7 @@ import {
   getMyDoctorQAAsDoctor,
   updatePaymentStatus,
   doctorConfirmQA,
+  confirmConsultation,
   scheduleQA,
   updateQAStatus,
   deleteDoctorQA,
@@ -50,6 +51,9 @@ router.get('/doctor-qa/doctor/:doctorId', verifyToken, getDoctorQAByDoctorId);
 // =============== PARAMETERIZED ROUTES LAST ===============
 // GET /api/doctor-qa/:id - Lấy yêu cầu tư vấn theo ID (user chỉ thấy của mình)
 router.get('/doctor-qa/:id', verifyToken, getDoctorQAById);
+
+// PUT /api/doctor-qa/:id/confirm-consultation - Xác nhận cuộc tư vấn đã thanh toán (paid -> confirmed)
+router.put('/doctor-qa/:id/confirm-consultation', verifyToken, confirmConsultation);
 
 // PUT /api/doctor-qa/:id/confirm - Bác sĩ confirm/reject yêu cầu tư vấn
 router.put('/doctor-qa/:id/confirm', verifyToken, doctorConfirmQA);
