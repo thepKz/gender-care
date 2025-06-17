@@ -32,15 +32,16 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { mockAppointmentsData, MockAppointment } from '../../../shared/mockData/appointmentManagementMockData';
+import { UnifiedAppointment, AppointmentFilters } from '../../../types/appointment';
+import appointmentManagementService from '../../../api/services/appointmentManagementService';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 const { TextArea } = Input;
 
-// Use MockAppointment interface from mock data
-type Appointment = MockAppointment;
+// Use UnifiedAppointment interface from API types
+type Appointment = UnifiedAppointment;
 
 
 
@@ -53,18 +54,41 @@ const AppointmentManagement: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>('all');
 
-  // Load mock data 
+  // Load real data from API
   const loadAppointments = async () => {
     try {
       setLoading(true);
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('🔄 [DEBUG] Loading doctor appointments with filters:', {
+        searchText,
+        selectedType,
+        selectedLocation,
+        selectedStatus,
+        selectedDate
+      });
       
-      // Use mock data instead of API call
-      setAppointments(mockAppointmentsData);
+      // Prepare filters for API call
+      const filters: AppointmentFilters = {
+        page: 1,
+        limit: 100, // Get all for client-side filtering
+        status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        appointmentType: selectedType !== 'all' ? selectedType : undefined,
+        startDate: selectedDate !== 'all' ? selectedDate : undefined,
+        endDate: selectedDate !== 'all' ? selectedDate : undefined
+      };
+      
+      // Call API to get both appointments and consultations
+      const appointments = await appointmentManagementService.getAllDoctorAppointments(filters);
+      
+      console.log('✅ [DEBUG] Loaded appointments:', appointments.length);
+      setAppointments(appointments);
+      
+      if (appointments.length === 0) {
+        message.info('Chưa có cuộc hẹn nào. Hệ thống sẽ hiển thị khi có dữ liệu mới.');
+      }
+      
     } catch (err: any) {
-      console.error(err);
-      message.error('Không thể tải danh sách cuộc hẹn');
+      console.error('❌ [ERROR] Failed to load appointments:', err);
+      message.error('Không thể tải danh sách cuộc hẹn. Vui lòng thử lại sau.');
       setAppointments([]);
     } finally {
       setLoading(false);
@@ -74,19 +98,29 @@ const AppointmentManagement: React.FC = () => {
   useEffect(() => {
     loadAppointments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedStatus, selectedType, selectedLocation, selectedDate]);
 
-  // Filter appointments based on search and filters
+  // Reload when search text changes (debounced)
+  useEffect(() => {
+    const delayedLoad = setTimeout(() => {
+      if (searchText !== '') {
+        // For search, we still do client-side filtering since API doesn't support search
+        // The loadAppointments will still be called when filters change
+      }
+    }, 300);
+
+    return () => clearTimeout(delayedLoad);
+  }, [searchText]);
+
+  // Filter appointments based on search (other filters are applied at API level)
   const filteredAppointments = appointments.filter(appointment => {
+    if (searchText === '') return true;
+    
     const matchesSearch = appointment.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
                          appointment.serviceName.toLowerCase().includes(searchText.toLowerCase()) ||
                          appointment.patientPhone.includes(searchText);
-    const matchesType = selectedType === 'all' || appointment.appointmentType === selectedType;
-    const matchesLocation = selectedLocation === 'all' || appointment.typeLocation === selectedLocation;
-    const matchesStatus = selectedStatus === 'all' || appointment.status === selectedStatus;
-    const matchesDate = selectedDate === 'all' || appointment.appointmentDate === selectedDate;
     
-    return matchesSearch && matchesType && matchesLocation && matchesStatus && matchesDate;
+    return matchesSearch;
   });
 
   const getStatusColor = (status: Appointment['status']) => {
@@ -113,18 +147,20 @@ const AppointmentManagement: React.FC = () => {
     const colors = {
       consultation: 'blue',
       test: 'green',
+      'online-consultation': 'cyan',
       other: 'purple'
     };
-    return colors[type];
+    return colors[type] || 'purple';
   };
 
   const getTypeText = (type: Appointment['appointmentType']) => {
     const texts = {
       consultation: 'Tư vấn',
       test: 'Xét nghiệm',
+      'online-consultation': 'Tư vấn online',
       other: 'Khác'
     };
-    return texts[type];
+    return texts[type] || 'Khác';
   };
 
   const getLocationColor = (location: Appointment['typeLocation']) => {
@@ -145,164 +181,244 @@ const AppointmentManagement: React.FC = () => {
     return texts[location];
   };
 
-  const handleDelete = async (appointmentId: string) => {
+  const handleDelete = async (appointmentId: string, appointmentType: 'appointment' | 'consultation') => {
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 300));
+      const success = await appointmentManagementService.cancelAppointment(appointmentId, appointmentType);
       
-      // Remove from local state (mock delete)
-      setAppointments(prev => prev.filter(apt => apt._id !== appointmentId));
-      message.success('Hủy cuộc hẹn thành công');
+      if (success) {
+        // Remove from local state
+        setAppointments(prev => prev.filter(apt => apt._id !== appointmentId));
+        message.success('Hủy cuộc hẹn thành công');
+      } else {
+        message.error('Hủy cuộc hẹn thất bại');
+      }
     } catch (err: any) {
+      console.error('❌ [ERROR] Failed to cancel appointment:', err);
       message.error('Hủy cuộc hẹn thất bại');
     }
   };
 
-  const handleStatusChange = async (appointmentId: string, newStatus: Appointment['status']) => {
+  const handleStatusChange = async (
+    appointmentId: string, 
+    newStatus: Appointment['status'], 
+    appointmentType: 'appointment' | 'consultation'
+  ) => {
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Update local state (mock update)
-      setAppointments(prev => 
-        prev.map(apt => 
-          apt._id === appointmentId ? { ...apt, status: newStatus } : apt
-        )
+      const success = await appointmentManagementService.updateAppointmentStatus(
+        appointmentId, 
+        newStatus as any, 
+        appointmentType
       );
-      message.success('Cập nhật trạng thái thành công');
+      
+      if (success) {
+        // Update local state
+        setAppointments(prev => 
+          prev.map(apt => 
+            apt._id === appointmentId ? { ...apt, status: newStatus } : apt
+          )
+        );
+        message.success('Cập nhật trạng thái thành công');
+      } else {
+        message.error('Cập nhật trạng thái thất bại');
+      }
     } catch (err: any) {
+      console.error('❌ [ERROR] Failed to update appointment status:', err);
       message.error('Cập nhật trạng thái thất bại');
     }
   };
 
-  const showAppointmentDetails = (appointment: Appointment) => {
-    Modal.info({
-      title: (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <CalendarOutlined style={{ color: '#1890ff' }} />
-          <span>Chi tiết lịch hẹn</span>
-        </div>
-      ),
-      width: 900,
-      content: (
-        <div style={{ marginTop: '16px' }}>
-          {/* Thông tin bệnh nhân */}
-          <Card 
-            title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <UserOutlined style={{ color: '#722ed1' }} />
-                <span>Thông tin bệnh nhân</span>
-              </div>
-            }
-            size="small" 
-            style={{ marginBottom: '16px' }}
-          >
-            <Row gutter={16}>
-              <Col span={6}>
-                <div style={{ textAlign: 'center' }}>
-                  <Avatar icon={<UserOutlined />} size={64} style={{ marginBottom: '8px' }} />
-                  <div style={{ fontWeight: 500 }}>{appointment.patientName}</div>
-                </div>
-              </Col>
-              <Col span={18}>
-                <Descriptions column={2} size="small">
-                  <Descriptions.Item label="Số điện thoại">
-                    <PhoneOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
-                    {appointment.patientPhone}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Trạng thái">
-                    <Tag color={getStatusColor(appointment.status)}>
-                      {getStatusText(appointment.status)}
-                    </Tag>
-                  </Descriptions.Item>
-                </Descriptions>
-              </Col>
-            </Row>
-          </Card>
+  const showAppointmentDetails = async (appointment: Appointment) => {
+    try {
+      // Fetch detailed data from API
+      const detailData = await appointmentManagementService.getAppointmentDetail(appointment._id, appointment.type);
+      
+      if (!detailData) {
+        message.error('Không thể tải chi tiết cuộc hẹn');
+        return;
+      }
 
-          {/* Thông tin dịch vụ & lịch hẹn */}
-          <Card 
-            title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CalendarOutlined style={{ color: '#1890ff' }} />
-                <span>Thông tin dịch vụ & Lịch hẹn</span>
-              </div>
-            }
-            size="small" 
-            style={{ marginBottom: '16px' }}
-          >
-            <Descriptions column={2} size="small">
-              <Descriptions.Item label="Dịch vụ">
-                <div>
-                  <div style={{ fontWeight: 500, marginBottom: '4px' }}>
-                    {appointment.serviceName}
-                  </div>
-                  <Space>
-                    <Tag color={getTypeColor(appointment.appointmentType)}>
-                      {getTypeText(appointment.appointmentType)}
-                    </Tag>
-                  </Space>
-                </div>
-              </Descriptions.Item>
-              <Descriptions.Item label="Loại lịch hẹn">
-                <Tag color={getLocationColor(appointment.typeLocation)}>
-                  <EnvironmentOutlined style={{ marginRight: '4px' }} />
-                  {getLocationText(appointment.typeLocation)}
-                </Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="Ngày hẹn">
-                <CalendarOutlined style={{ marginRight: '4px', color: '#1890ff' }} />
-                {appointment.appointmentDate}
-              </Descriptions.Item>
-              <Descriptions.Item label="Giờ hẹn">
-                <ClockCircleOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
-                {appointment.appointmentTime}
-              </Descriptions.Item>
-              {appointment.address && (
-                <Descriptions.Item label="Địa chỉ cụ thể" span={2}>
-                  <EnvironmentOutlined style={{ marginRight: '4px' }} />
-                  {appointment.address}
-                </Descriptions.Item>
-              )}
-            </Descriptions>
-          </Card>
-
-          {/* Thông tin chi tiết */}
-          {(appointment.description || appointment.notes) && (
+      // Render detailed modal based on appointment type
+      Modal.info({
+        title: (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <CalendarOutlined style={{ color: '#1890ff' }} />
+            <span>Chi tiết {appointment.type === 'consultation' ? 'tư vấn trực tuyến' : 'lịch hẹn'}</span>
+          </div>
+        ),
+        width: 900,
+        content: (
+          <div style={{ marginTop: '16px' }}>
+            {/* Thông tin bệnh nhân */}
             <Card 
               title={
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <EnvironmentOutlined style={{ color: '#52c41a' }} />
-                  <span>Thông tin chi tiết</span>
+                  <UserOutlined style={{ color: '#722ed1' }} />
+                  <span>Thông tin bệnh nhân</span>
                 </div>
               }
-              size="small"
+              size="small" 
+              style={{ marginBottom: '16px' }}
             >
-              {appointment.description && (
-                <div style={{ marginBottom: '12px' }}>
-                  <Text strong>Mô tả: </Text>
-                  <Text>{appointment.description}</Text>
-                </div>
-              )}
-              
-              {appointment.notes && (
-                <div style={{ 
-                  padding: '12px', 
-                  backgroundColor: '#f6ffed', 
-                  borderRadius: '8px',
-                  border: '1px solid #b7eb8f'
-                }}>
-                  <div style={{ fontWeight: 500, marginBottom: '4px', color: '#52c41a' }}>
-                    Ghi chú:
+              <Row gutter={16}>
+                <Col span={6}>
+                  <div style={{ textAlign: 'center' }}>
+                    <Avatar icon={<UserOutlined />} size={64} style={{ marginBottom: '8px' }} />
+                    <div style={{ fontWeight: 500 }}>{appointment.patientName}</div>
                   </div>
-                  <Text>{appointment.notes}</Text>
-                </div>
-              )}
+                </Col>
+                <Col span={18}>
+                  <Descriptions column={2} size="small">
+                    <Descriptions.Item label="Số điện thoại">
+                      <PhoneOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
+                      {appointment.patientPhone}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Trạng thái">
+                      <Tag color={getStatusColor(appointment.status)}>
+                        {getStatusText(appointment.status)}
+                      </Tag>
+                    </Descriptions.Item>
+                    {appointment.type === 'appointment' && (detailData as any).profileId?.gender && (
+                      <Descriptions.Item label="Giới tính">
+                        {(detailData as any).profileId.gender === 'male' ? 'Nam' : 
+                         (detailData as any).profileId.gender === 'female' ? 'Nữ' : 'Khác'}
+                      </Descriptions.Item>
+                    )}
+                    {appointment.type === 'appointment' && (detailData as any).profileId?.year && (
+                      <Descriptions.Item label="Năm sinh">
+                        {(detailData as any).profileId.year}
+                      </Descriptions.Item>
+                    )}
+                  </Descriptions>
+                </Col>
+              </Row>
             </Card>
-          )}
-        </div>
-      ),
-    });
+
+            {/* Thông tin dịch vụ & lịch hẹn */}
+            <Card 
+              title={
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CalendarOutlined style={{ color: '#1890ff' }} />
+                  <span>Thông tin dịch vụ & Lịch hẹn</span>
+                </div>
+              }
+              size="small" 
+              style={{ marginBottom: '16px' }}
+            >
+              <Descriptions column={2} size="small">
+                <Descriptions.Item label="Dịch vụ">
+                  <div>
+                    <div style={{ fontWeight: 500, marginBottom: '4px' }}>
+                      {appointment.serviceName}
+                    </div>
+                    <Space>
+                      <Tag color={getTypeColor(appointment.appointmentType)}>
+                        {getTypeText(appointment.appointmentType)}
+                      </Tag>
+                    </Space>
+                  </div>
+                </Descriptions.Item>
+                <Descriptions.Item label="Loại lịch hẹn">
+                  <Tag color={getLocationColor(appointment.typeLocation)}>
+                    <EnvironmentOutlined style={{ marginRight: '4px' }} />
+                    {getLocationText(appointment.typeLocation)}
+                  </Tag>
+                </Descriptions.Item>
+                <Descriptions.Item label="Ngày hẹn">
+                  <CalendarOutlined style={{ marginRight: '4px', color: '#1890ff' }} />
+                  {appointment.appointmentDate}
+                </Descriptions.Item>
+                <Descriptions.Item label="Giờ hẹn">
+                  <ClockCircleOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
+                  {appointment.appointmentTime}
+                </Descriptions.Item>
+                {appointment.address && (
+                  <Descriptions.Item label="Địa chỉ cụ thể" span={2}>
+                    <EnvironmentOutlined style={{ marginRight: '4px' }} />
+                    {appointment.address}
+                  </Descriptions.Item>
+                )}
+                {appointment.type === 'appointment' && (detailData as any).serviceId?.price && (
+                  <Descriptions.Item label="Giá dịch vụ">
+                    <DollarOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
+                    {(detailData as any).serviceId.price.toLocaleString('vi-VN')} VNĐ
+                  </Descriptions.Item>
+                )}
+                {appointment.type === 'appointment' && (detailData as any).packageId?.price && (
+                  <Descriptions.Item label="Giá gói">
+                    <DollarOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
+                    {(detailData as any).packageId.price.toLocaleString('vi-VN')} VNĐ
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
+            </Card>
+
+            {/* Thông tin chi tiết */}
+            {(appointment.description || appointment.notes || 
+              (appointment.type === 'consultation' && (detailData as any).doctorNotes)) && (
+              <Card 
+                title={
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <EnvironmentOutlined style={{ color: '#52c41a' }} />
+                    <span>Thông tin chi tiết</span>
+                  </div>
+                }
+                size="small"
+              >
+                {appointment.description && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <Text strong>
+                      {appointment.type === 'consultation' ? 'Câu hỏi: ' : 'Mô tả: '}
+                    </Text>
+                    <Text>{appointment.description}</Text>
+                  </div>
+                )}
+                
+                {appointment.notes && (
+                  <div style={{ 
+                    padding: '12px', 
+                    backgroundColor: '#f6ffed', 
+                    borderRadius: '8px',
+                    border: '1px solid #b7eb8f',
+                    marginBottom: '12px'
+                  }}>
+                    <div style={{ fontWeight: 500, marginBottom: '4px', color: '#52c41a' }}>
+                      Ghi chú:
+                    </div>
+                    <Text>{appointment.notes}</Text>
+                  </div>
+                )}
+
+                {appointment.type === 'consultation' && (detailData as any).doctorNotes && (
+                  <div style={{ 
+                    padding: '12px', 
+                    backgroundColor: '#e6f7ff', 
+                    borderRadius: '8px',
+                    border: '1px solid #91d5ff'
+                  }}>
+                    <div style={{ fontWeight: 500, marginBottom: '4px', color: '#1890ff' }}>
+                      Ghi chú của bác sĩ:
+                    </div>
+                    <Text>{(detailData as any).doctorNotes}</Text>
+                  </div>
+                )}
+
+                {/* Hiển thị thông tin API response raw cho debug */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div style={{ marginTop: '16px' }}>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>
+                      Debug: {appointment.type} ID: {appointment._id}
+                    </Text>
+                  </div>
+                )}
+              </Card>
+            )}
+          </div>
+        ),
+      });
+    } catch (error) {
+      console.error('❌ [ERROR] Failed to show appointment details:', error);
+      message.error('Không thể tải chi tiết cuộc hẹn');
+    }
   };
 
   const columns: ColumnsType<Appointment> = [
@@ -411,7 +527,7 @@ const AppointmentManagement: React.FC = () => {
             <Tooltip title="Xác nhận">
               <Popconfirm
                 title="Xác nhận lịch hẹn này?"
-                onConfirm={() => handleStatusChange(record._id, 'confirmed')}
+                onConfirm={() => handleStatusChange(record._id, 'confirmed', record.type)}
                 okText="Xác nhận"
                 cancelText="Hủy"
               >
@@ -427,7 +543,7 @@ const AppointmentManagement: React.FC = () => {
           <Tooltip title="Xóa">
             <Popconfirm
               title="Bạn có chắc chắn muốn xóa lịch hẹn này?"
-              onConfirm={() => handleDelete(record._id)}
+              onConfirm={() => handleDelete(record._id, record.type)}
               okText="Xóa"
               cancelText="Hủy"
             >
@@ -451,7 +567,7 @@ const AppointmentManagement: React.FC = () => {
           Quản lý lịch hẹn
         </Title>
         <p style={{ color: '#6b7280', margin: '8px 0 0 0' }}>
-          NOTE: MOCKDATA - Quản lý lịch hẹn khám bệnh và tư vấn
+          Quản lý lịch hẹn khám bệnh và tư vấn trực tuyến của bác sĩ
         </p>
       </div>
 
@@ -481,6 +597,7 @@ const AppointmentManagement: React.FC = () => {
               <Option value="all">Tất cả loại</Option>
               <Option value="consultation">Tư vấn</Option>
               <Option value="test">Xét nghiệm</Option>
+              <Option value="online-consultation">Tư vấn online</Option>
               <Option value="other">Khác</Option>
             </Select>
             <Select
