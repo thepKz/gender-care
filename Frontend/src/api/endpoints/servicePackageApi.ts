@@ -33,7 +33,7 @@ export interface PackagePricingResponse {
       packageName: string;
       baseServicePrice: number;
       originalPrice: number;
-      discountPrice: number;
+      price: number;
       discountPercentage: number;
       durationInDays: number;
       maxUsages: number;
@@ -173,4 +173,17 @@ export const calculateAutoPrice = (data: {
 
 export const getServicePackageById = (id: string): Promise<ServicePackageResponse> => {
   return servicePackageApi.get(`/${id}`).then(res => res.data);
+};
+
+export default {
+  getServicePackages,
+  createServicePackage,
+  updateServicePackage,
+  searchServicePackages,
+  deleteServicePackage,
+  recoverServicePackage,
+  getPackagePricing,
+  getUsageProjection,
+  calculateAutoPrice,
+  getServicePackageById
 }; 

@@ -107,8 +107,8 @@ export interface IServicePackage {
   _id: string;
   name: string;
   description: string;
-  price: number;                // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
-  discountPrice: number;        // Giá đã giảm (nếu có) – không dùng mã
+  priceBeforeDiscount: number;                // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
+  price: number;        // Giá đã giảm (nếu có)
   serviceIds: string[];
   isActive: boolean;
   durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)

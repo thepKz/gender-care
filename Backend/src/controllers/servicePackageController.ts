@@ -1,5 +1,4 @@
 import { Request, Response } from 'express';
-import ServicePackage from '../models/ServicePackage';
 import ServicePackages from '../models/ServicePackages';
 import Service from '../models/Service';
 import { AuthRequest, ApiResponse, PaginationQuery } from '../types';
@@ -72,7 +71,7 @@ export const getAllServicePackages = async (req: Request, res: Response) => {
           const pricingResult = await PackagePricingService.calculatePackagePricing(pkg);
           const valueMetrics = PackagePricingService.calculateValueMetrics(
             pricingResult.baseServicePrice,
-            pricingResult.discountPrice,
+            pricingResult.price,
             pricingResult.originalPrice
           );
           return {
@@ -166,7 +165,7 @@ export const searchServicePackages = async (req: Request, res: Response) => {
           const pricingResult = await PackagePricingService.calculatePackagePricing(pkg);
           const valueMetrics = PackagePricingService.calculateValueMetrics(
             pricingResult.baseServicePrice,
-            pricingResult.discountPrice,
+            pricingResult.price,
             pricingResult.originalPrice
           );
           return {
@@ -209,17 +208,17 @@ export const searchServicePackages = async (req: Request, res: Response) => {
 // POST /service-packages - Create new service package with auto-calculated price
 export const createServicePackage = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, description, discountPrice, serviceIds, durationInDays, maxUsages, maxProfiles } = req.body;
+    const { name, description, price, serviceIds, durationInDays, maxUsages, maxProfiles } = req.body;
 
     // Validation
-    if (!name || !description || !discountPrice || !serviceIds || !Array.isArray(serviceIds) || serviceIds.length === 0 || !durationInDays || !maxUsages || !maxProfiles || !Array.isArray(maxProfiles)) {
+    if (!name || !description || !price || !serviceIds || !Array.isArray(serviceIds) || serviceIds.length === 0 || !durationInDays || !maxUsages || !maxProfiles || !Array.isArray(maxProfiles)) {
       const response: ApiResponse<any> = {
         success: false,
         message: 'All fields are required',
         errors: {
           name: !name ? 'Package name is required' : '',
           description: !description ? 'Description is required' : '',
-          discountPrice: !discountPrice ? 'Discount price is required' : '',
+          price: !price ? 'Price is required' : '',
           serviceIds: (!serviceIds || !Array.isArray(serviceIds) || serviceIds.length === 0) ? 'At least one service must be selected' : '',
           durationInDays: !durationInDays ? 'Duration in days is required' : '',
           maxUsages: !maxUsages ? 'Max usages is required' : '',
@@ -235,7 +234,7 @@ export const createServicePackage = async (req: AuthRequest, res: Response) => {
     // Validate package data using pricing service
     try {
       PackagePricingService.validatePackageData({ 
-        discountPrice: Number(discountPrice),
+        price: Number(price),
         serviceIds, 
         durationInDays: Number(durationInDays), 
         maxUsages: Number(maxUsages),
@@ -264,11 +263,11 @@ export const createServicePackage = async (req: AuthRequest, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Validate discount price not higher than calculated price
-    if (Number(discountPrice) > autoPrice.calculatedPrice) {
+    // Validate price not higher than calculated price
+    if (Number(price) > autoPrice.calculatedPrice) {
       const response: ApiResponse<any> = {
         success: false,
-        message: `Discount price (${Number(discountPrice).toLocaleString()}đ) cannot be higher than calculated price (${autoPrice.calculatedPrice.toLocaleString()}đ)`
+        message: `Price (${Number(price).toLocaleString()}đ) cannot be higher than calculated price (${autoPrice.calculatedPrice.toLocaleString()}đ)`
       };
       return res.status(400).json(response);
     }
@@ -279,7 +278,7 @@ export const createServicePackage = async (req: AuthRequest, res: Response) => {
     });
     
     if (existingPackage) {
-      if (!existingPackage.isActive) {
+      if (existingPackage.isActive === false) {
         const response: ApiResponse<any> = {
           success: false,
           message: 'Service package with this name exists but is deleted. Please recover it instead of creating new one.'
@@ -297,8 +296,8 @@ export const createServicePackage = async (req: AuthRequest, res: Response) => {
     const newPackage = new ServicePackages({
       name: name.trim(),
       description: description.trim(),
-      price: autoPrice.calculatedPrice,        // Giá gốc được tính tự động
-      discountPrice: Number(discountPrice),
+      priceBeforeDiscount: autoPrice.calculatedPrice,
+      price: Number(price),
       serviceIds,
       durationInDays: Number(durationInDays),
       maxUsages: Number(maxUsages),
@@ -322,7 +321,7 @@ export const createServicePackage = async (req: AuthRequest, res: Response) => {
     // Calculate value metrics
     const valueMetrics = PackagePricingService.calculateValueMetrics(
       pricingInfo.baseServicePrice,
-      pricingInfo.discountPrice,
+      pricingInfo.price,
       pricingInfo.originalPrice
     );
 
@@ -356,7 +355,7 @@ export const createServicePackage = async (req: AuthRequest, res: Response) => {
 export const updateServicePackage = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, discountPrice, serviceIds, durationInDays, maxUsages, maxProfiles, isActive } = req.body;
+    const { name, description, price, serviceIds, durationInDays, maxUsages, maxProfiles, isActive } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       const response: ApiResponse<any> = {
@@ -377,7 +376,7 @@ export const updateServicePackage = async (req: AuthRequest, res: Response) => {
 
     // Auto-calculate price if services or maxUsages changed
     let autoPrice: any = null;
-    let calculatedPrice = existingPackage.price; // Keep existing if not changed
+    let calculatedPrice = existingPackage.priceBeforeDiscount; // Keep existing if not changed
     
     if (serviceIds || maxUsages) {
       const finalServiceIds = serviceIds || existingPackage.serviceIds;
@@ -391,10 +390,10 @@ export const updateServicePackage = async (req: AuthRequest, res: Response) => {
     }
 
     // Validate pricing if both prices are provided
-    if (discountPrice && Number(discountPrice) > calculatedPrice) {
+    if (price && Number(price) > calculatedPrice) {
       const response: ApiResponse<any> = {
         success: false,
-        message: `Discount price (${Number(discountPrice).toLocaleString()}đ) cannot be higher than calculated price (${calculatedPrice.toLocaleString()}đ)`
+        message: `Price (${Number(price).toLocaleString()}đ) cannot be higher than calculated price (${calculatedPrice.toLocaleString()}đ)`
       };
       return res.status(400).json(response);
     }
@@ -440,17 +439,13 @@ export const updateServicePackage = async (req: AuthRequest, res: Response) => {
     const updateData: any = {};
     if (name) updateData.name = name.trim();
     if (description) updateData.description = description.trim();
-    if (discountPrice) updateData.discountPrice = Number(discountPrice);
+    if (serviceIds || maxUsages) updateData.priceBeforeDiscount = calculatedPrice;
+    if (price) updateData.price = Number(price);
     if (serviceIds) updateData.serviceIds = serviceIds;
     if (durationInDays) updateData.durationInDays = Number(durationInDays);
     if (maxUsages) updateData.maxUsages = Number(maxUsages);
     if (maxProfiles) updateData.maxProfiles = maxProfiles;
     if (typeof isActive === 'boolean') updateData.isActive = isActive;
-    
-    // Always update calculated price if services or maxUsages changed
-    if (autoPrice) {
-      updateData.price = calculatedPrice;
-    }
 
     const updatedPackage = await ServicePackages.findByIdAndUpdate(
       id,
@@ -476,7 +471,7 @@ export const updateServicePackage = async (req: AuthRequest, res: Response) => {
     // Calculate value metrics
     const valueMetrics = PackagePricingService.calculateValueMetrics(
       pricingInfo.baseServicePrice,
-      pricingInfo.discountPrice,
+      pricingInfo.price,
       pricingInfo.originalPrice
     );
 
@@ -490,7 +485,7 @@ export const updateServicePackage = async (req: AuthRequest, res: Response) => {
           autoCalculation: {
             totalServicePrice: autoPrice.totalServicePrice,
             calculatedPrice: autoPrice.calculatedPrice,
-            formula: `${autoPrice.totalServicePrice.toLocaleString()}đ × ${updateData.maxUsages || existingPackage.maxUsages} lượt = ${autoPrice.calculatedPrice.toLocaleString()}đ`
+            formula: `${autoPrice.totalServicePrice.toLocaleString()}đ × ${updatedPackage.maxUsages} lượt = ${autoPrice.calculatedPrice.toLocaleString()}đ`
           }
         })
       },
@@ -633,11 +628,11 @@ export const recoverServicePackage = async (req: AuthRequest, res: Response) => 
   }
 };
 
-// GET /service-packages/:id/pricing - Get pricing information for a specific package
+// GET /service-packages/:id/pricing - Get pricing info for a package
 export const getPackagePricing = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
+    
     if (!mongoose.Types.ObjectId.isValid(id)) {
       const response: ApiResponse<any> = {
         success: false,
@@ -646,8 +641,7 @@ export const getPackagePricing = async (req: Request, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Find the package
-    const packageData = await ServicePackages.findOne({ _id: id, isActive: true })
+    const packageData = await ServicePackages.findById(id)
       .populate({
         path: 'serviceIds',
         select: 'serviceName price description serviceType availableAt',
@@ -657,19 +651,25 @@ export const getPackagePricing = async (req: Request, res: Response) => {
     if (!packageData) {
       const response: ApiResponse<any> = {
         success: false,
-        message: 'Service package not found or is not active'
+        message: 'Service package not found'
       };
       return res.status(404).json(response);
     }
 
-    // Calculate pricing với as any để tránh lỗi type
+    // Calculate pricing information
     const pricingInfo = await PackagePricingService.calculatePackagePricing(packageData);
     
     // Calculate value metrics
     const valueMetrics = PackagePricingService.calculateValueMetrics(
       pricingInfo.baseServicePrice,
-      pricingInfo.discountPrice,
+      pricingInfo.price,
       pricingInfo.originalPrice
+    );
+
+    // Auto-calculate price from services and maxUsages
+    const autoPrice = await PackagePricingService.calculateAutoPrice(
+      packageData.serviceIds.map((id: any) => id.toString()),
+      packageData.maxUsages
     );
 
     const response: ApiResponse<any> = {
@@ -677,31 +677,36 @@ export const getPackagePricing = async (req: Request, res: Response) => {
       data: {
         package: packageData,
         pricingInfo,
-        valueMetrics
-      },
-      message: 'Package pricing calculated successfully'
+        valueMetrics,
+        autoCalculation: {
+          totalServicePrice: autoPrice.totalServicePrice,
+          calculatedPrice: autoPrice.calculatedPrice,
+          formula: `${autoPrice.totalServicePrice.toLocaleString()}đ × ${packageData.maxUsages} lượt = ${autoPrice.calculatedPrice.toLocaleString()}đ`
+        }
+      }
     };
 
     res.json(response);
   } catch (error: any) {
-    console.error('Error calculating package pricing:', error);
+    console.error('Error getting package pricing:', error);
     const response: ApiResponse<any> = {
       success: false,
-      message: 'Error calculating package pricing'
+      message: 'Internal server error'
     };
     res.status(500).json(response);
   }
 };
 
-// POST /service-packages/calculate-auto-price - Calculate auto price for service packages
+// POST /service-packages/calculate-price - Calculate auto price from services and maxUsages
 export const calculateAutoPrice = async (req: Request, res: Response) => {
   try {
     const { serviceIds, maxUsages } = req.body;
 
+    // Validation
     if (!serviceIds || !Array.isArray(serviceIds) || serviceIds.length === 0) {
       const response: ApiResponse<any> = {
         success: false,
-        message: 'serviceIds must be a non-empty array'
+        message: 'Service IDs are required'
       };
       return res.status(400).json(response);
     }
@@ -709,26 +714,12 @@ export const calculateAutoPrice = async (req: Request, res: Response) => {
     if (!maxUsages || maxUsages < 1) {
       const response: ApiResponse<any> = {
         success: false,
-        message: 'maxUsages must be a positive number'
+        message: 'Max usages must be at least 1'
       };
       return res.status(400).json(response);
     }
 
-    // Validate that all serviceIds exist and are not deleted
-    const services = await Service.find({ 
-      _id: { $in: serviceIds },
-      isDeleted: 0 
-    });
-    
-    if (services.length !== serviceIds.length) {
-      const response: ApiResponse<any> = {
-        success: false,
-        message: 'One or more services not found or have been deleted'
-      };
-      return res.status(400).json(response);
-    }
-
-    // Calculate auto price
+    // Auto-calculate price
     const autoPrice = await PackagePricingService.calculateAutoPrice(serviceIds, maxUsages);
 
     const response: ApiResponse<any> = {
@@ -736,15 +727,8 @@ export const calculateAutoPrice = async (req: Request, res: Response) => {
       data: {
         totalServicePrice: autoPrice.totalServicePrice,
         calculatedPrice: autoPrice.calculatedPrice,
-        maxUsages,
-        formula: `${autoPrice.totalServicePrice.toLocaleString()}đ × ${maxUsages} lượt = ${autoPrice.calculatedPrice.toLocaleString()}đ`,
-        services: services.map(service => ({
-          id: service._id,
-          name: service.serviceName,
-          price: service.price
-        }))
-      },
-      message: 'Auto price calculated successfully'
+        formula: `${autoPrice.totalServicePrice.toLocaleString()}đ × ${maxUsages} lượt = ${autoPrice.calculatedPrice.toLocaleString()}đ`
+      }
     };
 
     res.json(response);
@@ -752,44 +736,59 @@ export const calculateAutoPrice = async (req: Request, res: Response) => {
     console.error('Error calculating auto price:', error);
     const response: ApiResponse<any> = {
       success: false,
-      message: 'Error calculating auto price'
+      message: error.message || 'Internal server error'
     };
     res.status(500).json(response);
   }
 };
 
-// POST /service-packages/:id/usage-projection - Calculate usage projection for planning
+// POST /service-packages/:id/usage-projection - Calculate usage projection
 export const getUsageProjection = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { expectedUsagePerWeek } = req.body;
-
-    if (!expectedUsagePerWeek || expectedUsagePerWeek < 0) {
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       const response: ApiResponse<any> = {
         success: false,
-        message: 'expectedUsagePerWeek must be a positive number',
-        errors: { expectedUsagePerWeek: 'Invalid expected usage per week' }
+        message: 'Invalid package ID'
       };
       return res.status(400).json(response);
     }
 
-    // Find the package
-    const packageData = await ServicePackages.findOne({ _id: id, isActive: true });
+    if (!expectedUsagePerWeek || expectedUsagePerWeek < 0) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: 'Expected usage per week is required and must be positive'
+      };
+      return res.status(400).json(response);
+    }
 
+    const packageData = await ServicePackages.findById(id);
     if (!packageData) {
       const response: ApiResponse<any> = {
         success: false,
-        message: 'Service package not found or is not active'
+        message: 'Service package not found'
       };
       return res.status(404).json(response);
     }
 
     // Calculate usage projection
-    const usageProjection = PackagePricingService.calculateUsageProjection(
+    const projection = PackagePricingService.calculateUsageProjection(
       packageData.durationInDays,
       packageData.maxUsages,
-      expectedUsagePerWeek
+      Number(expectedUsagePerWeek)
     );
+
+    // Generate recommendation text
+    let recommendation = '';
+    if (projection.recommendation === 'perfect') {
+      recommendation = 'Gói dịch vụ này phù hợp với nhu cầu sử dụng của bạn.';
+    } else if (projection.recommendation === 'over') {
+      recommendation = 'Gói dịch vụ này có thể lớn hơn nhu cầu của bạn. Bạn có thể tiết kiệm bằng cách chọn gói nhỏ hơn.';
+    } else {
+      recommendation = 'Gói dịch vụ này có thể không đủ cho nhu cầu của bạn. Bạn nên xem xét gói lớn hơn.';
+    }
 
     const response: ApiResponse<any> = {
       success: true,
@@ -799,14 +798,9 @@ export const getUsageProjection = async (req: Request, res: Response) => {
         durationInDays: packageData.durationInDays,
         maxUsages: packageData.maxUsages,
         expectedUsagePerWeek,
-        projection: usageProjection,
-        recommendation: usageProjection.recommendation === 'perfect' ? 
-          'This package is perfect for your usage pattern' :
-          usageProjection.recommendation === 'over' ?
-          'You might not use all available usages - consider a smaller package' :
-          'You might exceed the usage limit - consider a larger package'
-      },
-      message: 'Usage projection calculated successfully'
+        projection,
+        recommendation
+      }
     };
 
     res.json(response);
@@ -814,7 +808,7 @@ export const getUsageProjection = async (req: Request, res: Response) => {
     console.error('Error calculating usage projection:', error);
     const response: ApiResponse<any> = {
       success: false,
-      message: 'Error calculating usage projection'
+      message: 'Internal server error'
     };
     res.status(500).json(response);
   }

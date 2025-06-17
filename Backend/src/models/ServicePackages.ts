@@ -3,8 +3,8 @@ import mongoose from 'mongoose';
 export interface IServicePackages extends mongoose.Document {
   name: string;
   description: string;
-  price: number;                // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
-  discountPrice: number;        // Giá đã giảm (nếu có) – không dùng mã
+  priceBeforeDiscount: number;  // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
+  price: number;                // Giá đã giảm (nếu có)
   serviceIds: mongoose.Types.ObjectId[];
   isActive: boolean;
   durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
@@ -23,6 +23,17 @@ const ServicePackagesSchema = new mongoose.Schema<IServicePackages>({
   description: { 
     type: String 
   },
+  priceBeforeDiscount: { 
+    type: Number, 
+    required: true,
+    min: 0,
+    validate: {
+      validator: function(value: number) {
+        return value >= 0;
+      },
+      message: 'Price before discount must be non-negative'
+    }
+  },
   price: { 
     type: Number, 
     required: true,
@@ -32,17 +43,6 @@ const ServicePackagesSchema = new mongoose.Schema<IServicePackages>({
         return value >= 0;
       },
       message: 'Price must be non-negative'
-    }
-  },
-  discountPrice: { 
-    type: Number, 
-    required: true,
-    min: 0,
-    validate: {
-      validator: function(value: number) {
-        return value >= 0;
-      },
-      message: 'Discount price must be non-negative'
     }
   },
   serviceIds: [{ 
@@ -110,9 +110,9 @@ const ServicePackagesSchema = new mongoose.Schema<IServicePackages>({
 
 // Pre-save validation để đảm bảo logic consistency
 ServicePackagesSchema.pre('save', function(next) {
-  // Validate discountPrice <= price
-  if (this.discountPrice > this.price) {
-    return next(new Error('Discounted price cannot be higher than original price'));
+  // Validate price <= priceBeforeDiscount
+  if (this.price > this.priceBeforeDiscount) {
+    return next(new Error('Price cannot be higher than original price (priceBeforeDiscount)'));
   }
   
   // Auto-set isMultiProfile based on maxProfiles

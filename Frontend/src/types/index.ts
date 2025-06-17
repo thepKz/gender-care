@@ -209,8 +209,8 @@ export interface ServicePackage {
   _id: string;
   name: string;
   description: string;
-  price: number;                // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
-  discountPrice: number;        // Giá đã giảm (nếu có) – không dùng mã
+  priceBeforeDiscount: number;  // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
+  price: number;                // Giá đã giảm (nếu có) – không dùng mã
   serviceIds: string[] | Service[];
   isActive: boolean;
   durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
@@ -222,7 +222,6 @@ export interface ServicePackage {
     packageName: string;
     baseServicePrice: number;       // Tổng giá của các dịch vụ trong gói
     originalPrice: number;          // Giá gốc được tính tự động
-    discountPrice: number;          // Giá đã giảm (nếu có)
     discountPercentage: number;     // % giảm giá
     durationInDays: number;         // Thời hạn sử dụng
     maxUsages: number;             // Số lượt được dùng tối đa
@@ -250,7 +249,7 @@ export interface ServicePackage {
 export interface CreateServicePackageRequest {
   name: string;
   description: string;
-  discountPrice: number;        // Chỉ cần nhập giá khuyến mãi, price sẽ được tính tự động
+  price: number;                // Chỉ cần nhập giá khuyến mãi, priceBeforeDiscount sẽ được tính tự động
   serviceIds: string[];
   durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
   maxUsages: number;           // 🔹 Số lượt được dùng tối đa cho toàn gói

@@ -7,7 +7,7 @@ export interface IPackagePricingResult {
   packageName: string;
   baseServicePrice: number;       // Tổng giá của các dịch vụ trong gói
   originalPrice: number;          // Giá gốc được tính tự động
-  discountPrice: number;          // Giá đã giảm (nếu có)
+  price: number;                  // Giá đã giảm (nếu có)
   discountPercentage: number;     // % giảm giá
   durationInDays: number;         // Thời hạn sử dụng
   maxUsages: number;             // Số lượt được dùng tối đa
@@ -84,24 +84,24 @@ export class PackagePricingService {
       );
       
       // Tính discount percentage
-      const discountPercentage = packageData.price > 0 
-        ? Math.round(((packageData.price - packageData.discountPrice) / packageData.price) * 100)
+      const discountPercentage = packageData.priceBeforeDiscount > 0 
+        ? Math.round(((packageData.priceBeforeDiscount - packageData.price) / packageData.priceBeforeDiscount) * 100)
         : 0;
       
       // Tính các metrics pricing
-      const pricePerUsage = packageData.discountPrice / packageData.maxUsages;
-      const pricePerDay = packageData.discountPrice / packageData.durationInDays;
+      const pricePerUsage = packageData.price / packageData.maxUsages;
+      const pricePerDay = packageData.price / packageData.durationInDays;
       
       // Tính giá trung bình mỗi profile (cho multi-profile packages)
       const avgProfileCount = packageData.maxProfiles.reduce((a: number, b: number) => a + b, 0) / packageData.maxProfiles.length;
-      const pricePerProfile = packageData.isMultiProfile ? packageData.discountPrice / avgProfileCount : packageData.discountPrice;
+      const pricePerProfile = packageData.isMultiProfile ? packageData.price / avgProfileCount : packageData.price;
       
       return {
         packageId,
         packageName: packageData.name,
         baseServicePrice: autoPrice.totalServicePrice,
         originalPrice: autoPrice.calculatedPrice,  // Giá được tính tự động
-        discountPrice: packageData.discountPrice,
+        price: packageData.price,
         discountPercentage,
         durationInDays: packageData.durationInDays,
         maxUsages: packageData.maxUsages,
@@ -136,8 +136,8 @@ export class PackagePricingService {
       throw new Error('serviceIds is required and must be a non-empty array');
     }
 
-    if (!packageData.discountPrice || packageData.discountPrice < 0) {
-      throw new Error('discountPrice must be a positive number');
+    if (!packageData.price || packageData.price < 0) {
+      throw new Error('Price must be a positive number');
     }
 
     // Validate duration limits
@@ -168,14 +168,14 @@ export class PackagePricingService {
    */
   static calculateValueMetrics(
     baseServicePrice: number, 
-    discountPrice: number, 
+    price: number, 
     originalPrice: number
   ): {
     savingsAmount: number;
     savingsPercentage: number;
     valueRating: 'excellent' | 'good' | 'fair' | 'poor';
   } {
-    const savingsAmount = originalPrice - discountPrice;
+    const savingsAmount = originalPrice - price;
     const savingsPercentage = originalPrice > 0 ? Math.round((savingsAmount / originalPrice) * 100) : 0;
     
     let valueRating: 'excellent' | 'good' | 'fair' | 'poor' = 'poor';
@@ -242,13 +242,13 @@ export class PackagePricingService {
       };
     }
 
-    const pricePerProfile = packageData.discountPrice / selectedProfileCount;
+    const pricePerProfile = packageData.price / selectedProfileCount;
     const usagePerProfile = Math.floor(packageData.maxUsages / selectedProfileCount);
 
     return {
       profileCount: selectedProfileCount,
-      totalPrice: packageData.discountPrice,
-      pricePerProfile: Math.round(pricePerProfile),
+      totalPrice: packageData.price,
+      pricePerProfile,
       usagePerProfile,
       isSupported: true
     };

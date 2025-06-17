@@ -297,7 +297,6 @@ const ManagerServicePackagesPage: React.FC = () => {
         const updateData: UpdateServicePackageRequest = {
           name: values.name,
           description: values.description,
-          priceBeforeDiscount: values.priceBeforeDiscount,
           price: values.price,
           serviceIds: values.serviceIds
         };
@@ -308,9 +307,11 @@ const ManagerServicePackagesPage: React.FC = () => {
         const createData: CreateServicePackageRequest = {
           name: values.name,
           description: values.description,
-          priceBeforeDiscount: values.priceBeforeDiscount,
           price: values.price,
-          serviceIds: values.serviceIds
+          serviceIds: values.serviceIds,
+          durationInDays: values.durationInDays,
+          maxUsages: values.maxUsages,
+          maxProfiles: values.maxProfiles
         };
         await createServicePackage(createData);
         message.success('Tạo gói dịch vụ thành công!');

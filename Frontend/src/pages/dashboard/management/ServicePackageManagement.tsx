@@ -58,8 +58,8 @@ interface ServicePackage {
   _id: string;
   name: string;
   description: string;
-  price: number;                // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
-  discountPrice: number;        // Giá đã giảm (nếu có) – không dùng mã
+  priceBeforeDiscount: number;                // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
+  price: number;        // Giá đã giảm (nếu có) – không dùng mã
   serviceIds: string[];
   isActive: boolean;
   durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
@@ -71,7 +71,7 @@ interface ServicePackage {
     packageName: string;
     baseServicePrice: number;       // Tổng giá của các dịch vụ trong gói
     originalPrice: number;          // Giá gốc được tính tự động
-    discountPrice: number;          // Giá đã giảm (nếu có)
+    price: number;          // Giá đã giảm (nếu có)
     discountPercentage: number;     // % giảm giá
     durationInDays: number;         // Thời hạn sử dụng
     maxUsages: number;             // Số lượt được dùng tối đa
@@ -134,9 +134,9 @@ const ServicePackageManagement: React.FC = () => {
       const selectedServices = services.filter(s => watchedServiceIds.includes(s._id));
       const totalServicePrice = selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
       const calculatedPrice = totalServicePrice * watchedMaxUsages;
-      form.setFieldsValue({ price: calculatedPrice });
+      form.setFieldsValue({ priceBeforeDiscount: calculatedPrice });
     } else {
-      form.setFieldsValue({ price: 0 });
+      form.setFieldsValue({ priceBeforeDiscount: 0 });
     }
   }, [watchedServiceIds, watchedMaxUsages, services]);
 
@@ -172,8 +172,8 @@ const ServicePackageManagement: React.FC = () => {
             _id: pkg._id,
             name: pkg.name,
             description: pkg.description,
-            price: pkg.price || 0,                      // Giá gốc được tính tự động
-            discountPrice: pkg.discountPrice || 0,      // Giá đã giảm
+            priceBeforeDiscount: pkg.priceBeforeDiscount || 0,                      // Giá gốc được tính tự động
+            price: pkg.price || 0,        // Giá đã giảm
             serviceIds: pkg.serviceIds || [],
             isActive: isActiveValue,
             durationInDays: pkg.durationInDays || 30,   // Thời hạn sử dụng
@@ -276,8 +276,8 @@ const ServicePackageManagement: React.FC = () => {
           name: pkg.name,
           description: pkg.description,
           serviceIds: normalizedServiceIds,
+          priceBeforeDiscount: pkg.priceBeforeDiscount,
           price: pkg.price,
-          discountPrice: pkg.discountPrice,
           durationInDays: pkg.durationInDays,
           maxUsages: pkg.maxUsages,
           isActive: pkg.isActive,
@@ -289,8 +289,8 @@ const ServicePackageManagement: React.FC = () => {
         name: pkg.name,
         description: pkg.description,
         serviceIds: normalizedServiceIds,
+        priceBeforeDiscount: pkg.priceBeforeDiscount,
         price: pkg.price,
-        discountPrice: pkg.discountPrice,
         durationInDays: pkg.durationInDays,
         maxUsages: pkg.maxUsages,
         isActive: pkg.isActive,
@@ -304,7 +304,7 @@ const ServicePackageManagement: React.FC = () => {
         const selectedServices = services.filter(s => serviceIds.includes(s._id));
         const totalServicePrice = selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
         const calculatedPrice = totalServicePrice * maxUsages;
-        form.setFieldsValue({ price: calculatedPrice });
+        form.setFieldsValue({ priceBeforeDiscount: calculatedPrice });
       }
     }, 100);
     setIsModalVisible(true);
@@ -344,13 +344,13 @@ const ServicePackageManagement: React.FC = () => {
       const values = await form.validateFields();
       
       // Kiểm tra giá khuyến mãi không được lớn hơn giá gốc
-      if (values.discountPrice > values.price) {
+      if (values.price > values.priceBeforeDiscount) {
         message.error('Giá khuyến mãi không được lớn hơn giá gốc');
         return;
       }
       
       // Kiểm tra giá không được âm
-      if (values.price < 0 || values.discountPrice < 0) {
+      if (values.price < 0 || values.priceBeforeDiscount < 0) {
         message.error('Giá không được âm');
         return;
       }
@@ -360,9 +360,26 @@ const ServicePackageManagement: React.FC = () => {
         await updateServicePackage(editingPackage._id, values);
         message.success('Cập nhật gói dịch vụ thành công');
       } else {
-        // Create new package
-        await createServicePackage(values);
-        message.success('Tạo gói dịch vụ thành công');
+        // Create new package - chỉ gửi các trường bắt buộc theo định dạng backend yêu cầu
+        try {
+          const submitData = {
+            name: values.name,
+            description: values.description,
+            price: values.price,
+            serviceIds: values.serviceIds,
+            durationInDays: values.durationInDays,
+            maxUsages: values.maxUsages,
+            maxProfiles: values.maxProfiles
+          };
+          
+          console.log('Submitting data:', submitData);
+          await createServicePackage(submitData);
+          message.success('Tạo gói dịch vụ thành công');
+        } catch (err: any) {
+          console.error('Error creating service package:', err.response?.data || err);
+          message.error(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi tạo gói dịch vụ');
+          return;
+        }
       }
       
       setIsModalVisible(false);
@@ -370,6 +387,7 @@ const ServicePackageManagement: React.FC = () => {
       setEditingPackage(null);
       loadData();
     } catch (err: any) {
+      console.error('Form validation error:', err);
       message.error(err?.message || 'Có lỗi xảy ra');
     }
   };
@@ -395,10 +413,10 @@ const ServicePackageManagement: React.FC = () => {
             </Descriptions.Item>
             <Descriptions.Item label="Mô tả" span={2}>{pkg.description}</Descriptions.Item>
             <Descriptions.Item label="Giá gốc">
-              {pkg.price.toLocaleString('vi-VN')}đ
+              {pkg.priceBeforeDiscount.toLocaleString('vi-VN')}đ
             </Descriptions.Item>
             <Descriptions.Item label="Giá khuyến mãi">
-              {pkg.discountPrice.toLocaleString('vi-VN')}đ
+              {pkg.price.toLocaleString('vi-VN')}đ
             </Descriptions.Item>
             <Descriptions.Item label="Thời hạn sử dụng">
               {pkg.durationInDays} ngày
@@ -468,24 +486,16 @@ const ServicePackageManagement: React.FC = () => {
 
   const handleCalculateAutoPrice = async (serviceIds: string[], maxUsages: number) => {
     if (!serviceIds?.length || !maxUsages) return;
-    
     try {
       setCalculatingPrice(true);
       const response = await calculateAutoPrice({
         serviceIds,
         maxUsages
       });
-      
       if (response.success && response.data) {
         const calculatedPrice = response.data.calculatedPrice;
         setAutoCalculatedPrice(calculatedPrice);
-        form.setFieldsValue({ price: calculatedPrice });
-        
-        // Đảm bảo giá khuyến mãi không vượt quá giá gốc
-        const currentDiscountPrice = form.getFieldValue('discountPrice');
-        if (currentDiscountPrice > calculatedPrice) {
-          form.setFieldsValue({ discountPrice: calculatedPrice });
-        }
+        form.setFieldsValue({ priceBeforeDiscount: calculatedPrice });
       }
     } catch (err: any) {
       console.error('Lỗi khi tính giá tự động:', err);
@@ -652,11 +662,11 @@ const ServicePackageManagement: React.FC = () => {
               render: (_, record: ServicePackage) => (
                 <div>
                   <Text delete style={{ color: '#999' }}>
-                    {record.price.toLocaleString('vi-VN')}đ
+                    {record.priceBeforeDiscount.toLocaleString('vi-VN')}đ
                   </Text>
                   <br />
                   <Text strong style={{ color: '#1890ff' }}>
-                    {record.discountPrice.toLocaleString('vi-VN')}đ
+                    {record.price.toLocaleString('vi-VN')}đ
                   </Text>
                   {record.pricingInfo && record.pricingInfo.discountPercentage > 0 && (
                     <Tag color="red" style={{ marginLeft: 4, fontSize: '12px' }}>
@@ -832,7 +842,7 @@ const ServicePackageManagement: React.FC = () => {
                   const selectedServices = services.filter(s => values.includes(s._id));
                   const totalServicePrice = selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
                   const calculatedPrice = totalServicePrice * maxUsages;
-                  form.setFieldsValue({ price: calculatedPrice });
+                  form.setFieldsValue({ priceBeforeDiscount: calculatedPrice });
                 }
               }}
             >
@@ -847,7 +857,7 @@ const ServicePackageManagement: React.FC = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                name="price"
+                name="priceBeforeDiscount"
                 label="Giá gốc (VNĐ)"
                 tooltip="Giá gốc được tính tự động dựa trên các dịch vụ đã chọn và số lượt sử dụng"
               >
@@ -864,17 +874,26 @@ const ServicePackageManagement: React.FC = () => {
             </Col>
             <Col span={12}>
               <Form.Item
-                name="discountPrice"
+                name="price"
                 label="Giá khuyến mãi (VNĐ)"
                 rules={[
                   { required: true, message: 'Vui lòng nhập giá khuyến mãi!' },
                   ({ getFieldValue }) => ({
                     validator(_, value) {
-                      const price = getFieldValue('price');
-                      if (!value || !price || value <= price) {
-                        return Promise.resolve();
+                      const priceBeforeDiscount = getFieldValue('priceBeforeDiscount');
+                      if (value === undefined || value === null || value === '') {
+                        return Promise.reject(new Error('Vui lòng nhập giá khuyến mãi!'));
                       }
-                      return Promise.reject(new Error('Giá khuyến mãi phải nhỏ hơn hoặc bằng giá gốc!'));
+                      if (priceBeforeDiscount === 0) {
+                        return Promise.reject(new Error('Giá gốc phải lớn hơn 0!'));
+                      }
+                      if (value > priceBeforeDiscount) {
+                        return Promise.reject(new Error('Giá khuyến mãi phải nhỏ hơn hoặc bằng giá gốc!'));
+                      }
+                      if (value < 0) {
+                        return Promise.reject(new Error('Giá khuyến mãi không được âm!'));
+                      }
+                      return Promise.resolve();
                     },
                   }),
                 ]}
@@ -882,7 +901,7 @@ const ServicePackageManagement: React.FC = () => {
                 <InputNumber
                   style={{ width: '100%' }}
                   min={0}
-                  max={form.getFieldValue('price') || 0}
+                  max={form.getFieldValue('priceBeforeDiscount') || 0}
                   formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   parser={(value: any) => (value || '').replace(/\$\s?|(,*)/g, '')}
                   placeholder="Nhập giá khuyến mãi"
