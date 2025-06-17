@@ -320,7 +320,7 @@ const DoctorSchedulePreview: React.FC<DoctorSchedulePreviewProps> = ({
               </>
             )}
 
-            {selectedItem.typeLocation === 'online' && selectedItem.meetingInfo && (
+            {selectedItem.typeLocation === 'Online' && selectedItem.meetingInfo && (
               <>
                 <Divider orientation="left">Thông tin cuộc họp</Divider>
                 <Descriptions column={1} bordered size="small">

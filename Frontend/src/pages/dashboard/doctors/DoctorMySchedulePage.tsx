@@ -201,7 +201,7 @@ const DoctorMySchedulePage: React.FC = () => {
         break;
       
       case 'scheduled':
-        if (item.typeLocation === 'online') {
+        if (item.typeLocation === 'Online') {
           buttons.push(
             <Tooltip key="start" title="Bắt đầu tư vấn">
               <Button 

@@ -8,19 +8,33 @@ const isValidObjectId = (id: string): boolean => {
   return mongoose.Types.ObjectId.isValid(id);
 };
 
-// 🎯 Tìm bác sĩ tốt nhất cho slot khả dụng gần nhất
-export const findBestDoctorForNextSlot = async (): Promise<{
-  doctorId: string;
-  appointmentDate: Date;
-  appointmentSlot: string;
-  slotId: any;
-  doctorName: string;
-}> => {
+// 🔍 TÌM CÁC TIME SLOT GẦN NHẤT CÓ SLOT TRỐNG
+const findNearestAvailableTimeSlot = async (): Promise<{
+  date: Date;
+  slotTime: string;
+  availableDoctors: Array<{
+    doctorId: string;
+    doctorName: string;
+    slotId: any;
+    bookedSlots: number;
+  }>;
+}[]> => {
   try {
-    // Import DoctorSchedules model
-    const DoctorSchedules = require('../models/DoctorSchedules').default;
+    console.log('🔍 [NEAREST-SLOT] Finding nearest available time slots...');
     
-    console.log('🔍 [SMART-ASSIGN] Starting smart doctor assignment...');
+    // ✅ Import models với error handling
+    let DoctorSchedules;
+    try {
+      DoctorSchedules = require('../models/DoctorSchedules').default;
+    } catch (importError) {
+      console.error('❌ [IMPORT-ERROR] Failed to import DoctorSchedules:', importError);
+      const { default: DoctorSchedulesModel } = await import('../models/DoctorSchedules');
+      DoctorSchedules = DoctorSchedulesModel;
+    }
+    
+    if (!DoctorSchedules) {
+      throw new Error('Không thể load model DoctorSchedules. Vui lòng kiểm tra cấu trúc database.');
+    }
     
     // Lấy tất cả DoctorSchedule và populate doctor info
     const allSchedules = await DoctorSchedules.find()
@@ -33,45 +47,68 @@ export const findBestDoctorForNextSlot = async (): Promise<{
         select: 'userId bio specialization'
       });
 
+    console.log(`📊 [NEAREST-SLOT] Found ${allSchedules.length} doctor schedules`);
+    
     if (allSchedules.length === 0) {
-      throw new Error('Không có bác sĩ nào có lịch làm việc trong hệ thống');
+      throw new Error('Không có bác sĩ nào có lịch làm việc trong hệ thống. Vui lòng tạo lịch làm việc cho bác sĩ trước.');
     }
 
-    // 🎯 STEP 1: Tìm tất cả slot khả dụng từ thời gian hiện tại
+    // ✅ Validate schedules có valid doctor data
+    const validSchedules = allSchedules.filter((schedule: any) => {
+      const isValid = schedule.doctorId && 
+                     schedule.doctorId.userId && 
+                     schedule.doctorId.userId.fullName;
+      if (!isValid) {
+        console.warn(`⚠️ [NEAREST-SLOT] Invalid schedule found: ${schedule._id}, skipping...`);
+      }
+      return isValid;
+    });
+
+    if (validSchedules.length === 0) {
+      throw new Error('Không có bác sĩ nào có thông tin hợp lệ trong hệ thống. Vui lòng kiểm tra dữ liệu bác sĩ.');
+    }
+
+    // Tính thống kê booked slots cho mỗi doctor
+    const doctorStats = new Map<string, number>();
+    for (const schedule of validSchedules) {
+      const doctorId = schedule.doctorId._id.toString();
+      let bookedCount = 0;
+      
+      for (const daySchedule of schedule.weekSchedule) {
+        bookedCount += daySchedule.slots.filter((slot: any) => slot.status === 'Booked').length;
+      }
+      
+      doctorStats.set(doctorId, bookedCount);
+    }
+
+    // Thu thập slots theo thời gian
     const now = new Date();
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    console.log(`🕐 [SMART-ASSIGN] Current time: ${now.toLocaleString('vi-VN')}`);
+    console.log(`🕐 [NEAREST-SLOT] Current time: ${now.toLocaleString('vi-VN')}`);
 
-    const availableSlots: Array<{
+    // Group slots theo thời gian (date + slotTime)
+    const slotsByTime = new Map<string, {
       date: Date;
       slotTime: string;
-      slotId: any;
-      doctors: Array<{
-        doctorId: any;
+      availableDoctors: Array<{
+        doctorId: string;
         doctorName: string;
+        slotId: any;
         bookedSlots: number;
       }>;
-    }> = [];
+    }>();
 
-    // Duyệt qua tất cả schedule để tìm slot khả dụng
-    for (const schedule of allSchedules) {
+    // Duyệt qua tất cả schedule để group slots
+    for (const schedule of validSchedules) {
       const doctor = schedule.doctorId as any;
-      if (!doctor || !doctor.userId) continue;
-
+      const doctorId = doctor._id.toString();
       const doctorName = doctor.userId.fullName;
-      console.log(`👨‍⚕️ [SMART-ASSIGN] Checking doctor: ${doctorName} (${doctor._id})`);
+      const bookedSlots = doctorStats.get(doctorId) || 0;
 
-      // Tính tổng slot booked của doctor này
-      let totalBookedSlots = 0;
-      for (const daySchedule of schedule.weekSchedule) {
-        totalBookedSlots += daySchedule.slots.filter((slot: any) => slot.status === 'Booked').length;
-      }
-
-      // Duyệt qua từng ngày trong lịch của doctor
       for (const daySchedule of schedule.weekSchedule) {
         const scheduleDate = new Date(daySchedule.dayOfWeek);
         scheduleDate.setHours(0, 0, 0, 0);
@@ -79,51 +116,47 @@ export const findBestDoctorForNextSlot = async (): Promise<{
         // Chỉ xét lịch từ hôm nay trở đi
         if (scheduleDate.getTime() < today.getTime()) continue;
 
-        // Duyệt qua từng slot trong ngày
         for (const slot of daySchedule.slots) {
           if (slot.status !== 'Free') continue;
 
           const [slotStartHour, slotStartMinute] = slot.slotTime.split('-')[0].split(':').map(Number);
           
-          // Nếu là hôm nay, chỉ lấy slot sau thời gian hiện tại
+          // Nếu là hôm nay, chỉ lấy slot sau thời gian hiện tại (+ buffer 15 phút)
           if (scheduleDate.getTime() === today.getTime()) {
-            if (slotStartHour < currentHour || (slotStartHour === currentHour && slotStartMinute <= currentMinute)) {
+            if (slotStartHour < currentHour || 
+                (slotStartHour === currentHour && slotStartMinute <= (currentMinute + 15))) {
               continue;
             }
           }
 
-          // Tìm xem đã có slot này trong availableSlots chưa
-          let existingSlot = availableSlots.find(
-            as => as.date.getTime() === scheduleDate.getTime() && as.slotTime === slot.slotTime
-          );
-
-          if (!existingSlot) {
-            // Tạo slot mới
-            existingSlot = {
+          // Key để group: date + slotTime
+          const timeKey = `${scheduleDate.toISOString().split('T')[0]}_${slot.slotTime}`;
+          
+          if (!slotsByTime.has(timeKey)) {
+            slotsByTime.set(timeKey, {
               date: new Date(scheduleDate),
               slotTime: slot.slotTime,
-              slotId: slot._id,
-              doctors: []
-            };
-            availableSlots.push(existingSlot);
+              availableDoctors: []
+            });
           }
 
-          // Thêm doctor vào slot này
-          existingSlot.doctors.push({
-            doctorId: doctor._id,
+          slotsByTime.get(timeKey)!.availableDoctors.push({
+            doctorId,
             doctorName,
-            bookedSlots: totalBookedSlots
+            slotId: slot._id,
+            bookedSlots
           });
         }
       }
     }
 
-    if (availableSlots.length === 0) {
-      throw new Error('Không có slot nào khả dụng từ thời gian hiện tại. Vui lòng tạo thêm lịch làm việc.');
+    if (slotsByTime.size === 0) {
+      throw new Error('Không có slot nào khả dụng từ thời gian hiện tại. Vui lòng liên hệ để được hỗ trợ.');
     }
 
-    // 🎯 STEP 2: Sắp xếp slot theo thời gian gần nhất
-    availableSlots.sort((a, b) => {
+    // Convert Map thành Array và sort theo thời gian
+    const sortedTimeSlots = Array.from(slotsByTime.values()).sort((a, b) => {
+      // So sánh ngày trước
       const dateCompare = a.date.getTime() - b.date.getTime();
       if (dateCompare !== 0) return dateCompare;
       
@@ -133,83 +166,266 @@ export const findBestDoctorForNextSlot = async (): Promise<{
       return aHour - bHour;
     });
 
-    console.log(`📅 [SMART-ASSIGN] Found ${availableSlots.length} available slots`);
-
-    // 🎯 STEP 3: Chọn slot gần nhất và tìm bác sĩ ít booked nhất trong slot đó
-    const nearestSlot = availableSlots[0];
+    console.log(`📅 [NEAREST-SLOT] Found ${sortedTimeSlots.length} unique time slots`);
     
-    console.log(`🎯 [SMART-ASSIGN] Nearest slot: ${nearestSlot.slotTime} on ${nearestSlot.date.toISOString().split('T')[0]}`);
-    console.log(`👥 [SMART-ASSIGN] Available doctors in this slot: ${nearestSlot.doctors.length}`);
-
-    // Tìm bác sĩ có ít slot booked nhất trong slot này
-    nearestSlot.doctors.sort((a, b) => a.bookedSlots - b.bookedSlots);
-    const bestDoctor = nearestSlot.doctors[0];
-
-    console.log(`🏆 [SMART-ASSIGN] Selected doctor: ${bestDoctor.doctorName} (bookedSlots: ${bestDoctor.bookedSlots})`);
-
-    return {
-      doctorId: bestDoctor.doctorId.toString(),
-      appointmentDate: nearestSlot.date,
-      appointmentSlot: nearestSlot.slotTime,
-      slotId: nearestSlot.slotId,
-      doctorName: bestDoctor.doctorName
-    };
+    return sortedTimeSlots;
 
   } catch (error) {
-    console.error('Error finding best doctor for next slot:', error);
+    console.error('❌ [ERROR] Finding nearest slots failed:', error);
     throw error;
   }
 };
 
-// Legacy function để backward compatibility
-export const findLeastBookedDoctor = async (): Promise<string> => {
+// 👨‍⚕️ CHỌN DOCTOR TỐI ỦU CHO MỘT TIME SLOT CỤ THỂ
+const selectOptimalDoctorForTimeSlot = (availableDoctors: Array<{
+  doctorId: string;
+  doctorName: string;
+  slotId: any;
+  bookedSlots: number;
+}>): {
+  doctorId: string;
+  doctorName: string;
+  slotId: any;
+  bookedSlots: number;
+} => {
   try {
-    const result = await findBestDoctorForNextSlot();
-    return result.doctorId;
+    console.log(`👨‍⚕️ [DOCTOR-SELECT] Selecting optimal doctor from ${availableDoctors.length} candidates`);
+    
+    if (availableDoctors.length === 0) {
+      throw new Error('Không có bác sĩ khả dụng cho time slot này');
+    }
+
+    // Nếu chỉ có 1 doctor → chọn luôn
+    if (availableDoctors.length === 1) {
+      const selectedDoctor = availableDoctors[0];
+      console.log(`🎯 [DOCTOR-SELECT] Only 1 doctor available: ${selectedDoctor.doctorName}`);
+      return selectedDoctor;
+    }
+
+    // Nếu có >1 doctor → chọn doctor ít booked slots nhất
+    const sortedByBooked = [...availableDoctors].sort((a, b) => a.bookedSlots - b.bookedSlots);
+    const selectedDoctor = sortedByBooked[0];
+    
+    console.log(`🏆 [DOCTOR-SELECT] Selected ${selectedDoctor.doctorName} with ${selectedDoctor.bookedSlots} booked slots`);
+    console.log(`   📊 Other candidates:`, sortedByBooked.slice(1).map(d => `${d.doctorName}(${d.bookedSlots})`).join(', '));
+    
+    return selectedDoctor;
+
   } catch (error) {
+    console.error('❌ [ERROR] Selecting optimal doctor failed:', error);
     throw error;
   }
 };
 
-// Tạo DoctorQA mới
+// 🎯 SMART SLOT ASSIGNMENT - Logic mới với 3 bước rõ ràng
+export const findBestAvailableSlot = async (): Promise<{
+  doctorId: string;
+  appointmentDate: Date;
+  appointmentSlot: string;
+  slotId: any;
+  doctorName: string;
+}> => {
+  try {
+    console.log('🚀 [SMART-ASSIGN] Starting intelligent slot assignment with new logic...');
+    
+    // BƯỚC 1: Tìm tất cả time slots gần nhất có slot trống
+    const nearestTimeSlots = await findNearestAvailableTimeSlot();
+    
+    if (nearestTimeSlots.length === 0) {
+      throw new Error('Không có slot nào khả dụng từ thời gian hiện tại. Vui lòng liên hệ để được hỗ trợ.');
+    }
+
+    // BƯỚC 2: Lặp qua từng time slot theo thứ tự gần nhất cho đến khi tìm được slot phù hợp
+    for (const timeSlot of nearestTimeSlots) {
+      console.log(`🔄 [SMART-ASSIGN] Checking time slot: ${timeSlot.date.toISOString().split('T')[0]} ${timeSlot.slotTime}`);
+      console.log(`   📊 Available doctors: ${timeSlot.availableDoctors.length}`);
+
+      if (timeSlot.availableDoctors.length === 0) {
+        console.log(`   ⏭️ [SMART-ASSIGN] No doctors available for this slot, trying next...`);
+        continue; // Chuyển sang slot tiếp theo
+      }
+
+      // BƯỚC 3: Chọn doctor tối ưu cho time slot này
+      try {
+        const selectedDoctor = selectOptimalDoctorForTimeSlot(timeSlot.availableDoctors);
+        
+        console.log(`🏆 [SMART-ASSIGN] Successfully found optimal slot:`);
+        console.log(`   📅 Date: ${timeSlot.date.toISOString().split('T')[0]}`);
+        console.log(`   🕐 Time: ${timeSlot.slotTime}`);
+        console.log(`   👨‍⚕️ Doctor: ${selectedDoctor.doctorName} (${selectedDoctor.bookedSlots} booked slots)`);
+
+        return {
+          doctorId: selectedDoctor.doctorId,
+          appointmentDate: timeSlot.date,
+          appointmentSlot: timeSlot.slotTime,
+          slotId: selectedDoctor.slotId,
+          doctorName: selectedDoctor.doctorName
+        };
+
+      } catch (doctorSelectionError) {
+        console.warn(`⚠️ [SMART-ASSIGN] Failed to select doctor for this slot:`, doctorSelectionError);
+        continue; // Thử slot tiếp theo
+      }
+    }
+
+    // Nếu đến đây nghĩa là không tìm được slot nào phù hợp
+    throw new Error('Không thể tìm thấy slot phù hợp sau khi kiểm tra tất cả các time slot khả dụng. Vui lòng liên hệ để được hỗ trợ.');
+
+  } catch (error) {
+    console.error('❌ [ERROR] Smart assignment failed:', error);
+    throw error;
+  }
+};
+
+// 🔒 Book slot và set timeout để auto-release sau 15 phút
+const bookSlotWithTimeout = async (doctorId: string, slotId: any, qaId: string) => {
+  try {
+    console.log('🔒 [BOOKING] Starting slot booking...', { doctorId, slotId, qaId });
+    const DoctorSchedules = require('../models/DoctorSchedules').default;
+    
+    // Book slot
+    await DoctorSchedules.updateOne(
+      { 
+        doctorId,
+        'weekSchedule.slots._id': slotId
+      },
+      {
+        $set: {
+          'weekSchedule.$.slots.$[slot].status': 'Booked',
+          'weekSchedule.$.slots.$[slot].bookedBy': qaId,
+          'weekSchedule.$.slots.$[slot].bookedAt': new Date()
+        }
+      },
+      {
+        arrayFilters: [{ 'slot._id': slotId }]
+      }
+    );
+
+    console.log(`🔒 [BOOKING] Slot ${slotId} booked for QA ${qaId}`);
+
+    // Set timeout để auto-release sau 15 phút nếu chưa thanh toán
+    setTimeout(async () => {
+      try {
+        const qa = await DoctorQA.findById(qaId);
+        if (qa && qa.status === 'pending_payment') {
+          // Chưa thanh toán sau 15 phút → release slot và cancel QA
+          await releaseSlot(doctorId, slotId);
+          await DoctorQA.findByIdAndUpdate(qaId, { status: 'cancelled' });
+          console.log(`⏰ [TIMEOUT] Auto-cancelled QA ${qaId} after 15 minutes`);
+        }
+      } catch (error) {
+        console.error('❌ [ERROR] Timeout handler failed:', error);
+      }
+    }, 15 * 60 * 1000); // 15 phút
+
+  } catch (error) {
+    console.error('❌ [ERROR] Booking slot failed:', error);
+    throw error;
+  }
+};
+
+// 🔓 Release slot về trạng thái Free
+const releaseSlot = async (doctorId: string, slotId: any) => {
+  try {
+    const DoctorSchedules = require('../models/DoctorSchedules').default;
+    
+    await DoctorSchedules.updateOne(
+      { 
+        doctorId,
+        'weekSchedule.slots._id': slotId
+      },
+      {
+        $set: {
+          'weekSchedule.$.slots.$[slot].status': 'Free'
+        },
+        $unset: {
+          'weekSchedule.$.slots.$[slot].bookedBy': 1,
+          'weekSchedule.$.slots.$[slot].bookedAt': 1
+        }
+      },
+      {
+        arrayFilters: [{ 'slot._id': slotId }]
+      }
+    );
+
+    console.log(`🔓 [RELEASE] Slot ${slotId} released`);
+
+  } catch (error) {
+    console.error('❌ [ERROR] Releasing slot failed:', error);
+    throw error;
+  }
+};
+
+// ✨ TẠO DOCTOR QA MỚI - Logic mới với auto assignment ngay lập tức
 export const createDoctorQA = async (qaData: any) => {
   try {
-    let { doctorId, userId, fullName, phone, question, notes } = qaData;
+    let { userId, fullName, phone, question, notes } = qaData;
 
     // Validate userId
     if (!isValidObjectId(userId)) {
       throw new Error('User ID không hợp lệ');
     }
 
-    // Nếu không có doctorId, tự động chọn bác sĩ ít booked nhất
-    if (!doctorId) {
-      const leastBookedDoctorId = await findLeastBookedDoctor();
-      doctorId = new mongoose.Types.ObjectId(leastBookedDoctorId);
-    } else {
-      // Validate doctorId nếu có
-      if (!isValidObjectId(doctorId)) {
-        throw new Error('Doctor ID không hợp lệ');
-      }
+    console.log('🚀 [CREATE-QA] Starting QA creation with smart assignment...');
+
+    // STEP 1: Tìm service tư vấn online để lấy phí và thông tin
+    console.log('💰 [CREATE-QA] Finding online consultation service...');
+    const Service = require('../models/Service').default;
+    
+    const consultationService = await Service.findOne({
+      serviceName: { $regex: /tư vấn.*online/i },
+      serviceType: 'consultation',
+      isDeleted: { $ne: true }
+    });
+    
+    if (!consultationService) {
+      throw new Error('Không tìm thấy dịch vụ tư vấn online trong hệ thống. Vui lòng tạo dịch vụ trước.');
     }
 
-    // Validate doctor exists
-    const doctor = await Doctor.findById(doctorId);
-    if (!doctor) {
-      throw new Error('Bác sĩ không tồn tại');
+    console.log(`📋 [CREATE-QA] Found service: ${consultationService.serviceName} - ${consultationService.price}đ`);
+
+    // STEP 2: Tìm slot tốt nhất trước khi tạo QA
+    console.log('🔄 [CREATE-QA] Finding best available slot...');
+    const assignment = await findBestAvailableSlot();
+    console.log('✅ [CREATE-QA] Assignment result:', assignment);
+
+    // ✅ VALIDATION: Đảm bảo assignment có đầy đủ thông tin
+    if (!assignment || !assignment.doctorId || !assignment.appointmentDate || 
+        !assignment.appointmentSlot || !assignment.slotId || !assignment.doctorName) {
+      throw new Error(`Không thể tự động phân công bác sĩ. Chi tiết lỗi: ${JSON.stringify(assignment || 'null')}`);
     }
 
+    // ✅ VALIDATION: Kiểm tra doctorId có hợp lệ không
+    if (!isValidObjectId(assignment.doctorId)) {
+      throw new Error(`Doctor ID không hợp lệ từ smart assignment: ${assignment.doctorId}`);
+    }
+
+    console.log(`✅ [CREATE-QA] Assignment validation passed for doctor: ${assignment.doctorName}`);
+
+    // STEP 3: Tạo QA với thông tin đầy đủ (bao gồm service info)
     const newQA = await DoctorQA.create({
-      doctorId,
       userId,
       fullName,
       phone,
       question,
       notes,
       status: 'pending_payment',
-      consultationFee: 200000  // Phí cố định 200k
+      consultationFee: consultationService.price,  // Lấy phí từ service
+      serviceId: consultationService._id,          // Thêm serviceId
+      serviceName: consultationService.serviceName, // Thêm serviceName
+      doctorId: new mongoose.Types.ObjectId(assignment.doctorId),
+      appointmentDate: assignment.appointmentDate,
+      appointmentSlot: assignment.appointmentSlot,
+      slotId: assignment.slotId
     });
 
-    return await DoctorQA.findById(newQA._id)
+    console.log(`📝 [CREATE-QA] Created QA ${newQA._id} with assignment info`);
+
+    // STEP 3: Book slot với timeout 15 phút
+    await bookSlotWithTimeout(assignment.doctorId, assignment.slotId.toString(), newQA._id.toString());
+
+    // STEP 4: Populate và return
+    const populatedQA = await DoctorQA.findById(newQA._id)
       .populate({
         path: 'doctorId',
         select: 'userId bio specialization',
@@ -218,15 +434,87 @@ export const createDoctorQA = async (qaData: any) => {
           select: 'fullName email'
         }
       })
-      .populate('userId', 'fullName email');
+      .populate('userId', 'fullName email')
+      .populate('serviceId', 'serviceName price description serviceType');
+
+    console.log(`✅ [CREATE-QA] Successfully assigned and booked:`);
+    console.log(`   🏥 Service: ${consultationService.serviceName} - ${consultationService.price.toLocaleString('vi-VN')}đ`);
+    console.log(`   📅 Date: ${assignment.appointmentDate.toISOString().split('T')[0]}`);
+    console.log(`   🕐 Time: ${assignment.appointmentSlot}`);
+    console.log(`   👨‍⚕️ Doctor: ${assignment.doctorName}`);
+
+    return populatedQA;
 
   } catch (error) {
-    console.error('Error creating DoctorQA:', error);
+    console.error('❌ [ERROR] Creating QA failed:', error);
     throw error;
   }
 };
 
-// Lấy tất cả DoctorQA (cho admin/staff)
+// 💳 CẬP NHẬT PAYMENT STATUS - Logic đơn giản hơn
+export const updatePaymentStatus = async (qaId: string, paymentSuccess: boolean) => {
+  try {
+    if (!isValidObjectId(qaId)) {
+      throw new Error('ID yêu cầu tư vấn không hợp lệ');
+    }
+
+    const qa = await DoctorQA.findById(qaId);
+    if (!qa) {
+      throw new Error('Không tìm thấy yêu cầu tư vấn');
+    }
+
+    if (qa.status !== 'pending_payment') {
+      throw new Error('Yêu cầu tư vấn này đã được xử lý hoặc không thể thanh toán');
+    }
+
+    if (paymentSuccess) {
+      // Thanh toán thành công → chuyển sang paid
+      const updatedQA = await DoctorQA.findByIdAndUpdate(
+        qaId,
+        { status: 'paid' },
+        { new: true }
+      ).populate({
+        path: 'doctorId',
+        select: 'userId bio specialization',
+        populate: {
+          path: 'userId',
+          select: 'fullName email'
+        }
+      }).populate('userId', 'fullName email');
+
+      console.log(`💰 [PAYMENT] QA ${qaId} payment successful`);
+      return updatedQA;
+
+    } else {
+      // Thanh toán thất bại → release slot và cancel
+      if (qa.doctorId && qa.slotId) {
+        await releaseSlot(qa.doctorId.toString(), qa.slotId);
+      }
+
+      const updatedQA = await DoctorQA.findByIdAndUpdate(
+        qaId,
+        { status: 'cancelled' },
+        { new: true }
+      ).populate({
+        path: 'doctorId',
+        select: 'userId bio specialization',
+        populate: {
+          path: 'userId',
+          select: 'fullName email'
+        }
+      }).populate('userId', 'fullName email');
+
+      console.log(`❌ [PAYMENT] QA ${qaId} payment failed, slot released`);
+      return updatedQA;
+    }
+
+  } catch (error) {
+    console.error('❌ [ERROR] Updating payment status failed:', error);
+    throw error;
+  }
+};
+
+// 📋 Lấy tất cả DoctorQA (cho admin/staff)
 export const getAllDoctorQAs = async (filter: any = {}) => {
   try {
     return await DoctorQA.find(filter)
@@ -239,6 +527,7 @@ export const getAllDoctorQAs = async (filter: any = {}) => {
         }
       })
       .populate('userId', 'fullName email')
+      .populate('serviceId', 'serviceName price description serviceType')
       .sort({ createdAt: -1 });
 
   } catch (error) {
@@ -247,7 +536,7 @@ export const getAllDoctorQAs = async (filter: any = {}) => {
   }
 };
 
-// Lấy DoctorQA theo ID
+// 🔍 Lấy DoctorQA theo ID
 export const getDoctorQAById = async (qaId: string) => {
   try {
     if (!isValidObjectId(qaId)) {
@@ -263,7 +552,8 @@ export const getDoctorQAById = async (qaId: string) => {
           select: 'fullName email'
         }
       })
-      .populate('userId', 'fullName email');
+      .populate('userId', 'fullName email')
+      .populate('serviceId', 'serviceName price description serviceType');
     
     if (!qa) {
       throw new Error('Không tìm thấy yêu cầu tư vấn');
@@ -277,7 +567,7 @@ export const getDoctorQAById = async (qaId: string) => {
   }
 };
 
-// Lấy DoctorQA theo userId
+// 👤 Lấy DoctorQA theo userId
 export const getDoctorQAByUserId = async (userId: string) => {
   try {
     if (!isValidObjectId(userId)) {
@@ -302,7 +592,7 @@ export const getDoctorQAByUserId = async (userId: string) => {
   }
 };
 
-// Lấy DoctorQA theo doctorId
+// 👨‍⚕️ Lấy DoctorQA theo doctorId
 export const getDoctorQAByDoctorId = async (doctorId: string) => {
   try {
     if (!isValidObjectId(doctorId)) {
@@ -327,138 +617,7 @@ export const getDoctorQAByDoctorId = async (doctorId: string) => {
   }
 };
 
-// Cập nhật payment status và auto-assign doctor + schedule
-export const updatePaymentStatus = async (qaId: string, paymentSuccess: boolean) => {
-  try {
-    if (!isValidObjectId(qaId)) {
-      throw new Error('ID yêu cầu tư vấn không hợp lệ');
-    }
-
-    const qa = await DoctorQA.findById(qaId);
-    if (!qa) {
-      throw new Error('Không tìm thấy yêu cầu tư vấn');
-    }
-
-    if (qa.status !== 'pending_payment') {
-      throw new Error('Yêu cầu tư vấn này đã được thanh toán hoặc không thể thanh toán');
-    }
-
-    if (paymentSuccess) {
-      // 🎯 SMART AUTO-ASSIGN & SCHEDULE - Logic mới
-      try {
-        console.log('🚀 [SMART-ASSIGN] Starting intelligent assignment...');
-        
-        // 1. Tìm slot gần nhất và bác sĩ tốt nhất cho slot đó
-        const smartAssignment = await findBestDoctorForNextSlot();
-        console.log('🏆 [SMART-ASSIGN] Found optimal assignment:', {
-          doctor: smartAssignment.doctorName,
-          date: smartAssignment.appointmentDate.toISOString().split('T')[0],
-          slot: smartAssignment.appointmentSlot
-        });
-        
-        // 2. Cập nhật QA với thông tin đầy đủ luôn
-        const updatedQA = await DoctorQA.findByIdAndUpdate(
-          qaId,
-          { 
-            doctorId: new mongoose.Types.ObjectId(smartAssignment.doctorId),
-            status: 'scheduled',  // Đi thẳng luôn scheduled
-            appointmentDate: smartAssignment.appointmentDate,
-            appointmentSlot: smartAssignment.appointmentSlot
-          },
-          { new: true }
-        ).populate({
-          path: 'doctorId',
-          select: 'userId bio specialization',
-          populate: {
-            path: 'userId',
-            select: 'fullName email'
-          }
-        }).populate('userId', 'fullName email');
-
-        if (!updatedQA) {
-          throw new Error('Không thể cập nhật QA với thông tin assignment');
-        }
-
-        // 3. Cập nhật slot status trong DoctorSchedules
-        const DoctorSchedules = require('../models/DoctorSchedules').default;
-        await DoctorSchedules.updateOne(
-          { 
-            doctorId: smartAssignment.doctorId,
-            'weekSchedule.dayOfWeek': smartAssignment.appointmentDate,
-            'weekSchedule.slots._id': smartAssignment.slotId
-          },
-          {
-            $set: {
-              'weekSchedule.$.slots.$[slot].status': 'Booked',
-              'weekSchedule.$.slots.$[slot].bookedBy': qaId
-            }
-          },
-          {
-            arrayFilters: [{ 'slot._id': smartAssignment.slotId }]
-          }
-        );
-
-        console.log('✅ [SMART-ASSIGN] Successfully assigned and scheduled!');
-        
-        return updatedQA;
-        
-      } catch (smartError: any) {
-        console.error('🚨 [SMART-ASSIGN] Error:', smartError.message);
-        
-        // Fallback về logic cũ nếu smart assignment thất bại
-        try {
-          const leastBookedDoctorId = await findLeastBookedDoctor();
-          console.log('🔄 [FALLBACK] Using fallback doctor:', leastBookedDoctorId);
-          
-          const updatedQA = await DoctorQA.findByIdAndUpdate(
-            qaId,
-            { 
-              doctorId: new mongoose.Types.ObjectId(leastBookedDoctorId),
-              status: 'doctor_confirmed'
-            },
-            { new: true }
-          ).populate({
-            path: 'doctorId',
-            select: 'userId bio specialization',
-            populate: {
-              path: 'userId',
-              select: 'fullName email'
-            }
-          }).populate('userId', 'fullName email');
-
-          return updatedQA;
-          
-        } catch (fallbackError: any) {
-          throw new Error(`Smart assignment và fallback đều thất bại: ${smartError.message}`);
-        }
-      }
-      
-    } else {
-      // Payment failed - cancel QA
-      const updatedQA = await DoctorQA.findByIdAndUpdate(
-        qaId,
-        { status: 'cancelled' },
-        { new: true }
-      ).populate({
-          path: 'doctorId',
-          select: 'userId bio specialization',
-          populate: {
-            path: 'userId',
-            select: 'fullName email'
-          }
-        })
-       .populate('userId', 'fullName email');
-
-      return updatedQA;
-    }
-
-  } catch (error) {
-    console.error('Error updating payment status:', error);
-    throw error;
-  }
-};
-
-// Doctor confirm tư vấn
+// ✅ Doctor confirm tư vấn
 export const doctorConfirmQA = async (qaId: string, action: 'confirm' | 'reject') => {
   try {
     if (!isValidObjectId(qaId)) {
@@ -476,10 +635,13 @@ export const doctorConfirmQA = async (qaId: string, action: 'confirm' | 'reject'
 
     let newStatus;
     if (action === 'confirm') {
-      newStatus = 'doctor_confirmed';
+      newStatus = 'scheduled';
     } else {
       newStatus = 'cancelled';
-      // TODO: Nếu reject, có thể auto-assign doctor khác
+      // Release slot if rejected
+      if (qa.doctorId && qa.slotId) {
+        await releaseSlot(qa.doctorId.toString(), qa.slotId);
+      }
     }
 
     const updatedQA = await DoctorQA.findByIdAndUpdate(
@@ -504,171 +666,7 @@ export const doctorConfirmQA = async (qaId: string, action: 'confirm' | 'reject'
   }
 };
 
-// Staff xếp lịch cụ thể - TỰ ĐỘNG TÌM SLOT GẦN NHẤT
-export const scheduleQA = async (qaId: string) => {
-  try {
-    if (!isValidObjectId(qaId)) {
-      throw new Error('ID yêu cầu tư vấn không hợp lệ');
-    }
-    
-    const qa = await DoctorQA.findById(qaId).populate('doctorId');
-    if (!qa) {
-      throw new Error('Không tìm thấy yêu cầu tư vấn');
-    }
-
-    if (qa.status !== 'doctor_confirmed') {
-      throw new Error('Bác sĩ chưa confirm hoặc không thể xếp lịch');
-    }
-
-    let doctorId = qa.doctorId;
-
-    // Nếu chưa có doctor hoặc doctor bị xóa, auto-assign
-    if (!doctorId) {
-      const leastBookedDoctorId = await findLeastBookedDoctor();
-      doctorId = new mongoose.Types.ObjectId(leastBookedDoctorId);
-      
-      // Cập nhật doctor cho QA
-      await DoctorQA.findByIdAndUpdate(qaId, { doctorId });
-    }
-
-    // Import DoctorSchedules model
-    const DoctorSchedules = require('../models/DoctorSchedules').default;
-    
-    // Tìm lịch làm việc của bác sĩ
-    const doctorSchedules = await DoctorSchedules.findOne({ doctorId })
-      .sort({ createdAt: -1 });
-
-    if (!doctorSchedules || !doctorSchedules.weekSchedule || doctorSchedules.weekSchedule.length === 0) {
-      throw new Error('Bác sĩ chưa có lịch làm việc nào. Vui lòng tạo lịch trước.');
-    }
-
-    // Tìm slot Free gần nhất (từ bây giờ trở đi)
-    let nearestSlot: any = null;
-    let nearestDate: Date | null = null;
-    let nearestSlotId: any = null;
-
-    const now = new Date();
-    const currentHour = now.getHours();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    console.log('🔍 [DEBUG] Current time:', now);
-    console.log('🔍 [DEBUG] Today:', today);
-    console.log('🔍 [DEBUG] Current hour:', currentHour);
-
-    // Sắp xếp lịch theo ngày tăng dần
-    const sortedSchedule = doctorSchedules.weekSchedule
-      .sort((a: any, b: any) => new Date(a.dayOfWeek).getTime() - new Date(b.dayOfWeek).getTime());
-
-    console.log('🔍 [DEBUG] Total schedule days:', sortedSchedule.length);
-
-    for (const daySchedule of sortedSchedule) {
-      const scheduleDate = new Date(daySchedule.dayOfWeek);
-      scheduleDate.setHours(0, 0, 0, 0);
-      
-      console.log('🔍 [DEBUG] Checking day:', scheduleDate.toISOString().split('T')[0]);
-      
-      // Lọc slots khả dụng
-      let availableSlots = daySchedule.slots.filter((slot: any) => slot.status === 'Free');
-      
-      // Nếu là hôm nay, chỉ lấy slot sau giờ hiện tại
-      if (scheduleDate.getTime() === today.getTime()) {
-        availableSlots = availableSlots.filter((slot: any) => {
-          const slotHour = parseInt(slot.slotTime.split(':')[0]);
-          return slotHour > currentHour;
-        });
-        console.log('🔍 [DEBUG] Today available slots after current hour:', availableSlots.length);
-      }
-      
-      // Nếu là ngày trong tương lai, lấy tất cả slot Free
-      if (scheduleDate.getTime() >= today.getTime() && availableSlots.length > 0) {
-        // Lấy slot đầu tiên (sớm nhất)
-        nearestSlot = availableSlots[0];
-        nearestDate = new Date(daySchedule.dayOfWeek);
-        nearestSlotId = nearestSlot._id;
-        console.log('🔍 [DEBUG] Found slot:', nearestSlot.slotTime, 'on', nearestDate.toISOString().split('T')[0]);
-        break;
-      }
-    }
-
-    if (!nearestSlot || !nearestDate) {
-      throw new Error('Không tìm thấy slot trống nào của bác sĩ từ bây giờ trở đi. Vui lòng tạo thêm lịch làm việc.');
-    }
-
-    console.log('🔍 [DEBUG] Booking slot:', nearestSlot.slotTime, 'on', nearestDate.toISOString().split('T')[0]);
-
-    // Cập nhật slot thành Booked
-    await DoctorSchedules.updateOne(
-      {
-        doctorId,
-        'weekSchedule.dayOfWeek': nearestDate,
-        'weekSchedule.slots._id': nearestSlotId
-      },
-      {
-        $set: {
-          'weekSchedule.$.slots.$[slot].status': 'Booked'
-        }
-      },
-      {
-        arrayFilters: [{ 'slot._id': nearestSlotId }]
-      }
-    );
-
-    console.log('✅ [DEBUG] Slot updated to Booked');
-
-    // Tạo scheduled time cho meeting (kết hợp ngày và giờ)
-    const [slotHour, slotMinute] = nearestSlot.slotTime.split(':').map(Number);
-    const scheduledStartTime = new Date(nearestDate);
-    scheduledStartTime.setHours(slotHour, slotMinute, 0, 0);
-    const scheduledEndTime = new Date(scheduledStartTime.getTime() + 60 * 60 * 1000); // 1 tiếng
-
-    // Cập nhật DoctorQA với thông tin lịch hẹn
-    const updatedQA = await DoctorQA.findByIdAndUpdate(
-      qaId,
-      { 
-        status: 'scheduled',
-        doctorId, // Đảm bảo doctorId được update nếu có auto-assign
-        appointmentDate: nearestDate,
-        appointmentSlot: nearestSlot.slotTime,
-        slotId: nearestSlotId
-      },
-      { new: true }
-    ).populate({
-        path: 'doctorId',
-        select: 'userId bio specialization',
-        populate: {
-          path: 'userId',
-          select: 'fullName email'
-        }
-      })
-     .populate('userId', 'fullName email');
-
-    // ❌ KHÔNG tạo meeting ngay lập tức
-    // Meeting sẽ được tạo khi:
-    // 1. Gần đến giờ khám (30 phút trước)
-    // 2. Hoặc khi doctor/user join meeting
-    console.log('📅 [SCHEDULE] Slot booked successfully. Meeting will be created later when needed.');
-
-    return {
-      qa: updatedQA,
-      autoBookedInfo: {
-        doctorId: doctorId,
-        appointmentDate: nearestDate.toISOString().split('T')[0], // YYYY-MM-DD
-        appointmentSlot: nearestSlot.slotTime,
-        slotId: nearestSlotId,
-        scheduledStartTime: scheduledStartTime.toISOString(),
-        scheduledEndTime: scheduledEndTime.toISOString(),
-        message: `Đã đặt lịch khám: ${nearestSlot.slotTime} ngày ${nearestDate.toISOString().split('T')[0]}. Link Google Meet sẽ được gửi trước 30 phút.`
-      }
-    };
-
-  } catch (error) {
-    console.error('Error auto-scheduling QA:', error);
-    throw error;
-  }
-};
-
-// Cập nhật status (tổng quát)
+// 🔄 Cập nhật status (tổng quát)
 export const updateQAStatus = async (qaId: string, newStatus: string, doctorNotes?: string) => {
   try {
     if (!isValidObjectId(qaId)) {
@@ -683,6 +681,11 @@ export const updateQAStatus = async (qaId: string, newStatus: string, doctorNote
     const updateData: any = { status: newStatus };
     if (doctorNotes) {
       updateData.doctorNotes = doctorNotes;
+    }
+
+    // Nếu chuyển sang cancelled, release slot
+    if (newStatus === 'cancelled' && qa.doctorId && qa.slotId) {
+      await releaseSlot(qa.doctorId.toString(), qa.slotId);
     }
 
     const updatedQA = await DoctorQA.findByIdAndUpdate(
@@ -707,7 +710,7 @@ export const updateQAStatus = async (qaId: string, newStatus: string, doctorNote
   }
 };
 
-// Xóa DoctorQA
+// 🗑️ Xóa DoctorQA
 export const deleteDoctorQA = async (qaId: string) => {
   try {
     if (!isValidObjectId(qaId)) {
@@ -719,6 +722,11 @@ export const deleteDoctorQA = async (qaId: string) => {
       throw new Error('Không tìm thấy yêu cầu tư vấn');
     }
 
+    // Release slot trước khi xóa
+    if (qa.doctorId && qa.slotId) {
+      await releaseSlot(qa.doctorId.toString(), qa.slotId);
+    }
+
     await DoctorQA.findByIdAndDelete(qaId);
     return qa;
 
@@ -726,4 +734,25 @@ export const deleteDoctorQA = async (qaId: string) => {
     console.error('Error deleting DoctorQA:', error);
     throw error;
   }
+};
+
+// 🧹 LEGACY FUNCTIONS - Deprecated, chỉ giữ để backward compatibility
+export const findLeastBookedDoctor = async (): Promise<string> => {
+  console.warn('⚠️ [DEPRECATED] findLeastBookedDoctor is deprecated. Use findBestAvailableSlot instead.');
+  try {
+    const result = await findBestAvailableSlot();
+    return result.doctorId;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const findBestDoctorForNextSlot = async () => {
+  console.warn('⚠️ [DEPRECATED] findBestDoctorForNextSlot is deprecated. Use findBestAvailableSlot instead.');
+  return await findBestAvailableSlot();
+};
+
+// ⚠️ DEPRECATED - Logic cũ không còn sử dụng
+export const scheduleQA = async (qaId: string) => {
+  throw new Error('⚠️ [DEPRECATED] scheduleQA is deprecated. Slot assignment is done automatically during QA creation.');
 }; 

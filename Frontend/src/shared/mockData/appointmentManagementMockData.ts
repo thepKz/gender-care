@@ -1,8 +1,8 @@
 // Mock Data cho Appointment Management
 // Dựa trên interface Appointment từ AppointmentManagement.tsx
 
-// Define service types
-export type ServiceType = 
+// Define service types for appointment management
+export type AppointmentServiceType = 
   | 'nam-khoa'           // Khám nam khoa  
   | 'phu-khoa'           // Khám phụ khoa
   | 'xet-nghiem-stis'    // Xét nghiệm STIs
@@ -17,7 +17,7 @@ export interface MockAppointment {
   patientPhone: string;
   serviceId: string;
   serviceName: string;
-  serviceType?: ServiceType;
+  serviceType?: AppointmentServiceType;
   doctorId?: string;
   doctorName?: string;
   appointmentDate: string;
@@ -310,7 +310,7 @@ export const getAppointmentLocationText = (location: string): string => {
 };
 
 // Service type helper functions
-export const getServiceTypeColor = (serviceType: ServiceType): string => {
+export const getServiceTypeColor = (serviceType: AppointmentServiceType): string => {
   const colors = {
     'nam-khoa': 'blue',
     'phu-khoa': 'pink',
@@ -321,7 +321,7 @@ export const getServiceTypeColor = (serviceType: ServiceType): string => {
   return colors[serviceType] || 'default';
 };
 
-export const getServiceTypeText = (serviceType: ServiceType): string => {
+export const getServiceTypeText = (serviceType: AppointmentServiceType): string => {
   const texts = {
     'nam-khoa': 'Khám nam khoa',
     'phu-khoa': 'Khám phụ khoa', 
@@ -333,7 +333,7 @@ export const getServiceTypeText = (serviceType: ServiceType): string => {
 };
 
 // Get allowed locations for service type
-export const getAllowedLocations = (serviceType: ServiceType): string[] => {
+export const getAllowedLocations = (serviceType: AppointmentServiceType): string[] => {
   const allowedLocations = {
     'nam-khoa': ['clinic'],
     'phu-khoa': ['clinic'],

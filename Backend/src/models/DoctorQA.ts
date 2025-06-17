@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 export interface IDoctorQA {
-  doctorId: mongoose.Types.ObjectId;
+  doctorId?: mongoose.Types.ObjectId;  // 🔧 Made optional để cho phép auto-assign
   userId: mongoose.Types.ObjectId;
   fullName: string;
   phone: string;
@@ -9,6 +9,8 @@ export interface IDoctorQA {
   question: string;
   status: "pending_payment" | "paid" | "doctor_confirmed" | "scheduled" | "consulting" | "completed" | "cancelled";
   consultationFee: number;
+  serviceId?: mongoose.Types.ObjectId;  // Service được sử dụng
+  serviceName?: string;  // Tên service cho tiện
   appointmentDate?: Date;
   appointmentSlot?: string;  // VD: "14:00-15:00"
   slotId?: mongoose.Types.ObjectId;  // ID của slot đã book
@@ -26,7 +28,7 @@ const DoctorQASchema = new mongoose.Schema<IDoctorQA>({
   doctorId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Doctor', 
-    required: true 
+    required: false 
   },
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -55,8 +57,14 @@ const DoctorQASchema = new mongoose.Schema<IDoctorQA>({
   },
   consultationFee: {
     type: Number,
-    required: true,
-    default: 200000  // 200k VND cố định
+    required: true
+  },
+  serviceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Service'
+  },
+  serviceName: {
+    type: String
   },
   appointmentDate: {
     type: Date

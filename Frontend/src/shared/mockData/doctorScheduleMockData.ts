@@ -243,11 +243,25 @@ export const calculateDashboardStats = () => {
     item.appointmentDate === today || item.appointmentDate === '2025-01-28'
   );
   
+  // Calculate revenue
+  const totalRevenue = data.reduce((sum, item) => {
+    if (item.status === 'completed' || item.status === 'paid') {
+      return sum + (item.servicePrice || item.consultationFee || 0);
+    }
+    return sum;
+  }, 0);
+  
   return {
     todayTotal: todayAppointments.length,
     completed: data.filter(item => item.status === 'completed').length,
     online: data.filter(item => item.typeLocation === 'Online').length,
-    clinic: data.filter(item => item.typeLocation === 'clinic').length
+    clinic: data.filter(item => item.typeLocation === 'clinic').length,
+    // Additional stats needed by dashboard
+    totalAppointments: data.filter(item => item.type === 'appointment').length,
+    totalConsultations: data.filter(item => item.type === 'consultation').length,
+    pending: data.filter(item => item.status === 'pending').length,
+    confirmed: data.filter(item => item.status === 'confirmed').length,
+    totalRevenue: totalRevenue
   };
 };
 

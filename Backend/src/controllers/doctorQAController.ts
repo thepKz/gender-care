@@ -47,20 +47,28 @@ export const getLeastBookedDoctor = async (req: Request, res: Response): Promise
   }
 };
 
-// POST /api/doctor-qa - Tạo yêu cầu tư vấn mới (USER)
+// POST /api/doctor-qa - Tạo yêu cầu tư vấn mới (USER) với AUTO-ASSIGN
 export const createDoctorQA = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { doctorId, fullName, phone, question, notes } = req.body;
     const userId = req.user?._id;  // Từ middleware auth
 
-    if (!fullName || !phone || !question) {
+    // 🔧 Enhanced validation
+    if (!userId) {
+      res.status(401).json({ 
+        message: 'Không tìm thấy thông tin user từ token. Vui lòng đăng nhập lại.' 
+      });
+      return;
+    }
+
+    if (!fullName?.trim() || !phone?.trim() || !question?.trim()) {
       res.status(400).json({ 
         message: 'Vui lòng cung cấp đầy đủ: fullName, phone, question' 
       });
       return;
     }
 
-    // Validate doctorId nếu có
+    // Validate doctorId nếu có (manual assignment)
     if (doctorId && !isValidObjectId(doctorId)) {
       res.status(400).json({ 
         message: 'Doctor ID không hợp lệ' 
@@ -68,25 +76,68 @@ export const createDoctorQA = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const newQA = await doctorQAService.createDoctorQA({
-      doctorId,
+    console.log('🚀 [CREATE-QA-CONTROLLER] Starting QA creation...', {
       userId,
-      fullName,
-      phone,
-      question,
-      notes
+      fullName: fullName?.trim(),
+      hasManualDoctorId: !!doctorId,
+      autoAssign: !doctorId
     });
 
-    res.status(201).json({
+    // 🎯 Call service để tạo QA với auto-assign logic
+    const newQA = await doctorQAService.createDoctorQA({
+      doctorId,  // có thể null để trigger auto-assign
+      userId,
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      question: question.trim(),
+      notes: notes?.trim()
+    });
+
+    // 🎉 Success response với thông tin assignment
+    if (!newQA) {
+      throw new Error('Không thể tạo yêu cầu tư vấn. Vui lòng thử lại.');
+    }
+
+    const response: any = {
       message: 'Tạo yêu cầu tư vấn thành công! Vui lòng thanh toán để hoàn tất.',
       data: newQA
-    });
+    };
+
+    // ✨ Thêm thông tin về việc auto-assign nếu có
+    if (newQA.doctorId && newQA.appointmentDate && newQA.appointmentSlot) {
+      response.autoAssigned = true;
+      response.assignmentInfo = {
+        doctorName: (newQA.doctorId as any)?.userId?.fullName || 'N/A',
+        appointmentDate: newQA.appointmentDate,
+        appointmentSlot: newQA.appointmentSlot,
+        message: 'Đã tự động phân công bác sĩ và lịch hẹn gần nhất cho bạn!'
+      };
+    }
+
+    res.status(201).json(response);
 
   } catch (error: any) {
-    console.error('Error creating DoctorQA:', error);
-    res.status(400).json({ 
-      message: error.message || 'Lỗi server khi tạo yêu cầu tư vấn' 
-    });
+    console.error('❌ [ERROR] Creating DoctorQA failed:', error);
+    
+    // 🔧 Enhanced error handling
+    if (error.message?.includes('Không có slot nào khả dụng')) {
+      res.status(400).json({ 
+        message: 'Hiện tại không có lịch trống. Vui lòng thử lại sau hoặc liên hệ để được hỗ trợ.',
+        error: 'NO_AVAILABLE_SLOTS',
+        details: error.message
+      });
+    } else if (error.message?.includes('Không có bác sĩ nào')) {
+      res.status(400).json({ 
+        message: 'Hiện tại chưa có bác sĩ nào sẵn sàng. Vui lòng liên hệ để được hỗ trợ.',
+        error: 'NO_AVAILABLE_DOCTORS',
+        details: error.message
+      });
+    } else {
+      res.status(400).json({ 
+        message: error.message || 'Lỗi server khi tạo yêu cầu tư vấn',
+        error: 'GENERAL_ERROR'
+      });
+    }
   }
 };
 
@@ -383,10 +434,11 @@ export const doctorConfirmQA = async (req: Request, res: Response): Promise<void
 };
 
 // PUT /api/doctor-qa/:id/schedule - Staff xếp lịch tự động (STAFF ONLY)
+// ⚠️ DEPRECATED ENDPOINT - Không còn cần thiết vì auto assignment được thực hiện khi tạo QA
 export const scheduleQA = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-
+    
     if (!isValidObjectId(id)) {
       res.status(400).json({ 
         message: 'ID yêu cầu tư vấn không hợp lệ' 
@@ -394,19 +446,17 @@ export const scheduleQA = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Không cần body nữa - tự động tìm slot gần nhất
-    const result = await doctorQAService.scheduleQA(id);
-
-    res.status(200).json({
-      message: 'Xếp lịch tư vấn tự động thành công!',
-      data: result.qa,
-      autoScheduleInfo: result.autoBookedInfo
+    // Trả về error vì function đã deprecated
+    res.status(400).json({
+      message: '⚠️ Endpoint này đã deprecated. Lịch hẹn được tự động tạo khi tạo QA mới.',
+      deprecated: true,
+      suggestion: 'Sử dụng POST /api/doctor-qa để tạo QA với auto assignment'
     });
 
   } catch (error: any) {
-    console.error('Error auto-scheduling QA:', error);
+    console.error('Error in deprecated scheduleQA:', error);
     res.status(400).json({ 
-      message: error.message || 'Lỗi server khi xếp lịch tự động' 
+      message: error.message || 'Endpoint đã deprecated' 
     });
   }
 };

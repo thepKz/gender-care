@@ -212,8 +212,49 @@ const OnlineConsultationPage: React.FC = () => {
         notes: form.notes?.trim(),
         question: form.question.trim()
       });
-      setToast({ type: 'success', message: 'Tạo yêu cầu tư vấn thành công! Vui lòng thanh toán.' });
-      window.location.href = `/consultation/payment/${res.data.data._id}`;
+
+      const consultationData = res.data.data;
+      
+      // ✅ Enhanced response handling với auto-assignment info
+      console.log('🎉 [FRONTEND] QA Creation successful:', res.data);
+      
+      // Check nếu có auto-assignment info từ backend
+      if (res.data.autoAssigned && res.data.assignmentInfo) {
+        const { doctorName, appointmentDate, appointmentSlot, message } = res.data.assignmentInfo;
+        const formattedDate = new Date(appointmentDate).toLocaleDateString('vi-VN');
+        
+        setToast({ 
+          type: 'success', 
+          message: `🎯 ${message}
+📅 Ngày: ${formattedDate}
+🕐 Giờ: ${appointmentSlot}
+👨‍⚕️ Bác sĩ: ${doctorName}
+💰 Vui lòng thanh toán trong 15 phút để giữ lịch hẹn.` 
+        });
+      } 
+      // Fallback: check populated data structure
+      else if (consultationData.doctorId && consultationData.appointmentDate && consultationData.appointmentSlot) {
+        const doctorName = consultationData.doctorId.userId?.fullName || 'Bác sĩ';
+        const appointmentDate = new Date(consultationData.appointmentDate).toLocaleDateString('vi-VN');
+        const appointmentTime = consultationData.appointmentSlot;
+        
+        setToast({ 
+          type: 'success', 
+          message: `✅ Đặt lịch thành công! 
+📅 Ngày: ${appointmentDate}
+🕐 Giờ: ${appointmentTime}
+👨‍⚕️ Bác sĩ: ${doctorName}
+💰 Vui lòng thanh toán trong 15 phút để giữ lịch hẹn.` 
+        });
+      } else {
+        setToast({ type: 'success', message: 'Tạo yêu cầu tư vấn thành công! Vui lòng thanh toán để hoàn tất.' });
+      }
+      
+      // Chuyển hướng đến trang thanh toán
+      setTimeout(() => {
+        window.location.href = `/consultation/payment/${consultationData._id}`;
+      }, 2000);
+      
     } catch (err: any) {
       setToast({ type: 'error', message: err?.response?.data?.message || err.message || 'Có lỗi xảy ra.' });
     } finally {
@@ -579,11 +620,22 @@ const OnlineConsultationPage: React.FC = () => {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 50 }}
-          className={`fixed bottom-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg text-white ${
+          className={`fixed bottom-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg text-white max-w-sm ${
             toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
           }`}
         >
-          {toast.message}
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 mt-1">
+              {toast.type === 'success' ? (
+                <Shield size={20} variant="Bold" />
+              ) : (
+                <InfoCircle size={20} variant="Bold" />
+              )}
+            </div>
+            <div className="font-medium whitespace-pre-line text-sm leading-relaxed">
+              {toast.message}
+            </div>
+          </div>
         </motion.div>
       )}
 

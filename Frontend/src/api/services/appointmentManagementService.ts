@@ -23,11 +23,12 @@ class AppointmentManagementService {
       console.log('📋 [DEBUG] Fetching doctor appointments with filters:', filters);
       
       // Gọi API để lấy appointments
-      const appointmentResponse: AppointmentListResponse = await appointmentApi.getMyAppointments(filters);
+      const appointmentResponse = await appointmentApi.getMyAppointments(filters);
       console.log('📋 [DEBUG] Appointment API Response:', appointmentResponse);
       
-      // Transform appointments data
-      const appointments = this.transformAppointments(appointmentResponse.data.appointments || []);
+      // Transform appointments data - handle both direct data and wrapped response
+      const appointmentData = appointmentResponse.data?.appointments || appointmentResponse.data || [];
+      const appointments = this.transformAppointments(appointmentData);
       
       return appointments;
     } catch (error) {
@@ -45,11 +46,12 @@ class AppointmentManagementService {
       console.log('💬 [DEBUG] Fetching doctor consultations with filters:', filters);
       
       // Gọi API để lấy consultations
-      const consultationResponse: ConsultationListResponse = await consultationApi.getMyConsultations(filters);
+      const consultationResponse = await consultationApi.getMyConsultations(filters);
       console.log('💬 [DEBUG] Consultation API Response:', consultationResponse);
       
-      // Transform consultations data
-      const consultations = this.transformConsultations(consultationResponse.data.consultations || []);
+      // Transform consultations data - handle both direct data and wrapped response
+      const consultationData = consultationResponse.data?.consultations || consultationResponse.data || [];
+      const consultations = this.transformConsultations(consultationData);
       
       return consultations;
     } catch (error) {
@@ -231,7 +233,7 @@ class AppointmentManagementService {
         await appointmentApi.updateAppointmentStatus(id, status as any);
       } else {
         // Map UI status to consultation status
-        let consultationStatus = status;
+        let consultationStatus: string = status;
         if (status === 'confirmed') consultationStatus = 'scheduled';
         await consultationApi.updateConsultationStatus(id, consultationStatus);
       }

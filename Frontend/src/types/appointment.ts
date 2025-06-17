@@ -70,7 +70,7 @@ export interface UnifiedAppointment {
   doctorName?: string;
   appointmentDate: string;
   appointmentTime: string;
-  appointmentType: 'consultation' | 'test' | 'online-consultation';
+  appointmentType: 'consultation' | 'test' | 'online-consultation' | 'other';
   typeLocation: 'clinic' | 'home' | 'Online';
   address?: string;
   description: string;
