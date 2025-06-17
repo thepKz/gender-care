@@ -277,19 +277,10 @@ export const getMyDoctorQAAsDoctor = async (req: AuthRequest, res: Response): Pr
     const doctor = await Doctor.findOne({ userId: userId });
     
     if (!doctor) {
-      // Nếu chưa có doctor record, trả về empty list thay vì error
+      // Nếu chưa có doctor record, trả về empty list với format consistent
       res.status(200).json({
-        success: true,
         message: 'Chưa có thông tin bác sĩ trong hệ thống. Vui lòng liên hệ admin để thiết lập hồ sơ.',
-        data: {
-          consultations: [],
-          pagination: {
-            total: 0,
-            page: 1,
-            limit: 0,
-            pages: 0
-          }
-        }
+        data: []
       });
       return;
     }
@@ -297,24 +288,17 @@ export const getMyDoctorQAAsDoctor = async (req: AuthRequest, res: Response): Pr
     // Lấy yêu cầu tư vấn của bác sĩ này
     const qas = await doctorQAService.getDoctorQAByDoctorId(doctor._id.toString());
     
+    // Trả về format consistent với getAllDoctorQAs - chỉ data array
     res.status(200).json({
-      success: true,
       message: `Lấy danh sách yêu cầu tư vấn của bạn thành công (${qas.length} yêu cầu)`,
-      data: {
-        consultations: qas,
-        pagination: {
-          total: qas.length,
-          page: 1,
-          limit: qas.length,
-          pages: 1
-        }
-      }
+      data: qas
     });
 
   } catch (error: any) {
     console.error('Error getting my DoctorQAs as doctor:', error);
     res.status(500).json({ 
-      message: error.message || 'Lỗi server khi lấy yêu cầu tư vấn của bác sĩ' 
+      message: error.message || 'Lỗi server khi lấy yêu cầu tư vấn của bác sĩ',
+      data: []
     });
   }
 };

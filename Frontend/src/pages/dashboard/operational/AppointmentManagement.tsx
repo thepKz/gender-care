@@ -80,6 +80,19 @@ const AppointmentManagement: React.FC = () => {
       const appointments = await appointmentManagementService.getAllDoctorAppointments(filters);
       
       console.log('✅ [DEBUG] Loaded appointments:', appointments.length);
+      console.log('✅ [DEBUG] Appointments data:', appointments);
+      
+      // Debug: check types
+      const appointmentTypes = appointments.map(apt => apt.type);
+      const consultationCount = appointments.filter(apt => apt.type === 'consultation').length;
+      const appointmentCount = appointments.filter(apt => apt.type === 'appointment').length;
+      
+      console.log('✅ [DEBUG] Type breakdown:', {
+        consultations: consultationCount,
+        appointments: appointmentCount,
+        types: appointmentTypes
+      });
+      
       setAppointments(appointments);
       
       if (appointments.length === 0) {

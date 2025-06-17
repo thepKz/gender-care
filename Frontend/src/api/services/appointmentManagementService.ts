@@ -45,12 +45,68 @@ class AppointmentManagementService {
     try {
       console.log('💬 [DEBUG] Fetching doctor consultations with filters:', filters);
       
-      // Gọi API để lấy consultations
-      const consultationResponse = await consultationApi.getMyConsultations(filters);
-      console.log('💬 [DEBUG] Consultation API Response:', consultationResponse);
+      // 🔧 Thử multiple endpoints để tránh lỗi role
+      let consultationResponse;
+      let consultationData: any[] = [];
       
-      // Transform consultations data - handle both direct data and wrapped response
-      const consultationData = consultationResponse.data?.consultations || consultationResponse.data || [];
+      try {
+        // Try endpoint for doctors first
+        consultationResponse = await consultationApi.getMyConsultations(filters);
+        console.log('💬 [DEBUG] Doctor consultation API Response:', consultationResponse);
+        
+        // Handle multiple response formats from backend
+        if (consultationResponse.data) {
+          if (Array.isArray(consultationResponse.data)) {
+            // Direct array format
+            consultationData = consultationResponse.data;
+          } else if (consultationResponse.data.consultations && Array.isArray(consultationResponse.data.consultations)) {
+            // Wrapped in consultations field
+            consultationData = consultationResponse.data.consultations;
+          } else if (consultationResponse.data.data && Array.isArray(consultationResponse.data.data)) {
+            // Nested data field
+            consultationData = consultationResponse.data.data;
+          } else {
+            console.warn('⚠️ [WARNING] Unexpected response format:', consultationResponse.data);
+            consultationData = [];
+          }
+        }
+        
+      } catch (doctorError: any) {
+        console.warn('⚠️ [WARNING] Doctor endpoint failed, trying all consultations:', doctorError.response?.status);
+        
+        // Fallback: get all consultations if doctor endpoint fails (403 forbidden etc)
+        if (doctorError.response?.status === 403 || doctorError.response?.status === 401) {
+          try {
+            consultationResponse = await consultationApi.getAllConsultations(filters);
+            console.log('💬 [DEBUG] All consultations API Response:', consultationResponse);
+            
+            // Handle response format for getAllConsultations  
+            if (consultationResponse.data) {
+              if (Array.isArray(consultationResponse.data)) {
+                consultationData = consultationResponse.data;
+              } else if (consultationResponse.data.data && Array.isArray(consultationResponse.data.data)) {
+                consultationData = consultationResponse.data.data;
+              } else {
+                console.warn('⚠️ [WARNING] Unexpected all consultations format:', consultationResponse.data);
+                consultationData = [];
+              }
+            }
+            
+          } catch (allError) {
+            console.error('❌ [ERROR] Both endpoints failed:', allError);
+            throw allError;
+          }
+        } else {
+          throw doctorError;
+        }
+      }
+      
+      // Validate consultationData is array before transform
+      if (!Array.isArray(consultationData)) {
+        console.warn('⚠️ [WARNING] consultationData is not array:', consultationData);
+        consultationData = [];
+      }
+      
       const consultations = this.transformConsultations(consultationData);
       
       return consultations;
@@ -139,27 +195,122 @@ class AppointmentManagementService {
    * Transform API consultations to unified format
    */
   private transformConsultations(consultations: ApiConsultation[]): UnifiedAppointment[] {
-    return consultations.map(consultation => ({
-      key: consultation._id,
-      _id: consultation._id,
-      patientName: consultation.fullName,
-      patientPhone: consultation.phone,
-      serviceName: 'Tư vấn trực tuyến',
-      serviceType: 'tu-van-online',
-      doctorName: 'Bạn', // Current doctor
-      appointmentDate: consultation.appointmentDate || '2025-01-30', // Default if not scheduled yet
-      appointmentTime: consultation.appointmentSlot || '15:00', // Default if not scheduled yet
-      appointmentType: 'online-consultation' as any,
-      typeLocation: 'Online',
-      address: undefined,
-      description: consultation.question,
-      notes: consultation.notes || consultation.doctorNotes,
-      status: this.mapConsultationStatus(consultation.status),
-      createdAt: consultation.createdAt,
-      updatedAt: consultation.updatedAt,
-      type: 'consultation',
-      originalData: consultation
-    }));
+    // Validate input is array
+    if (!Array.isArray(consultations)) {
+      console.warn('⚠️ [WARNING] transformConsultations received non-array:', consultations);
+      return [];
+    }
+    
+    return consultations
+      .filter(consultation => {
+        // 🔧 Validate consultation object exists and has required fields
+        if (!consultation || typeof consultation !== 'object') {
+          console.warn('⚠️ [WARNING] Invalid consultation object:', consultation);
+          return false;
+        }
+        
+        // 🔧 Chỉ hiển thị consultation có appointmentDate và appointmentSlot
+        const hasValidDate = consultation.appointmentDate && consultation.appointmentSlot;
+        if (!hasValidDate) {
+          console.log('🔍 [DEBUG] Skipping consultation without valid date/slot:', {
+            id: consultation._id,
+            hasDate: !!consultation.appointmentDate,
+            hasSlot: !!consultation.appointmentSlot
+          });
+        }
+        return hasValidDate;
+      })
+      .map(consultation => {
+        try {
+          return {
+            key: consultation._id || `consultation-${Date.now()}`,
+            _id: consultation._id || '',
+            patientName: consultation.fullName || 'Chưa có tên',
+            patientPhone: consultation.phone || 'Chưa có SĐT',
+            serviceName: 'Tư vấn trực tuyến',
+            serviceType: 'consultation',
+            // Handle doctorId safely - could be ObjectId string or populated object
+            doctorName: this.extractDoctorName(consultation.doctorId) || 'Bạn',
+            appointmentDate: this.formatDate(consultation.appointmentDate!),
+            appointmentTime: consultation.appointmentSlot!,
+            appointmentType: 'online-consultation' as any,
+            typeLocation: 'Online',
+            address: undefined,
+            description: consultation.question || '',
+            notes: consultation.notes || consultation.doctorNotes || '',
+            status: this.mapConsultationStatus(consultation.status),
+            createdAt: consultation.createdAt,
+            updatedAt: consultation.updatedAt,
+            type: 'consultation',
+            originalData: consultation
+          };
+        } catch (transformError) {
+          console.error('❌ [ERROR] Failed to transform consultation:', consultation, transformError);
+          // Return minimal valid object instead of crashing
+          return {
+            key: consultation._id || `error-${Date.now()}`,
+            _id: consultation._id || '',
+            patientName: 'Lỗi dữ liệu',
+            patientPhone: '',
+            serviceName: 'Tư vấn trực tuyến',
+            serviceType: 'consultation',
+            doctorName: 'Bạn',
+            appointmentDate: new Date().toISOString().split('T')[0],
+            appointmentTime: '09:00',
+            appointmentType: 'online-consultation' as any,
+            typeLocation: 'Online',
+            address: undefined,
+            description: 'Dữ liệu không hợp lệ',
+            notes: '',
+            status: 'pending' as any,
+            createdAt: consultation.createdAt || new Date().toISOString(),
+            updatedAt: consultation.updatedAt || new Date().toISOString(),
+            type: 'consultation',
+            originalData: consultation
+          };
+        }
+      });
+  }
+
+  /**
+   * Safely extract doctor name from doctorId field (could be string or populated object)
+   */
+  private extractDoctorName(doctorId: any): string {
+    if (!doctorId) return '';
+    
+    // If doctorId is populated object with nested userId
+    if (typeof doctorId === 'object' && doctorId.userId?.fullName) {
+      return doctorId.userId.fullName;
+    }
+    
+    // If doctorId is populated object with direct fullName
+    if (typeof doctorId === 'object' && doctorId.fullName) {
+      return doctorId.fullName;
+    }
+    
+    // If doctorId is just ObjectId string
+    if (typeof doctorId === 'string') {
+      return ''; // Can't get name from ObjectId string
+    }
+    
+    return '';
+  }
+
+  /**
+   * Format date to YYYY-MM-DD string for display
+   */
+  private formatDate(dateInput: string | Date): string {
+    try {
+      const date = new Date(dateInput);
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date input:', dateInput);
+        return new Date().toISOString().split('T')[0]; // fallback to today
+      }
+      return date.toISOString().split('T')[0];
+    } catch (error) {
+      console.warn('Error formatting date:', dateInput, error);
+      return new Date().toISOString().split('T')[0]; // fallback to today
+    }
   }
 
   /**

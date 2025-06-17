@@ -13,9 +13,9 @@ const findNearestAvailableTimeSlot = async (): Promise<{
   date: Date;
   slotTime: string;
   availableDoctors: Array<{
-    doctorId: string;
+  doctorId: string;
     doctorName: string;
-    slotId: any;
+  slotId: any;
     bookedSlots: number;
   }>;
 }[]> => {
@@ -81,21 +81,24 @@ const findNearestAvailableTimeSlot = async (): Promise<{
       doctorStats.set(doctorId, bookedCount);
     }
 
-    // Thu thập slots theo thời gian
+    // 🔧 TIMEZONE FIX: Thu thập slots theo thời gian với VN timezone
     const now = new Date();
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
+    
+    // 🔧 Fix: Dùng VN timezone cho today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
-    console.log(`🕐 [NEAREST-SLOT] Current time: ${now.toLocaleString('vi-VN')}`);
+    
+    console.log(`🕐 [NEAREST-SLOT] Current VN time: ${now.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`);
+    console.log(`🕐 [NEAREST-SLOT] Today start: ${today.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`);
 
     // Group slots theo thời gian (date + slotTime)
     const slotsByTime = new Map<string, {
       date: Date;
       slotTime: string;
       availableDoctors: Array<{
-        doctorId: string;
+      doctorId: string;
         doctorName: string;
         slotId: any;
         bookedSlots: number;
@@ -110,11 +113,23 @@ const findNearestAvailableTimeSlot = async (): Promise<{
       const bookedSlots = doctorStats.get(doctorId) || 0;
 
       for (const daySchedule of schedule.weekSchedule) {
+        // 🔧 TIMEZONE FIX: Parse date đúng cách để tránh UTC shift
         const scheduleDate = new Date(daySchedule.dayOfWeek);
-        scheduleDate.setHours(0, 0, 0, 0);
+        
+        // Convert về VN timezone và reset time
+        const vnScheduleDate = new Date(scheduleDate.getTime());
+        vnScheduleDate.setHours(0, 0, 0, 0);
+        
+        console.log(`🔍 [DEBUG] Schedule date:`, {
+          original: daySchedule.dayOfWeek,
+          parsed: scheduleDate.toISOString(),
+          vnDate: vnScheduleDate.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
+          todayVN: today.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
+          comparison: vnScheduleDate.getTime() >= today.getTime() ? 'VALID' : 'SKIP'
+        });
 
-        // Chỉ xét lịch từ hôm nay trở đi
-        if (scheduleDate.getTime() < today.getTime()) continue;
+        // Chỉ xét lịch từ hôm nay trở đi (VN timezone)
+        if (vnScheduleDate.getTime() < today.getTime()) continue;
 
         for (const slot of daySchedule.slots) {
           if (slot.status !== 'Free') continue;
@@ -122,23 +137,35 @@ const findNearestAvailableTimeSlot = async (): Promise<{
           const [slotStartHour, slotStartMinute] = slot.slotTime.split('-')[0].split(':').map(Number);
           
           // Nếu là hôm nay, chỉ lấy slot sau thời gian hiện tại (+ buffer 15 phút)
-          if (scheduleDate.getTime() === today.getTime()) {
+          if (vnScheduleDate.getTime() === today.getTime()) {
             if (slotStartHour < currentHour || 
                 (slotStartHour === currentHour && slotStartMinute <= (currentMinute + 15))) {
+              console.log(`⏭️ [SKIP] Slot ${slot.slotTime} is in the past or too close (current: ${currentHour}:${currentMinute})`);
               continue;
             }
           }
 
-          // Key để group: date + slotTime
-          const timeKey = `${scheduleDate.toISOString().split('T')[0]}_${slot.slotTime}`;
+          // Key để group: date + slotTime (dùng VN date)
+          const vnDateStr = vnScheduleDate.toISOString().split('T')[0];
+          const timeKey = `${vnDateStr}_${slot.slotTime}`;
           
           if (!slotsByTime.has(timeKey)) {
             slotsByTime.set(timeKey, {
-              date: new Date(scheduleDate),
+              date: new Date(vnScheduleDate),
               slotTime: slot.slotTime,
               availableDoctors: []
             });
           }
+
+          console.log(`🔍 [DEBUG] Found valid slot:`, {
+            doctorId,
+            doctorName,
+            slotId: slot._id,
+            slotTime: slot.slotTime,
+            status: slot.status,
+            vnDate: vnDateStr,
+            isToday: vnScheduleDate.getTime() === today.getTime()
+          });
 
           slotsByTime.get(timeKey)!.availableDoctors.push({
             doctorId,
@@ -248,19 +275,19 @@ export const findBestAvailableSlot = async (): Promise<{
       // BƯỚC 3: Chọn doctor tối ưu cho time slot này
       try {
         const selectedDoctor = selectOptimalDoctorForTimeSlot(timeSlot.availableDoctors);
-        
+    
         console.log(`🏆 [SMART-ASSIGN] Successfully found optimal slot:`);
         console.log(`   📅 Date: ${timeSlot.date.toISOString().split('T')[0]}`);
         console.log(`   🕐 Time: ${timeSlot.slotTime}`);
         console.log(`   👨‍⚕️ Doctor: ${selectedDoctor.doctorName} (${selectedDoctor.bookedSlots} booked slots)`);
 
-        return {
+    return {
           doctorId: selectedDoctor.doctorId,
           appointmentDate: timeSlot.date,
           appointmentSlot: timeSlot.slotTime,
           slotId: selectedDoctor.slotId,
           doctorName: selectedDoctor.doctorName
-        };
+    };
 
       } catch (doctorSelectionError) {
         console.warn(`⚠️ [SMART-ASSIGN] Failed to select doctor for this slot:`, doctorSelectionError);
@@ -283,11 +310,11 @@ const bookSlotWithTimeout = async (doctorId: string, slotId: any, qaId: string) 
     console.log('🔒 [BOOKING] Starting slot booking...', { doctorId, slotId, qaId });
     const DoctorSchedules = require('../models/DoctorSchedules').default;
     
-    // Book slot
-    await DoctorSchedules.updateOne(
+    // 🔧 FIXED: MongoDB query đúng cho nested arrays
+    const updateResult = await DoctorSchedules.updateOne(
       { 
-        doctorId,
-        'weekSchedule.slots._id': slotId
+        doctorId: new mongoose.Types.ObjectId(doctorId),
+        'weekSchedule.slots._id': new mongoose.Types.ObjectId(slotId)
       },
       {
         $set: {
@@ -297,9 +324,21 @@ const bookSlotWithTimeout = async (doctorId: string, slotId: any, qaId: string) 
         }
       },
       {
-        arrayFilters: [{ 'slot._id': slotId }]
+        arrayFilters: [
+          { 'slot._id': new mongoose.Types.ObjectId(slotId) }
+        ]
       }
     );
+
+    console.log(`🔒 [BOOKING] Update result:`, updateResult);
+    
+    if (updateResult.matchedCount === 0) {
+      throw new Error(`Không tìm thấy doctor schedule với doctorId: ${doctorId}`);
+    }
+    
+    if (updateResult.modifiedCount === 0) {
+      console.warn(`⚠️ [BOOKING] No slot was modified. SlotId: ${slotId} might not exist or already booked`);
+    }
 
     console.log(`🔒 [BOOKING] Slot ${slotId} booked for QA ${qaId}`);
 
@@ -329,10 +368,10 @@ const releaseSlot = async (doctorId: string, slotId: any) => {
   try {
     const DoctorSchedules = require('../models/DoctorSchedules').default;
     
-    await DoctorSchedules.updateOne(
+    const updateResult = await DoctorSchedules.updateOne(
       { 
-        doctorId,
-        'weekSchedule.slots._id': slotId
+        doctorId: new mongoose.Types.ObjectId(doctorId),
+        'weekSchedule.slots._id': new mongoose.Types.ObjectId(slotId)
       },
       {
         $set: {
@@ -344,9 +383,13 @@ const releaseSlot = async (doctorId: string, slotId: any) => {
         }
       },
       {
-        arrayFilters: [{ 'slot._id': slotId }]
+        arrayFilters: [
+          { 'slot._id': new mongoose.Types.ObjectId(slotId) }
+        ]
       }
     );
+
+    console.log(`🔓 [RELEASE] Update result:`, updateResult);
 
     console.log(`🔓 [RELEASE] Slot ${slotId} released`);
 
