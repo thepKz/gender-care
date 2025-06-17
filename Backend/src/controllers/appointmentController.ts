@@ -910,6 +910,113 @@ export const confirmAppointment = async (req: Request, res: Response) => {
 };
 
 /**
+ * Hủy cuộc hẹn bởi bác sĩ với lý do (Doctor only)
+ */
+export const cancelAppointmentByDoctor = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { reason } = req.body;
+
+        // Kiểm tra ID có hợp lệ không
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            throw new ValidationError({ id: 'ID cuộc hẹn không hợp lệ' });
+        }
+
+        // Kiểm tra user có phải doctor không
+        if (req.user?.role !== 'doctor') {
+            throw new UnauthorizedError('Chỉ bác sĩ mới có thể hủy lịch hẹn');
+        }
+
+        // Kiểm tra lý do hủy
+        if (!reason || reason.trim().length === 0) {
+            throw new ValidationError({ reason: 'Vui lòng nhập lý do hủy lịch hẹn' });
+        }
+
+        // Tìm cuộc hẹn hiện tại
+        const appointment = await Appointments.findById(id);
+        if (!appointment) {
+            throw new NotFoundError('Không tìm thấy cuộc hẹn');
+        }
+
+        // Kiểm tra lịch hẹn đã bị hủy chưa
+        if (appointment.status === 'cancelled') {
+            throw new ValidationError({ status: 'Cuộc hẹn đã được hủy trước đó' });
+        }
+
+        // Kiểm tra lịch hẹn đã hoàn thành chưa
+        if (appointment.status === 'completed') {
+            throw new ValidationError({ status: 'Không thể hủy cuộc hẹn đã hoàn thành' });
+        }
+
+        // Giải phóng slot nếu có
+        if (appointment.slotId) {
+            console.log(`🔓 [CANCEL] Releasing slot ${appointment.slotId} for appointment ${id}`);
+            await DoctorSchedules.updateOne(
+                { 'weekSchedule.slots._id': appointment.slotId },
+                { 
+                    $set: { 'weekSchedule.$.slots.$[slot].status': 'Free' },
+                    $unset: {
+                        'weekSchedule.$.slots.$[slot].bookedBy': 1,
+                        'weekSchedule.$.slots.$[slot].bookedAt': 1
+                    }
+                },
+                { arrayFilters: [{ 'slot._id': appointment.slotId }] }
+            );
+        }
+
+        // Cập nhật trạng thái thành cancelled và lưu lý do vào notes
+        const cancelNote = `[DOCTOR CANCELLED] ${reason.trim()}`;
+        const existingNotes = appointment.notes || '';
+        const updatedNotes = existingNotes 
+            ? `${existingNotes}\n\n${cancelNote}` 
+            : cancelNote;
+
+        const updatedAppointment = await Appointments.findByIdAndUpdate(
+            id,
+            { 
+                $set: { 
+                    status: 'cancelled',
+                    notes: updatedNotes
+                } 
+            },
+            { new: true }
+        ).populate('profileId', 'fullName gender phone year')
+            .populate('serviceId', 'serviceName price serviceType')
+            .populate('packageId', 'name price serviceIds');
+
+        return res.status(200).json({
+            success: true,
+            message: 'Hủy cuộc hẹn thành công',
+            data: updatedAppointment
+        });
+    } catch (error) {
+        console.error('Error in cancelAppointmentByDoctor:', error);
+        if (error instanceof NotFoundError) {
+            return res.status(404).json({
+                success: false,
+                message: error.message
+            });
+        }
+        if (error instanceof ValidationError) {
+            return res.status(400).json({
+                success: false,
+                errors: error.errors
+            });
+        }
+        if (error instanceof UnauthorizedError) {
+            return res.status(403).json({
+                success: false,
+                message: error.message
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi hủy cuộc hẹn'
+        });
+    }
+};
+
+/**
  * Lấy danh sách cuộc hẹn của bác sĩ hiện tại (từ token)
  * Không cần truyền doctorId trong params
  */

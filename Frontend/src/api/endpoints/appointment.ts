@@ -144,6 +144,12 @@ export const appointmentApi = {
     confirmAppointment: async (id: string) => {
         const response = await axiosInstance.put(`/appointments/${id}/confirm`);
         return response.data;
+    },
+
+    // Hủy cuộc hẹn bởi bác sĩ với lý do
+    cancelAppointmentByDoctor: async (id: string, reason: string) => {
+        const response = await axiosInstance.put(`/appointments/${id}/cancel-by-doctor`, { reason });
+        return response.data;
     }
 };
 

@@ -247,6 +247,57 @@ const AppointmentManagement: React.FC = () => {
     }
   };
 
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelAppointmentData, setCancelAppointmentData] = useState<{
+    id: string;
+    type: 'appointment' | 'consultation';
+    patientName: string;
+  } | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+
+  const showCancelModal = (appointment: Appointment) => {
+    setCancelAppointmentData({
+      id: appointment._id,
+      type: appointment.type,
+      patientName: appointment.patientName
+    });
+    setCancelReason('');
+    setCancelModalVisible(true);
+  };
+
+  const handleCancelByDoctor = async () => {
+    if (!cancelAppointmentData || !cancelReason.trim()) {
+      message.error('Vui lòng nhập lý do bỏ lịch hẹn');
+      return;
+    }
+
+    try {
+      const success = await appointmentManagementService.cancelByDoctor(
+        cancelAppointmentData.id,
+        cancelAppointmentData.type,
+        cancelReason.trim()
+      );
+
+      if (success) {
+        // Update local state
+        setAppointments(prev => 
+          prev.map(apt => 
+            apt._id === cancelAppointmentData.id ? { ...apt, status: 'cancelled' } : apt
+          )
+        );
+        message.success('Bỏ lịch hẹn thành công');
+        setCancelModalVisible(false);
+        setCancelAppointmentData(null);
+        setCancelReason('');
+      } else {
+        message.error('Bỏ lịch hẹn thất bại');
+      }
+    } catch (err: any) {
+      console.error('❌ [ERROR] Failed to cancel appointment by doctor:', err);
+      message.error('Bỏ lịch hẹn thất bại');
+    }
+  };
+
   const showAppointmentDetails = async (appointment: Appointment) => {
     try {
       // Fetch detailed data from API
@@ -422,14 +473,7 @@ const AppointmentManagement: React.FC = () => {
                   </div>
                 )}
 
-                {/* Hiển thị thông tin API response raw cho debug */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div style={{ marginTop: '16px' }}>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Debug: {appointment.type} ID: {appointment._id}
-                    </Text>
-                  </div>
-                )}
+
               </Card>
             )}
           </div>
@@ -497,7 +541,13 @@ const AppointmentManagement: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
             <CalendarOutlined style={{ color: '#1890ff', fontSize: '12px' }} />
-            <Text style={{ fontSize: '13px', fontWeight: 500 }}>{record.appointmentDate}</Text>
+            <Text style={{ fontSize: '13px', fontWeight: 500 }}>
+              {new Date(record.appointmentDate).toLocaleDateString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit', 
+                year: 'numeric'
+              })}
+            </Text>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
             <ClockCircleOutlined style={{ color: '#52c41a', fontSize: '12px' }} />
@@ -532,7 +582,7 @@ const AppointmentManagement: React.FC = () => {
       title: 'Thao tác',
       key: 'actions',
       fixed: 'right',
-      width: 200,
+      width: 160,
       render: (_, record) => (
         <Space>
           <Tooltip title="Xem chi tiết">
@@ -560,21 +610,17 @@ const AppointmentManagement: React.FC = () => {
               </Popconfirm>
             </Tooltip>
           )}
-          {(record.status === 'paid' || record.status === 'confirmed') && (
-            <Tooltip title="Hủy lịch hẹn">
-              <Popconfirm
-                title="Bạn có chắc chắn muốn hủy lịch hẹn này?"
-                onConfirm={() => handleDelete(record._id, record.type)}
-                okText="Hủy lịch"
-                cancelText="Không"
+          {['paid', 'confirmed', 'scheduled', 'consulting'].includes(record.status) && (
+            <Tooltip title="Bỏ lịch hẹn">
+              <Button 
+                type="text" 
+                icon={<DeleteOutlined />} 
+                size="small"
+                danger
+                onClick={() => showCancelModal(record)}
               >
-                <Button 
-                  type="text" 
-                  icon={<DeleteOutlined />} 
-                  size="small"
-                  danger
-                />
-              </Popconfirm>
+                Bỏ lịch hẹn
+              </Button>
             </Tooltip>
           )}
         </Space>
@@ -670,6 +716,62 @@ const AppointmentManagement: React.FC = () => {
           }}
           scroll={{ x: 1200 }}
         />
+
+        {/* Modal hủy lịch hẹn bởi bác sĩ */}
+        <Modal
+          title={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <DeleteOutlined style={{ color: '#ff4d4f' }} />
+              <span>Bỏ lịch hẹn</span>
+            </div>
+          }
+          open={cancelModalVisible}
+          onOk={handleCancelByDoctor}
+          onCancel={() => {
+            setCancelModalVisible(false);
+            setCancelAppointmentData(null);
+            setCancelReason('');
+          }}
+          okText="Bỏ lịch hẹn"
+          cancelText="Đóng"
+          okButtonProps={{ danger: true }}
+          width={500}
+        >
+          {cancelAppointmentData && (
+            <div>
+              <p style={{ marginBottom: '16px' }}>
+                Bạn có chắc chắn muốn bỏ lịch hẹn của bệnh nhân{' '}
+                <strong>{cancelAppointmentData.patientName}</strong>?
+              </p>
+              
+              <div style={{ marginBottom: '8px' }}>
+                <Text strong>Lý do bỏ lịch hẹn: <span style={{ color: '#ff4d4f' }}>*</span></Text>
+              </div>
+              
+              <TextArea
+                placeholder="Vui lòng nhập lý do bỏ lịch hẹn (bắt buộc)..."
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={4}
+                maxLength={500}
+                showCount
+                style={{ marginBottom: '16px' }}
+              />
+              
+              <div style={{ 
+                padding: '12px', 
+                backgroundColor: '#fff7e6', 
+                borderRadius: '6px',
+                border: '1px solid #ffd591',
+                fontSize: '13px',
+                color: '#ad6800'
+              }}>
+                <strong>Lưu ý:</strong> Lý do bỏ lịch sẽ được gửi cho bệnh nhân để họ hiểu tình hình. 
+                Slot thời gian sẽ được giải phóng và có thể được đặt lại.
+              </div>
+            </div>
+          )}
+        </Modal>
       </Card>
     </div>
   );

@@ -8,6 +8,7 @@ import {
   AppointmentListResponse,
   ConsultationListResponse
 } from '../../types/appointment';
+import axiosInstance from '../axiosConfig';
 
 /**
  * Service để quản lý appointments của doctor
@@ -297,19 +298,25 @@ class AppointmentManagementService {
   }
 
   /**
-   * Format date to YYYY-MM-DD string for display
+   * Format date to DD/MM/YYYY string for display
    */
   private formatDate(dateInput: string | Date): string {
     try {
       const date = new Date(dateInput);
       if (isNaN(date.getTime())) {
         console.warn('Invalid date input:', dateInput);
-        return new Date().toISOString().split('T')[0]; // fallback to today
+        return new Date().toLocaleDateString('vi-VN'); // fallback to today
       }
-      return date.toISOString().split('T')[0];
+      
+      // Format to DD/MM/YYYY for Vietnamese locale
+      return date.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+      });
     } catch (error) {
       console.warn('Error formatting date:', dateInput, error);
-      return new Date().toISOString().split('T')[0]; // fallback to today
+      return new Date().toLocaleDateString('vi-VN'); // fallback to today
     }
   }
 
@@ -430,6 +437,27 @@ class AppointmentManagementService {
       return true;
     } catch (error) {
       console.error(`❌ [ERROR] Failed to cancel ${type}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Hủy lịch hẹn bởi bác sĩ với lý do
+   */
+  async cancelByDoctor(id: string, type: 'appointment' | 'consultation', reason: string): Promise<boolean> {
+    try {
+      console.log(`🚫 [SERVICE] Cancelling ${type} ${id} by doctor with reason: ${reason}`);
+      
+      if (type === 'appointment') {
+        const response = await appointmentApi.cancelAppointmentByDoctor(id, reason);
+        return response.success === true;
+      } else {
+        // DoctorQA cancellation with reason
+        const response = await axiosInstance.put(`/doctor-qa/${id}/cancel-by-doctor`, { reason });
+        return response.status === 200;
+      }
+    } catch (error) {
+      console.error(`❌ [ERROR] Failed to cancel ${type} by doctor:`, error);
       return false;
     }
   }

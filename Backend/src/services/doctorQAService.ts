@@ -798,4 +798,65 @@ export const findBestDoctorForNextSlot = async () => {
 // ⚠️ DEPRECATED - Logic cũ không còn sử dụng
 export const scheduleQA = async (qaId: string) => {
   throw new Error('⚠️ [DEPRECATED] scheduleQA is deprecated. Slot assignment is done automatically during QA creation.');
+};
+
+/**
+ * 🚫 Hủy cuộc tư vấn bởi bác sĩ với lý do
+ * @param qaId - ID của QA
+ * @param reason - Lý do hủy
+ */
+export const cancelConsultationByDoctor = async (qaId: string, reason: string) => {
+  try {
+    if (!isValidObjectId(qaId)) {
+      throw new Error('ID yêu cầu tư vấn không hợp lệ');
+    }
+
+    // Tìm QA hiện tại để lấy slot info
+    const qa = await DoctorQA.findById(qaId);
+    if (!qa) {
+      throw new Error('Không tìm thấy yêu cầu tư vấn');
+    }
+
+    // Giải phóng slot nếu có slotId
+    if (qa.doctorId && qa.slotId) {
+      console.log(`🔓 [CANCEL-QA] Releasing slot ${qa.slotId} for QA ${qaId}`);
+      await releaseSlot(qa.doctorId.toString(), qa.slotId);
+    }
+
+    // Cập nhật status và notes
+    const cancelNote = `[DOCTOR CANCELLED] ${reason}`;
+    const existingNotes = qa.notes || '';
+    const updatedNotes = existingNotes 
+      ? `${existingNotes}\n\n${cancelNote}` 
+      : cancelNote;
+
+    const updatedQA = await DoctorQA.findByIdAndUpdate(
+      qaId,
+      { 
+        $set: { 
+          status: 'cancelled',
+          notes: updatedNotes
+        } 
+      },
+      { new: true }
+    ).populate({
+        path: 'doctorId',
+        select: 'userId bio specialization',
+        populate: {
+          path: 'userId',
+          select: 'fullName email'
+        }
+      })
+     .populate('userId', 'fullName email');
+
+    if (!updatedQA) {
+      throw new Error('Không thể cập nhật yêu cầu tư vấn');
+    }
+
+    console.log(`✅ [QA-SERVICE] Cancelled consultation ${qaId} by doctor with reason: ${reason}`);
+    return updatedQA;
+  } catch (error) {
+    console.error('❌ [ERROR] cancelConsultationByDoctor failed:', error);
+    throw error;
+  }
 }; 

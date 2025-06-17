@@ -19,7 +19,8 @@ import {
   joinQAMeeting,
   completeQAMeeting,
   manualTriggerScheduling,
-  batchProcessPaidQAs
+  batchProcessPaidQAs,
+  cancelConsultationByDoctor
 } from '../controllers/doctorQAController';
 
 const router = express.Router();
@@ -54,6 +55,9 @@ router.get('/doctor-qa/:id', verifyToken, getDoctorQAById);
 
 // PUT /api/doctor-qa/:id/confirm-consultation - Xác nhận cuộc tư vấn đã thanh toán (paid -> confirmed)
 router.put('/doctor-qa/:id/confirm-consultation', verifyToken, confirmConsultation);
+
+// PUT /api/doctor-qa/:id/cancel-by-doctor - Hủy cuộc tư vấn bởi bác sĩ với lý do (DOCTOR ONLY)
+router.put('/doctor-qa/:id/cancel-by-doctor', verifyToken, verifyDoctor, cancelConsultationByDoctor);
 
 // PUT /api/doctor-qa/:id/confirm - Bác sĩ confirm/reject yêu cầu tư vấn
 router.put('/doctor-qa/:id/confirm', verifyToken, doctorConfirmQA);

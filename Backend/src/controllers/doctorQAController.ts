@@ -734,6 +734,69 @@ export const manualTriggerScheduling = async (req: Request, res: Response): Prom
   }
 };
 
+// PUT /api/doctor-qa/:id/cancel-by-doctor - Hủy cuộc tư vấn bởi bác sĩ với lý do (DOCTOR ONLY)
+export const cancelConsultationByDoctor = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ 
+        message: 'ID yêu cầu tư vấn không hợp lệ' 
+      });
+      return;
+    }
+
+    // Kiểm tra user có phải doctor không
+    if (req.user?.role !== 'doctor') {
+      res.status(403).json({ 
+        message: 'Chỉ bác sĩ mới có thể hủy cuộc tư vấn' 
+      });
+      return;
+    }
+
+    // Kiểm tra lý do hủy
+    if (!reason || reason.trim().length === 0) {
+      res.status(400).json({ 
+        message: 'Vui lòng nhập lý do hủy cuộc tư vấn' 
+      });
+      return;
+    }
+
+    const qa = await doctorQAService.getDoctorQAById(id);
+
+    // Kiểm tra cuộc tư vấn đã bị hủy chưa
+    if (qa.status === 'cancelled') {
+      res.status(400).json({ 
+        message: 'Cuộc tư vấn đã được hủy trước đó' 
+      });
+      return;
+    }
+
+    // Kiểm tra cuộc tư vấn đã hoàn thành chưa
+    if (qa.status === 'completed') {
+      res.status(400).json({ 
+        message: 'Không thể hủy cuộc tư vấn đã hoàn thành' 
+      });
+      return;
+    }
+
+    // Gọi service để hủy consultation với lý do
+    const updatedQA = await doctorQAService.cancelConsultationByDoctor(id, reason.trim());
+
+    res.status(200).json({
+      message: 'Hủy cuộc tư vấn thành công',
+      data: updatedQA
+    });
+
+  } catch (error: any) {
+    console.error('Error cancelling consultation by doctor:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi hủy cuộc tư vấn' 
+    });
+  }
+};
+
 // POST /api/doctor-qa/batch-process-paid - Batch process tất cả QA có status "paid" (STAFF ONLY)
 export const batchProcessPaidQAs = async (req: Request, res: Response): Promise<void> => {
   try {
