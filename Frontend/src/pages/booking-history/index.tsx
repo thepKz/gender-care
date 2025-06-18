@@ -1,4 +1,5 @@
 import { DatePicker, Empty, Input, message, Modal, Rate, Select, Timeline } from 'antd';
+import type { Dayjs } from 'dayjs';
 import axios from 'axios';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -66,7 +67,7 @@ const BookingHistory: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<[string, string] | null>(null);
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
   // Mock data
@@ -289,8 +290,8 @@ const BookingHistory: React.FC = () => {
       const [startDate, endDate] = dateRange;
       filtered = filtered.filter(apt => {
         const aptDate = new Date(apt.appointmentDate);
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        const start = startDate.toDate();
+        const end = endDate.toDate();
         return aptDate >= start && aptDate <= end;
       });
     }
@@ -740,7 +741,7 @@ const BookingHistory: React.FC = () => {
               value={dateRange}
               onChange={(dates) => {
                 if (dates && dates[0] && dates[1]) {
-                  setDateRange([dates[0].format('YYYY-MM-DD'), dates[1].format('YYYY-MM-DD')]);
+                  setDateRange([dates[0], dates[1]]);
                 } else {
                   setDateRange(null);
                 }

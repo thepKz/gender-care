@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Select, DatePicker, Button, Tooltip, message, Spin, Breadcrumb, Typography, Tabs } from 'antd';
 import { ArrowLeftOutlined, CalendarOutlined, BarChartOutlined, ExportOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import * as XLSX from 'xlsx';
+// import * as XLSX from 'xlsx';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../hooks/useAuth';
@@ -132,10 +132,12 @@ const MenstrualTrackerPage: React.FC = () => {
       
       // Kiểm tra và xử lý nhiều cấu trúc dữ liệu có thể có
       let profileData;
-      if (response?.data?.data) {
-        profileData = response.data.data;
-      } else if (response?.data) {
-        profileData = response.data;
+      if ((response as any)?.data?.data) {
+        profileData = (response as any).data.data;
+      } else if ((response as any)?.data) {
+        profileData = (response as any).data;
+      } else {
+        profileData = response;
       }
       
       if (!profileData) {
@@ -225,6 +227,9 @@ const MenstrualTrackerPage: React.FC = () => {
 
   // Xuất dữ liệu ra Excel
   const exportToExcel = () => {
+    // TODO: Install xlsx package first: npm install xlsx @types/xlsx
+    message.info('Tính năng xuất Excel sẽ được cập nhật sau!');
+    /*
     const wsData = [
       ['Trường/Ngày', ...Array.from({ length: NUM_DAYS }, (_, i) => i + 1)],
       ['Tem', ...tem.map(v => (v ? TEM_MAP[v]?.text : ''))],
@@ -242,6 +247,7 @@ const MenstrualTrackerPage: React.FC = () => {
     XLSX.utils.book_append_sheet(wb, ws, 'ChuKy');
     XLSX.writeFile(wb, `ChuKy_${profile?.fullName || 'HoSo'}_${month.format('YYYY_MM')}.xlsx`);
     message.success('Đã xuất dữ liệu thành công!');
+    */
   };
 
   // Render cell: nếu đang chỉnh sửa thì hiện Select, không thì chỉ hiện icon+text+tooltip
