@@ -5,7 +5,7 @@ export interface IServices {
   price: number;
   description?: string;
   isDeleted: boolean;
-  serviceType: "consultation" | "test" | "other";
+  serviceType: "consultation" | "test" | "treatmeant" | "other";
   availableAt: string[]; // ["Athome", "Online", "Center"]
 }
 

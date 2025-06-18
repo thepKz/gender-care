@@ -19,29 +19,49 @@ import ProfileEditPage from '../pages/profile/edit';
 
 // New Pages
 import AboutGCCPage from '../pages/about-gcc';
-import BlogPage from '../pages/blog';
 import CounselorsPage from '../pages/counselors';
+import OnlineConsultationPage from '../pages/online-consultation';
 import PicturePage from '../pages/picture';
-import ServicesPage from '../pages/services';
+import PublicServicesPage from '../pages/services/PublicServicesPage';
+
+// Doctor Pages
+import DoctorDetail from '../pages/doctors/DoctorDetail';
 
 // Booking Pages
 import BookingPage from '../pages/booking';
 import BookingHistoryPage from '../pages/booking-history';
 import FeedbackPage from '../pages/feedback';
+import PaymentPage from '../pages/payment';
+
+// Consultation Pages
+import PaymentSuccessPage from '../pages/consultation/PaymentSuccessPage';
+import ServicesPage from '../pages/services';
 
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
+import RichTextComposerDemo from '../pages/demo/RichTextComposerDemo';
+
+// Dashboard Wrapper Components
+import ManagementDashboardPage from '../pages/dashboard/management';
+
+// Manager Dashboard Components  
 
 // Import các trang hồ sơ bệnh án
-import HealthProfilesPage from '../pages/profile/health-profiles';
+// XÓA: import HealthProfilesPage from '../pages/profile/health-profiles';
 import CreateProfilePage from '../pages/profile/create-profile';
 import EditProfilePage from '../pages/profile/edit-profile';
+import UserProfilesPage from '../pages/profile/UserProfilesPage';
 import ViewProfilePage from '../pages/profile/view-profile';
-import MenstrualTrackerPage from '../pages/profile/menstrual-tracker';
+
+// Import Cycle Page
+import CyclePage from '../pages/cycle';
 
 // Hooks
 import { useAuth } from '../hooks/useAuth';
+
+// New import
+import OperationalDashboardPage from '../pages/dashboard/operational';
 
 const AppRoutes: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -79,17 +99,17 @@ const AppRoutes: React.FC = () => {
         <Route path="/verify-email" element={isAuthenticated ? <VerifyEmailPage /> : <Navigate to="/login" replace />} />
         {/* Thêm các trang xác thực khác nếu có */}
       </Route>
+      
       {/* Profile routes - không header/footer, nền gradient */}
       <Route element={<ProfileLayout />}>
         <Route path="/profile" element={isAuthenticated ? <ProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/profile/edit" element={isAuthenticated ? <ProfileEditPage /> : <Navigate to="/login" replace />} />
-                  <Route path="/profile/health-profiles" element={isAuthenticated ? <HealthProfilesPage /> : <Navigate to="/login" replace />} />
-          <Route path="/profile/create-profile" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
-          <Route path="/profile/edit-profile/:profileId" element={isAuthenticated ? <EditProfilePage /> : <Navigate to="/login" replace />} />
-          <Route path="/profile/view-profile/:profileId" element={isAuthenticated ? <ViewProfilePage /> : <Navigate to="/login" replace />} />
-          <Route path="/profile/menstrual-tracker/:profileId" element={isAuthenticated ? <MenstrualTrackerPage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/create-profile" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/edit-profile/:profileId" element={isAuthenticated ? <EditProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/view-profile/:profileId" element={isAuthenticated ? <ViewProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/medical-records/:profileId" element={isAuthenticated ? <NotFoundPage /> : <Navigate to="/login" replace />} />
       </Route>
+      
       {/* Main routes - có header/footer */}
       <Route element={<MainLayout />}>
         <Route index path="/" element={<HomePage />} />
@@ -97,9 +117,11 @@ const AppRoutes: React.FC = () => {
         {/* New Pages */}
         <Route path="/picture" element={<PicturePage />} />
         <Route path="/counselors" element={<CounselorsPage />} />
+        <Route path="/doctors/:id" element={<DoctorDetail />} />
         <Route path="/about-gcc" element={<AboutGCCPage />} />
-        <Route path="/blog" element={<BlogPage />} />
         <Route path="/services" element={<ServicesPage />} />
+        <Route path="/online-consultation" element={<OnlineConsultationPage />} />
+        <Route path="/services/public" element={<PublicServicesPage />} />
         
         {/* All service booking routes redirect to main booking page */}
         <Route path="/services/consulting" element={<Navigate to="/booking?service=consultation" replace />} />
@@ -107,18 +129,38 @@ const AppRoutes: React.FC = () => {
         <Route path="/services/home-sampling" element={<Navigate to="/booking?service=home-sampling" replace />} />
         <Route path="/services/cycle-tracking" element={<Navigate to="/booking?service=cycle-tracking" replace />} />
         
+        {/* User Profiles Page */}
+        <Route path="/user-profiles" element={isAuthenticated ? <UserProfilesPage /> : <Navigate to="/login" replace />} />
+        
+        {/* Cycle Tracking Page */}
+        <Route path="/cycle" element={isAuthenticated ? <CyclePage /> : <Navigate to="/login" replace />} />
+        
         {/* Booking Pages */}
         <Route path="/booking" element={<BookingPage />} />
         <Route path="/booking-history" element={<BookingHistoryPage />} />
+        <Route path="/payment" element={<PaymentPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
+        
+        {/* Consultation Pages */}
+        <Route path="/consultation/payment/:qaId" element={<PaymentPage />} />
+        <Route path="/consultation/success/:qaId" element={<PaymentSuccessPage />} />
         
         {/* Demo Pages */}
         <Route path="/demo" element={<DemoIndexPage />} />
         <Route path="/demo/components" element={<ComponentShowcasePage />} />
+        <Route path="/demo/composer" element={<RichTextComposerDemo />} />
         
         {/* Các route khác */}
         <Route path="*" element={<NotFoundPage />} />
       </Route>
+      
+      {/* Legacy Dashboard Redirects (tạm giữ để không 404, chuyển sang cấu trúc mới) */}
+      <Route path="/admin-dashboard" element={<Navigate to="/dashboard/management" replace />} />
+      <Route path="/staff-dashboard" element={<Navigate to="/dashboard/operational" replace />} />
+
+      {/* Dashboard Routes - template based (không dùng DashboardWrapper) */}
+      <Route path="/dashboard/management" element={isAuthenticated ? <ManagementDashboardPage /> : <Navigate to="/login" replace />} />
+      <Route path="/dashboard/operational" element={isAuthenticated ? <OperationalDashboardPage /> : <Navigate to="/login" replace />} />
     </Routes>
   );
 };

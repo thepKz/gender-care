@@ -1,6 +1,5 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
-import { userApi } from '../../api';
-import { User } from '../../types';
+import { User, userApi } from '../../api/endpoints/userApi';
 
 interface ProfileState {
   data: User | null;
@@ -19,28 +18,30 @@ const initialState: ProfileState = {
 // Async thunks
 export const fetchProfile = createAsyncThunk(
   'profile/fetch',
-  async (_, { rejectWithValue }) => {
+  async (userId: string, { rejectWithValue }) => {
     try {
-      const userData = await userApi.getProfile();
-      return userData;
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message || 'Không thể lấy thông tin người dùng'
-      );
+      const response = await userApi.getUserById(userId);
+      return response.data.user;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Không thể lấy thông tin người dùng';
+      return rejectWithValue(errorMessage);
     }
   }
 );
 
 export const updateProfile = createAsyncThunk(
   'profile/update',
-  async (userData: any, { rejectWithValue }) => {
+  async (userData: Partial<User>, { rejectWithValue }) => {
     try {
-      const response = await userApi.updateProfile(userData);
+      const response = await userApi.updateUserProfile(userData);
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message || 'Không thể cập nhật thông tin người dùng'
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Không thể cập nhật thông tin người dùng';
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -51,10 +52,11 @@ export const updateAvatar = createAsyncThunk(
     try {
       const response = await userApi.updateAvatar(avatarUrl);
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message || 'Không thể cập nhật ảnh đại diện'
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Không thể cập nhật ảnh đại diện';
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -66,15 +68,13 @@ export const changePassword = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await userApi.changePassword({
-        currentPassword,
-        newPassword,
-      });
+      const response = await userApi.changePassword(currentPassword, newPassword);
       return response;
-    } catch (error: any) {
-      return rejectWithValue(
-        error.response?.data?.message || 'Không thể đổi mật khẩu'
-      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : 'Không thể đổi mật khẩu';
+      return rejectWithValue(errorMessage);
     }
   }
 );

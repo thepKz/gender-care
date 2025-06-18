@@ -9,7 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 interface FormValues {
   fullName: string;
   phone: string;
-  gender: 'male' | 'female' | 'other' | string;
+  gender: 'male' | 'female' | 'other';
   year?: dayjs.Dayjs;
 }
 
@@ -93,7 +93,7 @@ const ProfileEditPage: React.FC = () => {
       });
       
       // Gọi API cập nhật profile thực tế
-      await userApi.updateProfile(formattedValues);
+      await userApi.updateUserProfile(formattedValues);
       // Sau khi cập nhật thành công, gọi lại fetchProfile để đồng bộ redux và localStorage
       await fetchProfile();
       notification.success({

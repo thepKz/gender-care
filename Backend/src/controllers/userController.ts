@@ -7,6 +7,7 @@ import {
 } from "../services/emails";
 import { uploadToCloudinary } from '../services/uploadService';
 import { AuthRequest } from "../types";
+import mongoose from 'mongoose';
 
 export const getUser = async (req: AuthRequest, res: Response) => {
   try {
@@ -125,53 +126,147 @@ export const checkEmailWithPhoneNumber = async (
   }
 };
 
-export const getAllUsers = async (req: Request, res: Response) => {
+export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
   try {
-    const users = await User.find({ role: { $ne: "admin" } });
-
-    if (!users || users.length === 0) {
-      return res.status(404).json({ message: "Danh sách tài khoản trống" });
+    const { page = 1, limit = 10, role, search, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
+    
+    // Build query object
+    const query: any = {};
+    
+    // Filter by role if provided
+    if (role && role !== 'all') {
+      query.role = role;
     }
-
-    const formattedData = users.map((user) => ({
-      id: user._id,
-      fullName: user.fullName,
-      email: user.email,
-      avatar: user.avatar || "",
-      phone: user.phone || "",
-      role: user.role,
-      isActive: user.isActive,
-    }));
-
-    return res.status(200).json({ data: formattedData });
+    
+    // Search by name, email or phone
+    if (search) {
+      query.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { phone: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Pagination
+    const pageNum = parseInt(page as string);
+    const limitNum = parseInt(limit as string);
+    const skip = (pageNum - 1) * limitNum;
+    
+    // Sort options
+    const sortOptions: any = {};
+    sortOptions[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
+    
+    // Get users with pagination
+    const users = await User.find(query)
+      .select('-password') // Exclude password
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limitNum)
+      .lean();
+    
+    // Get total count for pagination
+    const totalUsers = await User.countDocuments(query);
+    const totalPages = Math.ceil(totalUsers / limitNum);
+    
+    // Get role statistics
+    const roleStats = await User.aggregate([
+      { $group: { _id: '$role', count: { $sum: 1 } } }
+    ]);
+    
+    res.status(200).json({
+      success: true,
+      message: `Lấy danh sách người dùng thành công`,
+      data: {
+        users,
+        pagination: {
+          currentPage: pageNum,
+          totalPages,
+          totalUsers,
+          limit: limitNum,
+          hasNextPage: pageNum < totalPages,
+          hasPrevPage: pageNum > 1
+        },
+        statistics: {
+          totalUsers,
+          roleStats: roleStats.reduce((acc, stat) => {
+            acc[stat._id] = stat.count;
+            return acc;
+          }, {}),
+          filters: { role, search, sortBy, sortOrder }
+        }
+      }
+    });
+    
   } catch (error: any) {
-    console.log(error);
-    return res.status(500).json({
-      message: error.message,
+    console.error('Error in getAllUsers:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy danh sách người dùng',
+      error: error.message
     });
   }
 };
 
-export const toggleUserStatus = async (req: Request, res: Response) => {
+export const toggleUserStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.params;
-
+    const { reason } = req.body;
+    const currentUserRole = (req as any).user?.role; // Get current user's role
+    
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      res.status(400).json({
+        success: false,
+        message: 'ID người dùng không hợp lệ'
+      });
+      return;
+    }
+    
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "Không tìm thấy người dùng" });
+      res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+      return;
     }
-
-    user.isActive = !user.isActive;
+    
+    // Prevent deactivating admin accounts
+    if (user.role === 'admin') {
+      res.status(403).json({
+        success: false,
+        message: 'Không thể khóa tài khoản Admin'
+      });
+      return;
+    }
+    
+    const newStatus = !user.isActive;
+    user.isActive = newStatus;
+    user.updatedAt = new Date();
     await user.save();
-
-    return res.status(200).json({
-      data: user,
+    
+    // Log the change
+    const action = newStatus ? 'activated' : 'deactivated';
+    const actionBy = currentUserRole === 'manager' ? 'MANAGER' : 'ADMIN';
+    console.log(`[${actionBy} ACTION] User ${user.email} ${action}. Reason: ${reason || 'No reason provided'}`);
+    
+    res.status(200).json({
+      success: true,
+      message: `${newStatus ? 'Kích hoạt' : 'Khóa'} tài khoản thành công`,
+      data: {
+        userId: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        isActive: newStatus,
+        updatedAt: user.updatedAt
+      }
     });
+    
   } catch (error: any) {
-    console.log(error);
-    return res.status(500).json({
-      message:
-        error.message || "Đã xảy ra lỗi khi cập nhật trạng thái tài khoản",
+    console.error('Error in toggleUserStatus:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi thay đổi trạng thái tài khoản',
+      error: error.message
     });
   }
 };
@@ -347,13 +442,31 @@ export const searchUsers = async (req: Request, res: Response) => {
 export const createUser = async (req: Request, res: Response) => {
   try {
     const { email, password, fullName, phone, avatar, gender, address, year, role } = req.body;
+    const currentUserRole = (req as any).user?.role; // Get current user's role
+    
     if (!email || !password || !fullName) {
-      return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
+      return res.status(400).json({ 
+        success: false,
+        message: "Thiếu thông tin bắt buộc" 
+      });
     }
+    
+    // Manager restrictions: cannot create admin users
+    if (currentUserRole === 'manager' && role === 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Manager không thể tạo tài khoản Admin'
+      });
+    }
+    
     const existed = await User.findOne({ email });
     if (existed) {
-      return res.status(409).json({ message: "Email đã tồn tại" });
+      return res.status(409).json({ 
+        success: false,
+        message: "Email đã tồn tại" 
+      });
     }
+    
     const hash = await bcrypt.hash(password, 10);
     const user = await User.create({
       email,
@@ -366,20 +479,74 @@ export const createUser = async (req: Request, res: Response) => {
       year,
       role: role || "customer",
     });
-    return res.status(201).json({ data: user });
+    
+    // Remove password from response
+    const userResponse = user.toObject();
+    const { password: _, ...userWithoutPassword } = userResponse;
+    
+    // Log the creation
+    const actionBy = currentUserRole === 'manager' ? 'MANAGER' : 'ADMIN';
+    console.log(`[${actionBy} ACTION] Created new user: ${user.email} with role: ${user.role}`);
+    
+    return res.status(201).json({ 
+      success: true,
+      message: "Tạo người dùng thành công",
+      data: userWithoutPassword 
+    });
   } catch (error: any) {
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({ 
+      success: false,
+      message: error.message 
+    });
   }
 };
 
-export const getUserById = async (req: Request, res: Response) => {
+export const getUserById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { userId } = req.params;
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: "Không tìm thấy user" });
-    return res.status(200).json({ data: user });
+    
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      res.status(400).json({
+        success: false,
+        message: 'ID người dùng không hợp lệ'
+      });
+      return;
+    }
+    
+    const user = await User.findById(userId).select('-password');
+    
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+      return;
+    }
+    
+    // Get additional info based on role
+    let additionalInfo = null;
+    
+    if (user.role === 'doctor') {
+      const Doctor = await import('../models/Doctor');
+      additionalInfo = await Doctor.default.findOne({ userId: user._id });
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'Lấy thông tin người dùng thành công',
+      data: {
+        user,
+        additionalInfo
+      }
+    });
+    
   } catch (error: any) {
-    return res.status(500).json({ message: error.message });
+    console.error('Error in getUserById:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy thông tin người dùng',
+      error: error.message
+    });
   }
 };
 
@@ -614,5 +781,290 @@ export const uploadAvatarImage = async (req: any, res: Response) => {
     return res.status(200).json({ url });
   } catch (error: any) {
     return res.status(500).json({ message: 'Lỗi upload avatar', error: error.message });
+  }
+};
+
+// ADMIN & MANAGER: Cập nhật role của người dùng
+export const updateUserRole = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.params;
+    const { newRole, reason, doctorProfile } = req.body;
+    const currentUserRole = (req as any).user?.role; // Get current user's role
+    
+    // Validation
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      res.status(400).json({
+        success: false,
+        message: 'ID người dùng không hợp lệ'
+      });
+      return;
+    }
+    
+    const validRoles = ['customer', 'doctor', 'staff', 'manager', 'admin'];
+    if (!validRoles.includes(newRole)) {
+      res.status(400).json({
+        success: false,
+        message: 'Role không hợp lệ',
+        validRoles
+      });
+      return;
+    }
+    
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+      return;
+    }
+    
+    // Manager restrictions
+    if (currentUserRole === 'manager') {
+      // Manager cannot change admin roles
+      if (user.role === 'admin') {
+        res.status(403).json({
+          success: false,
+          message: 'Manager không thể thay đổi role của Admin'
+        });
+        return;
+      }
+      
+      // Manager cannot promote users to admin
+      if (newRole === 'admin') {
+        res.status(403).json({
+          success: false,
+          message: 'Manager không thể thăng cấp user thành Admin'
+        });
+        return;
+      }
+    }
+    
+    // Prevent changing admin role (security) - applies to both admin and manager
+    if (user.role === 'admin' && newRole !== 'admin') {
+      res.status(403).json({
+        success: false,
+        message: 'Không thể thay đổi role của Admin'
+      });
+      return;
+    }
+    
+    const oldRole = user.role;
+    
+    // Update role
+    user.role = newRole;
+    user.updatedAt = new Date();
+    await user.save();
+    
+    // If changing to doctor role, create or update doctor profile
+    if (newRole === 'doctor' && doctorProfile) {
+      try {
+        const Doctor = await import('../models/Doctor');
+        
+        // Check if doctor profile already exists
+        const existingDoctor = await Doctor.default.findOne({ userId: user._id });
+        
+        if (existingDoctor) {
+          // Update existing doctor profile
+          await Doctor.default.findByIdAndUpdate(existingDoctor._id, {
+            ...doctorProfile,
+            updatedAt: new Date()
+          });
+        } else {
+          // Create new doctor profile
+          await Doctor.default.create({
+            userId: user._id,
+            ...doctorProfile,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        }
+      } catch (doctorError) {
+        console.error('Error handling doctor profile:', doctorError);
+        // Role update succeeded, but doctor profile failed
+        // Log this for manual review
+      }
+    }
+    
+    // Log the change
+    const actionBy = currentUserRole === 'manager' ? 'MANAGER' : 'ADMIN';
+    console.log(`[${actionBy} ACTION] User ${user.email} role changed from ${oldRole} to ${newRole}. Reason: ${reason || 'No reason provided'}`);
+    
+    res.status(200).json({
+      success: true,
+      message: `Cập nhật role thành công: ${oldRole} → ${newRole}`,
+      data: {
+        userId: user._id,
+        email: user.email,
+        fullName: user.fullName,
+        oldRole,
+        newRole,
+        updatedAt: user.updatedAt
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('Error in updateUserRole:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi cập nhật role',
+      error: error.message
+    });
+  }
+};
+
+// ADMIN & MANAGER: Xóa người dùng (soft delete)
+export const deleteUser = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.params;
+    const { reason, hardDelete = false } = req.body;
+    const currentUserRole = (req as any).user?.role; // Get current user's role
+    
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      res.status(400).json({
+        success: false,
+        message: 'ID người dùng không hợp lệ'
+      });
+      return;
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy người dùng'
+      });
+      return;
+    }
+    
+    // Prevent deleting admin accounts
+    if (user.role === 'admin') {
+      res.status(403).json({
+        success: false,
+        message: 'Không thể xóa tài khoản Admin'
+      });
+      return;
+    }
+    
+    // Manager restrictions: only soft delete allowed
+    if (currentUserRole === 'manager' && hardDelete) {
+      res.status(403).json({
+        success: false,
+        message: 'Manager chỉ được phép vô hiệu hóa tài khoản, không thể xóa vĩnh viễn'
+      });
+      return;
+    }
+    
+    if (hardDelete && currentUserRole === 'admin') {
+      // Hard delete - permanently remove (Admin only)
+      await User.findByIdAndDelete(userId);
+      console.log(`[ADMIN ACTION] User ${user.email} permanently deleted. Reason: ${reason || 'No reason provided'}`);
+      
+      res.status(200).json({
+        success: true,
+        message: 'Xóa người dùng vĩnh viễn thành công',
+        data: { deletedUser: user.email }
+      });
+    } else {
+      // Soft delete - deactivate account
+      user.isActive = false;
+      user.deletedAt = new Date();
+      user.updatedAt = new Date();
+      await user.save();
+      
+      const actionBy = currentUserRole === 'manager' ? 'MANAGER' : 'ADMIN';
+      console.log(`[${actionBy} ACTION] User ${user.email} soft deleted. Reason: ${reason || 'No reason provided'}`);
+      
+      res.status(200).json({
+        success: true,
+        message: 'Vô hiệu hóa tài khoản thành công',
+        data: {
+          userId: user._id,
+          email: user.email,
+          deletedAt: user.deletedAt
+        }
+      });
+    }
+    
+  } catch (error: any) {
+    console.error('Error in deleteUser:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi xóa người dùng',
+      error: error.message
+    });
+  }
+};
+
+// ADMIN ONLY: Thống kê hệ thống
+export const getSystemStatistics = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // User statistics by role
+    const roleStats = await User.aggregate([
+      { $group: { _id: '$role', count: { $sum: 1 } } }
+    ]);
+    
+    // User statistics by status
+    const statusStats = await User.aggregate([
+      { $group: { _id: '$isActive', count: { $sum: 1 } } }
+    ]);
+    
+    // Recent registrations (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recentRegistrations = await User.countDocuments({
+      createdAt: { $gte: thirtyDaysAgo }
+    });
+    
+    // Daily registrations for the last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const dailyRegistrations = await User.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: sevenDaysAgo }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Lấy thống kê hệ thống thành công',
+      data: {
+        roleStatistics: roleStats.reduce((acc, stat) => {
+          acc[stat._id] = stat.count;
+          return acc;
+        }, {}),
+        statusStatistics: {
+          active: statusStats.find(s => s._id === true)?.count || 0,
+          inactive: statusStats.find(s => s._id === false)?.count || 0
+        },
+        recentActivity: {
+          newUsersLast30Days: recentRegistrations,
+          dailyRegistrationsLast7Days: dailyRegistrations
+        },
+        totalUsers: await User.countDocuments()
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('Error in getSystemStatistics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy thống kê',
+      error: error.message
+    });
   }
 };

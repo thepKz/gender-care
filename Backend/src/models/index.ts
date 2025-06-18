@@ -18,22 +18,22 @@ import Appointments from './Appointments';
 // Health Tracking
 import MenstrualCycles from './MenstrualCycles';
 import CycleSymptoms from './CycleSymptoms';
-import MedicationReminders from './MedicationReminders';
+import MedicationReminders, { IMedicationReminders, IMedicines } from './MedicationReminders';
 import NotificationDays from './NotificationDays';
 
-// Testing & Medical
-import TestCategories from './TestCategories';
-import AppointmentTests from './AppointmentTests';
-import TestResults from './TestResults';
-import TestResultItems from './TestResultItems';
-import MedicalRecords from './MedicalRecords';
+// Medical Records & Medicines
+import MedicalRecords, { IMedicalRecords, IMedicalRecordMedicines } from './MedicalRecords';
+import Medicines, { IMedicines as IMedicinesData } from './Medicines';
+
+// Doctor QA & Meeting
+import DoctorQA from './DoctorQA';
+import Meeting from './Meeting';
 
 // Content & Community
 import BlogCategories from './BlogCategories';
 import BlogPosts from './BlogPosts';
 import PostCategories from './PostCategories';
 import Feedbacks from './Feedbacks';
-import DoctorQA from './DoctorQA';
 
 // Business & Billing
 import Promotions from './Promotions';
@@ -44,6 +44,7 @@ import PackagePurchases from './PackagePurchases';
 // System
 import SystemConfigs from './SystemConfigs';
 
+// Export all models
 export {
   // Core User Management
   User,
@@ -68,19 +69,19 @@ export {
   MedicationReminders,
   NotificationDays,
   
-  // Testing & Medical
-  TestCategories,
-  AppointmentTests,
-  TestResults,
-  TestResultItems,
+  // Medical Records & Medicines
   MedicalRecords,
+  Medicines,
+  
+  // Doctor QA & Meeting
+  DoctorQA,
+  Meeting,
   
   // Content & Community
   BlogCategories,
   BlogPosts,
   PostCategories,
   Feedbacks,
-  DoctorQA,
   
   // Business & Billing
   Promotions,
@@ -90,5 +91,14 @@ export {
   
   // System
   SystemConfigs
+};
+
+// Export interfaces
+export type {
+  IMedicationReminders,
+  IMedicines,
+  IMedicalRecords,
+  IMedicalRecordMedicines,
+  IMedicinesData
 };
 

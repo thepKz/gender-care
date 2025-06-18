@@ -1,15 +1,41 @@
 import { Request, Response } from 'express';
 import Service from '../models/Service';
+import ServicePackage from '../models/ServicePackage';
 import { AuthRequest, ApiResponse, PaginationQuery } from '../types';
 
-// GET /services - Get all services (Public access)
+// GET /services - Get all services (removed search functionality)
 export const getAllServices = async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = req.query as PaginationQuery;
-    const { serviceType, availableAt, search } = req.query;
+    const { 
+      page = 1, 
+      limit = 10, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc',
+      includeDeleted = false 
+    } = req.query as PaginationQuery & { includeDeleted?: boolean | string };
+    
+    const { serviceType, availableAt } = req.query;
 
     // Build filter object
-    const filter: any = { isDeleted: 0 };
+    const filter: any = {};
+    
+    // Include deleted services only if explicitly requested AND user is manager
+    const shouldIncludeDeleted = (includeDeleted === true || includeDeleted === 'true');
+    
+    // Check if user is authenticated and is manager
+    const authReq = req as AuthRequest;
+    const userRole = authReq.user?.role || null;
+    const isManager = userRole === 'manager';
+    
+    if (shouldIncludeDeleted && isManager) {
+      // No filter on isDeleted - show all services (including deleted)
+      console.log('Manager requested includeDeleted - showing all services');
+    } else {
+      filter.isDeleted = 0; // Only active services
+      if (shouldIncludeDeleted && !isManager) {
+        console.log('Non-manager user requested includeDeleted - ignored, showing only active services');
+      }
+    }
     
     if (serviceType) {
       filter.serviceType = serviceType;
@@ -17,10 +43,6 @@ export const getAllServices = async (req: Request, res: Response) => {
     
     if (availableAt) {
       filter.availableAt = { $in: [availableAt] };
-    }
-    
-    if (search) {
-      filter.$text = { $search: search as string };
     }
 
     // Execute query with pagination
@@ -61,6 +83,76 @@ export const getAllServices = async (req: Request, res: Response) => {
   }
 };
 
+// POST /services/search - Search services (new endpoint)
+export const searchServices = async (req: Request, res: Response) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc' 
+    } = req.query as PaginationQuery;
+    
+    const { search, serviceType, availableAt } = req.body;
+
+    // Build filter object
+    const filter: any = { isDeleted: 0 }; // Only active services for search
+    
+    if (serviceType) {
+      filter.serviceType = serviceType;
+    }
+    
+    if (availableAt) {
+      filter.availableAt = { $in: [availableAt] };
+    }
+    
+    // Enhanced search - case insensitive, partial match
+    if (search && typeof search === 'string' && search.trim()) {
+      filter.$or = [
+        { serviceName: { $regex: search.trim(), $options: 'i' } },
+        { description: { $regex: search.trim(), $options: 'i' } }
+      ];
+    }
+
+    // Execute query with pagination
+    const skip = (Number(page) - 1) * Number(limit);
+    const sortObj: any = {};
+    sortObj[sortBy as string] = sortOrder === 'asc' ? 1 : -1;
+
+    const [services, total] = await Promise.all([
+      Service.find(filter)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      Service.countDocuments(filter)
+    ]);
+
+    const response: ApiResponse<any> = {
+      success: true,
+      data: {
+        services,
+        pagination: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit))
+        },
+        searchQuery: search?.trim() || ''
+      }
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    const response: ApiResponse<any> = {
+      success: false,
+      message: 'Error searching services',
+      errors: { general: error.message }
+    };
+    res.status(500).json(response);
+  }
+};
+
 // POST /services - Create new service
 export const createService = async (req: AuthRequest, res: Response) => {
   try {
@@ -82,26 +174,34 @@ export const createService = async (req: AuthRequest, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Check if service already exists
+    // Check if service already exists (including deleted ones)
     const existingService = await Service.findOne({ 
-      serviceName: { $regex: new RegExp(`^${serviceName}$`, 'i') },
-      isDeleted: 0 
+      serviceName: { $regex: new RegExp(`^${serviceName.trim()}$`, 'i') }
     });
     
     if (existingService) {
-      const response: ApiResponse<any> = {
-        success: false,
-        message: 'Service with this name already exists'
-      };
-      return res.status(409).json(response);
+      if (existingService.isDeleted === 1) {
+        const response: ApiResponse<any> = {
+          success: false,
+          message: 'Service with this name exists but is deleted. Please recover it instead of creating new one.'
+        };
+        return res.status(409).json(response);
+      } else {
+        const response: ApiResponse<any> = {
+          success: false,
+          message: 'Service with this name already exists'
+        };
+        return res.status(409).json(response);
+      }
     }
 
     const newService = new Service({
-      serviceName,
+      serviceName: serviceName.trim(),
       price: Number(price),
-      description,
+      description: description.trim(),
       serviceType,
-      availableAt: Array.isArray(availableAt) ? availableAt : [availableAt]
+      availableAt: Array.isArray(availableAt) ? availableAt : [availableAt],
+      isDeleted: 0
     });
 
     const savedService = await newService.save();
@@ -134,15 +234,15 @@ export const updateService = async (req: AuthRequest, res: Response) => {
     if (!service) {
       const response: ApiResponse<any> = {
         success: false,
-        message: 'Service not found'
+        message: 'Service not found or has been deleted'
       };
       return res.status(404).json(response);
     }
 
     // Check if new name conflicts with existing service
-    if (serviceName && serviceName !== service.serviceName) {
+    if (serviceName && serviceName.trim() !== service.serviceName) {
       const existingService = await Service.findOne({
-        serviceName: { $regex: new RegExp(`^${serviceName}$`, 'i') },
+        serviceName: { $regex: new RegExp(`^${serviceName.trim()}$`, 'i') },
         _id: { $ne: id },
         isDeleted: 0
       });
@@ -158,9 +258,9 @@ export const updateService = async (req: AuthRequest, res: Response) => {
 
     // Update fields
     const updateData: any = {};
-    if (serviceName) updateData.serviceName = serviceName;
+    if (serviceName) updateData.serviceName = serviceName.trim();
     if (price) updateData.price = Number(price);
-    if (description) updateData.description = description;
+    if (description) updateData.description = description.trim();
     if (serviceType) updateData.serviceType = serviceType;
     if (availableAt) updateData.availableAt = Array.isArray(availableAt) ? availableAt : [availableAt];
 
@@ -187,7 +287,7 @@ export const updateService = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// DELETE /services/:id - Soft delete service
+// DELETE /services/:id - Soft delete service with protection check
 export const deleteService = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -197,13 +297,29 @@ export const deleteService = async (req: AuthRequest, res: Response) => {
     if (!service) {
       const response: ApiResponse<any> = {
         success: false,
-        message: 'Service not found'
+        message: 'Service not found or already deleted'
       };
       return res.status(404).json(response);
     }
 
+    // Check if service is being used in any active service packages
+    const packagesUsingService = await ServicePackage.findOne({
+      serviceIds: id,
+      isActive: 1
+    });
+
+    if (packagesUsingService) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: `Cannot delete service. It is currently being used in service package: "${packagesUsingService.name}". Please remove the service from all packages first.`
+      };
+      return res.status(400).json(response);
+    }
+
     // Soft delete the service
-    await Service.findByIdAndUpdate(id, { isDeleted: 1 });
+    await Service.findByIdAndUpdate(id, { 
+      isDeleted: 1
+    });
 
     const response: ApiResponse<any> = {
       success: true,
@@ -215,6 +331,62 @@ export const deleteService = async (req: AuthRequest, res: Response) => {
     const response: ApiResponse<any> = {
       success: false,
       message: 'Error deleting service',
+      errors: { general: error.message }
+    };
+    res.status(500).json(response);
+  }
+};
+
+// POST /services/:id/recover - Recover deleted service
+export const recoverService = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Check if service exists and is deleted
+    const service = await Service.findOne({ _id: id, isDeleted: 1 });
+    if (!service) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: 'Service not found or is not deleted'
+      };
+      return res.status(404).json(response);
+    }
+
+    // Check if there's already an active service with the same name
+    const existingActiveService = await Service.findOne({
+      serviceName: { $regex: new RegExp(`^${service.serviceName}$`, 'i') },
+      _id: { $ne: id },
+      isDeleted: 0
+    });
+
+    if (existingActiveService) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: `Cannot recover service. An active service with name "${service.serviceName}" already exists.`
+      };
+      return res.status(409).json(response);
+    }
+
+    // Recover the service
+    const recoveredService = await Service.findByIdAndUpdate(
+      id,
+      { 
+        isDeleted: 0
+      },
+      { new: true }
+    );
+
+    const response: ApiResponse<any> = {
+      success: true,
+      data: recoveredService,
+      message: 'Service recovered successfully'
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    const response: ApiResponse<any> = {
+      success: false,
+      message: 'Error recovering service',
       errors: { general: error.message }
     };
     res.status(500).json(response);

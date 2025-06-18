@@ -1,0 +1,18 @@
+import React from 'react';
+import { useAuth } from '../../../hooks/useAuth';
+import OperationalTemplate from '../../../components/dashboard/templates/OperationalTemplate';
+
+const OperationalDashboard: React.FC = () => {
+  const { user } = useAuth();
+
+  const role: 'doctor' | 'staff' = user && user.role === 'doctor' ? 'doctor' : 'staff';
+
+  return (
+    <OperationalTemplate
+      userRole={role}
+      userName={user?.fullName || 'Người dùng'}
+    />
+  );
+};
+
+export default OperationalDashboard; 

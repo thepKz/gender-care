@@ -2,6 +2,144 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom animations for Service Package Management */
+@layer utilities {
+  .animate-fadeInUp {
+    animation: fadeInUp 0.6s ease-out forwards;
+  }
+  
+  .animate-slideRight {
+    animation: slideRight 0.4s ease-out forwards;
+  }
+  
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  
+  /* Fix text spacing for MagicUI components */
+  .text-animate-fix {
+    word-spacing: normal !important;
+    letter-spacing: normal !important;
+    white-space: normal !important;
+  }
+  
+  .text-animate-fix > span {
+    margin-right: 0.25rem !important;
+  }
+  
+  .text-animate-fix > span:last-child {
+    margin-right: 0 !important;
+  }
+}
+
+@layer components {
+  /* Custom pagination styles */
+  .custom-pagination .ant-pagination-item {
+    @apply border-gray-300 rounded-lg;
+  }
+  
+  .custom-pagination .ant-pagination-item-active {
+    @apply bg-blue-primary border-blue-primary;
+  }
+  
+  .custom-pagination .ant-pagination-item-active a {
+    @apply text-white;
+  }
+  
+  .custom-pagination .ant-pagination-item:hover {
+    @apply border-blue-primary;
+  }
+  
+  .custom-pagination .ant-pagination-item:hover a {
+    @apply text-blue-primary;
+  }
+  
+  /* Service Package Card hover effects */
+  .service-package-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  }
+  
+  /* Glass morphism effect */
+  .glass-morphism {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  /* Enhanced text animation components */
+  .text-enhanced {
+    word-spacing: normal;
+    letter-spacing: normal;
+    white-space: normal;
+    line-height: 1.6;
+  }
+  
+  .text-enhanced span {
+    display: inline-block;
+    margin-right: 0.2em;
+  }
+  
+  .text-enhanced span:last-child {
+    margin-right: 0;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideRight {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes bounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  40%, 43% {
+    transform: translate3d(0, -30px, 0);
+  }
+  70% {
+    transform: translate3d(0, -15px, 0);
+  }
+  90% {
+    transform: translate3d(0, -4px, 0);
+  }
+}
+
+/* Medical theme custom colors */
+:root {
+  --blue-primary: #0c3c54;
+  --blue-secondary: #0F7EA9;
+  --green-primary: #006478;
+  --green-secondary: #00A693;
+}
+
 :root {
   --primary: #407BFF;
   --secondary: #FF6B6B;
@@ -124,142 +262,29 @@ body {
   }
 }
 
-/* Custom Message Styles */
-.ant-message {
-  z-index: 9999 !important;
-}
-
-.ant-message .ant-message-notice {
-  padding: 0 !important;
-  margin-bottom: 12px !important;
-}
-
-.ant-message .ant-message-notice-content {
-  background: #ffffff !important;
-  border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
-  border: 1px solid rgba(0, 0, 0, 0.06) !important;
-  padding: 16px 20px !important;
-  font-size: 14px !important;
-  font-weight: 500 !important;
-  animation: messageSlideIn 0.3s ease-out !important;
-  backdrop-filter: blur(8px) !important;
-  position: relative !important;
-  overflow: hidden !important;
-}
-
-.ant-message .ant-message-notice-content::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  transition: all 0.3s ease;
-}
-
-/* Success Message */
-.ant-message .ant-message-success .ant-message-notice-content {
-  color: #135a13 !important;
-  background: linear-gradient(135deg, #f6ffed 0%, #f4ffed 100%) !important;
-  border-color: #b7eb8f !important;
-}
-
-.ant-message .ant-message-success .ant-message-notice-content::before {
-  background: #52c41a !important;
-}
-
-.ant-message .ant-message-success .anticon {
-  color: #52c41a !important;
-  font-size: 16px !important;
-  margin-right: 8px !important;
-}
-
-/* Error Message */
-.ant-message .ant-message-error .ant-message-notice-content {
-  color: #a8071a !important;
-  background: linear-gradient(135deg, #fff2f0 0%, #fff1f0 100%) !important;
-  border-color: #ffccc7 !important;
-}
-
-.ant-message .ant-message-error .ant-message-notice-content::before {
-  background: #ff4d4f !important;
-}
-
-.ant-message .ant-message-error .anticon {
-  color: #ff4d4f !important;
-  font-size: 16px !important;
-  margin-right: 8px !important;
-}
-
-/* Warning Message */
-.ant-message .ant-message-warning .ant-message-notice-content {
-  color: #ad6800 !important;
-  background: linear-gradient(135deg, #fffbe6 0%, #fffae6 100%) !important;
-  border-color: #ffe58f !important;
-}
-
-.ant-message .ant-message-warning .ant-message-notice-content::before {
-  background: #faad14 !important;
-}
-
-.ant-message .ant-message-warning .anticon {
-  color: #faad14 !important;
-  font-size: 16px !important;
-  margin-right: 8px !important;
-}
-
-/* Info Message */
-.ant-message .ant-message-info .ant-message-notice-content {
-  color: #003a8c !important;
-  background: linear-gradient(135deg, #e6f7ff 0%, #e6f4ff 100%) !important;
-  border-color: #91d5ff !important;
-}
-
-.ant-message .ant-message-info .ant-message-notice-content::before {
-  background: #1890ff !important;
-}
-
-.ant-message .ant-message-info .anticon {
-  color: #1890ff !important;
-  font-size: 16px !important;
-  margin-right: 8px !important;
-}
-
-/* Loading Message */
-.ant-message .ant-message-loading .ant-message-notice-content {
-  color: #003a8c !important;
-  background: linear-gradient(135deg, #f0f8ff 0%, #f0f7ff 100%) !important;
-  border-color: #91d5ff !important;
-}
-
-.ant-message .ant-message-loading .ant-message-notice-content::before {
-  background: #1890ff !important;
-}
-
+/* Custom Message Styles DISABLED - revert to Ant Design default
+.ant-message,
+.ant-message .ant-message-notice,
+.ant-message .ant-message-notice-content,
+.ant-message .ant-message-notice-content::before,
+.ant-message .ant-message-success .ant-message-notice-content,
+.ant-message .ant-message-success .ant-message-notice-content::before,
+.ant-message .ant-message-success .anticon,
+.ant-message .ant-message-error .ant-message-notice-content,
+.ant-message .ant-message-error .ant-message-notice-content::before,
+.ant-message .ant-message-error .anticon,
+.ant-message .ant-message-warning .ant-message-notice-content,
+.ant-message .ant-message-warning .ant-message-notice-content::before,
+.ant-message .ant-message-warning .anticon,
+.ant-message .ant-message-info .ant-message-notice-content,
+.ant-message .ant-message-info .ant-message-notice-content::before,
+.ant-message .ant-message-info .anticon,
+.ant-message .ant-message-loading .ant-message-notice-content,
+.ant-message .ant-message-loading .ant-message-notice-content::before,
 .ant-message .ant-message-loading .anticon {
-  color: #1890ff !important;
-  font-size: 16px !important;
-  margin-right: 8px !important;
+  all: revert !important;
 }
 
-/* Custom Animation */
-@keyframes messageSlideIn {
-  0% {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.95);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-/* Hover Effects */
-.ant-message .ant-message-notice-content:hover {
-  transform: translateY(-2px) !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15) !important;
-  transition: all 0.3s ease !important;
-}
+*/
 
  

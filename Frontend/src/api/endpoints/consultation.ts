@@ -14,6 +14,26 @@ interface BookAppointmentParams {
   notes?: string;
 }
 
+// Online Consultation Types
+interface CreateOnlineConsultationParams {
+  fullName: string;
+  phone: string;
+  question: string;
+  notes?: string;
+}
+
+interface UpdatePaymentStatusParams {
+  paymentSuccess: boolean;
+}
+
+interface JoinMeetingParams {
+  participantType: 'doctor' | 'user';
+}
+
+interface CompleteMeetingParams {
+  doctorNotes?: string;
+}
+
 // Định nghĩa types cho query parameters
 interface QueryParams {
   page?: number;
@@ -25,6 +45,7 @@ interface QueryParams {
 }
 
 const consultationApi = {
+  // =============== EXISTING DOCTOR CONSULTATION APIs ===============
   // Danh sách bác sĩ
   getDoctors: (params?: QueryParams) => {
     return axiosInstance.get('/doctors', { params });
@@ -67,26 +88,111 @@ const consultationApi = {
   }) => {
     return axiosInstance.post('/feedbacks', data);
   },
+
+  // =============== ONLINE CONSULTATION APIs (Updated) ===============
   
-  // Đặt câu hỏi cho bác sĩ
+  // Tạo yêu cầu tư vấn trực tuyến mới
+  createOnlineConsultation: (data: CreateOnlineConsultationParams) => {
+    return axiosInstance.post('/doctor-qa', data);
+  },
+  
+  // Lấy danh sách yêu cầu tư vấn của user đang đăng nhập
+  getMyConsultationRequests: (params?: QueryParams) => {
+    return axiosInstance.get('/doctor-qa/my-requests', { params });
+  },
+  
+  // Lấy chi tiết yêu cầu tư vấn theo ID
+  getConsultationById: (qaId: string) => {
+    return axiosInstance.get(`/doctor-qa/${qaId}`);
+  },
+  
+  // Cập nhật trạng thái thanh toán (payment gateway webhook/mock)
+  updatePaymentStatus: (qaId: string, data: UpdatePaymentStatusParams) => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/payment`, data);
+  },
+  
+  // Bác sĩ xác nhận/từ chối yêu cầu tư vấn
+  doctorConfirmConsultation: (qaId: string, action: 'confirm' | 'reject') => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/confirm`, { action });
+  },
+  
+  // Staff xếp lịch tự động (tìm slot gần nhất)
+  scheduleConsultation: (qaId: string) => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/schedule`);
+  },
+  
+  // Cập nhật trạng thái tổng quát của consultation
+  updateConsultationStatus: (qaId: string, status: string, doctorNotes?: string) => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/status`, { status, doctorNotes });
+  },
+  
+  // Xóa yêu cầu tư vấn (STAFF only)
+  deleteConsultation: (qaId: string) => {
+    return axiosInstance.delete(`/doctor-qa/${qaId}`);
+  },
+
+  // =============== MEETING INTEGRATION APIs ===============
+  
+  // Lấy thông tin meeting của consultation
+  getConsultationMeeting: (qaId: string) => {
+    return axiosInstance.get(`/doctor-qa/${qaId}/meeting`);
+  },
+  
+  // Join meeting (USER/DOCTOR)
+  joinConsultationMeeting: (qaId: string, data: JoinMeetingParams) => {
+    return axiosInstance.post(`/doctor-qa/${qaId}/join-meeting`, data);
+  },
+  
+  // Hoàn thành meeting và consultation (DOCTOR only)
+  completeConsultationMeeting: (qaId: string, data: CompleteMeetingParams) => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/complete-meeting`, data);
+  },
+
+  // =============== DOCTOR QA MANAGEMENT APIs ===============
+  
+  // Lấy tất cả yêu cầu tư vấn (STAFF/ADMIN only)
+  getAllConsultations: (params?: QueryParams) => {
+    return axiosInstance.get('/doctor-qa', { params });
+  },
+  
+  // Lấy yêu cầu tư vấn của bác sĩ cụ thể
+  getDoctorConsultations: (doctorId: string, params?: QueryParams) => {
+    return axiosInstance.get(`/doctor-qa/doctor/${doctorId}`, { params });
+  },
+  
+  // Tìm bác sĩ có ít lịch đặt nhất (STAFF only)
+  getLeastBookedDoctor: () => {
+    return axiosInstance.get('/doctor-qa/least-booked-doctor');
+  },
+
+  // =============== LEGACY APIs (for backward compatibility) ===============
+  
+  // Đặt câu hỏi cho bác sĩ (legacy - redirect to createOnlineConsultation)
   askDoctorQuestion: (data: {
-    doctorId: string;
+    doctorId?: string;
     fullName: string;
     phone: string;
     notes?: string;
     question: string;
   }) => {
-    return axiosInstance.post('/doctor-qa', data);
+    // Convert to new format
+    const consultationData: CreateOnlineConsultationParams = {
+      fullName: data.fullName,
+      phone: data.phone,
+      question: data.question,
+      notes: data.notes
+    };
+    return axiosInstance.post('/doctor-qa', consultationData);
   },
   
-  // Lấy danh sách câu hỏi của người dùng
+  // Lấy danh sách câu hỏi của người dùng (legacy)
   getUserQuestions: (params?: QueryParams) => {
-    return axiosInstance.get('/doctor-qa/user', { params });
+    return consultationApi.getMyConsultationRequests(params);
   },
   
-  // Lấy chi tiết câu hỏi
+  // Lấy chi tiết câu hỏi (legacy)
   getQuestionDetail: (id: string) => {
-    return axiosInstance.get(`/doctor-qa/${id}`);
+    return consultationApi.getConsultationById(id);
   }
 };
 

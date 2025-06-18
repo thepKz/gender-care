@@ -112,19 +112,9 @@
   transition: all 0.3s ease !important;
 }
 
-/* Success message styling */
-.ant-message-success {
-  background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(82, 196, 26, 0.3);
-}
-
-/* Error message styling */
-.ant-message-error {
-  background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.3);
-}
+/* Success message styling DISABLED - use default Ant Design */
+/* .ant-message-success { }
+   .ant-message-error { } */
 
 /* Responsive improvements */
 @media (max-width: 768px) {
@@ -142,3 +132,178 @@
 }
 
 /* Dark mode support preparation */
+
+/* Profile Tabs Styling */
+.profile-tabs .ant-tabs-nav {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 12px;
+  padding: 8px;
+  margin-bottom: 0;
+  border: 1px solid #e2e8f0;
+}
+
+.profile-tabs .ant-tabs-tab {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  border-radius: 8px;
+  margin: 0 4px;
+  padding: 12px 16px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.profile-tabs .ant-tabs-tab:hover {
+  background: rgba(12, 60, 84, 0.1);
+  color: #0C3C54;
+  transform: translateY(-1px);
+}
+
+.profile-tabs .ant-tabs-tab-active {
+  background: linear-gradient(135deg, #0C3C54 0%, #1a5570 100%);
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(12, 60, 84, 0.3);
+  transform: translateY(-1px);
+}
+
+.profile-tabs .ant-tabs-tab-active::before {
+  border: none !important;
+}
+
+.profile-tabs .ant-tabs-ink-bar {
+  display: none;
+}
+
+.profile-tabs .ant-tabs-content-holder {
+  border-top: none;
+  padding-top: 24px;
+}
+
+/* Card enhancements */
+.ant-card {
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Button enhancements */
+.ant-btn-primary {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.ant-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(12, 60, 84, 0.4);
+}
+
+/* Tag enhancements */
+.ant-tag {
+  border-radius: 6px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border: none;
+}
+
+/* Input and form enhancements */
+.ant-input,
+.ant-select-selector {
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.ant-input:focus,
+.ant-input-focused,
+.ant-select-focused .ant-select-selector {
+  border-color: #0C3C54;
+  box-shadow: 0 0 0 3px rgba(12, 60, 84, 0.1);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .profile-tabs .ant-tabs-nav {
+    padding: 4px;
+  }
+  
+  .profile-tabs .ant-tabs-tab {
+    padding: 8px 12px;
+    margin: 0 2px;
+    font-size: 14px;
+  }
+}
+
+/* Animation utilities */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.slide-up {
+  animation: slideUp 0.6s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Gradient backgrounds */
+.bg-gradient-blue {
+  background: linear-gradient(135deg, #0C3C54 0%, #1a5570 100%);
+}
+
+.bg-gradient-light {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+}
+
+/* Glass effect */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Shadow utilities */
+.shadow-soft {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.shadow-medium {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.shadow-strong {
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Hover effects */
+.hover-lift {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+}

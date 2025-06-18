@@ -3,21 +3,43 @@ import ServicePackage from '../models/ServicePackage';
 import Service from '../models/Service';
 import { AuthRequest, ApiResponse, PaginationQuery } from '../types';
 
-// GET /service-packages - Get all service packages (Public access)
+// GET /service-packages - Get all service packages (removed search functionality)
 export const getAllServicePackages = async (req: Request, res: Response) => {
   try {
-    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = req.query as PaginationQuery;
-    const { isActive, search } = req.query;
+    const { 
+      page = 1, 
+      limit = 10, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc',
+      includeDeleted = false 
+    } = req.query as PaginationQuery & { includeDeleted?: boolean | string };
+    
+    const { serviceId } = req.query;
 
     // Build filter object
     const filter: any = {};
     
-    if (isActive !== undefined) {
-      filter.isActive = Number(isActive);
-    }
+    // Include deleted packages only if explicitly requested AND user is manager
+    const shouldIncludeDeleted = (includeDeleted === true || includeDeleted === 'true');
     
-    if (search) {
-      filter.$text = { $search: search as string };
+    // Check if user is authenticated and is manager
+    const authReq = req as AuthRequest;
+    const userRole = authReq.user?.role || null;
+    const isManager = userRole === 'manager';
+    
+    if (shouldIncludeDeleted && isManager) {
+      // No filter on isActive - show all packages (including deleted)
+      console.log('Manager requested includeDeleted - showing all packages');
+    } else {
+      filter.isActive = 1; // Only active packages
+      if (shouldIncludeDeleted && !isManager) {
+        console.log('Non-manager user requested includeDeleted - ignored, showing only active packages');
+      }
+    }
+
+    // Search by service - find packages that contain specific service
+    if (serviceId && typeof serviceId === 'string') {
+      filter.serviceIds = { $in: [serviceId] };
     }
 
     // Execute query with pagination
@@ -27,7 +49,11 @@ export const getAllServicePackages = async (req: Request, res: Response) => {
 
     const [packages, total] = await Promise.all([
       ServicePackage.find(filter)
-        .populate('serviceIds', 'serviceName price description serviceType availableAt')
+        .populate({
+          path: 'serviceIds',
+          select: 'serviceName price description serviceType availableAt isDeleted',
+          match: { isDeleted: 0 } // Only populate active services
+        })
         .sort(sortObj)
         .skip(skip)
         .limit(Number(limit))
@@ -53,6 +79,78 @@ export const getAllServicePackages = async (req: Request, res: Response) => {
     const response: ApiResponse<any> = {
       success: false,
       message: 'Error fetching service packages',
+      errors: { general: error.message }
+    };
+    res.status(500).json(response);
+  }
+};
+
+// POST /service-packages/search - Search service packages (new endpoint)
+export const searchServicePackages = async (req: Request, res: Response) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc' 
+    } = req.query as PaginationQuery;
+    
+    const { search, serviceId } = req.body;
+
+    // Build filter object
+    const filter: any = { isActive: 1 }; // Only active packages for search
+    
+    // Enhanced search - case insensitive, partial match for package name and description
+    if (search && typeof search === 'string' && search.trim()) {
+      filter.$or = [
+        { name: { $regex: search.trim(), $options: 'i' } },
+        { description: { $regex: search.trim(), $options: 'i' } }
+      ];
+    }
+
+    // Search by service - find packages that contain specific service
+    if (serviceId && typeof serviceId === 'string') {
+      filter.serviceIds = { $in: [serviceId] };
+    }
+
+    // Execute query with pagination
+    const skip = (Number(page) - 1) * Number(limit);
+    const sortObj: any = {};
+    sortObj[sortBy as string] = sortOrder === 'asc' ? 1 : -1;
+
+    const [packages, total] = await Promise.all([
+      ServicePackage.find(filter)
+        .populate({
+          path: 'serviceIds',
+          select: 'serviceName price description serviceType availableAt isDeleted',
+          match: { isDeleted: 0 } // Only populate active services
+        })
+        .sort(sortObj)
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      ServicePackage.countDocuments(filter)
+    ]);
+
+    const response: ApiResponse<any> = {
+      success: true,
+      data: {
+        packages,
+        pagination: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit))
+        },
+        searchQuery: search?.trim() || ''
+      }
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    const response: ApiResponse<any> = {
+      success: false,
+      message: 'Error searching service packages',
       errors: { general: error.message }
     };
     res.status(500).json(response);
@@ -106,32 +204,45 @@ export const createServicePackage = async (req: AuthRequest, res: Response) => {
       return res.status(400).json(response);
     }
 
-    // Check if package with same name already exists
+    // Check if package with same name already exists (including deleted ones)
     const existingPackage = await ServicePackage.findOne({ 
-      name: { $regex: new RegExp(`^${name}$`, 'i') }
+      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
     });
     
     if (existingPackage) {
-      const response: ApiResponse<any> = {
-        success: false,
-        message: 'Service package with this name already exists'
-      };
-      return res.status(409).json(response);
+      if (existingPackage.isActive === 0) {
+        const response: ApiResponse<any> = {
+          success: false,
+          message: 'Service package with this name exists but is deleted. Please recover it instead of creating new one.'
+        };
+        return res.status(409).json(response);
+      } else {
+        const response: ApiResponse<any> = {
+          success: false,
+          message: 'Service package with this name already exists'
+        };
+        return res.status(409).json(response);
+      }
     }
 
     const newPackage = new ServicePackage({
-      name,
-      description,
+      name: name.trim(),
+      description: description.trim(),
       priceBeforeDiscount: priceBeforeDiscountNum,
       price: priceNum,
-      serviceIds
+      serviceIds,
+      isActive: 1
     });
 
     const savedPackage = await newPackage.save();
     
     // Populate the saved package to return complete data
     const populatedPackage = await ServicePackage.findById(savedPackage._id)
-      .populate('serviceIds', 'serviceName price description serviceType availableAt');
+      .populate({
+        path: 'serviceIds',
+        select: 'serviceName price description serviceType availableAt',
+        match: { isDeleted: 0 }
+      });
 
     const response: ApiResponse<any> = {
       success: true,
@@ -154,23 +265,24 @@ export const createServicePackage = async (req: AuthRequest, res: Response) => {
 export const updateServicePackage = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, priceBeforeDiscount, price, serviceIds, isActive } = req.body;
+    const { name, description, priceBeforeDiscount, price, serviceIds } = req.body;
 
-    // Check if package exists
-    const existingPackage = await ServicePackage.findById(id);
+    // Check if package exists and is not deleted
+    const existingPackage = await ServicePackage.findOne({ _id: id, isActive: 1 });
     if (!existingPackage) {
       const response: ApiResponse<any> = {
         success: false,
-        message: 'Service package not found'
+        message: 'Service package not found or has been deleted'
       };
       return res.status(404).json(response);
     }
 
     // Check if new name conflicts with existing package
-    if (name && name !== existingPackage.name) {
+    if (name && name.trim() !== existingPackage.name) {
       const duplicatePackage = await ServicePackage.findOne({
-        name: { $regex: new RegExp(`^${name}$`, 'i') },
-        _id: { $ne: id }
+        name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+        _id: { $ne: id },
+        isActive: 1
       });
       
       if (duplicatePackage) {
@@ -214,18 +326,21 @@ export const updateServicePackage = async (req: AuthRequest, res: Response) => {
 
     // Update fields
     const updateData: any = {};
-    if (name) updateData.name = name;
-    if (description) updateData.description = description;
+    if (name) updateData.name = name.trim();
+    if (description) updateData.description = description.trim();
     if (priceBeforeDiscount) updateData.priceBeforeDiscount = Number(priceBeforeDiscount);
     if (price) updateData.price = Number(price);
     if (serviceIds) updateData.serviceIds = serviceIds;
-    if (isActive !== undefined) updateData.isActive = Number(isActive);
 
     const updatedPackage = await ServicePackage.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
-    ).populate('serviceIds', 'serviceName price description serviceType availableAt');
+    ).populate({
+      path: 'serviceIds',
+      select: 'serviceName price description serviceType availableAt',
+      match: { isDeleted: 0 }
+    });
 
     const response: ApiResponse<any> = {
       success: true,
@@ -244,23 +359,25 @@ export const updateServicePackage = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// DELETE /service-packages/:id - Delete service package
+// DELETE /service-packages/:id - Soft delete service package
 export const deleteServicePackage = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    // Check if package exists
-    const existingPackage = await ServicePackage.findById(id);
+    // Check if package exists and is not already deleted
+    const existingPackage = await ServicePackage.findOne({ _id: id, isActive: 1 });
     if (!existingPackage) {
       const response: ApiResponse<any> = {
         success: false,
-        message: 'Service package not found'
+        message: 'Service package not found or already deleted'
       };
       return res.status(404).json(response);
     }
 
-    // Delete the package
-    await ServicePackage.findByIdAndDelete(id);
+    // Soft delete the package
+    await ServicePackage.findByIdAndUpdate(id, { 
+      isActive: 0
+    });
 
     const response: ApiResponse<any> = {
       success: true,
@@ -272,6 +389,87 @@ export const deleteServicePackage = async (req: AuthRequest, res: Response) => {
     const response: ApiResponse<any> = {
       success: false,
       message: 'Error deleting service package',
+      errors: { general: error.message }
+    };
+    res.status(500).json(response);
+  }
+};
+
+// POST /service-packages/:id/recover - Recover deleted service package
+export const recoverServicePackage = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Check if package exists and is deleted
+    const packageToRecover = await ServicePackage.findOne({ _id: id, isActive: 0 });
+    if (!packageToRecover) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: 'Service package not found or is not deleted'
+      };
+      return res.status(404).json(response);
+    }
+
+    // Check if there's already an active package with the same name
+    const existingActivePackage = await ServicePackage.findOne({
+      name: { $regex: new RegExp(`^${packageToRecover.name}$`, 'i') },
+      _id: { $ne: id },
+      isActive: 1
+    });
+
+    if (existingActivePackage) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: `Cannot recover service package. An active package with name "${packageToRecover.name}" already exists.`
+      };
+      return res.status(409).json(response);
+    }
+
+    // Check if all services in the package are still available
+    const services = await Service.find({ 
+      _id: { $in: packageToRecover.serviceIds },
+      isDeleted: 0 
+    });
+
+    if (services.length !== packageToRecover.serviceIds.length) {
+      const deletedServiceIds = packageToRecover.serviceIds.filter(serviceId => 
+        !services.some(service => (service as any)._id.toString() === serviceId.toString())
+      );
+
+      const response: ApiResponse<any> = {
+        success: false,
+        message: `Cannot recover service package. Some services in this package have been deleted. Please update the package services first.`,
+        errors: {
+          deletedServices: `Deleted service IDs: ${deletedServiceIds.join(', ')}`
+        }
+      };
+      return res.status(400).json(response);
+    }
+
+    // Recover the package
+    const recoveredPackage = await ServicePackage.findByIdAndUpdate(
+      id,
+      { 
+        isActive: 1
+      },
+      { new: true }
+    ).populate({
+      path: 'serviceIds',
+      select: 'serviceName price description serviceType availableAt',
+      match: { isDeleted: 0 }
+    });
+
+    const response: ApiResponse<any> = {
+      success: true,
+      data: recoveredPackage,
+      message: 'Service package recovered successfully'
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    const response: ApiResponse<any> = {
+      success: false,
+      message: 'Error recovering service package',
       errors: { general: error.message }
     };
     res.status(500).json(response);

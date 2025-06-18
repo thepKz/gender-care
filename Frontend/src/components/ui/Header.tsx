@@ -1,6 +1,7 @@
+import { CalendarOutlined } from "@ant-design/icons";
 import { Avatar, Drawer, Dropdown, MenuProps } from "antd";
 import { motion } from 'framer-motion';
-import { CalendarEdit, Logout, Menu, User } from "iconsax-react";
+import { CalendarEdit, Logout, Menu, Profile2User, ProfileCircle, User } from "iconsax-react";
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
@@ -80,6 +81,20 @@ const Header: React.FC = () => {
 
   // Menu Hồ sơ cá nhân dropdown
   const profile: MenuProps["items"] = [
+    // Thêm Dashboard links cho admin/manager/staff/doctor
+    ...(user && ['admin', 'manager', 'staff', 'doctor'].includes(user.role) ? [
+      {
+        key: "dashboard",
+        label: user.role === 'admin' ? "Admin Dashboard" : user.role === 'manager' ? "Manager Dashboard" : user.role === 'doctor' ? "Doctor Dashboard" : "Staff Dashboard",
+        onClick: () => {
+          const dashboardPath = ['admin', 'manager'].includes(user.role) ? '/dashboard/management' : '/dashboard/operational';
+          navigate(dashboardPath);
+        },
+      },
+      {
+        type: "divider" as const,
+      }
+    ] : []),
     {
       key: "1",
       icon: <User size={20} className="profile-icon" />,
@@ -88,19 +103,26 @@ const Header: React.FC = () => {
     },
     {
       key: "2",
-      label: "Lịch sử đặt lịch",
-      onClick: () => navigate('/booking-history'),
+      icon: <Profile2User size={20} className="profile-icon" />,
+      label: "Hồ sơ bệnh án",
+      onClick: () => navigate('/user-profiles'),
     },
     {
       key: "3",
-      label: "Feedback",
-      onClick: () => navigate('/feedback'),
+      icon: <CalendarOutlined className="profile-icon" />,
+      label: "Chu kỳ kinh nguyệt",
+      onClick: () => navigate('/cycle'),
+    },
+    {
+      key: "4",
+      label: "Lịch sử đặt lịch",
+      onClick: () => navigate('/booking-history'),
     },
     {
       type: "divider",
     },
     {
-      key: "4",
+      key: "5",
       label: "Đăng xuất",
       icon: <Logout size={20} className="logout-icon" />,
       onClick: onLogout,
@@ -211,12 +233,14 @@ const Header: React.FC = () => {
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.15 }}
+                transition={{ duration: 0.3, delay: 0.125 }}
               >
-                <Link to="/picture" className={`nav-link ${getFontSize()} ${isActive('/picture')}`}>
-                  Hình ảnh
+                <Link to="/online-consultation" className={`nav-link ${getFontSize()} ${isActive('/online-consultation')}`}>
+                  Tư vấn trực tuyến
                 </Link>
               </motion.div>
+              
+
               
               <motion.div
                 initial={{ opacity: 0, y: -20 }}
@@ -235,18 +259,6 @@ const Header: React.FC = () => {
               >
                 <Link to="/about-gcc" className={`nav-link ${getFontSize()} ${isActive('/about-gcc')}`}>
                   Về chúng tôi
-                </Link>
-              </motion.div>
-              
-             
-              
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.3 }}
-              >
-                <Link to="/blog" className={`nav-link ${getFontSize()} ${isActive('/blog')}`}>
-                  Blog
                 </Link>
               </motion.div>
             </nav>
@@ -282,6 +294,7 @@ const Header: React.FC = () => {
                     <Link
                       to="/booking"
                       className="btn-auth text-white p-2 rounded-full"
+                      title="Đặt lịch"
                     >
                       <CalendarEdit
                         color="white"
@@ -290,6 +303,8 @@ const Header: React.FC = () => {
                       />
                     </Link>
                   </motion.div>
+                  
+                  
                   <Dropdown 
                     menu={{ items: profile }} 
                     placement="bottomRight"
@@ -337,7 +352,7 @@ const Header: React.FC = () => {
         onClose={() => setMobileMenuOpen(false)}
         open={mobileMenuOpen}
         width={windowWidth < 640 ? 260 : 280}
-        bodyStyle={{ padding: 0 }}
+        styles={{ body: { padding: 0 } }}
       >
         <div className="flex flex-col h-full">
           <div className="py-4 px-6 flex-1">
@@ -349,6 +364,12 @@ const Header: React.FC = () => {
               <div className="py-2 border-b border-gray-100">
                 <Link to="/services" className="text-blue-primary text-lg">
                   Dịch vụ
+                </Link>
+              </div>
+              
+              <div className="py-2 border-b border-gray-100">
+                <Link to="/online-consultation" className="text-blue-primary text-lg">
+                  Tư vấn trực tuyến
                 </Link>
               </div>
               
@@ -371,6 +392,15 @@ const Header: React.FC = () => {
                 </div>
               </div>
               
+              {isAuthenticated && (
+                <div className="py-2 border-b border-gray-100">
+                  <Link to="/user-profiles" className="text-blue-primary text-lg flex items-center">
+                    <ProfileCircle size={20} className="mr-2" />
+                    Hồ sơ bệnh án
+                  </Link>
+                </div>
+              )}
+              
               <Link to="/counselors" className="py-2 border-b border-gray-100 text-blue-primary text-lg">
                 Tư vấn viên
               </Link>
@@ -381,10 +411,6 @@ const Header: React.FC = () => {
               
               <Link to="/faq" className="py-2 border-b border-gray-100 text-blue-primary text-lg">
                 Hỏi & Đáp
-              </Link>
-              
-              <Link to="/blog" className="py-2 border-b border-gray-100 text-blue-primary text-lg">
-                Blog
               </Link>
             </nav>
           </div>

@@ -40,17 +40,22 @@ const ModernButton: React.FC<ModernButtonProps> = ({
     if (disabled || loading) return;
 
     // Ripple effect
-    if (ripple) {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const newRipple = { id: Date.now(), x, y };
-      
-      setRipples(prev => [...prev, newRipple]);
-      
-      setTimeout(() => {
-        setRipples(prev => prev.filter(r => r.id !== newRipple.id));
-      }, 600);
+    if (ripple && e) {
+      try {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const newRipple = { id: Date.now(), x, y };
+        
+        setRipples(prev => [...prev, newRipple]);
+        
+        setTimeout(() => {
+          setRipples(prev => prev.filter(r => r.id !== newRipple.id));
+        }, 600);
+      } catch (error) {
+        console.log('Ripple effect error:', error);
+        // Ignore ripple effect errors
+      }
     }
 
     onClick?.();
@@ -98,9 +103,9 @@ const ModernButton: React.FC<ModernButtonProps> = ({
       focus:ring-white/50
     `,
     outline: `
-      bg-transparent border-2 border-blue-500 text-blue-500
-      hover:bg-blue-500 hover:text-white hover:shadow-lg hover:shadow-blue-500/25
-      focus:ring-blue-500
+      bg-transparent border-2 border-white text-white
+      hover:bg-cyan-500 hover:text-[#0C3C54] hover:shadow-lg hover:shadow-cyan-400/25
+      focus:ring-white
     `,
     ghost: `
       bg-transparent text-gray-600 border-0

@@ -1,0 +1,507 @@
+/* React Big Calendar Customization */
+.advanced-calendar {
+  height: 100%;
+  font-family: 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Calendar Toolbar */
+.calendar-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 12px 12px 0 0;
+}
+
+.calendar-toolbar-left {
+  display: flex;
+  align-items: center;
+}
+
+.calendar-toolbar-center {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+}
+
+.calendar-toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.calendar-label {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #0c3c54 !important;
+  margin: 0 24px !important;
+  min-width: 200px;
+  text-align: center;
+}
+
+.today-btn {
+  background: #006478 !important;
+  border-color: #006478 !important;
+}
+
+.today-btn:hover {
+  background: #00a693 !important;
+  border-color: #00a693 !important;
+}
+
+/* View Switcher */
+.calendar-view-switcher .ant-btn {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.calendar-view-switcher .ant-btn-primary {
+  background: #0c3c54 !important;
+  border-color: #0c3c54 !important;
+}
+
+.calendar-view-switcher .ant-btn-primary:hover {
+  background: #0f7ea9 !important;
+  border-color: #0f7ea9 !important;
+}
+
+/* React Big Calendar Overrides */
+.rbc-calendar {
+  border: 1px solid #e5e7eb;
+  border-radius: 0 0 12px 12px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.rbc-month-view {
+  border: none;
+}
+
+.rbc-month-header {
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.rbc-header {
+  padding: 12px 8px;
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  text-align: center;
+  border-right: 1px solid #e5e7eb;
+}
+
+.rbc-header:last-child {
+  border-right: none;
+}
+
+/* Month Dates */
+.rbc-date-cell {
+  padding: 8px;
+  text-align: right;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  min-height: 120px;
+  background: #ffffff;
+  transition: background-color 0.2s ease;
+}
+
+.rbc-date-cell:hover {
+  background: #f9fafb;
+}
+
+.rbc-date-cell:last-child {
+  border-right: none;
+}
+
+.rbc-date-cell.rbc-off-range {
+  background: #f9fafb;
+  color: #9ca3af;
+}
+
+.rbc-date-cell.rbc-now {
+  background: #e3f2fd;
+}
+
+/* Date Numbers */
+.rbc-date-cell button {
+  background: none !important;
+  border: none !important;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rbc-date-cell button:hover {
+  background: #e5e7eb !important;
+}
+
+.rbc-date-cell.rbc-now button {
+  background: #0c3c54 !important;
+  color: #ffffff !important;
+}
+
+.rbc-date-cell.rbc-selected button {
+  background: #006478 !important;
+  color: #ffffff !important;
+}
+
+/* Events */
+.rbc-event {
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 4px 8px !important;
+  margin: 2px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.rbc-event:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Event Status Colors */
+.rbc-event.event-free {
+  background: #10b981 !important;
+  color: #ffffff !important;
+}
+
+.rbc-event.event-booked {
+  background: #3b82f6 !important;
+  color: #ffffff !important;
+}
+
+.rbc-event.event-absent {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+}
+
+.rbc-event.event-pending {
+  background: #f59e0b !important;
+  color: #ffffff !important;
+}
+
+/* Calendar Legends */
+.calendar-legend {
+  padding: 16px 20px;
+  background: #fafafa;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0 0 12px 12px;
+}
+
+.calendar-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.calendar-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.legend-free {
+  background: #10b981;
+}
+
+.legend-booked {
+  background: #3b82f6;
+}
+
+.legend-absent {
+  background: #ef4444;
+}
+
+.legend-pending {
+  background: #f59e0b;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .calendar-toolbar {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .calendar-label {
+    font-size: 18px !important;
+    margin: 0 !important;
+  }
+  
+  .calendar-view-switcher {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .rbc-date-cell {
+    min-height: 80px;
+    padding: 4px;
+  }
+  
+  .rbc-event {
+    font-size: 11px !important;
+    padding: 2px 6px !important;
+  }
+}
+
+/* Date Indicators for Month View */
+.rbc-date-cell {
+  position: relative;
+}
+
+/* Enhanced date cell hover for better UX */
+.rbc-date-cell:hover {
+  background: #f0f7ff !important;
+  border-color: #91d5ff !important;
+}
+
+/* Status dots and slot count indicators */
+.rbc-date-cell .slot-count {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.1);
+  color: #666;
+  font-size: 10px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  line-height: 1;
+  font-weight: 500;
+}
+
+.rbc-date-cell .status-indicators {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.rbc-date-cell .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  border: 1px solid white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.status-dot.free {
+  background-color: #52c41a;
+}
+
+.status-dot.booked {
+  background-color: #1890ff;
+}
+
+.status-dot.absent {
+  background-color: #ff4d4f;
+}
+
+.status-dot.pending {
+  background-color: #faad14;
+}
+
+/* Enhanced hover for indicators */
+.rbc-date-cell:hover .status-indicators {
+  transform: translateX(-50%) scale(1.1);
+  transition: transform 0.2s ease;
+}
+
+.rbc-date-cell:hover .slot-count {
+  background: rgba(0, 0, 0, 0.2);
+  color: #333;
+  transform: scale(1.05);
+  transition: all 0.2s ease;
+}
+
+/* Tooltip support for indicators */
+.status-dot[title]:hover {
+  cursor: help;
+  transform: scale(1.3);
+  transition: transform 0.2s ease;
+}
+
+.slot-count[title]:hover {
+  cursor: help;
+}
+
+/* Advanced Search Filter Styles */
+.advanced-search-filter {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e5e7eb;
+  margin-bottom: 24px;
+}
+
+.advanced-search-filter .ant-card-body {
+  padding: 20px;
+}
+
+.advanced-search-filter .ant-input-search {
+  border-radius: 8px;
+}
+
+.advanced-search-filter .ant-input-search .ant-input {
+  font-size: 16px;
+  padding: 12px 16px;
+  border-radius: 8px 0 0 8px;
+}
+
+.advanced-search-filter .ant-input-search-button {
+  border-radius: 0 8px 8px 0;
+  background: #1890ff;
+  border-color: #1890ff;
+}
+
+.advanced-search-filter .ant-btn {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.advanced-search-filter .ant-btn-primary {
+  background: #1890ff;
+  border-color: #1890ff;
+}
+
+.advanced-search-filter .ant-btn-text {
+  color: #ff4d4f;
+}
+
+.advanced-search-filter .ant-btn-text:hover {
+  background: #fff2f0;
+  border-color: #ffccc7;
+}
+
+.advanced-search-filter .ant-select {
+  border-radius: 6px;
+}
+
+.advanced-search-filter .ant-select-selector {
+  border-radius: 6px !important;
+}
+
+.advanced-search-filter .ant-picker {
+  border-radius: 6px;
+}
+
+.advanced-search-filter .ant-tag {
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 2px 8px;
+  margin: 2px;
+}
+
+.advanced-search-filter .ant-collapse {
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.advanced-search-filter .ant-collapse-header {
+  border-radius: 8px 8px 0 0 !important;
+  background: #f8f9fa;
+  font-weight: 500;
+}
+
+.advanced-search-filter .ant-collapse-content {
+  border-radius: 0 0 8px 8px;
+}
+
+.advanced-search-filter .ant-badge {
+  font-size: 12px;
+}
+
+.advanced-search-filter .ant-badge-count {
+  background: #ff4d4f;
+  color: white;
+  font-size: 10px;
+  min-width: 16px;
+  height: 16px;
+  line-height: 14px;
+  padding: 0 4px;
+  border-radius: 8px;
+}
+
+/* Quick filter buttons */
+.advanced-search-filter .ant-btn-sm {
+  border-radius: 16px;
+  font-size: 12px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  color: #666;
+  transition: all 0.2s ease;
+}
+
+.advanced-search-filter .ant-btn-sm:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+  background: #f0f7ff;
+}
+
+/* Filter tags */
+.advanced-search-filter .filter-tags .ant-tag {
+  background: #f0f7ff;
+  border: 1px solid #b3d8ff;
+  color: #1890ff;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  margin: 2px 4px 2px 0;
+}
+
+.advanced-search-filter .filter-tags .ant-tag-close-icon {
+  color: #1890ff;
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+.advanced-search-filter .filter-tags .ant-tag-close-icon:hover {
+  color: #ff4d4f;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .advanced-search-filter .ant-card-body {
+    padding: 16px;
+  }
+  
+  .advanced-search-filter .ant-input-search .ant-input {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+  
+  .advanced-search-filter .ant-row {
+    margin-bottom: 8px;
+  }
+  
+  .advanced-search-filter .ant-col {
+    margin-bottom: 8px;
+  }
+  
+  .advanced-search-filter .ant-btn-sm {
+    height: 24px;
+    font-size: 11px;
+    padding: 0 8px;
+  }
+}

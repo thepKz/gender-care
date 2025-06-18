@@ -1,293 +1,106 @@
-import { Button, Card, Input, Rate, Select, Spin, Tag } from "antd";
 import { motion } from "framer-motion";
 import {
-    Award,
-    Calendar,
-    Clock,
-    Heart,
     Profile2User,
     SearchNormal1,
-    User
+    Award,
+    Star1,
 } from "iconsax-react";
+// Custom components
+import CounselorCard from "../../components/ui/counselors/CounselorCard";
+
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Image1 from "../../assets/images/image1.jpg";
-import { AnimatedSection } from "../../share";
+import { doctorApi, type Doctor } from "../../api/endpoints/doctorApi";
+import { AnimatedSection } from "../../shared";
+import PrimaryButton from "../../components/ui/primitives/PrimaryButton";
 
-const { Search } = Input;
-const { Option } = Select;
-
-interface Doctor {
-  id: number;
-  name: string;
-  avatar: string;
-  specialization: string;
-  education: string;
-  experience: number;
-  rating: number;
-  reviewCount: number;
-  bio: string;
-  languages: string[];
-  consultationTypes: string[];
-  price: {
-    online: number;
-    offline: number;
-  };
-  availability: string[];
-  certificates: string[];
-  isOnline: boolean;
-  responseTime: string;
-  successRate: number;
-}
+// MagicUI Components
+import { BlurFade } from "../../components/ui/blur-fade";
+import { WarpBackground } from "../../components/ui/warp-background";
+import { BoxReveal } from "../../components/ui/box-reveal";
 
 const Counselors = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSpecialization, setSelectedSpecialization] = useState<string>("all");
-  const [selectedConsultationType, setSelectedConsultationType] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("rating");
-  const [favoriteIds, setFavoriteIds] = useState<Set<number>>(new Set());
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
 
-  // Mock data cho doctors
-  const doctors: Doctor[] = [
-    {
-      id: 1,
-      name: "BS. Nguyễn Thị Hương",
-      avatar: Image1,
-      specialization: "Sức khỏe sinh sản nữ",
-      education: "Tiến sĩ Y khoa - Đại học Y Hà Nội",
-      experience: 8,
-      rating: 4.9,
-      reviewCount: 245,
-      bio: "Bác sĩ chuyên khoa Sản phụ khoa với hơn 8 năm kinh nghiệm trong lĩnh vực chăm sóc sức khỏe sinh sản nữ. Chuyên về tư vấn tiền hôn nhân, kế hoạch hóa gia đình và điều trị các vấn đề về chu kỳ kinh nguyệt.",
-      languages: ["Tiếng Việt", "English"],
-      consultationTypes: ["Online", "Tại phòng khám"],
-      price: {
-        online: 300000,
-        offline: 500000
-      },
-      availability: ["Thứ 2-6: 8:00-17:00", "Thứ 7: 8:00-12:00"],
-      certificates: ["Chứng chỉ Sản phụ khoa", "Chứng chỉ Tư vấn tâm lý"],
-      isOnline: true,
-      responseTime: "< 30 phút",
-      successRate: 96
-    },
-    {
-      id: 2,
-      name: "BS. Trần Văn Nam",
-      avatar: Image1,
-      specialization: "Sức khỏe sinh sản nam",
-      education: "Thạc sĩ Y khoa - Đại học Y Dược TP.HCM",
-      experience: 6,
-      rating: 4.8,
-      reviewCount: 189,
-      bio: "Bác sĩ chuyên khoa Nam học với kinh nghiệm phong phú trong điều trị các vấn đề về sức khỏe sinh sản nam giới. Tư vấn về rối loạn chức năng tình dục, vô sinh nam và các bệnh lây truyền qua đường tình dục.",
-      languages: ["Tiếng Việt"],
-      consultationTypes: ["Online", "Tại phòng khám"],
-      price: {
-        online: 350000,
-        offline: 550000
-      },
-      availability: ["Thứ 2-6: 9:00-18:00", "Chủ nhật: 9:00-15:00"],
-      certificates: ["Chứng chỉ Nam học", "Chứng chỉ Điều trị vô sinh"],
-      isOnline: false,
-      responseTime: "< 1 giờ",
-      successRate: 94
-    },
-    {
-      id: 3,
-      name: "BS. Lê Thị Lan",
-      avatar: Image1,
-      specialization: "Tâm lý tình dục",
-      education: "Tiến sĩ Tâm lý học - Đại học Quốc gia Hà Nội",
-      experience: 10,
-      rating: 4.9,
-      reviewCount: 312,
-      bio: "Chuyên gia tâm lý với chuyên môn sâu về tâm lý tình dục và các vấn đề trong mối quan hệ. Có kinh nghiệm tư vấn cho các cặp đôi về vấn đề tình dục, hôn nhân và kế hoạch hóa gia đình.",
-      languages: ["Tiếng Việt", "English", "中文"],
-      consultationTypes: ["Online", "Tại phòng khám", "Tại nhà"],
-      price: {
-        online: 400000,
-        offline: 600000
-      },
-      availability: ["Thứ 2-7: 8:00-20:00"],
-      certificates: ["Chứng chỉ Tâm lý lâm sàng", "Chứng chỉ Trị liệu gia đình"],
-      isOnline: true,
-      responseTime: "< 15 phút",
-      successRate: 98
-    },
-    {
-      id: 4,
-      name: "BS. Phạm Minh Tuấn",
-      avatar: Image1,
-      specialization: "Xét nghiệm STI",
-      education: "Thạc sĩ Y khoa - Đại học Y Hà Nội",
-      experience: 7,
-      rating: 4.7,
-      reviewCount: 156,
-      bio: "Bác sĩ chuyên khoa Xét nghiệm với kinh nghiệm trong chẩn đoán và điều trị các bệnh lây truyền qua đường tình dục. Chuyên về tư vấn phòng ngừa và điều trị HIV, Giang mai, Lậu và các STI khác.",
-      languages: ["Tiếng Việt", "English"],
-      consultationTypes: ["Online", "Tại phòng khám"],
-      price: {
-        online: 250000,
-        offline: 450000
-      },
-      availability: ["Thứ 2-6: 7:00-16:00"],
-      certificates: ["Chứng chỉ Xét nghiệm", "Chứng chỉ HIV/AIDS"],
-      isOnline: true,
-      responseTime: "< 45 phút",
-      successRate: 92
-    },
-    {
-      id: 5,
-      name: "BS. Hoàng Thị Mai",
-      avatar: Image1,
-      specialization: "Kế hoạch hóa gia đình",
-      education: "Tiến sĩ Y khoa - Đại học Y Dược TP.HCM",
-      experience: 12,
-      rating: 4.8,
-      reviewCount: 278,
-      bio: "Bác sĩ có nhiều năm kinh nghiệm trong lĩnh vực kế hoạch hóa gia đình, tư vấn về các phương pháp tránh thai, điều trị vô sinh và chăm sóc sức khỏe phụ nữ trước và sau sinh.",
-      languages: ["Tiếng Việt", "English"],
-      consultationTypes: ["Online", "Tại phòng khám", "Tại nhà"],
-      price: {
-        online: 380000,
-        offline: 580000
-      },
-      availability: ["Thứ 2-6: 8:00-17:00", "Thứ 7: 8:00-14:00"],
-      certificates: ["Chứng chỉ Kế hoạch hóa gia đình", "Chứng chỉ Sản khoa"],
-      isOnline: false,
-      responseTime: "< 2 giờ",
-      successRate: 95
-    },
-    {
-      id: 6,
-      name: "BS. Đỗ Văn Hùng",
-      avatar: Image1,
-      specialization: "Tư vấn tiền hôn nhân",
-      education: "Thạc sĩ Y khoa - Đại học Y Hà Nội",
-      experience: 5,
-      rating: 4.6,
-      reviewCount: 134,
-      bio: "Bác sĩ trẻ với đam mê tư vấn cho các cặp đôi chuẩn bị kết hôn. Chuyên về khám sức khỏe tiền hôn nhân, tư vấn về sức khỏe sinh sản và chuẩn bị cho việc có con.",
-      languages: ["Tiếng Việt"],
-      consultationTypes: ["Online", "Tại phòng khám"],
-      price: {
-        online: 280000,
-        offline: 480000
-      },
-      availability: ["Thứ 2-6: 9:00-18:00"],
-      certificates: ["Chứng chỉ Tư vấn hôn nhân", "Chứng chỉ Sức khỏe sinh sản"],
-      isOnline: true,
-      responseTime: "< 1 giờ",
-      successRate: 90
+  // Lấy danh sách bác sĩ từ API
+  const fetchDoctors = async () => {
+    try {
+      setLoadingDoctors(true);
+      const doctorsList = await doctorApi.getAllDoctors();
+      
+      // Remove potential duplicates based on _id
+      const uniqueDoctors = doctorsList.filter((doctor, index, array) => 
+        array.findIndex(d => d._id === doctor._id) === index
+      );
+      
+      setDoctors(uniqueDoctors);
+    } catch (error) {
+      console.error('Lỗi khi lấy danh sách bác sĩ:', error);
+      console.error('Không thể tải danh sách bác sĩ');
+    } finally {
+      setLoadingDoctors(false);
     }
-  ];
+  };
 
+  // Tạo danh sách specializations từ doctors data
   const specializations = [
     { value: "all", label: "Tất cả chuyên khoa" },
-    { value: "Sức khỏe sinh sản nữ", label: "Sức khỏe sinh sản nữ" },
-    { value: "Sức khỏe sinh sản nam", label: "Sức khỏe sinh sản nam" },
-    { value: "Tâm lý tình dục", label: "Tâm lý tình dục" },
-    { value: "Xét nghiệm STI", label: "Xét nghiệm STI" },
-    { value: "Kế hoạch hóa gia đình", label: "Kế hoạch hóa gia đình" },
-    { value: "Tư vấn tiền hôn nhân", label: "Tư vấn tiền hôn nhân" }
-  ];
-
-  const consultationTypes = [
-    { value: "all", label: "Tất cả hình thức" },
-    { value: "Online", label: "Tư vấn trực tuyến" },
-    { value: "Tại phòng khám", label: "Tại phòng khám" },
-    { value: "Tại nhà", label: "Tư vấn tại nhà" }
-  ];
-
-  const sortOptions = [
-    { value: "rating", label: "Đánh giá cao nhất" },
-    { value: "experience", label: "Kinh nghiệm nhiều nhất" },
-    { value: "price_low", label: "Giá thấp nhất" },
-    { value: "price_high", label: "Giá cao nhất" },
-    { value: "reviews", label: "Nhiều đánh giá nhất" }
+    ...Array.from(new Set(doctors.map(d => d.specialization).filter(Boolean))).map(spec => ({
+      value: spec!,
+      label: spec!
+    }))
   ];
 
   // Filter and sort doctors
   const filteredDoctors = doctors
     .filter(doctor => {
-      const matchesSearch = doctor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           doctor.specialization.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = doctor.userId.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (doctor.specialization && doctor.specialization.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesSpecialization = selectedSpecialization === "all" || 
                                    doctor.specialization === selectedSpecialization;
-      const matchesConsultationType = selectedConsultationType === "all" ||
-                                    doctor.consultationTypes.includes(selectedConsultationType);
-      return matchesSearch && matchesSpecialization && matchesConsultationType;
+      return matchesSearch && matchesSpecialization;
     })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "rating":
-          return b.rating - a.rating;
-        case "experience":
-          return b.experience - a.experience;
-        case "price_low":
-          return a.price.online - b.price.online;
-        case "price_high":
-          return b.price.online - a.price.online;
-        case "reviews":
-          return b.reviewCount - a.reviewCount;
-        default:
-          return 0;
-      }
-    });
+    .sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    fetchDoctors();
     setTimeout(() => setLoading(false), 1000);
   }, []);
 
-  const handleFavorite = (doctorId: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newFavorites = new Set(favoriteIds);
-    if (favoriteIds.has(doctorId)) {
-      newFavorites.delete(doctorId);
-    } else {
-      newFavorites.add(doctorId);
-    }
-    setFavoriteIds(newFavorites);
-  };
-
   const handleBookConsultation = (doctor: Doctor) => {
-    navigate(`/booking/consultation/${doctor.id}`);
+    navigate(`/booking/consultation/${doctor._id}`);
   };
 
   const handleViewProfile = (doctor: Doctor) => {
-    navigate(`/doctors/${doctor.id}`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      navigate(`/doctors/${doctor._id}`);
+    }, 300);
   };
 
+  // Loading spinner với MagicUI style
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-50">
-        <Spin size="large" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
-      {/* Hero Section */}
-      <div className="relative pt-12 pb-12 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-[#0C3C54] to-[#2A7F9E] opacity-90"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0C3C54] relative overflow-hidden">
+        {/* Animated background particles */}
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-[url('../../assets/images/pattern.png')] opacity-10"></div>
-          {[...Array(20)].map((_, i) => (
+          {[...Array(50)].map((_, i) => (
             <motion.div
               key={i}
-              className="absolute w-1 h-1 rounded-full bg-white/30"
+              className="absolute w-1 h-1 rounded-full bg-white/20"
               animate={{
                 x: [Math.random() * window.innerWidth, Math.random() * window.innerWidth],
-                y: [Math.random() * 400, Math.random() * 400],
+                y: [Math.random() * window.innerHeight, Math.random() * window.innerHeight],
                 opacity: [0.2, 0.8, 0.2],
               }}
               transition={{
-                duration: Math.random() * 15 + 10,
+                duration: Math.random() * 20 + 10,
                 repeat: Infinity,
                 repeatType: "reverse",
               }}
@@ -295,333 +108,360 @@ const Counselors = () => {
           ))}
         </div>
         
-        <div className="relative container mx-auto px-4 text-center">
-          <AnimatedSection animation="slideUp">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="relative z-10"
+        >
+          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full" />
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Hero Section with FlickeringGrid effect */}
+      <div className="relative pt-20 pb-20 overflow-hidden bg-[#0C3C54]">
+        {/* Animated grid background */}
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 opacity-30">
+            {[...Array(100)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-px h-px bg-[#2A7F9E]"
+                style={{
+                  left: `${(i % 10) * 10}%`,
+                  top: `${Math.floor(i / 10) * 10}%`,
+                }}
+                animate={{
+                  opacity: [0.1, 0.8, 0.1],
+                  scale: [1, 1.5, 1],
+                }}
+                transition={{
+                  duration: Math.random() * 3 + 2,
+                  repeat: Infinity,
+                  delay: Math.random() * 2,
+                }}
+              />
+            ))}
+          </div>
+        </div>
+        
+        <div className="relative z-10 container mx-auto px-4 text-center">
+          <BlurFade delay={0.2} inView>
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-              className="inline-flex items-center justify-center w-20 h-20 bg-white/20 rounded-full mb-6 backdrop-blur-sm"
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="inline-flex items-center justify-center w-24 h-24 bg-white/10 rounded-full mb-8 backdrop-blur-sm border border-white/20"
             >
-              <Profile2User size={40} className="text-white" variant="Bold" />
+              <Profile2User size={48} className="text-white" variant="Bold" />
             </motion.div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
+          </BlurFade>
+          
+          <BlurFade delay={0.4} inView>
+            <motion.h1 
+              className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.4 }}
+            >
               Đội ngũ bác sĩ chuyên nghiệp
-            </h1>
-            <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-8">
+            </motion.h1>
+          </BlurFade>
+          
+          <BlurFade delay={0.6} inView>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-8 text-enhanced"
+            >
               Kết nối với các chuyên gia hàng đầu về sức khỏe giới tính và sinh sản
-            </p>
+            </motion.div>
+          </BlurFade>
+          
+          <BlurFade delay={0.8} inView>
             <div className="flex flex-wrap justify-center gap-4">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  size="large"
-                  className="bg-white text-[#0C3C54] border-none font-semibold px-8 py-6 h-auto rounded-full"
+                <PrimaryButton
+                  className="!bg-white !text-[#0C3C54] !font-bold !px-8 !py-6 !text-lg !shadow-2xl hover:!bg-gray-50"
                   onClick={() => document.getElementById('doctors')?.scrollIntoView({ behavior: 'smooth' })}
                 >
                   Tìm bác sĩ
-                </Button>
+                </PrimaryButton>
               </motion.div>
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button
-                  size="large"
-                  ghost
-                  className="border-white text-white font-semibold px-8 py-6 h-auto rounded-full hover:!bg-white hover:!text-[#0C3C54]"
+                <PrimaryButton
+                  variant="outline"
+                  className="!border-white !text-white !font-bold !px-8 !py-6 !text-lg hover:!bg-white hover:!text-[#0C3C54]"
                   onClick={() => navigate('/booking')}
                 >
                   Đặt lịch ngay
-                </Button>
+                </PrimaryButton>
               </motion.div>
             </div>
-          </AnimatedSection>
+          </BlurFade>
         </div>
       </div>
 
-      {/* Search and Filter Section */}
-      <div className="py-12 bg-white shadow-sm">
+      {/* Statistics Section */}
+      <div className="py-16 bg-gray-50 relative">
         <div className="container mx-auto px-4">
-          <AnimatedSection animation="slideUp">
-            <div className="max-w-6xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <Search
-                  placeholder="Tìm kiếm bác sĩ..."
-                  allowClear
-                  size="large"
-                  prefix={<SearchNormal1 size={20} className="text-gray-400" />}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="rounded-lg"
-                />
-                
-                <Select
-                  size="large"
-                  value={selectedSpecialization}
-                  onChange={setSelectedSpecialization}
-                  className="w-full"
-                >
-                  {specializations.map(spec => (
-                    <Option key={spec.value} value={spec.value}>
-                      {spec.label}
-                    </Option>
-                  ))}
-                </Select>
-
-                <Select
-                  size="large"
-                  value={selectedConsultationType}
-                  onChange={setSelectedConsultationType}
-                  className="w-full"
-                >
-                  {consultationTypes.map(type => (
-                    <Option key={type.value} value={type.value}>
-                      {type.label}
-                    </Option>
-                  ))}
-                </Select>
-
-                <Select
-                  size="large"
-                  value={sortBy}
-                  onChange={setSortBy}
-                  className="w-full"
-                >
-                  {sortOptions.map(option => (
-                    <Option key={option.value} value={option.value}>
-                      {option.label}
-                    </Option>
-                  ))}
-                </Select>
-              </div>
-              
-              <div className="text-center text-gray-600">
-                Tìm thấy <span className="font-semibold text-[#0C3C54]">{filteredDoctors.length}</span> bác sĩ phù hợp
-              </div>
-            </div>
-          </AnimatedSection>
-        </div>
-      </div>
-
-      {/* Doctors Grid */}
-      <div id="doctors" className="py-20">
-        <div className="container mx-auto px-4">
-          <motion.div 
-            layout
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-          >
-            {filteredDoctors.map((doctor, index) => (
-              <motion.div
-                key={doctor.id}
-                layout
-                initial={{ opacity: 0, y: 50 }}
+          <BlurFade delay={0.2} inView>
+            <div className="text-center mb-12">
+              <motion.h2 
+                className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                whileHover={{ y: -10 }}
-                className="group"
+                transition={{ duration: 0.8, delay: 0.2 }}
               >
-                <Card
-                  className="h-full border-0 shadow-lg group-hover:shadow-2xl transition-all duration-500 overflow-hidden"
-                  cover={
-                    <div className="relative h-48 overflow-hidden">
-                      <img
-                        src={doctor.avatar}
-                        alt={doctor.name}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                      
-                      {/* Online Status */}
-                      <div className="absolute top-4 left-4">
-                        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
-                          doctor.isOnline 
-                            ? "bg-green-500 text-white" 
-                            : "bg-gray-500 text-white"
-                        }`}>
-                          <div className={`w-2 h-2 rounded-full ${
-                            doctor.isOnline ? "bg-white" : "bg-gray-300"
-                          }`}></div>
-                          {doctor.isOnline ? "Đang online" : "Offline"}
-                        </div>
-                      </div>
-
-                      {/* Favorite Button */}
-                      <div className="absolute top-4 right-4">
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={(e) => handleFavorite(doctor.id, e)}
-                          className={`p-2 rounded-full backdrop-blur-sm transition-colors ${
-                            favoriteIds.has(doctor.id)
-                              ? "bg-red-500 text-white"
-                              : "bg-white/20 text-white hover:bg-red-500"
-                          }`}
-                        >
-                          <Heart size={16} variant={favoriteIds.has(doctor.id) ? "Bold" : "Outline"} />
-                        </motion.button>
-                      </div>
-
-                      {/* Quick Actions */}
-                      <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => handleViewProfile(doctor)}
-                          className="p-2 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-blue-500 transition-colors"
-                        >
-                          <User size={16} />
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.1 }}
-                          whileTap={{ scale: 0.9 }}
-                          onClick={() => handleBookConsultation(doctor)}
-                          className="p-2 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-green-500 transition-colors"
-                        >
-                          <Calendar size={16} />
-                        </motion.button>
-                      </div>
-                    </div>
-                  }
-                >
-                  <div className="p-6">
-                    {/* Doctor Info */}
-                    <div className="mb-4">
-                      <h3 className="text-xl font-bold text-gray-800 mb-2 group-hover:text-[#0C3C54] transition-colors">
-                        {doctor.name}
-                      </h3>
-                      <p className="text-[#0C3C54] font-medium mb-2">
-                        {doctor.specialization}
-                      </p>
-                      <p className="text-gray-600 text-sm mb-3">
-                        {doctor.education}
-                      </p>
-                    </div>
-
-                    {/* Rating and Experience */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <Rate disabled defaultValue={doctor.rating} allowHalf className="text-sm" />
-                        <span className="text-sm text-gray-600">
-                          {doctor.rating} ({doctor.reviewCount})
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-sm text-gray-600">
-                        <Award size={16} />
-                        <span>{doctor.experience} năm</span>
-                      </div>
-                    </div>
-
-                    {/* Bio */}
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                      {doctor.bio}
-                    </p>
-
-                    {/* Languages */}
-                    <div className="mb-4">
-                      <div className="flex flex-wrap gap-1">
-                        {doctor.languages.map((lang, idx) => (
-                          <Tag key={idx} className="text-xs">
-                            {lang}
-                          </Tag>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Consultation Types */}
-                    <div className="mb-4">
-                      <div className="flex flex-wrap gap-1">
-                        {doctor.consultationTypes.map((type, idx) => (
-                          <Tag key={idx} color="blue" className="text-xs">
-                            {type}
-                          </Tag>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Price and Stats */}
-                    <div className="grid grid-cols-2 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-[#0C3C54]">
-                          {doctor.price.online.toLocaleString()}đ
-                        </div>
-                        <div className="text-xs text-gray-600">Online</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-[#0C3C54]">
-                          {doctor.successRate}%
-                        </div>
-                        <div className="text-xs text-gray-600">Thành công</div>
-                      </div>
-                    </div>
-
-                    {/* Response Time */}
-                    <div className="flex items-center gap-2 mb-4 text-sm text-gray-600">
-                      <Clock size={16} />
-                      <span>Phản hồi: {doctor.responseTime}</span>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      <Button
-                        type="primary"
-                        className="flex-1 bg-[#0C3C54] border-[#0C3C54] rounded-lg font-medium"
-                        onClick={() => handleBookConsultation(doctor)}
-                        icon={<Calendar size={16} />}
-                      >
-                        Đặt lịch
-                      </Button>
-                      <Button
-                        className="flex-1 border-[#0C3C54] text-[#0C3C54] rounded-lg font-medium hover:!bg-[#0C3C54] hover:!text-white"
-                        onClick={() => handleViewProfile(doctor)}
-                        icon={<User size={16} />}
-                      >
-                        Xem hồ sơ
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
+                Tại sao chọn chúng tôi?
+              </motion.h2>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-lg text-gray-600 max-w-2xl mx-auto text-enhanced"
+              >
+                Đội ngũ bác sĩ giàu kinh nghiệm, được đào tạo bài bản với chuyên môn cao
               </motion.div>
-            ))}
-          </motion.div>
+            </div>
+          </BlurFade>
 
-          {/* Load More */}
-          {filteredDoctors.length > 0 && (
-            <AnimatedSection animation="fadeIn" delay={0.5}>
-              <div className="text-center mt-16">
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                  <Button
-                    size="large"
-                    className="bg-[#0C3C54] text-white border-none font-semibold px-8 py-6 h-auto rounded-full hover:!bg-[#2A7F9E]"
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: <Profile2User size={32} variant="Bold" />,
+                title: `${doctors.length}+ Bác sĩ`,
+                description: "Chuyên gia hàng đầu",
+                color: "#0C3C54"
+              },
+              {
+                icon: <Award size={32} variant="Bold" />,
+                title: "10+ Năm",
+                description: "Kinh nghiệm trung bình",
+                color: "#2A7F9E"
+              },
+              {
+                icon: <Star1 size={32} variant="Bold" />,
+                title: "4.8/5",
+                description: "Đánh giá từ bệnh nhân",
+                color: "#4CAF50"
+              }
+            ].map((stat, index) => (
+              <BlurFade key={index} delay={0.2 + index * 0.1} inView>
+                <WarpBackground className="h-full group cursor-pointer">
+                  <div className="p-8 text-center">
+                    <motion.div
+                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-6"
+                      style={{ backgroundColor: `${stat.color}20` }}
+                    >
+                      <div style={{ color: stat.color }}>
+                        {stat.icon}
+                      </div>
+                    </motion.div>
+                    
+                    <BoxReveal align="center">
+                      <h4 className="text-2xl font-bold mb-2" style={{ color: stat.color }}>
+                        {stat.title}
+                      </h4>
+                    </BoxReveal>
+                    
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.8, delay: 0.3 }}
+                      className="text-gray-600 text-enhanced"
+                    >
+                      {stat.description}
+                    </motion.div>
+                  </div>
+                </WarpBackground>
+              </BlurFade>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Search Section with WarpBackground */}
+      <div className="py-12 bg-white">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <BlurFade delay={0.2} inView>
+            <WarpBackground className="group">
+              <div className="p-8">
+                <div className="text-center mb-6">
+                  <BoxReveal align="center">
+                    <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                      Tìm bác sĩ phù hợp
+                    </h3>
+                  </BoxReveal>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.3 }}
+                    className="text-gray-600 text-enhanced"
                   >
-                    Xem thêm bác sĩ
-                  </Button>
+                    Sử dụng bộ lọc để tìm chuyên gia phù hợp với nhu cầu của bạn
+                  </motion.div>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-4 items-center">
+                  <div className="relative flex-1 w-full">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      <SearchNormal1 size={20} />
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Tìm kiếm bác sĩ..."
+                      className="w-full border border-gray-300 rounded-lg py-3 pl-10 pr-4 focus:outline-none focus:border-[#0C3C54] focus:ring-2 focus:ring-[#0C3C54]/20 transition-all duration-300"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <select
+                    className="border border-gray-300 rounded-lg py-3 px-4 focus:outline-none focus:border-[#0C3C54] focus:ring-2 focus:ring-[#0C3C54]/20 w-full sm:w-60 transition-all duration-300"
+                    value={selectedSpecialization}
+                    onChange={(e) => setSelectedSpecialization(e.target.value)}
+                  >
+                    {specializations.map(spec => (
+                      <option key={spec.value} value={spec.value}>{spec.label}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.4 }}
+                  className="text-center text-gray-600 mt-6 text-enhanced"
+                >
+                  Tìm thấy <span className="font-semibold text-[#0C3C54]">{filteredDoctors.length}</span> bác sĩ phù hợp
                 </motion.div>
               </div>
-            </AnimatedSection>
+            </WarpBackground>
+          </BlurFade>
+        </div>
+      </div>
+
+      {/* Doctors Grid with enhanced animations */}
+      <div id="doctors" className="py-20 bg-gray-50">
+        <div className="container mx-auto px-4">
+          <BlurFade delay={0.2} inView>
+            <div className="text-center mb-16">
+              <motion.h2 
+                className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
+              >
+                Danh sách bác sĩ
+              </motion.h2>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="text-lg text-gray-600 max-w-2xl mx-auto text-enhanced"
+              >
+                Chọn bác sĩ phù hợp và đặt lịch tư vấn ngay hôm nay
+              </motion.div>
+            </div>
+          </BlurFade>
+
+          <motion.div 
+            layout
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
+          >
+            {loadingDoctors ? (
+              [...Array(8)].map((_, index) => (
+                <BlurFade key={index} delay={index * 0.1} inView>
+                  <WarpBackground className="h-[400px] animate-pulse">
+                    <div className="p-6">
+                      <div className="w-full h-48 bg-gray-200 rounded-lg mb-4"></div>
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded mb-4"></div>
+                      <div className="h-3 bg-gray-200 rounded"></div>
+                    </div>
+                  </WarpBackground>
+                </BlurFade>
+              ))
+            ) : (
+              filteredDoctors.map((doctor, index) => (
+                <BlurFade key={doctor._id} delay={index * 0.05} inView>
+                  <motion.div
+                    layout
+                    whileHover={{ y: -10 }}
+                    transition={{ duration: 0.3 }}
+                    className="h-full"
+                  >
+                    <CounselorCard
+                      doctor={doctor}
+                      onBook={handleBookConsultation}
+                      onView={handleViewProfile}
+                    />
+                  </motion.div>
+                </BlurFade>
+              ))
+            )}
+          </motion.div>
+
+          {/* Load More Button */}
+          {filteredDoctors.length > 0 && (
+            <BlurFade delay={0.5} inView>
+              <div className="text-center mt-16">
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <PrimaryButton
+                    className="!bg-[#0C3C54] !text-white !font-bold !px-8 !py-6 !text-lg hover:!bg-[#2A7F9E] !shadow-2xl"
+                  >
+                    Xem thêm bác sĩ
+                  </PrimaryButton>
+                </motion.div>
+              </div>
+            </BlurFade>
           )}
 
-          {/* No Results */}
-          {filteredDoctors.length === 0 && (
-            <div className="text-center py-16">
-              <div className="text-gray-400 mb-4">
-                <Profile2User size={64} />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                Không tìm thấy bác sĩ phù hợp
-              </h3>
-              <p className="text-gray-500 mb-6">
-                Hãy thử thay đổi bộ lọc hoặc từ khóa tìm kiếm
-              </p>
-              <Button
-                type="primary"
-                size="large"
-                className="bg-[#0C3C54] border-[#0C3C54] rounded-full px-8"
-                onClick={() => {
-                  setSearchTerm("");
-                  setSelectedSpecialization("all");
-                  setSelectedConsultationType("all");
-                }}
-              >
-                Xóa bộ lọc
-              </Button>
-            </div>
+          {/* No Results with enhanced styling */}
+          {filteredDoctors.length === 0 && !loadingDoctors && (
+            <BlurFade delay={0.3} inView>
+              <WarpBackground className="mx-auto max-w-md">
+                <div className="text-center py-16 px-8">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: 0.5 }}
+                    className="text-gray-400 mb-6 flex justify-center"
+                  >
+                    <Profile2User size={64} />
+                  </motion.div>
+                  <BoxReveal align="center">
+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                      Không tìm thấy bác sĩ phù hợp
+                    </h3>
+                  </BoxReveal>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.3 }}
+                    className="text-gray-500 mb-6 text-enhanced"
+                  >
+                    Hãy thử thay đổi từ khóa tìm kiếm hoặc bộ lọc chuyên khoa
+                  </motion.div>
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                    <PrimaryButton
+                      className="!bg-[#0C3C54] !text-white !font-semibold !px-8 !py-3"
+                      onClick={() => {
+                        setSearchTerm("");
+                        setSelectedSpecialization("all");
+                      }}
+                    >
+                      Xóa bộ lọc
+                    </PrimaryButton>
+                  </motion.div>
+                </div>
+              </WarpBackground>
+            </BlurFade>
           )}
         </div>
       </div>
