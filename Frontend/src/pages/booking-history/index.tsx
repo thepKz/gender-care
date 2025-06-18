@@ -1,4 +1,5 @@
-import { DatePicker, Empty, Input, message, Modal, Rate, Select, Spin, Tag, Timeline } from 'antd';
+import { DatePicker, Empty, Input, message, Modal, Rate, Select, Timeline } from 'antd';
+import type { Dayjs } from 'dayjs';
 import axios from 'axios';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -24,7 +25,8 @@ import {
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { appointmentApi } from '../../api/endpoints';
-import Image1 from '../../assets/images/image1.jpg';
+import { consultationApi } from '../../api';
+import { useAuth } from '../../hooks/useAuth';
 import ModernButton from '../../components/ui/ModernButton';
 import ModernCard from '../../components/ui/ModernCard';
 
@@ -41,8 +43,8 @@ interface Appointment {
   doctorAvatar?: string;
   appointmentDate: string;
   appointmentTime: string;
-  typeLocation: 'online' | 'Online' | 'clinic' | 'home';
-  status: 'pending' | 'pending_payment' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+  typeLocation: string; // Backend có thể trả về bất kỳ string nào
+  status: string; // Backend có thể trả về bất kỳ status nào
   price: number;
   createdAt: string;
   description?: string;
@@ -56,6 +58,7 @@ interface Appointment {
 
 const BookingHistory: React.FC = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
@@ -64,7 +67,8 @@ const BookingHistory: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [serviceFilter, setServiceFilter] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<[any, any] | null>(null);
+  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
   // Mock data
   const mockAppointments: Appointment[] = [
@@ -152,14 +156,56 @@ const BookingHistory: React.FC = () => {
   ];
 
   const fetchAppointments = async () => {
+    // Kiểm tra authentication trước khi gọi API
+    if (!isAuthenticated || !user) {
+      console.log('🔍 [Debug] User not authenticated, redirecting to login...');
+      navigate('/login');
+      return;
+    }
+
     setLoading(true);
     try {
-      console.log('🔍 [Debug] Fetching appointments from API...');
-      const response = await appointmentApi.getAllAppointments();
-      console.log('🔍 [Debug] Appointments API response:', response);
+      // Phân quyền: Admin/Staff/Manager có thể xem tất cả, Customer chỉ xem của mình
+      const isManagementRole = ['admin', 'staff', 'manager'].includes(user.role);
       
-      if (response.success) {
-        const formattedAppointments = response.data.appointments.map((apt: any) => ({
+      let response;
+      if (isManagementRole) {
+        console.log('🔍 [Debug] Fetching ALL appointments for management role:', user.role);
+        response = await appointmentApi.getAllAppointments();
+        console.log('🔍 [Debug] All Appointments API response:', response);
+      } else {
+        console.log('🔍 [Debug] Fetching user appointments for customer:', user._id);
+        response = await consultationApi.getUserAppointments();
+        console.log('🔍 [Debug] User Appointments API response:', response);
+      }
+      
+      // Handle different response structures for different APIs
+      let appointmentsData = [];
+      if (isManagementRole) {
+        // appointmentApi.getAllAppointments() response structure
+        appointmentsData = response.data?.appointments || response.data?.data?.appointments || [];
+      } else {
+        // consultationApi.getUserAppointments() response structure  
+        appointmentsData = response.data?.data?.appointments || response.data?.appointments || [];
+      }
+
+      if (appointmentsData && appointmentsData.length >= 0) {
+        const formattedAppointments = appointmentsData.map((apt: {
+          _id: string;
+          serviceId?: { _id: string; serviceName: string; price: number };
+          packageId?: { name: string; price: number };
+          doctorId?: { fullName: string; avatar: string };
+          appointmentDate: string;
+          appointmentTime: string;
+          typeLocation: string;
+          status: string;
+          createdAt: string;
+          description?: string;
+          notes?: string;
+          address?: string;
+          rating?: number;
+          feedback?: string;
+        }) => ({
           id: apt._id,
           serviceId: apt.serviceId?._id || '',
           serviceName: apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
@@ -168,8 +214,8 @@ const BookingHistory: React.FC = () => {
           doctorAvatar: apt.doctorId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
           appointmentDate: new Date(apt.appointmentDate).toISOString().split('T')[0],
           appointmentTime: apt.appointmentTime,
-          typeLocation: apt.typeLocation,
-          status: apt.status === 'pending' ? 'pending_payment' : apt.status, // Convert legacy pending to pending_payment
+          typeLocation: apt.typeLocation as string,
+          status: (apt.status === 'pending' ? 'pending_payment' : apt.status) as string, // Convert legacy pending to pending_payment
           price: apt.packageId?.price || apt.serviceId?.price || 0,
           createdAt: new Date(apt.createdAt).toISOString(),
           description: apt.description,
@@ -244,8 +290,8 @@ const BookingHistory: React.FC = () => {
       const [startDate, endDate] = dateRange;
       filtered = filtered.filter(apt => {
         const aptDate = new Date(apt.appointmentDate);
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        const start = startDate.toDate();
+        const end = endDate.toDate();
         return aptDate >= start && aptDate <= end;
       });
     }
@@ -433,28 +479,158 @@ const BookingHistory: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-green-50">
+      <div className="min-h-screen flex items-center justify-center relative overflow-hidden" 
+           style={{
+             background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 25%, #f0fdfa 50%, #ecfdf5 75%, #f0f9ff 100%)'
+           }}>
+        
+        {/* Medical Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 bg-teal-400 rounded-full"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+              }}
+              animate={{
+                scale: [1, 1.5, 1],
+                opacity: [0.3, 0.8, 0.3],
+              }}
+              transition={{
+                duration: 2 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2,
+              }}
+            />
+          ))}
+        </div>
+
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
+          initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="text-center relative z-10"
         >
-          <div className="relative">
-            <Spin size="large" />
+          {/* Medical Loading Animation */}
+          <div className="relative mb-8">
+            {/* Outer Ring - Pulse Effect */}
+            <motion.div
+              animate={{ 
+                scale: [1, 1.3, 1],
+                opacity: [0.3, 0.6, 0.3]
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="absolute inset-0 w-24 h-24 mx-auto border-4 border-teal-200 rounded-full"
+            />
+            
+            {/* Middle Ring - Rotating */}
             <motion.div
               animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              className="absolute inset-0 border-4 border-transparent border-t-blue-500 rounded-full"
+              transition={{ 
+                duration: 3, 
+                repeat: Infinity, 
+                ease: "linear" 
+              }}
+              className="absolute inset-2 w-20 h-20 mx-auto border-4 border-transparent border-t-[#006478] border-r-[#00A693] rounded-full"
             />
+            
+            {/* Inner Heart Icon with Heartbeat */}
+            <motion.div
+              animate={{ 
+                scale: [1, 1.2, 1],
+              }}
+              transition={{ 
+                duration: 1.2, 
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="relative w-24 h-24 mx-auto flex items-center justify-center"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="w-12 h-12 bg-gradient-to-br from-[#006478] to-[#00A693] rounded-full flex items-center justify-center shadow-lg"
+              >
+                <Heart size={24} className="text-white" variant="Bold" />
+              </motion.div>
+            </motion.div>
           </div>
-          <motion.p
+
+          {/* Loading Text with Medical Theme */}
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="mt-4 text-gray-600 font-medium"
+            transition={{ delay: 0.6, duration: 0.6 }}
+            className="space-y-3"
           >
-            Đang tải lịch sử đặt lịch...
-          </motion.p>
+            <h3 className="text-2xl font-bold text-[#006478] mb-2">
+              Đang tải thông tin y tế
+            </h3>
+            <motion.p
+              animate={{ opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="text-[#00A693] font-medium text-lg"
+            >
+              Lịch sử khám và tư vấn sức khỏe
+            </motion.p>
+            
+            {/* Medical Progress Indicator */}
+            <div className="mt-6 w-64 mx-auto">
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <motion.div
+                  animate={{ x: ['-100%', '100%'] }}
+                  transition={{ 
+                    duration: 2, 
+                    repeat: Infinity, 
+                    ease: "easeInOut",
+                    repeatType: "reverse"
+                  }}
+                  className="h-full w-1/3 bg-gradient-to-r from-[#006478] to-[#00A693] rounded-full"
+                />
+              </div>
+              <p className="text-sm text-gray-500 mt-3">
+                Bảo mật thông tin y tế của bạn là ưu tiên hàng đầu
+              </p>
+            </div>
+
+            {/* Medical Icons Animation */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1, duration: 0.8 }}
+              className="flex justify-center items-center gap-6 mt-8"
+            >
+              {[
+                { icon: Activity, delay: 0 },
+                { icon: People, delay: 0.2 },
+                { icon: MonitorMobbile, delay: 0.4 }
+              ].map(({ icon: Icon, delay }, index) => (
+                <motion.div
+                  key={index}
+                  animate={{ 
+                    y: [0, -10, 0],
+                    opacity: [0.5, 1, 0.5]
+                  }}
+                  transition={{ 
+                    duration: 1.5, 
+                    repeat: Infinity,
+                    delay: delay,
+                    ease: "easeInOut"
+                  }}
+                  className="w-10 h-10 bg-white rounded-full shadow-md flex items-center justify-center"
+                >
+                  <Icon size={20} className="text-[#006478]" />
+                </motion.div>
+              ))}
+            </motion.div>
+          </motion.div>
         </motion.div>
       </div>
     );
@@ -475,8 +651,21 @@ const BookingHistory: React.FC = () => {
                 Lịch sử Đặt lịch
               </h1>
               <p className="text-xl text-gray-600">
-                Quản lý và theo dõi tất cả các lịch hẹn của bạn
+                {user && ['admin', 'staff', 'manager'].includes(user.role) 
+                  ? `Quản lý tất cả các lịch hẹn trong hệ thống (${user.role.toUpperCase()})`
+                  : 'Quản lý và theo dõi tất cả các lịch hẹn của bạn'
+                }
               </p>
+              {user && ['admin', 'staff', 'manager'].includes(user.role) && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">
+                    🛡️ Quyền quản lý: {user.role.toUpperCase()}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    Có thể xem và quản lý lịch hẹn của tất cả người dùng
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex gap-4">
               <ModernButton
@@ -551,14 +740,36 @@ const BookingHistory: React.FC = () => {
               placeholder={['Từ ngày', 'Đến ngày']}
               value={dateRange}
               onChange={(dates) => {
-                if (dates) {
-                  setDateRange([dates[0]!.format('YYYY-MM-DD'), dates[1]!.format('YYYY-MM-DD')]);
+                if (dates && dates[0] && dates[1]) {
+                  setDateRange([dates[0], dates[1]]);
                 } else {
                   setDateRange(null);
                 }
               }}
               format="DD/MM/YYYY"
             />
+
+            {/* View Mode Toggle - Only show on desktop */}
+            <div className="hidden lg:flex items-center gap-2 border rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`p-2 rounded transition-colors ${viewMode === 'table' ? 'bg-blue-500 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+                title="Xem dạng bảng"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => setViewMode('cards')}
+                className={`p-2 rounded transition-colors ${viewMode === 'cards' ? 'bg-blue-500 text-white' : 'text-gray-500 hover:text-gray-700'}`}
+                title="Xem dạng thẻ"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z"/>
+                </svg>
+              </button>
+            </div>
 
             {/* Clear Filters */}
             {(searchText || statusFilter !== 'all' || serviceFilter !== 'all' || dateRange) && (
@@ -634,178 +845,479 @@ const BookingHistory: React.FC = () => {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="space-y-6"
+              className="space-y-4"
             >
-              {filteredAppointments.map((appointment, index) => (
-                <motion.div
-                  key={appointment.id}
-                  initial={{ opacity: 0, y: 50 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ y: -2 }}
-                >
-                  <ModernCard variant="default" className="overflow-hidden">
-                    <div className="flex flex-col lg:flex-row">
-                      {/* Image & Service Info */}
-                      <div className="lg:w-1/3">
-                        <div className="relative h-48 lg:h-full">
-                          <img
-                            src={appointment.doctorAvatar || Image1}
-                            alt={appointment.serviceName}
-                            className="w-full h-full object-cover"
-                          />
-                          <div className={`absolute inset-0 bg-gradient-to-br ${appointment.doctorAvatar ? 'from-blue-500 to-purple-500' : 'from-blue-500 via-purple-500 to-pink-500'} opacity-80`} />
-                          <div className="absolute inset-0 flex items-center justify-center text-white">
-                            <div className="text-center">
-                              <div className="mb-2">
-                                <Heart size={24} className="text-red-500" />
+              {viewMode === 'table' ? (
+                /* Table View - Desktop Only */
+                <div className="hidden lg:block bg-white rounded-xl shadow-sm border overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="text-left p-4 font-semibold text-gray-900">Dịch vụ</th>
+                          <th className="text-left p-4 font-semibold text-gray-900">Ngày & Giờ</th>
+                          <th className="text-left p-4 font-semibold text-gray-900">Bác sĩ</th>
+                          <th className="text-left p-4 font-semibold text-gray-900">Hình thức</th>
+                          <th className="text-left p-4 font-semibold text-gray-900">Trạng thái</th>
+                          <th className="text-left p-4 font-semibold text-gray-900">Chi phí</th>
+                          <th className="text-right p-4 font-semibold text-gray-900">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredAppointments.map((appointment, index) => (
+                          <motion.tr
+                            key={appointment.id}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                          >
+                            {/* Service */}
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                                  <Heart size={16} className="text-white" />
+                                </div>
+                                <div>
+                                  <div className="font-semibold text-gray-900 mb-1">
+                                    {appointment.serviceName}
+                                  </div>
+                                  {appointment.packageName && (
+                                    <div className="text-sm text-blue-600">
+                                      {appointment.packageName}
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-gray-500 font-mono">
+                                    ID: {appointment.id.slice(-8)}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-sm font-medium">
-                                {appointment.serviceName.toUpperCase()}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="absolute top-4 right-4">
-                            <Tag color={statusConfig[appointment.status].color}>
-                              {statusConfig[appointment.status].text}
-                            </Tag>
-                          </div>
-                        </div>
-                      </div>
+                            </td>
 
-                      {/* Booking Details */}
-                      <div className="lg:w-2/3 p-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-                          {/* Left Column */}
-                          <div className="space-y-4">
-                            <div>
-                              <h3 className="text-xl font-bold text-gray-900 mb-1">
-                                {appointment.serviceName}
-                              </h3>
-                              {appointment.packageName && (
-                                <p className="text-blue-600 font-medium">
-                                  {appointment.packageName}
-                                </p>
-                              )}
-                              <p className="text-sm text-gray-600">
-                                Mã đặt lịch: <span className="font-mono">{appointment.id}</span>
-                              </p>
-                            </div>
-
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <People size={16} />
-                                <span>{appointment.doctorName}</span>
+                            {/* Date & Time */}
+                            <td className="p-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                                  <Calendar size={14} />
+                                  {formatDate(appointment.appointmentDate)}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                  <Clock size={14} />
+                                  {appointment.appointmentTime}
+                                </div>
                               </div>
+                            </td>
+
+                            {/* Doctor */}
+                            <td className="p-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                                  {appointment.doctorAvatar ? (
+                                    <img 
+                                      src={appointment.doctorAvatar} 
+                                      alt={appointment.doctorName} 
+                                      className="w-full h-full rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <User size={14} className="text-gray-500" />
+                                  )}
+                                </div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {appointment.doctorName}
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Location */}
+                            <td className="p-4">
                               <div className="flex items-center gap-2 text-sm text-gray-600">
-                                {locationConfig[appointment.typeLocation]?.icon || <Location size={16} />}
+                                {locationConfig[appointment.typeLocation]?.icon || <Location size={14} />}
                                 <span>{locationConfig[appointment.typeLocation]?.text || appointment.typeLocation}</span>
                               </div>
-                            </div>
+                            </td>
 
+                            {/* Status */}
+                            <td className="p-4">
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium"
+                                style={{
+                                  backgroundColor: `${statusConfig[appointment.status]?.color}20`,
+                                  color: statusConfig[appointment.status]?.color
+                                }}
+                              >
+                                {statusConfig[appointment.status]?.icon}
+                                {statusConfig[appointment.status]?.text}
+                              </span>
+                            </td>
+
+                            {/* Price */}
+                            <td className="p-4">
+                              <div className="text-right">
+                                <div className="font-bold text-blue-600">
+                                  {formatPrice(appointment.price)}
+                                </div>
+                                {appointment.rating && (
+                                  <div className="flex items-center gap-1 justify-end mt-1">
+                                    <Star size={12} className="text-yellow-400 fill-current" />
+                                    <span className="text-xs text-gray-500">{appointment.rating}/5</span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="p-4">
+                              <div className="flex items-center gap-1 justify-end">
+                                <button
+                                  onClick={() => handleViewDetail(appointment)}
+                                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Xem chi tiết"
+                                >
+                                  <Eye size={16} />
+                                </button>
+
+                                {appointment.canReschedule && (
+                                  <button
+                                    onClick={() => handleReschedule(appointment)}
+                                    className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                    title="Đổi lịch"
+                                  >
+                                    <Refresh size={16} />
+                                  </button>
+                                )}
+
+                                {appointment.status === 'pending_payment' && (
+                                  <button
+                                    onClick={() => handlePayment(appointment)}
+                                    className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                    title="Thanh toán"
+                                  >
+                                    <DocumentText size={16} />
+                                  </button>
+                                )}
+
+                                {appointment.canCancel && (
+                                  <button
+                                    onClick={() => {
+                                      Modal.confirm({
+                                        title: 'Xác nhận hủy lịch',
+                                        content: 'Bạn có chắc chắn muốn hủy lịch hẹn này?',
+                                        okText: 'Đồng ý',
+                                        okButtonProps: { danger: true },
+                                        cancelText: 'Hủy',
+                                        onOk: () => handleCancel(appointment)
+                                      });
+                                    }}
+                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Hủy lịch"
+                                  >
+                                    <Trash size={16} />
+                                  </button>
+                                )}
+
+                                {appointment.status === 'completed' && !appointment.rating && (
+                                  <button
+                                    onClick={() => handleFeedback(appointment)}
+                                    className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                                    title="Đánh giá"
+                                  >
+                                    <Star size={16} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </motion.tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+              
+              {/* Mobile/Tablet Cards View - Always show on smaller screens */}
+              <div className="lg:hidden space-y-4">
+                {filteredAppointments.map((appointment, index) => (
+                  <motion.div
+                    key={appointment.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-shadow"
+                  >
+                    <div className="p-4">
+                      {/* Mobile Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Heart size={16} className="text-white" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-bold text-gray-900 text-sm truncate">
+                              {appointment.serviceName}
+                            </h3>
+                            {appointment.packageName && (
+                              <p className="text-blue-600 text-xs font-medium truncate">
+                                {appointment.packageName}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ml-2"
+                          style={{
+                            backgroundColor: `${statusConfig[appointment.status]?.color}20`,
+                            color: statusConfig[appointment.status]?.color
+                          }}
+                        >
+                          {statusConfig[appointment.status]?.icon}
+                          <span className="hidden sm:inline">{statusConfig[appointment.status]?.text}</span>
+                        </span>
+                      </div>
+
+                      {/* Mobile Content - 2 columns */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Calendar size={12} />
+                            <span className="text-xs">{formatDate(appointment.appointmentDate)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Clock size={12} />
+                            <span className="text-xs">{appointment.appointmentTime}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <User size={12} />
+                            <span className="text-xs truncate">{appointment.doctorName}</span>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            {locationConfig[appointment.typeLocation]?.icon || <Location size={12} />}
+                            <span className="text-xs">{locationConfig[appointment.typeLocation]?.text || appointment.typeLocation}</span>
+                          </div>
+                          <div className="text-right sm:text-left">
+                            <div className="text-lg font-bold text-blue-600">
+                              {formatPrice(appointment.price)}
+                            </div>
                             {appointment.rating && (
-                              <div className="flex items-center gap-2">
-                                <Rate disabled defaultValue={appointment.rating} className="text-sm" />
-                                <span className="text-sm text-gray-600">
-                                  ({appointment.rating}/5)
-                                </span>
+                              <div className="flex items-center gap-1 justify-end sm:justify-start">
+                                <Star size={12} className="text-yellow-400 fill-current" />
+                                <span className="text-xs text-gray-500">{appointment.rating}/5</span>
                               </div>
                             )}
                           </div>
-
-                          {/* Right Column */}
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Calendar size={16} />
-                                <span>{formatDate(appointment.appointmentDate)}</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-sm text-gray-600">
-                                <Clock size={16} />
-                                <span>{appointment.appointmentTime}</span>
-                              </div>
-                            </div>
-
-                            <div className="text-right">
-                              <div className="text-2xl font-bold text-blue-600 mb-2">
-                                {formatPrice(appointment.price)}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                Đặt lịch: {formatDate(appointment.createdAt)}
-                              </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex flex-wrap gap-2 justify-end">
-                              <ModernButton
-                                variant="outline"
-                                className="text-sm"
-                                icon={<Eye size={16} />}
-                                onClick={() => handleViewDetail(appointment)}
-                              >
-                                Chi tiết
-                              </ModernButton>
-
-                              {appointment.canReschedule && (
-                                <ModernButton
-                                  variant="outline"
-                                  className="text-sm"
-                                  icon={<Refresh size={16} />}
-                                  onClick={() => handleReschedule(appointment)}
-                                >
-                                  Đổi lịch
-                                </ModernButton>
-                              )}
-
-                              {appointment.status === 'pending_payment' && (
-                                <ModernButton
-                                  variant="primary"
-                                  className="text-sm bg-orange-500 hover:bg-orange-600"
-                                  icon={<DocumentText size={16} />}
-                                  onClick={() => handlePayment(appointment)}
-                                >
-                                  Thanh toán
-                                </ModernButton>
-                              )}
-
-                              {appointment.canCancel && (
-                                <ModernButton
-                                  variant="danger"
-                                  className="text-sm"
-                                  icon={<Trash size={16} />}
-                                  onClick={() => {
-                                    Modal.confirm({
-                                      title: 'Xác nhận hủy lịch',
-                                      content: 'Bạn có chắc chắn muốn hủy lịch hẹn này? Lịch sẽ được trả lại để người khác có thể đặt.',
-                                      okText: 'Đồng ý',
-                                      okButtonProps: { danger: true },
-                                      cancelText: 'Hủy',
-                                      onOk: () => handleCancel(appointment)
-                                    });
-                                  }}
-                                >
-                                  Hủy lịch
-                                </ModernButton>
-                              )}
-
-                              {appointment.status === 'completed' && !appointment.rating && (
-                                <ModernButton
-                                  variant="primary"
-                                  className="text-sm"
-                                  icon={<Star size={16} />}
-                                  onClick={() => handleFeedback(appointment)}
-                                >
-                                  Đánh giá
-                                </ModernButton>
-                              )}
-                            </div>
-                          </div>
                         </div>
                       </div>
+
+                      {/* Mobile Actions */}
+                      <div className="flex flex-wrap gap-2 pt-3 border-t">
+                        <button
+                          onClick={() => handleViewDetail(appointment)}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        >
+                          <Eye size={12} />
+                          <span>Chi tiết</span>
+                        </button>
+
+                        {appointment.canReschedule && (
+                          <button
+                            onClick={() => handleReschedule(appointment)}
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-100 text-green-700 hover:bg-green-200 rounded-lg transition-colors"
+                          >
+                            <Refresh size={12} />
+                            <span>Đổi lịch</span>
+                          </button>
+                        )}
+
+                        {appointment.status === 'pending_payment' && (
+                          <button
+                            onClick={() => handlePayment(appointment)}
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg transition-colors"
+                          >
+                            <DocumentText size={12} />
+                            <span>Thanh toán</span>
+                          </button>
+                        )}
+
+                        {appointment.canCancel && (
+                          <button
+                            onClick={() => {
+                              Modal.confirm({
+                                title: 'Xác nhận hủy lịch',
+                                content: 'Bạn có chắc chắn muốn hủy lịch hẹn này?',
+                                okText: 'Đồng ý',
+                                okButtonProps: { danger: true },
+                                cancelText: 'Hủy',
+                                onOk: () => handleCancel(appointment)
+                              });
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors"
+                          >
+                            <Trash size={12} />
+                            <span>Hủy</span>
+                          </button>
+                        )}
+
+                        {appointment.status === 'completed' && !appointment.rating && (
+                          <button
+                            onClick={() => handleFeedback(appointment)}
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-yellow-100 text-yellow-700 hover:bg-yellow-200 rounded-lg transition-colors"
+                          >
+                            <Star size={12} />
+                            <span>Đánh giá</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </ModernCard>
-                </motion.div>
-              ))}
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Desktop Cards View - Only show when cards mode is selected */}
+              {viewMode === 'cards' && (
+                <div className="hidden lg:block space-y-4">
+                  {filteredAppointments.map((appointment, index) => (
+                    <motion.div
+                      key={appointment.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="bg-white rounded-xl shadow-sm border hover:shadow-md transition-shadow"
+                    >
+                      <div className="p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+                              <Heart size={20} className="text-white" />
+                            </div>
+                            <div>
+                              <h3 className="font-bold text-gray-900 mb-1">
+                                {appointment.serviceName}
+                              </h3>
+                              {appointment.packageName && (
+                                <p className="text-blue-600 text-sm font-medium">
+                                  {appointment.packageName}
+                                </p>
+                              )}
+                              <p className="text-xs text-gray-500 font-mono">
+                                ID: {appointment.id.slice(-8)}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium"
+                            style={{
+                              backgroundColor: `${statusConfig[appointment.status]?.color}20`,
+                              color: statusConfig[appointment.status]?.color
+                            }}
+                          >
+                            {statusConfig[appointment.status]?.icon}
+                            {statusConfig[appointment.status]?.text}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Calendar size={14} />
+                              <span>{formatDate(appointment.appointmentDate)}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Clock size={14} />
+                              <span>{appointment.appointmentTime}</span>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <User size={14} />
+                              <span>{appointment.doctorName}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              {locationConfig[appointment.typeLocation]?.icon || <Location size={14} />}
+                              <span>{locationConfig[appointment.typeLocation]?.text || appointment.typeLocation}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xl font-bold text-blue-600 mb-1">
+                              {formatPrice(appointment.price)}
+                            </div>
+                            {appointment.rating && (
+                              <div className="flex items-center gap-1 justify-end">
+                                <Rate disabled defaultValue={appointment.rating} className="text-xs" />
+                                <span className="text-xs text-gray-500">({appointment.rating}/5)</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 justify-end pt-4 border-t">
+                          <ModernButton
+                            variant="outline"
+                            className="text-sm"
+                            icon={<Eye size={14} />}
+                            onClick={() => handleViewDetail(appointment)}
+                          >
+                            Chi tiết
+                          </ModernButton>
+
+                          {appointment.canReschedule && (
+                            <ModernButton
+                              variant="outline"
+                              className="text-sm"
+                              icon={<Refresh size={14} />}
+                              onClick={() => handleReschedule(appointment)}
+                            >
+                              Đổi lịch
+                            </ModernButton>
+                          )}
+
+                          {appointment.status === 'pending_payment' && (
+                            <ModernButton
+                              variant="primary"
+                              className="text-sm bg-orange-500 hover:bg-orange-600"
+                              icon={<DocumentText size={14} />}
+                              onClick={() => handlePayment(appointment)}
+                            >
+                              Thanh toán
+                            </ModernButton>
+                          )}
+
+                          {appointment.canCancel && (
+                            <ModernButton
+                              variant="danger"
+                              className="text-sm"
+                              icon={<Trash size={14} />}
+                              onClick={() => {
+                                Modal.confirm({
+                                  title: 'Xác nhận hủy lịch',
+                                  content: 'Bạn có chắc chắn muốn hủy lịch hẹn này?',
+                                  okText: 'Đồng ý',
+                                  okButtonProps: { danger: true },
+                                  cancelText: 'Hủy',
+                                  onOk: () => handleCancel(appointment)
+                                });
+                              }}
+                            >
+                              Hủy lịch
+                            </ModernButton>
+                          )}
+
+                          {appointment.status === 'completed' && !appointment.rating && (
+                            <ModernButton
+                              variant="primary"
+                              className="text-sm"
+                              icon={<Star size={14} />}
+                              onClick={() => handleFeedback(appointment)}
+                            >
+                              Đánh giá
+                            </ModernButton>
+                          )}
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           ) : (
             <motion.div
