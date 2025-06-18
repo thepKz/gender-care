@@ -109,7 +109,6 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
         form.setFieldsValue({
           name: servicePackage.name,
           description: servicePackage.description,
-          image: servicePackage.image || '',
           priceBeforeDiscount: servicePackage.priceBeforeDiscount,
           price: servicePackage.price,
           serviceIds: serviceIds,
@@ -151,7 +150,6 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
       const submitData: CreateServicePackageRequest | UpdateServicePackageRequest = {
         name: values.name.trim(),
         description: values.description.trim(),
-        image: values.image?.trim() || undefined,
         priceBeforeDiscount: Number(values.priceBeforeDiscount),
         price: Number(values.price),
         serviceIds: values.serviceIds,

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import Service from '../models/Service';
-import ServicePackage from '../models/ServicePackage';
+import ServicePackages from '../models/ServicePackages';
 import { AuthRequest, ApiResponse, PaginationQuery } from '../types';
 
 // GET /services - Get all services (removed search functionality)
@@ -156,7 +156,7 @@ export const searchServices = async (req: Request, res: Response) => {
 // POST /services - Create new service
 export const createService = async (req: AuthRequest, res: Response) => {
   try {
-    const { serviceName, price, description, serviceType, availableAt } = req.body;
+    const { serviceName, price, description, duration, serviceType, availableAt } = req.body;
 
     // Validation
     if (!serviceName || !price || !description || !serviceType || !availableAt) {
@@ -199,6 +199,7 @@ export const createService = async (req: AuthRequest, res: Response) => {
       serviceName: serviceName.trim(),
       price: Number(price),
       description: description.trim(),
+      duration: Number(duration) || 30,
       serviceType,
       availableAt: Array.isArray(availableAt) ? availableAt : [availableAt],
       isDeleted: 0
@@ -227,7 +228,7 @@ export const createService = async (req: AuthRequest, res: Response) => {
 export const updateService = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { serviceName, price, description, serviceType, availableAt } = req.body;
+    const { serviceName, price, description, duration, serviceType, availableAt } = req.body;
 
     // Check if service exists and is not deleted
     const service = await Service.findOne({ _id: id, isDeleted: 0 });
@@ -261,6 +262,7 @@ export const updateService = async (req: AuthRequest, res: Response) => {
     if (serviceName) updateData.serviceName = serviceName.trim();
     if (price) updateData.price = Number(price);
     if (description) updateData.description = description.trim();
+    if (duration) updateData.duration = Number(duration);
     if (serviceType) updateData.serviceType = serviceType;
     if (availableAt) updateData.availableAt = Array.isArray(availableAt) ? availableAt : [availableAt];
 
@@ -303,15 +305,15 @@ export const deleteService = async (req: AuthRequest, res: Response) => {
     }
 
     // Check if service is being used in any active service packages
-    const packagesUsingService = await ServicePackage.findOne({
-      serviceIds: id,
-      isActive: 1
+    const packagesUsingService = await ServicePackages.findOne({
+      serviceIds: { $in: [id] },
+      isActive: true
     });
 
     if (packagesUsingService) {
       const response: ApiResponse<any> = {
         success: false,
-        message: `Cannot delete service. It is currently being used in service package: "${packagesUsingService.name}". Please remove the service from all packages first.`
+        message: `Không thể xóa dịch vụ. Dịch vụ này đang được sử dụng trong gói dịch vụ: "${packagesUsingService.name}". Vui lòng xóa dịch vụ khỏi tất cả gói dịch vụ trước.`
       };
       return res.status(400).json(response);
     }

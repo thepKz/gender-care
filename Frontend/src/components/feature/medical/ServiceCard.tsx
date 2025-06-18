@@ -112,18 +112,10 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
             }} />
           </div>
 
-          {/* Service Image or Icon */}
-          {service.image ? (
-            <img
-              src={service.image}
-              alt={service.serviceName}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <div className="text-6xl text-blue-primary/20 group-hover:scale-110 transition-transform duration-300">
-              {getServiceTypeIcon(service.serviceType)}
-            </div>
-          )}
+          {/* Service Icon */}
+          <div className="text-6xl text-blue-primary/20 group-hover:scale-110 transition-transform duration-300">
+            {getServiceTypeIcon(service.serviceType)}
+          </div>
 
           {/* Service Type Badge */}
           <div className="absolute top-3 left-3">
@@ -136,7 +128,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           </div>
 
           {/* Status Badge */}
-          {service.isActive && (
+          {service.isDeleted === 0 && (
             <div className="absolute top-3 right-3">
               <div className="bg-green-500/90 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm">
                 <span className="text-xs font-medium text-white flex items-center gap-1">
@@ -188,7 +180,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           <div className="flex items-center gap-2 text-sm">
             <ClockCircleOutlined className="text-blue-primary" />
             <span className="text-gray-600">
-              {service.duration ? `${service.duration} phút` : 'Thời gian linh hoạt'}
+              Thời gian linh hoạt
             </span>
           </div>
         </div>
@@ -224,20 +216,6 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
             onClick={() => navigate('/counselors')}
           />
         </div>
-
-        {/* Additional Tags */}
-        {service.specialRequirements && (
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <div className="flex flex-wrap gap-1">
-              <Tag 
-                color="blue" 
-                className="text-xs rounded-md border-0 bg-blue-50 text-blue-600"
-              >
-                Yêu cầu đặc biệt
-              </Tag>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Hover Effect Overlay */}
