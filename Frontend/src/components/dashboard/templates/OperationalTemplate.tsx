@@ -29,6 +29,8 @@ import {
 import StatsCard from '../widgets/StatsCard';
 import ActivityFeed from '../widgets/ActivityFeed';
 import TableWidget from '../widgets/TableWidget';
+import DoctorScheduleCalendar from '../widgets/DoctorScheduleCalendar';
+import ScheduleOverview from '../widgets/ScheduleOverview';
 import AppointmentManagement from '../../../pages/dashboard/operational/AppointmentManagement';
 import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
 
@@ -302,6 +304,24 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         </Col>
       </Row>
 
+      {/* Doctor Schedule Calendar - only show for doctors */}
+      {userRole === 'doctor' && (
+        <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
+          <Col xs={24}>
+            <DoctorScheduleCalendar />
+          </Col>
+        </Row>
+      )}
+
+      {/* Staff Schedule Overview - only show for staff */}
+      {userRole === 'staff' && (
+        <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
+          <Col xs={24}>
+            <ScheduleOverview />
+          </Col>
+        </Row>
+      )}
+
       {/* Recent Activities */}
       <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
         <Col xs={24}>
@@ -358,8 +378,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
       case 'schedule':
         return (
           <div style={{ padding: '24px' }}>
-            <Title level={2}>Lịch làm việc</Title>
-            <p>Trang lịch làm việc đang được phát triển...</p>
+            <DoctorScheduleCalendar />
           </div>
         );
       case 'reports':
