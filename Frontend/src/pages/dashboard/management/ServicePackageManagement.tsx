@@ -98,10 +98,10 @@ interface ServicePackage {
 
 interface Service {
   _id: string;
-  name: string;
+  serviceName: string;
   price: number;
   description: string;
-  isActive: boolean;
+  isDeleted: number;
 }
 
 const ServicePackageManagement: React.FC = () => {
@@ -215,10 +215,10 @@ const ServicePackageManagement: React.FC = () => {
           .filter((s: any) => !s.isDeleted)
           .map((s: any) => ({
             _id: s._id,
-            name: s.serviceName,
+            serviceName: s.serviceName,
             price: s.price,
             description: s.description,
-            isActive: !s.isDeleted
+            isDeleted: s.isDeleted || 0
           }));
         setServices(mappedServices);
       } else {
@@ -267,7 +267,7 @@ const ServicePackageManagement: React.FC = () => {
     // Thêm các dịch vụ chưa có trong danh sách services vào option tạm thời
     const missingServiceIds = normalizedServiceIds.filter(id => !services.some(s => s._id == id));
     if (missingServiceIds.length > 0) {
-      const missingOptions = missingServiceIds.map(id => ({ _id: id, name: `Dịch vụ đã xóa (${id})`, price: 0, description: '', isActive: false }));
+      const missingOptions = missingServiceIds.map(id => ({ _id: id, serviceName: `Dịch vụ đã xóa (${id})`, price: 0, description: '', isDeleted: 1 }));
       setServices(prev => [...prev, ...missingOptions]);
     }
     if (services.length === 0) {
@@ -360,16 +360,18 @@ const ServicePackageManagement: React.FC = () => {
         await updateServicePackage(editingPackage._id, values);
         message.success('Cập nhật gói dịch vụ thành công');
       } else {
-        // Create new package - chỉ gửi các trường bắt buộc theo định dạng backend yêu cầu
+        // Create new package - thêm các trường bắt buộc còn thiếu
         try {
           const submitData = {
             name: values.name,
             description: values.description,
             price: values.price,
+            priceBeforeDiscount: values.priceBeforeDiscount, // Thêm trường bắt buộc
             serviceIds: values.serviceIds,
             durationInDays: values.durationInDays,
             maxUsages: values.maxUsages,
-            maxProfiles: values.maxProfiles
+            maxProfiles: values.maxProfiles,
+            isMultiProfile: values.isMultiProfile || false // Thêm trường bắt buộc với giá trị mặc định
           };
           
           console.log('Submitting data:', submitData);
@@ -601,7 +603,7 @@ const ServicePackageManagement: React.FC = () => {
           >
             {services.map(service => (
               <Option key={service._id} value={service._id}>
-                {service.name} - {service.price.toLocaleString('vi-VN')}đ
+                {service.serviceName} - {service.price.toLocaleString('vi-VN')}đ
               </Option>
             ))}
           </Select>
@@ -848,7 +850,7 @@ const ServicePackageManagement: React.FC = () => {
             >
               {services.map(service => (
                 <Option key={service._id} value={service._id}>
-                  {service.name} - {service.price.toLocaleString('vi-VN')}đ
+                  {service.serviceName} - {service.price.toLocaleString('vi-VN')}đ
                 </Option>
               ))}
             </Select>

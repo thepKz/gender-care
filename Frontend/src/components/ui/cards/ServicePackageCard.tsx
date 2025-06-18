@@ -67,7 +67,7 @@ const ServicePackageCard: React.FC<ServicePackageCardProps> = ({
     ];
 
     // Nếu service package đã bị xóa, chỉ hiển thị khôi phục thêm vào
-    if (servicePackage.isActive === 0) {
+    if (!servicePackage.isActive) {
       return [
         ...baseItems,
         {
@@ -113,25 +113,17 @@ const ServicePackageCard: React.FC<ServicePackageCardProps> = ({
             </div>
 
             {/* Package Image or Icon - Hình ảnh hoặc icon gói dịch vụ */}
-            {servicePackage.image ? (
-              <img
-                src={servicePackage.image}
-                alt={servicePackage.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-            ) : (
-              <div className="text-center">
-                <div className="text-6xl text-green-primary/20 group-hover:scale-110 transition-transform duration-300 mb-2">
-                  🎁
-                </div>
-                {/* Decorative service icons */}
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-2xl animate-pulse">🩺</span>
-                  <span className="text-xl">+</span>
-                  <span className="text-2xl animate-pulse" style={{ animationDelay: '0.5s' }}>💊</span>
-                </div>
+            <div className="text-center">
+              <div className="text-6xl text-green-primary/20 group-hover:scale-110 transition-transform duration-300 mb-2">
+                🎁
               </div>
-            )}
+              {/* Decorative service icons */}
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-2xl animate-pulse">🩺</span>
+                <span className="text-xl">+</span>
+                <span className="text-2xl animate-pulse" style={{ animationDelay: '0.5s' }}>💊</span>
+              </div>
+            </div>
 
             {/* Package Type Badge - Nhãn loại gói */}
             <div className="absolute top-3 left-3">
@@ -224,7 +216,7 @@ const ServicePackageCard: React.FC<ServicePackageCardProps> = ({
         </div>
 
         {/* Deleted Package Overlay - Overlay cho gói đã xóa (che toàn bộ card như Service) */}
-        {servicePackage.isActive === 0 && (
+        {!servicePackage.isActive && (
           <div className="absolute inset-0 bg-gray-900/20 backdrop-blur-[1px] rounded-2xl flex items-center justify-center">
             <div className="bg-white/90 backdrop-blur-sm rounded-lg px-3 py-1 border border-gray-200">
               <span className="text-sm font-medium text-gray-700">Đã ngừng hoạt động</span>
@@ -242,10 +234,10 @@ const ServicePackageCard: React.FC<ServicePackageCardProps> = ({
           {/* Service Package Status Tags - Nhãn trạng thái gói dịch vụ */}
           <div className="flex items-center gap-2">
             <Tag 
-              color={servicePackage.isActive === 0 ? 'red' : (servicePackage.isActive === 1 ? 'green' : 'orange')}
+              color={servicePackage.isActive ? 'green' : 'red'}
               className="text-xs font-medium rounded-md border-0"
             >
-              {servicePackage.isActive === 0 ? 'Ngưng hoạt động' : (servicePackage.isActive === 1 ? 'Đang hoạt động' : 'Tạm dừng')}
+              {servicePackage.isActive ? 'Đang hoạt động' : 'Ngưng hoạt động'}
             </Tag>
           </div>
 
@@ -285,11 +277,7 @@ const ServicePackageCard: React.FC<ServicePackageCardProps> = ({
             <span className="font-medium text-gray-700">Đánh giá:</span> 4.8/5
           </div>
           <div className="text-xs text-gray-500">
-            <span className="font-medium text-gray-700">Cập nhật:</span> {
-              servicePackage.updatedAt 
-                ? new Date(servicePackage.updatedAt).toLocaleDateString('vi-VN')
-                : 'Chưa cập nhật'
-            }
+            <span className="font-medium text-gray-700">Cập nhật:</span> Chưa có thông tin
           </div>
         </div>
       </div>

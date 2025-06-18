@@ -145,13 +145,9 @@ export interface Service {
   serviceName: string;
   price: number;
   description: string;
-  image?: string;
   isDeleted: number;
   serviceType: 'consultation' | 'test' | 'treatment' | 'other';
   availableAt: string[]; // ['Athome', 'Online', 'Center']
-  specialRequirements?: string;
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface CreateServiceRequest {
@@ -249,11 +245,13 @@ export interface ServicePackage {
 export interface CreateServicePackageRequest {
   name: string;
   description: string;
+  priceBeforeDiscount: number;
   price: number;                // Chỉ cần nhập giá khuyến mãi, priceBeforeDiscount sẽ được tính tự động
   serviceIds: string[];
   durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
   maxUsages: number;           // 🔹 Số lượt được dùng tối đa cho toàn gói
   maxProfiles: number[];       // 🔹 [1, 2, 4] - Số người tối đa có thể sử dụng gói
+  isMultiProfile: boolean;     // 🔹 Gói này có hỗ trợ nhiều hồ sơ không
 }
 
 export interface UpdateServicePackageRequest extends Partial<CreateServicePackageRequest> {
