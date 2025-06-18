@@ -13,7 +13,7 @@ export interface IAppointments {
   address?: string;
   description?: string;
   notes?: string;
-  status: "pending" | "pending_payment" | "paid" | "confirmed" | "completed" | "cancelled";
+  status: "pending_payment" | "scheduled" | "completed" | "cancelled";
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -69,7 +69,7 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   status: {
     type: String,
-    enum: ["pending", "pending_payment", "paid", "confirmed", "completed", "cancelled"],
+    enum: ["pending_payment", "scheduled", "completed", "cancelled"],
     default: "pending_payment"
   }
 }, { timestamps: true });
@@ -80,6 +80,9 @@ AppointmentsSchema.pre('save', function () {
     throw new Error('Ít nhất một trong packageId hoặc serviceId phải được cung cấp');
   }
 });
+
+// Auto-cancel expired appointments
+AppointmentsSchema.index({ paymentDeadline: 1 }, { expireAfterSeconds: 0 });
 
 // Tạo index để tối ưu hóa truy vấn
 AppointmentsSchema.index({ createdByUserId: 1 });

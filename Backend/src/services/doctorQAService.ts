@@ -511,10 +511,10 @@ export const updatePaymentStatus = async (qaId: string, paymentSuccess: boolean)
     }
 
     if (paymentSuccess) {
-      // Thanh toán thành công → chuyển sang paid
+      // Thanh toán thành công → chuyển sang scheduled
       const updatedQA = await DoctorQA.findByIdAndUpdate(
         qaId,
-        { status: 'paid' },
+        { status: 'scheduled' },
         { new: true }
       ).populate({
         path: 'doctorId',
@@ -672,13 +672,13 @@ export const doctorConfirmQA = async (qaId: string, action: 'confirm' | 'reject'
       throw new Error('Không tìm thấy yêu cầu tư vấn');
     }
 
-    if (qa.status !== 'paid') {
-      throw new Error('Yêu cầu tư vấn chưa được thanh toán hoặc không thể confirm');
+    if (qa.status !== 'scheduled') {
+      throw new Error('Yêu cầu tư vấn chưa được lên lịch hoặc không thể confirm');
     }
 
     let newStatus;
     if (action === 'confirm') {
-      newStatus = 'confirmed';
+      newStatus = 'scheduled';
     } else {
       newStatus = 'cancelled';
       // Release slot if rejected

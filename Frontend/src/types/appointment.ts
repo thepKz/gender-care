@@ -1,6 +1,11 @@
 // Types for Appointment Management
 // Includes both regular appointments and doctor QA consultations
 
+// ✅ SIMPLIFIED STATUS TYPES (CHỈ SỬA STATUS THÔI)
+export type AppointmentStatus = 'pending_payment' | 'scheduled' | 'completed' | 'cancelled';
+export type ConsultationStatus = 'pending_payment' | 'scheduled' | 'consulting' | 'completed' | 'cancelled';
+export type UnifiedStatus = 'pending_payment' | 'scheduled' | 'consulting' | 'completed' | 'cancelled';
+
 // API Response Interfaces from Backend
 export interface ApiAppointment {
   _id: string;
@@ -31,7 +36,8 @@ export interface ApiAppointment {
   address?: string;
   description?: string;
   notes?: string;
-  status: 'pending' | 'pending_payment' | 'confirmed' | 'completed' | 'cancelled';
+  // ✅ SIMPLIFIED STATUS
+  status: AppointmentStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -51,7 +57,8 @@ export interface ApiConsultation {
   phone: string;
   question: string;
   notes?: string;
-  status: 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'scheduled' | 'consulting' | 'completed' | 'cancelled';
+  // ✅ SIMPLIFIED STATUS (includes 'consulting' for online sessions)
+  status: ConsultationStatus;
   appointmentDate?: string;
   appointmentSlot?: string;
   doctorNotes?: string;
@@ -75,7 +82,8 @@ export interface UnifiedAppointment {
   address?: string;
   description: string;
   notes?: string;
-  status: 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'completed' | 'cancelled';
+  // ✅ UNIFIED STATUS (supports both appointment and consultation statuses)
+  status: UnifiedStatus;
   createdAt: string;
   updatedAt: string;
   type: 'appointment' | 'consultation'; // To distinguish data source

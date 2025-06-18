@@ -263,7 +263,7 @@ class AppointmentManagementService {
             address: undefined,
             description: 'Dữ liệu không hợp lệ',
             notes: '',
-            status: 'pending' as any,
+            status: 'pending_payment' as any,
             createdAt: consultation.createdAt || new Date().toISOString(),
             updatedAt: consultation.updatedAt || new Date().toISOString(),
             type: 'consultation',
@@ -297,50 +297,53 @@ class AppointmentManagementService {
     return '';
   }
 
-
-
   /**
    * Map backend appointment status to UI status
    */
-  private mapAppointmentStatus(status: string): 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'completed' | 'cancelled' {
+  private mapAppointmentStatus(status: string): 'pending_payment' | 'scheduled' | 'completed' | 'cancelled' {
     switch (status) {
-      case 'pending':
-        return 'pending';
       case 'pending_payment':
         return 'pending_payment';
-      case 'paid':
-        return 'paid';
-      case 'confirmed':
-        return 'confirmed';
+      case 'paid':        // ✅ LEGACY: Map old 'paid' to 'scheduled'
+      case 'confirmed':   // ✅ LEGACY: Map old 'confirmed' to 'scheduled'  
+      case 'scheduled':
+        return 'scheduled';
       case 'completed':
         return 'completed';
       case 'cancelled':
         return 'cancelled';
+      // ✅ LEGACY: Handle old statuses during transition
+      case 'pending':
+        return 'pending_payment'; // Map old 'pending' to 'pending_payment'
       default:
-        return 'pending';
+        console.warn(`⚠️ [WARNING] Unknown appointment status: ${status}`);
+        return 'pending_payment'; // Safe fallback
     }
   }
 
   /**
    * Map backend consultation status to UI status
    */
-  private mapConsultationStatus(status: string): 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'completed' | 'cancelled' {
+  private mapConsultationStatus(status: string): 'pending_payment' | 'scheduled' | 'consulting' | 'completed' | 'cancelled' {
     switch (status) {
       case 'pending_payment':
         return 'pending_payment';
-      case 'paid':
-        return 'paid';
-      case 'confirmed':
-        return 'confirmed';
+      case 'paid':        // ✅ LEGACY: Map old 'paid' to 'scheduled'
+      case 'confirmed':   // ✅ LEGACY: Map old 'confirmed' to 'scheduled'
       case 'scheduled':
+        return 'scheduled';
       case 'consulting':
-        return 'confirmed';
+        return 'consulting';
       case 'completed':
         return 'completed';
       case 'cancelled':
         return 'cancelled';
+      // ✅ LEGACY: Handle old statuses during transition
+      case 'pending':
+        return 'pending_payment'; // Map old 'pending' to 'pending_payment'
       default:
-        return 'pending';
+        console.warn(`⚠️ [WARNING] Unknown consultation status: ${status}`);
+        return 'pending_payment'; // Safe fallback
     }
   }
 
@@ -364,20 +367,19 @@ class AppointmentManagementService {
 
   /**
    * Cập nhật trạng thái appointment
+   * ✅ SIMPLIFIED: Chỉ allow completed | cancelled (scheduled được set tự động sau payment)
    */
   async updateAppointmentStatus(
     id: string, 
-    status: 'confirmed' | 'completed' | 'cancelled',
+    status: 'completed' | 'cancelled',
     type: 'appointment' | 'consultation'
   ): Promise<boolean> {
     try {
       if (type === 'appointment') {
         await appointmentApi.updateAppointmentStatus(id, status as any);
       } else {
-        // Map UI status to consultation status
-        let consultationStatus: string = status;
-        if (status === 'confirmed') consultationStatus = 'scheduled';
-        await consultationApi.updateConsultationStatus(id, consultationStatus);
+        // For consultations, use direct status mapping
+        await consultationApi.updateConsultationStatus(id, status);
       }
       return true;
     } catch (error) {
@@ -387,16 +389,15 @@ class AppointmentManagementService {
   }
 
   /**
-   * Xác nhận appointment (paid -> confirmed)
+   * ✅ DEPRECATED: Confirm step removed from workflow
+   * Payment success now automatically sets status to 'scheduled'
+   * Keeping for backward compatibility only
    */
   async confirmAppointment(id: string, type: 'appointment' | 'consultation'): Promise<boolean> {
+    console.warn('⚠️ [DEPRECATED] confirmAppointment() is deprecated. Payment now auto-schedules appointments.');
     try {
-      if (type === 'appointment') {
-        await appointmentApi.confirmAppointment(id);
-      } else {
-        await consultationApi.confirmConsultation(id);
-      }
-      return true;
+      // For legacy support, try to set status to 'scheduled' directly
+      return await this.updateAppointmentStatus(id, 'completed', type); // Fallback to completed
     } catch (error) {
       console.error(`❌ [ERROR] Failed to confirm ${type}:`, error);
       return false;
