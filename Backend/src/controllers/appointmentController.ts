@@ -194,7 +194,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             address,
             description,
             notes,
-            status: 'pending'
+            status: 'pending_payment'
         });
 
         // Nếu có slotId, cập nhật trạng thái slot thành "Booked"
@@ -595,9 +595,9 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
             throw new ValidationError({ id: 'ID cuộc hẹn không hợp lệ' });
         }
 
-        // Kiểm tra status có hợp lệ không (chỉ cho phép confirmed)
-        if (status !== 'confirmed') {
-            throw new ValidationError({ status: 'Chỉ cho phép xác nhận thanh toán' });
+        // Kiểm tra status có hợp lệ không (chỉ cho phép scheduled)
+        if (status !== 'scheduled') {
+            throw new ValidationError({ status: 'Chỉ cho phép xác nhận thanh toán thành scheduled' });
         }
 
         // Tìm cuộc hẹn hiện tại
@@ -608,9 +608,9 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
 
         console.log('Current appointment status:', appointment.status);
 
-        // Nếu đã confirmed rồi thì trả về thành công luôn
-        if (appointment.status === 'confirmed') {
-            console.log('Appointment already confirmed, returning success');
+        // Nếu đã scheduled rồi thì trả về thành công luôn
+        if (appointment.status === 'scheduled') {
+            console.log('Appointment already scheduled, returning success');
             return res.status(200).json({
                 success: true,
                 message: 'Cuộc hẹn đã được xác nhận trước đó',
@@ -623,10 +623,10 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
             throw new ValidationError({ status: `Chỉ có thể cập nhật thanh toán cho cuộc hẹn đang chờ thanh toán. Trạng thái hiện tại: ${appointment.status}` });
         }
 
-        // Cập nhật trạng thái sang confirmed
+        // Cập nhật trạng thái sang scheduled (theo workflow mới: payment → scheduled)
         const updatedAppointment = await Appointments.findByIdAndUpdate(
             id,
-            { $set: { status: 'confirmed' } },
+            { $set: { status: 'scheduled' } },
             { new: true }
         ).populate('profileId', 'fullName gender phone year')
             .populate('serviceId', 'serviceName price serviceType')
@@ -869,15 +869,15 @@ export const confirmAppointment = async (req: Request, res: Response) => {
             throw new NotFoundError('Không tìm thấy cuộc hẹn');
         }
 
-        // Chỉ cho phép xác nhận nếu trạng thái hiện tại là paid
-        if (appointment.status !== 'paid') {
-            throw new ValidationError({ status: 'Chỉ có thể xác nhận cuộc hẹn đã thanh toán' });
+        // Chỉ cho phép xác nhận nếu trạng thái hiện tại là scheduled
+        if (appointment.status !== 'scheduled') {
+            throw new ValidationError({ status: 'Chỉ có thể xác nhận cuộc hẹn đã được lên lịch' });
         }
 
-        // Cập nhật trạng thái sang confirmed
+        // Keep status as scheduled (theo workflow mới không cần confirmed step)
         const updatedAppointment = await Appointments.findByIdAndUpdate(
             id,
-            { $set: { status: 'confirmed' } },
+            { $set: { status: 'scheduled' } },
             { new: true }
         ).populate('profileId', 'fullName gender phone year')
             .populate('serviceId', 'serviceName price serviceType')
