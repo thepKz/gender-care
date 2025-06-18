@@ -564,8 +564,17 @@ const AppointmentManagement: React.FC = () => {
           )}
         </div>
       ),
-      sorter: (a, b) => new Date(a.appointmentDate + ' ' + a.appointmentTime).getTime() - 
-                        new Date(b.appointmentDate + ' ' + b.appointmentTime).getTime()
+      sorter: (a, b) => {
+        // Handle both Date objects and string dates
+        const dateA = new Date(a.appointmentDate);
+        const dateB = new Date(b.appointmentDate);
+        
+        // Create full datetime for comparison
+        const datetimeA = new Date(dateA.toDateString() + ' ' + a.appointmentTime);
+        const datetimeB = new Date(dateB.toDateString() + ' ' + b.appointmentTime);
+        
+        return datetimeA.getTime() - datetimeB.getTime();
+      }
     },
     {
       title: 'Trạng thái',

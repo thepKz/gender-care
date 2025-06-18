@@ -954,7 +954,7 @@ export const cancelAppointmentByDoctor = async (req: AuthRequest, res: Response)
             await DoctorSchedules.updateOne(
                 { 'weekSchedule.slots._id': appointment.slotId },
                 { 
-                    $set: { 'weekSchedule.$.slots.$[slot].status': 'Free' },
+                    $set: { 'weekSchedule.$.slots.$[slot].status': 'Absent' },
                     $unset: {
                         'weekSchedule.$.slots.$[slot].bookedBy': 1,
                         'weekSchedule.$.slots.$[slot].bookedAt': 1

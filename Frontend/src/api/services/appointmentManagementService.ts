@@ -232,7 +232,7 @@ class AppointmentManagementService {
             serviceType: 'consultation',
             // Handle doctorId safely - could be ObjectId string or populated object
             doctorName: this.extractDoctorName(consultation.doctorId) || 'Bạn',
-            appointmentDate: this.formatDate(consultation.appointmentDate!),
+            appointmentDate: consultation.appointmentDate!,
             appointmentTime: consultation.appointmentSlot!,
             appointmentType: 'online-consultation' as any,
             typeLocation: 'Online',
@@ -297,28 +297,7 @@ class AppointmentManagementService {
     return '';
   }
 
-  /**
-   * Format date to DD/MM/YYYY string for display
-   */
-  private formatDate(dateInput: string | Date): string {
-    try {
-      const date = new Date(dateInput);
-      if (isNaN(date.getTime())) {
-        console.warn('Invalid date input:', dateInput);
-        return new Date().toLocaleDateString('vi-VN'); // fallback to today
-      }
-      
-      // Format to DD/MM/YYYY for Vietnamese locale
-      return date.toLocaleDateString('vi-VN', {
-        day: '2-digit',
-        month: '2-digit', 
-        year: 'numeric'
-      });
-    } catch (error) {
-      console.warn('Error formatting date:', dateInput, error);
-      return new Date().toLocaleDateString('vi-VN'); // fallback to today
-    }
-  }
+
 
   /**
    * Map backend appointment status to UI status
