@@ -129,10 +129,12 @@ const TopPerformersCard: React.FC<TopPerformersCardProps> = ({
         itemLayout="horizontal"
         dataSource={displayData}
         renderItem={(item, index) => (
-          <List.Item style={{ 
-            padding: '16px 0',
-            borderBottom: index === displayData.length - 1 ? 'none' : '1px solid #f0f0f0'
-          }}>
+          <List.Item 
+            key={item.id}
+            style={{ 
+              padding: '16px 0',
+              borderBottom: index === displayData.length - 1 ? 'none' : '1px solid #f0f0f0'
+            }}>
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 

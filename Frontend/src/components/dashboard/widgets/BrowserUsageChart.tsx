@@ -125,10 +125,12 @@ const BrowserUsageChart: React.FC<BrowserUsageChartProps> = ({
             size="small"
             dataSource={browserData}
             renderItem={(item) => (
-              <List.Item style={{ 
-                padding: '8px 0',
-                border: 'none'
-              }}>
+              <List.Item 
+                key={item.name}
+                style={{ 
+                  padding: '8px 0',
+                  border: 'none'
+                }}>
                 <div style={{ 
                   display: 'flex', 
                   justifyContent: 'space-between', 
