@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Card,
   Table,
@@ -28,18 +28,26 @@ import {
   PhoneOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { doctorApi } from '../../../api/endpoints';
+import { 
+  canCreateDoctor, 
+  canUpdateDoctor, 
+  canDeleteDoctor, 
+  getCurrentUserRole 
+} from '../../../utils/permissions';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 
-// NOTE: MOCKDATA - Dữ liệu giả cho development
 interface Doctor {
   key: string;
   id: string;
-  name: string;
+  fullName: string;
   email: string;
   phone: string;
+  gender?: string;
+  address?: string;
   specialization: string;
   experience: number;
   rating: number;
@@ -51,75 +59,8 @@ interface Doctor {
   avatar?: string;
 }
 
-const mockDoctors: Doctor[] = [
-  {
-    key: '1',
-    id: 'DOC001',
-    name: 'Dr. Nguyễn Thị Hương',
-    email: 'huong.nguyen@genderhealthcare.com',
-    phone: '0901234567',
-    specialization: 'Phụ sản',
-    experience: 8,
-    rating: 4.9,
-    education: 'Thạc sĩ Y khoa - Đại học Y Hà Nội',
-    certificate: 'BS001234',
-    bio: 'Bác sĩ có 8 năm kinh nghiệm trong lĩnh vực phụ sản, chuyên về chăm sóc sức khỏe sinh sản phụ nữ.',
-    status: 'active',
-    createdAt: '2024-01-15',
-    avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=64&h=64&fit=crop&crop=face'
-  },
-  {
-    key: '2',
-    id: 'DOC002',
-    name: 'Dr. Trần Minh Đức',
-    email: 'duc.tran@genderhealthcare.com',
-    phone: '0901234568',
-    specialization: 'Nội tiết sinh sản',
-    experience: 12,
-    rating: 4.8,
-    education: 'Tiến sĩ Y khoa - Đại học Y Thành phố Hồ Chí Minh',
-    certificate: 'BS001235',
-    bio: 'Chuyên gia hàng đầu về nội tiết sinh sản với 12 năm kinh nghiệm điều trị các rối loạn hormone.',
-    status: 'active',
-    createdAt: '2024-01-16',
-    avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=64&h=64&fit=crop&crop=face'
-  },
-  {
-    key: '3',
-    id: 'DOC003',
-    name: 'Dr. Lê Thị Mai',
-    email: 'mai.le@genderhealthcare.com',
-    phone: '0901234569',
-    specialization: 'Tâm lý học lâm sàng',
-    experience: 6,
-    rating: 4.7,
-    education: 'Thạc sĩ Tâm lý học - Đại học Quốc gia Hà Nội',
-    certificate: 'BS001236',
-    bio: 'Chuyên gia tâm lý với kinh nghiệm tư vấn về sức khỏe tâm thần và tình dục học.',
-    status: 'active',
-    createdAt: '2024-01-17',
-    avatar: 'https://images.unsplash.com/photo-1594824388853-d0c2d4e5b1b5?w=64&h=64&fit=crop&crop=face'
-  },
-  {
-    key: '4',
-    id: 'DOC004',
-    name: 'Dr. Phạm Văn Hùng',
-    email: 'hung.pham@genderhealthcare.com',
-    phone: '0901234570',
-    specialization: 'Dinh dưỡng & Sức khỏe sinh sản',
-    experience: 5,
-    rating: 4.6,
-    education: 'Thạc sĩ Dinh dưỡng - Đại học Y Dược Thành phố Hồ Chí Minh',
-    certificate: 'BS001237',
-    bio: 'Chuyên gia dinh dưỡng tập trung vào sức khỏe sinh sản và kế hoạch hóa gia đình.',
-    status: 'inactive',
-    createdAt: '2024-01-18',
-    avatar: 'https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=64&h=64&fit=crop&crop=face'
-  }
-];
-
 const DoctorManagement: React.FC = () => {
-  const [doctors, setDoctors] = useState<Doctor[]>(mockDoctors);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
@@ -127,10 +68,56 @@ const DoctorManagement: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
   const [form] = Form.useForm();
+  
+  // Get current user role for permissions
+  const userRole = getCurrentUserRole();
+  console.log('Current user role:', userRole); // Debug log
+  console.log('Can create doctor:', canCreateDoctor(userRole)); // Debug log
+  console.log('Can update doctor:', canUpdateDoctor(userRole)); // Debug log
+  console.log('Can delete doctor:', canDeleteDoctor(userRole)); // Debug log
 
-  // Filter doctors based on search and filters
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const data = await doctorApi.getAllDoctors();
+      console.log('Raw API data:', data); // Debug log
+      
+      if (Array.isArray(data)) {
+        const mapped: Doctor[] = data.map((d: any, idx: number) => ({
+          key: d._id || idx.toString(),
+          id: d._id || d.id || `DOC${idx}`,
+          fullName: d.userId?.fullName || d.fullName || 'N/A',
+          email: d.userId?.email || d.email || 'N/A', 
+          phone: d.userId?.phone || d.phone || '',
+          gender: d.userId?.gender || d.gender || '',
+          address: d.userId?.address || d.address || '',
+          specialization: d.specialization || 'N/A',
+          experience: d.experience || 0,
+          rating: d.rating || 0,
+          education: d.education || '',
+          certificate: d.certificate || '',
+          bio: d.bio || '',
+          status: d.isDeleted ? 'inactive' : 'active',
+          createdAt: d.createdAt ? new Date(d.createdAt).toISOString().split('T')[0] : '',
+          avatar: d.userId?.avatar || d.image || '',
+        }));
+        console.log('Mapped doctors:', mapped); // Debug log
+        setDoctors(mapped);
+      }
+    } catch (err: any) {
+      console.error('Load data error:', err); // Debug log
+      message.error(err?.response?.data?.message || 'Không thể tải danh sách bác sĩ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
   const filteredDoctors = doctors.filter(doctor => {
-    const matchesSearch = doctor.name.toLowerCase().includes(searchText.toLowerCase()) ||
+    const matchesSearch = doctor.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
                          doctor.email.toLowerCase().includes(searchText.toLowerCase()) ||
                          doctor.specialization.toLowerCase().includes(searchText.toLowerCase());
     const matchesSpecialty = selectedSpecialty === 'all' || doctor.specialization === selectedSpecialty;
@@ -151,8 +138,8 @@ const DoctorManagement: React.FC = () => {
   const getStatusText = (status: Doctor['status']) => {
     const texts = {
       active: 'Hoạt động',
-      inactive: 'Không hoạt động',
-      suspended: 'Tạm khóa'
+      inactive: 'Tạm dừng',
+      suspended: 'Bị khóa'
     };
     return texts[status];
   };
@@ -163,84 +150,77 @@ const DoctorManagement: React.FC = () => {
     setIsModalVisible(true);
   };
 
-  const handleDelete = (doctorId: string) => {
-    setDoctors(doctors.filter(doctor => doctor.id !== doctorId));
-    message.success('Xóa bác sĩ thành công!');
+  const handleDelete = async (doctorId: string) => {
+    try {
+      console.log('Deleting doctor with ID:', doctorId); // Debug log
+      const result = await doctorApi.deleteDoctor(doctorId);
+      console.log('Delete result:', result); // Debug log
+      message.success('Xóa bác sĩ thành công');
+      loadData();
+    } catch (err: any) {
+      console.error('Delete error:', err); // Debug log
+      console.error('Delete error response:', err?.response); // Debug log
+      message.error(err?.response?.data?.message || 'Không thể xóa bác sĩ');
+    }
   };
 
-  const handleStatusToggle = (doctorId: string) => {
-    setDoctors(doctors.map(doctor => 
-      doctor.id === doctorId 
-        ? { ...doctor, status: doctor.status === 'active' ? 'inactive' : 'active' }
-        : doctor
-    ));
-    message.success('Cập nhật trạng thái thành công!');
-  };
-
-  const handleModalOk = () => {
-    form.validateFields().then(values => {
+  const handleModalOk = async () => {
+    try {
+      const values = await form.validateFields();
+      console.log('Form values:', values); // Debug log
+      console.log('Editing doctor:', editingDoctor); // Debug log
+      
+      // Ensure experience is number
+      if (values.experience) {
+        values.experience = Number(values.experience);
+      }
+      
       if (editingDoctor) {
-        // Update existing doctor
-        setDoctors(doctors.map(doctor => 
-          doctor.id === editingDoctor.id ? { ...doctor, ...values } : doctor
-        ));
-        message.success('Cập nhật thông tin bác sĩ thành công!');
+        console.log('Updating doctor with ID:', editingDoctor.id); // Debug log
+        const result = await doctorApi.updateDoctor(editingDoctor.id, values);
+        console.log('Update result:', result); // Debug log
+        message.success('Cập nhật bác sĩ thành công');
       } else {
-        // Add new doctor
-        const newDoctor: Doctor = {
-          key: Date.now().toString(),
-          id: `DOC${Date.now()}`,
-          ...values,
-          rating: 5.0,
-          createdAt: new Date().toISOString().split('T')[0],
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(values.name)}&background=667eea&color=fff`
-        };
-        setDoctors([...doctors, newDoctor]);
-        message.success('Thêm bác sĩ mới thành công!');
+        console.log('Creating new doctor'); // Debug log
+        const result = await doctorApi.createDoctor(values);
+        console.log('Create result:', result); // Debug log
+        message.success('Tạo bác sĩ thành công');
       }
       setIsModalVisible(false);
-      setEditingDoctor(null);
       form.resetFields();
-    });
+      setEditingDoctor(null);
+      loadData();
+    } catch (err: any) {
+      console.error('Modal submit error:', err); // Debug log
+      console.error('Error response:', err?.response); // Debug log
+      message.error(err?.response?.data?.message || 'Có lỗi xảy ra');
+    }
   };
 
   const handleModalCancel = () => {
     setIsModalVisible(false);
-    setEditingDoctor(null);
     form.resetFields();
+    setEditingDoctor(null);
   };
 
   const showDoctorDetails = (doctor: Doctor) => {
     Modal.info({
-      title: 'Thông tin chi tiết bác sĩ',
+      title: 'Chi tiết bác sĩ',
       width: 600,
       content: (
-        <div style={{ marginTop: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-            <Avatar size={64} src={doctor.avatar}>
-              {doctor.name.charAt(0)}
-            </Avatar>
-            <div>
-              <Title level={4} style={{ margin: 0 }}>{doctor.name}</Title>
-              <Text type="secondary">{doctor.specialization}</Text>
-            </div>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong>Học vấn:</Text><br />
-            <Text>{doctor.education}</Text>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong>Chứng chỉ:</Text><br />
-            <Text>{doctor.certificate}</Text>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong>Kinh nghiệm:</Text><br />
-            <Text>{doctor.experience} năm</Text>
-          </div>
-          <div>
-            <Text strong>Tiểu sử:</Text><br />
-            <Text>{doctor.bio}</Text>
-          </div>
+        <div style={{ marginTop: 16 }}>
+          <p><strong>ID:</strong> {doctor.id}</p>
+          <p><strong>Họ tên:</strong> {doctor.fullName}</p>
+          <p><strong>Email:</strong> {doctor.email}</p>
+          <p><strong>Số điện thoại:</strong> {doctor.phone}</p>
+          <p><strong>Chuyên khoa:</strong> {doctor.specialization}</p>
+          <p><strong>Kinh nghiệm:</strong> {doctor.experience} năm</p>
+          <p><strong>Đánh giá:</strong> <Rate disabled value={doctor.rating} /></p>
+          <p><strong>Học vấn:</strong> {doctor.education}</p>
+          <p><strong>Chứng chỉ:</strong> {doctor.certificate}</p>
+          <p><strong>Tiểu sử:</strong> {doctor.bio}</p>
+          <p><strong>Trạng thái:</strong> {getStatusText(doctor.status)}</p>
+          <p><strong>Ngày tạo:</strong> {new Date(doctor.createdAt).toLocaleDateString('vi-VN')}</p>
         </div>
       ),
     });
@@ -249,29 +229,40 @@ const DoctorManagement: React.FC = () => {
   const columns: ColumnsType<Doctor> = [
     {
       title: 'Bác sĩ',
-      dataIndex: 'name',
-      key: 'name',
-      fixed: 'left',
-      width: 280,
-      render: (name: string, record: Doctor) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      dataIndex: 'fullName',
+      key: 'fullName',
+      width: 200,
+      render: (fullName: string, record: Doctor) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Avatar 
             src={record.avatar} 
-            size={48}
-            style={{ backgroundColor: '#667eea' }}
-          >
-            {!record.avatar && name.charAt(0)}
-          </Avatar>
+            icon={<UserOutlined />}
+            size={40}
+          />
           <div>
-            <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '4px' }}>
-              {name}
-            </div>
-            <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <MailOutlined /> {record.email}
-            </div>
-            <div style={{ fontSize: '12px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <PhoneOutlined /> {record.phone}
-            </div>
+            <Text strong>{fullName}</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              {record.certificate}
+            </Text>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: 'Liên hệ',
+      dataIndex: 'email',
+      key: 'email',
+      width: 200,
+      render: (email: string, record: Doctor) => (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+            <MailOutlined style={{ color: '#1890ff' }} />
+            <Text style={{ fontSize: '12px' }}>{email}</Text>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <PhoneOutlined style={{ color: '#52c41a' }} />
+            <Text style={{ fontSize: '12px' }}>{record.phone}</Text>
           </div>
         </div>
       )
@@ -280,28 +271,28 @@ const DoctorManagement: React.FC = () => {
       title: 'Chuyên khoa',
       dataIndex: 'specialization',
       key: 'specialization',
-      width: 180,
+      width: 150,
       render: (specialization: string) => (
-        <Tag color="blue" icon={<MedicineBoxOutlined />}>
-          {specialization}
-        </Tag>
+        <Tag color="blue">{specialization}</Tag>
       )
     },
     {
       title: 'Kinh nghiệm',
       dataIndex: 'experience',
       key: 'experience',
-      width: 120,
-      render: (experience: number) => `${experience} năm`,
+      width: 100,
+      render: (experience: number) => (
+        <Text>{experience} năm</Text>
+      ),
       sorter: (a, b) => a.experience - b.experience
     },
     {
       title: 'Đánh giá',
       dataIndex: 'rating',
       key: 'rating',
-      width: 140,
+      width: 120,
       render: (rating: number) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Rate disabled value={rating} style={{ fontSize: '12px' }} />
           <Text style={{ fontSize: '12px' }}>({rating})</Text>
         </div>
@@ -320,135 +311,103 @@ const DoctorManagement: React.FC = () => {
       )
     },
     {
-      title: 'Ngày tạo',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      width: 120,
-      render: (date: string) => (
-        <span style={{ fontSize: '13px' }}>{date}</span>
-      )
-    },
-    {
       title: 'Thao tác',
-      key: 'actions',
-      fixed: 'right',
-      width: 180,
+      key: 'action',
+      width: 150,
       render: (_, record: Doctor) => (
-        <Space>
+        <Space size="small">
           <Tooltip title="Xem chi tiết">
             <Button 
               type="text" 
               icon={<EyeOutlined />} 
-              size="small"
               onClick={() => showDoctorDetails(record)}
             />
           </Tooltip>
-          <Tooltip title="Chỉnh sửa">
-            <Button 
-              type="text" 
-              icon={<EditOutlined />} 
-              size="small"
-              onClick={() => handleEdit(record)}
-            />
-          </Tooltip>
-          <Tooltip title={record.status === 'active' ? 'Tạm dừng' : 'Kích hoạt'}>
-            <Popconfirm
-              title={`Bạn có chắc muốn ${record.status === 'active' ? 'tạm dừng' : 'kích hoạt'} bác sĩ này?`}
-              onConfirm={() => handleStatusToggle(record.id)}
-              okText="Đồng ý"
-              cancelText="Hủy"
-            >
+          {canUpdateDoctor(userRole) && (
+            <Tooltip title="Chỉnh sửa">
               <Button 
                 type="text" 
-                icon={<UserOutlined />} 
-                size="small"
-                danger={record.status === 'active'}
+                icon={<EditOutlined />} 
+                onClick={() => handleEdit(record)}
               />
-            </Popconfirm>
-          </Tooltip>
-          <Tooltip title="Xóa">
-            <Popconfirm
-              title="Bạn có chắc chắn muốn xóa bác sĩ này?"
-              onConfirm={() => handleDelete(record.id)}
-              okText="Xóa"
-              cancelText="Hủy"
-            >
-              <Button 
-                type="text" 
-                icon={<DeleteOutlined />} 
-                size="small"
-                danger
-              />
-            </Popconfirm>
-          </Tooltip>
+            </Tooltip>
+          )}
+          {canDeleteDoctor(userRole) && (
+            <Tooltip title="Xóa">
+              <Popconfirm
+                title="Bạn có chắc chắn muốn xóa bác sĩ này?"
+                onConfirm={() => handleDelete(record.id)}
+                okText="Có"
+                cancelText="Không"
+              >
+                <Button 
+                  type="text" 
+                  danger 
+                  icon={<DeleteOutlined />}
+                />
+              </Popconfirm>
+            </Tooltip>
+          )}
         </Space>
       )
     }
   ];
 
-  const specialties = [...new Set(doctors.map(doctor => doctor.specialization))];
-
   return (
-    <div>
-      <div style={{ marginBottom: '24px' }}>
-        <Title level={2} style={{ margin: 0 }}>
-          Quản lý bác sĩ
-        </Title>
-        <p style={{ color: '#6b7280', margin: '8px 0 0 0' }}>
-          NOTE: MOCKDATA - Quản lý thông tin và hồ sơ của các bác sĩ trong hệ thống
-        </p>
-      </div>
-
+    <div style={{ padding: '24px' }}>
       <Card>
-        {/* Filters */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '16px',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <Space>
-            <Search
-              placeholder="Tìm kiếm bác sĩ..."
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              style={{ width: 250 }}
-            />
-            <Select
-              value={selectedSpecialty}
-              onChange={setSelectedSpecialty}
-              style={{ width: 200 }}
+        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
+            <MedicineBoxOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+            Quản lý bác sĩ
+          </Title>
+          {canCreateDoctor(userRole) && (
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              onClick={() => setIsModalVisible(true)}
             >
-              <Option value="all">Tất cả chuyên khoa</Option>
-              {specialties.map(specialty => (
-                <Option key={specialty} value={specialty}>{specialty}</Option>
-              ))}
-            </Select>
-            <Select
-              value={selectedStatus}
-              onChange={setSelectedStatus}
-              style={{ width: 150 }}
-            >
-              <Option value="all">Tất cả trạng thái</Option>
-              <Option value="active">Hoạt động</Option>
-              <Option value="inactive">Không hoạt động</Option>
-              <Option value="suspended">Tạm khóa</Option>
-            </Select>
-          </Space>
-          
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={() => setIsModalVisible(true)}
-          >
-            Thêm bác sĩ
-          </Button>
+              Thêm bác sĩ mới
+            </Button>
+          )}
         </div>
 
-        {/* Table */}
+        <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <Search
+            placeholder="Tìm kiếm theo tên, email hoặc chuyên khoa..."
+            allowClear
+            style={{ width: 300 }}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            prefix={<SearchOutlined />}
+          />
+          
+          <Select
+            placeholder="Chuyên khoa"
+            style={{ width: 200 }}
+            value={selectedSpecialty}
+            onChange={setSelectedSpecialty}
+          >
+            <Option value="all">Tất cả chuyên khoa</Option>
+            <Option value="Phụ sản">Phụ sản</Option>
+            <Option value="Nội tiết sinh sản">Nội tiết sinh sản</Option>
+            <Option value="Tâm lý học lâm sàng">Tâm lý học lâm sàng</Option>
+            <Option value="Dinh dưỡng & Sức khỏe sinh sản">Dinh dưỡng & Sức khỏe sinh sản</Option>
+          </Select>
+
+          <Select
+            placeholder="Trạng thái"
+            style={{ width: 150 }}
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+          >
+            <Option value="all">Tất cả trạng thái</Option>
+            <Option value="active">Hoạt động</Option>
+            <Option value="inactive">Tạm dừng</Option>
+            <Option value="suspended">Bị khóa</Option>
+          </Select>
+        </div>
+
         <Table
           columns={columns}
           dataSource={filteredDoctors}
@@ -465,29 +424,28 @@ const DoctorManagement: React.FC = () => {
         />
       </Card>
 
-      {/* Add/Edit Modal */}
       <Modal
-        title={editingDoctor ? 'Chỉnh sửa thông tin bác sĩ' : 'Thêm bác sĩ mới'}
+        title={editingDoctor ? 'Chỉnh sửa bác sĩ' : 'Thêm bác sĩ mới'}
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
-        width={600}
-        okText={editingDoctor ? 'Cập nhật' : 'Thêm mới'}
+        width={700}
+        okText={editingDoctor ? 'Cập nhật' : 'Tạo mới'}
         cancelText="Hủy"
       >
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ status: 'active' }}
+          style={{ marginTop: 16 }}
         >
           <Form.Item
-            name="name"
-            label="Họ và tên"
-            rules={[{ required: true, message: 'Vui lòng nhập họ và tên!' }]}
+            name="fullName"
+            label="Họ tên"
+            rules={[{ required: true, message: 'Vui lòng nhập họ tên!' }]}
           >
-            <Input placeholder="Nhập họ và tên bác sĩ" />
+            <Input placeholder="Nhập họ tên bác sĩ" />
           </Form.Item>
-          
+
           <Form.Item
             name="email"
             label="Email"
@@ -496,9 +454,9 @@ const DoctorManagement: React.FC = () => {
               { type: 'email', message: 'Email không hợp lệ!' }
             ]}
           >
-            <Input placeholder="Nhập email bác sĩ" />
+            <Input placeholder="Nhập địa chỉ email" />
           </Form.Item>
-          
+
           <Form.Item
             name="phone"
             label="Số điện thoại"
@@ -506,7 +464,27 @@ const DoctorManagement: React.FC = () => {
           >
             <Input placeholder="Nhập số điện thoại" />
           </Form.Item>
-          
+
+          <Form.Item
+            name="gender"
+            label="Giới tính"
+            rules={[{ required: true, message: 'Vui lòng chọn giới tính!' }]}
+          >
+            <Select placeholder="Chọn giới tính">
+              <Option value="male">Nam</Option>
+              <Option value="female">Nữ</Option>
+              <Option value="other">Khác</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="address"
+            label="Địa chỉ"
+            rules={[{ required: true, message: 'Vui lòng nhập địa chỉ!' }]}
+          >
+            <Input placeholder="Nhập địa chỉ" />
+          </Form.Item>
+
           <Form.Item
             name="specialization"
             label="Chuyên khoa"
@@ -519,48 +497,58 @@ const DoctorManagement: React.FC = () => {
               <Option value="Dinh dưỡng & Sức khỏe sinh sản">Dinh dưỡng & Sức khỏe sinh sản</Option>
             </Select>
           </Form.Item>
-          
-          <Form.Item
-            name="experience"
-            label="Số năm kinh nghiệm"
-            rules={[{ required: true, message: 'Vui lòng nhập số năm kinh nghiệm!' }]}
-          >
-            <Input type="number" placeholder="Nhập số năm kinh nghiệm" />
-          </Form.Item>
-          
+
+          <div style={{ display: 'flex', gap: 16 }}>
+            <Form.Item
+              name="experience"
+              label="Kinh nghiệm (năm)"
+              rules={[{ required: true, message: 'Vui lòng nhập số năm kinh nghiệm!' }]}
+              style={{ flex: 1 }}
+            >
+              <Input type="number" placeholder="Nhập số năm kinh nghiệm" />
+            </Form.Item>
+
+            <Form.Item
+              name="rating"
+              label="Đánh giá"
+              style={{ flex: 1 }}
+            >
+              <Rate allowHalf />
+            </Form.Item>
+          </div>
+
           <Form.Item
             name="education"
             label="Học vấn"
             rules={[{ required: true, message: 'Vui lòng nhập thông tin học vấn!' }]}
           >
-            <Input.TextArea rows={2} placeholder="Nhập thông tin học vấn" />
+            <Input placeholder="Nhập thông tin học vấn" />
           </Form.Item>
-          
+
           <Form.Item
             name="certificate"
-            label="Chứng chỉ hành nghề"
-            rules={[{ required: true, message: 'Vui lòng nhập thông tin chứng chỉ!' }]}
+            label="Chứng chỉ"
+            rules={[{ required: true, message: 'Vui lòng nhập mã chứng chỉ!' }]}
           >
-            <Input placeholder="Nhập số chứng chỉ hành nghề" />
+            <Input placeholder="Nhập mã chứng chỉ hành nghề" />
           </Form.Item>
-          
+
           <Form.Item
             name="bio"
             label="Tiểu sử"
-            rules={[{ required: true, message: 'Vui lòng nhập tiểu sử!' }]}
           >
-            <Input.TextArea rows={3} placeholder="Nhập tiểu sử bác sĩ" />
+            <Input.TextArea rows={3} placeholder="Nhập tiểu sử và kinh nghiệm của bác sĩ" />
           </Form.Item>
-          
+
           <Form.Item
             name="status"
             label="Trạng thái"
             rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
           >
-            <Select>
+            <Select placeholder="Chọn trạng thái">
               <Option value="active">Hoạt động</Option>
-              <Option value="inactive">Không hoạt động</Option>
-              <Option value="suspended">Tạm khóa</Option>
+              <Option value="inactive">Tạm dừng</Option>
+              <Option value="suspended">Bị khóa</Option>
             </Select>
           </Form.Item>
         </Form>

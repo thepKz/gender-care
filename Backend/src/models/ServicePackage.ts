@@ -14,10 +14,6 @@ const ServicePackageSchema: Schema = new Schema({
     required: [true, 'Description is required'],
     trim: true
   },
-  image: {
-    type: String,
-    trim: true
-  },
   priceBeforeDiscount: {
     type: Number,
     required: [true, 'Original price is required'],
@@ -37,11 +33,6 @@ const ServicePackageSchema: Schema = new Schema({
     type: Number,
     default: 1,
     enum: [0, 1]
-  },
-  deleteNote: {
-    type: String,
-    trim: true,
-    default: null
   }
 }, {
   timestamps: true

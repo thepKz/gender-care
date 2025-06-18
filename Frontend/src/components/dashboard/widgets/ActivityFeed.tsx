@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, List, Avatar, Badge, Button, Space, Typography } from 'antd';
 import { EyeOutlined, MoreOutlined } from '@ant-design/icons';
-import type { ActivityItem } from '../../../data/mockdata/dashboardStats';
+import type { ActivityItem } from '../../../types/dashboard';
 
 const { Text } = Typography;
 

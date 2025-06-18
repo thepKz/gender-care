@@ -85,9 +85,9 @@ const Header: React.FC = () => {
     ...(user && ['admin', 'manager', 'staff', 'doctor'].includes(user.role) ? [
       {
         key: "dashboard",
-        label: user.role === 'admin' || user.role === 'manager' ? "Admin Dashboard" : "Work Dashboard",
+        label: user.role === 'admin' ? "Admin Dashboard" : user.role === 'manager' ? "Manager Dashboard" : user.role === 'doctor' ? "Doctor Dashboard" : "Staff Dashboard",
         onClick: () => {
-          const dashboardPath = ['admin', 'manager'].includes(user.role) ? '/admin-dashboard' : '/staff-dashboard';
+          const dashboardPath = ['admin', 'manager'].includes(user.role) ? '/dashboard/management' : '/dashboard/operational';
           navigate(dashboardPath);
         },
       },

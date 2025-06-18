@@ -4,7 +4,8 @@ import {
   createService, 
   updateService, 
   deleteService,
-  recoverService
+  recoverService,
+  searchServices
 } from '../controllers/serviceController';
 import { authMiddleware } from '../middleware/authMiddleware';
 import { optionalAuthMiddleware } from '../middleware/optionalAuthMiddleware';
@@ -14,6 +15,9 @@ const router = express.Router();
 
 // Public route with optional authentication for includeDeleted feature
 router.get('/', optionalAuthMiddleware, getAllServices);          // GET /services - Public access with optional auth
+
+// Public search endpoint
+router.post('/search', searchServices);                          // POST /services/search - Public search
 
 // Protected routes - cần authentication và manager authorization
 router.use(authMiddleware);

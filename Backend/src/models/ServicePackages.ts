@@ -3,13 +3,16 @@ import mongoose from 'mongoose';
 export interface IServicePackages {
   name: string;
   description?: string;
-  image?: string;
   priceBeforeDiscount: number;
   price: number;
   serviceIds: mongoose.Types.ObjectId[];
   isActive: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
+  durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
+  maxUsages: number;           // 🔹 Số lượt được dùng tối đa cho toàn gói
+  maxProfiles: number[];       // 🔹 [1, 2, 4] - Số người tối đa có thể sử dụng gói
+  isMultiProfile: boolean;     // 🔹 Gói này có hỗ trợ nhiều hồ sơ không
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const ServicePackagesSchema = new mongoose.Schema<IServicePackages>({
@@ -19,10 +22,6 @@ const ServicePackagesSchema = new mongoose.Schema<IServicePackages>({
   },
   description: { 
     type: String 
-  },
-  image: {
-    type: String,
-    trim: true
   },
   priceBeforeDiscount: { 
     type: Number, 
@@ -41,6 +40,27 @@ const ServicePackagesSchema = new mongoose.Schema<IServicePackages>({
   isActive: { 
     type: Boolean, 
     default: true 
+  },
+  durationInDays: {
+    type: Number,
+    required: true,
+    default: 30,
+    min: 1
+  },
+  maxUsages: {
+    type: Number,
+    required: true,
+    default: 1,
+    min: 1
+  },
+  maxProfiles: [{
+    type: Number,
+    required: true,
+    min: 1
+  }],
+  isMultiProfile: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

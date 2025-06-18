@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   Table,
@@ -32,6 +32,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import { appointmentApi } from '../../../api/endpoints';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -61,109 +62,10 @@ interface Appointment {
   updatedAt: string;
 }
 
-const mockAppointments: Appointment[] = [
-  {
-    key: '1',
-    _id: 'APT001',
-    profileId: 'PROF001',
-    patientName: 'Nguyễn Thị Lan',
-    patientPhone: '0901234567',
-    serviceId: 'SRV001',
-    serviceName: 'Tư vấn sức khỏe sinh sản',
-    doctorId: 'DOC001',
-    doctorName: 'Dr. Nguyễn Thị Hương',
-    appointmentDate: '2024-01-28',
-    appointmentTime: '09:00',
-    appointmentType: 'consultation',
-    typeLocation: 'Online',
-    description: 'Tư vấn về kế hoạch hóa gia đình',
-    notes: 'Bệnh nhân lần đầu tư vấn',
-    status: 'confirmed',
-    createdAt: '2024-01-25',
-    updatedAt: '2024-01-26'
-  },
-  {
-    key: '2',
-    _id: 'APT002',
-    profileId: 'PROF002',
-    patientName: 'Trần Văn Nam',
-    patientPhone: '0901234568',
-    serviceId: 'SRV002',
-    serviceName: 'Xét nghiệm STI cơ bản',
-    appointmentDate: '2024-01-28',
-    appointmentTime: '10:30',
-    appointmentType: 'test',
-    typeLocation: 'clinic',
-    address: '123 Đường ABC, Quận 1, TP.HCM',
-    description: 'Xét nghiệm định kỳ',
-    notes: 'Cần nhịn ăn 8 tiếng trước khi xét nghiệm',
-    status: 'pending',
-    createdAt: '2024-01-26',
-    updatedAt: '2024-01-26'
-  },
-  {
-    key: '3',
-    _id: 'APT003',
-    profileId: 'PROF003',
-    patientName: 'Lê Thị Mai',
-    patientPhone: '0901234569',
-    serviceId: 'SRV003',
-    serviceName: 'Tư vấn tâm lý tình dục',
-    doctorId: 'DOC003',
-    doctorName: 'Dr. Lê Thị Mai',
-    appointmentDate: '2024-01-29',
-    appointmentTime: '14:00',
-    appointmentType: 'consultation',
-    typeLocation: 'Online',
-    description: 'Tư vấn về vấn đề tâm lý trong mối quan hệ',
-    status: 'confirmed',
-    createdAt: '2024-01-24',
-    updatedAt: '2024-01-25'
-  },
-  {
-    key: '4',
-    _id: 'APT004',
-    profileId: 'PROF004',
-    patientName: 'Phạm Văn Hùng',
-    patientPhone: '0901234570',
-    serviceId: 'SRV004',
-    serviceName: 'Khám sức khỏe tổng quát',
-    doctorId: 'DOC002',
-    doctorName: 'Dr. Trần Minh Đức',
-    appointmentDate: '2024-01-30',
-    appointmentTime: '08:30',
-    appointmentType: 'other',
-    typeLocation: 'clinic',
-    address: '456 Đường XYZ, Quận 3, TP.HCM',
-    description: 'Khám sức khỏe định kỳ',
-    notes: 'Bệnh nhân có tiền sử bệnh tim',
-    status: 'completed',
-    createdAt: '2024-01-20',
-    updatedAt: '2024-01-30'
-  },
-  {
-    key: '5',
-    _id: 'APT005',
-    profileId: 'PROF005',
-    patientName: 'Hoàng Thị Nga',
-    patientPhone: '0901234571',
-    serviceId: 'SRV005',
-    serviceName: 'Tư vấn dinh dưỡng thai kỳ',
-    appointmentDate: '2024-01-31',
-    appointmentTime: '16:00',
-    appointmentType: 'consultation',
-    typeLocation: 'home',
-    address: '789 Đường DEF, Quận 7, TP.HCM',
-    description: 'Tư vấn dinh dưỡng cho thai phụ',
-    notes: 'Thai kỳ 20 tuần',
-    status: 'cancelled',
-    createdAt: '2024-01-22',
-    updatedAt: '2024-01-27'
-  }
-];
+
 
 const AppointmentManagement: React.FC = () => {
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -173,6 +75,50 @@ const AppointmentManagement: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [form] = Form.useForm();
+
+  // Load data từ API
+  const loadAppointments = async () => {
+    try {
+      setLoading(true);
+      const response = await appointmentApi.getAllAppointments();
+      
+      // Convert API response to component format
+      const convertedAppointments = response.map((appointment: any) => ({
+        key: appointment._id,
+        _id: appointment._id,
+        profileId: appointment.profileId._id || appointment.profileId,
+        patientName: appointment.profileId.fullName || 'N/A',
+        patientPhone: appointment.profileId.phoneNumber || 'N/A',
+        serviceId: appointment.serviceId._id || appointment.serviceId,
+        serviceName: appointment.serviceId.name || 'N/A',
+        doctorId: appointment.doctorId?._id || appointment.doctorId,
+        doctorName: appointment.doctorId?.userId?.fullName || 'N/A',
+        appointmentDate: new Date(appointment.appointmentDate).toISOString().split('T')[0],
+        appointmentTime: appointment.appointmentTime,
+        appointmentType: appointment.appointmentType || 'consultation',
+        typeLocation: appointment.typeLocation || 'clinic',
+        address: appointment.address || '',
+        description: appointment.description || '',
+        notes: appointment.notes || '',
+        status: appointment.status,
+        createdAt: new Date(appointment.createdAt).toISOString().split('T')[0],
+        updatedAt: new Date(appointment.updatedAt).toISOString().split('T')[0]
+      }));
+      
+      setAppointments(convertedAppointments);
+    } catch (err: any) {
+      console.error(err);
+      message.error(err?.message || 'Không thể tải danh sách cuộc hẹn');
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAppointments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Filter appointments based on search and filters
   const filteredAppointments = appointments.filter(appointment => {
@@ -253,52 +199,43 @@ const AppointmentManagement: React.FC = () => {
     setIsModalVisible(true);
   };
 
-  const handleDelete = (appointmentId: string) => {
-    setAppointments(appointments.filter(appointment => appointment._id !== appointmentId));
-    message.success('Xóa lịch hẹn thành công!');
+  const handleDelete = async (appointmentId: string) => {
+    try {
+      await appointmentApi.deleteAppointment(appointmentId);
+      message.success('Hủy cuộc hẹn thành công');
+      loadAppointments();
+    } catch (err: any) {
+      message.error(err?.message || 'Hủy cuộc hẹn thất bại');
+    }
   };
 
-  const handleStatusChange = (appointmentId: string, newStatus: Appointment['status']) => {
-    setAppointments(appointments.map(appointment => 
-      appointment._id === appointmentId 
-        ? { ...appointment, status: newStatus, updatedAt: new Date().toISOString().split('T')[0] }
-        : appointment
-    ));
-    message.success('Cập nhật trạng thái thành công!');
+  const handleStatusChange = async (appointmentId: string, newStatus: Appointment['status']) => {
+    try {
+      await appointmentApi.updateAppointmentStatus(appointmentId, newStatus as any);
+      message.success('Cập nhật trạng thái thành công');
+      loadAppointments();
+    } catch (err: any) {
+      message.error(err?.message || 'Cập nhật trạng thái thất bại');
+    }
   };
 
-  const handleModalOk = () => {
-    form.validateFields().then(values => {
-      const formattedValues = {
-        ...values,
-        appointmentDate: values.appointmentDate.format('YYYY-MM-DD'),
-        appointmentTime: values.appointmentTime.format('HH:mm')
-      };
-
+  const handleModalOk = async () => {
+    try {
+      const values = await form.validateFields();
       if (editingAppointment) {
-        // Update existing appointment
-        setAppointments(appointments.map(appointment => 
-          appointment._id === editingAppointment._id 
-            ? { ...appointment, ...formattedValues, updatedAt: new Date().toISOString().split('T')[0] }
-            : appointment
-        ));
-        message.success('Cập nhật lịch hẹn thành công!');
+        await appointmentApi.updateAppointment(editingAppointment._id, values);
+        message.success('Cập nhật cuộc hẹn thành công');
       } else {
-        // Add new appointment
-        const newAppointment: Appointment = {
-          key: Date.now().toString(),
-          _id: `APT${Date.now()}`,
-          ...formattedValues,
-          createdAt: new Date().toISOString().split('T')[0],
-          updatedAt: new Date().toISOString().split('T')[0]
-        };
-        setAppointments([...appointments, newAppointment]);
-        message.success('Thêm lịch hẹn mới thành công!');
+        await appointmentApi.createAppointment(values);
+        message.success('Tạo cuộc hẹn thành công');
       }
       setIsModalVisible(false);
       setEditingAppointment(null);
       form.resetFields();
-    });
+      loadAppointments();
+    } catch (err: any) {
+      message.error(err?.message || 'Lưu cuộc hẹn thất bại');
+    }
   };
 
   const handleModalCancel = () => {

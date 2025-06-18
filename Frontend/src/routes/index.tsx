@@ -43,7 +43,7 @@ import ComponentShowcasePage from '../pages/demo/components';
 import RichTextComposerDemo from '../pages/demo/RichTextComposerDemo';
 
 // Dashboard Wrapper Components
-import DashboardWrapper from '../components/feature/dashboard/DashboardWrapper';
+import ManagementDashboardPage from '../pages/dashboard/management';
 
 // Manager Dashboard Components  
 
@@ -60,7 +60,8 @@ import CyclePage from '../pages/cycle';
 // Hooks
 import { useAuth } from '../hooks/useAuth';
 
-
+// New import
+import OperationalDashboardPage from '../pages/dashboard/operational';
 
 const AppRoutes: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -153,12 +154,13 @@ const AppRoutes: React.FC = () => {
         <Route path="*" element={<NotFoundPage />} />
       </Route>
       
-      {/* Legacy Dashboard Redirects */}
-      <Route path="/admin-dashboard" element={<Navigate to="/dashboard/admin" replace />} />
-      <Route path="/staff-dashboard" element={<Navigate to="/dashboard/staff" replace />} />
-      
-      {/* Dashboard Routes - sử dụng DashboardWrapper cho tất cả */}
-      <Route path="/dashboard/*" element={<DashboardWrapper />} />
+      {/* Legacy Dashboard Redirects (tạm giữ để không 404, chuyển sang cấu trúc mới) */}
+      <Route path="/admin-dashboard" element={<Navigate to="/dashboard/management" replace />} />
+      <Route path="/staff-dashboard" element={<Navigate to="/dashboard/operational" replace />} />
+
+      {/* Dashboard Routes - template based (không dùng DashboardWrapper) */}
+      <Route path="/dashboard/management" element={isAuthenticated ? <ManagementDashboardPage /> : <Navigate to="/login" replace />} />
+      <Route path="/dashboard/operational" element={isAuthenticated ? <OperationalDashboardPage /> : <Navigate to="/login" replace />} />
     </Routes>
   );
 };

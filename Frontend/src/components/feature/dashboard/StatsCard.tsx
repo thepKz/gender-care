@@ -1,6 +1,6 @@
+import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
+import { Card, Progress, Space, Statistic } from 'antd';
 import React from 'react';
-import { Card, Statistic, Space, Progress } from 'antd';
-import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons';
 
 interface StatsCardProps {
   title: string;
@@ -49,10 +49,12 @@ const StatsCard: React.FC<StatsCardProps> = ({
     <Card
       loading={loading}
       className={className}
-      bodyStyle={{ 
-        padding: '24px',
-        position: 'relative',
-        overflow: 'hidden',
+      styles={{ 
+        body: {
+          padding: '24px',
+          position: 'relative',
+          overflow: 'hidden',
+        }
       }}
       style={{
         borderRadius: '12px',

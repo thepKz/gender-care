@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   Table,
@@ -13,7 +13,11 @@ import {
   Tooltip,
   Popconfirm,
   InputNumber,
-  message
+  message,
+  Row,
+  Col,
+  Statistic,
+  Switch
 } from 'antd';
 import {
   SearchOutlined,
@@ -23,16 +27,26 @@ import {
   EyeOutlined,
   CustomerServiceOutlined,
   DollarOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  ReloadOutlined,
+  UndoOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { servicesApi } from '../../../api/endpoints';
+import { 
+  canCreateService, 
+  canUpdateService, 
+  canDeleteService, 
+  getCurrentUserRole 
+} from '../../../utils/permissions';
+import { getServices, deleteService, GetServicesParams } from '../../../api/endpoints/serviceApi';
+import { recoverService, updateService, createService } from '../../../api/endpoints/serviceApi';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 const { TextArea } = Input;
 
-// NOTE: MOCKDATA - Dữ liệu giả cho development
 interface Service {
   key: string;
   id: string;
@@ -40,83 +54,15 @@ interface Service {
   serviceType: 'consultation' | 'test' | 'treatment' | 'other';
   description: string;
   price: number;
-  duration: number; // phút
   availableAt: 'Athome' | 'Online' | 'Center';
   status: 'active' | 'inactive' | 'suspended';
+  isDeleted: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-const mockServices: Service[] = [
-  {
-    key: '1',
-    id: 'SRV001',
-    serviceName: 'Tư vấn sức khỏe sinh sản',
-    serviceType: 'consultation',
-    description: 'Tư vấn chuyên sâu về sức khỏe sinh sản, kế hoạch hóa gia đình và các vấn đề liên quan.',
-    price: 300000,
-    duration: 45,
-    availableAt: 'Online',
-    status: 'active',
-    createdAt: '2024-01-15',
-    updatedAt: '2024-01-20'
-  },
-  {
-    key: '2',
-    id: 'SRV002',
-    serviceName: 'Xét nghiệm STI cơ bản',
-    serviceType: 'test',
-    description: 'Gói xét nghiệm cơ bản cho các bệnh lây truyền qua đường tình dục phổ biến.',
-    price: 800000,
-    duration: 30,
-    availableAt: 'Center',
-    status: 'active',
-    createdAt: '2024-01-16',
-    updatedAt: '2024-01-22'
-  },
-  {
-    key: '3',
-    id: 'SRV003',
-    serviceName: 'Tư vấn tâm lý tình dục',
-    serviceType: 'consultation',
-    description: 'Tư vấn tâm lý về các vấn đề tình dục, mối quan hệ và sức khỏe tâm thần.',
-    price: 400000,
-    duration: 60,
-    availableAt: 'Online',
-    status: 'active',
-    createdAt: '2024-01-17',
-    updatedAt: '2024-01-23'
-  },
-  {
-    key: '4',
-    id: 'SRV004',
-    serviceName: 'Khám sức khỏe tổng quát',
-    serviceType: 'treatment',
-    description: 'Khám sức khỏe tổng quát định kỳ với focus vào sức khỏe sinh sản.',
-    price: 1200000,
-    duration: 90,
-    availableAt: 'Center',
-    status: 'active',
-    createdAt: '2024-01-18',
-    updatedAt: '2024-01-24'
-  },
-  {
-    key: '5',
-    id: 'SRV005',
-    serviceName: 'Tư vấn dinh dưỡng thai kỳ',
-    serviceType: 'consultation',
-    description: 'Tư vấn chế độ dinh dưỡng và chăm sóc sức khỏe trong thai kỳ.',
-    price: 350000,
-    duration: 45,
-    availableAt: 'Athome',
-    status: 'inactive',
-    createdAt: '2024-01-19',
-    updatedAt: '2024-01-25'
-  }
-];
-
 const ServiceManagement: React.FC = () => {
-  const [services, setServices] = useState<Service[]>(mockServices);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -125,9 +71,122 @@ const ServiceManagement: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [form] = Form.useForm();
+  const [showDeleted, setShowDeleted] = useState(false);
+  
+  // Get current user role for permissions
+  const userRole = getCurrentUserRole();
+
+  // Fetch real data
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const response = await getServices({
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
+        includeDeleted: showDeleted
+      });
+      
+      console.log('🔍 API Response:', response);
+      
+      // --- Extract rawServices robustly ---
+      let rawServices: any[] = [];
+      const resAny: any = response;
+      if (Array.isArray(resAny?.data)) {
+        rawServices = resAny.data;
+      } else if (Array.isArray(resAny?.data?.services)) {
+        rawServices = resAny.data.services;
+      } else if (Array.isArray(resAny?.data?.data?.services)) {
+        rawServices = resAny.data.data.services;
+      } else if (Array.isArray(resAny?.services)) {
+        rawServices = resAny.services;
+      }
+      
+      console.log('📊 Raw Services length:', rawServices.length);
+      
+      if (rawServices.length > 0) {
+        // Map to component format
+        const convertedServices = rawServices.map((service: any, index: number) => {
+          // Handle availableAt field
+          let availableAt: Service['availableAt'] = 'Center';
+          if (Array.isArray(service.availableAt) && service.availableAt.length > 0) {
+            const firstLocation = service.availableAt[0];
+            if (['Athome', 'Online', 'Center'].includes(firstLocation)) {
+              availableAt = firstLocation as Service['availableAt'];
+            }
+          } else if (typeof service.availableAt === 'string' && ['Athome', 'Online', 'Center'].includes(service.availableAt)) {
+            availableAt = service.availableAt as Service['availableAt'];
+          }
+          return {
+            key: service._id || service.id || index.toString(),
+            id: service._id || service.id || index.toString(),
+            serviceName: service.serviceName || service.name || 'N/A',
+            description: service.description || '',
+            price: service.price || 0,
+            serviceType: service.serviceType || 'other',
+            availableAt,
+            status: (service.isDeleted === 0 ? 'active' : 'inactive') as Service['status'],
+            isDeleted: service.isDeleted === 1,
+            createdAt: service.createdAt || new Date().toISOString(),
+            updatedAt: service.updatedAt || new Date().toISOString()
+          };
+        });
+        
+        console.log('✅ Converted Services:', convertedServices);
+        setServices(convertedServices);
+      } else {
+        // Fallback mock data
+        const mockServices: Service[] = [
+          {
+            key: '1',
+            id: '1',
+            serviceName: 'Tư vấn sức khỏe sinh sản',
+            serviceType: 'consultation',
+            description: 'Tư vấn về sức khỏe sinh sản và kế hoạch hóa gia đình',
+            price: 500000,
+            availableAt: 'Center',
+            status: 'active',
+            isDeleted: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          },
+          {
+            key: '2', 
+            id: '2',
+            serviceName: 'Xét nghiệm STI',
+            serviceType: 'test',
+            description: 'Xét nghiệm các bệnh lây truyền qua đường tình dục',
+            price: 800000,
+            availableAt: 'Center',
+            status: 'active',
+            isDeleted: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          }
+        ];
+        setServices(mockServices);
+      }
+    } catch (err: any) {
+      message.error(err?.message || 'Không thể tải danh sách dịch vụ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [showDeleted]);
 
   // Filter services based on search and filters
   const filteredServices = services.filter(service => {
+    // Filter by showDeleted state first
+    if (showDeleted) {
+      // When showDeleted=true, show all (active + deleted)
+      // No filtering by isDeleted needed
+    } else {
+      // When showDeleted=false, only show active services
+      if (service.isDeleted) return false;
+    }
+    
     const matchesSearch = service.serviceName.toLowerCase().includes(searchText.toLowerCase()) ||
                          service.description.toLowerCase().includes(searchText.toLowerCase());
     const matchesType = selectedType === 'all' || service.serviceType === selectedType;
@@ -175,23 +234,15 @@ const ServiceManagement: React.FC = () => {
     return texts[location];
   };
 
-  const getStatusColor = (status: Service['status']) => {
-    const colors = {
-      active: 'success',
-      inactive: 'default',
-      suspended: 'error'
-    };
-    return colors[status];
-  };
+  const getStatusColor = (service: Service) => {
+    if (service.isDeleted) return 'error'
+    return service.status === 'active' ? 'success' : 'warning'
+  }
 
-  const getStatusText = (status: Service['status']) => {
-    const texts = {
-      active: 'Hoạt động',
-      inactive: 'Không hoạt động',
-      suspended: 'Tạm khóa'
-    };
-    return texts[status];
-  };
+  const getStatusText = (service: Service) => {
+    if (service.isDeleted) return 'Đã xóa'
+    return service.status === 'active' ? 'Hoạt động' : 'Không hoạt động'
+  }
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -202,56 +253,70 @@ const ServiceManagement: React.FC = () => {
 
   const handleEdit = (service: Service) => {
     setEditingService(service);
-    form.setFieldsValue(service);
+    form.setFieldsValue({
+      serviceName: service.serviceName,
+      serviceType: service.serviceType,
+      description: service.description,
+      price: service.price,
+      availableAt: service.availableAt,
+      status: service.status
+    });
     setIsModalVisible(true);
   };
 
-  const handleDelete = (serviceId: string) => {
-    setServices(services.filter(service => service.id !== serviceId));
-    message.success('Xóa dịch vụ thành công!');
+  const handleDelete = async (serviceId: string) => {
+    try {
+      await deleteService(serviceId);
+      message.success('Dịch vụ đã được xóa thành công');
+      loadData();
+    } catch (err: any) {
+      message.error(err?.message || 'Không thể xóa dịch vụ');
+    }
+  };
+
+  const handleRecover = async (serviceId: string) => {
+    try {
+      await recoverService(serviceId);
+      message.success('Dịch vụ đã được khôi phục thành công');
+      loadData();
+    } catch (err: any) {
+      message.error(err?.message || 'Không thể khôi phục dịch vụ');
+    }
   };
 
   const handleStatusToggle = (serviceId: string) => {
-    setServices(services.map(service => 
-      service.id === serviceId 
-        ? { ...service, status: service.status === 'active' ? 'inactive' : 'active' }
-        : service
-    ));
-    message.success('Cập nhật trạng thái thành công!');
+    const service = services.find(s => s.id === serviceId);
+    if (service) {
+      const newStatus = service.status === 'active' ? 'inactive' : 'active';
+      // Update status logic here
+    }
   };
 
-  const handleModalOk = () => {
-    form.validateFields().then(values => {
+  const handleModalOk = async () => {
+    try {
+      const values = await form.validateFields();
       if (editingService) {
-        // Update existing service
-        setServices(services.map(service => 
-          service.id === editingService.id 
-            ? { ...service, ...values, updatedAt: new Date().toISOString().split('T')[0] }
-            : service
-        ));
-        message.success('Cập nhật dịch vụ thành công!');
+        // Cập nhật dịch vụ hiện có
+        await updateService(editingService.id, values);
+        message.success('Cập nhật dịch vụ thành công');
       } else {
-        // Add new service
-        const newService: Service = {
-          key: Date.now().toString(),
-          id: `SRV${Date.now()}`,
-          ...values,
-          createdAt: new Date().toISOString().split('T')[0],
-          updatedAt: new Date().toISOString().split('T')[0]
-        };
-        setServices([...services, newService]);
-        message.success('Thêm dịch vụ mới thành công!');
+        // Tạo dịch vụ mới
+        await createService(values);
+        message.success('Tạo dịch vụ thành công');
       }
       setIsModalVisible(false);
-      setEditingService(null);
       form.resetFields();
-    });
+      setEditingService(null);
+      loadData();
+    } catch (err: any) {
+      message.error(err?.message || 'Có lỗi xảy ra');
+    }
   };
 
   const handleModalCancel = () => {
     setIsModalVisible(false);
-    setEditingService(null);
     form.resetFields();
+    setEditingService(null);
   };
 
   const showServiceDetails = (service: Service) => {
@@ -259,43 +324,16 @@ const ServiceManagement: React.FC = () => {
       title: 'Chi tiết dịch vụ',
       width: 600,
       content: (
-        <div style={{ marginTop: '16px' }}>
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong>Tên dịch vụ:</Text><br />
-            <Text>{service.serviceName}</Text>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong>Loại dịch vụ:</Text><br />
-            <Tag color={getServiceTypeColor(service.serviceType)}>
-              {getServiceTypeText(service.serviceType)}
-            </Tag>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong>Mô tả:</Text><br />
-            <Text>{service.description}</Text>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong>Giá dịch vụ:</Text><br />
-            <Text style={{ fontSize: '16px', fontWeight: 'bold', color: '#52c41a' }}>
-              {formatPrice(service.price)}
-            </Text>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong>Thời gian:</Text><br />
-            <Text>{service.duration} phút</Text>
-          </div>
-          <div style={{ marginBottom: '12px' }}>
-            <Text strong>Địa điểm thực hiện:</Text><br />
-            <Tag color={getLocationColor(service.availableAt)}>
-              {getLocationText(service.availableAt)}
-            </Tag>
-          </div>
-          <div>
-            <Text strong>Trạng thái:</Text><br />
-            <Tag color={getStatusColor(service.status)}>
-              {getStatusText(service.status)}
-            </Tag>
-          </div>
+        <div style={{ marginTop: 16 }}>
+          <p><strong>Mã dịch vụ:</strong> {service.id}</p>
+          <p><strong>Tên dịch vụ:</strong> {service.serviceName}</p>
+          <p><strong>Loại dịch vụ:</strong> {getServiceTypeText(service.serviceType)}</p>
+          <p><strong>Mô tả:</strong> {service.description}</p>
+          <p><strong>Giá:</strong> {formatPrice(service.price)}</p>
+          <p><strong>Hình thức:</strong> {getLocationText(service.availableAt)}</p>
+          <p><strong>Trạng thái:</strong> {getStatusText(service)}</p>
+          <p><strong>Ngày tạo:</strong> {new Date(service.createdAt).toLocaleDateString('vi-VN')}</p>
+          <p><strong>Cập nhật:</strong> {new Date(service.updatedAt).toLocaleDateString('vi-VN')}</p>
         </div>
       ),
     });
@@ -303,36 +341,38 @@ const ServiceManagement: React.FC = () => {
 
   const columns: ColumnsType<Service> = [
     {
-      title: 'Dịch vụ',
+      title: 'Mã dịch vụ',
+      dataIndex: 'id',
+      key: 'id',
+      width: 100,
+      render: (text: string) => <Text code>{text}</Text>
+    },
+    {
+      title: 'Tên dịch vụ',
       dataIndex: 'serviceName',
       key: 'serviceName',
-      width: 250,
-      render: (name: string, record: Service) => (
+      width: 200,
+      render: (text: string, record: Service) => (
         <div>
-          <div style={{ fontWeight: 'bold', fontSize: '14px', marginBottom: '4px' }}>
-            {name}
-          </div>
-          <div style={{ fontSize: '12px', color: '#6b7280' }}>
-            ID: {record.id}
-          </div>
-          <Tag 
-            color={getServiceTypeColor(record.serviceType)} 
-            style={{ marginTop: '4px' }}
-          >
-            {getServiceTypeText(record.serviceType)}
-          </Tag>
+          <Text strong>{text}</Text>
+          <br />
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            {record.description.length > 50 
+              ? `${record.description.substring(0, 50)}...` 
+              : record.description}
+          </Text>
         </div>
       )
     },
     {
-      title: 'Mô tả',
-      dataIndex: 'description',
-      key: 'description',
-      ellipsis: true,
-      render: (description: string) => (
-        <Tooltip title={description}>
-          <Text style={{ fontSize: '13px' }}>{description}</Text>
-        </Tooltip>
+      title: 'Loại dịch vụ',
+      dataIndex: 'serviceType',
+      key: 'serviceType',
+      width: 120,
+      render: (type: Service['serviceType']) => (
+        <Tag color={getServiceTypeColor(type)}>
+          {getServiceTypeText(type)}
+        </Tag>
       )
     },
     {
@@ -341,33 +381,14 @@ const ServiceManagement: React.FC = () => {
       key: 'price',
       width: 120,
       render: (price: number) => (
-        <div style={{ textAlign: 'right' }}>
-          <Text strong style={{ color: '#52c41a', fontSize: '14px' }}>
-            {formatPrice(price)}
-          </Text>
-        </div>
+        <Text strong style={{ color: '#1890ff' }}>
+          {formatPrice(price)}
+        </Text>
       ),
-      sorter: (a, b) => {
-        const aPrice = parseFloat(a.price.toString()) || 0;
-        const bPrice = parseFloat(b.price.toString()) || 0;
-        return aPrice - bPrice;
-      }
+      sorter: (a, b) => a.price - b.price
     },
     {
-      title: 'Thời gian',
-      dataIndex: 'duration',
-      key: 'duration',
-      width: 100,
-      render: (duration: number) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <ClockCircleOutlined style={{ color: '#1890ff' }} />
-          <Text style={{ fontSize: '13px' }}>{duration}p</Text>
-        </div>
-      ),
-      sorter: (a, b) => a.duration - b.duration
-    },
-    {
-      title: 'Địa điểm',
+      title: 'Hình thức',
       dataIndex: 'availableAt',
       key: 'availableAt',
       width: 120,
@@ -382,151 +403,188 @@ const ServiceManagement: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       width: 120,
-      render: (status: Service['status']) => (
-        <Tag color={getStatusColor(status)}>
-          {getStatusText(status)}
+      render: (_, record: Service) => (
+        <Tag color={getStatusColor(record)}>
+          {getStatusText(record)}
         </Tag>
       )
     },
     {
-      title: 'Cập nhật',
-      dataIndex: 'updatedAt',
-      key: 'updatedAt',
-      width: 120,
-      render: (date: string) => (
-        <span style={{ fontSize: '13px' }}>{date}</span>
-      )
-    },
-    {
       title: 'Thao tác',
-      key: 'actions',
-      fixed: 'right',
+      key: 'action',
       width: 150,
       render: (_, record: Service) => (
-        <Space>
+        <Space size="small">
           <Tooltip title="Xem chi tiết">
             <Button 
               type="text" 
               icon={<EyeOutlined />} 
-              size="small"
               onClick={() => showServiceDetails(record)}
             />
           </Tooltip>
-          <Tooltip title="Chỉnh sửa">
-            <Button 
-              type="text" 
-              icon={<EditOutlined />} 
-              size="small"
-              onClick={() => handleEdit(record)}
-            />
-          </Tooltip>
-          <Tooltip title={record.status === 'active' ? 'Tạm dừng' : 'Kích hoạt'}>
-            <Popconfirm
-              title={`Bạn có chắc muốn ${record.status === 'active' ? 'tạm dừng' : 'kích hoạt'} dịch vụ này?`}
-              onConfirm={() => handleStatusToggle(record.id)}
-              okText="Đồng ý"
-              cancelText="Hủy"
-            >
+          {canUpdateService(userRole) && !record.isDeleted && (
+            <Tooltip title="Chỉnh sửa">
               <Button 
                 type="text" 
-                icon={<CustomerServiceOutlined />} 
-                size="small"
-                danger={record.status === 'active'}
+                icon={<EditOutlined />} 
+                onClick={() => handleEdit(record)}
               />
-            </Popconfirm>
-          </Tooltip>
-          <Tooltip title="Xóa">
-            <Popconfirm
-              title="Bạn có chắc chắn muốn xóa dịch vụ này?"
-              onConfirm={() => handleDelete(record.id)}
-              okText="Xóa"
-              cancelText="Hủy"
-            >
+            </Tooltip>
+          )}
+          {canDeleteService(userRole) && !record.isDeleted && (
+            <Tooltip title="Xóa">
+              <Popconfirm
+                title="Bạn có chắc chắn muốn xóa dịch vụ này?"
+                onConfirm={() => handleDelete(record.id)}
+                okText="Có"
+                cancelText="Không"
+              >
+                <Button 
+                  type="text" 
+                  danger 
+                  icon={<DeleteOutlined />}
+                />
+              </Popconfirm>
+            </Tooltip>
+          )}
+          {canDeleteService(userRole) && record.isDeleted && (
+            <Tooltip title="Khôi phục">
               <Button 
                 type="text" 
-                icon={<DeleteOutlined />} 
-                size="small"
-                danger
+                icon={<UndoOutlined />} 
+                onClick={() => handleRecover(record.id)}
+                style={{ color: '#52c41a' }}
               />
-            </Popconfirm>
-          </Tooltip>
+            </Tooltip>
+          )}
         </Space>
       )
     }
   ];
 
+  // Calculate stats
+  const stats = {
+    total: services.length,
+    active: services.filter(s => !s.isDeleted).length,
+    deleted: services.filter(s => s.isDeleted).length
+  };
+
   return (
-    <div>
+    <div style={{ padding: '24px' }}>
       <div style={{ marginBottom: '24px' }}>
-        <Title level={2} style={{ margin: 0 }}>
+        <Title level={2}>
+          <CustomerServiceOutlined style={{ marginRight: '8px' }} />
           Quản lý dịch vụ
         </Title>
-        <p style={{ color: '#6b7280', margin: '8px 0 0 0' }}>
-          NOTE: MOCKDATA - Quản lý các dịch vụ chăm sóc sức khỏe sinh sản
-        </p>
       </div>
 
-      <Card>
-        {/* Filters */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '16px',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <Space wrap>
-            <Search
-              placeholder="Tìm kiếm dịch vụ..."
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              style={{ width: 250 }}
+      {/* Statistics */}
+      <Row gutter={16} style={{ marginBottom: '24px' }}>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="Tổng dịch vụ"
+              value={stats.total}
+              valueStyle={{ color: '#1890ff' }}
             />
-            <Select
-              value={selectedType}
-              onChange={setSelectedType}
-              style={{ width: 150 }}
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="Đang hoạt động"
+              value={stats.active}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+        <Col span={8}>
+          <Card>
+            <Statistic
+              title="Đã xóa"
+              value={stats.deleted}
+              valueStyle={{ color: '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Card>
+        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={4} style={{ margin: 0 }}>
+            Danh sách dịch vụ
+          </Title>
+          <Space>
+            <Switch
+              checked={showDeleted}
+              onChange={setShowDeleted}
+              checkedChildren="Hiện tất cả"
+              unCheckedChildren="Chỉ hoạt động"
+            />
+            {canCreateService(userRole) && (
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />}
+                onClick={() => setIsModalVisible(true)}
+              >
+                Thêm dịch vụ mới
+              </Button>
+            )}
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={loadData}
             >
-              <Option value="all">Tất cả loại</Option>
-              <Option value="consultation">Tư vấn</Option>
-              <Option value="test">Xét nghiệm</Option>
-              <Option value="treatment">Điều trị</Option>
-              <Option value="other">Khác</Option>
-            </Select>
-            <Select
-              value={selectedLocation}
-              onChange={setSelectedLocation}
-              style={{ width: 150 }}
-            >
-              <Option value="all">Tất cả địa điểm</Option>
-              <Option value="Athome">Tại nhà</Option>
-              <Option value="Online">Trực tuyến</Option>
-              <Option value="Center">Tại trung tâm</Option>
-            </Select>
-            <Select
-              value={selectedStatus}
-              onChange={setSelectedStatus}
-              style={{ width: 150 }}
-            >
-              <Option value="all">Tất cả trạng thái</Option>
-              <Option value="active">Hoạt động</Option>
-              <Option value="inactive">Không hoạt động</Option>
-              <Option value="suspended">Tạm khóa</Option>
-            </Select>
+              Làm mới
+            </Button>
           </Space>
-          
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={() => setIsModalVisible(true)}
-          >
-            Thêm dịch vụ
-          </Button>
         </div>
 
-        {/* Table */}
+        <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <Search
+            placeholder="Tìm kiếm theo tên hoặc mô tả dịch vụ..."
+            allowClear
+            style={{ width: 300 }}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            prefix={<SearchOutlined />}
+          />
+          
+          <Select
+            placeholder="Loại dịch vụ"
+            style={{ width: 150 }}
+            value={selectedType}
+            onChange={setSelectedType}
+          >
+            <Option value="all">Tất cả loại</Option>
+            <Option value="consultation">Tư vấn</Option>
+            <Option value="test">Xét nghiệm</Option>
+            <Option value="treatment">Điều trị</Option>
+            <Option value="other">Khác</Option>
+          </Select>
+
+          <Select
+            placeholder="Hình thức"
+            style={{ width: 150 }}
+            value={selectedLocation}
+            onChange={setSelectedLocation}
+          >
+            <Option value="all">Tất cả hình thức</Option>
+            <Option value="Athome">Tại nhà</Option>
+            <Option value="Online">Trực tuyến</Option>
+            <Option value="Center">Tại trung tâm</Option>
+          </Select>
+
+          <Select
+            placeholder="Trạng thái"
+            style={{ width: 150 }}
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+          >
+            <Option value="all">Tất cả trạng thái</Option>
+            <Option value="active">Hoạt động</Option>
+          </Select>
+        </div>
+
         <Table
           columns={columns}
           dataSource={filteredServices}
@@ -543,20 +601,19 @@ const ServiceManagement: React.FC = () => {
         />
       </Card>
 
-      {/* Add/Edit Modal */}
       <Modal
         title={editingService ? 'Chỉnh sửa dịch vụ' : 'Thêm dịch vụ mới'}
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
-        width={700}
-        okText={editingService ? 'Cập nhật' : 'Thêm mới'}
+        width={600}
+        okText={editingService ? 'Cập nhật' : 'Tạo mới'}
         cancelText="Hủy"
       >
         <Form
           form={form}
           layout="vertical"
-          initialValues={{ status: 'active' }}
+          style={{ marginTop: 16 }}
         >
           <Form.Item
             name="serviceName"
@@ -565,7 +622,7 @@ const ServiceManagement: React.FC = () => {
           >
             <Input placeholder="Nhập tên dịch vụ" />
           </Form.Item>
-          
+
           <Form.Item
             name="serviceType"
             label="Loại dịch vụ"
@@ -578,71 +635,48 @@ const ServiceManagement: React.FC = () => {
               <Option value="other">Khác</Option>
             </Select>
           </Form.Item>
-          
+
           <Form.Item
             name="description"
-            label="Mô tả dịch vụ"
+            label="Mô tả"
             rules={[{ required: true, message: 'Vui lòng nhập mô tả!' }]}
           >
             <TextArea rows={3} placeholder="Nhập mô tả chi tiết về dịch vụ" />
           </Form.Item>
-          
-          <div style={{ display: 'flex', gap: '16px' }}>
-            <Form.Item
-              name="price"
-              label="Giá dịch vụ (VNĐ)"
-              rules={[{ required: true, message: 'Vui lòng nhập giá!' }]}
-              style={{ flex: 1 }}
-            >
-              <InputNumber
-                placeholder="Nhập giá dịch vụ"
-                style={{ width: '100%' }}
-                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(value: string | number) => {
-                  if (!value) return 0;
-                  const cleaned = value.toString().replace(/\$\s?|(,*)/g, '');
-                  return parseFloat(cleaned) || 0;
-                }}
-                min={0}
-              />
-            </Form.Item>
-            
-            <Form.Item
-              name="duration"
-              label="Thời gian (phút)"
-              rules={[{ required: true, message: 'Vui lòng nhập thời gian!' }]}
-              style={{ flex: 1 }}
-            >
-              <InputNumber
-                placeholder="Nhập thời gian"
-                style={{ width: '100%' }}
-                min={15}
-                max={300}
-              />
-            </Form.Item>
-          </div>
-          
+
+          <Form.Item
+            name="price"
+            label="Giá (VNĐ)"
+            rules={[{ required: true, message: 'Vui lòng nhập giá!' }]}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              min={0}
+              formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={(value: any) => (value || '').replace(/\$\s?|(,*)/g, '')}
+              placeholder="Nhập giá dịch vụ"
+            />
+          </Form.Item>
+
           <Form.Item
             name="availableAt"
-            label="Địa điểm thực hiện"
-            rules={[{ required: true, message: 'Vui lòng chọn địa điểm!' }]}
+            label="Hình thức cung cấp"
+            rules={[{ required: true, message: 'Vui lòng chọn hình thức!' }]}
           >
-            <Select placeholder="Chọn địa điểm thực hiện">
+            <Select placeholder="Chọn hình thức cung cấp">
               <Option value="Athome">Tại nhà</Option>
               <Option value="Online">Trực tuyến</Option>
               <Option value="Center">Tại trung tâm</Option>
             </Select>
           </Form.Item>
-          
+
           <Form.Item
             name="status"
             label="Trạng thái"
             rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
           >
-            <Select>
+            <Select placeholder="Chọn trạng thái">
               <Option value="active">Hoạt động</Option>
-              <Option value="inactive">Không hoạt động</Option>
-              <Option value="suspended">Tạm khóa</Option>
             </Select>
           </Form.Item>
         </Form>

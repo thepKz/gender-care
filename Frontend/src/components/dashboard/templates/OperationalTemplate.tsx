@@ -1,27 +1,51 @@
-import React, { useState } from 'react';
-import { Layout, Menu, Row, Col, Typography, Progress, Card } from 'antd';
+import React, { useState, useEffect } from 'react';
+import {
+  Layout,
+  Menu,
+  Typography,
+  Button,
+  Row,
+  Col,
+  Avatar,
+  Dropdown,
+  Space,
+  Card,
+  Progress,
+  message
+} from 'antd';
 import {
   DashboardOutlined,
-  CalendarOutlined,
-  FileTextOutlined,
   UserOutlined,
+  CalendarOutlined,
   ScheduleOutlined,
-  BarChartOutlined
+  BarChartOutlined,
+  FileTextOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  LogoutOutlined,
+  BellOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons';
 import StatsCard from '../widgets/StatsCard';
 import ActivityFeed from '../widgets/ActivityFeed';
 import TableWidget from '../widgets/TableWidget';
 import AppointmentManagement from '../../../pages/dashboard/operational/AppointmentManagement';
 import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
-import { 
-  operationalStats, 
-  recentActivities, 
-  todayAppointments,
-  performanceMetrics
-} from '../../../data/mockdata/dashboardStats';
+
+import {
+  defaultOperationalStats,
+  defaultPerformanceMetrics,
+  type DashboardStat,
+  type ActivityItem,
+  type AppointmentItem,
+  type PerformanceMetric
+} from '../../../types/dashboard';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../hooks/useAuth';
+import { fetchOperationalDashboard } from '../../../services/dashboard';
 
 const { Title, Text } = Typography;
-const { Sider, Content } = Layout;
+const { Header, Sider, Content } = Layout;
 
 interface OperationalTemplateProps {
   userRole: 'staff' | 'doctor';
@@ -29,38 +53,53 @@ interface OperationalTemplateProps {
   welcomeMessage?: string;
 }
 
-const menuItems = [
-  {
-    key: 'dashboard',
-    icon: <DashboardOutlined />,
-    label: 'Tổng quan',
-  },
-  {
-    key: 'appointments',
-    icon: <CalendarOutlined />,
-    label: 'Quản lý lịch hẹn',
-  },
-  {
-    key: 'medical-records',
-    icon: <FileTextOutlined />,
-    label: 'Hồ sơ y tế',
-  },
-  {
-    key: 'patients',
-    icon: <UserOutlined />,
-    label: 'Bệnh nhân',
-  },
-  {
-    key: 'schedule',
-    icon: <ScheduleOutlined />,
-    label: 'Lịch làm việc',
-  },
-  {
-    key: 'reports',
-    icon: <BarChartOutlined />,
-    label: 'Báo cáo',
-  },
-];
+// Xây dựng menu động theo vai trò Staff / Doctor
+const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
+  // Mục chung
+  const base = [
+    {
+      key: 'dashboard',
+      icon: <DashboardOutlined />,
+      label: 'Tổng quan',
+    },
+    {
+      key: 'appointments',
+      icon: <CalendarOutlined />,
+      label: 'Quản lý lịch hẹn',
+    },
+    {
+      key: 'schedule',
+      icon: <ScheduleOutlined />,
+      label: 'Lịch làm việc',
+    },
+    {
+      key: 'reports',
+      icon: <BarChartOutlined />,
+      label: 'Báo cáo',
+    },
+  ];
+
+  if (role === 'doctor') {
+    // Bác sĩ: thêm bệnh nhân, hồ sơ; không cần lịch hẹn chi tiết
+    return [
+      base[0],
+      {
+        key: 'patients',
+        icon: <UserOutlined />,
+        label: 'Bệnh nhân',
+      },
+      {
+        key: 'medical-records',
+        icon: <FileTextOutlined />,
+        label: 'Hồ sơ y tế',
+      },
+      ...base.slice(1),
+    ];
+  }
+
+  // Staff: không thấy bệnh nhân & hồ sơ
+  return base;
+};
 
 const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   userRole,
@@ -69,21 +108,65 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
 }) => {
   const [selectedKey, setSelectedKey] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(false);
+  const navigate = useNavigate();
+  const { handleLogout } = useAuth();
 
-  // Customize content based on role
-  const roleSpecificActivities = userRole === 'doctor' 
-    ? recentActivities.filter(activity => 
-        activity.action.includes('tư vấn') || 
-        activity.action.includes('khám') ||
-        activity.user.startsWith('Dr.')
-      )
-    : recentActivities;
+  const [statsCards, setStatsCards] = useState(defaultOperationalStats);
+  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
 
   const defaultWelcomeMessage = userRole === 'doctor'
-    ? `Chào mừng Dr. ${userName}! Hôm nay bạn có ${todayAppointments.length} lịch hẹn và 4 công việc cần hoàn thành.`
-    : `Chào mừng ${userName}! Hôm nay có ${todayAppointments.length} lịch hẹn cần xử lý và 5 nhiệm vụ đang chờ.`;
+    ? `Chào mừng Dr. ${userName}! Hôm nay bạn có ${appointments.length} lịch hẹn và 4 công việc cần hoàn thành.`
+    : `Chào mừng ${userName}! Hôm nay có ${appointments.length} lịch hẹn cần xử lý và 5 nhiệm vụ đang chờ.`;
 
-  const metrics = performanceMetrics.operational;
+  const metrics = defaultPerformanceMetrics;
+
+  const menuItems = getMenuItemsOperational(userRole);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await fetchOperationalDashboard();
+        if (data?.stats) {
+          const mapped = [
+            {
+              title: 'Lịch hẹn hôm nay',
+              value: data.stats.todayTotal,
+              icon: 'CalendarOutlined',
+              color: '#10b981',
+              change: '',
+              trend: 'up'
+            },
+            {
+              title: 'Lịch hẹn trong tuần',
+              value: data.stats.weekTotal,
+              icon: 'ScheduleOutlined',
+              color: '#3b82f6',
+              change: '',
+              trend: 'up'
+            },
+            {
+              title: 'Lịch hẹn pending',
+              value: data.stats.pendingCount,
+              icon: 'ClockCircleOutlined',
+              color: '#f59e0b',
+              change: '',
+              trend: 'down'
+            }
+          ];
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+          setStatsCards(mapped as any);
+        }
+      } catch (err) {
+        console.error('fetchOperationalDashboard error', err);
+      }
+    })();
+  }, []);
+
+  const onLogout = async () => {
+    const result = await handleLogout();
+    if (result.success) navigate('/');
+  };
 
   const renderDashboard = () => (
     <div style={{ padding: '0' }}>
@@ -99,7 +182,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
 
       {/* Stats Cards */}
       <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>
-        {operationalStats.map((stat, index) => (
+        {statsCards.map((stat, index) => (
           <Col xs={24} sm={12} lg={6} key={index}>
             <StatsCard stat={stat} />
           </Col>
@@ -111,7 +194,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         {/* Today's Appointments */}
         <Col xs={24} lg={16}>
           <TableWidget 
-            data={todayAppointments}
+            data={appointments}
             title={userRole === 'doctor' ? 'Lịch khám hôm nay' : 'Lịch hẹn cần xử lý'}
             pagination={false}
           />
@@ -147,7 +230,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
                       textAlign: 'center'
                     }}>
                       <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>
-                        {Math.round(todayAppointments.length * metrics.appointmentCompletion / 100)}/{todayAppointments.length}
+                        {Math.round(appointments.length * metrics.appointmentCompletion / 100)}/{appointments.length}
                       </div>
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>
                         Hoàn thành
@@ -189,20 +272,20 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <Text style={{ fontSize: '13px' }}>Quản lý thời gian</Text>
                     <Text strong style={{ fontSize: '13px' }}>
-                      {metrics.timeEfficiency}%
+                      {metrics.efficiency}%
                     </Text>
                   </div>
-                  <Progress percent={metrics.timeEfficiency} size="small" strokeColor="#faad14" />
+                  <Progress percent={metrics.efficiency} size="small" strokeColor="#faad14" />
                 </div>
                 
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <Text style={{ fontSize: '13px' }}>Hoàn thành nhiệm vụ</Text>
+                    <Text style={{ fontSize: '13px' }}>Thời gian phản hồi</Text>
                     <Text strong style={{ fontSize: '13px' }}>
-                      {metrics.taskCompletion}%
+                      {metrics.responseTime}%
                     </Text>
                   </div>
-                  <Progress percent={metrics.taskCompletion} size="small" strokeColor="#3b82f6" />
+                  <Progress percent={metrics.responseTime} size="small" strokeColor="#3b82f6" />
                 </div>
               </Card>
             </Col>
@@ -214,7 +297,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
       <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
         <Col xs={24}>
           <ActivityFeed 
-            activities={roleSpecificActivities.slice(0, 5)}
+            activities={activities.slice(0, 5)}
             title={userRole === 'doctor' ? 'Hoạt động khám bệnh' : 'Hoạt động gần đây'}
           />
         </Col>
@@ -247,16 +330,22 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
       case 'dashboard':
         return renderDashboard();
       case 'appointments':
+        if (userRole === 'staff') return <AppointmentManagement />;
+        // Doctor cũng có thể xem nhưng không quản lý chi tiết -> hiển thị read-only
         return <AppointmentManagement />;
       case 'medical-records':
-        return <MedicalRecordsManagement />;
+        if (userRole === 'doctor') return <MedicalRecordsManagement />;
+        return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
       case 'patients':
-        return (
-          <div style={{ padding: '24px' }}>
-            <Title level={2}>Quản lý bệnh nhân</Title>
-            <p>Trang quản lý bệnh nhân đang được phát triển...</p>
-          </div>
-        );
+        if (userRole === 'doctor') {
+          return (
+            <div style={{ padding: '24px' }}>
+              <Title level={2}>Bệnh nhân</Title>
+              <p>Trang quản lý bệnh nhân đang được phát triển...</p>
+            </div>
+          );
+        }
+        return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
       case 'schedule':
         return (
           <div style={{ padding: '24px' }}>
@@ -308,12 +397,23 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
           mode="inline"
           selectedKeys={[selectedKey]}
           items={menuItems}
-          onClick={({ key }) => setSelectedKey(key)}
+          onClick={({ key }) => {
+            const allowed = menuItems.map(item => item.key);
+            if (allowed.includes(key)) {
+              setSelectedKey(key);
+            } else {
+              setSelectedKey('dashboard');
+            }
+          }}
           style={{ border: 'none' }}
         />
       </Sider>
       
       <Layout>
+        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
+          <Button type="link" icon={<DashboardOutlined />} onClick={() => navigate('/')}>Trang chủ</Button>
+          <Button type="link" icon={<LogoutOutlined />} onClick={onLogout}>Đăng xuất</Button>
+        </Header>
         <Content style={{ 
           padding: '24px',
           background: '#f5f5f5',

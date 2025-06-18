@@ -1,20 +1,17 @@
-// Mock Data for Dashboard Statistics
-// NOTE: This is MOCKDATA for development purposes
+// NOTE: MOCKDATA - Dữ liệu giả lập cho dashboard statistics
 
 export interface DashboardStat {
   title: string;
   value: number | string;
   suffix?: string;
-  prefix?: string;
   icon: string;
   color: string;
-  change: string;
-  trend: 'up' | 'down' | 'neutral';
-  description?: string;
+  change?: string;
+  trend?: 'up' | 'down';
 }
 
 export interface ActivityItem {
-  key: string;
+  id: string;
   user: string;
   action: string;
   time: string;
@@ -23,229 +20,190 @@ export interface ActivityItem {
 }
 
 export interface AppointmentItem {
-  key: string;
-  time: string;
+  id: string;
   patient: string;
-  service: string;
-  doctor?: string;
-  status: 'confirmed' | 'in-progress' | 'waiting' | 'completed' | 'cancelled';
-  notes?: string;
-  priority?: 'high' | 'medium' | 'low';
+  doctor: string;
+  time: string;
+  type: string;
+  status: 'confirmed' | 'pending' | 'completed' | 'cancelled';
 }
 
-// MOCKDATA: Management Dashboard Stats (Admin/Manager)
+// Enhanced Stats cho Management Dashboard (Admin + Manager)
 export const managementStats: DashboardStat[] = [
   {
     title: 'Tổng người dùng',
-    value: 2847,
+    value: 2568,
     icon: 'UserOutlined',
     color: '#3b82f6',
-    change: '+12.5% so với tháng trước',
-    trend: 'up',
-    description: 'Tổng số người dùng đã đăng ký'
+    change: '8.35% tăng so với tháng trước',
+    trend: 'up'
   },
   {
     title: 'Doanh thu tháng',
-    value: 125000000,
+    value: 156000000,
     suffix: '₫',
-    icon: 'DollarOutlined',
+    icon: 'DollarOutlined', 
     color: '#10b981',
-    change: '+8.2% so với tháng trước',
-    trend: 'up',
-    description: 'Tổng doanh thu trong tháng'
+    change: '12.5% tăng so với tháng trước',
+    trend: 'up'
   },
   {
     title: 'Lịch hẹn hôm nay',
-    value: 156,
+    value: 48,
     icon: 'CalendarOutlined',
     color: '#f59e0b',
-    change: '+5.1% so với hôm qua',
-    trend: 'up',
-    description: 'Số lịch hẹn được đặt hôm nay'
+    change: '2.8% giảm so với hôm qua',
+    trend: 'down'
   },
   {
     title: 'Tỷ lệ hài lòng',
     value: 4.8,
     suffix: '/5',
-    icon: 'StarOutlined',
+    icon: 'TrophyOutlined',
     color: '#8b5cf6',
-    change: '+0.3 điểm so với tháng trước',
-    trend: 'up',
-    description: 'Đánh giá trung bình từ khách hàng'
+    change: '0.3% tăng so với tháng trước',
+    trend: 'up'
   }
 ];
 
-// MOCKDATA: Operational Dashboard Stats (Staff/Doctor)
+// Enhanced Stats cho Operational Dashboard (Staff + Doctor)
 export const operationalStats: DashboardStat[] = [
   {
     title: 'Lịch hẹn hôm nay',
     value: 24,
     icon: 'CalendarOutlined',
     color: '#3b82f6',
-    change: '+3 so với hôm qua',
-    trend: 'up',
-    description: 'Số lịch hẹn cần xử lý hôm nay'
+    change: '15% tăng so với hôm qua',
+    trend: 'up'
   },
   {
-    title: 'Hoàn thành',
-    value: 18,
+    title: 'Bệnh nhân chờ',
+    value: 8,
+    icon: 'UserOutlined',
+    color: '#f59e0b',
+    change: '2 bệnh nhân giảm',
+    trend: 'down'
+  },
+  {
+    title: 'Đã hoàn thành',
+    value: 16,
     icon: 'CheckCircleOutlined',
     color: '#10b981',
-    change: '75% tỷ lệ hoàn thành',
-    trend: 'up',
-    description: 'Số lịch hẹn đã hoàn thành'
+    change: '85% tỷ lệ hoàn thành',
+    trend: 'up'
   },
   {
-    title: 'Đang chờ',
-    value: 6,
-    icon: 'ClockCircleOutlined',
-    color: '#f59e0b',
-    change: '2 ưu tiên cao',
-    trend: 'neutral',
-    description: 'Số lịch hẹn đang chờ xử lý'
-  },
-  {
-    title: 'Đánh giá',
-    value: 4.9,
-    suffix: '/5',
-    icon: 'HeartOutlined',
+    title: 'Hồ sơ mới',
+    value: 5,
+    icon: 'FileTextOutlined',
     color: '#8b5cf6',
-    change: '+0.1 so với tuần trước',
-    trend: 'up',
-    description: 'Đánh giá trung bình từ bệnh nhân'
+    change: '1 hồ sơ tăng',
+    trend: 'up'
   }
 ];
 
-// MOCKDATA: Recent Activities
+// Enhanced Recent Activities với avatar
 export const recentActivities: ActivityItem[] = [
   {
-    key: '1',
-    user: 'Nguyễn Thị Lan',
+    id: '1',
+    user: 'Nguyễn Văn A',
     action: 'Đặt lịch tư vấn sức khỏe sinh sản',
     time: '2 phút trước',
-    status: 'success',
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b776?w=32&h=32&fit=crop&crop=face'
-  },
-  {
-    key: '2',
-    user: 'Trần Văn Nam',
-    action: 'Thanh toán dịch vụ xét nghiệm STI',
-    time: '5 phút trước',
     status: 'success',
     avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face'
   },
   {
-    key: '3',
-    user: 'Dr. Lê Minh Tuấn',
+    id: '2', 
+    user: 'Trần Thị B',
+    action: 'Thanh toán dịch vụ xét nghiệm STI',
+    time: '5 phút trước',
+    status: 'success',
+    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b776?w=32&h=32&fit=crop&crop=face'
+  },
+  {
+    id: '3',
+    user: 'Dr. Lê Minh C',
     action: 'Hoàn thành tư vấn cho bệnh nhân',
-    time: '10 phút trước',
+    time: '10 phút trước', 
     status: 'info',
     avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=32&h=32&fit=crop&crop=face'
   },
   {
-    key: '4',
-    user: 'Phạm Thị Mai',
-    action: 'Cập nhật hồ sơ bệnh án',
+    id: '4',
+    user: 'Phạm Thị D',
+    action: 'Đăng ký tài khoản mới',
     time: '15 phút trước',
-    status: 'info',
+    status: 'success',
     avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face'
   },
   {
-    key: '5',
-    user: 'System Admin',
-    action: 'Backup dữ liệu hệ thống',
+    id: '5',
+    user: 'Admin System',
+    action: 'Cập nhật cấu hình hệ thống',
     time: '30 phút trước',
     status: 'warning'
   }
 ];
 
-// MOCKDATA: Today's Appointments
+// Today's appointments data
 export const todayAppointments: AppointmentItem[] = [
   {
-    key: '1',
+    id: '1',
+    patient: 'Nguyễn Thị Lan',
+    doctor: 'Dr. Hương',
     time: '08:00',
-    patient: 'Nguyễn Thị Hương',
-    service: 'Tư vấn sức khỏe sinh sản',
-    doctor: 'Dr. Lê Minh Tuấn',
-    status: 'completed',
-    notes: 'Khám định kỳ',
-    priority: 'medium'
+    type: 'Khám thai',
+    status: 'completed'
   },
   {
-    key: '2',
-    time: '09:30',
-    patient: 'Trần Văn Đức',
-    service: 'Xét nghiệm STI',
-    doctor: 'Dr. Nguyễn Thị Mai',
-    status: 'in-progress',
-    notes: 'Lần đầu khám',
-    priority: 'high'
+    id: '2',
+    patient: 'Trần Minh Anh',
+    doctor: 'Dr. Đức',
+    time: '09:00',
+    type: 'Tư vấn dinh dưỡng',
+    status: 'completed'
   },
   {
-    key: '3',
+    id: '3',
+    patient: 'Lê Thị Hoa',
+    doctor: 'Dr. Mai',
+    time: '10:00',
+    type: 'Khám định kỳ',
+    status: 'confirmed'
+  },
+  {
+    id: '4',
+    patient: 'Phạm Văn Nam',
+    doctor: 'Dr. An',
     time: '11:00',
-    patient: 'Lê Thị Lan',
-    service: 'Tư vấn kế hoạch hóa gia đình',
-    doctor: 'Dr. Phạm Minh Hải',
-    status: 'waiting',
-    notes: 'Tái khám',
-    priority: 'medium'
-  },
-  {
-    key: '4',
-    time: '14:00',
-    patient: 'Phạm Văn Long',
-    service: 'Khám sức khỏe tổng quát',
-    doctor: 'Dr. Trần Thị Hoa',
-    status: 'confirmed',
-    notes: 'Khách hàng VIP',
-    priority: 'high'
-  },
-  {
-    key: '5',
-    time: '15:30',
-    patient: 'Hoàng Thị Nga',
-    service: 'Tư vấn dinh dưỡng thai kỳ',
-    doctor: 'Dr. Lê Minh Tuấn',
-    status: 'confirmed',
-    notes: 'Lịch hẹn mới',
-    priority: 'low'
+    type: 'Tư vấn kế hoạch hóa gia đình',
+    status: 'pending'
   }
 ];
 
-// MOCKDATA: Performance Metrics
+// Performance metrics data
 export const performanceMetrics = {
-  management: {
-    userGrowth: 85,
-    revenueGrowth: 92,
-    customerSatisfaction: 88,
-    systemUptime: 99.9
-  },
-  operational: {
-    appointmentCompletion: 87,
-    patientSatisfaction: 94,
-    timeEfficiency: 78,
-    taskCompletion: 91
-  }
+  completion: 85,
+  satisfaction: 92,
+  efficiency: 78,
+  punctuality: 88
 };
 
-// MOCKDATA: Chart Data
+// Chart data for analytics
 export const chartData = {
-  monthlyRevenue: [
-    { month: 'T1', value: 85000000 },
-    { month: 'T2', value: 92000000 },
-    { month: 'T3', value: 78000000 },
-    { month: 'T4', value: 105000000 },
-    { month: 'T5', value: 125000000 },
-    { month: 'T6', value: 118000000 }
+  weekly: [
+    { day: 'T2', appointments: 12, completed: 10 },
+    { day: 'T3', appointments: 15, completed: 13 },
+    { day: 'T4', appointments: 18, completed: 17 },
+    { day: 'T5', appointments: 20, completed: 18 },
+    { day: 'T6', appointments: 22, completed: 20 },
+    { day: 'T7', appointments: 8, completed: 7 },
+    { day: 'CN', appointments: 5, completed: 5 }
   ],
-  appointmentTrends: [
-    { day: 'T2', appointments: 45 },
-    { day: 'T3', appointments: 52 },
-    { day: 'T4', appointments: 38 },
-    { day: 'T5', appointments: 61 },
-    { day: 'T6', appointments: 48 },
-    { day: 'T7', appointments: 35 },
-    { day: 'CN', appointments: 28 }
+  monthly: [
+    { month: 'T1', revenue: 120000000, appointments: 450 },
+    { month: 'T2', revenue: 135000000, appointments: 520 },
+    { month: 'T3', revenue: 148000000, appointments: 580 },
+    { month: 'T4', revenue: 156000000, appointments: 620 }
   ]
-};
+}; 
