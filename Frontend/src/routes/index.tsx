@@ -37,6 +37,11 @@ import PaymentPage from '../pages/payment';
 import PaymentSuccessPage from '../pages/consultation/PaymentSuccessPage';
 import ServicesPage from '../pages/services';
 
+// Payment Pages
+import PaymentProcessPage from '../pages/payment/PaymentProcessPage';
+import PaymentSuccessPageNew from '../pages/payment/PaymentSuccessPage';
+import PaymentCancelPage from '../pages/payment/PaymentCancelPage';
+
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
@@ -140,6 +145,11 @@ const AppRoutes: React.FC = () => {
         <Route path="/booking-history" element={<BookingHistoryPage />} />
         <Route path="/payment" element={<PaymentPage />} />
         <Route path="/feedback" element={<FeedbackPage />} />
+        
+        {/* Payment Processing Pages */}
+        <Route path="/payment/process" element={<PaymentProcessPage />} />
+        <Route path="/payment/success" element={<PaymentSuccessPageNew />} />
+        <Route path="/payment/cancel" element={<PaymentCancelPage />} />
         
         {/* Consultation Pages */}
         <Route path="/consultation/payment/:qaId" element={<PaymentPage />} />

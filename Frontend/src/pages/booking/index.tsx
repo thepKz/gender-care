@@ -856,10 +856,18 @@ const Booking: React.FC = () => {
       const response = await appointmentApi.createAppointment(appointmentData);
       
       console.log('Booking response:', response);
-      message.success('Đặt lịch thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.');
       
-      // Navigate to booking confirmation or history
-      navigate('/booking-history');
+      // Kiểm tra xem appointment có cần thanh toán không
+      if (response && response.data && response.data.status === 'pending_payment') {
+        message.success('Đặt lịch thành công! Chuyển đến trang thanh toán...');
+        // Chuyển đến trang thanh toán với PayOS
+        const appointmentId = response.data.id || response.data._id;
+        navigate(`/payment/process?appointmentId=${appointmentId}`);
+      } else {
+        message.success('Đặt lịch thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.');
+        // Nếu không cần thanh toán (ví dụ: free service) thì chuyển đến booking history
+        navigate('/booking-history');
+      }
     } catch (error) {
       console.error('Error creating appointment:', error);
       if (error instanceof Error) {
@@ -1021,7 +1029,7 @@ const Booking: React.FC = () => {
               
               {currentStep === 2 && (
                 <button
-                  onClick={() => handleSubmit(form.getFieldsValue() as BookingFormData)}
+                  onClick={() => handleSubmit({} as BookingFormData)}
                   className="inline-flex items-center px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1648,9 +1656,19 @@ const Booking: React.FC = () => {
                       </ul>
                     </div>
 
-                    <div className="text-center pt-6 border-t border-gray-200">
-                      <p className="text-base text-gray-500">
-                        Bằng việc xác nhận, bạn đồng ý với các điều khoản và điều kiện của chúng tôi.
+                    {/* Nút xác nhận đặt lịch */}
+                    <div className="text-center pt-8 border-t border-gray-200 mt-8">
+                      <button
+                        onClick={() => handleSubmit({} as BookingFormData)}
+                        className="inline-flex items-center px-8 py-4 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors text-xl shadow-lg"
+                      >
+                        <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        XÁC NHẬN ĐẶT LỊCH
+                      </button>
+                      <p className="text-sm text-gray-500 mt-3">
+                        Nhấn để hoàn tất đặt lịch và chuyển đến thanh toán
                       </p>
                     </div>
 

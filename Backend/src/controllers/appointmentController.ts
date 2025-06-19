@@ -136,21 +136,33 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             throw new ValidationError({ general: 'Phải cung cấp một trong hai: packageId hoặc serviceId' });
         }
 
-        // Nếu có packageId, kiểm tra nó có tồn tại không
+        // Tính toán totalAmount dựa trên service/package
+        let totalAmount = 0;
+
+        // Nếu có packageId, kiểm tra nó có tồn tại không và lấy giá
         if (packageId) {
-            const packageExists = await ServicePackages.findById(packageId);
-            if (!packageExists) {
+            const packageData = await ServicePackages.findById(packageId);
+            if (!packageData) {
                 throw new NotFoundError('Không tìm thấy gói dịch vụ');
             }
+            totalAmount = packageData.price;
         }
 
-        // Nếu có serviceId, kiểm tra nó có tồn tại không
+        // Nếu có serviceId, kiểm tra nó có tồn tại không và lấy giá
         if (serviceId) {
-            const serviceExists = await Services.findById(serviceId);
-            if (!serviceExists) {
+            const serviceData = await Services.findById(serviceId);
+            if (!serviceData) {
                 throw new NotFoundError('Không tìm thấy dịch vụ');
             }
+            totalAmount = serviceData.price;
         }
+
+        console.log('💰 [Debug] Payment calculation:', {
+            packageId,
+            serviceId,
+            typeLocation,
+            totalAmount
+        });
 
         // Kiểm tra slot có trống không và lấy thông tin bác sĩ (nếu slotId được cung cấp)
         let assignedDoctorId = null;
@@ -218,7 +230,9 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             address,
             description,
             notes,
-            status: 'pending'
+            status: 'pending_payment', // ✅ Set status to pending_payment để trigger payment flow
+            totalAmount, // ✅ Thêm tổng tiền cần thanh toán
+            paymentStatus: 'unpaid' // ✅ Set payment status mặc định
         });
 
         // Nếu có slotId, cập nhật trạng thái slot thành "Booked"
@@ -233,7 +247,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         // Trả về kết quả thành công
         return res.status(201).json({
             success: true,
-            message: 'Đặt lịch hẹn thành công',
+            message: 'Đặt lịch hẹn thành công! Vui lòng hoàn tất thanh toán.',
             data: newAppointment
         });
     } catch (error) {
