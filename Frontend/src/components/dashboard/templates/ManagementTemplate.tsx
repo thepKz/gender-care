@@ -40,6 +40,7 @@ import DoctorManagement from '../../../pages/dashboard/management/DoctorManageme
 import ServiceManagement from '../../../pages/dashboard/management/ServiceManagement';
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
+import DoctorSchedulePage from '../../../pages/dashboard/manager/DoctorSchedulePage';
 import { 
   defaultManagementStats, 
   defaultActivities, 
@@ -73,6 +74,11 @@ const getMenuItems = (role: 'admin' | 'manager') => {
       key: 'doctors',
       icon: <MedicineBoxOutlined />,
       label: 'Quản lý bác sĩ',
+    },
+    {
+      key: 'schedule',
+      icon: <CalendarOutlined />,
+      label: 'Quản lý lịch làm việc',
     },
     {
       key: 'services',
@@ -646,6 +652,8 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
       case 'doctors':
         return <DoctorManagement />;
+      case 'schedule':
+        return <DoctorSchedulePage />;
       case 'services':
         return <ServiceManagement />;
       case 'service-packages':
