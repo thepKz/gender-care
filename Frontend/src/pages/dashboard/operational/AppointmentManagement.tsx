@@ -395,7 +395,14 @@ const AppointmentManagement: React.FC = () => {
                     )}
                     {appointment.type === 'appointment' && (detailData as DetailData).profileId?.year && (
                       <Descriptions.Item label="Năm sinh">
-                        {(detailData as DetailData).profileId.year}
+                        {(() => {
+                          const year = (detailData as DetailData).profileId.year;
+                          if (typeof year === 'string' && year.includes('T')) {
+                            // Nếu là ISO date string, extract năm
+                            return new Date(year).getFullYear();
+                          }
+                          return year; // Nếu đã là number hoặc string năm
+                        })()}
                       </Descriptions.Item>
                     )}
                   </Descriptions>
@@ -435,7 +442,13 @@ const AppointmentManagement: React.FC = () => {
                 </Descriptions.Item>
                 <Descriptions.Item label="Ngày hẹn">
                   <CalendarOutlined style={{ marginRight: '4px', color: '#1890ff' }} />
-                  {appointment.appointmentDate}
+                  {(() => {
+                    const date = new Date(appointment.appointmentDate);
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    const year = date.getFullYear();
+                    return `${day}/${month}/${year}`;
+                  })()}
                 </Descriptions.Item>
                 <Descriptions.Item label="Giờ hẹn">
                   <ClockCircleOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
@@ -579,11 +592,13 @@ const AppointmentManagement: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
             <CalendarOutlined style={{ color: '#1890ff', fontSize: '12px' }} />
             <Text style={{ fontSize: '13px', fontWeight: 500 }}>
-              {new Date(record.appointmentDate).toLocaleDateString('vi-VN', {
-                day: '2-digit',
-                month: '2-digit', 
-                year: 'numeric'
-              })}
+              {(() => {
+                const date = new Date(record.appointmentDate);
+                const day = date.getDate().toString().padStart(2, '0');
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const year = date.getFullYear();
+                return `${day}/${month}/${year}`;
+              })()}
             </Text>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
