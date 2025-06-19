@@ -156,105 +156,149 @@ const Booking: React.FC = () => {
 
 
 
-  // State for calendar
-  const [calendarDate, setCalendarDate] = useState(new Date());
+  // State for calendar - Set to June 2025 to match backend data
+  const [calendarDate, setCalendarDate] = useState(new Date('2025-06-01'));
+
+  // State để lưu doctor schedule mapping (doctorId -> availableSlots)
+  const [doctorScheduleMap, setDoctorScheduleMap] = useState<Map<string, AvailableSlot[]>>(new Map());
+
+  // 🆕 Function để cross-check với appointments thực tế
+  const crossCheckWithAppointments = async (
+    doctorSchedules: DoctorScheduleResponse[], 
+    targetDate: string, 
+    targetTimeSlot?: string
+  ) => {
+    try {
+      console.log('🔍 [Debug] Cross-checking with existing appointments for date:', targetDate);
+      
+      // Fetch tất cả appointments cho ngày đó
+      const appointmentsResponse = await appointmentApi.getAllAppointments({
+        startDate: targetDate,
+        endDate: targetDate,
+        status: 'pending,confirmed,in_progress' // Chỉ lấy appointment chưa cancel/complete
+      });
+      
+      const existingAppointments = appointmentsResponse?.data?.data?.appointments || 
+                                 appointmentsResponse?.data?.appointments || [];
+      
+      console.log('✅ [Debug] Existing appointments:', existingAppointments);
+      
+      // Tạo map: doctorId -> [occupied time slots]
+      const doctorOccupiedSlots = new Map<string, string[]>();
+      
+      existingAppointments.forEach((appointment: any) => {
+        const doctorId = appointment.doctorId?._id || appointment.doctorId;
+        const timeSlot = appointment.appointmentTime;
+        
+        if (doctorId && timeSlot) {
+          if (!doctorOccupiedSlots.has(doctorId)) {
+            doctorOccupiedSlots.set(doctorId, []);
+          }
+          doctorOccupiedSlots.get(doctorId)!.push(timeSlot);
+          console.log(`🔒 [Debug] Doctor ${doctorId} is OCCUPIED at ${timeSlot}`);
+        }
+      });
+      
+      // Filter doctor schedules based on real appointments
+      const availableDoctorIds: string[] = [];
+      const newDoctorScheduleMap = new Map<string, AvailableSlot[]>();
+      
+      doctorSchedules.forEach((doctorSchedule: DoctorScheduleResponse) => {
+        const doctorId = doctorSchedule.doctorId;
+        
+        if (!doctorId || !doctorSchedule.availableSlots) return;
+        
+        // Lấy list time slots bác sĩ này đã bị book
+        const occupiedSlots = doctorOccupiedSlots.get(doctorId) || [];
+        
+        // Filter ra những slot thực sự available (Free + không có appointment)
+        const reallyAvailableSlots = doctorSchedule.availableSlots.filter((slot: AvailableSlot) => {
+          const isFreeInSchedule = slot.status === 'Free';
+          const notOccupiedByAppointment = !occupiedSlots.includes(slot.slotTime);
+          
+          console.log(`🔍 [Debug] Doctor ${doctorId} Slot ${slot.slotTime}: scheduleStatus=${slot.status}, hasAppointment=${occupiedSlots.includes(slot.slotTime)}, reallyAvailable=${isFreeInSchedule && notOccupiedByAppointment}`);
+          
+          return isFreeInSchedule && notOccupiedByAppointment;
+        });
+        
+        // Lưu mapping với slots thực sự available
+        newDoctorScheduleMap.set(doctorId, reallyAvailableSlots);
+        
+        if (targetTimeSlot) {
+          // Kiểm tra bác sĩ có thực sự available tại time slot cụ thể không
+          const hasReallyFreeSlot = reallyAvailableSlots.some((slot: AvailableSlot) => 
+            slot.slotTime === targetTimeSlot
+          );
+          
+          if (hasReallyFreeSlot) {
+            availableDoctorIds.push(doctorId);
+            console.log(`✅ [Debug] Doctor ${doctorId} is REALLY AVAILABLE at ${targetTimeSlot}`);
+          } else {
+            console.log(`❌ [Debug] Doctor ${doctorId} is BUSY at ${targetTimeSlot} (has appointment or not free)`);
+          }
+        } else {
+          // Nếu chưa chọn time slot, kiểm tra có ít nhất 1 slot thực sự available
+          if (reallyAvailableSlots.length > 0) {
+            availableDoctorIds.push(doctorId);
+            console.log(`✅ [Debug] Doctor ${doctorId} has ${reallyAvailableSlots.length} really available slots`);
+          }
+        }
+      });
+      
+      return { availableDoctorIds, doctorScheduleMap: newDoctorScheduleMap };
+      
+    } catch (error) {
+      console.error('❌ [Debug] Error cross-checking appointments:', error);
+      // Fallback to schedule-only check nếu lỗi
+      return { availableDoctorIds: [], doctorScheduleMap: new Map() };
+    }
+  };
 
   // Fetch doctors available for selected date and time slot
   const fetchAvailableDoctors = useCallback(async () => {
     if (!selectedDate) {
       setDoctorAvailability([]);
+      setDoctorScheduleMap(new Map());
       return;
     }
     
     try {
       console.log('🔍 [Debug] Fetching available doctors for date:', selectedDate, 'timeSlot:', selectedTimeSlot);
-      console.log('🔍 [Debug] Selected date as Date object:', new Date(selectedDate));
-      console.log('🔍 [Debug] Selected date toString:', new Date(selectedDate).toString());
-      console.log('🔍 [Debug] Selected date toDateString:', new Date(selectedDate).toDateString());
       
       // ✅ Sử dụng API đúng để lấy doctor schedules
       const response = await doctorScheduleApi.getAvailableDoctors(selectedDate);
       console.log('✅ [Debug] Raw API response:', response);
-      console.log('✅ [Debug] API Response Type:', typeof response);
-      console.log('✅ [Debug] API Response Keys:', Object.keys(response || {}));
       
       // ✅ FIX: Truy cập response.data thay vì response trực tiếp
-      const availableDoctorsData = response.data || response;
+      const availableDoctorsData = Array.isArray(response) ? response : (response?.data || []);
       
       if (!Array.isArray(availableDoctorsData)) {
         console.log('⚠️ [Debug] availableDoctorsData is not an array, using empty array');
         setDoctorAvailability([]);
+        setDoctorScheduleMap(new Map());
         return;
       }
       
       console.log('✅ [Debug] Available doctor schedules count:', availableDoctorsData.length);
       
-      // Extract available doctor IDs và filter theo selectedTimeSlot
-      const availableIds: string[] = [];
+      // 🆕 CROSS-CHECK VỚI APPOINTMENTS THỰC TẾ
+      const { availableDoctorIds, doctorScheduleMap: realScheduleMap } = await crossCheckWithAppointments(
+        availableDoctorsData, 
+        selectedDate, 
+        selectedTimeSlot
+      );
       
-      availableDoctorsData.forEach((doctorSchedule: DoctorScheduleResponse, index: number) => {
-        console.log(`🔍 [Debug] Processing doctor schedule ${index}:`, doctorSchedule);
-        
-        const doctorId = doctorSchedule.doctorId;
-        console.log(`🔍 [Debug] Doctor ${index} ID:`, doctorId);
-        
-        if (!doctorId) return;
-        
-        // ✅ Sử dụng availableSlots thay vì weekSchedule
-        console.log(`🔍 [Debug] Doctor ${index} availableSlots:`, doctorSchedule.availableSlots);
-        console.log(`🔍 [Debug] Doctor ${index} availableSlots length:`, doctorSchedule.availableSlots?.length);
-        
-        if (doctorSchedule.availableSlots && Array.isArray(doctorSchedule.availableSlots)) {
-          // ✅ Debug từng slot
-          doctorSchedule.availableSlots.forEach((slot: AvailableSlot, slotIndex: number) => {
-            console.log(`🔍 [Debug] Doctor ${index} Slot ${slotIndex}:`, {
-              slotTime: slot.slotTime,
-              status: slot.status,
-              slotId: slot.slotId
-            });
-          });
-          
-          if (selectedTimeSlot) {
-            console.log(`🔍 [Debug] Filtering for selectedTimeSlot: "${selectedTimeSlot}"`);
-            
-            // Nếu đã chọn time slot, chỉ kiểm tra slot đó
-            const hasAvailableSlot = doctorSchedule.availableSlots.some((slot: AvailableSlot) => {
-              const isMatchingTime = slot.slotTime === selectedTimeSlot;
-              const isFree = slot.status === 'Free';
-              console.log(`🔍 [Debug] Doctor ${index} Slot ${slot.slotTime}: matching=${isMatchingTime}, free=${isFree}`);
-              return isMatchingTime && isFree;
-            });
-            
-            console.log(`🔍 [Debug] Doctor ${index} has available slot for "${selectedTimeSlot}":`, hasAvailableSlot);
-            
-            if (hasAvailableSlot) {
-              availableIds.push(doctorId);
-              console.log(`✅ [Debug] Added doctor ${doctorId} to available list`);
-            }
-          } else {
-            console.log(`🔍 [Debug] No timeSlot selected, checking if doctor has any free slots`);
-            
-            // Nếu chưa chọn time slot, kiểm tra có ít nhất 1 slot free
-            const hasFreeSlots = doctorSchedule.availableSlots.some((slot: AvailableSlot) => slot.status === 'Free');
-            console.log(`🔍 [Debug] Doctor ${index} has free slots:`, hasFreeSlots);
-            
-            if (hasFreeSlots) {
-              availableIds.push(doctorId);
-              console.log(`✅ [Debug] Added doctor ${doctorId} to available list (has free slots)`);
-            }
-          }
-        } else {
-          console.log(`⚠️ [Debug] Doctor ${index} has no availableSlots or invalid availableSlots`);
-        }
-      });
+      // 🆕 Cập nhật với data đã được cross-check
+      setDoctorScheduleMap(realScheduleMap);
+      setDoctorAvailability(availableDoctorIds);
       
-      console.log('✅ [Debug] Final available doctor IDs:', availableIds);
-      console.log('✅ [Debug] Setting doctorAvailability to:', availableIds);
-      setDoctorAvailability(availableIds);
+      console.log('✅ [Debug] Final REALLY available doctor IDs:', availableDoctorIds);
+      console.log('✅ [Debug] Real doctor schedule map:', realScheduleMap);
       
     } catch (error) {
       console.error('❌ [Debug] Error fetching available doctors:', error);
       setDoctorAvailability([]);
+      setDoctorScheduleMap(new Map());
     }
   }, [selectedDate, selectedTimeSlot]);
 
@@ -592,7 +636,7 @@ const Booking: React.FC = () => {
       console.log('🔍 [Debug] Raw response for time slots:', response);
       
       // ✅ FIX: Truy cập response.data thay vì response trực tiếp  
-      const availableDoctorsData = Array.isArray(response) ? response : ((response as any)?.data || []);
+      const availableDoctorsData = Array.isArray(response) ? response : (response?.data || []);
       
       if (!Array.isArray(availableDoctorsData)) {
         console.log('⚠️ [Debug] availableDoctorsData is not an array');
@@ -600,38 +644,46 @@ const Booking: React.FC = () => {
         return;
       }
       
-      // ✅ Tổng hợp tất cả time slots từ availableSlots của tất cả doctors
-      const allSlotsMap = new Map<string, { time: string; isAvailable: boolean }>();
+      // 🆕 CROSS-CHECK VỚI APPOINTMENTS THỰC TẾ TRƯỚC KHI TẠO TIME SLOTS
+      const { doctorScheduleMap: realScheduleMap } = await crossCheckWithAppointments(
+        availableDoctorsData, 
+        selectedDate
+      );
       
-      availableDoctorsData.forEach((doctorSchedule: DoctorScheduleResponse) => {
-        console.log('🔍 [Debug] Processing doctor schedule for slots:', doctorSchedule);
+      // 🆕 CHỈ HIỂN THỊ TIME SLOT CÓ ÍT NHẤT 1 BÁC SĨ THỰC SỰ AVAILABLE
+      const timeSlotAvailabilityMap = new Map<string, { doctorCount: number; hasReallyFreeSlot: boolean }>();
+      
+      realScheduleMap.forEach((reallyAvailableSlots, doctorId) => {
+        console.log(`🔍 [Debug] Processing REAL available slots for doctor ${doctorId}:`, reallyAvailableSlots);
         
-        // ✅ Sử dụng availableSlots thay vì weekSchedule
-        if (doctorSchedule.availableSlots && Array.isArray(doctorSchedule.availableSlots)) {
-          doctorSchedule.availableSlots.forEach((slot: any) => {
-            const slotTime = slot.slotTime;
-            
-            // Nếu slot chưa tồn tại hoặc slot hiện tại có status tốt hơn
-            if (!allSlotsMap.has(slotTime) || slot.status === 'Free') {
-              allSlotsMap.set(slotTime, {
-                time: slotTime,
-                isAvailable: slot.status === 'Free'
-              });
-            }
-          });
-        }
+        reallyAvailableSlots.forEach((slot: AvailableSlot) => {
+          const slotTime = slot.slotTime;
+          
+          if (!timeSlotAvailabilityMap.has(slotTime)) {
+            timeSlotAvailabilityMap.set(slotTime, { doctorCount: 0, hasReallyFreeSlot: false });
+          }
+          
+          const current = timeSlotAvailabilityMap.get(slotTime)!;
+          
+          // Đếm số bác sĩ thực sự có slot này available
+          current.doctorCount++;
+          current.hasReallyFreeSlot = true; // Vì đã filter qua crossCheck rồi
+          
+          console.log(`🔍 [Debug] Slot ${slotTime}: realDoctorCount=${current.doctorCount}, hasReallyFreeSlot=${current.hasReallyFreeSlot}`);
+        });
       });
       
-      // Convert Map to Array và sort theo thời gian
-      const mappedTimeSlots: TimeSlot[] = Array.from(allSlotsMap.values())
-        .map((slot) => ({
-          id: slot.time, // Sử dụng time làm ID cho dễ filter
-          time: slot.time,
-          isAvailable: slot.isAvailable
+      // 🔒 CHỈ HIỂN THỊ TIME SLOT CÓ ÍT NHẤT 1 BÁC SĨ THỰC SỰ FREE (không có appointment)
+      const mappedTimeSlots: TimeSlot[] = Array.from(timeSlotAvailabilityMap.entries())
+        .filter(([, availability]) => availability.hasReallyFreeSlot) // 🔒 KEY FILTER: chỉ slot có bác sĩ thực sự free
+        .map(([slotTime, availability]) => ({
+          id: slotTime,
+          time: slotTime,
+          isAvailable: availability.hasReallyFreeSlot
         }))
         .sort((a, b) => a.time.localeCompare(b.time));
       
-      console.log('✅ [Debug] All available time slots:', mappedTimeSlots);
+      console.log('✅ [Debug] Available time slots (with at least 1 REALLY free doctor):', mappedTimeSlots);
       setTimeSlots(mappedTimeSlots);
       
     } catch (error) {
@@ -707,32 +759,60 @@ const Booking: React.FC = () => {
         throw new Error('ID gói dịch vụ không hợp lệ');
       }
       
-      // ✅ Tìm slot ID từ time slot đã chọn
+      // 🆕 KIỂM TRA CUỐI CÙNG: BÁC SĨ THỰC SỰ CÓ SLOT AVAILABLE KHÔNG
       let actualSlotId = selectedTimeSlot;
+      let actualDoctorId = selectedDoctor;
       
-      // Nếu selectedTimeSlot là time string (VD: "08:00-09:00"), 
-      // cần tìm slot ID tương ứng từ API
+      // Kiểm tra cuối cùng bằng cách cross-check với appointments
+      console.log('🔒 [Debug] Final validation - cross-checking with real appointments...');
+      
       try {
         const response = await doctorScheduleApi.getAvailableDoctors(selectedDate);
-        const availableDoctorsData = (response as any).data || response;
+        const availableDoctorsData = Array.isArray(response) ? response : (response?.data || []);
         
-        // Tìm slot ID từ time string
-        for (const doctorSchedule of availableDoctorsData) {
-          if (doctorSchedule.availableSlots && Array.isArray(doctorSchedule.availableSlots)) {
-            const matchingSlot = doctorSchedule.availableSlots.find((slot: any) => 
-              slot.slotTime === selectedTimeSlot && slot.status === 'Free'
-            );
-            
-            if (matchingSlot) {
-              actualSlotId = matchingSlot._id;
-              console.log('✅ [Debug] Found slot ID:', actualSlotId, 'for time:', selectedTimeSlot);
-              break;
-            }
+        const { availableDoctorIds, doctorScheduleMap: finalScheduleMap } = await crossCheckWithAppointments(
+          availableDoctorsData, 
+          selectedDate, 
+          selectedTimeSlot
+        );
+        
+        if (selectedDoctor) {
+          // Kiểm tra bác sĩ đã chọn có thực sự available không
+          if (!availableDoctorIds.includes(selectedDoctor)) {
+            throw new Error(`Bác sĩ đã chọn không còn trống tại ${selectedTimeSlot}. Có thể đã bị đặt bởi khách hàng khác.`);
+          }
+          
+          const doctorSlots = finalScheduleMap.get(selectedDoctor);
+          const matchingSlot = doctorSlots?.find(slot => slot.slotTime === selectedTimeSlot);
+          
+          if (matchingSlot) {
+            actualSlotId = matchingSlot.slotId;
+            actualDoctorId = selectedDoctor;
+            console.log('✅ [Debug] Final validation PASSED - Doctor is really available:', selectedDoctor);
+          } else {
+            throw new Error(`Không tìm thấy slot trống cho bác sĩ đã chọn tại ${selectedTimeSlot}`);
+          }
+        } else {
+          // Hệ thống tự chọn - lấy bác sĩ đầu tiên available
+          if (availableDoctorIds.length === 0) {
+            throw new Error(`Không có bác sĩ nào trống tại ${selectedTimeSlot}. Vui lòng chọn khung giờ khác.`);
+          }
+          
+          const firstAvailableDoctorId = availableDoctorIds[0];
+          const doctorSlots = finalScheduleMap.get(firstAvailableDoctorId);
+          const matchingSlot = doctorSlots?.find(slot => slot.slotTime === selectedTimeSlot);
+          
+          if (matchingSlot) {
+            actualSlotId = matchingSlot.slotId;
+            actualDoctorId = firstAvailableDoctorId;
+            console.log('✅ [Debug] Auto-selected available doctor:', firstAvailableDoctorId);
+          } else {
+            throw new Error('Không thể tìm thấy slot phù hợp');
           }
         }
-      } catch (slotError) {
-        console.error('❌ [Debug] Error finding slot ID:', slotError);
-        // Nếu không tìm được slot ID, vẫn dùng time string
+      } catch (validationError) {
+        console.error('❌ [Debug] Final validation failed:', validationError);
+        throw validationError;
       }
       
       // Create appointment using API
@@ -740,7 +820,7 @@ const Booking: React.FC = () => {
         profileId: selectedProfile,
         packageId: selectedPackage || undefined,
         serviceId: selectedService || undefined,
-        doctorId: selectedDoctor || undefined,
+        doctorId: actualDoctorId || undefined, // ✅ Sử dụng doctor ID đã validate
         slotId: actualSlotId, // Sử dụng slot ID thật hoặc time string
         appointmentDate: selectedDate,
         appointmentTime: selectedTimeSlot, // Luôn gửi time string
@@ -783,17 +863,35 @@ const Booking: React.FC = () => {
   useEffect(() => {
     if (selectedDate) {
       fetchTimeSlots();
-      // Cập nhật danh sách bác sĩ có sẵn lịch theo ngày được chọn
-      fetchAvailableDoctors();
+      // Reset time slot và doctor khi đổi ngày
+      setSelectedTimeSlot('');
+      setSelectedDoctor('');
     }
   }, [selectedDate]);
 
-  // Refresh available doctors when timeSlot changes
+  // Refresh available doctors when timeSlot changes - CHỈ KHI ĐÃ CHỌN TIME SLOT
   useEffect(() => {
     if (selectedDate && selectedTimeSlot) {
+      console.log('🔄 [Debug] Time slot changed - refreshing available doctors...');
       fetchAvailableDoctors();
+      // Reset doctor selection khi đổi time slot
+      setSelectedDoctor('');
     }
   }, [selectedTimeSlot, fetchAvailableDoctors]);
+
+  // 🆕 Validate khi chọn doctor - đảm bảo doctor vẫn available
+  useEffect(() => {
+    if (selectedDate && selectedTimeSlot && selectedDoctor) {
+      console.log('🔄 [Debug] Doctor selected - validating availability...');
+      // Validate doctor có thực sự available không
+      const isDocStillAvailable = doctorAvailability.includes(selectedDoctor);
+      if (!isDocStillAvailable) {
+        console.log('⚠️ [Debug] Selected doctor is no longer available, resetting...');
+        setSelectedDoctor('');
+        message.warning('Bác sĩ đã chọn không còn trống. Vui lòng chọn bác sĩ khác.');
+      }
+    }
+  }, [selectedDoctor, doctorAvailability, selectedDate, selectedTimeSlot]);
 
   // Auto-select service from URL params
   useEffect(() => {
@@ -814,19 +912,24 @@ const Booking: React.FC = () => {
     for (let i = firstDay - 1; i >= 0; i--) {
       const date = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 0);
       date.setDate(date.getDate() - i);
-      days.push({ day: date.getDate(), dateString: date.toISOString().split('T')[0], isCurrentMonth: false });
+      const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      days.push({ day: date.getDate(), dateString, isCurrentMonth: false });
     }
 
     // Fill in the days of the current month
     for (let i = 1; i <= daysInMonth; i++) {
-      const date = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, i);
-      days.push({ day: i, dateString: date.toISOString().split('T')[0], isCurrentMonth: true });
+      const year = calendarDate.getFullYear();
+      const month = calendarDate.getMonth() + 1; // getMonth() trả về 0-11, cần +1
+      const dateString = `${year}-${String(month).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+      console.log(`🔍 [Calendar] Day ${i}: dateString = ${dateString}`);
+      days.push({ day: i, dateString, isCurrentMonth: true });
     }
 
     // Fill in the days of the next month
     for (let i = 1; i <= 7 - ((firstDay + daysInMonth) % 7) % 7; i++) {
       const date = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 2, i);
-      days.push({ day: i, dateString: date.toISOString().split('T')[0], isCurrentMonth: false });
+      const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      days.push({ day: i, dateString, isCurrentMonth: false });
     }
 
     return days;
@@ -1185,6 +1288,9 @@ const Booking: React.FC = () => {
                     {selectedDate && selectedTimeSlot && (
                       <div className="border rounded-lg p-4">
                         <h3 className="text-lg font-semibold mb-3">4. Chọn bác sĩ có sẵn</h3>
+                        <div className="bg-blue-50 p-2 rounded mb-3 text-xs text-blue-700">
+                          🔒 Chỉ hiển thị bác sĩ có slot TRỐNG tại {selectedTimeSlot}
+                        </div>
                         {loadingDoctors ? (
                           <div className="flex justify-center items-center py-4">
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
@@ -1192,9 +1298,10 @@ const Booking: React.FC = () => {
                           </div>
                         ) : doctorsWithAvailability.filter((d: Doctor) => d.isAvailable).length === 0 ? (
                           <div className="text-center py-3">
-                            <div className="text-gray-400 text-xl mb-1">👨‍⚕️</div>
-                            <p className="text-xs text-gray-500">Không có bác sĩ nào có sẵn</p>
-                            <p className="text-xs text-gray-400 mt-1">Vào lúc {selectedTimeSlot} ngày {new Date(selectedDate).toLocaleDateString('vi-VN')}</p>
+                            <div className="text-red-400 text-xl mb-1">⚠️</div>
+                            <p className="text-sm text-red-600 font-medium">Tất cả bác sĩ đã được đặt</p>
+                            <p className="text-xs text-gray-500 mt-1">Vào lúc {selectedTimeSlot} ngày {selectedDate}</p>
+                            <p className="text-xs text-blue-600 mt-2">💡 Vui lòng chọn khung giờ khác</p>
                           </div>
                         ) : (
                           <div className="space-y-2 max-h-40 overflow-y-auto">
