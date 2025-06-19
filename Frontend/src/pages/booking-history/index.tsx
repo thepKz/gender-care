@@ -175,7 +175,7 @@ const BookingHistory: React.FC = () => {
         console.log('🔍 [Debug] All Appointments API response:', response);
       } else {
         console.log('🔍 [Debug] Fetching user appointments for customer:', user._id);
-        response = await consultationApi.getUserAppointments();
+        response = await consultationApi.getUserAppointments({ createdByUserId: user._id });
         console.log('🔍 [Debug] User Appointments API response:', response);
       }
       

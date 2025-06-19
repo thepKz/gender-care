@@ -842,39 +842,105 @@ const Booking: React.FC = () => {
     <BookingLayout>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
         <div className="container mx-auto px-4 py-8 max-w-full">
-          <h1 className="text-3xl font-bold text-gray-800 mb-8">Đặt lịch hẹn</h1>
-          
-          {/* Step indicator */}
-          <div className="mb-10">
-            <div className="flex justify-between">
-              {steps.map((step, index) => (
-                <div 
-                  key={index} 
-                  className={`flex flex-col items-center ${index <= currentStep ? 'text-blue-600' : 'text-gray-400'}`}
+          {/* Header with Navigation */}
+          <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center">
+              {currentStep > 0 ? (
+                <button
+                  onClick={handlePrev}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors mr-6"
                 >
-                  <div 
-                    className={`w-10 h-10 rounded-full flex items-center justify-center mb-2 
-                    ${index < currentStep ? 'bg-blue-600 text-white' : 
-                      index === currentStep ? 'border-2 border-blue-600 text-blue-600' : 
-                      'border-2 border-gray-300 text-gray-400'}`}
-                  >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Quay lại
+                </button>
+              ) : (
+                <div className="w-24"></div>
+              )}
+              <h1 className="text-3xl font-bold text-gray-800">Đặt lịch hẹn</h1>
+            </div>
+            
+            <div>
+              {currentStep === 0 && (
+                <button
+                  onClick={() => selectedService && handleNext()}
+                  disabled={!selectedService}
+                  className={`inline-flex items-center px-6 py-2 rounded-lg font-medium transition-colors ${
+                    selectedService 
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  Tiếp tục
+                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              )}
+              
+              {currentStep === 1 && (
+                <button
+                  onClick={handleStep2Continue}
+                  disabled={!typeLocation || !selectedDate || !selectedTimeSlot || !selectedProfile}
+                  className={`inline-flex items-center px-6 py-2 rounded-lg font-medium transition-colors ${
+                    (typeLocation && selectedDate && selectedTimeSlot && selectedProfile)
+                      ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  Tiếp tục
+                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              )}
+              
+              {currentStep === 2 && (
+                <button
+                  onClick={() => handleSubmit(form.getFieldsValue() as BookingFormData)}
+                  className="inline-flex items-center px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Xác nhận đặt lịch
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {/* Simple Step Indicator */}
+          <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
+            <div className="flex items-center justify-center space-x-8">
+              {steps.map((step, index) => (
+                <div key={index} className="flex items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                    index < currentStep 
+                      ? 'bg-blue-600 text-white' : 
+                      index === currentStep 
+                        ? 'bg-blue-100 text-blue-600 border-2 border-blue-600' : 
+                        'bg-gray-100 text-gray-400'
+                  }`}>
                     {index < currentStep ? '✓' : index + 1}
                   </div>
-                  <div className="text-sm hidden md:block">{step.title}</div>
+                  <span className={`ml-2 text-sm font-medium ${
+                    index <= currentStep ? 'text-gray-900' : 'text-gray-400'
+                  }`}>
+                    {step.title}
+                  </span>
+                  {index < steps.length - 1 && (
+                    <div className={`ml-6 w-8 h-0.5 ${
+                      index < currentStep ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}></div>
+                  )}
                 </div>
               ))}
-            </div>
-            <div className="relative mt-2">
-              <div className="absolute h-1 bg-gray-200 w-full"></div>
-              <div 
-                className="absolute h-1 bg-blue-600 transition-all" 
-                style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
-              ></div>
             </div>
           </div>
           
           {/* Step content */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-6">
             {/* Bước 1: Chọn dịch vụ */}
             {currentStep === 0 && (
               <div className="h-[70vh] overflow-y-auto">
@@ -935,20 +1001,7 @@ const Booking: React.FC = () => {
                   </div>
                 )}
 
-                {/* Navigation */}
-                <div className="flex justify-end mt-6 pt-4 border-t">
-                  <button
-                    onClick={() => selectedService && handleNext()}
-                    disabled={!selectedService}
-                    className={`px-6 py-2 rounded-md font-medium ${
-                      selectedService 
-                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    Tiếp tục
-                  </button>
-                </div>
+
               </div>
             )}
             
@@ -960,7 +1013,7 @@ const Booking: React.FC = () => {
                 {/* Layout 2 cột */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   
-                  {/* Cột trái: Hình thức + Thời gian */}
+                  {/* Cột trái: Hình thức + Chọn ngày */}
                   <div className="space-y-6">
                     
                     {/* 1. Hình thức khám */}
@@ -1087,8 +1140,12 @@ const Booking: React.FC = () => {
                         </div>
                       </div>
                     )}
+                  </div>
 
-                    {/* 3. Chọn giờ */}
+                  {/* Cột phải: Chọn giờ + Bác sĩ + Hồ sơ */}
+                  <div className="space-y-6">
+
+                    {/* 3. Chọn giờ - MOVED TO RIGHT COLUMN */}
                     {selectedDate && (
                       <div className="border rounded-lg p-4">
                         <h3 className="text-lg font-semibold mb-3">3. Chọn giờ</h3>
@@ -1103,12 +1160,12 @@ const Booking: React.FC = () => {
                             <p className="text-sm text-gray-500">Không có lịch trống</p>
                           </div>
                         ) : (
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-32 overflow-y-auto">
                             {timeSlots.map(slot => (
                               <div 
                                 key={slot.id}
                                 onClick={() => slot.isAvailable && setSelectedTimeSlot(slot.id)}
-                                className={`text-center py-2 px-2 rounded-md cursor-pointer transition text-sm ${
+                                className={`text-center py-2 px-2 rounded-md cursor-pointer transition text-xs ${
                                   selectedTimeSlot === slot.id 
                                     ? 'bg-blue-600 text-white' 
                                     : slot.isAvailable 
@@ -1123,10 +1180,6 @@ const Booking: React.FC = () => {
                         )}
                       </div>
                     )}
-                  </div>
-
-                  {/* Cột phải: Bác sĩ + Hồ sơ + Chi tiết */}
-                  <div className="space-y-6">
                     
                     {/* 4. Chọn bác sĩ - CHỈ HIỂN THỊ SAU KHI CHỌN TIME SLOT */}
                     {selectedDate && selectedTimeSlot && (
@@ -1138,13 +1191,13 @@ const Booking: React.FC = () => {
                             <span className="ml-3 text-gray-600">Đang tải...</span>
                           </div>
                         ) : doctorsWithAvailability.filter((d: Doctor) => d.isAvailable).length === 0 ? (
-                          <div className="text-center py-4">
-                            <div className="text-gray-400 text-2xl mb-2">👨‍⚕️</div>
-                            <p className="text-sm text-gray-500">Không có bác sĩ nào có sẵn</p>
+                          <div className="text-center py-3">
+                            <div className="text-gray-400 text-xl mb-1">👨‍⚕️</div>
+                            <p className="text-xs text-gray-500">Không có bác sĩ nào có sẵn</p>
                             <p className="text-xs text-gray-400 mt-1">Vào lúc {selectedTimeSlot} ngày {new Date(selectedDate).toLocaleDateString('vi-VN')}</p>
                           </div>
                         ) : (
-                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                          <div className="space-y-2 max-h-40 overflow-y-auto">
                             {doctorsWithAvailability
                               .filter((doctor: Doctor) => doctor.isAvailable)
                               .map((doctor: Doctor) => (
@@ -1365,109 +1418,96 @@ const Booking: React.FC = () => {
                   </div>
                 )}
 
-                {/* Navigation */}
-                <div className="flex justify-between mt-6 pt-4 border-t">
-                  <button
-                    onClick={handlePrev}
-                    className="px-6 py-2 border border-gray-300 rounded-md font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    ← Quay lại
-                  </button>
-                  <button
-                    onClick={handleStep2Continue}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700"
-                  >
-                    Tiếp tục →
-                  </button>
-                </div>
+
               </div>
             )}
             
             {/* Bước 3: Xác nhận thông tin */}
             {currentStep === 2 && (
-              <div className="h-[70vh] overflow-y-auto">
-                <h2 className="text-2xl font-bold mb-6">Xác nhận thông tin đặt lịch</h2>
-                
-                <div className="space-y-6">
-                  {/* Thông tin dịch vụ */}
-                  <div className="border rounded-lg p-4">
-                    <h3 className="text-lg font-semibold mb-3">Dịch vụ đã chọn</h3>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{getSelectedService()?.name}</p>
-                        <p className="text-sm text-gray-500">{getSelectedService()?.description}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-blue-600">{formatPrice(getCurrentPrice())}</p>
-                        <p className="text-sm text-gray-500">
-                          {typeLocation === 'online' ? 'Online' : 
-                           typeLocation === 'clinic' ? 'Tại phòng khám' : 
-                           'Tại nhà'}
+              <div className="h-[70vh] overflow-y-auto px-2">
+                <div className="max-w-3xl mx-auto">
+                  <h2 className="text-3xl font-bold text-center mb-10 text-gray-900">XÁC NHẬN THÔNG TIN ĐẶT LỊCH HẸN</h2>
+                  
+                  <div className="space-y-8 text-gray-800 leading-relaxed text-base">
+                    
+                    {/* Dịch vụ đã chọn */}
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4 text-blue-900">Dịch vụ đã chọn</h3>
+                      <div className="space-y-3">
+                        <p className="text-lg">
+                          <span className="font-semibold">Tên dịch vụ:</span> {getSelectedService()?.name}
+                        </p>
+                        <p className="text-base text-gray-600">
+                          {getSelectedService()?.description}
+                        </p>
+                        <p className="text-lg">
+                          <span className="font-semibold">Hình thức khám:</span> {
+                            typeLocation === 'online' ? 'Online (Video call)' : 
+                            typeLocation === 'clinic' ? 'Tại phòng khám' : 
+                            'Tại nhà (Bác sĩ đến tận nơi)'
+                          }
+                        </p>
+                        <p className="text-lg">
+                          <span className="font-semibold">Chi phí:</span> <span className="text-blue-600 font-bold text-xl">{formatPrice(getCurrentPrice())}</span>
                         </p>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Thông tin lịch hẹn */}
-                  <div className="border rounded-lg p-4">
-                    <h3 className="text-lg font-semibold mb-3">Thông tin lịch hẹn</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Ngày hẹn</p>
-                        <p className="font-medium">{selectedDate && new Date(selectedDate).toLocaleDateString('vi-VN')}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-500">Giờ hẹn</p>
-                        <p className="font-medium">{selectedTimeSlot}</p>
+                    {/* Thông tin lịch hẹn */}
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4 text-blue-900">Thông tin lịch hẹn</h3>
+                      <div className="space-y-3">
+                        <p className="text-lg">
+                          <span className="font-semibold">Ngày hẹn:</span> {selectedDate && new Date(selectedDate).toLocaleDateString('vi-VN')}
+                        </p>
+                        <p className="text-lg">
+                          <span className="font-semibold">Giờ hẹn:</span> {selectedTimeSlot}
+                        </p>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Thông tin bác sĩ */}
-                  <div className="border rounded-lg p-4">
-                    <h3 className="text-lg font-semibold mb-3">Bác sĩ phụ trách</h3>
-                    {selectedDoctor === '' ? (
-                      <p className="text-gray-600">Hệ thống sẽ tự động chọn bác sĩ phù hợp</p>
-                    ) : (
-                      <div className="flex items-center">
-                        <img 
-                          src={getSelectedDoctor()?.avatar} 
-                          alt={getSelectedDoctor()?.name} 
-                          className="w-12 h-12 rounded-full object-cover mr-4"
-                        />
-                        <div>
-                          <p className="font-medium">{getSelectedDoctor()?.name}</p>
-                          <p className="text-sm text-gray-500">{getSelectedDoctor()?.specialization}</p>
-                          <div className="flex items-center text-sm text-gray-400">
-                            <span className="text-yellow-400 mr-1">★</span>
-                            <span>{getSelectedDoctor()?.rating}</span>
-                            <span className="mx-1">•</span>
-                            <span>{getSelectedDoctor()?.experience} năm kinh nghiệm</span>
+                    {/* Bác sĩ phụ trách */}
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4 text-blue-900">Bác sĩ phụ trách</h3>
+                      {selectedDoctor === '' ? (
+                        <p className="italic text-gray-600 text-lg">Hệ thống sẽ tự động chọn bác sĩ phù hợp cho cuộc hẹn của bạn.</p>
+                      ) : (
+                        <div className="flex items-start mb-4">
+                          <img 
+                            src={getSelectedDoctor()?.avatar} 
+                            alt={getSelectedDoctor()?.name} 
+                            className="w-20 h-20 rounded-full object-cover mr-6 mt-1"
+                          />
+                          <div>
+                            <p className="mb-2 text-lg">
+                              <span className="font-semibold">BS. {getSelectedDoctor()?.name}</span>
+                            </p>
+                            <p className="mb-2 text-lg">
+                              <span className="font-semibold">Chuyên khoa:</span> {getSelectedDoctor()?.specialization}
+                            </p>
+                            <p className="text-base text-gray-600">
+                              ⭐ {getSelectedDoctor()?.rating} • {getSelectedDoctor()?.experience} năm kinh nghiệm
+                            </p>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
 
-                  {/* Thông tin bệnh nhân */}
-                  <div className="border rounded-lg p-4">
-                    <h3 className="text-lg font-semibold mb-3">Thông tin bệnh nhân</h3>
-                    {userProfiles.find(p => p.id === selectedProfile) && (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-sm text-gray-500">Họ và tên</p>
-                          <p className="font-medium">{userProfiles.find(p => p.id === selectedProfile)?.fullName}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Giới tính</p>
-                          <p className="font-medium">
-                            {userProfiles.find(p => p.id === selectedProfile)?.gender === 'male' ? 'Nam' : 'Nữ'}
+                    {/* Thông tin bệnh nhân */}
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-4 text-blue-900">Thông tin bệnh nhân</h3>
+                      {userProfiles.find(p => p.id === selectedProfile) && (
+                        <div className="space-y-3">
+                          <p className="text-lg">
+                            <span className="font-semibold">Họ và tên:</span> {userProfiles.find(p => p.id === selectedProfile)?.fullName}
                           </p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Năm sinh</p>
-                          <p className="font-medium">
-                            {(() => {
+                          <p className="text-lg">
+                            <span className="font-semibold">Giới tính:</span> {
+                              userProfiles.find(p => p.id === selectedProfile)?.gender === 'male' ? 'Nam' : 'Nữ'
+                            }
+                          </p>
+                          <p className="text-lg">
+                            <span className="font-semibold">Năm sinh:</span> {(() => {
                               const profile = userProfiles.find(p => p.id === selectedProfile);
                               const birthDate = profile?.birthDate;
                               
@@ -1480,30 +1520,31 @@ const Booking: React.FC = () => {
                               }
                             })()}
                           </p>
+                          <p className="text-lg">
+                            <span className="font-semibold">Số điện thoại:</span> {userProfiles.find(p => p.id === selectedProfile)?.phone}
+                          </p>
                         </div>
-                        <div>
-                          <p className="text-sm text-gray-500">Số điện thoại</p>
-                          <p className="font-medium">{userProfiles.find(p => p.id === selectedProfile)?.phone}</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                      )}
+                    </div>
 
-                {/* Navigation */}
-                <div className="flex justify-between mt-6 pt-4 border-t">
-                  <button
-                    onClick={handlePrev}
-                    className="px-6 py-2 border border-gray-300 rounded-md font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    ← Quay lại
-                  </button>
-                  <button
-                    onClick={() => handleSubmit(form.getFieldsValue() as BookingFormData)}
-                    className="px-6 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700"
-                  >
-                    Xác nhận đặt lịch
-                  </button>
+                    {/* Lưu ý */}
+                    <div className="bg-blue-50 p-6 rounded-lg">
+                      <h4 className="font-semibold text-blue-900 mb-3 text-lg">Lưu ý quan trọng:</h4>
+                      <ul className="text-blue-800 space-y-2 text-base">
+                        <li>• Vui lòng có mặt đúng giờ hẹn</li>
+                        <li>• Mang theo giấy tờ tùy thân khi đến khám</li>
+                        <li>• Chuẩn bị danh sách thuốc đang sử dụng (nếu có)</li>
+                        <li>• Liên hệ hotline nếu cần thay đổi lịch hẹn</li>
+                      </ul>
+                    </div>
+
+                    <div className="text-center pt-6 border-t border-gray-200">
+                      <p className="text-base text-gray-500">
+                        Bằng việc xác nhận, bạn đồng ý với các điều khoản và điều kiện của chúng tôi.
+                      </p>
+                    </div>
+
+                  </div>
                 </div>
               </div>
             )}
