@@ -202,7 +202,7 @@ const ScheduleOverview: React.FC = () => {
                         <EnvironmentOutlined style={{ color: '#fa8c16', fontSize: '12px' }} />
                       }
                     </Space>
-                    <Tag color={getStatusColor(appointment.status)} size="small">
+                    <Tag color={getStatusColor(appointment.status)}>
                       {getStatusText(appointment.status)}
                     </Tag>
                   </div>
