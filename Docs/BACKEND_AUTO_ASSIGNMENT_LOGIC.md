@@ -217,9 +217,9 @@ export const updatePaymentStatus = async (id: string, paymentSuccess: boolean) =
 
 ---
 
-### 🚫 **Appointment Cancel Logic (72h Rule)**
+### 🚫 **UPDATED: Appointment Cancel Logic (72h Rule)**
 
-#### **Function: cancelAppointmentByDoctor()**
+#### **Function: cancelAppointmentByDoctor() - ✅ LOGIC CONFIRMED**
 ```typescript
 export const cancelAppointmentByDoctor = async (
   appointmentId: string, 
@@ -268,9 +268,9 @@ const validateCancelDeadline = (appointmentDate: string, appointmentTime: string
 };
 ```
 
-### 🩺 **Consultation Cancel Logic (Auto Re-assign) - ✅ IMPLEMENTED**
+### 🩺 **UPDATED: Consultation Transfer Logic (New Requirement)**
 
-#### **Function: cancelConsultationByDoctor()**
+#### **Function: transferConsultationByDoctor() - ❌ NEEDS NEW IMPLEMENTATION**
 ```typescript
 export const cancelConsultationByDoctor = async (
   consultationId: string,

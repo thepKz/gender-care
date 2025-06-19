@@ -4,7 +4,7 @@
 Document này ghi lại việc redesign workflow cho hệ thống quản lý lịch hẹn để tối ưu hóa user experience và giảm manual intervention.
 
 **Ngày tạo:** 2025-01-25  
-**Trạng thái:** ✅ Completed  
+**Trạng thái:** 🔄 Updating Logic  
 **Vai trò xử lý:** Doctor Role  
 
 ---
@@ -34,117 +34,219 @@ Document này ghi lại việc redesign workflow cho hệ thống quản lý l�
    ↓
 3. Customer thanh toán thành công → ✅ TỰ ĐỘNG CONFIRM → status: `scheduled`
    ↓
-4. Doctor chỉ có thể cancel trước 72h → slot: `Booked` → `Absent` + Auto re-assign
+4. CANCEL LOGIC THEO LOẠI DỊCH VỤ:
+   📱 CONSULTATION: Doctor có thể "thuyên chuyển" → tìm doctor khác trong slot
+   🏥 APPOINTMENT: Doctor chỉ có thể cancel trước 72h → slot: `Booked` → `Absent`
    ↓
 5. Nếu không cancel → thực hiện appointment → status: `completed`
 ```
 
 ---
 
-## CÁC THAY ĐỔI CHÍNH
+## ⚡ **CẬP NHẬT LOGIC NÚT HỦY THEO YÊU CẦU MỚI**
 
-### 📋 **1. Frontend Changes (Ưu tiên cao)**
+### 🎯 **CONSULTATION CANCEL LOGIC (Tư vấn trực tuyến)**
 
-#### **A. AppointmentManagement.tsx**
-- [x] **Bỏ nút "Xác nhận" (Confirm)**
-- [x] **Chỉ hiển thị nút "Hủy lịch hẹn"**
-- [x] **Thêm điều kiện 72h cho nút hủy**
-- [x] **Xóa status "confirmed" khỏi workflow**
+#### **A. Behavior Mong Muốn:**
+- ✅ **Luôn có nút hủy** (không phụ thuộc thời gian)
+- ✅ **Nút hủy = Nút "Thuyên chuyển công việc"**
+- ✅ **Logic:** Khi doctor nhấn hủy → Call API kiểm tra slot hiện tại
+  - **Có doctor khác free trong cùng slot** → Chuyển công việc cho họ
+  - **Không có ai free** → Disable nút hủy (không cho phép hủy nữa)
 
-#### **B. Logic Implementation**
+#### **B. Implementation Details:**
 ```typescript
-// Kiểm tra điều kiện 72h
-const canCancelAppointment = (appointmentDate: string, appointmentTime: string): boolean => {
-  const now = new Date();
-  const appointmentDateTime = new Date(`${appointmentDate} ${appointmentTime}`);
-  const deadline = new Date(now.getTime() + (72 * 60 * 60 * 1000)); // +72h
-  return deadline <= appointmentDateTime;
+// Function kiểm tra có thể "thuyên chuyển" không
+const canTransferConsultation = async (consultationId: string): Promise<boolean> => {
+  try {
+    // Call API kiểm tra slot hiện tại có doctor khác free không
+    const availableDoctors = await consultationAPI.checkAvailableDoctorsInSlot(consultationId);
+    return availableDoctors.length > 0;
+  } catch (error) {
+    console.error('Error checking transfer availability:', error);
+    return false; // Không cho phép nếu có lỗi
+  }
+};
+
+// Logic render nút cho consultation
+const renderConsultationCancelButton = (record: Consultation) => {
+  const [canTransfer, setCanTransfer] = useState<boolean>(false);
+  
+  useEffect(() => {
+    if (record.type === 'consultation' && ['scheduled', 'consulting'].includes(record.status)) {
+      canTransferConsultation(record._id).then(setCanTransfer);
+    }
+  }, [record]);
+
+  if (record.type !== 'consultation') return null;
+  if (!['scheduled', 'consulting'].includes(record.status)) return null;
+
+  return (
+    <Tooltip title={canTransfer ? "Thuyên chuyển cho bác sĩ khác" : "Không có bác sĩ khác trong slot này"}>
+      <Button 
+        type="text" 
+        icon={<SwapOutlined />} 
+        size="small"
+        danger={canTransfer}
+        disabled={!canTransfer}
+        onClick={() => showTransferModal(record)}
+      >
+        {canTransfer ? 'Thuyên chuyển' : 'Không thể chuyển'}
+      </Button>
+    </Tooltip>
+  );
 };
 ```
 
-### 📋 **2. Backend Changes (Sẽ thực hiện sau)**
-- [ ] Auto-confirm logic trong `updatePaymentStatus`
-- [ ] Tạo `setSlotAbsent` function
-- [ ] Implement auto re-assignment
-- [ ] Update cancel logic
+### 🏥 **APPOINTMENT CANCEL LOGIC (Lịch hẹn khám bệnh)**
+
+#### **A. Behavior Mong Muốn:**
+- ✅ **72h Rule:** Chỉ hiển thị nút hủy nếu `thời điểm hiện tại + 72h < thời gian hẹn`
+- ✅ **Dưới 72h:** Mất luôn nút cancel
+- ✅ **Status Validation:** Chỉ cancel được `scheduled`, `consulting`
+
+#### **B. Implementation Details (✅ ĐÃ IMPLEMENTED):**
+```typescript
+// ✅ HIỆN TẠI ĐÃ CÓ - Logic 72h rule
+const canCancelAppointment = (appointmentDate: string, appointmentTime: string, status: string): boolean => {
+  try {
+    // ✅ Only allow cancel for scheduled/consulting appointments
+    if (!['scheduled', 'consulting'].includes(status)) {
+      return false;
+    }
+    
+  const now = new Date();
+  const appointmentDateTime = new Date(`${appointmentDate} ${appointmentTime}`);
+  const deadline = new Date(now.getTime() + (72 * 60 * 60 * 1000)); // +72h
+    
+    // Allow cancel only if deadline <= appointment time
+  return deadline <= appointmentDateTime;
+  } catch (error) {
+    console.error('Error checking cancel deadline:', error);
+    return false;
+  }
+};
+
+// ✅ HIỆN TẠI ĐÃ CÓ - Render logic
+{canCancelAppointment(record.appointmentDate, record.appointmentTime, record.status) && (
+  <Tooltip title="Hủy lịch hẹn (chỉ có thể hủy trước 72h)">
+    <Button 
+      type="text" 
+      icon={<DeleteOutlined />} 
+      size="small"
+      danger
+      onClick={() => showCancelModal(record)}
+    >
+      Hủy lịch hẹn
+    </Button>
+  </Tooltip>
+)}
+
+
+## 📋 **TRẠNG THÁI IMPLEMENTATION**
+
+### ✅ **ĐÃ HOÀN THÀNH:**
+- [x] ✅ **Appointment 72h Rule Logic** - Function `canCancelAppointment()` 
+- [x] ✅ **Appointment Cancel Button Rendering** - Conditional với 72h check
+- [x] ✅ **Status Validation** - Chỉ cho phép cancel `scheduled`, `consulting`
+- [x] ✅ **Cancel Modal & API Integration** - `handleCancelByDoctor()`
+- [x] ✅ **Status Enum Updates** - 4 states workflow
+- [x] ✅ **Auto-confirm After Payment** - Bỏ qua doctor manual confirm
+
+### 🚧 **CẦN THỰC HIỆN:**
+- [ ] ❌ **Consultation Transfer Logic** - `canTransferConsultation()` function
+- [ ] ❌ **Check Available Doctors API** - Backend endpoint `/api/consultations/:id/check-available-doctors`
+- [ ] ❌ **Transfer Modal Component** - UI cho thuyên chuyển consultation
+- [ ] ❌ **Different Button Rendering** - Phân biệt consultation vs appointment
+- [ ] ❌ **Transfer API Integration** - `handleTransferConsultation()`
+
+### 🔧 **CẦN SỬA ĐỔI:**
+- [ ] ❌ **Phân biệt Logic theo Type** - Hiện tại đang dùng chung `canCancelAppointment()`
+- [ ] ❌ **Button Text & Icon** - Consultation: "Thuyên chuyển", Appointment: "Hủy lịch hẹn"
+- [ ] ❌ **Dynamic Button State** - Consultation button cần check real-time availability
 
 ---
 
-## CHI TIẾT THỰC HIỆN
+## 🔄 **ENHANCED WORKFLOW DESIGN**
 
-### 🎯 **Phase 1: Frontend Updates (Hiện tại)**
+### 📱 **CONSULTATION WORKFLOW:**
+```
+Customer booking consultation
+    ↓
+Auto assign doctor + slot → status: `pending_payment`
+    ↓
+Payment success → status: `scheduled`
+    ↓
+Doctor có việc gấp → Nhấn "Thuyên chuyển"
+    ↓
+API Check: Có doctor khác free trong slot?
+    ├─ YES → Transfer successful → Consultation continues with new doctor
+    └─ NO  → Button disabled → Doctor bắt buộc phải làm
+```
 
-#### **1.1. Remove Confirm Logic**
-- [x] ✅ Xóa confirm button khỏi actions column
-- [x] ✅ Xóa handleStatusChange function  
-- [x] ✅ Update conditional rendering
-
-#### **1.2. Implement 72h Rule**
-- [x] ✅ Thêm canCancelAppointment function
-- [x] ✅ Apply điều kiện cho cancel button
-- [x] ✅ Update tooltips và messages
-
-#### **1.3. Status Management**
-- [x] ✅ Remove "confirmed" từ status enum
-- [x] ✅ Update getStatusText function
-- [x] ✅ Update filter options
-
----
-
-## TIMELINE
-
-### ✅ **Hoàn thành:**
-- [x] ✅ Phân tích workflow
-- [x] ✅ Tạo task breakdown
-- [x] ✅ Backend auto-assignment implementation
-- [x] ✅ Backend cancel logic with auto re-assign
-- [x] ✅ Frontend updates (management/AppointmentManagement.tsx)
-- [x] ✅ Status enum updates (4 states)
-- [x] ✅ 72h cancel rule implementation
-
-### 🚧 **Đang thực hiện:**
-- [x] ✅ Frontend updates (COMPLETED)
-- [ ] Integration testing
-- [ ] User acceptance testing
-
-### ⏳ **Sẽ thực hiện:**
-- [x] ✅ Backend integration (COMPLETED)
-- [x] ✅ Auto re-assignment (COMPLETED)
+### 🏥 **APPOINTMENT WORKFLOW:**
+```
+Customer booking appointment
+    ↓
+Auto assign doctor + slot → status: `pending_payment`
+    ↓
+Payment success → status: `scheduled`
+    ↓
+Time check: Current time + 72h < appointment time?
+    ├─ YES → Show "Hủy lịch hẹn" button
+    └─ NO  → No cancel button → Doctor bắt buộc phải làm
+```
 
 ---
 
-**Last Updated:** 2025-01-25 (Completed)  
-**Next Review:** Production deployment & monitoring  
-**Responsible:** Development Team
+## 🛠 **TECHNICAL REQUIREMENTS - UPDATED**
+
+### **Backend APIs Needed:**
+```typescript
+// 1. Check available doctors trong cùng slot/ca
+GET /api/consultations/:id/check-available-doctors
+Response: {
+  available: boolean,
+  doctors: Doctor[],
+  slotInfo: SlotInfo
+}
+
+// 2. Transfer consultation sang doctor khác
+POST /api/consultations/:id/transfer
+Body: {
+  newDoctorId: string,
+  reason: string
+}
+
+// 3. Enhanced cancel với different logic
+POST /api/appointments/:id/cancel-by-doctor    // 72h rule
+POST /api/consultations/:id/transfer           // No time limit
+```
+
+### **Frontend Components Needed:**
+```typescript
+// 1. TransferConsultationModal.tsx
+// 2. Enhanced AppointmentManagement với dual logic
+// 3. DynamicCancelButton component
+// 4. AvailabilityChecker hook
+```
 
 ---
 
-## ✅ **IMPLEMENTATION SUMMARY**
+## ✅ **IMPLEMENTATION SUMMARY - UPDATED**
 
-### **Backend Changes Completed:**
-- ✅ **Intelligent Auto Assignment** với doctor priority algorithm
-- ✅ **Enhanced Cancel Logic** với auto re-assignment cho consultations  
-- ✅ **Slot Management** với Absent status và audit trail
-- ✅ **Status Simplification** từ 5 states xuống 4 states
-- ✅ **72h Cancel Rule** implementation
+### **Current Status:**
+- ✅ **Appointment Cancel Logic:** FULLY IMPLEMENTED với 72h rule
+- ❌ **Consultation Transfer Logic:** CHƯA IMPLEMENTED
+- ✅ **Auto-confirm Workflow:** COMPLETED
+- ✅ **Status Management:** COMPLETED (4 states)
 
-### **Frontend Changes Completed:**
-- ✅ **Removed Manual Confirm Buttons** theo workflow mới
-- ✅ **72h Cancel Rule UI** với conditional rendering
-- ✅ **Different Cancel Rules** cho appointments vs consultations
-- ✅ **Status Enum Updates** cho 4 states mới
-- ✅ **Filter Options Updates** match với backend
-- ✅ **Enhanced Cancel UI** với tooltips và validation
+### **Next Steps:**
+1. 🎯 **Priority 1:** Implement consultation transfer logic
+2. 🎯 **Priority 2:** Create TransferConsultationModal
+3. 🎯 **Priority 3:** Integrate availability checking API
+4. 🎯 **Priority 4:** Testing both workflows
 
-### **Key Improvements:**
-- 🚀 **Faster Workflow:** Auto-confirm sau payment
-- 🧠 **Smart Assignment:** Priority-based doctor selection  
-- 🔄 **Auto Re-assignment:** Seamless doctor substitution cho consultations
-- ⏰ **Different Cancel Rules:** 72h rule cho appointments, flexible cho consultations
-- 🎯 **Simplified Status:** Clear 4-state workflow
-
-### **ADDITIONAL REQUIREMENT - CONSULTATION CANCELLATION:**
-- ✅ **Doctor Cancel for Consultations:** Doctor có thể hủy consultation trong MỌI trường hợp (từ `pending_payment` trở đi), trừ `cancelled` và `completed`
-- ✅ **No 72h Rule for Consultations:** Khác với appointments, consultations không có giới hạn 72h
-- ✅ **Auto Re-assignment:** Khi doctor hủy consultation, hệ thống TỰ ĐỘNG tìm và assign bác sĩ khác
-- ✅ **Frontend Implementation:** UI phân biệt cancel button cho appointments vs consultations 
+**Last Updated:** 2025-01-25 (Logic Analysis Updated)  
+**Next Review:** After consultation transfer implementation  
+**Responsible:** Development Team 
