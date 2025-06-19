@@ -181,13 +181,35 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         // ✅ Load appointments list từ API
         if (data?.appointments) {
           console.log('📅 Operational appointments:', data.appointments);
-          setAppointments(data.appointments);
+          // Transform API data to match local AppointmentItem interface
+          const transformedAppointments = data.appointments.map((appointment: any) => ({
+            id: appointment.id,
+            patientName: appointment.patientName,
+            doctorName: appointment.doctorName,
+            time: appointment.time,
+            status: appointment.status,
+            service: appointment.service || 'Dịch vụ chưa xác định',
+            notes: appointment.notes,
+            priority: appointment.priority || 'medium',
+            phone: appointment.phone
+          }));
+          setAppointments(transformedAppointments);
         }
         
         // ✅ Load recent activities nếu có
         if (data?.recentActivities) {
           console.log('📝 Operational activities:', data.recentActivities);
-          setActivities(data.recentActivities);
+          // Transform API data to match local ActivityItem interface
+          const transformedActivities = data.recentActivities.map((activity: any) => ({
+            id: activity.id,
+            user: activity.title || activity.user,
+            action: activity.description || activity.action,
+            time: typeof activity.time === 'string' ? activity.time : new Date(activity.time).toISOString(),
+            status: activity.status || 'info',
+            avatar: activity.avatar,
+            type: activity.type || 'system'
+          }));
+          setActivities(transformedActivities);
         }
         
       } catch (err) {
@@ -278,7 +300,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
             <Col xs={24} sm={12} lg={6} key={index}>
               <StatsCard stat={{
                 ...stat,
-                icon: getIconComponent(stat.icon)
+                icon: stat.icon as string
               }} />
             </Col>
           ))

@@ -69,7 +69,7 @@ interface UserProfile {
   id: string;
   fullName: string;
   phone: string;
-  birthDate: string | Date;
+  birthDate: string;
   gender: string;
   relationship: string; // 'self' | 'family'
   isDefault: boolean;
@@ -267,15 +267,21 @@ const Booking: React.FC = () => {
       
       // ✅ Sử dụng API đúng để lấy doctor schedules
       const response = await doctorScheduleApi.getAvailableDoctors(selectedDate);
-      console.log('✅ [Debug] Raw API response:', response);
+      console.log('🔍 [Debug] Raw response for time slots:', response);
       
-      // ✅ FIX: Truy cập response.data thay vì response trực tiếp
-      const availableDoctorsData = Array.isArray(response) ? response : (response?.data || []);
+      // ✅ FIX: Kiểm tra cấu trúc response trước khi truy cập
+      let availableDoctorsData: any[] = [];
+      if (Array.isArray(response)) {
+        availableDoctorsData = response;
+      } else if (response && typeof response === 'object' && 'data' in response) {
+        availableDoctorsData = (response as any).data || [];
+      } else {
+        availableDoctorsData = [];
+      }
       
       if (!Array.isArray(availableDoctorsData)) {
-        console.log('⚠️ [Debug] availableDoctorsData is not an array, using empty array');
-        setDoctorAvailability([]);
-        setDoctorScheduleMap(new Map());
+        console.log('⚠️ [Debug] availableDoctorsData is not an array');
+        setTimeSlots([]);
         return;
       }
       
@@ -445,7 +451,7 @@ const Booking: React.FC = () => {
         fullName: values.fullName,
         phone: values.phone,
         year: values.birthDate,
-        gender: values.gender
+        gender: values.gender as 'male' | 'female' | 'other'
       });
       
       console.log('✅ [Debug] Created profile:', newProfile);
@@ -592,14 +598,14 @@ const Booking: React.FC = () => {
           fullName: string;
           phone?: string;
           email?: string;
-          year?: string | number;
+          year?: string | Date;
           gender: string;
         }) => ({
           id: profile._id,
           fullName: profile.fullName,
           phone: profile.phone || '',
           email: profile.email || '',
-          birthDate: typeof profile.year === 'string' ? profile.year : (profile.year ? String(profile.year) : ''),
+          birthDate: profile.year ? (typeof profile.year === 'string' ? profile.year : new Date(profile.year).toISOString().split('T')[0]) : '',
           gender: profile.gender,
           relationship: 'self', // Default relationship
           isDefault: false // Có thể thêm logic để determine default profile
@@ -635,8 +641,15 @@ const Booking: React.FC = () => {
       const response = await doctorScheduleApi.getAvailableDoctors(selectedDate);
       console.log('🔍 [Debug] Raw response for time slots:', response);
       
-      // ✅ FIX: Truy cập response.data thay vì response trực tiếp  
-      const availableDoctorsData = Array.isArray(response) ? response : (response?.data || []);
+      // ✅ FIX: Kiểm tra cấu trúc response trước khi truy cập
+      let availableDoctorsData: any[] = [];
+      if (Array.isArray(response)) {
+        availableDoctorsData = response;
+      } else if (response && typeof response === 'object' && 'data' in response) {
+        availableDoctorsData = (response as any).data || [];
+      } else {
+        availableDoctorsData = [];
+      }
       
       if (!Array.isArray(availableDoctorsData)) {
         console.log('⚠️ [Debug] availableDoctorsData is not an array');
@@ -768,7 +781,14 @@ const Booking: React.FC = () => {
       
       try {
         const response = await doctorScheduleApi.getAvailableDoctors(selectedDate);
-        const availableDoctorsData = Array.isArray(response) ? response : (response?.data || []);
+        let availableDoctorsData: any[] = [];
+        if (Array.isArray(response)) {
+          availableDoctorsData = response;
+        } else if (response && typeof response === 'object' && 'data' in response) {
+          availableDoctorsData = (response as any).data || [];
+        } else {
+          availableDoctorsData = [];
+        }
         
         const { availableDoctorIds, doctorScheduleMap: finalScheduleMap } = await crossCheckWithAppointments(
           availableDoctorsData, 
@@ -1381,13 +1401,7 @@ const Booking: React.FC = () => {
                               <div className="flex-1">
                                 <h4 className="font-medium text-sm">{profile.fullName}</h4>
                                 <p className="text-xs text-gray-500">
-                                  {profile.gender === 'male' ? 'Nam' : 'Nữ'} • {
-                                    typeof profile.birthDate === 'string' 
-                                      ? profile.birthDate 
-                                      : profile.birthDate instanceof Date 
-                                        ? profile.birthDate.getFullYear() 
-                                        : 'N/A'
-                                  }
+                                  {profile.gender === 'male' ? 'Nam' : 'Nữ'} • {profile.birthDate}
                                 </p>
                               </div>
                             </div>
@@ -1614,18 +1628,7 @@ const Booking: React.FC = () => {
                             }
                           </p>
                           <p className="text-lg">
-                            <span className="font-semibold">Năm sinh:</span> {(() => {
-                              const profile = userProfiles.find(p => p.id === selectedProfile);
-                              const birthDate = profile?.birthDate;
-                              
-                              if (typeof birthDate === 'string') {
-                                return birthDate;
-                              } else if (birthDate instanceof Date) {
-                                return birthDate.getFullYear().toString();
-                              } else {
-                                return 'N/A';
-                              }
-                            })()}
+                            <span className="font-semibold">Năm sinh:</span> {userProfiles.find(p => p.id === selectedProfile)?.birthDate || 'N/A'}
                           </p>
                           <p className="text-lg">
                             <span className="font-semibold">Số điện thoại:</span> {userProfiles.find(p => p.id === selectedProfile)?.phone}

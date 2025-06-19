@@ -14,20 +14,23 @@ export interface DashboardStats {
 
 export interface ActivityItem {
     id: string;
-    type: string;
-    title: string;
-    description: string;
-    time: string | Date;
-    icon: string;
-    color: string;
+    user?: string;
+    action?: string;
+    time?: string;
+    status?: 'success' | 'warning' | 'error' | 'info';
+    avatar?: string;
+    type?: 'appointment' | 'consultation' | 'system' | 'user';
 }
 
 export interface AppointmentItem {
     id: string;
     patientName: string;
-    doctorName: string;
+    doctorName?: string;
     time: string;
-    status: string;
+    status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'in-progress' | 'waiting' | 'no-show';
+    service: string;
+    notes?: string;
+    priority?: 'high' | 'medium' | 'low';
     phone?: string;
 }
 
