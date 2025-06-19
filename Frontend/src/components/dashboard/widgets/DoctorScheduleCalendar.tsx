@@ -10,12 +10,7 @@ import {
   Col, 
   Tooltip,
   Avatar,
-  Divider,
-  DatePicker,
-  Select,
-  Dropdown,
-  MenuProps,
-  Badge
+  Divider
 } from 'antd';
 import { 
   CalendarOutlined, 
@@ -29,12 +24,7 @@ import {
   ExclamationCircleOutlined,
   LeftOutlined,
   RightOutlined,
-  MoreOutlined,
-  SettingOutlined,
-  PrinterOutlined,
-  DownloadOutlined,
-  PlayCircleOutlined,
-  LinkOutlined
+  PlayCircleOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -129,7 +119,7 @@ const generateMockSchedule = (startWeek: dayjs.Dayjs): WeekSchedule => {
 };
 
 const DoctorScheduleCalendar: React.FC = () => {
-  const [selectedWeek, setSelectedWeek] = useState(dayjs().startOf('week' as any));
+  const [selectedWeek, setSelectedWeek] = useState(dayjs().startOf('week'));
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
@@ -145,7 +135,7 @@ const DoctorScheduleCalendar: React.FC = () => {
   };
 
   const goToToday = () => {
-    setSelectedWeek(dayjs().startOf('week' as any));
+    setSelectedWeek(dayjs().startOf('week'));
   };
 
   const handleSlotClick = (slot: TimeSlot) => {
@@ -156,13 +146,11 @@ const DoctorScheduleCalendar: React.FC = () => {
   const getSlotColor = (slot: TimeSlot) => {
     switch (slot.status) {
       case 'Free':
-        return 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)';
+        return '#52c41a';
       case 'Booked':
-        return slot.appointmentType === 'online' 
-          ? 'linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)'
-          : 'linear-gradient(135deg, #fa8c16 0%, #ffc53d 100%)';
+        return slot.appointmentType === 'online' ? '#1890ff' : '#fa8c16';
       case 'Absent':
-        return 'linear-gradient(135deg, #8c8c8c 0%, #bfbfbf 100%)';
+        return '#8c8c8c';
       default:
         return '#f5f5f5';
     }
@@ -199,481 +187,190 @@ const DoctorScheduleCalendar: React.FC = () => {
     window.open(meetingLink, '_blank');
   };
 
-  const moreMenuItems: MenuProps['items'] = [
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Cài đặt lịch',
-    },
-    {
-      key: 'print',
-      icon: <PrinterOutlined />,
-      label: 'In lịch làm việc',
-    },
-    {
-      key: 'export',
-      icon: <DownloadOutlined />,
-      label: 'Xuất Excel',
-    },
-  ];
-
   return (
-    <div style={{ 
-      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-      minHeight: '100vh',
-      padding: '0',
-      margin: '-24px',
-    }}>
-      <style>
-        {`
-          @keyframes slideIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          
-          @keyframes glow {
-            0%, 100% { box-shadow: 0 4px 15px rgba(24, 144, 255, 0.2); }
-            50% { box-shadow: 0 8px 25px rgba(24, 144, 255, 0.4), 0 0 30px rgba(24, 144, 255, 0.3); }
-          }
-          
-          @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-          }
-          
-          .slot-card {
-            animation: slideIn 0.4s ease-out;
-            position: relative;
-            overflow: hidden;
-          }
-          
-          .slot-card:hover {
-            animation: glow 2s infinite ease-in-out;
-          }
-          
-          .slot-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s;
-          }
-          
-          .slot-card:hover::before {
-            left: 100%;
-          }
-          
-          .calendar-grid {
-            animation: slideIn 0.6s ease-out;
-          }
-          
-          .meet-button {
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            border: none;
-            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
-            transition: all 0.3s ease;
-          }
-          
-          .meet-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
-            background: linear-gradient(135deg, #45a049 0%, #4CAF50 100%);
-          }
-        `}
-      </style>
-
-      {/* Header với gradient đẹp */}
-      <div style={{ 
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '32px',
-        color: 'white',
-        borderRadius: '0 0 30px 30px',
-        boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        {/* Background decoration */}
-        <div style={{
-          position: 'absolute',
-          top: '-50%',
-          right: '-10%',
-          width: '300px',
-          height: '300px',
-          borderRadius: '50%',
-          background: 'rgba(255,255,255,0.1)',
-          filter: 'blur(100px)'
-        }} />
-        
+    <div style={{ background: '#f5f5f5', minHeight: '100vh', padding: '24px' }}>
+      {/* Header */}
+      <Card style={{ marginBottom: '24px', borderRadius: '8px' }}>
         <Row justify="space-between" align="middle">
           <Col>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <div style={{
-                width: '60px',
-                height: '60px',
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backdropFilter: 'blur(10px)'
-              }}>
-                <CalendarOutlined style={{ fontSize: '28px' }} />
-              </div>
-              <div>
-                <Title level={1} style={{ color: 'white', margin: 0, fontSize: '32px' }}>
+            <Title level={2} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <CalendarOutlined style={{ color: '#1890ff' }} />
                   Lịch làm việc cá nhân
                 </Title>
-                <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: '18px' }}>
+            <Text type="secondary" style={{ fontSize: '16px' }}>
                   Tuần {scheduleData.weekRange}
                 </Text>
-              </div>
-            </div>
           </Col>
           <Col>
-            <div style={{ 
-              background: 'rgba(255,255,255,0.15)',
-              padding: '12px 20px',
-              borderRadius: '25px',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255,255,255,0.2)'
-            }}>
-              <Space size="middle">
-                <Tag style={{ 
-                  margin: 0, 
-                  background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
-                  border: 'none',
-                  color: 'white',
-                  padding: '4px 12px',
-                  borderRadius: '15px'
-                }}>
-                  <CheckCircleOutlined /> Trống
-                </Tag>
-                <Tag style={{ 
-                  margin: 0, 
-                  background: 'linear-gradient(135deg, #fa8c16 0%, #ffc53d 100%)',
-                  border: 'none',
-                  color: 'white',
-                  padding: '4px 12px',
-                  borderRadius: '15px'
-                }}>
-                  <EnvironmentOutlined /> Tại phòng
-                </Tag>
-                <Tag style={{ 
-                  margin: 0, 
-                  background: 'linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)',
-                  border: 'none',
-                  color: 'white',
-                  padding: '4px 12px',
-                  borderRadius: '15px'
-                }}>
-                  <VideoCameraOutlined /> Online
-                </Tag>
-                <Tag style={{ 
-                  margin: 0, 
-                  background: 'linear-gradient(135deg, #8c8c8c 0%, #bfbfbf 100%)',
-                  border: 'none',
-                  color: 'white',
-                  padding: '4px 12px',
-                  borderRadius: '15px'
-                }}>
-                  <CloseCircleOutlined /> Vắng
-                </Tag>
-              </Space>
-            </div>
-          </Col>
-        </Row>
-
-        {/* Navigation Controls */}
-        <Row justify="space-between" align="middle" style={{ marginTop: '24px' }}>
-          <Col>
-            <Space size="middle">
+            <Space>
               <Button 
-                type="text" 
                 icon={<LeftOutlined />}
                 onClick={goToPreviousWeek}
-                style={{ 
-                  color: 'white', 
-                  borderColor: 'rgba(255,255,255,0.3)',
-                  background: 'rgba(255,255,255,0.1)',
-                  borderRadius: '20px',
-                  padding: '0 20px',
-                  height: '40px'
-                }}
               >
                 Tuần trước
               </Button>
               <Button 
-                type="text" 
+                type="primary" 
                 onClick={goToToday}
-                style={{ 
-                  color: 'white', 
-                  borderColor: 'rgba(255,255,255,0.3)',
-                  background: 'rgba(255,255,255,0.2)',
-                  borderRadius: '20px',
-                  padding: '0 20px',
-                  height: '40px',
-                  fontWeight: 'bold'
-                }}
               >
                 Hôm nay
               </Button>
               <Button 
-                type="text" 
                 icon={<RightOutlined />}
-                iconPosition="end"
                 onClick={goToNextWeek}
-                style={{ 
-                  color: 'white', 
-                  borderColor: 'rgba(255,255,255,0.3)',
-                  background: 'rgba(255,255,255,0.1)',
-                  borderRadius: '20px',
-                  padding: '0 20px',
-                  height: '40px'
-                }}
               >
                 Tuần sau
               </Button>
             </Space>
           </Col>
-          <Col>
-            <Space>
-              <DatePicker.WeekPicker
-                value={selectedWeek}
-                onChange={(date) => date && setSelectedWeek(date.startOf('week' as any))}
-                style={{ 
-                  background: 'rgba(255,255,255,0.1)', 
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  borderRadius: '20px',
-                  height: '40px'
-                }}
-                placeholder="Chọn tuần"
-              />
-              <Dropdown menu={{ items: moreMenuItems }} placement="bottomRight">
-                <Button 
-                  type="text" 
-                  icon={<MoreOutlined />}
-                  style={{ 
-                    color: 'white', 
-                    borderColor: 'rgba(255,255,255,0.3)',
-                    background: 'rgba(255,255,255,0.1)',
-                    borderRadius: '20px',
-                    width: '40px',
-                    height: '40px'
-                  }}
-                />
-              </Dropdown>
-            </Space>
-          </Col>
         </Row>
-      </div>
+
+        {/* Legend */}
+        <Divider />
+        <Row justify="center">
+          <Space size="large">
+            <Tag color="success">
+              <CheckCircleOutlined /> Lịch trống
+            </Tag>
+            <Tag color="processing">
+              <VideoCameraOutlined /> Tư vấn Online
+            </Tag>
+            <Tag color="warning">
+              <EnvironmentOutlined /> Khám tại phòng
+            </Tag>
+            <Tag color="default">
+              <CloseCircleOutlined /> Vắng mặt
+            </Tag>
+            </Space>
+        </Row>
+      </Card>
 
       {/* Calendar Grid */}
-      <div style={{ padding: '32px' }}>
-        <Card
-          className="calendar-grid"
-          style={{
-            borderRadius: '20px',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
-            border: 'none',
-            overflow: 'hidden',
-            background: 'white'
-          }}
-        >
-          <div style={{ overflowX: 'auto', minWidth: '900px' }}>
-            {/* Enhanced Header */}
+      <Card style={{ borderRadius: '8px' }}>
+        <div style={{ overflowX: 'auto' }}>
+          {/* Headers */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '120px repeat(7, 1fr)', 
+            gap: '1px',
+            background: '#f0f0f0',
+            padding: '1px'
+          }}>
+            {/* Time column header */}
             <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '160px repeat(7, 1fr)', 
-              gap: '3px',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              padding: '3px',
-              borderRadius: '15px',
-              marginBottom: '20px'
+              background: '#fafafa', 
+              padding: '16px', 
+              textAlign: 'center',
+              fontWeight: 'bold',
+              color: '#666'
             }}>
-              <div style={{ 
-                padding: '20px 16px', 
-                background: 'white',
-                borderRadius: '12px 0 0 12px',
-                fontWeight: 'bold',
-                textAlign: 'center',
-                color: '#667eea',
-                fontSize: '16px'
-              }}>
-                <ClockCircleOutlined style={{ marginRight: '8px', fontSize: '18px' }} />
+              <ClockCircleOutlined style={{ marginRight: '8px' }} />
                 Ca làm việc
-              </div>
-              {scheduleData.schedule.map((day, index) => {
-                const isToday = day.fullDate.isSame(dayjs(), 'day');
-                return (
-                  <div key={day.date} style={{ 
-                    padding: '20px 16px', 
-                    background: isToday 
-                      ? 'linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)' 
-                      : 'white',
-                    borderRadius: index === 6 ? '0 12px 12px 0' : '0',
-                    textAlign: 'center',
-                    color: isToday ? 'white' : '#667eea',
-                    position: 'relative'
-                  }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: '4px' }}>
-                      {day.dayName}
-                    </div>
-                    <div style={{ 
-                      fontSize: '14px', 
-                      color: isToday ? 'rgba(255,255,255,0.8)' : '#999' 
-                    }}>
-                      {day.date}
-                    </div>
-                    {isToday && (
-                      <div style={{ 
-                        position: 'absolute',
-                        top: '50%',
-                        right: '10px',
-                        transform: 'translateY(-50%)',
-                        width: '8px', 
-                        height: '8px', 
-                        borderRadius: '50%', 
-                        background: 'white',
-                        animation: 'pulse 2s infinite'
-                      }} />
-                    )}
-                  </div>
-                );
-              })}
             </div>
 
-            {/* Enhanced Schedule Grid */}
-            {TIME_SLOTS.map((timeSlot, timeIndex) => (
-              <div key={timeSlot} style={{ 
-                display: 'grid', 
-                gridTemplateColumns: '160px repeat(7, 1fr)', 
-                gap: '10px',
-                marginBottom: '10px'
-              }}>
-                {/* Enhanced Time Column */}
-                <div style={{ 
-                  padding: '24px 16px',
-                  background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-                  borderRadius: '15px',
+            {/* Day headers */}
+            {scheduleData.schedule.map((day) => (
+              <div 
+                key={day.date}
+                style={{ 
+                  background: day.fullDate.isSame(dayjs(), 'day') ? '#e6f7ff' : '#fafafa',
+                  padding: '16px', 
                   textAlign: 'center',
                   fontWeight: 'bold',
-                  color: '#495057',
-                  border: '2px solid #dee2e6',
+                  color: day.fullDate.isSame(dayjs(), 'day') ? '#1890ff' : '#333'
+                }}
+              >
+                <div style={{ fontSize: '14px' }}>{day.dayName}</div>
+                <div style={{ fontSize: '18px', marginTop: '4px' }}>{day.date}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Time slots */}
+          {TIME_SLOTS.map((timeSlot, timeIndex) => (
+            <div 
+              key={timeSlot}
+              style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '120px repeat(7, 1fr)', 
+                gap: '1px',
+                background: '#f0f0f0',
+                padding: '1px'
+              }}
+            >
+              {/* Time label */}
+              <div style={{ 
+                background: '#fafafa', 
+                padding: '16px', 
+                textAlign: 'center',
+                fontWeight: '500',
+                color: '#666',
                   display: 'flex',
                   flexDirection: 'column',
-                  justifyContent: 'center',
-                  fontSize: '14px',
-                  position: 'relative'
-                }}>
-                  <div style={{ fontSize: '16px', marginBottom: '4px' }}>{timeSlot}</div>
-                  <Badge 
-                    count={`Ca ${timeIndex + 1}`} 
-                    style={{ 
-                      background: '#667eea',
-                      color: 'white',
-                      fontSize: '11px',
-                      padding: '2px 8px',
-                      borderRadius: '10px'
-                    }} 
-                  />
+                justifyContent: 'center'
+              }}>
+                <div style={{ fontSize: '12px', color: '#999' }}>Ca {timeIndex + 1}</div>
+                <div style={{ fontSize: '14px' }}>{timeSlot}</div>
                 </div>
                 
-                {/* Enhanced Day Columns */}
-                {scheduleData.schedule.map(day => {
-                  const slot = day.slots.find(s => s.slotTime === timeSlot);
-                  if (!slot) return <div key={day.date} />;
-
+              {/* Day slots */}
+              {scheduleData.schedule.map((day) => {
+                const slot = day.slots[timeIndex];
                   return (
                     <Tooltip
                       key={slot.id}
                       title={
                         slot.status === 'Booked' 
-                          ? `${slot.serviceName} - ${slot.patientName}`
+                        ? `${slot.patientName} - ${slot.serviceName}`
                           : getSlotText(slot)
                       }
                     >
                       <div
-                        className="slot-card"
                         onClick={() => handleSlotClick(slot)}
                         style={{
-                          padding: '20px 16px',
-                          background: getSlotColor(slot),
-                          color: 'white',
-                          borderRadius: '15px',
+                        background: '#fff',
+                        padding: '16px',
                           textAlign: 'center',
                           cursor: 'pointer',
-                          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                          border: slot.status === 'Booked' ? '3px solid rgba(255,255,255,0.3)' : 'none',
+                        transition: 'all 0.2s',
+                        borderLeft: `4px solid ${getSlotColor(slot)}`,
                           minHeight: '80px',
                           display: 'flex',
                           flexDirection: 'column',
                           justifyContent: 'center',
-                          alignItems: 'center',
-                          fontSize: '14px',
-                          fontWeight: '600',
-                          position: 'relative',
-                          overflow: 'hidden',
-                          boxShadow: '0 6px 20px rgba(0,0,0,0.15)',
-                          animationDelay: `${timeIndex * 0.05}s`
+                        alignItems: 'center'
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'translateY(-5px) scale(1.03)';
-                          e.currentTarget.style.boxShadow = '0 15px 40px rgba(0,0,0,0.2)';
-                          e.currentTarget.style.zIndex = '10';
+                        e.currentTarget.style.background = '#fafafa';
+                        e.currentTarget.style.transform = 'scale(1.02)';
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = 'translateY(0) scale(1)';
-                          e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
-                          e.currentTarget.style.zIndex = '1';
+                        e.currentTarget.style.background = '#fff';
+                        e.currentTarget.style.transform = 'scale(1)';
                         }}
                       >
-                        {/* Decorative elements */}
-                        {slot.status === 'Booked' && (
-                          <>
                             <div style={{
-                              position: 'absolute',
-                              top: 0,
-                              right: 0,
-                              width: '30px',
-                              height: '30px',
-                              background: 'rgba(255,255,255,0.2)',
-                              borderRadius: '0 15px 0 30px',
-                            }} />
-                            <div style={{
-                              position: 'absolute',
-                              bottom: 0,
-                              left: 0,
-                              width: '15px',
-                              height: '15px',
-                              background: 'rgba(255,255,255,0.15)',
-                              borderRadius: '0 15px 0 0',
-                            }} />
-                          </>
-                        )}
-                        
-                        <div style={{ 
-                          marginBottom: '8px',
-                          fontSize: '20px'
+                        color: getSlotColor(slot),
+                        fontSize: '18px',
+                        marginBottom: '8px'
                         }}>
                           {getSlotIcon(slot)}
                         </div>
-                        <div style={{ fontWeight: 'bold', fontSize: '14px' }}>
+                      <div style={{ 
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        color: getSlotColor(slot)
+                      }}>
                           {getSlotText(slot)}
                         </div>
                         {slot.status === 'Booked' && (
                           <div style={{ 
-                            fontSize: '11px', 
-                            opacity: 0.9, 
-                            marginTop: '6px',
-                            background: 'rgba(255,255,255,0.25)',
-                            padding: '4px 8px',
-                            borderRadius: '10px',
-                            fontWeight: '500'
-                          }}>
-                            {slot.appointmentType === 'online' ? '💻 Online' : '🏥 Phòng khám'}
+                          fontSize: '10px', 
+                          color: '#666',
+                          marginTop: '4px',
+                          textAlign: 'center'
+                        }}>
+                          {slot.patientName}
                           </div>
                         )}
                       </div>
@@ -684,27 +381,25 @@ const DoctorScheduleCalendar: React.FC = () => {
             ))}
           </div>
         </Card>
-      </div>
 
-      {/* Enhanced Detail Modal */}
+      {/* Detail Modal */}
       <Modal
         title={
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '8px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              width: '50px',
-              height: '50px',
+              width: '40px',
+              height: '40px',
               borderRadius: '50%',
               background: selectedSlot ? getSlotColor(selectedSlot) : '#f0f0f0',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'white',
-              fontSize: '20px'
+              color: 'white'
             }}>
               {selectedSlot && getSlotIcon(selectedSlot)}
             </div>
             <div>
-              <div style={{ fontSize: '20px', fontWeight: 'bold' }}>Chi tiết lịch hẹn</div>
+              <div style={{ fontSize: '16px', fontWeight: 'bold' }}>Chi tiết lịch hẹn</div>
               <div style={{ fontSize: '14px', color: '#666' }}>
                 {selectedSlot?.slotTime}
               </div>
@@ -724,30 +419,17 @@ const DoctorScheduleCalendar: React.FC = () => {
                 type="primary" 
                 icon={<PlayCircleOutlined />}
                 onClick={() => handleJoinMeeting(selectedSlot.meetingLink!)}
-                className="meet-button"
-                style={{
-                  background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  height: '40px',
-                  fontWeight: 'bold'
-                }}
+                style={{ background: '#52c41a', borderColor: '#52c41a' }}
               >
-                Tham gia Google Meet
+                Tham gia Meet
               </Button>
             ),
             <Button 
               key="complete"
               type="primary"
               icon={<CheckCircleOutlined />}
-              style={{ 
-                background: 'linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)',
-                border: 'none',
-                borderRadius: '8px',
-                height: '40px'
-              }}
             >
-              Hoàn thành khám
+              Hoàn thành
             </Button>
           ] : [
             <Button key="cancel" onClick={() => setIsModalVisible(false)}>
@@ -755,38 +437,21 @@ const DoctorScheduleCalendar: React.FC = () => {
             </Button>
           ]
         }
-        width={800}
-        style={{ top: 20 }}
-        styles={{
-          header: {
-            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-            borderRadius: '10px 10px 0 0'
-          }
-        }}
+        width={600}
       >
         {selectedSlot && (
           <div style={{ padding: '20px 0' }}>
             {selectedSlot.status === 'Free' && (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                <div style={{
-                  width: '100px',
-                  height: '100px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 24px',
-                  color: 'white',
-                  fontSize: '40px',
-                  boxShadow: '0 10px 30px rgba(82, 196, 26, 0.3)'
-                }}>
-                  <CheckCircleOutlined />
-                </div>
-                <Title level={2} style={{ color: '#52c41a', margin: '0 0 12px 0' }}>
+                <CheckCircleOutlined style={{ 
+                  fontSize: '48px', 
+                  color: '#52c41a', 
+                  marginBottom: '16px' 
+                }} />
+                <Title level={3} style={{ color: '#52c41a', margin: '0 0 8px 0' }}>
                   Lịch trống
                 </Title>
-                <Text type="secondary" style={{ fontSize: '16px' }}>
+                <Text type="secondary" style={{ fontSize: '14px' }}>
                   Bạn có thể sử dụng thời gian này để nghỉ ngơi hoặc làm việc khác
                 </Text>
               </div>
@@ -794,25 +459,15 @@ const DoctorScheduleCalendar: React.FC = () => {
 
             {selectedSlot.status === 'Absent' && (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                <div style={{
-                  width: '100px',
-                  height: '100px',
-                  borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #8c8c8c 0%, #bfbfbf 100%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 24px',
-                  color: 'white',
-                  fontSize: '40px',
-                  boxShadow: '0 10px 30px rgba(140, 140, 140, 0.3)'
-                }}>
-                  <ExclamationCircleOutlined />
-                </div>
-                <Title level={2} style={{ color: '#8c8c8c', margin: '0 0 12px 0' }}>
-                  Không có mặt
+                <ExclamationCircleOutlined style={{ 
+                  fontSize: '48px', 
+                  color: '#8c8c8c', 
+                  marginBottom: '16px' 
+                }} />
+                <Title level={3} style={{ color: '#8c8c8c', margin: '0 0 8px 0' }}>
+                  Vắng mặt
                 </Title>
-                <Text type="secondary" style={{ fontSize: '16px' }}>
+                <Text type="secondary" style={{ fontSize: '14px' }}>
                   Bạn đã đăng ký không có mặt trong thời gian này
                 </Text>
               </div>
@@ -820,208 +475,80 @@ const DoctorScheduleCalendar: React.FC = () => {
 
             {selectedSlot.status === 'Booked' && (
               <div>
-                <Row gutter={[24, 24]}>
+                <Row gutter={[16, 16]}>
                   <Col span={24}>
-                    <div style={{ 
-                      background: selectedSlot.appointmentType === 'online' 
-                        ? 'linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)'
-                        : 'linear-gradient(135deg, #fff7e6 0%, #ffd591 100%)',
-                      padding: '24px',
-                      borderRadius: '16px',
-                      border: `3px solid ${selectedSlot.appointmentType === 'online' ? '#40a9ff' : '#ffc53d'}`,
-                      position: 'relative',
-                      overflow: 'hidden'
+                    <Card size="small" style={{ 
+                      background: selectedSlot.appointmentType === 'online' ? '#e6f7ff' : '#fff7e6'
                     }}>
-                      {/* Background decoration */}
-                      <div style={{
-                        position: 'absolute',
-                        top: '-20px',
-                        right: '-20px',
-                        width: '80px',
-                        height: '80px',
-                        borderRadius: '50%',
-                        background: 'rgba(255,255,255,0.3)',
-                        filter: 'blur(20px)'
-                      }} />
-                      
-                      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
-                        <div style={{
-                          width: '50px',
-                          height: '50px',
-                          borderRadius: '50%',
-                          background: selectedSlot.appointmentType === 'online' ? '#1890ff' : '#fa8c16',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          marginRight: '16px',
-                          fontSize: '20px',
-                          boxShadow: '0 8px 20px rgba(0,0,0,0.15)'
-                        }}>
-                          {selectedSlot.appointmentType === 'online' ? 
-                            <VideoCameraOutlined /> : <EnvironmentOutlined />
-                          }
-                        </div>
+                      <Row align="middle" gutter={16}>
+                        <Col flex="auto">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <Avatar icon={<UserOutlined />} size={40} />
                         <div>
-                          <Title level={3} style={{ margin: 0, color: '#1f2937' }}>
-                            {selectedSlot.appointmentType === 'online' ? 'Tư vấn trực tuyến' : 'Khám tại phòng'}
-                          </Title>
-                          <Text style={{ fontSize: '16px', color: '#6b7280' }}>
-                            {selectedSlot.serviceName}
+                              <Text strong style={{ fontSize: '16px' }}>
+                                {selectedSlot.patientName}
                           </Text>
+                              <div style={{ color: '#666', fontSize: '14px' }}>
+                                <PhoneOutlined style={{ marginRight: '8px' }} />
+                                {selectedSlot.patientPhone}
                         </div>
                       </div>
-
-                      {/* Special Google Meet button for online appointments */}
-                      {selectedSlot.appointmentType === 'online' && selectedSlot.meetingLink && (
-                        <div style={{ 
-                          background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                          padding: '16px',
-                          borderRadius: '12px',
-                          marginBottom: '16px',
-                          textAlign: 'center'
-                        }}>
-                          <Button 
-                            type="primary"
-                            size="large"
-                            icon={<PlayCircleOutlined />}
-                            onClick={() => handleJoinMeeting(selectedSlot.meetingLink!)}
-                            style={{
-                              background: 'white',
-                              color: '#4CAF50',
-                              border: 'none',
-                              fontWeight: 'bold',
-                              height: '50px',
-                              fontSize: '16px',
-                              borderRadius: '25px',
-                              minWidth: '200px',
-                              boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
-                            }}
+                          </div>
+                        </Col>
+                        <Col>
+                          <Tag 
+                            color={selectedSlot.appointmentType === 'online' ? 'blue' : 'orange'}
+                            style={{ padding: '4px 12px' }}
                           >
-                            Tham gia Google Meet
-                          </Button>
-                          <div style={{ marginTop: '8px' }}>
-                            <Text style={{ color: 'white', fontSize: '13px' }}>
-                              <LinkOutlined /> Sẵn sàng cho cuộc gọi video
-                            </Text>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                            {selectedSlot.appointmentType === 'online' ? 
+                              <><VideoCameraOutlined /> Online</> : 
+                              <><EnvironmentOutlined /> Tại phòng</>
+                            }
+                          </Tag>
+                        </Col>
+                      </Row>
+                    </Card>
                   </Col>
 
-                  <Col span={12}>
-                    <div style={{ 
-                      background: '#f8f9fa', 
-                      padding: '20px', 
-                      borderRadius: '16px',
-                      height: '100%',
-                      border: '2px solid #e9ecef'
-                    }}>
-                      <Text strong style={{ fontSize: '16px', color: '#1890ff' }}>
-                        Thông tin bệnh nhân
+                  <Col span={24}>
+                    <div style={{ padding: '16px', background: '#fafafa', borderRadius: '8px' }}>
+                      <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+                        Dịch vụ:
                       </Text>
-                      <div style={{ marginTop: '16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                          <Avatar icon={<UserOutlined />} size={40} style={{ background: '#1890ff' }} />
-                          <Text style={{ fontSize: '16px', fontWeight: '600' }}>
-                            {selectedSlot.patientName}
-                          </Text>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <PhoneOutlined style={{ color: '#1890ff', fontSize: '16px' }} />
-                          <Text style={{ fontSize: '14px' }}>{selectedSlot.patientPhone}</Text>
-                        </div>
-                      </div>
-                    </div>
-                  </Col>
+                      <Text>{selectedSlot.serviceName}</Text>
+                      
+                      <Divider style={{ margin: '16px 0' }} />
+                      
+                      <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+                        Phí tư vấn:
+                      </Text>
+                      <Text style={{ fontSize: '16px', color: '#52c41a', fontWeight: 'bold' }}>
+                        {selectedSlot.consultationFee?.toLocaleString('vi-VN')} VNĐ
+                      </Text>
 
-                  <Col span={12}>
-                    <div style={{ 
-                      background: '#f8f9fa', 
-                      padding: '20px', 
-                      borderRadius: '16px',
-                      height: '100%',
-                      border: '2px solid #e9ecef'
-                    }}>
-                      <Text strong style={{ fontSize: '16px', color: '#1890ff' }}>
-                        Chi tiết thời gian
-                      </Text>
-                      <div style={{ marginTop: '16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-                          <ClockCircleOutlined style={{ color: '#1890ff', fontSize: '16px' }} />
-                          <Text style={{ fontSize: '16px', fontWeight: '600' }}>
-                            {selectedSlot.slotTime}
-                          </Text>
-                        </div>
-                        {selectedSlot.consultationFee && (
-                          <div style={{ 
-                            background: 'linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)',
-                            padding: '12px 16px',
-                            borderRadius: '12px',
-                            border: '2px solid #b7eb8f'
-                          }}>
-                            <Text strong style={{ color: '#52c41a', fontSize: '15px' }}>
-                              Phí tư vấn: {selectedSlot.consultationFee.toLocaleString('vi-VN')} VNĐ
-                            </Text>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </Col>
-
-                  {selectedSlot.notes && (
-                    <Col span={24}>
-                      <Divider style={{ margin: '20px 0' }} />
-                      <Text strong style={{ fontSize: '16px', color: '#1890ff' }}>
-                        Ghi chú từ bệnh nhân:
-                      </Text>
-                      <div style={{ 
-                        background: '#f9f9f9', 
-                        padding: '20px', 
-                        borderRadius: '16px',
-                        marginTop: '12px',
-                        border: '2px solid #e8e8e8'
-                      }}>
-                        <Text style={{ fontSize: '15px', lineHeight: 1.8 }}>
-                          {selectedSlot.notes}
+                      {selectedSlot.notes && (
+                        <>
+                          <Divider style={{ margin: '16px 0' }} />
+                          <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+                            Ghi chú:
                         </Text>
-                      </div>
-                    </Col>
-                  )}
+                          <Text>{selectedSlot.notes}</Text>
+                        </>
+                      )}
 
-                  {selectedSlot.meetingLink && (
-                    <Col span={24}>
-                      <Divider style={{ margin: '20px 0' }} />
-                      <div style={{ 
-                        background: 'linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)', 
-                        padding: '20px', 
-                        borderRadius: '16px',
-                        border: '2px solid #40a9ff'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
-                          <VideoCameraOutlined style={{ color: '#1890ff', marginRight: '12px', fontSize: '18px' }} />
-                          <Text strong style={{ color: '#1890ff', fontSize: '16px' }}>
-                            Link tham gia cuộc họp:
+                      {selectedSlot.appointmentType === 'online' && selectedSlot.meetingLink && (
+                        <>
+                          <Divider style={{ margin: '16px 0' }} />
+                          <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+                            Link tham gia:
                           </Text>
-                        </div>
-                        <Text 
-                          code 
-                          copyable 
-                          style={{ 
-                            fontSize: '14px',
-                            background: 'rgba(255,255,255,0.9)',
-                            padding: '12px 16px',
-                            borderRadius: '8px',
-                            display: 'block',
-                            border: '1px solid #d9d9d9'
-                          }}
-                        >
+                          <Text code copyable={{ text: selectedSlot.meetingLink }}>
                           {selectedSlot.meetingLink}
                         </Text>
+                        </>
+                      )}
                       </div>
                     </Col>
-                  )}
                 </Row>
               </div>
             )}

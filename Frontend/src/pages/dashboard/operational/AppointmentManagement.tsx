@@ -43,7 +43,7 @@ const { TextArea } = Input;
 type Appointment = UnifiedAppointment;
 
 interface DetailData {
-  profileId?: { gender?: 'male' | 'female' | 'other'; year?: number };
+  profileId?: { gender?: 'male' | 'female' | 'other'; year?: number | string };
   serviceId?: { price?: number };
   packageId?: { price?: number };
   doctorNotes?: string;
@@ -95,10 +95,10 @@ const AppointmentManagement: React.FC = () => {
       // ✅ FINAL: Show both original + fallback cancel button
       return (
         <Space>
-          <AppointmentCancelButton 
-            appointment={record} 
-            onCancelClick={(appointment) => showCancelModal(appointment)} 
-          />
+        <AppointmentCancelButton 
+          appointment={record} 
+          onCancelClick={(appointment) => showCancelModal(appointment)} 
+        />
           {/* ✅ FALLBACK: Always visible cancel button */}
           <Button 
             type="text" 
@@ -306,9 +306,9 @@ const AppointmentManagement: React.FC = () => {
         // ✅ CONSULTATION: This should use transfer logic, not direct cancel
         // But keep this for legacy support or direct cancel cases
         success = await appointmentManagementService.cancelConsultationByDoctor(
-          cancelAppointmentData.id,
-          cancelReason.trim()
-        );
+        cancelAppointmentData.id,
+        cancelReason.trim()
+      );
         
         if (success) {
           message.success('Hủy tư vấn thành công. Hệ thống sẽ tự động tìm bác sĩ thay thế.');
@@ -396,8 +396,8 @@ const AppointmentManagement: React.FC = () => {
                     {appointment.type === 'appointment' && (detailData as DetailData).profileId?.year && (
                       <Descriptions.Item label="Năm sinh">
                         {(() => {
-                          const year = (detailData as DetailData).profileId.year;
-                          if (typeof year === 'string' && year.includes('T')) {
+                          const year = (detailData as DetailData).profileId?.year;
+                          if (year && typeof year === 'string' && year.includes('T')) {
                             // Nếu là ISO date string, extract năm
                             return new Date(year).getFullYear();
                           }
@@ -832,7 +832,7 @@ const AppointmentManagement: React.FC = () => {
                     backgroundColor: '#dbeafe',
                     borderRadius: '50%'
                   }} />
-                  <div>
+            <div>
                     <div style={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
                       {cancelAppointmentData.patientName}
                     </div>
@@ -859,15 +859,15 @@ const AppointmentManagement: React.FC = () => {
                 }}>
                   Lý do hủy {cancelAppointmentData.type === 'consultation' ? 'tư vấn' : 'lịch hẹn'}: 
                   <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
-                </div>
-                
-                <TextArea
+              </div>
+              
+              <TextArea
                   placeholder={`Vui lòng nhập lý do hủy ${cancelAppointmentData.type === 'consultation' ? 'tư vấn' : 'lịch hẹn'} (bắt buộc)...`}
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  rows={4}
-                  maxLength={500}
-                  showCount
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={4}
+                maxLength={500}
+                showCount
                   style={{ 
                     borderRadius: '8px',
                     fontSize: '14px',
