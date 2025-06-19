@@ -154,6 +154,11 @@ const Booking: React.FC = () => {
   // State để lưu availability của doctors theo ngày
   const [doctorAvailability, setDoctorAvailability] = useState<string[]>([]);
 
+
+
+  // State for calendar
+  const [calendarDate, setCalendarDate] = useState(new Date());
+
   // Fetch doctors available for selected date and time slot
   const fetchAvailableDoctors = useCallback(async () => {
     if (!selectedDate) {
@@ -163,10 +168,15 @@ const Booking: React.FC = () => {
     
     try {
       console.log('🔍 [Debug] Fetching available doctors for date:', selectedDate, 'timeSlot:', selectedTimeSlot);
+      console.log('🔍 [Debug] Selected date as Date object:', new Date(selectedDate));
+      console.log('🔍 [Debug] Selected date toString:', new Date(selectedDate).toString());
+      console.log('🔍 [Debug] Selected date toDateString:', new Date(selectedDate).toDateString());
       
       // ✅ Sử dụng API đúng để lấy doctor schedules
       const response = await doctorScheduleApi.getAvailableDoctors(selectedDate);
       console.log('✅ [Debug] Raw API response:', response);
+      console.log('✅ [Debug] API Response Type:', typeof response);
+      console.log('✅ [Debug] API Response Keys:', Object.keys(response || {}));
       
       // ✅ FIX: Truy cập response.data thay vì response trực tiếp
       const availableDoctorsData = response.data || response;
@@ -314,6 +324,8 @@ const Booking: React.FC = () => {
     
     return 0;
   };
+
+
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
@@ -501,7 +513,7 @@ const Booking: React.FC = () => {
         reviewCount: 0, // Tạm thời set 0, có thể fetch riêng sau
         avatar: doctor.userId.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
         workload: Math.floor(Math.random() * 20) + 5, // Random workload for now
-        isAvailable: doctor.userId.isActive, // Chỉ check user active status
+        isAvailable: doctor.userId?.isActive !== false, // ✅ FIX: Default true, chỉ false nếu explicitly false
         bio: doctor.bio || 'Bác sĩ chuyên nghiệp với nhiều năm kinh nghiệm'
       }));
       
@@ -792,6 +804,40 @@ const Booking: React.FC = () => {
     }
   }, [searchParams, services]);
 
+  // Helper function to get calendar days
+  const getCalendarDays = () => {
+    const daysInMonth = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 0).getDate();
+    const firstDay = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 1).getDay();
+    const days: { day: number; dateString: string; isCurrentMonth: boolean }[] = [];
+
+    // Fill in the days of the previous month
+    for (let i = firstDay - 1; i >= 0; i--) {
+      const date = new Date(calendarDate.getFullYear(), calendarDate.getMonth(), 0);
+      date.setDate(date.getDate() - i);
+      days.push({ day: date.getDate(), dateString: date.toISOString().split('T')[0], isCurrentMonth: false });
+    }
+
+    // Fill in the days of the current month
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, i);
+      days.push({ day: i, dateString: date.toISOString().split('T')[0], isCurrentMonth: true });
+    }
+
+    // Fill in the days of the next month
+    for (let i = 1; i <= 7 - ((firstDay + daysInMonth) % 7) % 7; i++) {
+      const date = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 2, i);
+      days.push({ day: i, dateString: date.toISOString().split('T')[0], isCurrentMonth: false });
+    }
+
+    return days;
+  };
+
+  // Helper function to check if a date is today
+  const isDateToday = (dateString: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    return dateString === today;
+  };
+
   return (
     <BookingLayout>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -950,33 +996,94 @@ const Booking: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* 2. Chọn ngày */}
+                    {/* 2. Chọn ngày - CALENDAR COMPONENT */}
                     {typeLocation && (
                       <div className="border rounded-lg p-4">
                         <h3 className="text-lg font-semibold mb-3">2. Chọn ngày</h3>
-                        <div className="grid grid-cols-7 gap-1">
-                          {Array.from({ length: 14 }).map((_, index) => {
-                            const date = new Date();
-                            date.setDate(date.getDate() + index);
-                            const dateString = date.toISOString().split('T')[0];
-                            const dayOfWeek = date.toLocaleDateString('vi-VN', { weekday: 'short' });
-                            const dayOfMonth = date.getDate();
-                            
-                            return (
-                              <div 
-                                key={dateString}
-                                onClick={() => setSelectedDate(dateString)}
-                                className={`flex flex-col items-center justify-center p-2 rounded-md cursor-pointer transition text-center ${
-                                  selectedDate === dateString 
-                                    ? 'bg-blue-600 text-white' 
-                                    : 'hover:bg-blue-50 border border-gray-200'
-                                }`}
-                              >
-                                <span className="text-xs font-medium">{dayOfWeek}</span>
-                                <span className="text-sm font-bold">{dayOfMonth}</span>
+                        <div className="bg-white">
+                          {/* Calendar Header */}
+                          <div className="flex items-center justify-between mb-4">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentDate = calendarDate;
+                                const prevMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+                                setCalendarDate(prevMonth);
+                              }}
+                              className="p-2 hover:bg-gray-100 rounded-md"
+                            >
+                              ←
+                            </button>
+                            <h4 className="text-lg font-semibold">
+                              Tháng {calendarDate.getMonth() + 1} năm {calendarDate.getFullYear()}
+                            </h4>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentDate = calendarDate;
+                                const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+                                setCalendarDate(nextMonth);
+                              }}
+                              className="p-2 hover:bg-gray-100 rounded-md"
+                            >
+                              →
+                            </button>
+                          </div>
+
+                          {/* Calendar Days Header */}
+                          <div className="grid grid-cols-7 gap-1 mb-2">
+                            {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map(day => (
+                              <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
+                                {day}
                               </div>
-                            );
-                          })}
+                            ))}
+                          </div>
+
+                          {/* Calendar Grid */}
+                          <div className="grid grid-cols-7 gap-1">
+                            {getCalendarDays().map((dayInfo, index) => {
+                              const dayDate = new Date(dayInfo.dateString);
+                              const isToday = isDateToday(dayInfo.dateString);
+                              const isSelected = selectedDate === dayInfo.dateString;
+                              const isPast = dayDate.getTime() < new Date().setHours(0, 0, 0, 0);
+                              const isCurrentMonth = dayInfo.isCurrentMonth;
+                              
+                              return (
+                                <div 
+                                  key={index}
+                                  onClick={() => {
+                                    if (!isPast && isCurrentMonth) {
+                                      console.log(`🔍 [Calendar] Selected date: ${dayInfo.dateString} (${dayDate.toString()})`);
+                                      setSelectedDate(dayInfo.dateString);
+                                    }
+                                  }}
+                                  className={`
+                                    flex items-center justify-center p-2 text-sm rounded-md cursor-pointer transition
+                                    ${!isCurrentMonth ? 'text-gray-300' : ''}
+                                    ${isPast && isCurrentMonth ? 'text-gray-400 cursor-not-allowed' : ''}
+                                    ${isSelected ? 'bg-blue-600 text-white' : ''}
+                                    ${isToday && !isSelected ? 'bg-blue-100 text-blue-600 font-semibold' : ''}
+                                    ${!isPast && isCurrentMonth && !isSelected ? 'hover:bg-blue-50' : ''}
+                                    ${!isCurrentMonth || isPast ? 'cursor-not-allowed' : ''}
+                                  `}
+                                >
+                                  {dayInfo.day}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Calendar Legend */}
+                          <div className="flex justify-center mt-3 text-xs text-gray-500 space-x-4">
+                            <div className="flex items-center">
+                              <div className="w-3 h-3 bg-blue-100 rounded mr-1"></div>
+                              <span>Hôm nay</span>
+                            </div>
+                            <div className="flex items-center">
+                              <div className="w-3 h-3 bg-blue-600 rounded mr-1"></div>
+                              <span>Đã chọn</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
