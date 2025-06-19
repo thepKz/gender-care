@@ -194,7 +194,12 @@ const BookingHistory: React.FC = () => {
           _id: string;
           serviceId?: { _id: string; serviceName: string; price: number };
           packageId?: { name: string; price: number };
-          doctorId?: { fullName: string; avatar: string };
+          doctorId?: { 
+            _id: string;
+            userId?: { fullName: string; avatar: string; email: string };
+            fullName?: string; 
+            avatar?: string; 
+          };
           appointmentDate: string;
           appointmentTime: string;
           typeLocation: string;
@@ -210,8 +215,45 @@ const BookingHistory: React.FC = () => {
           serviceId: apt.serviceId?._id || '',
           serviceName: apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
           packageName: apt.packageId?.name,
-          doctorName: apt.doctorId?.fullName || 'Chưa chỉ định', // Backend không populate doctorId
-          doctorAvatar: apt.doctorId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+          doctorName: (() => {
+            // Debug logging để kiểm tra dữ liệu
+            console.log('🔍 [Debug] Doctor data for appointment:', apt._id, {
+              doctorId: apt.doctorId,
+              doctorIdType: typeof apt.doctorId,
+              hasUserId: apt.doctorId?.userId ? true : false,
+              hasFullName: apt.doctorId?.fullName ? true : false,
+              userId: apt.doctorId?.userId,
+              fullName: apt.doctorId?.fullName
+            });
+            
+            // Kiểm tra các trường hợp khác nhau
+            if (!apt.doctorId) {
+              return 'Chưa chỉ định bác sĩ';
+            }
+            
+            // Trường hợp doctorId là string (chưa populate)
+            if (typeof apt.doctorId === 'string') {
+              return 'Chưa chỉ định bác sĩ';
+            }
+            
+            // Trường hợp doctorId đã được populate
+            if (apt.doctorId.userId?.fullName) {
+              return apt.doctorId.userId.fullName;
+            }
+            
+            // Trường hợp fallback với fullName trực tiếp
+            if (apt.doctorId.fullName) {
+              return apt.doctorId.fullName;
+            }
+            
+            return 'Chưa chỉ định bác sĩ';
+          })(), // Xử lý cả trường hợp populate và không populate
+                      doctorAvatar: (() => {
+              if (!apt.doctorId || typeof apt.doctorId === 'string') {
+                return 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150';
+              }
+              return apt.doctorId.userId?.avatar || apt.doctorId.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150';
+            })(),
           appointmentDate: new Date(apt.appointmentDate).toISOString().split('T')[0],
           appointmentTime: apt.appointmentTime,
           typeLocation: apt.typeLocation as string,

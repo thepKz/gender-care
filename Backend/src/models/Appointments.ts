@@ -5,6 +5,7 @@ export interface IAppointments {
   profileId: mongoose.Types.ObjectId;
   packageId?: mongoose.Types.ObjectId;
   serviceId?: mongoose.Types.ObjectId;
+  doctorId?: mongoose.Types.ObjectId; // ID của bác sĩ được chỉ định
   slotId?: mongoose.Types.ObjectId; // embedded document reference
   appointmentDate: Date;
   appointmentTime: string; // "8:00", "9:00"
@@ -36,6 +37,10 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Services'
+  },
+  doctorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Doctor'
   },
   slotId: {
     type: mongoose.Schema.Types.ObjectId // embedded document reference

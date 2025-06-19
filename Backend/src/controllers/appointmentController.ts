@@ -63,9 +63,27 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
             .populate('profileId', 'fullName gender phone year')
             .populate('serviceId', 'serviceName price serviceType')
             .populate('packageId', 'name price')
+            .populate({
+                path: 'doctorId',
+                match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
+                populate: {
+                    path: 'userId',
+                    select: 'fullName email avatar'
+                }
+            })
             .sort({ appointmentDate: -1, appointmentTime: -1 })
             .skip(skip)
             .limit(limitNumber);
+
+        // Debug logging để kiểm tra dữ liệu doctor
+        console.log('🔍 [Debug] Sample appointment doctor data:', appointments.slice(0, 2).map(apt => ({
+            _id: apt._id,
+            doctorId: apt.doctorId,
+            doctorIdType: typeof apt.doctorId,
+            hasDoctor: apt.doctorId ? true : false,
+            doctorUserId: (apt.doctorId as any)?.userId,
+            doctorFullName: (apt.doctorId as any)?.userId?.fullName
+        })));
 
         return res.status(200).json({
             success: true,
@@ -134,7 +152,8 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        // Kiểm tra slot có trống không (nếu slotId được cung cấp)
+        // Kiểm tra slot có trống không và lấy thông tin bác sĩ (nếu slotId được cung cấp)
+        let assignedDoctorId = null;
         if (slotId) {
             console.log('🔍 [Debug] Checking slot availability:', { slotId, appointmentDate, appointmentTime });
 
@@ -150,6 +169,10 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
                 console.log('❌ [Debug] No schedule found containing slotId:', slotId);
                 throw new NotFoundError('Không tìm thấy slot thời gian');
             }
+
+            // Lấy doctorId từ schedule để assign vào appointment
+            assignedDoctorId = schedule.doctorId;
+            console.log('🔍 [Debug] Assigned doctor ID:', assignedDoctorId);
 
             // Tìm slot cụ thể và kiểm tra trạng thái
             let slotFound = false;
@@ -186,6 +209,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             profileId,
             packageId: packageId || undefined,
             serviceId: serviceId || undefined,
+            doctorId: assignedDoctorId || undefined, // Gán bác sĩ từ slot
             slotId: slotId || undefined,
             appointmentDate,
             appointmentTime,
@@ -250,7 +274,15 @@ export const getAppointmentById = async (req: Request, res: Response) => {
             .populate('profileId', 'fullName gender phone year')
             .populate('serviceId', 'serviceName price serviceType')
             .populate('packageId', 'name price serviceIds')
-            .populate('createdByUserId', 'fullName email');
+            .populate('createdByUserId', 'fullName email')
+            .populate({
+                path: 'doctorId',
+                match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
+                populate: {
+                    path: 'userId',
+                    select: 'fullName email avatar'
+                }
+            });
 
         if (!appointment) {
             throw new NotFoundError('Không tìm thấy cuộc hẹn');
@@ -368,7 +400,15 @@ export const updateAppointment = async (req: Request, res: Response) => {
             { new: true }
         ).populate('profileId', 'fullName gender phone year')
             .populate('serviceId', 'serviceName price serviceType')
-            .populate('packageId', 'name price serviceIds');
+            .populate('packageId', 'name price serviceIds')
+            .populate({
+                path: 'doctorId',
+                match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
+                populate: {
+                    path: 'userId',
+                    select: 'fullName email avatar'
+                }
+            });
 
         return res.status(200).json({
             success: true,
