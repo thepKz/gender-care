@@ -1,4 +1,4 @@
-import { Form, Input, message } from 'antd';
+import { Form, Input, message, Modal, Select } from 'antd';
 import axios from 'axios';
 import {
   Activity,
@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appointmentApi } from '../../api/endpoints';
 import doctorApi from '../../api/endpoints/doctor';
+import doctorScheduleApi from '../../api/endpoints/doctorSchedule';
 import servicesApi from '../../api/endpoints/services';
 import userProfileApiInstance from '../../api/endpoints/userProfileApi';
 
@@ -99,17 +100,36 @@ interface BookingFormData {
   agreement: boolean;
 }
 
+// Thêm interfaces để tránh linter errors
+interface DoctorScheduleResponse {
+  doctorId: string;
+  doctorInfo: {
+    fullName: string;
+    email: string;
+    avatar: string;
+    specialization: string;
+    experience: number;
+    rating: number;
+  };
+  availableSlots: AvailableSlot[];
+  totalAvailableSlots: number;
+}
+
+interface AvailableSlot {
+  slotId: string;
+  slotTime: string;
+  status: 'Free' | 'Booked' | 'Absent';
+}
+
 const Booking: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [currentStep, setCurrentStep] = useState(0);
   const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
 
   // Thêm các states cho data từ API
   const [loadingServices, setLoadingServices] = useState(false);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
-  const [loadingProfiles, setLoadingProfiles] = useState(false);
   const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
 
   // Form state theo unified flow
@@ -134,7 +154,7 @@ const Booking: React.FC = () => {
   // State để lưu availability của doctors theo ngày
   const [doctorAvailability, setDoctorAvailability] = useState<string[]>([]);
 
-  // Fetch doctors available for selected date
+  // Fetch doctors available for selected date and time slot
   const fetchAvailableDoctors = useCallback(async () => {
     if (!selectedDate) {
       setDoctorAvailability([]);
@@ -142,52 +162,129 @@ const Booking: React.FC = () => {
     }
     
     try {
-      console.log('🔍 [Debug] Fetching available doctors for date:', selectedDate);
-      const response = await doctorApi.getAvailable(selectedDate);
-      console.log('✅ [Debug] Available doctors response:', response);
+      console.log('🔍 [Debug] Fetching available doctors for date:', selectedDate, 'timeSlot:', selectedTimeSlot);
       
-      // Backend trả về: {message, data: [...], searchCriteria}
-      const availableDoctors = (response as any).data || response;
-      console.log('✅ [Debug] Available doctors count:', availableDoctors.length);
+      // ✅ Sử dụng API đúng để lấy doctor schedules
+      const response = await doctorScheduleApi.getAvailableDoctors(selectedDate);
+      console.log('✅ [Debug] Raw API response:', response);
       
-      // Debug: Log structure của available doctors
-      if (availableDoctors.length > 0) {
-        console.log('✅ [Debug] First available doctor structure:', availableDoctors[0]);
+      // ✅ FIX: Truy cập response.data thay vì response trực tiếp
+      const availableDoctorsData = response.data || response;
+      
+      if (!Array.isArray(availableDoctorsData)) {
+        console.log('⚠️ [Debug] availableDoctorsData is not an array, using empty array');
+        setDoctorAvailability([]);
+        return;
       }
       
-      // Lưu danh sách ID của doctors có sẵn
-      const availableIds = availableDoctors.map((available: any) => 
-        available._id || available.doctorId || available.id
-      ).filter(Boolean);
+      console.log('✅ [Debug] Available doctor schedules count:', availableDoctorsData.length);
       
-      console.log('✅ [Debug] Available doctor IDs:', availableIds);
+      // Extract available doctor IDs và filter theo selectedTimeSlot
+      const availableIds: string[] = [];
+      
+      availableDoctorsData.forEach((doctorSchedule: DoctorScheduleResponse, index: number) => {
+        console.log(`🔍 [Debug] Processing doctor schedule ${index}:`, doctorSchedule);
+        
+        const doctorId = doctorSchedule.doctorId;
+        console.log(`🔍 [Debug] Doctor ${index} ID:`, doctorId);
+        
+        if (!doctorId) return;
+        
+        // ✅ Sử dụng availableSlots thay vì weekSchedule
+        console.log(`🔍 [Debug] Doctor ${index} availableSlots:`, doctorSchedule.availableSlots);
+        console.log(`🔍 [Debug] Doctor ${index} availableSlots length:`, doctorSchedule.availableSlots?.length);
+        
+        if (doctorSchedule.availableSlots && Array.isArray(doctorSchedule.availableSlots)) {
+          // ✅ Debug từng slot
+          doctorSchedule.availableSlots.forEach((slot: AvailableSlot, slotIndex: number) => {
+            console.log(`🔍 [Debug] Doctor ${index} Slot ${slotIndex}:`, {
+              slotTime: slot.slotTime,
+              status: slot.status,
+              slotId: slot.slotId
+            });
+          });
+          
+          if (selectedTimeSlot) {
+            console.log(`🔍 [Debug] Filtering for selectedTimeSlot: "${selectedTimeSlot}"`);
+            
+            // Nếu đã chọn time slot, chỉ kiểm tra slot đó
+            const hasAvailableSlot = doctorSchedule.availableSlots.some((slot: AvailableSlot) => {
+              const isMatchingTime = slot.slotTime === selectedTimeSlot;
+              const isFree = slot.status === 'Free';
+              console.log(`🔍 [Debug] Doctor ${index} Slot ${slot.slotTime}: matching=${isMatchingTime}, free=${isFree}`);
+              return isMatchingTime && isFree;
+            });
+            
+            console.log(`🔍 [Debug] Doctor ${index} has available slot for "${selectedTimeSlot}":`, hasAvailableSlot);
+            
+            if (hasAvailableSlot) {
+              availableIds.push(doctorId);
+              console.log(`✅ [Debug] Added doctor ${doctorId} to available list`);
+            }
+          } else {
+            console.log(`🔍 [Debug] No timeSlot selected, checking if doctor has any free slots`);
+            
+            // Nếu chưa chọn time slot, kiểm tra có ít nhất 1 slot free
+            const hasFreeSlots = doctorSchedule.availableSlots.some((slot: AvailableSlot) => slot.status === 'Free');
+            console.log(`🔍 [Debug] Doctor ${index} has free slots:`, hasFreeSlots);
+            
+            if (hasFreeSlots) {
+              availableIds.push(doctorId);
+              console.log(`✅ [Debug] Added doctor ${doctorId} to available list (has free slots)`);
+            }
+          }
+        } else {
+          console.log(`⚠️ [Debug] Doctor ${index} has no availableSlots or invalid availableSlots`);
+        }
+      });
+      
+      console.log('✅ [Debug] Final available doctor IDs:', availableIds);
+      console.log('✅ [Debug] Setting doctorAvailability to:', availableIds);
       setDoctorAvailability(availableIds);
       
     } catch (error) {
       console.error('❌ [Debug] Error fetching available doctors:', error);
-      console.log('⚠️ [Debug] Keeping original availability state');
       setDoctorAvailability([]);
     }
-  }, [selectedDate]);
+  }, [selectedDate, selectedTimeSlot]);
 
   // Computed doctors với availability
   const doctorsWithAvailability = useMemo(() => {
-    return doctors.map((doctor: Doctor) => ({
-      ...doctor,
-      isAvailable: selectedDate ? 
-        (doctorAvailability.includes(doctor.id) && doctor.isAvailable) : 
-        doctor.isAvailable
-    }));
+    console.log('🔍 [Debug] Computing doctorsWithAvailability...');
+    console.log('🔍 [Debug] doctors.length:', doctors.length);
+    console.log('🔍 [Debug] doctorAvailability:', doctorAvailability);
+    console.log('🔍 [Debug] selectedDate:', selectedDate);
+    
+    const result = doctors.map((doctor: Doctor) => {
+      const isAvailableBySchedule = selectedDate ? 
+        doctorAvailability.includes(doctor.id) : 
+        true; // Nếu chưa chọn ngày thì hiển thị tất cả
+      
+      const finalAvailability = isAvailableBySchedule && doctor.isAvailable;
+      
+      console.log(`🔍 [Debug] Doctor ${doctor.name} (${doctor.id}):`, {
+        originalAvailable: doctor.isAvailable,
+        inAvailabilityList: doctorAvailability.includes(doctor.id),
+        finalAvailability: finalAvailability
+      });
+      
+      return {
+        ...doctor,
+        isAvailable: finalAvailability
+      };
+    });
+    
+    const availableDoctors = result.filter(d => d.isAvailable);
+    console.log('✅ [Debug] Final available doctors count:', availableDoctors.length);
+    console.log('✅ [Debug] Available doctors:', availableDoctors.map(d => ({name: d.name, id: d.id})));
+    
+    return result;
   }, [doctors, doctorAvailability, selectedDate]);
 
   const steps = [
     { title: 'Chọn dịch vụ', description: 'Lựa chọn dịch vụ phù hợp' },
-    { title: 'Chọn bác sĩ', description: 'Chọn bác sĩ hoặc để hệ thống chọn' },
-    { title: 'Vị trí thực hiện', description: 'Online, phòng khám hoặc tại nhà' },
-    { title: 'Chọn lịch hẹn', description: 'Ngày và giờ phù hợp' },
-    { title: 'Chọn hồ sơ', description: 'Hồ sơ bệnh nhân' },
-    { title: 'Thông tin chi tiết', description: 'Điền thông tin bổ sung' },
-    { title: 'Xác nhận', description: 'Xem lại và xác nhận đặt lịch' }
+    { title: 'Thông tin đặt lịch', description: 'Nhập đầy đủ thông tin yêu cầu' },
+    { title: 'Xác nhận', description: 'Xem lại và xác nhận thông tin' }
   ];
 
   const formatPrice = (price: number) => {
@@ -236,8 +333,24 @@ const Booking: React.FC = () => {
     handleNext();
   };
 
-  const handleLocationSelect = (location: 'online' | 'clinic' | 'home') => {
-    setTypeLocation(location);
+  // Validate bước 2 trước khi chuyển sang bước 3
+  const handleStep2Continue = () => {
+    if (!typeLocation) {
+      message.error('Vui lòng chọn hình thức khám');
+      return;
+    }
+    if (!selectedDate) {
+      message.error('Vui lòng chọn ngày hẹn');
+      return;
+    }
+    if (!selectedTimeSlot) {
+      message.error('Vui lòng chọn giờ hẹn');
+      return;
+    }
+    if (!selectedProfile) {
+      message.error('Vui lòng chọn hồ sơ bệnh nhân');
+      return;
+    }
     handleNext();
   };
 
@@ -261,27 +374,13 @@ const Booking: React.FC = () => {
     }
   };
 
-  // Hàm validate và chuyển từ step 6 sang step 7
-  const handleStep6Continue = async () => {
-    try {
-      // Validate form trước khi chuyển step
-      await form.validateFields(['description', 'agreement']);
-      
-      // Nếu là dịch vụ tại nhà, validate địa chỉ
-      if (typeLocation === 'home') {
-        await form.validateFields(['address']);
-      }
-      
-      // Validation thành công, chuyển sang step tiếp theo
-      handleNext();
-    } catch (error) {
-      console.log('❌ [Debug] Validation failed:', error);
-      // Form sẽ tự động hiển thị lỗi validation
-    }
-  };
-
   // Hàm tạo profile mới
-  const handleCreateProfile = async (values: any) => {
+  const handleCreateProfile = async (values: {
+    fullName: string;
+    phone: string;
+    birthDate: string;
+    gender: string;
+  }) => {
     try {
       console.log('🔍 [Debug] Creating new profile:', values);
       
@@ -423,7 +522,6 @@ const Booking: React.FC = () => {
   };
 
   const fetchProfiles = async () => {
-    setLoadingProfiles(true);
     try {
       console.log('🔍 [Debug] Fetching user profiles...');
       
@@ -433,7 +531,14 @@ const Booking: React.FC = () => {
       
       if (response && Array.isArray(response)) {
         // Map từ backend structure sang frontend interface
-        const mappedProfiles: UserProfile[] = response.map((profile: any) => ({
+        const mappedProfiles: UserProfile[] = response.map((profile: {
+          _id: string;
+          fullName: string;
+          phone?: string;
+          email?: string;
+          year?: string | number;
+          gender: string;
+        }) => ({
           id: profile._id,
           fullName: profile.fullName,
           phone: profile.phone || '',
@@ -459,69 +564,64 @@ const Booking: React.FC = () => {
       console.log('ℹ️ [Debug] User may not be authenticated or no profiles exist - allowing manual profile creation');
       // Không show error message vì user có thể chưa đăng nhập hoặc chưa có profile
       setUserProfiles([]);
-    } finally {
-      setLoadingProfiles(false);
     }
   };
 
+  // Fetch time slots for selected date
   const fetchTimeSlots = async () => {
     if (!selectedDate) return;
     
     setLoadingTimeSlots(true);
     try {
-      console.log('🔍 [Debug] Fetching time slots for date:', selectedDate, 'doctor:', selectedDoctor);
+      console.log('🔍 [Debug] Fetching time slots for date:', selectedDate);
       
-      if (selectedDoctor) {
-        // Lấy available slots cho doctor cụ thể
-        const response = await doctorApi.getAvailable(selectedDate);
-        console.log('🔍 [Debug] Raw response structure:', response);
-        
-        // Backend trả về: {message, data: [...], searchCriteria}
-        const availableDoctorsData = (response as any).data || response;
-        console.log('🔍 [Debug] Extracted data:', availableDoctorsData);
-        
-        const doctorSlots = availableDoctorsData.find((doc: any) => doc.doctorId === selectedDoctor || doc._id === selectedDoctor);
-        
-        if (doctorSlots && doctorSlots.availableSlots) {
-          const mappedTimeSlots: TimeSlot[] = doctorSlots.availableSlots.map((slot: any) => ({
-            id: slot.slotId,
-            time: slot.slotTime,
-            isAvailable: slot.status === 'Free'
-          }));
-          
-          console.log('✅ [Debug] Mapped time slots for doctor:', mappedTimeSlots);
-          setTimeSlots(mappedTimeSlots);
-        } else {
-          console.log('⚠️ [Debug] No slots found for selected doctor');
-          setTimeSlots([]);
-        }
-      } else {
-        // Lấy tất cả available slots trong ngày (tổng hợp từ tất cả doctors)
-        const response = await doctorApi.getAvailable(selectedDate);
-        console.log('🔍 [Debug] Raw response for all slots:', response);
-        
-        // Backend trả về: {message, data: [...], searchCriteria}
-        const availableDoctorsData = (response as any).data || response;
-        const allSlots: TimeSlot[] = [];
-        
-        availableDoctorsData.forEach((doctor: any) => {
-          if (doctor.availableSlots) {
-            doctor.availableSlots.forEach((slot: any) => {
-              // Tránh duplicate slots
-              if (!allSlots.find(s => s.time === slot.slotTime)) {
-                allSlots.push({
-                  id: slot.slotId,
-                  time: slot.slotTime,
-                  isAvailable: slot.status === 'Free'
-                });
-              }
-            });
-          }
-        });
-        
-        console.log('✅ [Debug] All available time slots:', allSlots);
-        setTimeSlots(allSlots);
+      // ✅ Sử dụng API đúng để lấy doctor schedules
+      const response = await doctorScheduleApi.getAvailableDoctors(selectedDate);
+      console.log('🔍 [Debug] Raw response for time slots:', response);
+      
+      // ✅ FIX: Truy cập response.data thay vì response trực tiếp  
+      const availableDoctorsData = Array.isArray(response) ? response : ((response as any)?.data || []);
+      
+      if (!Array.isArray(availableDoctorsData)) {
+        console.log('⚠️ [Debug] availableDoctorsData is not an array');
+        setTimeSlots([]);
+        return;
       }
+      
+      // ✅ Tổng hợp tất cả time slots từ availableSlots của tất cả doctors
+      const allSlotsMap = new Map<string, { time: string; isAvailable: boolean }>();
+      
+      availableDoctorsData.forEach((doctorSchedule: DoctorScheduleResponse) => {
+        console.log('🔍 [Debug] Processing doctor schedule for slots:', doctorSchedule);
+        
+        // ✅ Sử dụng availableSlots thay vì weekSchedule
+        if (doctorSchedule.availableSlots && Array.isArray(doctorSchedule.availableSlots)) {
+          doctorSchedule.availableSlots.forEach((slot: any) => {
+            const slotTime = slot.slotTime;
+            
+            // Nếu slot chưa tồn tại hoặc slot hiện tại có status tốt hơn
+            if (!allSlotsMap.has(slotTime) || slot.status === 'Free') {
+              allSlotsMap.set(slotTime, {
+                time: slotTime,
+                isAvailable: slot.status === 'Free'
+              });
+            }
+          });
+        }
+      });
+      
+      // Convert Map to Array và sort theo thời gian
+      const mappedTimeSlots: TimeSlot[] = Array.from(allSlotsMap.values())
+        .map((slot) => ({
+          id: slot.time, // Sử dụng time làm ID cho dễ filter
+          time: slot.time,
+          isAvailable: slot.isAvailable
+        }))
+        .sort((a, b) => a.time.localeCompare(b.time));
+      
+      console.log('✅ [Debug] All available time slots:', mappedTimeSlots);
+      setTimeSlots(mappedTimeSlots);
+      
     } catch (error) {
       console.error('❌ [Debug] Error fetching time slots:', error);
       message.error('Không thể tải danh sách slot thời gian');
@@ -558,7 +658,6 @@ const Booking: React.FC = () => {
 
   // Cải thiện hàm handleSubmit với validation tốt hơn
   const handleSubmit = async (values: BookingFormData) => {
-    setLoading(true);
     try {
       // Kiểm tra các trường bắt buộc
       if (!selectedService && !selectedPackage) {
@@ -596,8 +695,32 @@ const Booking: React.FC = () => {
         throw new Error('ID gói dịch vụ không hợp lệ');
       }
       
-      if (selectedTimeSlot && !isValidObjectId(selectedTimeSlot)) {
-        throw new Error('ID slot thời gian không hợp lệ');
+      // ✅ Tìm slot ID từ time slot đã chọn
+      let actualSlotId = selectedTimeSlot;
+      
+      // Nếu selectedTimeSlot là time string (VD: "08:00-09:00"), 
+      // cần tìm slot ID tương ứng từ API
+      try {
+        const response = await doctorScheduleApi.getAvailableDoctors(selectedDate);
+        const availableDoctorsData = (response as any).data || response;
+        
+        // Tìm slot ID từ time string
+        for (const doctorSchedule of availableDoctorsData) {
+          if (doctorSchedule.availableSlots && Array.isArray(doctorSchedule.availableSlots)) {
+            const matchingSlot = doctorSchedule.availableSlots.find((slot: any) => 
+              slot.slotTime === selectedTimeSlot && slot.status === 'Free'
+            );
+            
+            if (matchingSlot) {
+              actualSlotId = matchingSlot._id;
+              console.log('✅ [Debug] Found slot ID:', actualSlotId, 'for time:', selectedTimeSlot);
+              break;
+            }
+          }
+        }
+      } catch (slotError) {
+        console.error('❌ [Debug] Error finding slot ID:', slotError);
+        // Nếu không tìm được slot ID, vẫn dùng time string
       }
       
       // Create appointment using API
@@ -605,10 +728,10 @@ const Booking: React.FC = () => {
         profileId: selectedProfile,
         packageId: selectedPackage || undefined,
         serviceId: selectedService || undefined,
-        doctorId: selectedDoctor || undefined, // Thêm doctorId vào request
-        slotId: selectedTimeSlot,
+        doctorId: selectedDoctor || undefined,
+        slotId: actualSlotId, // Sử dụng slot ID thật hoặc time string
         appointmentDate: selectedDate,
-        appointmentTime: timeSlots.find(slot => slot.id === selectedTimeSlot)?.time || '',
+        appointmentTime: selectedTimeSlot, // Luôn gửi time string
         appointmentType: getSelectedService()?.category as 'consultation' | 'test' | 'other' || 'other',
         typeLocation: typeLocation,
         address: values.address,
@@ -617,11 +740,6 @@ const Booking: React.FC = () => {
       };
       
       console.log('🔍 [Debug] Appointment data being sent:', JSON.stringify(appointmentData, null, 2));
-      console.log('🔍 [Debug] Selected time slot details:', {
-        selectedTimeSlot,
-        slotFromArray: timeSlots.find(slot => slot.id === selectedTimeSlot),
-        allTimeSlots: timeSlots
-      });
       
       const response = await appointmentApi.createAppointment(appointmentData);
       
@@ -639,8 +757,6 @@ const Booking: React.FC = () => {
       } else {
         message.error('Có lỗi xảy ra. Vui lòng thử lại!');
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -659,6 +775,13 @@ const Booking: React.FC = () => {
       fetchAvailableDoctors();
     }
   }, [selectedDate]);
+
+  // Refresh available doctors when timeSlot changes
+  useEffect(() => {
+    if (selectedDate && selectedTimeSlot) {
+      fetchAvailableDoctors();
+    }
+  }, [selectedTimeSlot, fetchAvailableDoctors]);
 
   // Auto-select service from URL params
   useEffect(() => {
@@ -706,21 +829,10 @@ const Booking: React.FC = () => {
           
           {/* Step content */}
           <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            {/* Step 1: Chọn dịch vụ */}
+            {/* Bước 1: Chọn dịch vụ */}
             {currentStep === 0 && (
-              <div>
+              <div className="h-[70vh] overflow-y-auto">
                 <h2 className="text-2xl font-bold mb-6">Chọn dịch vụ</h2>
-                
-                {/* Debug info cho services */}
-                <div className="mb-4 p-3 bg-gray-100 rounded-lg text-sm">
-                  <p><strong>Debug Services:</strong></p>
-                  <p><strong>Tổng số dịch vụ:</strong> {services.length}</p>
-                  <p><strong>Trạng thái loading:</strong> {loadingServices ? 'Đang tải...' : 'Đã tải xong'}</p>
-                  <p><strong>Nguồn dữ liệu:</strong> API từ Backend</p>
-                  {services.length > 0 && (
-                    <p><strong>Dịch vụ đầu tiên:</strong> {services[0].name} - {services[0].category}</p>
-                  )}
-                </div>
                 
                 {/* Loading state */}
                 {loadingServices && (
@@ -745,489 +857,560 @@ const Booking: React.FC = () => {
                   </div>
                 )}
                 
-                {/* Services grid */}
+                {/* Services grid - Compact */}
                 {!loadingServices && services.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {services.map(service => (
                       <div 
                         key={service.id}
                         onClick={() => handleServiceSelect(service.id)}
-                        className="bg-gradient-to-br border border-gray-100 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md"
+                        className={`border rounded-lg p-4 cursor-pointer transition ${
+                          selectedService === service.id 
+                            ? 'border-blue-500 bg-blue-50' 
+                            : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
+                        }`}
                       >
-                        <div className="flex items-center mb-4">
-                          <div className={`p-3 rounded-full bg-gradient-to-r ${service.gradient} text-white mr-4`}>
+                        <div className="flex items-center mb-3">
+                          <div className={`p-2 rounded-lg bg-gradient-to-r ${service.gradient} text-white mr-3`}>
                             {service.icon}
                           </div>
-                          <h3 className="text-xl font-semibold">{service.name}</h3>
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold">{service.name}</h3>
+                            <p className="text-sm text-gray-500">{service.duration}</p>
+                          </div>
                         </div>
-                        <p className="text-gray-600 mb-4">{service.description}</p>
+                        <p className="text-gray-600 text-sm mb-3 line-clamp-2">{service.description}</p>
                         <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-500">{service.duration}</span>
+                          <span className="text-sm text-gray-500">Từ</span>
                           <span className="font-bold text-blue-600">{formatPrice(service.price.clinic)}</span>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
-            )}
-            
-            {/* Step 2: Chọn bác sĩ */}
-            {currentStep === 1 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6">Chọn bác sĩ</h2>
-                
-                {/* Debug info */}
-                <div className="mb-4 p-3 bg-gray-100 rounded-lg text-sm">
-                  <p><strong>Debug:</strong> Ngày đã chọn: {selectedDate || 'Chưa chọn'}</p>
-                  <p><strong>Tổng số bác sĩ:</strong> {doctorsWithAvailability.length}</p>
-                  <p><strong>Bác sĩ có sẵn:</strong> {doctorsWithAvailability.filter((d: Doctor) => d.isAvailable).length}</p>
-                  <p><strong>Bác sĩ không có sẵn:</strong> {doctorsWithAvailability.filter((d: Doctor) => !d.isAvailable).length}</p>
-                  {!selectedDate && (
-                    <p className="text-orange-600 mt-2">
-                      <strong>Lưu ý:</strong> Chưa chọn ngày nên hiển thị tất cả bác sĩ. Chọn ngày ở bước tiếp theo để lọc bác sĩ có lịch trống.
-                    </p>
-                  )}
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {doctorsWithAvailability.map((doctor: Doctor) => (
-                    <div 
-                      key={doctor.id}
-                      onClick={() => {
-                        // Nếu chưa chọn ngày thì cho phép chọn bất kỳ bác sĩ nào
-                        if (selectedDate && !doctor.isAvailable) {
-                          message.warning('Bác sĩ này hiện không có sẵn cho ngày đã chọn');
-                          return;
-                        }
-                        console.log('🔍 [Debug] Selected doctor:', doctor);
-                        setSelectedDoctor(doctor.id);
-                        handleNext();
-                      }}
-                      className={`border rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md ${
-                        selectedDoctor === doctor.id 
-                          ? 'border-blue-500 bg-blue-50' 
-                          : (selectedDate && !doctor.isAvailable)
-                            ? 'border-gray-200 opacity-50 cursor-not-allowed'
-                            : 'border-gray-200 hover:border-blue-300'
-                      }`}
-                    >
-                      <div className="flex items-center mb-4">
-                        <img 
-                          src={doctor.avatar} 
-                          alt={doctor.name} 
-                          className="w-16 h-16 rounded-full object-cover mr-4"
-                        />
-                        <div>
-                          <h3 className="text-xl font-semibold">{doctor.name}</h3>
-                          <p className="text-gray-600">{doctor.specialization}</p>
-                        </div>
-                      </div>
-                      <div className="mb-4">
-                        <div className="flex items-center mb-2">
-                          <span className="text-yellow-400 mr-1">★</span>
-                          <span className="font-medium">{doctor.rating}</span>
-                          <span className="text-gray-500 text-sm ml-2">({doctor.reviewCount} đánh giá)</span>
-                        </div>
-                        <p className="text-gray-600 text-sm">{doctor.bio}</p>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-500">{doctor.experience} năm kinh nghiệm</span>
-                        <span className={`px-3 py-1 rounded-full text-xs ${
-                          !selectedDate 
-                            ? 'bg-blue-100 text-blue-800' 
-                            : doctor.isAvailable 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-red-100 text-red-800'
-                        }`}>
-                          {!selectedDate 
-                            ? 'Sẵn sàng' 
-                            : doctor.isAvailable 
-                              ? 'Có lịch trống' 
-                              : 'Không có lịch'
-                          }
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Option to let system choose */}
-                  <div 
-                    onClick={() => {
-                      setSelectedDoctor('');
-                      handleNext();
-                    }}
-                    className="border-2 border-dashed border-gray-300 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md flex flex-col items-center justify-center"
-                  >
-                    <div className="p-4 rounded-full bg-blue-100 text-blue-600 mb-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-semibold text-center">Để hệ thống chọn</h3>
-                    <p className="text-gray-600 text-center mt-2">Chúng tôi sẽ chọn bác sĩ phù hợp nhất với nhu cầu của bạn</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Step 3: Vị trí thực hiện */}
-            {currentStep === 2 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6">Chọn vị trí thực hiện</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div 
-                    onClick={() => handleLocationSelect('online')}
-                    className={`border rounded-xl p-6 cursor-pointer transform transition hover:scale-105 hover:shadow-md ${typeLocation === 'online' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-                  >
-                    <div className="flex items-center mb-4">
-                      <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-semibold">Online</h3>
-                    </div>
-                    <p className="text-gray-600 mb-4">Tư vấn trực tuyến qua video call</p>
-                    <div className="text-lg font-bold text-blue-600">
-                      {formatPrice(getSelectedService()?.price.online || getSelectedPackage()?.price.online || 0)}
-                    </div>
-                  </div>
-                  
-                  <div 
-                    onClick={() => handleLocationSelect('clinic')}
-                    className={`border rounded-xl p-6 cursor-pointer transform transition hover:scale-105 hover:shadow-md ${typeLocation === 'clinic' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-                  >
-                    <div className="flex items-center mb-4">
-                      <div className="p-3 rounded-full bg-green-100 text-green-600 mr-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-semibold">Phòng khám</h3>
-                    </div>
-                    <p className="text-gray-600 mb-4">Đến trực tiếp phòng khám của chúng tôi</p>
-                    <div className="text-lg font-bold text-blue-600">
-                      {formatPrice(getSelectedService()?.price.clinic || getSelectedPackage()?.price.clinic || 0)}
-                    </div>
-                  </div>
-                  
-                  <div 
-                    onClick={() => handleLocationSelect('home')}
-                    className={`border rounded-xl p-6 cursor-pointer transform transition hover:scale-105 hover:shadow-md ${typeLocation === 'home' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
-                  >
-                    <div className="flex items-center mb-4">
-                      <div className="p-3 rounded-full bg-orange-100 text-orange-600 mr-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                        </svg>
-                      </div>
-                      <h3 className="text-xl font-semibold">Tại nhà</h3>
-                    </div>
-                    <p className="text-gray-600 mb-4">Bác sĩ/nhân viên y tế đến tận nhà bạn</p>
-                    <div className="text-lg font-bold text-blue-600">
-                      {formatPrice(getSelectedService()?.price.home || getSelectedPackage()?.price.home || 0)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Step 4: Chọn lịch hẹn */}
-            {currentStep === 3 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6">Chọn lịch hẹn</h2>
-                
-                {/* Date picker */}
-                <div className="mb-8">
-                  <h3 className="text-lg font-semibold mb-4">Chọn ngày</h3>
-                  <div className="grid grid-cols-7 gap-2">
-                    {Array.from({ length: 14 }).map((_, index) => {
-                      const date = new Date();
-                      date.setDate(date.getDate() + index);
-                      const dateString = date.toISOString().split('T')[0];
-                      const dayOfWeek = new Intl.DateTimeFormat('vi-VN', { weekday: 'short' }).format(date);
-                      const dayOfMonth = date.getDate();
-                      
-                      return (
-                        <div 
-                          key={dateString}
-                          onClick={() => setSelectedDate(dateString)}
-                          className={`flex flex-col items-center justify-center p-2 rounded-lg cursor-pointer transition
-                            ${selectedDate === dateString 
-                              ? 'bg-blue-600 text-white' 
-                              : 'hover:bg-blue-50 border border-gray-200'}`}
-                        >
-                          <span className="text-sm font-medium">{dayOfWeek}</span>
-                          <span className="text-lg font-bold">{dayOfMonth}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                
-                {/* Time slots */}
-                {selectedDate && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Chọn giờ</h3>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                      {timeSlots.map(slot => (
-                        <div 
-                          key={slot.id}
-                          onClick={() => slot.isAvailable && setSelectedTimeSlot(slot.id)}
-                          className={`text-center py-2 px-3 rounded-lg cursor-pointer transition
-                            ${selectedTimeSlot === slot.id 
-                              ? 'bg-blue-600 text-white' 
-                              : slot.isAvailable 
-                                ? 'hover:bg-blue-50 border border-gray-200' 
-                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-                        >
-                          {slot.time}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
-                {/* Next button */}
-                {selectedDate && selectedTimeSlot && (
-                  <div className="mt-8 flex justify-end">
-                    <button
-                      onClick={handleNext}
-                      className="px-6 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700"
-                    >
-                      Tiếp tục
-                    </button>
-                  </div>
-                )}
+                {/* Navigation */}
+                <div className="flex justify-end mt-6 pt-4 border-t">
+                  <button
+                    onClick={() => selectedService && handleNext()}
+                    disabled={!selectedService}
+                    className={`px-6 py-2 rounded-md font-medium ${
+                      selectedService 
+                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Tiếp tục
+                  </button>
+                </div>
               </div>
             )}
             
-            {/* Step 5: Chọn hồ sơ */}
-            {currentStep === 4 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6">Chọn hồ sơ bệnh nhân</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {userProfiles.map(profile => (
-                    <div 
-                      key={profile.id}
-                      onClick={() => handleProfileSelect(profile.id)}
-                      className="border border-gray-200 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md"
-                    >
-                      <div className="flex items-center mb-4">
-                        <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
+            {/* Bước 2: Thông tin đặt lịch (All-in-one) */}
+            {currentStep === 1 && (
+              <div className="h-[70vh] overflow-y-auto">
+                <h2 className="text-2xl font-bold mb-6">Thông tin đặt lịch</h2>
+                
+                {/* Layout 2 cột */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* Cột trái: Hình thức + Thời gian */}
+                  <div className="space-y-6">
+                    
+                    {/* 1. Hình thức khám */}
+                    <div className="border rounded-lg p-4">
+                      <h3 className="text-lg font-semibold mb-3">1. Hình thức khám</h3>
+                      <div className="grid grid-cols-1 gap-3">
+                        {[
+                          { key: 'online', label: 'Online', icon: '💻', desc: 'Video call' },
+                          { key: 'clinic', label: 'Phòng khám', icon: '🏥', desc: 'Trực tiếp' },
+                          { key: 'home', label: 'Tại nhà', icon: '🏠', desc: 'Bác sĩ đến tận nơi' }
+                        ].map(location => (
+                          <div 
+                            key={location.key}
+                            onClick={() => setTypeLocation(location.key as any)}
+                            className={`flex items-center justify-between p-3 rounded-md border cursor-pointer transition ${
+                              typeLocation === location.key 
+                                ? 'border-blue-500 bg-blue-50' 
+                                : 'border-gray-200 hover:border-blue-300'
+                            }`}
+                          >
+                            <div className="flex items-center">
+                              <span className="text-xl mr-3">{location.icon}</span>
+                              <div>
+                                <div className="font-medium">{location.label}</div>
+                                <div className="text-sm text-gray-500">{location.desc}</div>
+                              </div>
+                            </div>
+                            <div className="text-sm font-bold text-blue-600">
+                              {formatPrice(getSelectedService()?.price?.[location.key as 'online' | 'clinic' | 'home'] || 0)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 2. Chọn ngày */}
+                    {typeLocation && (
+                      <div className="border rounded-lg p-4">
+                        <h3 className="text-lg font-semibold mb-3">2. Chọn ngày</h3>
+                        <div className="grid grid-cols-7 gap-1">
+                          {Array.from({ length: 14 }).map((_, index) => {
+                            const date = new Date();
+                            date.setDate(date.getDate() + index);
+                            const dateString = date.toISOString().split('T')[0];
+                            const dayOfWeek = date.toLocaleDateString('vi-VN', { weekday: 'short' });
+                            const dayOfMonth = date.getDate();
+                            
+                            return (
+                              <div 
+                                key={dateString}
+                                onClick={() => setSelectedDate(dateString)}
+                                className={`flex flex-col items-center justify-center p-2 rounded-md cursor-pointer transition text-center ${
+                                  selectedDate === dateString 
+                                    ? 'bg-blue-600 text-white' 
+                                    : 'hover:bg-blue-50 border border-gray-200'
+                                }`}
+                              >
+                                <span className="text-xs font-medium">{dayOfWeek}</span>
+                                <span className="text-sm font-bold">{dayOfMonth}</span>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <div>
-                          <h3 className="text-xl font-semibold">{profile.fullName}</h3>
-                          <p className="text-gray-600">{profile.relationship === 'self' ? 'Bản thân' : 'Người thân'}</p>
-                        </div>
-                        {profile.isDefault && (
-                          <span className="ml-auto px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded-full">Mặc định</span>
+                      </div>
+                    )}
+
+                    {/* 3. Chọn giờ */}
+                    {selectedDate && (
+                      <div className="border rounded-lg p-4">
+                        <h3 className="text-lg font-semibold mb-3">3. Chọn giờ</h3>
+                        {loadingTimeSlots ? (
+                          <div className="flex justify-center items-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                            <span className="ml-3 text-gray-600">Đang tải...</span>
+                          </div>
+                        ) : timeSlots.length === 0 ? (
+                          <div className="text-center py-4">
+                            <div className="text-gray-400 text-2xl mb-2">🕒</div>
+                            <p className="text-sm text-gray-500">Không có lịch trống</p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-3 gap-2">
+                            {timeSlots.map(slot => (
+                              <div 
+                                key={slot.id}
+                                onClick={() => slot.isAvailable && setSelectedTimeSlot(slot.id)}
+                                className={`text-center py-2 px-2 rounded-md cursor-pointer transition text-sm ${
+                                  selectedTimeSlot === slot.id 
+                                    ? 'bg-blue-600 text-white' 
+                                    : slot.isAvailable 
+                                      ? 'hover:bg-blue-50 border border-gray-200' 
+                                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
+                              >
+                                {slot.time}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
-                      <div className="space-y-2 text-sm text-gray-600">
-                        <p>SĐT: {profile.phone || 'Chưa có'}</p>
-                        <p>Năm sinh: {typeof profile.birthDate === 'string' ? profile.birthDate : (profile.birthDate instanceof Date ? profile.birthDate.getFullYear().toString() : 'Chưa có')}</p>
-                        <p>Giới tính: {profile.gender === 'male' ? 'Nam' : profile.gender === 'female' ? 'Nữ' : 'Khác'}</p>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Create new profile */}
-                  <div 
-                    onClick={() => handleProfileSelect('new')}
-                    className="border-2 border-dashed border-gray-300 hover:border-blue-300 rounded-xl p-5 cursor-pointer transform transition hover:scale-105 hover:shadow-md flex flex-col items-center justify-center"
-                  >
-                    <div className="p-4 rounded-full bg-green-100 text-green-600 mb-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-semibold text-center">Tạo hồ sơ mới</h3>
-                    <p className="text-gray-600 text-center mt-2">Thêm thông tin cho người thân hoặc bản thân</p>
+                    )}
                   </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Step 6: Thông tin chi tiết */}
-            {currentStep === 5 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6">Thông tin chi tiết</h2>
-                
-                <Form
-                  form={form}
-                  layout="vertical"
-                  onFinish={handleSubmit}
-                  initialValues={{
-                    agreement: false
-                  }}
-                >
-                  {typeLocation === 'home' && (
-                    <Form.Item
-                      name="address"
-                      label="Địa chỉ"
-                      rules={[{ required: true, message: 'Vui lòng nhập địa chỉ của bạn' }]}
-                    >
-                      <Input placeholder="Nhập địa chỉ đầy đủ của bạn" />
-                    </Form.Item>
-                  )}
-                  
-                  <Form.Item
-                    name="description"
-                    label="Mô tả triệu chứng/vấn đề"
-                    rules={[
-                      { required: true, message: 'Vui lòng mô tả triệu chứng hoặc vấn đề bạn đang gặp phải' },
-                      { min: 10, message: 'Mô tả phải có ít nhất 10 ký tự' },
-                      { max: 500, message: 'Mô tả không được vượt quá 500 ký tự' }
-                    ]}
-                  >
-                    <TextArea 
-                      placeholder="Mô tả chi tiết về triệu chứng, vấn đề sức khỏe hoặc lý do cần tư vấn (tối thiểu 10 ký tự)" 
-                      rows={4}
-                      showCount
-                      maxLength={500}
-                    />
-                  </Form.Item>
-                  
-                  <Form.Item
-                    name="notes"
-                    label="Ghi chú bổ sung"
-                  >
-                    <TextArea 
-                      placeholder="Thông tin bổ sung hoặc yêu cầu đặc biệt" 
-                      rows={2}
-                    />
-                  </Form.Item>
-                  
-                  <Form.Item
-                    name="agreement"
-                    valuePropName="checked"
-                    rules={[{ 
-                      validator: (_, value) => 
-                        value ? Promise.resolve() : Promise.reject(new Error('Vui lòng đồng ý với điều khoản')) 
-                    }]}
-                  >
-                    <div className="flex items-center">
-                      <input 
-                        type="checkbox" 
-                        className="w-4 h-4 text-blue-600 mr-2" 
-                        onChange={e => form.setFieldsValue({ agreement: e.target.checked })}
-                      />
-                      <span className="text-sm text-gray-600">
-                        Tôi đồng ý với các điều khoản và điều kiện
-                      </span>
-                    </div>
-                  </Form.Item>
-                  
-                  <div className="mt-8 flex justify-end">
-                    <button
-                      onClick={handleStep6Continue}
-                      className="px-6 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700"
-                    >
-                      Tiếp tục
-                    </button>
-                  </div>
-                </Form>
-              </div>
-            )}
-            
-            {/* Step 7: Xác nhận */}
-            {currentStep === 6 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6">Xác nhận đặt lịch</h2>
-                
-                <div className="bg-blue-50 rounded-lg p-6 mb-6">
-                  <h3 className="text-lg font-semibold mb-4">Thông tin đặt lịch</h3>
-                  
-                  <div className="space-y-4">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Dịch vụ:</span>
-                      <span className="font-medium">{getSelectedService()?.name}</span>
-                    </div>
+
+                  {/* Cột phải: Bác sĩ + Hồ sơ + Chi tiết */}
+                  <div className="space-y-6">
                     
-                    {selectedPackage && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Gói dịch vụ:</span>
-                        <span className="font-medium">{getSelectedPackage()?.name}</span>
+                    {/* 4. Chọn bác sĩ - CHỈ HIỂN THỊ SAU KHI CHỌN TIME SLOT */}
+                    {selectedDate && selectedTimeSlot && (
+                      <div className="border rounded-lg p-4">
+                        <h3 className="text-lg font-semibold mb-3">4. Chọn bác sĩ có sẵn</h3>
+                        {loadingDoctors ? (
+                          <div className="flex justify-center items-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                            <span className="ml-3 text-gray-600">Đang tải...</span>
+                          </div>
+                        ) : doctorsWithAvailability.filter((d: Doctor) => d.isAvailable).length === 0 ? (
+                          <div className="text-center py-4">
+                            <div className="text-gray-400 text-2xl mb-2">👨‍⚕️</div>
+                            <p className="text-sm text-gray-500">Không có bác sĩ nào có sẵn</p>
+                            <p className="text-xs text-gray-400 mt-1">Vào lúc {selectedTimeSlot} ngày {new Date(selectedDate).toLocaleDateString('vi-VN')}</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {doctorsWithAvailability
+                              .filter((doctor: Doctor) => doctor.isAvailable)
+                              .map((doctor: Doctor) => (
+                                <div 
+                                  key={doctor.id}
+                                  onClick={() => setSelectedDoctor(doctor.id)}
+                                  className={`flex items-center p-3 rounded-md border cursor-pointer transition ${
+                                    selectedDoctor === doctor.id 
+                                      ? 'border-blue-500 bg-blue-50' 
+                                      : 'border-gray-200 hover:border-blue-300'
+                                  }`}
+                                >
+                                  <img 
+                                    src={doctor.avatar} 
+                                    alt={doctor.name} 
+                                    className="w-10 h-10 rounded-full object-cover mr-3"
+                                  />
+                                  <div className="flex-1">
+                                    <h4 className="font-medium text-sm">{doctor.name}</h4>
+                                    <p className="text-xs text-gray-500">{doctor.specialization}</p>
+                                    <div className="flex items-center text-xs text-gray-400">
+                                      <span className="text-yellow-400 mr-1">★</span>
+                                      <span>{doctor.rating}</span>
+                                      <span className="mx-1">•</span>
+                                      <span>{doctor.experience} năm</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-green-600 font-medium">
+                                    Có sẵn
+                                  </div>
+                                </div>
+                              ))}
+                            
+                            {/* Auto choice */}
+                            <div 
+                              onClick={() => setSelectedDoctor('')}
+                              className={`flex items-center p-3 rounded-md border cursor-pointer transition ${
+                                selectedDoctor === '' 
+                                  ? 'border-blue-500 bg-blue-50' 
+                                  : 'border-gray-300 border-dashed hover:border-blue-300'
+                              }`}
+                            >
+                              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                                <span className="text-blue-600 text-sm">🎯</span>
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-sm">Hệ thống chọn</h4>
+                                <p className="text-xs text-gray-500">Tự động gợi ý bác sĩ phù hợp</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
-                    
-                    {selectedDoctor && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Bác sĩ:</span>
-                        <span className="font-medium">{getSelectedDoctor()?.name}</span>
+
+                    {/* 5. Hồ sơ bệnh nhân - CHỈ HIỂN THỊ SAU KHI CHỌN DOCTOR HOẶC AUTO */}
+                    {selectedDate && selectedTimeSlot && (selectedDoctor !== null) && (
+                      <div className="border rounded-lg p-4">
+                        <h3 className="text-lg font-semibold mb-3">5. Hồ sơ bệnh nhân</h3>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {userProfiles.map(profile => (
+                            <div 
+                              key={profile.id}
+                              onClick={() => handleProfileSelect(profile.id)}
+                              className={`flex items-center p-2 rounded-md border cursor-pointer transition ${
+                                selectedProfile === profile.id 
+                                  ? 'border-blue-500 bg-blue-50' 
+                                  : 'border-gray-200 hover:border-blue-300'
+                              }`}
+                            >
+                              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                                <span className="text-blue-600 text-xs">👤</span>
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-medium text-sm">{profile.fullName}</h4>
+                                <p className="text-xs text-gray-500">
+                                  {profile.gender === 'male' ? 'Nam' : 'Nữ'} • {
+                                    typeof profile.birthDate === 'string' 
+                                      ? profile.birthDate 
+                                      : profile.birthDate instanceof Date 
+                                        ? profile.birthDate.getFullYear() 
+                                        : 'N/A'
+                                  }
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Create new */}
+                          <div 
+                            onClick={() => handleProfileSelect('new')}
+                            className="flex items-center p-2 rounded-md border border-dashed border-gray-300 hover:border-blue-300 cursor-pointer"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                              <span className="text-green-600 text-xs">+</span>
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-sm">Tạo hồ sơ mới</h4>
+                              <p className="text-xs text-gray-500">Thêm thông tin mới</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
-                    
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Hình thức:</span>
-                      <span className="font-medium">
-                        {typeLocation === 'online' ? 'Online' : 
-                         typeLocation === 'clinic' ? 'Tại phòng khám' : 'Tại nhà'}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Ngày hẹn:</span>
-                      <span className="font-medium">{new Date(selectedDate).toLocaleDateString('vi-VN')}</span>
-                    </div>
-                    
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Giờ hẹn:</span>
-                      <span className="font-medium">{timeSlots.find(slot => slot.id === selectedTimeSlot)?.time}</span>
-                    </div>
-                    
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Giá dịch vụ:</span>
-                      <span className="font-medium text-blue-600">{formatPrice(getCurrentPrice())}</span>
-                    </div>
                   </div>
                 </div>
-                
-                <div className="mt-8 flex justify-between">
+
+                {/* Form chi tiết */}
+                {selectedProfile && (
+                  <div className="mt-6 border rounded-lg p-4">
+                    <h3 className="text-lg font-semibold mb-3">6. Thông tin chi tiết</h3>
+
+                    {/* Hiển thị thông tin đã chọn */}
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                      <h4 className="font-medium text-sm mb-2 text-blue-800">📋 Tóm tắt lịch hẹn</h4>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-gray-600">Dịch vụ:</span>
+                          <span className="ml-1 font-medium">{getSelectedService()?.name}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Hình thức:</span>
+                          <span className="ml-1 font-medium">
+                            {typeLocation === 'online' ? 'Online' : 
+                             typeLocation === 'clinic' ? 'Phòng khám' : 'Tại nhà'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Ngày:</span>
+                          <span className="ml-1 font-medium">{new Date(selectedDate).toLocaleDateString('vi-VN')}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Giờ:</span>
+                          <span className="ml-1 font-medium">{selectedTimeSlot}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Bác sĩ:</span>
+                          <span className="ml-1 font-medium">
+                            {selectedDoctor === '' ? 'Hệ thống chọn' : getSelectedDoctor()?.name}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Giá:</span>
+                          <span className="ml-1 font-medium text-blue-600">{formatPrice(getCurrentPrice())}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Form
+                      form={form}
+                      layout="vertical"
+                      size="small"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {typeLocation === 'home' && (
+                          <Form.Item
+                            name="address"
+                            label="Địa chỉ"
+                            rules={[{ required: true, message: 'Vui lòng nhập địa chỉ' }]}
+                            className="md:col-span-2"
+                          >
+                            <Input placeholder="Nhập địa chỉ đầy đủ" size="small" />
+                          </Form.Item>
+                        )}
+                        
+                        <Form.Item
+                          name="description"
+                          label="Mô tả triệu chứng"
+                          rules={[
+                            { required: true, message: 'Vui lòng mô tả triệu chứng' },
+                            { min: 10, message: 'Tối thiểu 10 ký tự' }
+                          ]}
+                          className="md:col-span-2"
+                        >
+                          <TextArea 
+                            placeholder="Mô tả triệu chứng hoặc lý do khám" 
+                            rows={3}
+                            showCount
+                            maxLength={300}
+                            size="small"
+                          />
+                        </Form.Item>
+                        
+                        <Form.Item
+                          name="notes"
+                          label="Ghi chú"
+                          className="md:col-span-2"
+                        >
+                          <TextArea 
+                            placeholder="Ghi chú bổ sung (không bắt buộc)" 
+                            rows={2}
+                            size="small"
+                          />
+                        </Form.Item>
+                        
+                        <Form.Item
+                          name="agreement"
+                          valuePropName="checked"
+                          rules={[{ 
+                            validator: (_, value) => 
+                              value ? Promise.resolve() : Promise.reject(new Error('Vui lòng đồng ý')) 
+                          }]}
+                          className="md:col-span-2"
+                        >
+                          <div className="flex items-center">
+                            <input 
+                              type="checkbox" 
+                              className="w-4 h-4 text-blue-600 mr-2" 
+                              onChange={e => form.setFieldsValue({ agreement: e.target.checked })}
+                            />
+                            <span className="text-sm text-gray-600">
+                              Tôi đồng ý với điều khoản sử dụng
+                            </span>
+                          </div>
+                        </Form.Item>
+                      </div>
+                    </Form>
+                  </div>
+                )}
+
+                {/* Navigation */}
+                <div className="flex justify-between mt-6 pt-4 border-t">
                   <button
                     onClick={handlePrev}
-                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-6 py-2 border border-gray-300 rounded-md font-medium text-gray-700 hover:bg-gray-50"
                   >
-                    Quay lại
+                    ← Quay lại
                   </button>
-                  
                   <button
-                    onClick={() => form.submit()}
-                    className="px-6 py-2 bg-blue-600 rounded-md text-white hover:bg-blue-700"
-                    disabled={loading}
+                    onClick={handleStep2Continue}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700"
                   >
-                    {loading ? 'Đang xử lý...' : 'Xác nhận đặt lịch'}
+                    Tiếp tục →
                   </button>
                 </div>
               </div>
             )}
             
-            {/* Navigation buttons */}
-            <div className="mt-8 flex justify-between">
-              {currentStep > 0 && (
-                <button
-                  onClick={handlePrev}
-                  className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Quay lại
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+            {/* Bước 3: Xác nhận thông tin */}
+            {currentStep === 2 && (
+              <div className="h-[70vh] overflow-y-auto">
+                <h2 className="text-2xl font-bold mb-6">Xác nhận thông tin đặt lịch</h2>
+                
+                <div className="space-y-6">
+                  {/* Thông tin dịch vụ */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="text-lg font-semibold mb-3">Dịch vụ đã chọn</h3>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{getSelectedService()?.name}</p>
+                        <p className="text-sm text-gray-500">{getSelectedService()?.description}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-blue-600">{formatPrice(getCurrentPrice())}</p>
+                        <p className="text-sm text-gray-500">
+                          {typeLocation === 'online' ? 'Online' : 
+                           typeLocation === 'clinic' ? 'Tại phòng khám' : 
+                           'Tại nhà'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
-      {/* Modal tạo profile mới */}
-      {showCreateProfileModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-xl font-bold mb-6">Tạo hồ sơ mới</h3>
-            
+                  {/* Thông tin lịch hẹn */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="text-lg font-semibold mb-3">Thông tin lịch hẹn</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500">Ngày hẹn</p>
+                        <p className="font-medium">{selectedDate && new Date(selectedDate).toLocaleDateString('vi-VN')}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-500">Giờ hẹn</p>
+                        <p className="font-medium">{selectedTimeSlot}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Thông tin bác sĩ */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="text-lg font-semibold mb-3">Bác sĩ phụ trách</h3>
+                    {selectedDoctor === '' ? (
+                      <p className="text-gray-600">Hệ thống sẽ tự động chọn bác sĩ phù hợp</p>
+                    ) : (
+                      <div className="flex items-center">
+                        <img 
+                          src={getSelectedDoctor()?.avatar} 
+                          alt={getSelectedDoctor()?.name} 
+                          className="w-12 h-12 rounded-full object-cover mr-4"
+                        />
+                        <div>
+                          <p className="font-medium">{getSelectedDoctor()?.name}</p>
+                          <p className="text-sm text-gray-500">{getSelectedDoctor()?.specialization}</p>
+                          <div className="flex items-center text-sm text-gray-400">
+                            <span className="text-yellow-400 mr-1">★</span>
+                            <span>{getSelectedDoctor()?.rating}</span>
+                            <span className="mx-1">•</span>
+                            <span>{getSelectedDoctor()?.experience} năm kinh nghiệm</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Thông tin bệnh nhân */}
+                  <div className="border rounded-lg p-4">
+                    <h3 className="text-lg font-semibold mb-3">Thông tin bệnh nhân</h3>
+                    {userProfiles.find(p => p.id === selectedProfile) && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-500">Họ và tên</p>
+                          <p className="font-medium">{userProfiles.find(p => p.id === selectedProfile)?.fullName}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Giới tính</p>
+                          <p className="font-medium">
+                            {userProfiles.find(p => p.id === selectedProfile)?.gender === 'male' ? 'Nam' : 'Nữ'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Năm sinh</p>
+                          <p className="font-medium">
+                            {(() => {
+                              const profile = userProfiles.find(p => p.id === selectedProfile);
+                              const birthDate = profile?.birthDate;
+                              
+                              if (typeof birthDate === 'string') {
+                                return birthDate;
+                              } else if (birthDate instanceof Date) {
+                                return birthDate.getFullYear().toString();
+                              } else {
+                                return 'N/A';
+                              }
+                            })()}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Số điện thoại</p>
+                          <p className="font-medium">{userProfiles.find(p => p.id === selectedProfile)?.phone}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Navigation */}
+                <div className="flex justify-between mt-6 pt-4 border-t">
+                  <button
+                    onClick={handlePrev}
+                    className="px-6 py-2 border border-gray-300 rounded-md font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    ← Quay lại
+                  </button>
+                  <button
+                    onClick={() => handleSubmit(form.getFieldsValue() as BookingFormData)}
+                    className="px-6 py-2 bg-green-600 text-white rounded-md font-medium hover:bg-green-700"
+                  >
+                    Xác nhận đặt lịch
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Modal tạo profile mới */}
+          <Modal
+            title="Tạo hồ sơ mới"
+            open={showCreateProfileModal}
+            onOk={() => createProfileForm.submit()}
+            onCancel={() => setShowCreateProfileModal(false)}
+            okText="Tạo hồ sơ"
+            cancelText="Hủy"
+          >
             <Form
               form={createProfileForm}
               layout="vertical"
@@ -1238,60 +1421,39 @@ const Booking: React.FC = () => {
                 label="Họ và tên"
                 rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
               >
-                <Input placeholder="Nhập họ và tên đầy đủ" />
+                <Input placeholder="Nhập họ và tên" />
               </Form.Item>
-
+              
               <Form.Item
                 name="phone"
                 label="Số điện thoại"
-                rules={[
-                  { required: true, message: 'Vui lòng nhập số điện thoại' },
-                  { pattern: /^[0-9]{10,11}$/, message: 'Số điện thoại không hợp lệ' }
-                ]}
+                rules={[{ required: true, message: 'Vui lòng nhập số điện thoại' }]}
               >
                 <Input placeholder="Nhập số điện thoại" />
               </Form.Item>
-
+              
               <Form.Item
                 name="birthDate"
                 label="Năm sinh"
                 rules={[{ required: true, message: 'Vui lòng nhập năm sinh' }]}
               >
-                <Input placeholder="Ví dụ: 1990" />
+                <Input placeholder="VD: 1990" />
               </Form.Item>
-
+              
               <Form.Item
                 name="gender"
                 label="Giới tính"
                 rules={[{ required: true, message: 'Vui lòng chọn giới tính' }]}
               >
-                <select className="w-full p-2 border border-gray-300 rounded-md">
-                  <option value="">Chọn giới tính</option>
-                  <option value="male">Nam</option>
-                  <option value="female">Nữ</option>
-                  <option value="other">Khác</option>
-                </select>
+                <Select placeholder="Chọn giới tính">
+                  <Select.Option value="male">Nam</Select.Option>
+                  <Select.Option value="female">Nữ</Select.Option>
+                </Select>
               </Form.Item>
-
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateProfileModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                >
-                  Tạo hồ sơ
-                </button>
-              </div>
             </Form>
-          </div>
+          </Modal>
         </div>
-      )}
+      </div>
     </BookingLayout>
   );
 };

@@ -10,4 +10,5 @@ export { default as servicesApi } from './services';
 export * from './servicePackageApi';
 export * from './stiTesting';
 export * from './userApi';
+export * from './dashboard';
 

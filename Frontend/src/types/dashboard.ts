@@ -12,12 +12,12 @@ export interface DashboardStat {
 
 export interface ActivityItem {
   id: string;
-  user: string;
-  action: string;
-  time: string;
+  user?: string;
+  action?: string;
+  time?: string;
   status?: 'success' | 'warning' | 'error' | 'info';
   avatar?: string;
-  type: 'appointment' | 'consultation' | 'system' | 'user';
+  type?: 'appointment' | 'consultation' | 'system' | 'user';
 }
 
 export interface AppointmentItem {

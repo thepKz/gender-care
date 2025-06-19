@@ -47,7 +47,7 @@ import {
 } from '../../../types/dashboard';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
-import { fetchManagementDashboard } from '../../../services/dashboard';
+import { fetchManagementDashboard } from '../../../api/endpoints/dashboard';
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
