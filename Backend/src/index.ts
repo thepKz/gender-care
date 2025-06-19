@@ -27,6 +27,7 @@ import {
   userProfileRoutes,
   userRoutes
 } from "./routes";
+import consultationRoutes from './routes/consultationRoutes';
 
 import { runAllSeeds } from "./seeds";
 
@@ -146,6 +147,9 @@ apiRouter.use('/medication-reminders', medicationRemindersRoutes);
 apiRouter.use('/notification-days', notificationDaysRoutes);
 apiRouter.use('/user-profiles', userProfileRoutes);
 apiRouter.use('/appointments', appointmentRoutes);
+
+// ✅ NEW: Consultation transfer routes
+apiRouter.use('/consultations', consultationRoutes);
 
 // Middleware xử lý lỗi
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

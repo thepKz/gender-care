@@ -214,6 +214,21 @@ const consultationApi = {
   // Xác nhận cuộc tư vấn (paid -> confirmed)
   confirmConsultation: (qaId: string) => {
     return axiosInstance.put(`/doctor-qa/${qaId}/confirm-consultation`);
+  },
+
+  // =============== NEW: CONSULTATION TRANSFER APIs ===============
+  
+  // Check available doctors trong cùng slot với consultation
+  checkAvailableDoctors: (consultationId: string) => {
+    return axiosInstance.get(`/consultations/${consultationId}/check-available-doctors`);
+  },
+  
+  // Transfer consultation sang bác sĩ khác trong cùng slot
+  transferConsultation: (consultationId: string, data: {
+    newDoctorId: string;
+    transferReason: string;
+  }) => {
+    return axiosInstance.post(`/consultations/${consultationId}/transfer`, data);
   }
 };
 

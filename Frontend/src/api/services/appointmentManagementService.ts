@@ -4,9 +4,7 @@ import {
   ApiAppointment, 
   ApiConsultation, 
   UnifiedAppointment, 
-  AppointmentFilters,
-  AppointmentListResponse,
-  ConsultationListResponse
+  AppointmentFilters
 } from '../../types/appointment';
 import axiosInstance from '../axiosConfig';
 
@@ -48,7 +46,7 @@ class AppointmentManagementService {
       
       // 🔧 Thử multiple endpoints để tránh lỗi role
       let consultationResponse;
-      let consultationData: any[] = [];
+      let consultationData: ApiConsultation[] = [];
       
       try {
         // Try endpoint for doctors first
@@ -72,11 +70,12 @@ class AppointmentManagementService {
           }
         }
         
-      } catch (doctorError: any) {
-        console.warn('⚠️ [WARNING] Doctor endpoint failed, trying all consultations:', doctorError.response?.status);
+      } catch (doctorError: unknown) {
+        const errorWithResponse = doctorError as { response?: { status?: number } };
+        console.warn('⚠️ [WARNING] Doctor endpoint failed, trying all consultations:', errorWithResponse.response?.status);
         
         // Fallback: get all consultations if doctor endpoint fails (403 forbidden etc)
-        if (doctorError.response?.status === 403 || doctorError.response?.status === 401) {
+        if (errorWithResponse.response?.status === 403 || errorWithResponse.response?.status === 401) {
           try {
             consultationResponse = await consultationApi.getAllConsultations(filters);
             console.log('💬 [DEBUG] All consultations API Response:', consultationResponse);
@@ -234,7 +233,7 @@ class AppointmentManagementService {
             doctorName: this.extractDoctorName(consultation.doctorId) || 'Bạn',
             appointmentDate: consultation.appointmentDate!,
             appointmentTime: consultation.appointmentSlot!,
-            appointmentType: 'online-consultation' as any,
+            appointmentType: 'online-consultation' as 'consultation',
             typeLocation: 'Online',
             address: undefined,
             description: consultation.question || '',
@@ -258,12 +257,12 @@ class AppointmentManagementService {
             doctorName: 'Bạn',
             appointmentDate: new Date().toISOString().split('T')[0],
             appointmentTime: '09:00',
-            appointmentType: 'online-consultation' as any,
+            appointmentType: 'online-consultation' as 'consultation',
             typeLocation: 'Online',
             address: undefined,
             description: 'Dữ liệu không hợp lệ',
             notes: '',
-            status: 'pending_payment' as any,
+            status: 'pending_payment',
             createdAt: consultation.createdAt || new Date().toISOString(),
             updatedAt: consultation.updatedAt || new Date().toISOString(),
             type: 'consultation',
@@ -276,6 +275,7 @@ class AppointmentManagementService {
   /**
    * Safely extract doctor name from doctorId field (could be string or populated object)
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private extractDoctorName(doctorId: any): string {
     if (!doctorId) return '';
     
@@ -376,6 +376,7 @@ class AppointmentManagementService {
   ): Promise<boolean> {
     try {
       if (type === 'appointment') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await appointmentApi.updateAppointmentStatus(id, status as any);
       } else {
         // For consultations, use direct status mapping
@@ -439,6 +440,48 @@ class AppointmentManagementService {
     } catch (error) {
       console.error(`❌ [ERROR] Failed to cancel ${type} by doctor:`, error);
       return false;
+    }
+  }
+
+  /**
+   * ✅ NEW: Hủy appointment bởi bác sĩ (72h rule applied in backend)
+   */
+  async cancelAppointmentByDoctor(id: string, reason: string): Promise<boolean> {
+    try {
+      console.log(`🚫 [SERVICE] Cancelling appointment ${id} by doctor with reason: ${reason}`);
+      
+      // ✅ FIX: Use PUT method và call thông qua appointmentApi để đúng endpoint
+      const response = await appointmentApi.cancelAppointmentByDoctor(id, reason);
+      
+      return response.success === true || response.status === 'success';
+    } catch (error: unknown) {
+      console.error(`❌ [ERROR] Failed to cancel appointment by doctor:`, error);
+      
+      // Re-throw với message rõ ràng để AppointmentManagement.tsx có thể hiển thị
+      const apiError = error as { response?: { data?: { message?: string } } };
+      const errorMessage = apiError.response?.data?.message || 'Hủy lịch hẹn thất bại';
+      throw new Error(errorMessage);
+    }
+  }
+
+  /**
+   * ✅ NEW: Hủy consultation bởi bác sĩ (auto re-assign to other doctor)
+   */
+  async cancelConsultationByDoctor(id: string, reason: string): Promise<boolean> {
+    try {
+      console.log(`🚫 [SERVICE] Cancelling consultation ${id} by doctor with reason: ${reason}`);
+      
+      // Call backend API với POST method theo docs BACKEND_AUTO_ASSIGNMENT_LOGIC.md
+      const response = await axiosInstance.post(`/consultations/${id}/cancel-by-doctor`, { reason });
+      
+      return response.status === 200;
+    } catch (error: unknown) {
+      console.error(`❌ [ERROR] Failed to cancel consultation by doctor:`, error);
+      
+      // Re-throw với message rõ ràng
+      const apiError = error as { response?: { data?: { message?: string } } };
+      const errorMessage = apiError.response?.data?.message || 'Hủy tư vấn thất bại';
+      throw new Error(errorMessage);
     }
   }
 }

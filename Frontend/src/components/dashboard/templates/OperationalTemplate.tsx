@@ -6,12 +6,8 @@ import {
   Button,
   Row,
   Col,
-  Avatar,
-  Dropdown,
-  Space,
   Card,
-  Progress,
-  message
+  Progress
 } from 'antd';
 import {
   DashboardOutlined,
@@ -20,11 +16,7 @@ import {
   ScheduleOutlined,
   BarChartOutlined,
   FileTextOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  LogoutOutlined,
-  BellOutlined,
-  ClockCircleOutlined
+  LogoutOutlined
 } from '@ant-design/icons';
 import StatsCard from '../widgets/StatsCard';
 import ActivityFeed from '../widgets/ActivityFeed';
@@ -38,11 +30,7 @@ import {
   defaultOperationalStats, 
   defaultActivities, 
   defaultAppointments,
-  defaultPerformanceMetrics,
-  type DashboardStat,
-  type ActivityItem,
-  type AppointmentItem,
-  type PerformanceMetric
+  defaultPerformanceMetrics
 } from '../../../types/dashboard';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
@@ -143,30 +131,29 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
             {
               title: 'Lịch hẹn hôm nay',
               value: data.stats.todayTotal,
-              icon: 'CalendarOutlined',
+              icon: 'CalendarOutlined' as const,
               color: '#10b981',
               change: '',
-              trend: 'up'
+              trend: 'up' as const
             },
             {
               title: 'Lịch hẹn trong tuần',
               value: data.stats.weekTotal,
-              icon: 'ScheduleOutlined',
+              icon: 'ScheduleOutlined' as const,
               color: '#3b82f6',
               change: '',
-              trend: 'up'
+              trend: 'up' as const
             },
             {
               title: 'Lịch hẹn pending',
               value: data.stats.pendingCount,
-              icon: 'ClockCircleOutlined',
+              icon: 'ClockCircleOutlined' as const,
               color: '#f59e0b',
               change: '',
-              trend: 'down'
+              trend: 'down' as const
             }
           ];
-          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-          setStatsCards(mapped as any);
+          setStatsCards(mapped);
         }
       } catch (err) {
         console.error('fetchOperationalDashboard error', err);

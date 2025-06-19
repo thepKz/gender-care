@@ -129,7 +129,7 @@ const generateMockSchedule = (startWeek: dayjs.Dayjs): WeekSchedule => {
 };
 
 const DoctorScheduleCalendar: React.FC = () => {
-  const [selectedWeek, setSelectedWeek] = useState(dayjs().startOf('isoWeek'));
+  const [selectedWeek, setSelectedWeek] = useState(dayjs().startOf('week' as any));
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
@@ -145,7 +145,7 @@ const DoctorScheduleCalendar: React.FC = () => {
   };
 
   const goToToday = () => {
-    setSelectedWeek(dayjs().startOf('isoWeek'));
+    setSelectedWeek(dayjs().startOf('week' as any));
   };
 
   const handleSlotClick = (slot: TimeSlot) => {
@@ -442,7 +442,7 @@ const DoctorScheduleCalendar: React.FC = () => {
             <Space>
               <DatePicker.WeekPicker
                 value={selectedWeek}
-                onChange={(date) => date && setSelectedWeek(date.startOf('isoWeek'))}
+                onChange={(date) => date && setSelectedWeek(date.startOf('week' as any))}
                 style={{ 
                   background: 'rgba(255,255,255,0.1)', 
                   border: '1px solid rgba(255,255,255,0.3)',

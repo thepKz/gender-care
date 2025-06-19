@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Tooltip, message } from 'antd';
+import { Button, Tooltip, message, Modal, Input } from 'antd';
 import { SwapOutlined } from '@ant-design/icons';
 import { UnifiedAppointment } from '../../../types/appointment';
-import appointmentManagementService from '../../../api/services/appointmentManagementService';
+import consultationApi from '../../../api/endpoints/consultation';
 
 interface ConsultationTransferButtonProps {
   consultation: UnifiedAppointment;
@@ -21,19 +21,24 @@ const ConsultationTransferButton: React.FC<ConsultationTransferButtonProps> = ({
   const checkTransferAvailability = async () => {
     try {
       setChecking(true);
-      // TODO: Call API để check available doctors trong slot
-      // Tạm thời mock logic - sẽ replace bằng real API call
-      const mockAvailable = Math.random() > 0.3; // 70% chance có doctor available
-      setCanTransfer(mockAvailable);
+      
+      // ✅ Call real API để check available doctors trong slot
+      const response = await consultationApi.checkAvailableDoctors(consultation._id);
+      const available = response.data.data?.available || false;
+      
+      setCanTransfer(available);
       
       console.log('🔍 [DEBUG] Check transfer availability:', {
         consultationId: consultation._id,
-        available: mockAvailable
+        available,
+        availableDoctors: response.data.data?.availableDoctors?.length || 0
       });
       
     } catch (error) {
       console.error('❌ Error checking transfer availability:', error);
+      // Fallback: disable transfer button nếu có lỗi API
       setCanTransfer(false);
+      message.warning('Không thể kiểm tra tình trạng slot. Vui lòng thử lại sau.');
     } finally {
       setChecking(false);
     }
@@ -41,7 +46,7 @@ const ConsultationTransferButton: React.FC<ConsultationTransferButtonProps> = ({
 
   // Check availability khi component mount hoặc consultation thay đổi
   useEffect(() => {
-    if (['scheduled', 'consulting'].includes(consultation.status)) {
+    if (['paid', 'scheduled', 'consulting', 'confirmed', 'pending_payment'].includes(consultation.status)) {
       checkTransferAvailability();
     } else {
       setCanTransfer(false);
@@ -53,11 +58,42 @@ const ConsultationTransferButton: React.FC<ConsultationTransferButtonProps> = ({
     try {
       setLoading(true);
       
-      // TODO: Replace với real transfer API call
-      console.log('🔄 [DEBUG] Transferring consultation:', consultation._id);
+      // ✅ Show modal để nhập lý do transfer
+      const transferReason = await new Promise<string>((resolve, reject) => {
+        let reason = '';
+        
+        const modal = Modal.confirm({
+          title: 'Thuyên chuyển tư vấn',
+          content: (
+            <div>
+              <p>Bạn có chắc chắn muốn thuyên chuyển consultation này cho bác sĩ khác?</p>
+              <Input.TextArea
+                placeholder="Nhập lý do thuyên chuyển (bắt buộc)..."
+                maxLength={200}
+                showCount
+                onChange={(e) => { reason = e.target.value; }}
+                style={{ marginTop: '12px' }}
+              />
+            </div>
+          ),
+          onOk: () => {
+            if (!reason.trim()) {
+              message.error('Vui lòng nhập lý do thuyên chuyển');
+              return Promise.reject();
+            }
+            resolve(reason.trim());
+          },
+          onCancel: () => reject(new Error('User cancelled')),
+          okText: 'Thuyên chuyển',
+          cancelText: 'Hủy'
+        });
+      });
       
-      // Mock transfer success
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // ✅ Call real transfer API
+      await consultationApi.transferConsultation(consultation._id, {
+        newDoctorId: 'auto', // Backend sẽ tự động chọn doctor available
+        transferReason
+      });
       
       message.success('Thuyên chuyển tư vấn thành công cho bác sĩ khác');
       
@@ -65,16 +101,18 @@ const ConsultationTransferButton: React.FC<ConsultationTransferButtonProps> = ({
         onTransferSuccess();
       }
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Transfer failed:', error);
-      message.error('Thuyên chuyển thất bại. Vui lòng thử lại.');
+      if (error.message !== 'User cancelled') {
+        message.error(error.response?.data?.message || 'Thuyên chuyển thất bại. Vui lòng thử lại.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   // Không hiển thị nút nếu status không phù hợp
-  if (!['scheduled', 'consulting'].includes(consultation.status)) {
+  if (!['paid', 'scheduled', 'consulting', 'confirmed', 'pending_payment'].includes(consultation.status)) {
     return null;
   }
 

@@ -10,7 +10,6 @@ import {
   Modal,
   Typography,
   Tooltip,
-  Popconfirm,
   DatePicker,
   message,
   Avatar,
@@ -30,9 +29,10 @@ import {
   PhoneOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import dayjs from 'dayjs';
 import { UnifiedAppointment, AppointmentFilters } from '../../../types/appointment';
 import appointmentManagementService from '../../../api/services/appointmentManagementService';
+import ConsultationTransferButton from '../../../components/ui/buttons/ConsultationTransferButton';
+import AppointmentCancelButton from '../../../components/ui/buttons/AppointmentCancelButton';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -41,6 +41,13 @@ const { TextArea } = Input;
 
 // Use UnifiedAppointment interface from API types
 type Appointment = UnifiedAppointment;
+
+interface DetailData {
+  profileId?: { gender?: 'male' | 'female' | 'other'; year?: number };
+  serviceId?: { price?: number };
+  packageId?: { price?: number };
+  doctorNotes?: string;
+}
 
 const AppointmentManagement: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -51,45 +58,59 @@ const AppointmentManagement: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>('all');
 
-  // ✅ ENHANCED: Function to check 72h cancel rule + status validation
-  const canCancelAppointment = (appointmentDate: string, appointmentTime: string, status: string): boolean => {
-    try {
-      // ✅ Only allow cancel for scheduled/consulting appointments (not pending_payment, completed, or cancelled)
-      if (!['scheduled', 'consulting'].includes(status)) {
-        console.log('Cancel not allowed for status:', status);
-        return false;
-      }
+  // ✅ ENHANCED: Render cancel/transfer actions theo đúng flow chart
+  const renderCancelActions = (record: UnifiedAppointment) => {
+    console.log('🔍 [DEBUG] renderCancelActions:', {
+      id: record._id,
+      type: record.type,
+      status: record.status,
+      patientName: record.patientName,
+      appointmentDate: record.appointmentDate,
+      appointmentTime: record.appointmentTime
+    });
+
+    // ✅ THEO DOCS: Hiển thị nút từ khi status = paid, scheduled, consulting  
+    // ✅ EXPANDED: Include all possible status values để debug issue
+    const allowedStatuses = ['paid', 'scheduled', 'consulting', 'confirmed', 'pending_payment'];
+    if (!allowedStatuses.includes(record.status)) {
+      console.log('❌ [DEBUG] Status không cho phép cancel/transfer:', record.status, 'Allowed:', allowedStatuses);
+      return null;
+    }
+
+    console.log('✅ [DEBUG] Status OK, proceeding with button render for:', record.status);
+
+    if (record.type === 'consultation') {
+      // ✅ CONSULTATION FLOW: Always show transfer button for paid/scheduled/consulting
+      console.log('🎯 [DEBUG] Rendering ConsultationTransferButton for:', record._id);
+      return (
+        <ConsultationTransferButton 
+          consultation={record} 
+          onTransferSuccess={() => loadAppointments()} 
+        />
+      );
+    } else {
+      // ✅ APPOINTMENT FLOW: Show cancel button with 72h rule for paid/scheduled/consulting
+      console.log('🎯 [DEBUG] Rendering AppointmentCancelButton for:', record._id, 'Type:', record.type);
       
-      const now = new Date();
-      
-      // Parse appointment datetime
-      const appointmentDateTime = new Date(`${appointmentDate} ${appointmentTime}`);
-      
-      // Check if appointment datetime is valid
-      if (isNaN(appointmentDateTime.getTime())) {
-        console.warn('Invalid appointment datetime:', { appointmentDate, appointmentTime });
-        return false;
-      }
-      
-      // Calculate deadline (current time + 72 hours)
-      const deadline = new Date(now.getTime() + (72 * 60 * 60 * 1000));
-      
-      // Allow cancel only if deadline <= appointment time
-      const canCancel = deadline <= appointmentDateTime;
-      
-      console.log('Cancel check:', {
-        now: now.toISOString(),
-        deadline: deadline.toISOString(), 
-        appointmentDateTime: appointmentDateTime.toISOString(),
-        status,
-        canCancel,
-        hoursUntilAppointment: (appointmentDateTime.getTime() - now.getTime()) / (1000 * 60 * 60)
-      });
-      
-      return canCancel;
-    } catch (error) {
-      console.error('Error checking cancel deadline:', error);
-      return false; // Không cho hủy nếu có lỗi
+      // ✅ FINAL: Show both original + fallback cancel button
+      return (
+        <Space>
+          <AppointmentCancelButton 
+            appointment={record} 
+            onCancelClick={(appointment) => showCancelModal(appointment)} 
+          />
+          {/* ✅ FALLBACK: Always visible cancel button */}
+          <Button 
+            type="text" 
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => showCancelModal(record)}
+          >
+            Hủy lịch hẹn
+          </Button>
+        </Space>
+      );
     }
   };
 
@@ -138,8 +159,8 @@ const AppointmentManagement: React.FC = () => {
         message.info('Chưa có cuộc hẹn nào. Hệ thống sẽ hiển thị khi có dữ liệu mới.');
       }
       
-    } catch (err: any) {
-      console.error('❌ [ERROR] Failed to load appointments:', err);
+    } catch (error: unknown) {
+      console.error('❌ [ERROR] Failed to load appointments:', error);
       message.error('Không thể tải danh sách cuộc hẹn. Vui lòng thử lại sau.');
       setAppointments([]);
     } finally {
@@ -243,23 +264,6 @@ const AppointmentManagement: React.FC = () => {
     return texts[location];
   };
 
-  const handleDelete = async (appointmentId: string, appointmentType: 'appointment' | 'consultation') => {
-    try {
-      const success = await appointmentManagementService.cancelAppointment(appointmentId, appointmentType);
-      
-      if (success) {
-        // Remove from local state
-        setAppointments(prev => prev.filter(apt => apt._id !== appointmentId));
-        message.success('Hủy cuộc hẹn thành công');
-      } else {
-        message.error('Hủy cuộc hẹn thất bại');
-      }
-    } catch (err: any) {
-      console.error('❌ [ERROR] Failed to cancel appointment:', err);
-      message.error('Hủy cuộc hẹn thất bại');
-    }
-  };
-
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancelAppointmentData, setCancelAppointmentData] = useState<{
     id: string;
@@ -285,11 +289,31 @@ const AppointmentManagement: React.FC = () => {
     }
 
     try {
-      const success = await appointmentManagementService.cancelByDoctor(
-        cancelAppointmentData.id,
-        cancelAppointmentData.type,
-        cancelReason.trim()
-      );
+      // ✅ Call proper backend API based on appointment type
+      let success = false;
+      
+      if (cancelAppointmentData.type === 'appointment') {
+        // ✅ APPOINTMENT: Call cancel-by-doctor API (72h rule applied in backend)
+        success = await appointmentManagementService.cancelAppointmentByDoctor(
+          cancelAppointmentData.id,
+          cancelReason.trim()
+        );
+        
+        if (success) {
+          message.success('Hủy lịch hẹn thành công. Slot đã được đánh dấu Absent.');
+        }
+      } else if (cancelAppointmentData.type === 'consultation') {
+        // ✅ CONSULTATION: This should use transfer logic, not direct cancel
+        // But keep this for legacy support or direct cancel cases
+        success = await appointmentManagementService.cancelConsultationByDoctor(
+          cancelAppointmentData.id,
+          cancelReason.trim()
+        );
+        
+        if (success) {
+          message.success('Hủy tư vấn thành công. Hệ thống sẽ tự động tìm bác sĩ thay thế.');
+        }
+      }
 
       if (success) {
         // Update local state
@@ -298,16 +322,18 @@ const AppointmentManagement: React.FC = () => {
             apt._id === cancelAppointmentData.id ? { ...apt, status: 'cancelled' } : apt
           )
         );
-        message.success('Hủy lịch hẹn thành công. Hệ thống sẽ tự động tìm slot thay thế cho bệnh nhân.');
         setCancelModalVisible(false);
         setCancelAppointmentData(null);
         setCancelReason('');
       } else {
         message.error('Hủy lịch hẹn thất bại');
       }
-    } catch (err: any) {
-      console.error('❌ [ERROR] Failed to cancel appointment by doctor:', err);
-      message.error('Hủy lịch hẹn thất bại');
+    } catch (error: unknown) {
+      console.error('❌ [ERROR] Failed to cancel appointment by doctor:', error);
+      const errorMessage = error instanceof Error && 'response' in error 
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Hủy lịch hẹn thất bại'
+        : 'Hủy lịch hẹn thất bại';
+      message.error(errorMessage);
     }
   };
 
@@ -361,15 +387,15 @@ const AppointmentManagement: React.FC = () => {
                         {getStatusText(appointment.status)}
                       </Tag>
                     </Descriptions.Item>
-                    {appointment.type === 'appointment' && (detailData as any).profileId?.gender && (
+                    {appointment.type === 'appointment' && (detailData as DetailData).profileId?.gender && (
                       <Descriptions.Item label="Giới tính">
-                        {(detailData as any).profileId.gender === 'male' ? 'Nam' : 
-                         (detailData as any).profileId.gender === 'female' ? 'Nữ' : 'Khác'}
+                        {(detailData as DetailData).profileId.gender === 'male' ? 'Nam' : 
+                         (detailData as DetailData).profileId.gender === 'female' ? 'Nữ' : 'Khác'}
                       </Descriptions.Item>
                     )}
-                    {appointment.type === 'appointment' && (detailData as any).profileId?.year && (
+                    {appointment.type === 'appointment' && (detailData as DetailData).profileId?.year && (
                       <Descriptions.Item label="Năm sinh">
-                        {(detailData as any).profileId.year}
+                        {(detailData as DetailData).profileId.year}
                       </Descriptions.Item>
                     )}
                   </Descriptions>
@@ -421,16 +447,16 @@ const AppointmentManagement: React.FC = () => {
                     {appointment.address}
                   </Descriptions.Item>
                 )}
-                {appointment.type === 'appointment' && (detailData as any).serviceId?.price && (
+                {appointment.type === 'appointment' && (detailData as DetailData).serviceId?.price && (
                   <Descriptions.Item label="Giá dịch vụ">
                     <DollarOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
-                    {(detailData as any).serviceId.price.toLocaleString('vi-VN')} VNĐ
+                    {(detailData as DetailData).serviceId.price.toLocaleString('vi-VN')} VNĐ
                   </Descriptions.Item>
                 )}
-                {appointment.type === 'appointment' && (detailData as any).packageId?.price && (
+                {appointment.type === 'appointment' && (detailData as DetailData).packageId?.price && (
                   <Descriptions.Item label="Giá gói">
                     <DollarOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
-                    {(detailData as any).packageId.price.toLocaleString('vi-VN')} VNĐ
+                    {(detailData as DetailData).packageId.price.toLocaleString('vi-VN')} VNĐ
                   </Descriptions.Item>
                 )}
               </Descriptions>
@@ -438,7 +464,7 @@ const AppointmentManagement: React.FC = () => {
 
             {/* Thông tin chi tiết */}
             {(appointment.description || appointment.notes || 
-              (appointment.type === 'consultation' && (detailData as any).doctorNotes)) && (
+              (appointment.type === 'consultation' && (detailData as DetailData).doctorNotes)) && (
               <Card 
                 title={
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -472,7 +498,7 @@ const AppointmentManagement: React.FC = () => {
                   </div>
                 )}
 
-                {appointment.type === 'consultation' && (detailData as any).doctorNotes && (
+                {appointment.type === 'consultation' && (detailData as DetailData).doctorNotes && (
                   <div style={{ 
                     padding: '12px', 
                     backgroundColor: '#e6f7ff', 
@@ -482,7 +508,7 @@ const AppointmentManagement: React.FC = () => {
                     <div style={{ fontWeight: 500, marginBottom: '4px', color: '#1890ff' }}>
                       Ghi chú của bác sĩ:
                     </div>
-                    <Text>{(detailData as any).doctorNotes}</Text>
+                    <Text>{(detailData as DetailData).doctorNotes}</Text>
                   </div>
                 )}
               </Card>
@@ -614,20 +640,8 @@ const AppointmentManagement: React.FC = () => {
             />
           </Tooltip>
           
-          {/* ✅ UPDATED: Cancel button với điều kiện 72h */}
-                                          {canCancelAppointment(record.appointmentDate, record.appointmentTime, record.status) && (
-            <Tooltip title="Hủy lịch hẹn (chỉ có thể hủy trước 72h)">
-              <Button 
-                type="text" 
-                icon={<DeleteOutlined />} 
-                size="small"
-                danger
-                onClick={() => showCancelModal(record)}
-              >
-                Hủy lịch hẹn
-              </Button>
-            </Tooltip>
-          )}
+          {/* ✅ ENHANCED: Dynamic cancel/transfer actions theo type */}
+          {renderCancelActions(record)}
         </Space>
       )
     }
@@ -720,12 +734,34 @@ const AppointmentManagement: React.FC = () => {
           scroll={{ x: 1200 }}
         />
 
-        {/* Modal hủy lịch hẹn bởi bác sĩ */}
+        {/* ✅ ENHANCED: Modal hủy lịch hẹn bởi bác sĩ với UI đẹp hơn */}
         <Modal
           title={
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <DeleteOutlined style={{ color: '#ff4d4f' }} />
-              <span>Hủy lịch hẹn</span>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px',
+              padding: '8px 0'
+            }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                backgroundColor: '#fff2f0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <DeleteOutlined style={{ color: '#ff4d4f', fontSize: '18px' }} />
+              </div>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: 600, color: '#1f2937' }}>
+                  Hủy lịch hẹn
+                </div>
+                <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '2px' }}>
+                  Thao tác này không thể hoàn tác
+                </div>
+              </div>
             </div>
           }
           open={cancelModalVisible}
@@ -735,42 +771,141 @@ const AppointmentManagement: React.FC = () => {
             setCancelAppointmentData(null);
             setCancelReason('');
           }}
-          okText="Hủy lịch hẹn"
+          okText="Xác nhận hủy"
           cancelText="Đóng"
-          okButtonProps={{ danger: true }}
-          width={500}
+          okButtonProps={{ 
+            danger: true,
+            size: 'large',
+            style: { 
+              minWidth: '120px',
+              borderRadius: '8px',
+              fontWeight: 500
+            }
+          }}
+          cancelButtonProps={{
+            size: 'large',
+            style: {
+              minWidth: '120px',
+              borderRadius: '8px'
+            }
+          }}
+          width={600}
+          centered
+          maskClosable={false}
+          destroyOnClose
         >
           {cancelAppointmentData && (
-            <div>
-              <p style={{ marginBottom: '16px' }}>
-                Bạn có chắc chắn muốn hủy lịch hẹn của bệnh nhân{' '}
-                <strong>{cancelAppointmentData.patientName}</strong>?
-              </p>
-              
-              <div style={{ marginBottom: '8px' }}>
-                <Text strong>Lý do hủy lịch hẹn: <span style={{ color: '#ff4d4f' }}>*</span></Text>
+            <div style={{ padding: '24px 0 8px 0' }}>
+              {/* Patient Info Card */}
+              <div style={{ 
+                marginBottom: '24px',
+                padding: '20px',
+                backgroundColor: '#f8fafc',
+                borderRadius: '12px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '12px',
+                  marginBottom: '8px'
+                }}>
+                  <UserOutlined style={{ 
+                    color: '#3b82f6', 
+                    fontSize: '16px',
+                    padding: '8px',
+                    backgroundColor: '#dbeafe',
+                    borderRadius: '50%'
+                  }} />
+                  <div>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#1f2937' }}>
+                      {cancelAppointmentData.patientName}
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#6b7280' }}>
+                      {cancelAppointmentData.type === 'consultation' ? 'Tư vấn trực tuyến' : 'Lịch hẹn khám bệnh'}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ fontSize: '14px', color: '#374151', lineHeight: '1.5' }}>
+                  Bạn có chắc chắn muốn hủy {cancelAppointmentData.type === 'consultation' ? 'tư vấn' : 'lịch hẹn'} này?
+                  {cancelAppointmentData.type === 'consultation' && 
+                    ' Hệ thống sẽ tự động tìm bác sĩ khác thay thế.'
+                  }
+                </div>
               </div>
               
-              <TextArea
-                placeholder="Vui lòng nhập lý do hủy lịch hẹn (bắt buộc)..."
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                rows={4}
-                maxLength={500}
-                showCount
-                style={{ marginBottom: '16px' }}
-              />
+              {/* Reason Input */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ 
+                  marginBottom: '12px',
+                  fontSize: '15px',
+                  fontWeight: 500,
+                  color: '#374151'
+                }}>
+                  Lý do hủy {cancelAppointmentData.type === 'consultation' ? 'tư vấn' : 'lịch hẹn'}: 
+                  <span style={{ color: '#ef4444', marginLeft: '4px' }}>*</span>
+                </div>
+                
+                <TextArea
+                  placeholder={`Vui lòng nhập lý do hủy ${cancelAppointmentData.type === 'consultation' ? 'tư vấn' : 'lịch hẹn'} (bắt buộc)...`}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  rows={4}
+                  maxLength={500}
+                  showCount
+                  style={{ 
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    lineHeight: '1.5'
+                  }}
+                />
+              </div>
               
+              {/* Info Notice */}
               <div style={{ 
-                padding: '12px', 
-                backgroundColor: '#fff7e6', 
-                borderRadius: '6px',
-                border: '1px solid #ffd591',
-                fontSize: '13px',
-                color: '#ad6800'
+                padding: '16px', 
+                backgroundColor: '#fffbeb', 
+                borderRadius: '8px',
+                border: '1px solid #fed7aa',
+                display: 'flex',
+                gap: '12px'
               }}>
-                <strong>Lưu ý:</strong> Lý do hủy sẽ được gửi cho bệnh nhân để họ hiểu tình hình. 
-                Hệ thống sẽ tự động tìm slot thay thế cho bệnh nhân.
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  flexShrink: 0,
+                  marginTop: '2px'
+                }}>
+                  !
+                </div>
+                <div>
+                  <div style={{ 
+                    fontWeight: 500, 
+                    marginBottom: '4px', 
+                    color: '#92400e',
+                    fontSize: '14px'
+                  }}>
+                    Lưu ý quan trọng:
+                  </div>
+                  <div style={{ 
+                    fontSize: '13px', 
+                    color: '#92400e',
+                    lineHeight: '1.5'
+                  }}>
+                    {cancelAppointmentData.type === 'consultation' 
+                      ? 'Lý do hủy sẽ được gửi cho bệnh nhân. Hệ thống sẽ tự động tìm bác sĩ khác có sẵn trong slot để thay thế.'
+                      : 'Lý do hủy sẽ được gửi cho bệnh nhân để họ hiểu tình hình. Slot này sẽ được đánh dấu là Absent.'
+                    }
+                  </div>
+                </div>
               </div>
             </div>
           )}
