@@ -1,18 +1,20 @@
-import React, { useState } from 'react';
-import { 
-  Card, 
+import React, { useState, useEffect } from 'react';
+import {
+    Card,
   Typography, 
   Button, 
-  Modal, 
-  Space, 
-  Tag, 
+    Modal,
+    Space,
+    Tag,
   Row, 
   Col, 
-  Tooltip,
+    Tooltip,
   Avatar,
-  Divider
+  Divider,
+  Spin,
+  message
 } from 'antd';
-import { 
+import {
   CalendarOutlined, 
   ClockCircleOutlined,
   CheckCircleOutlined,
@@ -24,9 +26,19 @@ import {
   ExclamationCircleOutlined,
   LeftOutlined,
   RightOutlined,
-  PlayCircleOutlined
+  PlayCircleOutlined,
+  ReloadOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+import appointmentManagementService from '../../../api/services/appointmentManagementService';
+import { UnifiedAppointment } from '../../../types/appointment';
+import { meetingAPI, MeetingData } from '../../../api/endpoints/meeting';
+
+// Setup timezone cho dayjs - an toàn hơn
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const { Title, Text } = Typography;
 
@@ -35,13 +47,7 @@ interface TimeSlot {
   id: string;
   slotTime: string;
   status: 'Free' | 'Booked' | 'Absent';
-  patientName?: string;
-  patientPhone?: string;
-  serviceName?: string;
-  appointmentType?: 'online' | 'in-person';
-  meetingLink?: string;
-  notes?: string;
-  consultationFee?: number;
+  appointment?: UnifiedAppointment; // Thêm data từ API
 }
 
 interface DaySchedule {
@@ -56,7 +62,7 @@ interface WeekSchedule {
   schedule: DaySchedule[];
 }
 
-// Define 8-hour working schedule
+// Define 8-hour working schedule (giống doctor schedule backend)
 const TIME_SLOTS = [
   '07:00 - 08:00',
   '08:00 - 09:00', 
@@ -68,63 +74,100 @@ const TIME_SLOTS = [
   '16:00 - 17:00'
 ];
 
-// Mock data generator
-const generateMockSchedule = (startWeek: dayjs.Dayjs): WeekSchedule => {
-  const schedule: DaySchedule[] = [];
-  const weekEnd = startWeek.add(6, 'day');
-  
-  for (let i = 0; i < 7; i++) {
-    const currentDay = startWeek.add(i, 'day');
-    const daySchedule: DaySchedule = {
-      date: currentDay.format('DD/MM'),
-      dayName: currentDay.format('dddd'),
-      fullDate: currentDay,
-      slots: TIME_SLOTS.map((timeSlot, index) => {
-        const slotId = `${currentDay.format('YYYY-MM-DD')}-${index}`;
-        
-        // Random assignment for demo
-        const statuses: TimeSlot['status'][] = ['Free', 'Booked', 'Absent'];
-        const randomStatus = statuses[Math.floor(Math.random() * 3)];
-        
-        let slot: TimeSlot = {
-          id: slotId,
-          slotTime: timeSlot,
-          status: randomStatus
-        };
-
-        if (randomStatus === 'Booked') {
-          const isOnline = Math.random() > 0.5;
-          slot = {
-            ...slot,
-            patientName: `Bệnh nhân ${index + 1}${i + 1}`,
-            patientPhone: `0${Math.floor(Math.random() * 9)}${Math.floor(Math.random() * 8) + 1}${Math.floor(Math.random() * 9)}${Math.floor(Math.random() * 9)}${Math.floor(Math.random() * 9)}${Math.floor(Math.random() * 9)}${Math.floor(Math.random() * 9)}${Math.floor(Math.random() * 9)}`,
-            serviceName: isOnline ? 'Tư vấn sức khỏe phụ nữ online' : 'Khám phụ khoa tổng quát',
-            appointmentType: isOnline ? 'online' : 'in-person',
-            meetingLink: isOnline ? `https://meet.google.com/abc-def-${Math.random().toString(36).substr(2, 3)}` : undefined,
-            notes: Math.random() > 0.7 ? 'Bệnh nhân có triệu chứng đau bụng, cần tư vấn kỹ' : undefined,
-            consultationFee: isOnline ? 200000 : 300000
-          };
-        }
-
-        return slot;
-      })
-    };
-    schedule.push(daySchedule);
-  }
-
-  return {
-    weekRange: `${startWeek.format('DD/MM')} - ${weekEnd.format('DD/MM/YYYY')}`,
-    schedule
-  };
-};
-
 const DoctorScheduleCalendar: React.FC = () => {
   const [selectedWeek, setSelectedWeek] = useState(dayjs().startOf('week'));
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [appointments, setAppointments] = useState<UnifiedAppointment[]>([]);
+  const [meetingLoading, setMeetingLoading] = useState(false);
+  const [currentMeeting, setCurrentMeeting] = useState<MeetingData | null>(null);
 
-  // Generate schedule data based on selected week
-  const scheduleData = generateMockSchedule(selectedWeek);
+  // Load real appointment data from API
+  const loadAppointments = async () => {
+    try {
+      setLoading(true);
+      console.log('📅 [DEBUG] Loading doctor appointments for calendar view');
+      
+      // Gọi API giống AppointmentManagement
+      const appointmentData = await appointmentManagementService.getAllDoctorAppointments({
+        page: 1,
+        limit: 500 // Lấy nhiều để cover cả tuần
+      });
+      
+      console.log('✅ [DEBUG] Calendar loaded appointments:', appointmentData.length);
+      setAppointments(appointmentData);
+      
+    } catch (error: unknown) {
+      console.error('❌ [ERROR] Failed to load appointments for calendar:', error);
+      message.error('Không thể tải lịch làm việc. Vui lòng thử lại sau.');
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Transform appointments to calendar schedule format
+  const generateScheduleFromAPI = (startWeek: dayjs.Dayjs): WeekSchedule => {
+    const schedule: DaySchedule[] = [];
+    const weekEnd = startWeek.add(6, 'day');
+    const today = dayjs().startOf('day'); // Ngày hôm nay để so sánh
+    
+    for (let i = 0; i < 7; i++) {
+      const currentDay = startWeek.add(i, 'day');
+      const dayDateString = currentDay.format('YYYY-MM-DD');
+      const isPastDate = currentDay.isBefore(today, 'day'); // Kiểm tra ngày quá khứ
+      
+      // Lọc appointments cho ngày này
+      const dayAppointments = appointments.filter(apt => {
+        const aptDate = dayjs(apt.appointmentDate).format('YYYY-MM-DD');
+        return aptDate === dayDateString;
+      });
+      
+      const daySchedule: DaySchedule = {
+        date: currentDay.format('DD/MM'),
+        dayName: currentDay.format('dddd'),
+        fullDate: currentDay,
+        slots: TIME_SLOTS.map((timeSlot, index) => {
+          const slotId = `${currentDay.format('YYYY-MM-DD')}-${index}`;
+          
+          // Tìm appointment matching với time slot này
+          const matchingAppointment = dayAppointments.find(apt => {
+            const aptTime = apt.appointmentTime;
+            
+            // So sánh time slot (VD: "07:00 - 08:00" vs "07:00")
+            const slotStart = timeSlot.split(' - ')[0];
+            return aptTime.startsWith(slotStart) || aptTime === slotStart;
+          });
+          
+          const slot: TimeSlot = {
+            id: slotId,
+            slotTime: timeSlot,
+            status: matchingAppointment ? 'Booked' : isPastDate ? 'Absent' : 'Free' // Ngày quá khứ = Absent
+          };
+
+          if (matchingAppointment) {
+            slot.appointment = matchingAppointment;
+          }
+
+          return slot;
+        })
+      };
+      schedule.push(daySchedule);
+    }
+
+    return {
+      weekRange: `${startWeek.format('DD/MM')} - ${weekEnd.format('DD/MM/YYYY')}`,
+      schedule
+    };
+  };
+
+  useEffect(() => {
+    loadAppointments();
+  }, []);
+
+  // Generate schedule data from real API data
+  const scheduleData = generateScheduleFromAPI(selectedWeek);
 
   const goToPreviousWeek = () => {
     setSelectedWeek(prev => prev.subtract(1, 'week'));
@@ -138,31 +181,71 @@ const DoctorScheduleCalendar: React.FC = () => {
     setSelectedWeek(dayjs().startOf('week'));
   };
 
+  const refreshData = () => {
+    loadAppointments();
+  };
+
   const handleSlotClick = (slot: TimeSlot) => {
     setSelectedSlot(slot);
     setIsModalVisible(true);
+    
+    // Debug appointment data structure
+    if (slot.appointment) {
+      console.log('🧪 [DEBUG] Appointment data structure:', {
+        appointmentDate: slot.appointment.appointmentDate,
+        appointmentTime: slot.appointment.appointmentTime,
+        type: slot.appointment.type,
+        status: slot.appointment.status,
+        patientName: slot.appointment.patientName,
+        fullObject: slot.appointment
+      });
+    }
   };
 
   const getSlotColor = (slot: TimeSlot) => {
+    if (slot.appointment) {
+      switch (slot.appointment.status) {
+        case 'pending_payment':
+          return '#fa8c16'; // Orange
+        case 'scheduled':
+          return slot.appointment.type === 'consultation' ? '#1890ff' : '#722ed1'; // Blue for consultation, purple for appointment
+        case 'consulting':
+          return '#52c41a'; // Green - đang tư vấn
+        case 'completed':
+          return '#8c8c8c'; // Gray
+        case 'cancelled':
+          return '#f5222d'; // Red
+        default:
+          return '#d9d9d9';
+      }
+    }
+    
     switch (slot.status) {
       case 'Free':
-        return '#52c41a';
-      case 'Booked':
-        return slot.appointmentType === 'online' ? '#1890ff' : '#fa8c16';
+        return '#52c41a'; // Green
       case 'Absent':
-        return '#8c8c8c';
+        return '#8c8c8c'; // Gray
       default:
         return '#f5f5f5';
     }
   };
 
   const getSlotIcon = (slot: TimeSlot) => {
+    if (slot.appointment) {
+      switch (slot.appointment.type) {
+        case 'consultation':
+          return <VideoCameraOutlined />;
+        case 'appointment':
+          return slot.appointment.typeLocation === 'Online' ? 
+            <VideoCameraOutlined /> : <EnvironmentOutlined />;
+        default:
+          return <UserOutlined />;
+      }
+    }
+    
     switch (slot.status) {
       case 'Free':
         return <CheckCircleOutlined />;
-      case 'Booked':
-        return slot.appointmentType === 'online' ? 
-          <VideoCameraOutlined /> : <EnvironmentOutlined />;
       case 'Absent':
         return <CloseCircleOutlined />;
       default:
@@ -171,11 +254,20 @@ const DoctorScheduleCalendar: React.FC = () => {
   };
 
   const getSlotText = (slot: TimeSlot) => {
+    if (slot.appointment) {
+      switch (slot.appointment.type) {
+        case 'consultation':
+          return 'Tư vấn Online';
+        case 'appointment':
+          return slot.appointment.typeLocation === 'Online' ? 'Online' : 'Tại phòng';
+        default:
+          return 'Đã đặt';
+      }
+    }
+    
     switch (slot.status) {
       case 'Free':
         return 'Lịch trống';
-      case 'Booked':
-        return slot.appointmentType === 'online' ? 'Online' : 'Tại phòng';
       case 'Absent':
         return 'Vắng mặt';
       default:
@@ -183,8 +275,110 @@ const DoctorScheduleCalendar: React.FC = () => {
     }
   };
 
-  const handleJoinMeeting = (meetingLink: string) => {
-    window.open(meetingLink, '_blank');
+  const getStatusColor = (status: UnifiedAppointment['status']) => {
+    const colors = {
+      pending_payment: 'gold',
+      scheduled: 'purple',
+      consulting: 'lime',
+      completed: 'green',
+      cancelled: 'red'
+    };
+    return colors[status] || 'default';
+  };
+
+  const getStatusText = (status: UnifiedAppointment['status']) => {
+    const texts = {
+      pending_payment: 'Chờ thanh toán',
+      scheduled: 'Đã lên lịch',
+      consulting: 'Đang tư vấn',
+      completed: 'Hoàn thành',
+      cancelled: 'Đã hủy'
+    };
+    return texts[status] || status;
+  };
+
+  // Kiểm tra xem có thể tham gia meeting không (5 phút trước đến hết giờ hẹn)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const canJoinMeeting = (appointment: UnifiedAppointment) => {
+    // Luôn cho phép join meeting - không cần điều kiện gì
+    return true;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const getMeetingButtonText = (appointment: UnifiedAppointment) => {
+    // Luôn hiển thị "Tham gia Meet" - không cần điều kiện gì
+    return 'Tham gia Meet';
+  };
+
+  const handleJoinMeeting = async (appointment: UnifiedAppointment) => {
+    // Luôn cho phép join meeting - bỏ check điều kiện
+    
+    try {
+      setMeetingLoading(true);
+
+      // Lấy qaId từ appointment data
+      let qaId = '';
+      if (appointment.type === 'consultation') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const consultationData = appointment.originalData as any;
+        qaId = consultationData?._id || consultationData?.id;
+      }
+
+      if (!qaId) {
+        message.error('Không tìm thấy thông tin meeting');
+        return;
+      }
+
+      // 1. Kiểm tra meeting đã tồn tại chưa
+      let meetingData: MeetingData;
+      try {
+        meetingData = await meetingAPI.getMeetingByQA(qaId);
+        console.log('✅ Found existing meeting:', meetingData);
+      } catch {
+        console.log('⚠️ Meeting chưa tồn tại, tạo mới...');
+        
+        // 2. Tạo meeting mới nếu chưa có
+        const createMeetingData = {
+          qaId,
+          doctorId: 'current-doctor-id', // TODO: Get from auth context
+          scheduledTime: `${appointment.appointmentDate} ${appointment.appointmentTime}`,
+          duration: 60,
+          preferredProvider: 'google' as const
+        };
+
+        const createResult = await meetingAPI.createMeeting(createMeetingData);
+        console.log('✅ Created new meeting:', createResult);
+        
+        // Lấy lại meeting data sau khi tạo
+        meetingData = await meetingAPI.getMeetingByQA(qaId);
+      }
+
+      // 3. Notify join meeting (update participant count)
+      await meetingAPI.joinMeeting(qaId, { participantType: 'doctor' });
+      console.log('✅ Doctor joined meeting');
+
+      // 4. Mở meeting link
+      if (meetingData.meetLink) {
+        window.open(meetingData.meetLink, '_blank');
+        message.success(`Đã mở ${meetingData.provider === 'google' ? 'Google Meet' : 'Jitsi Meet'}`);
+        
+        // Cập nhật state để hiển thị thông tin meeting
+        setCurrentMeeting(meetingData);
+      } else {
+        message.error('Không có meeting link khả dụng');
+      }
+
+    } catch (error: unknown) {
+      console.error('❌ Error joining meeting:', error);
+      
+      // Fallback: Tạo Jitsi Meet link tạm thời
+      const fallbackLink = `https://meet.jit.si/consultation-${Date.now()}`;
+      window.open(fallbackLink, '_blank');
+      message.warning('Không thể kết nối meeting chính, đã tạo phòng Jitsi tạm thời');
+      
+    } finally {
+      setMeetingLoading(false);
+    }
   };
 
   return (
@@ -195,26 +389,33 @@ const DoctorScheduleCalendar: React.FC = () => {
           <Col>
             <Title level={2} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
               <CalendarOutlined style={{ color: '#1890ff' }} />
-                  Lịch làm việc cá nhân
-                </Title>
+              Lịch làm việc cá nhân
+            </Title>
             <Text type="secondary" style={{ fontSize: '16px' }}>
-                  Tuần {scheduleData.weekRange}
-                </Text>
+              Tuần {scheduleData.weekRange}
+            </Text>
           </Col>
           <Col>
             <Space>
+            <Button
+              icon={<ReloadOutlined />}
+                onClick={refreshData}
+              loading={loading}
+            >
+                Làm mới
+            </Button>
               <Button 
                 icon={<LeftOutlined />}
                 onClick={goToPreviousWeek}
               >
                 Tuần trước
               </Button>
-              <Button 
-                type="primary" 
+            <Button
+              type="primary"
                 onClick={goToToday}
-              >
+            >
                 Hôm nay
-              </Button>
+            </Button>
               <Button 
                 icon={<RightOutlined />}
                 onClick={goToNextWeek}
@@ -235,144 +436,154 @@ const DoctorScheduleCalendar: React.FC = () => {
             <Tag color="processing">
               <VideoCameraOutlined /> Tư vấn Online
             </Tag>
-            <Tag color="warning">
+            <Tag color="purple">
               <EnvironmentOutlined /> Khám tại phòng
             </Tag>
-            <Tag color="default">
-              <CloseCircleOutlined /> Vắng mặt
+            <Tag color="gold">
+              <ExclamationCircleOutlined /> Chờ thanh toán
             </Tag>
-            </Space>
+            <Tag color="default">
+              <CloseCircleOutlined /> Đã qua
+            </Tag>
+          </Space>
         </Row>
       </Card>
 
       {/* Calendar Grid */}
       <Card style={{ borderRadius: '8px' }}>
-        <div style={{ overflowX: 'auto' }}>
-          {/* Headers */}
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '120px repeat(7, 1fr)', 
-            gap: '1px',
-            background: '#f0f0f0',
-            padding: '1px'
-          }}>
-            {/* Time column header */}
+        <Spin spinning={loading}>
+          <div style={{ overflowX: 'auto' }}>
+            {/* Headers */}
             <div style={{ 
-              background: '#fafafa', 
-              padding: '16px', 
-              textAlign: 'center',
-              fontWeight: 'bold',
-              color: '#666'
+              display: 'grid', 
+              gridTemplateColumns: '120px repeat(7, 1fr)', 
+              gap: '1px',
+              background: '#f0f0f0',
+              padding: '1px'
             }}>
-              <ClockCircleOutlined style={{ marginRight: '8px' }} />
-                Ca làm việc
-            </div>
-
-            {/* Day headers */}
-            {scheduleData.schedule.map((day) => (
-              <div 
-                key={day.date}
-                style={{ 
-                  background: day.fullDate.isSame(dayjs(), 'day') ? '#e6f7ff' : '#fafafa',
-                  padding: '16px', 
-                  textAlign: 'center',
-                  fontWeight: 'bold',
-                  color: day.fullDate.isSame(dayjs(), 'day') ? '#1890ff' : '#333'
-                }}
-              >
-                <div style={{ fontSize: '14px' }}>{day.dayName}</div>
-                <div style={{ fontSize: '18px', marginTop: '4px' }}>{day.date}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Time slots */}
-          {TIME_SLOTS.map((timeSlot, timeIndex) => (
-            <div 
-              key={timeSlot}
-              style={{ 
-                display: 'grid', 
-                gridTemplateColumns: '120px repeat(7, 1fr)', 
-                gap: '1px',
-                background: '#f0f0f0',
-                padding: '1px'
-              }}
-            >
-              {/* Time label */}
+              {/* Time column header */}
               <div style={{ 
                 background: '#fafafa', 
                 padding: '16px', 
                 textAlign: 'center',
-                fontWeight: '500',
-                color: '#666',
+                fontWeight: 'bold',
+                color: '#666'
+              }}>
+                <ClockCircleOutlined style={{ marginRight: '8px' }} />
+                Ca làm việc
+            </div>
+
+              {/* Day headers */}
+              {scheduleData.schedule.map((day) => (
+                <div 
+                  key={day.date}
+                  style={{ 
+                    background: day.fullDate.isSame(dayjs(), 'day') ? '#e6f7ff' : '#fafafa',
+                    padding: '16px', 
+                    textAlign: 'center',
+                    fontWeight: 'bold',
+                    color: day.fullDate.isSame(dayjs(), 'day') ? '#1890ff' : '#333'
+                  }}
+                >
+                  <div style={{ fontSize: '14px' }}>{day.dayName}</div>
+                  <div style={{ fontSize: '18px', marginTop: '4px' }}>{day.date}</div>
+                </div>
+              ))}
+              </div>
+
+            {/* Time slots */}
+            {TIME_SLOTS.map((timeSlot, timeIndex) => (
+              <div 
+                key={timeSlot}
+                style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '120px repeat(7, 1fr)', 
+                  gap: '1px',
+                  background: '#f0f0f0',
+                  padding: '1px'
+                }}
+              >
+                {/* Time label */}
+                <div style={{ 
+                  background: '#fafafa', 
+                  padding: '16px', 
+                  textAlign: 'center',
+                  fontWeight: '500',
+                  color: '#666',
                   display: 'flex',
                   flexDirection: 'column',
-                justifyContent: 'center'
-              }}>
-                <div style={{ fontSize: '12px', color: '#999' }}>Ca {timeIndex + 1}</div>
-                <div style={{ fontSize: '14px' }}>{timeSlot}</div>
+                  justifyContent: 'center'
+                }}>
+                  <div style={{ fontSize: '12px', color: '#999' }}>Ca {timeIndex + 1}</div>
+                  <div style={{ fontSize: '14px' }}>{timeSlot}</div>
                 </div>
                 
-              {/* Day slots */}
-              {scheduleData.schedule.map((day) => {
-                const slot = day.slots[timeIndex];
+                {/* Day slots */}
+                {scheduleData.schedule.map((day) => {
+                  const slot = day.slots[timeIndex];
+                  const isPastDate = day.fullDate.isBefore(dayjs(), 'day');
+                  const isClickable = slot.appointment || !isPastDate; // Chỉ click được nếu có appointment hoặc không phải ngày quá khứ
+                  
                   return (
                     <Tooltip
                       key={slot.id}
                       title={
-                        slot.status === 'Booked' 
-                        ? `${slot.patientName} - ${slot.serviceName}`
-                          : getSlotText(slot)
+                        slot.appointment 
+                        ? `${slot.appointment.patientName} - ${slot.appointment.serviceName}`
+                        : isPastDate 
+                        ? 'Ngày đã qua' 
+                        : getSlotText(slot)
                       }
                     >
                       <div
-                        onClick={() => handleSlotClick(slot)}
+                        onClick={isClickable ? () => handleSlotClick(slot) : undefined}
                         style={{
-                        background: '#fff',
-                        padding: '16px',
+                          background: isPastDate && !slot.appointment ? '#f5f5f5' : '#fff',
+                          padding: '16px',
                           textAlign: 'center',
-                          cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        borderLeft: `4px solid ${getSlotColor(slot)}`,
+                          cursor: isClickable ? 'pointer' : 'default',
+                          transition: 'all 0.2s',
+                          borderLeft: `4px solid ${getSlotColor(slot)}`,
                           minHeight: '80px',
                           display: 'flex',
                           flexDirection: 'column',
                           justifyContent: 'center',
-                        alignItems: 'center'
+                          alignItems: 'center',
+                          opacity: isPastDate && !slot.appointment ? 0.5 : 1, // Làm mờ ngày quá khứ
                         }}
-                        onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#fafafa';
-                        e.currentTarget.style.transform = 'scale(1.02)';
-                        }}
-                        onMouseLeave={(e) => {
-                        e.currentTarget.style.background = '#fff';
-                        e.currentTarget.style.transform = 'scale(1)';
-                        }}
+                        onMouseEnter={isClickable ? (e) => {
+                          e.currentTarget.style.background = isPastDate && !slot.appointment ? '#f0f0f0' : '#fafafa';
+                          e.currentTarget.style.transform = 'scale(1.02)';
+                        } : undefined}
+                        onMouseLeave={isClickable ? (e) => {
+                          e.currentTarget.style.background = isPastDate && !slot.appointment ? '#f5f5f5' : '#fff';
+                          e.currentTarget.style.transform = 'scale(1)';
+                        } : undefined}
                       >
-                            <div style={{
-                        color: getSlotColor(slot),
-                        fontSize: '18px',
-                        marginBottom: '8px'
+                        <div style={{
+                          color: isPastDate && !slot.appointment ? '#bfbfbf' : getSlotColor(slot),
+                          fontSize: '18px',
+                          marginBottom: '8px'
                         }}>
                           {getSlotIcon(slot)}
-                        </div>
-                      <div style={{ 
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        color: getSlotColor(slot)
-                      }}>
-                          {getSlotText(slot)}
-                        </div>
-                        {slot.status === 'Booked' && (
-                          <div style={{ 
-                          fontSize: '10px', 
-                          color: '#666',
-                          marginTop: '4px',
-                          textAlign: 'center'
+              </div>
+                <div style={{ 
+                          fontSize: '12px',
+                          fontWeight: '500',
+                          color: isPastDate && !slot.appointment ? '#bfbfbf' : getSlotColor(slot)
                         }}>
-                          {slot.patientName}
-                          </div>
-                        )}
+                          {isPastDate && !slot.appointment ? 'Đã qua' : getSlotText(slot)}
+                </div>
+                        {slot.appointment && (
+                  <div style={{ 
+                            fontSize: '10px', 
+                            color: isPastDate ? '#999' : '#666',
+                            marginTop: '4px',
+                            textAlign: 'center'
+                          }}>
+                            {slot.appointment.patientName}
+                  </div>
+                )}
                       </div>
                     </Tooltip>
                   );
@@ -380,13 +591,14 @@ const DoctorScheduleCalendar: React.FC = () => {
               </div>
             ))}
           </div>
-        </Card>
+        </Spin>
+      </Card>
 
       {/* Detail Modal */}
       <Modal
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
+                <div style={{ 
               width: '40px',
               height: '40px',
               borderRadius: '50%',
@@ -397,31 +609,35 @@ const DoctorScheduleCalendar: React.FC = () => {
               color: 'white'
             }}>
               {selectedSlot && getSlotIcon(selectedSlot)}
-            </div>
+                  </div>
             <div>
               <div style={{ fontSize: '16px', fontWeight: 'bold' }}>Chi tiết lịch hẹn</div>
               <div style={{ fontSize: '14px', color: '#666' }}>
                 {selectedSlot?.slotTime}
+                </div>
               </div>
-            </div>
           </div>
         }
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={
-          selectedSlot?.status === 'Booked' ? [
+          selectedSlot?.appointment ? [
             <Button key="cancel" onClick={() => setIsModalVisible(false)}>
               Đóng
             </Button>,
-            selectedSlot?.appointmentType === 'online' && selectedSlot.meetingLink && (
+            selectedSlot.appointment.type === 'consultation' && (
               <Button 
                 key="join"
                 type="primary" 
                 icon={<PlayCircleOutlined />}
-                onClick={() => handleJoinMeeting(selectedSlot.meetingLink!)}
-                style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                onClick={() => handleJoinMeeting(selectedSlot.appointment!)}
+                loading={meetingLoading}
+                style={{ 
+                  background: '#52c41a', 
+                  borderColor: '#52c41a'
+                }}
               >
-                Tham gia Meet
+                {meetingLoading ? 'Đang tạo Meet...' : getMeetingButtonText(selectedSlot.appointment)}
               </Button>
             ),
             <Button 
@@ -441,7 +657,7 @@ const DoctorScheduleCalendar: React.FC = () => {
       >
         {selectedSlot && (
           <div style={{ padding: '20px 0' }}>
-            {selectedSlot.status === 'Free' && (
+            {!selectedSlot.appointment && selectedSlot.status === 'Free' && (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
                 <CheckCircleOutlined style={{ 
                   fontSize: '48px', 
@@ -457,7 +673,7 @@ const DoctorScheduleCalendar: React.FC = () => {
               </div>
             )}
 
-            {selectedSlot.status === 'Absent' && (
+            {!selectedSlot.appointment && selectedSlot.status === 'Absent' && (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
                 <ExclamationCircleOutlined style={{ 
                   fontSize: '48px', 
@@ -473,40 +689,37 @@ const DoctorScheduleCalendar: React.FC = () => {
               </div>
             )}
 
-            {selectedSlot.status === 'Booked' && (
+            {selectedSlot.appointment && (
               <div>
                 <Row gutter={[16, 16]}>
                   <Col span={24}>
                     <Card size="small" style={{ 
-                      background: selectedSlot.appointmentType === 'online' ? '#e6f7ff' : '#fff7e6'
+                      background: selectedSlot.appointment.type === 'consultation' ? '#e6f7ff' : '#fff7e6'
                     }}>
                       <Row align="middle" gutter={16}>
                         <Col flex="auto">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <Avatar icon={<UserOutlined />} size={40} />
-                        <div>
+                            <div>
                               <Text strong style={{ fontSize: '16px' }}>
-                                {selectedSlot.patientName}
-                          </Text>
+                                {selectedSlot.appointment.patientName}
+                              </Text>
                               <div style={{ color: '#666', fontSize: '14px' }}>
                                 <PhoneOutlined style={{ marginRight: '8px' }} />
-                                {selectedSlot.patientPhone}
-                        </div>
-                      </div>
+                                {selectedSlot.appointment.patientPhone}
+                              </div>
+                            </div>
                           </div>
-                        </Col>
+              </Col>
                         <Col>
                           <Tag 
-                            color={selectedSlot.appointmentType === 'online' ? 'blue' : 'orange'}
+                            color={getStatusColor(selectedSlot.appointment.status)}
                             style={{ padding: '4px 12px' }}
                           >
-                            {selectedSlot.appointmentType === 'online' ? 
-                              <><VideoCameraOutlined /> Online</> : 
-                              <><EnvironmentOutlined /> Tại phòng</>
-                            }
+                            {getStatusText(selectedSlot.appointment.status)}
                           </Tag>
-                        </Col>
-                      </Row>
+              </Col>
+            </Row>
                     </Card>
                   </Col>
 
@@ -515,40 +728,82 @@ const DoctorScheduleCalendar: React.FC = () => {
                       <Text strong style={{ display: 'block', marginBottom: '8px' }}>
                         Dịch vụ:
                       </Text>
-                      <Text>{selectedSlot.serviceName}</Text>
+                      <Text>{selectedSlot.appointment.serviceName}</Text>
                       
                       <Divider style={{ margin: '16px 0' }} />
                       
                       <Text strong style={{ display: 'block', marginBottom: '8px' }}>
-                        Phí tư vấn:
+                        Loại:
                       </Text>
-                      <Text style={{ fontSize: '16px', color: '#52c41a', fontWeight: 'bold' }}>
-                        {selectedSlot.consultationFee?.toLocaleString('vi-VN')} VNĐ
-                      </Text>
+                      <Tag 
+                        color={selectedSlot.appointment.type === 'consultation' ? 'blue' : 'purple'}
+                        style={{ padding: '4px 12px' }}
+                      >
+                        {selectedSlot.appointment.type === 'consultation' ? 
+                          <><VideoCameraOutlined /> Tư vấn Online</> : 
+                          <><EnvironmentOutlined /> {selectedSlot.appointment.typeLocation}</>
+                        }
+                      </Tag>
 
-                      {selectedSlot.notes && (
+                      {selectedSlot.appointment.description && (
+                        <>
+                          <Divider style={{ margin: '16px 0' }} />
+                          <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+                            {selectedSlot.appointment.type === 'consultation' ? 'Câu hỏi:' : 'Mô tả:'}
+                          </Text>
+                          <Text>{selectedSlot.appointment.description}</Text>
+                        </>
+                      )}
+
+                      {selectedSlot.appointment.notes && (
                         <>
                           <Divider style={{ margin: '16px 0' }} />
                           <Text strong style={{ display: 'block', marginBottom: '8px' }}>
                             Ghi chú:
-                        </Text>
-                          <Text>{selectedSlot.notes}</Text>
+                          </Text>
+                          <Text>{selectedSlot.appointment.notes}</Text>
                         </>
                       )}
 
-                      {selectedSlot.appointmentType === 'online' && selectedSlot.meetingLink && (
+                      {selectedSlot.appointment.address && (
                         <>
                           <Divider style={{ margin: '16px 0' }} />
                           <Text strong style={{ display: 'block', marginBottom: '8px' }}>
-                            Link tham gia:
+                            Địa chỉ:
                           </Text>
-                          <Text code copyable={{ text: selectedSlot.meetingLink }}>
-                          {selectedSlot.meetingLink}
-                        </Text>
+                          <Text>{selectedSlot.appointment.address}</Text>
                         </>
                       )}
-                      </div>
-                    </Col>
+
+                      {/* Meeting Info */}
+                      {selectedSlot.appointment.type === 'consultation' && currentMeeting && (
+                        <>
+                          <Divider style={{ margin: '16px 0' }} />
+                          <Text strong style={{ display: 'block', marginBottom: '8px' }}>
+                            Thông tin Meeting:
+                          </Text>
+                          <div style={{ background: '#f0f8ff', padding: '12px', borderRadius: '6px' }}>
+                            <div style={{ marginBottom: '8px' }}>
+                              <Text strong>Provider: </Text>
+                              <Tag color={currentMeeting.provider === 'google' ? 'blue' : 'orange'}>
+                                {currentMeeting.provider === 'google' ? 'Google Meet' : 'Jitsi Meet'}
+                              </Tag>
+                            </div>
+                            <div style={{ marginBottom: '8px' }}>
+                              <Text strong>Trạng thái: </Text>
+                              <Tag color={currentMeeting.status === 'in_progress' ? 'green' : 'default'}>
+                                {currentMeeting.status === 'in_progress' ? 'Đang diễn ra' : 'Đã lên lịch'}
+                              </Tag>
+                            </div>
+                            <div>
+                              <Text strong>Người tham gia: </Text>
+                              <Text>{currentMeeting.participantCount}/{currentMeeting.maxParticipants}</Text>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </Col>
                 </Row>
               </div>
             )}
@@ -559,4 +814,4 @@ const DoctorScheduleCalendar: React.FC = () => {
   );
 };
 
-export default DoctorScheduleCalendar; 
+export default DoctorScheduleCalendar;

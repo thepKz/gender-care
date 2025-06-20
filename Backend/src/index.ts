@@ -13,6 +13,7 @@ import {
   dashboardRoutes,
   doctorQARoutes,
   doctorRoutes,
+  googleAuthRoutes,
   loginHistoryRoutes,
   medicalRecordsRoutes,
   medicationRemindersRoutes,
@@ -131,6 +132,9 @@ apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/doctors', doctorRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
+
+// ✅ NEW: Google Authentication routes
+apiRouter.use('/google-auth', googleAuthRoutes);
 
 // Thêm Test Management routes
 apiRouter.use('/test-categories', testCategoriesRoutes);

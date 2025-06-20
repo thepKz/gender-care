@@ -572,14 +572,14 @@ export const getQAMeeting = async (req: Request, res: Response): Promise<void> =
       message: 'Lấy thông tin meeting thành công',
       data: {
         meetLink: meeting.meetingLink,
-        meetId: meeting.meetingId,
-        scheduledStartTime: meeting.scheduledStartTime,
-        scheduledEndTime: meeting.scheduledEndTime,
+        provider: meeting.provider,
+        scheduledTime: meeting.scheduledTime,
         actualStartTime: meeting.actualStartTime,
-        actualEndTime: meeting.actualEndTime,
         status: meeting.status,
-        participants: meeting.participants,
-        notes: meeting.notes
+        participantCount: meeting.participantCount,
+        maxParticipants: meeting.maxParticipants,
+        notes: meeting.notes,
+        googleEventId: meeting.googleEventId
       }
     });
 
@@ -623,7 +623,7 @@ export const joinQAMeeting = async (req: AuthRequest, res: Response): Promise<vo
       data: {
         meetingStatus: updatedMeeting.status,
         actualStartTime: updatedMeeting.actualStartTime,
-        participants: updatedMeeting.participants
+        participantCount: updatedMeeting.participantCount
       }
     });
 
@@ -654,11 +654,8 @@ export const completeQAMeeting = async (req: Request, res: Response): Promise<vo
       message: 'Hoàn thành tư vấn và meeting thành công!',
       data: {
         meetingStatus: completedMeeting.status,
-        actualEndTime: completedMeeting.actualEndTime,
         notes: completedMeeting.notes,
-        duration: completedMeeting.actualStartTime && completedMeeting.actualEndTime
-          ? Math.round((completedMeeting.actualEndTime.getTime() - completedMeeting.actualStartTime.getTime()) / 60000)
-          : null
+        participantCount: completedMeeting.participantCount
       }
     });
 

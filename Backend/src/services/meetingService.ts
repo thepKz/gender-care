@@ -1,15 +1,16 @@
 import Meeting from '../models/Meeting';
 import DoctorQA from '../models/DoctorQA';
-import { google } from 'googleapis';
 import mongoose from 'mongoose';
+import googleCalendarService from './googleCalendarService';
 
-// Interface for creating meeting
+// Interface for creating meeting - UPDATED for simplified model
 interface CreateMeetingData {
   qaId: string;
   doctorId: string;
   userId: string;
-  scheduledStartTime: Date;
-  scheduledEndTime: Date;
+  scheduledTime: Date;
+  duration?: number; // minutes, default 60
+  preferredProvider?: 'google' | 'jitsi';
 }
 
 // Interface for Google Meet creation
@@ -21,84 +22,78 @@ interface GoogleMeetData {
 }
 
 /**
- * Tạo Google Meet link thông qua Google Calendar API
+ * Tạo meeting với Google Meet hoặc Jitsi fallback - UPDATED to use real GoogleCalendarService
  */
-export const createGoogleMeetLink = async (
-  title: string,
-  startTime: Date,
-  endTime: Date,
-  attendeeEmails: string[] = []
-): Promise<GoogleMeetData> => {
+export const createMeetingFromQA = async (
+  qaId: string,
+  options: {
+    preferredProvider?: 'google' | 'jitsi';
+    scheduledTime: Date;
+    duration?: number; // minutes
+  }
+): Promise<any> => {
   try {
-    // Tạo OAuth2 client (cần implement Google Auth service riêng)
-    // Tạm thời mock data - sẽ implement Google API sau
-    const mockMeetLink = `https://meet.google.com/mock-${Date.now()}`;
-    const mockMeetId = `mock_meeting_${Date.now()}`;
+    const qa = await DoctorQA.findById(qaId);
+    if (!qa) {
+      throw new Error('Không tìm thấy yêu cầu tư vấn');
+    }
 
-    console.log('🔄 [MOCK] Creating Google Meet:', {
-      title,
-      startTime,
-      endTime,
-      attendeeEmails,
-      generatedLink: mockMeetLink
-    });
+    const meetingTitle = `Tư vấn sức khỏe - ${qa.fullName}`;
+    const duration = options.duration || 60;
+    let meetingData;
+    let provider: 'google' | 'jitsi' = 'jitsi'; // default
 
-    return {
-      meetLink: mockMeetLink,
-      meetId: mockMeetId,
-      startTime,
-      endTime
-    };
+    // Try Google Meet first if preferred
+    if (options.preferredProvider === 'google') {
+      try {
+        console.log('🔄 Attempting to create Google Meet for doctor:', qa.doctorId);
+        
+                 meetingData = await googleCalendarService.createGoogleMeet(
+           meetingTitle,
+           options.scheduledTime,
+           duration,
+           [], // TODO: Add attendee emails
+           qa.doctorId?.toString() || ''
+         );
+        
+        provider = 'google';
+        console.log('✅ Google Meet created successfully');
 
-    /* TODO: Implement actual Google Calendar API
-    const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
-    
-    const event = {
-      summary: title,
-      start: {
-        dateTime: startTime.toISOString(),
-        timeZone: 'Asia/Ho_Chi_Minh',
-      },
-      end: {
-        dateTime: endTime.toISOString(),
-        timeZone: 'Asia/Ho_Chi_Minh',
-      },
-      attendees: attendeeEmails.map(email => ({ email })),
-      conferenceData: {
-        createRequest: {
-          requestId: `meet_${Date.now()}`,
-          conferenceSolutionKey: {
-            type: 'hangoutsMeet'
-          }
-        }
+      } catch (googleError: any) {
+        console.log('⚠️ Google Meet failed, falling back to Jitsi:', googleError.message);
+        
+        // Fallback to Jitsi
+        meetingData = await googleCalendarService.createJitsiMeet(
+          meetingTitle,
+          options.scheduledTime,
+          qaId
+        );
+        provider = 'jitsi';
       }
-    };
+    } else {
+      // Use Jitsi directly
+      meetingData = await googleCalendarService.createJitsiMeet(
+        meetingTitle,
+        options.scheduledTime,
+        qaId
+      );
+      provider = 'jitsi';
+    }
 
-    const result = await calendar.events.insert({
-      calendarId: 'primary',
-      resource: event,
-      conferenceDataVersion: 1
-    });
+    return { meetingData, provider };
 
-    return {
-      meetLink: result.data.conferenceData?.entryPoints?.[0]?.uri || '',
-      meetId: result.data.id || '',
-      startTime,
-      endTime
-    };
-    */
   } catch (error: any) {
-    console.error('Error creating Google Meet:', error);
-    throw new Error(`Lỗi tạo Google Meet: ${error.message}`);
+    console.error('Error in createMeetingFromQA:', error);
+    throw new Error(`Lỗi tạo meeting: ${error.message}`);
   }
 };
 
 /**
- * Tạo meeting mới cho consultation
+ * Tạo meeting mới cho consultation - UPDATED for simplified model
  */
 export const createMeeting = async (data: CreateMeetingData) => {
   try {
-    const { qaId, doctorId, userId, scheduledStartTime, scheduledEndTime } = data;
+    const { qaId, doctorId, userId, scheduledTime, duration = 60, preferredProvider = 'google' } = data;
 
     // Validate ObjectIds
     if (!mongoose.Types.ObjectId.isValid(qaId) || 
@@ -119,47 +114,41 @@ export const createMeeting = async (data: CreateMeetingData) => {
       throw new Error('Meeting đã tồn tại cho yêu cầu tư vấn này');
     }
 
-    // Tạo Google Meet link
-    const meetingTitle = `Tư vấn sức khỏe - ${qa.fullName}`;
-    const googleMeetData = await createGoogleMeetLink(
-      meetingTitle,
-      scheduledStartTime,
-      scheduledEndTime,
-      [] // TODO: Add doctor and user emails
-    );
+    // Tạo meeting với provider strategy
+    const { meetingData, provider } = await createMeetingFromQA(qaId, {
+      preferredProvider,
+      scheduledTime,
+      duration
+    });
 
-    // Tạo meeting record
+    // Tạo meeting record với simplified model
     const newMeeting = new Meeting({
       qaId,
       doctorId,
       userId,
-      meetingLink: googleMeetData.meetLink,
-      meetingId: googleMeetData.meetId,
-      scheduledStartTime,
-      scheduledEndTime,
+      meetingLink: meetingData.meetLink,
+      provider,
+      scheduledTime,
       status: 'scheduled',
-      participants: [
-        {
-          userId: doctorId,
-          userType: 'doctor'
-        },
-        {
-          userId: userId,
-          userType: 'user'
-        }
-      ]
+      participantCount: 0,
+      maxParticipants: 2,
+      googleEventId: provider === 'google' ? meetingData.eventId : undefined
     });
 
     const savedMeeting = await newMeeting.save();
 
     // Cập nhật DoctorQA với meeting info
     await DoctorQA.findByIdAndUpdate(qaId, {
-      meetingLink: googleMeetData.meetLink,
-      meetingId: googleMeetData.meetId,
-      status: 'scheduled'  // Cập nhật status thành scheduled
+      meetingLink: meetingData.meetLink,
+      status: 'scheduled'
     });
 
-    console.log('✅ Meeting created successfully:', savedMeeting._id);
+    console.log('✅ Meeting created successfully:', {
+      id: savedMeeting._id,
+      provider,
+      link: meetingData.meetLink
+    });
+    
     return savedMeeting;
 
   } catch (error: any) {
@@ -226,7 +215,7 @@ export const updateMeetingLink = async (qaId: string, newMeetLink: string) => {
 };
 
 /**
- * Participant join meeting notification
+ * Participant join meeting notification - UPDATED for simplified model
  */
 export const participantJoinMeeting = async (
   qaId: string, 
@@ -243,19 +232,10 @@ export const participantJoinMeeting = async (
       throw new Error('Không tìm thấy meeting');
     }
 
-    // Tìm participant trong array
-    const participantIndex = meeting.participants.findIndex(
-      p => p.userId.toString() === participantId && p.userType === participantType
-    );
+    // Increment participant count
+    meeting.participantCount = Math.min(meeting.participantCount + 1, meeting.maxParticipants);
 
-    if (participantIndex === -1) {
-      throw new Error('Không tìm thấy participant');
-    }
-
-    // Cập nhật joinedAt
-    meeting.participants[participantIndex].joinedAt = new Date();
-
-    // Nếu có ít nhất 1 participant join và meeting chưa bắt đầu → set actualStartTime
+    // Nếu có participant join và meeting chưa bắt đầu → set actualStartTime
     if (meeting.status === 'scheduled') {
       meeting.status = 'in_progress';
       meeting.actualStartTime = new Date();
@@ -277,7 +257,7 @@ export const participantJoinMeeting = async (
 };
 
 /**
- * Kết thúc meeting
+ * Kết thúc meeting - UPDATED for simplified model
  */
 export const completeMeeting = async (qaId: string, doctorNotes?: string) => {
   try {
@@ -292,17 +272,10 @@ export const completeMeeting = async (qaId: string, doctorNotes?: string) => {
 
     // Cập nhật meeting status
     meeting.status = 'completed';
-    meeting.actualEndTime = new Date();
+    meeting.participantCount = 0; // Reset participant count
     if (doctorNotes) {
       meeting.notes = doctorNotes;
     }
-
-    // Mark tất cả participants leftAt
-    meeting.participants.forEach(participant => {
-      if (!participant.leftAt) {
-        participant.leftAt = new Date();
-      }
-    });
 
     await meeting.save();
 
@@ -332,7 +305,7 @@ export const getMeetingsByDoctorId = async (doctorId: string) => {
     const meetings = await Meeting.find({ doctorId })
       .populate('userId', 'fullName email')
       .populate('qaId', 'fullName phone question status')
-      .sort({ scheduledStartTime: -1 });
+      .sort({ scheduledTime: -1 });
 
     return meetings;
   } catch (error: any) {

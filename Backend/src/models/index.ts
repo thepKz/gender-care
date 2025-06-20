@@ -28,6 +28,7 @@ import Medicines, { IMedicines as IMedicinesData } from './Medicines';
 // Doctor QA & Meeting
 import DoctorQA from './DoctorQA';
 import Meeting from './Meeting';
+import GoogleAuth from './GoogleAuth';
 
 // Content & Community
 import BlogCategories from './BlogCategories';
@@ -76,6 +77,7 @@ export {
   // Doctor QA & Meeting
   DoctorQA,
   Meeting,
+  GoogleAuth,
   
   // Content & Community
   BlogCategories,
