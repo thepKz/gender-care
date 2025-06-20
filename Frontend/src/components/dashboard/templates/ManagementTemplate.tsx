@@ -40,7 +40,7 @@ import DoctorManagement from '../../../pages/dashboard/management/DoctorManageme
 import ServiceManagement from '../../../pages/dashboard/management/ServiceManagement';
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
-import DoctorSchedulePage from '../../../pages/dashboard/manager/DoctorSchedulePage';
+import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedulePage';
 import { 
   defaultManagementStats, 
   defaultActivities, 
