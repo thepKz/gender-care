@@ -23,7 +23,7 @@ const BillsSchema = new mongoose.Schema<IBills>({
   },
   profileId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'UserProfiles', 
+    ref: 'UserProfile', 
     required: true 
   },
   billNumber: { 

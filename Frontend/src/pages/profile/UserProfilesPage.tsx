@@ -102,11 +102,20 @@ const UserProfilesPageContent: React.FC = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <Breadcrumb className="mb-4">
-                <Breadcrumb.Item href="/">Trang chủ</Breadcrumb.Item>
-                <Breadcrumb.Item href="/#/profile">Trang cá nhân</Breadcrumb.Item>
-                <Breadcrumb.Item>Hồ sơ bệnh án</Breadcrumb.Item>
-              </Breadcrumb>
+              <Breadcrumb 
+                className="mb-4"
+                items={[
+                  {
+                    title: <a href="/">Trang chủ</a>
+                  },
+                  {
+                    title: <a href="/#/profile">Trang cá nhân</a>
+                  },
+                  {
+                    title: "Hồ sơ bệnh án"
+                  }
+                ]}
+              />
 
               <div className="flex items-center space-x-3">
                 <div className="p-3 bg-[#0C3C54]/10 rounded-full">
@@ -162,6 +171,13 @@ const UserProfilesPageContent: React.FC = () => {
                     <span className="w-2 h-2 bg-white/40 rounded-full"></span>
                     <span>Mới trong tháng: {stats.recentCount}</span>
                   </span>
+                  <Button 
+                    size="small"
+                    className="bg-white/20 text-white border-white/30 hover:bg-white/30 hover:text-white font-medium px-3 py-1 rounded-lg text-sm"
+                    onClick={() => { window.location.hash = '#/purchased-packages'; }}
+                  >
+                    📦 Xem gói dịch vụ đã mua
+                  </Button>
                 </div>
               </div>
               <Button

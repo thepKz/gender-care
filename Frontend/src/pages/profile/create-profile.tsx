@@ -83,15 +83,20 @@ const CreateProfilePage: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Breadcrumb className="mb-6">
-          <Breadcrumb.Item>
-            <Link to="/user-profiles">Tài khoản</Link>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>
-            <Link to="/user-profiles">Hồ sơ sức khỏe</Link>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>Tạo hồ sơ mới</Breadcrumb.Item>
-        </Breadcrumb>
+        <Breadcrumb 
+          className="mb-6"
+          items={[
+            {
+              title: <Link to="/user-profiles">Tài khoản</Link>
+            },
+            {
+              title: <Link to="/user-profiles">Hồ sơ sức khỏe</Link>
+            },
+            {
+              title: "Tạo hồ sơ mới"
+            }
+          ]}
+        />
 
         <div className="flex items-center justify-between mb-6">
           <div>
