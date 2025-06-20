@@ -121,6 +121,17 @@ interface AvailableSlot {
   status: 'Free' | 'Booked' | 'Absent';
 }
 
+// Type cho response structure từ API
+// interface APIResponse {
+//   data?: DoctorScheduleResponse[];
+// }
+
+// Type cho appointment object trong crosscheck
+interface AppointmentForCrossCheck {
+  doctorId?: string | { _id?: string };
+  appointmentTime?: string;
+}
+
 const Booking: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -160,7 +171,7 @@ const Booking: React.FC = () => {
   const [calendarDate, setCalendarDate] = useState(new Date('2025-06-01'));
 
   // State để lưu doctor schedule mapping (doctorId -> availableSlots)
-  const [doctorScheduleMap, setDoctorScheduleMap] = useState<Map<string, AvailableSlot[]>>(new Map());
+  const [, setDoctorScheduleMap] = useState<Map<string, AvailableSlot[]>>(new Map());
 
   // 🆕 Function để cross-check với appointments thực tế
   const crossCheckWithAppointments = async (
@@ -186,8 +197,10 @@ const Booking: React.FC = () => {
       // Tạo map: doctorId -> [occupied time slots]
       const doctorOccupiedSlots = new Map<string, string[]>();
       
-      existingAppointments.forEach((appointment: any) => {
-        const doctorId = appointment.doctorId?._id || appointment.doctorId;
+      existingAppointments.forEach((appointment: AppointmentForCrossCheck) => {
+        const doctorId = typeof appointment.doctorId === 'string' 
+          ? appointment.doctorId 
+          : appointment.doctorId?._id;
         const timeSlot = appointment.appointmentTime;
         
         if (doctorId && timeSlot) {
@@ -753,9 +766,6 @@ const Booking: React.FC = () => {
         throw new Error('Vui lòng chọn hồ sơ bệnh nhân');
       }
       
-      if (typeLocation === 'home' && !values.address) {
-        throw new Error('Vui lòng nhập địa chỉ khi chọn dịch vụ tại nhà');
-      }
       
       // Kiểm tra định dạng ID
       const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
@@ -1144,9 +1154,7 @@ const Booking: React.FC = () => {
                       <h3 className="text-lg font-semibold mb-3">1. Hình thức khám</h3>
                       <div className="grid grid-cols-1 gap-3">
                         {[
-                          { key: 'online', label: 'Online', icon: '💻', desc: 'Video call' },
                           { key: 'clinic', label: 'Phòng khám', icon: '🏥', desc: 'Trực tiếp' },
-                          { key: 'home', label: 'Tại nhà', icon: '🏠', desc: 'Bác sĩ đến tận nơi' }
                         ].map(location => (
                           <div 
                             key={location.key}
@@ -1163,9 +1171,6 @@ const Booking: React.FC = () => {
                                 <div className="font-medium">{location.label}</div>
                                 <div className="text-sm text-gray-500">{location.desc}</div>
                               </div>
-                            </div>
-                            <div className="text-sm font-bold text-blue-600">
-                              {formatPrice(getSelectedService()?.price?.[location.key as 'online' | 'clinic' | 'home'] || 0)}
                             </div>
                           </div>
                         ))}
@@ -1443,7 +1448,7 @@ const Booking: React.FC = () => {
                           <span className="text-gray-600">Hình thức:</span>
                           <span className="ml-1 font-medium">
                             {typeLocation === 'online' ? 'Online' : 
-                             typeLocation === 'clinic' ? 'Phòng khám' : 'Tại nhà'}
+                             typeLocation === 'clinic' ? 'Phòng khám' : ''}
                           </span>
                         </div>
                         <div>
@@ -1565,11 +1570,8 @@ const Booking: React.FC = () => {
                           <span className="font-semibold">Hình thức khám:</span> {
                             typeLocation === 'online' ? 'Online (Video call)' : 
                             typeLocation === 'clinic' ? 'Tại phòng khám' : 
-                            'Tại nhà (Bác sĩ đến tận nơi)'
+                            ''
                           }
-                        </p>
-                        <p className="text-lg">
-                          <span className="font-semibold">Chi phí:</span> <span className="text-blue-600 font-bold text-xl">{formatPrice(getCurrentPrice())}</span>
                         </p>
                       </div>
                     </div>

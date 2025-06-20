@@ -227,7 +227,6 @@ const ServiceManagement: React.FC = () => {
 
   const getLocationText = (location: Service['availableAt']) => {
     const texts = {
-      Athome: 'Tại nhà',
       Online: 'Trực tuyến',
       Center: 'Tại trung tâm'
     };
@@ -569,7 +568,6 @@ const ServiceManagement: React.FC = () => {
             onChange={setSelectedLocation}
           >
             <Option value="all">Tất cả hình thức</Option>
-            <Option value="Athome">Tại nhà</Option>
             <Option value="Online">Trực tuyến</Option>
             <Option value="Center">Tại trung tâm</Option>
           </Select>
@@ -664,7 +662,6 @@ const ServiceManagement: React.FC = () => {
             rules={[{ required: true, message: 'Vui lòng chọn hình thức!' }]}
           >
             <Select placeholder="Chọn hình thức cung cấp">
-              <Option value="Athome">Tại nhà</Option>
               <Option value="Online">Trực tuyến</Option>
               <Option value="Center">Tại trung tâm</Option>
             </Select>
