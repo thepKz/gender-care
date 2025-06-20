@@ -16,7 +16,8 @@ import {
   ScheduleOutlined,
   BarChartOutlined,
   FileTextOutlined,
-  LogoutOutlined
+  LogoutOutlined,
+  VideoCameraOutlined
 } from '@ant-design/icons';
 import StatsCard from '../widgets/StatsCard';
 import ActivityFeed from '../widgets/ActivityFeed';
@@ -25,6 +26,7 @@ import DoctorScheduleCalendar from '../widgets/DoctorScheduleCalendar';
 import ScheduleOverview from '../widgets/ScheduleOverview';
 import AppointmentManagement from '../../../pages/dashboard/operational/AppointmentManagement';
 import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
+import ConsultationManagement from '../../../pages/dashboard/operational/ConsultationManagement';
 
 import { 
   defaultOperationalStats, 
@@ -72,9 +74,9 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
   ];
 
   if (role === 'doctor') {
-    // Bác sĩ: thêm bệnh nhân, hồ sơ; không cần lịch hẹn chi tiết
+    // Bác sĩ: thêm consultation management
     return [
-      base[0],
+      base[0], // dashboard
       {
         key: 'patients',
         icon: <UserOutlined />,
@@ -85,7 +87,14 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
         icon: <FileTextOutlined />,
         label: 'Hồ sơ y tế',
       },
-      ...base.slice(1),
+      base[1], // appointments  
+      base[2], // schedule
+      {
+        key: 'consultations',
+        icon: <VideoCameraOutlined />,
+        label: 'Tư vấn trực tuyến',
+      },
+      base[3], // reports
     ];
   }
 
@@ -375,6 +384,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
             <p>Trang báo cáo đang được phát triển...</p>
           </div>
         );
+      case 'consultations':
+        if (userRole === 'doctor') return <ConsultationManagement />;
+        return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
       default:
         return renderDashboard();
     }

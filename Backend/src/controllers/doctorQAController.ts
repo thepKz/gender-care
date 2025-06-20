@@ -552,7 +552,7 @@ export const deleteDoctorQA = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// =============== MEETING INTEGRATION APIS ===============
+// =============== MEETING INTEGRATION APIs ===============
 
 // GET /api/doctor-qa/:id/meeting - Lấy meeting info của QA (USER/DOCTOR/STAFF)
 export const getQAMeeting = async (req: Request, res: Response): Promise<void> => {
@@ -869,4 +869,306 @@ export const batchProcessPaidQAs = async (req: Request, res: Response): Promise<
       message: error.message || 'Lỗi server khi batch process QAs' 
     });
   }
-}; 
+};
+
+// =============== NEW: CONSULTATION MANAGEMENT APIs ===============
+
+// GET /api/doctor-qa/live - Lấy consultation đang LIVE hiện tại (DOCTOR ONLY)
+export const getLiveConsultations = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+    
+    if (!userId) {
+      res.status(401).json({ 
+        message: 'Không tìm thấy thông tin user từ token' 
+      });
+      return;
+    }
+
+    let doctorId: string | undefined;
+    
+    // Nếu là doctor, chỉ lấy consultation của mình
+    if (userRole === 'doctor') {
+      const { Doctor } = await import('../models');
+      const doctor = await Doctor.findOne({ userId: userId });
+      
+      if (!doctor) {
+        res.status(200).json({
+          message: 'Chưa có thông tin bác sĩ trong hệ thống',
+          data: []
+        });
+        return;
+      }
+      
+      doctorId = doctor._id.toString();
+    }
+    // Nếu là staff/admin, có thể lấy tất cả hoặc theo query
+    else if (['staff', 'manager', 'admin'].includes(userRole || '')) {
+      const { doctorId: queryDoctorId } = req.query;
+      if (queryDoctorId && typeof queryDoctorId === 'string') {
+        doctorId = queryDoctorId;
+      }
+    }
+    // Các role khác không có quyền
+    else {
+      res.status(403).json({ 
+        message: 'Không có quyền truy cập' 
+      });
+      return;
+    }
+    
+    const liveConsultations = await doctorQAService.getLiveConsultations(doctorId);
+    
+    res.status(200).json({
+      message: `Lấy danh sách consultation đang diễn ra thành công (${liveConsultations.length} cuộc)`,
+      data: liveConsultations
+    });
+
+  } catch (error: any) {
+    console.error('Error getting live consultations:', error);
+    res.status(500).json({ 
+      message: error.message || 'Lỗi server khi lấy consultation đang diễn ra',
+      data: []
+    });
+  }
+};
+
+// GET /api/doctor-qa/today - Lấy tất cả consultation HÔM NAY (DOCTOR/STAFF)
+export const getTodayConsultations = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+    
+    if (!userId) {
+      res.status(401).json({ 
+        message: 'Không tìm thấy thông tin user từ token' 
+      });
+      return;
+    }
+
+    let doctorId: string | undefined;
+    
+    // Nếu là doctor, chỉ lấy consultation của mình  
+    if (userRole === 'doctor') {
+      const { Doctor } = await import('../models');
+      const doctor = await Doctor.findOne({ userId: userId });
+      
+      if (!doctor) {
+        res.status(200).json({
+          message: 'Chưa có thông tin bác sĩ trong hệ thống',
+          data: []
+        });
+        return;
+      }
+      
+      doctorId = doctor._id.toString();
+    }
+    // Nếu là staff/admin, có thể lấy tất cả hoặc theo query
+    else if (['staff', 'manager', 'admin'].includes(userRole || '')) {
+      const { doctorId: queryDoctorId } = req.query;
+      if (queryDoctorId && typeof queryDoctorId === 'string') {
+        doctorId = queryDoctorId;
+      }
+    }
+    // Các role khác không có quyền
+    else {
+      res.status(403).json({ 
+        message: 'Không có quyền truy cập' 
+      });
+      return;
+    }
+    
+    const todayConsultations = await doctorQAService.getTodayConsultations(doctorId);
+    
+    res.status(200).json({
+      message: `Lấy danh sách consultation hôm nay thành công (${todayConsultations.length} cuộc)`,
+      data: todayConsultations
+    });
+
+  } catch (error: any) {
+    console.error('Error getting today consultations:', error);
+    res.status(500).json({ 
+      message: error.message || 'Lỗi server khi lấy consultation hôm nay',
+      data: []
+    });
+  }
+};
+
+// =============== NEW: MEETING WORKFLOW APIs ===============
+
+// GET /api/doctor-qa/:id/check-meeting - Kiểm tra consultation đã có Meeting record chưa (DOCTOR/STAFF)
+export const checkMeetingExistence = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ 
+        message: 'ID yêu cầu tư vấn không hợp lệ' 
+      });
+      return;
+    }
+
+    const result = await doctorQAService.checkMeetingExistence(id);
+
+    res.status(200).json({
+      message: 'Kiểm tra meeting thành công',
+      data: result
+    });
+
+  } catch (error: any) {
+    console.error('Error checking meeting existence:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi kiểm tra meeting' 
+    });
+  }
+};
+
+// POST /api/doctor-qa/:id/create-meeting - Tạo hồ sơ Meeting cho consultation (DOCTOR ONLY)
+export const createMeetingRecord = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userRole = req.user?.role;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ 
+        message: 'ID yêu cầu tư vấn không hợp lệ' 
+      });
+      return;
+    }
+
+    // Chỉ doctor có thể tạo meeting record
+    if (userRole !== 'doctor') {
+      res.status(403).json({ 
+        message: 'Chỉ bác sĩ mới có thể tạo hồ sơ meeting' 
+      });
+      return;
+    }
+
+    const result = await doctorQAService.createMeetingRecord(id);
+
+    res.status(201).json({
+      message: 'Tạo hồ sơ meeting thành công',
+      data: {
+        meeting: result.meeting,
+        consultation: result.updatedQA
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error creating meeting record:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi tạo hồ sơ meeting' 
+    });
+  }
+};
+
+// PUT /api/doctor-qa/:id/complete-consultation - Hoàn thành consultation và meeting (DOCTOR ONLY)
+export const completeConsultationWithMeeting = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { doctorNotes } = req.body;
+    const userRole = req.user?.role;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ 
+        message: 'ID yêu cầu tư vấn không hợp lệ' 
+      });
+      return;
+    }
+
+    // Chỉ doctor có thể hoàn thành consultation
+    if (userRole !== 'doctor') {
+      res.status(403).json({ 
+        message: 'Chỉ bác sĩ mới có thể hoàn thành tư vấn' 
+      });
+      return;
+    }
+
+    const result = await doctorQAService.completeConsultationWithMeeting(id, doctorNotes);
+
+    res.status(200).json({
+      message: 'Hoàn thành tư vấn thành công',
+      data: {
+        consultation: result.updatedQA,
+        meeting: result.updatedMeeting
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error completing consultation:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi hoàn thành tư vấn' 
+    });
+  }
+};
+
+// PUT /api/doctor-qa/:id/update-meeting - Cập nhật meeting notes và thông tin (DOCTOR ONLY)
+export const updateMeetingNotes = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { notes, maxParticipants, actualStartTime } = req.body;
+    const userRole = req.user?.role;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ 
+        message: 'ID yêu cầu tư vấn không hợp lệ' 
+      });
+      return;
+    }
+
+    // Chỉ doctor có thể update meeting notes
+    if (userRole !== 'doctor') {
+      res.status(403).json({ 
+        message: 'Chỉ bác sĩ mới có thể cập nhật thông tin meeting' 
+      });
+      return;
+    }
+
+    const meetingData = {
+      notes,
+      maxParticipants,
+      actualStartTime: actualStartTime ? new Date(actualStartTime) : undefined
+    };
+
+    const updatedMeeting = await doctorQAService.updateMeetingNotes(id, meetingData);
+
+    res.status(200).json({
+      message: 'Cập nhật thông tin meeting thành công',
+      data: updatedMeeting
+    });
+
+  } catch (error: any) {
+    console.error('Error updating meeting notes:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi cập nhật meeting' 
+    });
+  }
+};
+
+// GET /api/doctor-qa/:id/meeting-details - Lấy chi tiết meeting của consultation (DOCTOR/STAFF)
+export const getMeetingDetails = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      res.status(400).json({ 
+        message: 'ID yêu cầu tư vấn không hợp lệ' 
+      });
+      return;
+    }
+
+    const meetingDetails = await doctorQAService.getMeetingDetails(id);
+
+    res.status(200).json({
+      message: 'Lấy chi tiết meeting thành công',
+      data: meetingDetails
+    });
+
+  } catch (error: any) {
+    console.error('Error getting meeting details:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi lấy thông tin meeting' 
+    });
+  }
+};

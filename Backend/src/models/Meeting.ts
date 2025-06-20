@@ -2,29 +2,29 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 // Interface for Meeting document - SIMPLIFIED VERSION
 export interface IMeeting extends Document {
-  qaId: mongoose.Types.ObjectId;           // Reference to DoctorQA
-  doctorId: mongoose.Types.ObjectId;       // Reference to Doctor  
-  userId: mongoose.Types.ObjectId;         // Reference to Customer/User
-  meetingLink: string;                     // Google Meet hoặc Jitsi URL
-  provider: 'google' | 'jitsi';            // Meeting provider
+  qaId: mongoose.Types.ObjectId;           // 🤖 AUTO: Reference to DoctorQA
+  doctorId: mongoose.Types.ObjectId;       // 🤖 AUTO: Reference to Doctor  
+  userId: mongoose.Types.ObjectId;         // 🤖 AUTO: Reference to Customer/User
+  meetingLink: string;                     // 🤖 AUTO: Jitsi URL (auto-generated)
+  provider: 'google' | 'jitsi';            // 🤖 AUTO: Meeting provider (default: jitsi)
   
-  // Thời gian đơn giản
-  scheduledTime: Date;                     // Thời gian dự kiến
-  actualStartTime?: Date;                  // Khi meeting thực sự bắt đầu
+  // Thời gian
+  scheduledTime: Date;                     // 🤖 AUTO: Thời gian dự kiến (from appointmentDate + slot)
+  actualStartTime?: Date;                  // ✏️ DOCTOR: Khi meeting thực sự bắt đầu
   
-  // Trạng thái và thông tin cơ bản
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  participantCount: number;                // Số người tham gia hiện tại
-  maxParticipants: number;                 // Giới hạn số người (default: 2)
+  // Trạng thái và thông tin
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'; // ✏️ DOCTOR: Meeting status
+  participantCount: number;                // 🤖 AUTO: Số người tham gia hiện tại (from Jitsi API)
+  maxParticipants: number;                 // ✏️ DOCTOR: Giới hạn số người (default: 2)
   
   // Ghi chú
-  notes?: string;                          // Ghi chú từ doctor
+  notes?: string;                          // ✏️ DOCTOR: Ghi chú từ doctor
   
-  // Google Meet specific (optional)
-  googleEventId?: string;                  // Chỉ khi dùng Google
+  // Google Meet specific (optional - legacy)
+  googleEventId?: string;                  // 🤖 AUTO: Chỉ khi dùng Google
   
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: Date;                        // 🤖 AUTO: MongoDB timestamp
+  updatedAt: Date;                        // 🤖 AUTO: MongoDB timestamp
 }
 
 // Meeting Schema - SIMPLIFIED
@@ -53,7 +53,7 @@ const MeetingSchema: Schema = new Schema({
   provider: {
     type: String,
     enum: ['google', 'jitsi'],
-    default: 'jitsi'
+    default: 'jitsi'                      // ✅ CHANGED: Default to Jitsi instead of Google
   },
   scheduledTime: {
     type: Date,

@@ -13,7 +13,8 @@ import {
     MenuOutlined,
     SettingOutlined,
     TeamOutlined,
-    UserOutlined
+    UserOutlined,
+    VideoCameraOutlined
 } from '@ant-design/icons';
 import { Avatar, Badge, Button, Dropdown, Layout, Menu, Space, Typography } from 'antd';
 import React, { useState } from 'react';
@@ -190,6 +191,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
       icon: <CalendarOutlined />,
       label: 'Lịch làm việc của tôi',
       onClick: () => navigate('/dashboard/doctor/my-schedule'),
+    },
+    {
+      key: 'consultations',
+      icon: <VideoCameraOutlined />,
+      label: 'Tư vấn trực tuyến',
+      onClick: () => navigate('/dashboard/doctor/consultations'),
     },
     {
       key: 'my-patients',

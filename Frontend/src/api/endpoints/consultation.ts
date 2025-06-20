@@ -96,6 +96,18 @@ const consultationApi = {
     return axiosInstance.post('/doctor-qa', data);
   },
   
+  // Lấy consultation đang LIVE hiện tại (DOCTOR/STAFF)
+  getLiveConsultations: (doctorId?: string) => {
+    const params = doctorId ? { doctorId } : {};
+    return axiosInstance.get('/doctor-qa/live', { params });
+  },
+  
+  // Lấy tất cả consultation HÔM NAY (DOCTOR/STAFF) 
+  getTodayConsultations: (doctorId?: string) => {
+    const params = doctorId ? { doctorId } : {};
+    return axiosInstance.get('/doctor-qa/today', { params });
+  },
+  
   // Lấy danh sách yêu cầu tư vấn của user đang đăng nhập
   getMyConsultationRequests: (params?: QueryParams) => {
     return axiosInstance.get('/doctor-qa/my-requests', { params });
@@ -176,6 +188,8 @@ const consultationApi = {
     }
   },
   
+
+  
   // Tìm bác sĩ có ít lịch đặt nhất (STAFF only)
   getLeastBookedDoctor: () => {
     return axiosInstance.get('/doctor-qa/least-booked-doctor');
@@ -229,6 +243,39 @@ const consultationApi = {
     transferReason: string;
   }) => {
     return axiosInstance.post(`/consultations/${consultationId}/transfer`, data);
+  },
+
+  // =============== NEW: MEETING WORKFLOW APIs ===============
+  
+  // Kiểm tra consultation đã có Meeting record chưa
+  checkMeetingExistence: (qaId: string) => {
+    return axiosInstance.get(`/doctor-qa/${qaId}/check-meeting`);
+  },
+  
+  // Tạo hồ sơ Meeting cho consultation (DOCTOR ONLY)
+  createMeetingRecord: (qaId: string) => {
+    return axiosInstance.post(`/doctor-qa/${qaId}/create-meeting`);
+  },
+  
+  // Hoàn thành consultation và meeting (DOCTOR ONLY)
+  completeConsultationWithMeeting: (qaId: string, doctorNotes?: string) => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/complete-consultation`, { doctorNotes });
+  },
+
+  // =============== NEW: MEETING NOTES & DETAILS APIs ===============
+  
+  // Cập nhật meeting notes và thông tin (DOCTOR ONLY)
+  updateMeetingNotes: (qaId: string, meetingData: {
+    notes?: string;
+    maxParticipants?: number;
+    actualStartTime?: Date;
+  }) => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/update-meeting`, meetingData);
+  },
+  
+  // Lấy chi tiết meeting của consultation
+  getMeetingDetails: (qaId: string) => {
+    return axiosInstance.get(`/doctor-qa/${qaId}/meeting-details`);
   }
 };
 

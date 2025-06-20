@@ -859,4 +859,359 @@ export const cancelConsultationByDoctor = async (qaId: string, reason: string) =
     console.error('❌ [ERROR] cancelConsultationByDoctor failed:', error);
     throw error;
   }
-}; 
+};
+
+/**
+ * 🔴 Lấy consultation đang LIVE hiện tại (status = 'consulting')
+ * @param doctorId - ID của doctor cụ thể (optional, nếu không có thì lấy tất cả)
+ */
+export const getLiveConsultations = async (doctorId?: string) => {
+  try {
+    console.log('🔴 [LIVE-CONSULTATIONS] Getting live consultations...', { doctorId });
+    
+    // Build filter
+    const filter: any = { status: 'consulting' };
+    if (doctorId && isValidObjectId(doctorId)) {
+      filter.doctorId = new mongoose.Types.ObjectId(doctorId);
+    }
+    
+    const liveConsultations = await DoctorQA.find(filter)
+      .populate({
+        path: 'doctorId',
+        select: 'userId bio specialization',
+        populate: {
+          path: 'userId',
+          select: 'fullName email'
+        }
+      })
+      .populate('userId', 'fullName email')
+      .populate('serviceId', 'serviceName price description serviceType')
+      .sort({ appointmentDate: 1, appointmentSlot: 1 }); // Sort by appointment time
+
+    console.log(`🔴 [LIVE-CONSULTATIONS] Found ${liveConsultations.length} live consultations`);
+    
+    return liveConsultations;
+
+  } catch (error) {
+    console.error('❌ [ERROR] Getting live consultations failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * 📅 Lấy tất cả consultation HÔM NAY (all statuses) 
+ * @param doctorId - ID của doctor cụ thể (optional, nếu không có thì lấy tất cả)
+ */
+export const getTodayConsultations = async (doctorId?: string) => {
+  try {
+    console.log('📅 [TODAY-CONSULTATIONS] Getting today consultations...', { doctorId });
+    
+    // Calculate today range in VN timezone
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Start of today
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1); // Start of tomorrow
+    
+    console.log('🕐 [TODAY-CONSULTATIONS] Date range:', {
+      today: today.toISOString(),
+      tomorrow: tomorrow.toISOString()
+    });
+    
+    // Build filter
+    const filter: any = {
+      appointmentDate: {
+        $gte: today,
+        $lt: tomorrow
+      }
+    };
+    
+    if (doctorId && isValidObjectId(doctorId)) {
+      filter.doctorId = new mongoose.Types.ObjectId(doctorId);
+    }
+    
+    const todayConsultations = await DoctorQA.find(filter)
+      .populate({
+        path: 'doctorId',
+        select: 'userId bio specialization',
+        populate: {
+          path: 'userId',
+          select: 'fullName email'
+        }
+      })
+      .populate('userId', 'fullName email')
+      .populate('serviceId', 'serviceName price description serviceType')
+      .sort({ appointmentSlot: 1 }); // Sort by time slot
+
+    console.log(`📅 [TODAY-CONSULTATIONS] Found ${todayConsultations.length} consultations today`);
+    
+    return todayConsultations;
+
+  } catch (error) {
+    console.error('❌ [ERROR] Getting today consultations failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * 🔍 Kiểm tra consultation đã có Meeting record chưa
+ * @param qaId - ID của DoctorQA
+ */
+export const checkMeetingExistence = async (qaId: string): Promise<{
+  hasmeeting: boolean;
+  meetingData?: any;
+}> => {
+  try {
+    if (!isValidObjectId(qaId)) {
+      throw new Error('QA ID không hợp lệ');
+    }
+
+    // Import Meeting model
+    const Meeting = require('../models/Meeting').default;
+    
+    const meeting = await Meeting.findOne({ qaId: new mongoose.Types.ObjectId(qaId) });
+    
+    return {
+      hasmeeting: !!meeting,
+      meetingData: meeting || null
+    };
+
+  } catch (error) {
+    console.error('❌ [ERROR] Check meeting existence failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * 📝 Tạo hồ sơ Meeting cho consultation 
+ * @param qaId - ID của DoctorQA
+ */
+export const createMeetingRecord = async (qaId: string): Promise<{
+  meeting: any;
+  updatedQA: any;
+}> => {
+  try {
+    if (!isValidObjectId(qaId)) {
+      throw new Error('QA ID không hợp lệ');
+    }
+
+    console.log('📝 [CREATE-MEETING] Creating meeting record for QA:', qaId);
+
+    // 1. Lấy thông tin QA
+    const qa = await DoctorQA.findById(qaId);
+    if (!qa) {
+      throw new Error('Không tìm thấy yêu cầu tư vấn');
+    }
+
+    // 2. Validate QA có đủ thông tin để tạo meeting
+    if (!qa.doctorId || !qa.userId || !qa.appointmentDate || !qa.appointmentSlot) {
+      throw new Error('Yêu cầu tư vấn chưa có đủ thông tin để tạo meeting');
+    }
+
+    // 3. Check xem đã có meeting chưa
+    const Meeting = require('../models/Meeting').default;
+    const existingMeeting = await Meeting.findOne({ qaId: new mongoose.Types.ObjectId(qaId) });
+    
+    if (existingMeeting) {
+      throw new Error('Meeting record đã tồn tại cho consultation này');
+    }
+
+    // 4. Tạo meeting link (Jitsi)
+    const meetingLink = `https://meet.jit.si/consultation-${qaId}-${Date.now()}`;
+    
+    // 5. Parse scheduled time từ appointmentDate + appointmentSlot
+    const appointmentDate = new Date(qa.appointmentDate);
+    const [startTime] = qa.appointmentSlot.split('-'); // Lấy "14:00" từ "14:00-15:00"
+    const [hours, minutes] = startTime.split(':').map(Number);
+    
+    const scheduledTime = new Date(appointmentDate);
+    scheduledTime.setHours(hours, minutes, 0, 0);
+
+    // 6. Tạo Meeting record
+    const newMeeting = await Meeting.create({
+      qaId: qa._id,
+      doctorId: qa.doctorId,
+      userId: qa.userId,
+      meetingLink,
+      provider: 'jitsi',
+      scheduledTime,
+      status: 'scheduled',
+      participantCount: 0,
+      maxParticipants: 2,
+      notes: `Meeting created for consultation: ${qa.question.substring(0, 100)}...`
+    });
+
+    console.log('✅ [CREATE-MEETING] Meeting record created:', newMeeting._id);
+
+    // 7. Update DoctorQA status to 'consulting'
+    const updatedQA = await DoctorQA.findByIdAndUpdate(
+      qaId,
+      { 
+        status: 'consulting'
+      },
+      { new: true }
+    ).populate({
+      path: 'doctorId',
+      select: 'userId bio specialization',
+      populate: {
+        path: 'userId',
+        select: 'fullName email'
+      }
+    }).populate('userId', 'fullName email');
+
+    console.log('✅ [CREATE-MEETING] QA status updated to consulting');
+
+    return {
+      meeting: newMeeting,
+      updatedQA
+    };
+
+  } catch (error) {
+    console.error('❌ [ERROR] Create meeting record failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * ✅ Hoàn thành consultation và meeting
+ * @param qaId - ID của DoctorQA
+ * @param doctorNotes - Ghi chú của bác sĩ
+ */
+export const completeConsultationWithMeeting = async (qaId: string, doctorNotes?: string): Promise<{
+  updatedQA: any;
+  updatedMeeting: any;
+}> => {
+  try {
+    if (!isValidObjectId(qaId)) {
+      throw new Error('QA ID không hợp lệ');
+    }
+
+    console.log('✅ [COMPLETE-CONSULTATION] Completing consultation:', qaId);
+
+    // 1. Update DoctorQA status to 'completed'
+    const updateData: any = { status: 'completed' };
+    if (doctorNotes) {
+      updateData.doctorNotes = doctorNotes;
+    }
+
+    const updatedQA = await DoctorQA.findByIdAndUpdate(
+      qaId,
+      updateData,
+      { new: true }
+    ).populate({
+      path: 'doctorId',
+      select: 'userId bio specialization',
+      populate: {
+        path: 'userId',
+        select: 'fullName email'
+      }
+    }).populate('userId', 'fullName email');
+
+    if (!updatedQA) {
+      throw new Error('Không tìm thấy yêu cầu tư vấn');
+    }
+
+    // 2. Update Meeting status to 'completed'
+    const Meeting = require('../models/Meeting').default;
+    const updatedMeeting = await Meeting.findOneAndUpdate(
+      { qaId: new mongoose.Types.ObjectId(qaId) },
+      { 
+        status: 'completed',
+        notes: doctorNotes || 'Consultation completed successfully'
+      },
+      { new: true }
+    );
+
+    console.log('✅ [COMPLETE-CONSULTATION] Both QA and Meeting completed');
+
+    return {
+      updatedQA,
+      updatedMeeting
+    };
+
+  } catch (error) {
+    console.error('❌ [ERROR] Complete consultation failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * 📝 Cập nhật meeting notes và thông tin
+ * @param qaId - ID của DoctorQA
+ * @param meetingData - Dữ liệu meeting cần update
+ */
+export const updateMeetingNotes = async (qaId: string, meetingData: {
+  notes?: string;
+  maxParticipants?: number;
+  actualStartTime?: Date;
+}): Promise<any> => {
+  try {
+    if (!isValidObjectId(qaId)) {
+      throw new Error('QA ID không hợp lệ');
+    }
+
+    console.log('📝 [UPDATE-MEETING] Updating meeting notes for QA:', qaId);
+
+    // Import Meeting model
+    const Meeting = require('../models/Meeting').default;
+    
+    // Build update data
+    const updateData: any = {};
+    if (meetingData.notes !== undefined) {
+      updateData.notes = meetingData.notes;
+    }
+    if (meetingData.maxParticipants !== undefined) {
+      updateData.maxParticipants = meetingData.maxParticipants;
+    }
+    if (meetingData.actualStartTime !== undefined) {
+      updateData.actualStartTime = meetingData.actualStartTime;
+    }
+
+    // Update meeting record
+    const updatedMeeting = await Meeting.findOneAndUpdate(
+      { qaId: new mongoose.Types.ObjectId(qaId) },
+      { $set: updateData },
+      { new: true }
+    );
+
+    if (!updatedMeeting) {
+      throw new Error('Không tìm thấy meeting record');
+    }
+
+    console.log('✅ [UPDATE-MEETING] Meeting notes updated successfully');
+
+    return updatedMeeting;
+
+  } catch (error) {
+    console.error('❌ [ERROR] Update meeting notes failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * 📖 Lấy chi tiết meeting của consultation
+ * @param qaId - ID của DoctorQA
+ */
+export const getMeetingDetails = async (qaId: string): Promise<any> => {
+  try {
+    if (!isValidObjectId(qaId)) {
+      throw new Error('QA ID không hợp lệ');
+    }
+
+    // Import Meeting model
+    const Meeting = require('../models/Meeting').default;
+    
+    const meeting = await Meeting.findOne({ qaId: new mongoose.Types.ObjectId(qaId) })
+      .populate('doctorId', 'userId')
+      .populate('userId', 'fullName email');
+
+    if (!meeting) {
+      throw new Error('Không tìm thấy meeting record');
+    }
+
+    return meeting;
+
+  } catch (error) {
+    console.error('❌ [ERROR] Get meeting details failed:', error);
+    throw error;
+  }
+};

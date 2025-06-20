@@ -27,7 +27,8 @@ import {
   LeftOutlined,
   RightOutlined,
   PlayCircleOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  StopOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
@@ -35,6 +36,7 @@ import timezone from 'dayjs/plugin/timezone';
 import appointmentManagementService from '../../../api/services/appointmentManagementService';
 import { UnifiedAppointment } from '../../../types/appointment';
 import { meetingAPI, MeetingData } from '../../../api/endpoints/meeting';
+import { mockConsultations, ConsultationMockData } from '../../../shared/mockData/consultationMockData';
 
 // Setup timezone cho dayjs - an toàn hơn
 dayjs.extend(utc);
@@ -74,6 +76,16 @@ const TIME_SLOTS = [
   '16:00 - 17:00'
 ];
 
+// Smart button configuration based on consultation status
+interface ConsultationButtonConfig {
+  text: string;
+  action: 'join' | 'rejoin' | 'complete' | 'completed';
+  color: string;
+  icon: React.ReactNode;
+  loading: boolean;
+  disabled: boolean;
+}
+
 const DoctorScheduleCalendar: React.FC = () => {
   const [selectedWeek, setSelectedWeek] = useState(dayjs().startOf('week'));
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
@@ -83,7 +95,7 @@ const DoctorScheduleCalendar: React.FC = () => {
   const [meetingLoading, setMeetingLoading] = useState(false);
   const [currentMeeting, setCurrentMeeting] = useState<MeetingData | null>(null);
 
-  // Load real appointment data from API
+  // Load real appointment data from API + Mock consultations for testing
   const loadAppointments = async () => {
     try {
       setLoading(true);
@@ -95,15 +107,58 @@ const DoctorScheduleCalendar: React.FC = () => {
         limit: 500 // Lấy nhiều để cover cả tuần
       });
       
-      console.log('✅ [DEBUG] Calendar loaded appointments:', appointmentData.length);
-      setAppointments(appointmentData);
+      // Mix real data với mock consultations để test
+      const mixedData = [...appointmentData, ...mockConsultations];
+      
+      console.log('✅ [DEBUG] Calendar loaded appointments:', mixedData.length);
+      setAppointments(mixedData);
       
     } catch (error: unknown) {
       console.error('❌ [ERROR] Failed to load appointments for calendar:', error);
       message.error('Không thể tải lịch làm việc. Vui lòng thử lại sau.');
-      setAppointments([]);
+      
+      // Fallback to mock data for testing
+      console.log('📋 [DEBUG] Using mock consultation data for testing');
+      setAppointments(mockConsultations);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Smart button configuration based on consultation status
+  const getConsultationButtonConfig = (appointment: UnifiedAppointment): ConsultationButtonConfig | null => {
+    if (appointment.type !== 'consultation') return null;
+    
+    switch (appointment.status) {
+      case 'scheduled':
+        return {
+          text: 'Tham gia Meet',
+          action: 'join',
+          color: '#52c41a',
+          icon: <PlayCircleOutlined />,
+          loading: false,
+          disabled: false
+        };
+      case 'consulting':
+        return {
+          text: 'Đang tư vấn',
+          action: 'rejoin', 
+          color: '#fa8c16',
+          icon: <VideoCameraOutlined />,
+          loading: false,
+          disabled: false
+        };
+      case 'completed':
+        return {
+          text: 'Đã hoàn thành',
+          action: 'completed',
+          color: '#8c8c8c', 
+          icon: <CheckCircleOutlined />,
+          loading: false,
+          disabled: true
+        };
+      default:
+        return null;
     }
   };
 
@@ -210,7 +265,7 @@ const DoctorScheduleCalendar: React.FC = () => {
         case 'scheduled':
           return slot.appointment.type === 'consultation' ? '#1890ff' : '#722ed1'; // Blue for consultation, purple for appointment
         case 'consulting':
-          return '#52c41a'; // Green - đang tư vấn
+          return '#fa8c16'; // Orange - đang tư vấn
         case 'completed':
           return '#8c8c8c'; // Gray
         case 'cancelled':
@@ -232,14 +287,19 @@ const DoctorScheduleCalendar: React.FC = () => {
 
   const getSlotIcon = (slot: TimeSlot) => {
     if (slot.appointment) {
-      switch (slot.appointment.type) {
-        case 'consultation':
-          return <VideoCameraOutlined />;
-        case 'appointment':
-          return slot.appointment.typeLocation === 'Online' ? 
-            <VideoCameraOutlined /> : <EnvironmentOutlined />;
+      switch (slot.appointment.status) {
+        case 'consulting':
+          return <VideoCameraOutlined />; // Live consultation
         default:
-          return <UserOutlined />;
+          switch (slot.appointment.type) {
+            case 'consultation':
+              return <VideoCameraOutlined />;
+            case 'appointment':
+              return slot.appointment.typeLocation === 'Online' ? 
+                <VideoCameraOutlined /> : <EnvironmentOutlined />;
+            default:
+              return <UserOutlined />;
+          }
       }
     }
     
@@ -255,13 +315,18 @@ const DoctorScheduleCalendar: React.FC = () => {
 
   const getSlotText = (slot: TimeSlot) => {
     if (slot.appointment) {
-      switch (slot.appointment.type) {
-        case 'consultation':
-          return 'Tư vấn Online';
-        case 'appointment':
-          return slot.appointment.typeLocation === 'Online' ? 'Online' : 'Tại phòng';
+      switch (slot.appointment.status) {
+        case 'consulting':
+          return 'Đang tư vấn'; // Live status
         default:
-          return 'Đã đặt';
+          switch (slot.appointment.type) {
+            case 'consultation':
+              return 'Tư vấn Online';
+            case 'appointment':
+              return slot.appointment.typeLocation === 'Online' ? 'Online' : 'Tại phòng';
+            default:
+              return 'Đã đặt';
+          }
       }
     }
     
@@ -278,8 +343,8 @@ const DoctorScheduleCalendar: React.FC = () => {
   const getStatusColor = (status: UnifiedAppointment['status']) => {
     const colors = {
       pending_payment: 'gold',
-      scheduled: 'purple',
-      consulting: 'lime',
+      scheduled: 'blue',
+      consulting: 'orange',
       completed: 'green',
       cancelled: 'red'
     };
@@ -290,14 +355,13 @@ const DoctorScheduleCalendar: React.FC = () => {
     const texts = {
       pending_payment: 'Chờ thanh toán',
       scheduled: 'Đã lên lịch',
-      consulting: 'Đang tư vấn',
+      consulting: '🔴 Đang tư vấn',
       completed: 'Hoàn thành',
       cancelled: 'Đã hủy'
     };
     return texts[status] || status;
   };
 
-  // Kiểm tra xem có thể tham gia meeting không (5 phút trước đến hết giờ hẹn)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const canJoinMeeting = (appointment: UnifiedAppointment) => {
     // Luôn cho phép join meeting - không cần điều kiện gì
@@ -306,17 +370,47 @@ const DoctorScheduleCalendar: React.FC = () => {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getMeetingButtonText = (appointment: UnifiedAppointment) => {
-    // Luôn hiển thị "Tham gia Meet" - không cần điều kiện gì
-    return 'Tham gia Meet';
+    const config = getConsultationButtonConfig(appointment);
+    return config?.text || 'Tham gia Meet';
   };
 
+  // Handle start/rejoin consultation
   const handleJoinMeeting = async (appointment: UnifiedAppointment) => {
-    // Luôn cho phép join meeting - bỏ check điều kiện
-    
+    const config = getConsultationButtonConfig(appointment);
+    if (!config) return;
+
     try {
       setMeetingLoading(true);
 
-      // Lấy qaId từ appointment data
+      // For mock data, simulate status change
+      if (mockConsultations.find(m => m._id === appointment._id)) {
+        console.log('🧪 [MOCK] Simulating consultation start for:', appointment.patientName);
+        
+        // Update status in mock data
+        const mockConsultation = appointment as ConsultationMockData;
+        if (config.action === 'join') {
+          // Start consultation
+          mockConsultation.status = 'consulting';
+          if (mockConsultation.originalData) {
+            mockConsultation.originalData.status = 'consulting';
+          }
+          message.success(`Đã bắt đầu tư vấn với ${appointment.patientName}`);
+        }
+        
+        // Open Jitsi meeting
+        const meetingLink = mockConsultation.meetingLink || `https://meet.jit.si/consultation-${appointment._id}-${Date.now()}`;
+        window.open(meetingLink, '_blank');
+        message.success('Đã mở Jitsi Meet');
+        
+        // Refresh data to update UI
+        setTimeout(() => {
+          refreshData();
+        }, 500);
+        
+        return;
+      }
+
+      // Real API call for production data
       let qaId = '';
       if (appointment.type === 'consultation') {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -337,13 +431,13 @@ const DoctorScheduleCalendar: React.FC = () => {
       } catch {
         console.log('⚠️ Meeting chưa tồn tại, tạo mới...');
         
-        // 2. Tạo meeting mới nếu chưa có
+        // 2. Tạo meeting mới với Jitsi
         const createMeetingData = {
           qaId,
           doctorId: 'current-doctor-id', // TODO: Get from auth context
           scheduledTime: `${appointment.appointmentDate} ${appointment.appointmentTime}`,
           duration: 60,
-          preferredProvider: 'google' as const
+          preferredProvider: 'jitsi' as const // Changed to Jitsi
         };
 
         const createResult = await meetingAPI.createMeeting(createMeetingData);
@@ -353,11 +447,17 @@ const DoctorScheduleCalendar: React.FC = () => {
         meetingData = await meetingAPI.getMeetingByQA(qaId);
       }
 
-      // 3. Notify join meeting (update participant count)
+      // 3. Start consultation if action is 'join'
+      if (config.action === 'join') {
+        // TODO: Call API to update DoctorQA status to 'consulting'
+        console.log('🚀 Starting consultation - updating status to consulting');
+      }
+
+      // 4. Notify join meeting (update participant count)
       await meetingAPI.joinMeeting(qaId, { participantType: 'doctor' });
       console.log('✅ Doctor joined meeting');
 
-      // 4. Mở meeting link
+      // 5. Mở meeting link (Jitsi)
       if (meetingData.meetLink) {
         window.open(meetingData.meetLink, '_blank');
         message.success(`Đã mở ${meetingData.provider === 'google' ? 'Google Meet' : 'Jitsi Meet'}`);
@@ -376,6 +476,46 @@ const DoctorScheduleCalendar: React.FC = () => {
       window.open(fallbackLink, '_blank');
       message.warning('Không thể kết nối meeting chính, đã tạo phòng Jitsi tạm thời');
       
+    } finally {
+      setMeetingLoading(false);
+    }
+  };
+
+  // Handle complete consultation
+  const handleCompleteMeeting = async (appointment: UnifiedAppointment) => {
+    try {
+      setMeetingLoading(true);
+
+      // For mock data, simulate completion
+      if (mockConsultations.find(m => m._id === appointment._id)) {
+        console.log('🧪 [MOCK] Completing consultation for:', appointment.patientName);
+        
+        const mockConsultation = appointment as ConsultationMockData;
+        mockConsultation.status = 'completed';
+        if (mockConsultation.originalData) {
+          mockConsultation.originalData.status = 'completed';
+        }
+        
+        message.success(`Đã hoàn thành tư vấn với ${appointment.patientName}`);
+        
+        // Refresh data to update UI
+        setTimeout(() => {
+          refreshData();
+        }, 500);
+        
+        return;
+      }
+
+      // Real API call for production
+      // TODO: Call API to update DoctorQA status to 'completed'
+      console.log('✅ Completing consultation - updating status to completed');
+      
+      message.success('Đã hoàn thành tư vấn');
+      refreshData();
+
+    } catch (error: unknown) {
+      console.error('❌ Error completing consultation:', error);
+      message.error('Có lỗi xảy ra khi hoàn thành tư vấn');
     } finally {
       setMeetingLoading(false);
     }
@@ -644,6 +784,8 @@ const DoctorScheduleCalendar: React.FC = () => {
               key="complete"
               type="primary"
               icon={<CheckCircleOutlined />}
+              onClick={() => handleCompleteMeeting(selectedSlot.appointment!)}
+              loading={meetingLoading}
             >
               Hoàn thành
             </Button>

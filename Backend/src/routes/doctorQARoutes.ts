@@ -20,7 +20,14 @@ import {
   completeQAMeeting,
   manualTriggerScheduling,
   batchProcessPaidQAs,
-  cancelConsultationByDoctor
+  cancelConsultationByDoctor,
+  getLiveConsultations,
+  getTodayConsultations,
+  checkMeetingExistence,
+  createMeetingRecord,
+  completeConsultationWithMeeting,
+  updateMeetingNotes,
+  getMeetingDetails
 } from '../controllers/doctorQAController';
 
 const router = express.Router();
@@ -31,6 +38,12 @@ router.get('/doctor-qa/best-assignment', verifyToken, verifyStaff, getBestAssign
 
 // GET /api/doctor-qa/least-booked-doctor - Legacy: Tìm bác sĩ có ít slot booked nhất (STAFF/MANAGER/ADMIN)
 router.get('/doctor-qa/least-booked-doctor', verifyToken, verifyStaff, getLeastBookedDoctor);
+
+// GET /api/doctor-qa/live - Lấy consultation đang LIVE hiện tại (DOCTOR/STAFF)
+router.get('/doctor-qa/live', verifyToken, getLiveConsultations);
+
+// GET /api/doctor-qa/today - Lấy tất cả consultation HÔM NAY (DOCTOR/STAFF)
+router.get('/doctor-qa/today', verifyToken, getTodayConsultations);
 
 // GET /api/doctor-qa/my-requests - Lấy yêu cầu tư vấn của user đang đăng nhập
 router.get('/doctor-qa/my-requests', verifyToken, getMyDoctorQAs);
@@ -48,6 +61,22 @@ router.get('/doctor-qa', verifyToken, verifyStaff, getAllDoctorQAs);
 // =============== DOCTOR ROUTES (Cần auth doctor) ===============
 // GET /api/doctor-qa/doctor/:doctorId - Lấy yêu cầu tư vấn của bác sĩ cụ thể
 router.get('/doctor-qa/doctor/:doctorId', verifyToken, getDoctorQAByDoctorId);
+
+// =============== MEETING WORKFLOW ROUTES (NEW) ===============
+// GET /api/doctor-qa/:id/check-meeting - Kiểm tra consultation đã có Meeting record chưa (DOCTOR/STAFF)
+router.get('/doctor-qa/:id/check-meeting', verifyToken, checkMeetingExistence);
+
+// POST /api/doctor-qa/:id/create-meeting - Tạo hồ sơ Meeting cho consultation (DOCTOR ONLY)
+router.post('/doctor-qa/:id/create-meeting', verifyToken, verifyDoctor, createMeetingRecord);
+
+// PUT /api/doctor-qa/:id/complete-consultation - Hoàn thành consultation và meeting (DOCTOR ONLY)
+router.put('/doctor-qa/:id/complete-consultation', verifyToken, verifyDoctor, completeConsultationWithMeeting);
+
+// PUT /api/doctor-qa/:id/update-meeting - Cập nhật meeting notes và thông tin (DOCTOR ONLY)
+router.put('/doctor-qa/:id/update-meeting', verifyToken, verifyDoctor, updateMeetingNotes);
+
+// GET /api/doctor-qa/:id/meeting-details - Lấy chi tiết meeting của consultation (DOCTOR/STAFF)
+router.get('/doctor-qa/:id/meeting-details', verifyToken, getMeetingDetails);
 
 // =============== PARAMETERIZED ROUTES LAST ===============
 // GET /api/doctor-qa/:id - Lấy yêu cầu tư vấn theo ID (user chỉ thấy của mình)
