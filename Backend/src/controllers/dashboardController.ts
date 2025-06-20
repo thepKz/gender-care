@@ -133,6 +133,10 @@ export const getOperationalDashboard = async (req: AuthRequest, res: Response) =
     // Get current date info
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay()); // Start of current week (Sunday)
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 7); // End of current week
 
     let query: any = {
       appointmentDate: {
@@ -150,6 +154,7 @@ export const getOperationalDashboard = async (req: AuthRequest, res: Response) =
       todayAppointments,
       pendingAppointments,
       completedToday,
+      weeklyAppointments,
       myAppointments
     ] = await Promise.all([
       // Today's total appointments
@@ -170,6 +175,15 @@ export const getOperationalDashboard = async (req: AuthRequest, res: Response) =
         status: 'completed'
       }),
       
+      // Weekly appointments
+      Appointments.countDocuments({
+        appointmentDate: {
+          $gte: startOfWeek,
+          $lt: endOfWeek
+        },
+        status: { $in: ['pending', 'confirmed', 'completed'] }
+      }),
+      
       // Appointments list
       Appointments.find(query)
         .populate('createdByUserId', 'fullName phone')
@@ -181,6 +195,7 @@ export const getOperationalDashboard = async (req: AuthRequest, res: Response) =
       todayAppointments,
       pendingAppointments,
       completedToday,
+      weeklyAppointments,
       efficiency: todayAppointments > 0 ? Math.round((completedToday / todayAppointments) * 100) : 0
     };
 
