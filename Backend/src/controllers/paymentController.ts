@@ -35,7 +35,15 @@ export class PaymentController {
 
       const amount = appointment.totalAmount || 0;
       const serviceName = (appointment.serviceId as any)?.serviceName || (appointment.packageId as any)?.name || 'Dịch vụ y tế';
-      const description = `Thanh toán lịch khám - ${serviceName}`;
+      
+      // PayOS chỉ cho phép description tối đa 25 ký tự
+      let description = `Thanh toán - ${serviceName}`;
+      if (description.length > 25) {
+        // Cắt ngắn serviceName để fit trong 25 ký tự
+        const maxServiceNameLength = 25 - 'Thanh toán - '.length;
+        const shortServiceName = serviceName.substring(0, maxServiceNameLength);
+        description = `Thanh toán - ${shortServiceName}`;
+      }
 
       const paymentData = await payosService.createPaymentLink({
         appointmentId: appointmentId,
@@ -73,18 +81,21 @@ export class PaymentController {
       }
 
       return res.status(200).json({
+        success: true,
         message: 'Tạo payment link thành công',
         data: {
           paymentUrl: paymentData.checkoutUrl,
           orderCode: paymentData.orderCode,
           amount: amount,
-          qrCode: paymentData.qrCode
+          qrCode: paymentData.qrCode,
+          expiredAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
         }
       });
 
     } catch (error) {
       console.error('Error creating payment link:', error);
       return res.status(500).json({
+        success: false,
         message: 'Lỗi tạo payment link',
         error: error instanceof Error ? error.message : 'Unknown error'
       });

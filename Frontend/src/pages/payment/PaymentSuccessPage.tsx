@@ -31,6 +31,44 @@ const PaymentSuccessPage = () => {
   const checkAppointmentStatus = async () => {
     try {
       const token = localStorage.getItem('token');
+      
+      // 1. Kiểm tra và cập nhật payment status trước
+      try {
+        console.log('Kiểm tra và cập nhật payment status cho appointment:', appointmentId);
+        const paymentCheckResponse = await fetch(`/api/payments/appointments/${appointmentId}/payment/status`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (paymentCheckResponse.ok) {
+          const paymentResult = await paymentCheckResponse.json();
+          console.log('Payment status check result:', paymentResult);
+          
+          // Nếu payment tracking có status = 'success' nhưng appointment chưa confirmed
+          if (paymentResult.data?.status === 'success' && paymentResult.data?.appointmentStatus !== 'confirmed') {
+            console.log('Payment successful but appointment not confirmed yet, updating...');
+            // Gọi API để update appointment status
+            const updateResponse = await fetch(`/api/appointments/${appointmentId}/payment`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ status: 'confirmed' })
+            });
+            
+            if (updateResponse.ok) {
+              console.log('Successfully updated appointment status to confirmed');
+            }
+          }
+        }
+      } catch (paymentError) {
+        console.warn('Error checking payment status:', paymentError);
+        // Tiếp tục lấy thông tin appointment dù check payment lỗi
+      }
+      
+      // 2. Lấy thông tin appointment mới nhất
       const response = await fetch(`/api/appointments/${appointmentId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -41,6 +79,7 @@ const PaymentSuccessPage = () => {
       
       if (response.ok) {
         setAppointment(result.data);
+        console.log('Appointment data after payment check:', result.data);
       } else {
         setError(result.message || 'Không thể lấy thông tin lịch hẹn');
       }

@@ -2,7 +2,7 @@ import axios, { AxiosRequestHeaders } from 'axios';
 import { getValidTokenFromStorage } from '../utils/helpers';
 
 // Create axios instance with base URL from environment
-const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const axiosInstance = axios.create({
   baseURL: apiBase.endsWith('/api') ? apiBase : `${apiBase}/api`,
   timeout: 15000,
@@ -82,7 +82,7 @@ axiosInstance.interceptors.response.use(
 
     // Log các lỗi khác trong môi trường development
     if (import.meta.env.DEV && (!isSilentEndpoint || error.response?.status !== 401)) {
-      console.error('❌ API Error:', {
+      console.error('API Error:', {
         status: error.response?.status,
         message: error.response?.data?.message || error.message,
         url: error.config?.url,

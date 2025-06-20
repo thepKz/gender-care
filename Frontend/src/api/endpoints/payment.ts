@@ -35,15 +35,17 @@ export interface PaymentStatusResponse {
  * Tạo payment link cho appointment
  */
 export const createPaymentLink = async (data: CreatePaymentLinkRequest): Promise<CreatePaymentLinkResponse> => {
-  const response = await axiosInstance.post('/payments/create-payment-link', data);
+  const { appointmentId } = data;
+  const response = await axiosInstance.post(`/payments/appointments/${appointmentId}/payment`);
   return response.data;
 };
+
 
 /**
  * Kiểm tra trạng thái thanh toán
  */
 export const checkPaymentStatus = async (appointmentId: string): Promise<PaymentStatusResponse> => {
-  const response = await axiosInstance.get(`/payments/status/${appointmentId}`);
+  const response = await axiosInstance.get(`/payments/appointments/${appointmentId}/payment/status`);
   return response.data;
 };
 
@@ -51,7 +53,7 @@ export const checkPaymentStatus = async (appointmentId: string): Promise<Payment
  * Hủy thanh toán
  */
 export const cancelPayment = async (appointmentId: string): Promise<{ success: boolean; message: string }> => {
-  const response = await axiosInstance.post(`/payments/cancel/${appointmentId}`);
+  const response = await axiosInstance.post(`/payments/appointments/${appointmentId}/payment/cancel`);
   return response.data;
 };
 
