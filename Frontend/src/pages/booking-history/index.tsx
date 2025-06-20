@@ -23,9 +23,10 @@ import {
     User
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { appointmentApi } from '../../api/endpoints';
 import { consultationApi } from '../../api';
+import axiosInstance from '../../api/axiosConfig';
 import { useAuth } from '../../hooks/useAuth';
 import ModernButton from '../../components/ui/ModernButton';
 import ModernCard from '../../components/ui/ModernCard';
@@ -58,6 +59,7 @@ interface Appointment {
 
 const BookingHistory: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -155,7 +157,7 @@ const BookingHistory: React.FC = () => {
     }
   ];
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = async (skipLoading = false) => {
     // Kiểm tra authentication trước khi gọi API
     if (!isAuthenticated || !user) {
       console.log('🔍 [Debug] User not authenticated, redirecting to login...');
@@ -163,7 +165,10 @@ const BookingHistory: React.FC = () => {
       return;
     }
 
-    setLoading(true);
+    // Chỉ set loading nếu không phải là background refresh
+    if (!skipLoading) {
+      setLoading(true);
+    }
     try {
       // Phân quyền: Admin/Staff/Manager có thể xem tất cả, Customer chỉ xem của mình
       const isManagementRole = ['admin', 'staff', 'manager'].includes(user.role);
@@ -291,19 +296,100 @@ const BookingHistory: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchAppointments();
-  }, []);
+    if (!isAuthenticated || !user) {
+      console.log('🔍 [Debug] User not authenticated, redirecting to login...');
+      navigate('/login');
+      return;
+    }
 
-  // Listen for focus event to refresh data when returning from payment page
+    // Initial fetch
+    fetchAppointments();
+  }, [isAuthenticated, user, navigate]); // Bỏ appointments khỏi dependency để tránh vòng lặp
+
+  // Separate useEffect for auto-polling pending payments
+  useEffect(() => {
+    if (!appointments.length) return;
+
+    const autoCheckPayments = async () => {
+      try {
+        // Chỉ check nếu có appointments đang pending_payment
+        const pendingPayments = appointments.filter(apt => apt.status === 'pending_payment');
+        
+        if (pendingPayments.length > 0) {
+          console.log('🔄 [Auto-Poll] Found pending payments, checking...', pendingPayments.map(apt => apt.id));
+          
+          for (const appointment of pendingPayments) {
+            try {
+              // Check payment status qua PayOS API
+              const paymentStatusResponse = await axiosInstance.get(`/payments/appointments/${appointment.id}/payment/status`);
+              
+              if (paymentStatusResponse.data?.success && paymentStatusResponse.data?.data) {
+                const paymentData = paymentStatusResponse.data.data;
+                console.log('💳 [Auto-Poll] Payment status for', appointment.id, ':', paymentData.status);
+                
+                // Nếu payment đã thành công nhưng appointment vẫn pending_payment
+                if (paymentData.status === 'success' && paymentData.appointmentStatus === 'confirmed') {
+                  console.log('✅ [Auto-Poll] Payment confirmed by backend, refreshing appointments...');
+                  // Refresh appointments để lấy data mới (skip loading spinner)
+                  fetchAppointments(true);
+                  return; // Exit early after refresh
+                }
+              }
+            } catch (error) {
+              console.log('🔍 [Auto-Poll] Error checking payment for', appointment.id, ':', error.message);
+            }
+          }
+        }
+      } catch (error) {
+        console.log('🔍 [Auto-Poll] Auto-check error:', error.message);
+      }
+    };
+
+    // Auto-check mỗi 30 giây thay vì 10 giây (ít aggressive hơn)
+    const pollInterval = setInterval(autoCheckPayments, 30000);
+    
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [appointments]); // Separate useEffect cho auto-polling
+
+  // Separate useEffect for window focus handler
   useEffect(() => {
     const handleFocus = () => {
       console.log('🔄 [Debug] Page focused - refreshing appointments...');
-      fetchAppointments();
+      fetchAppointments(true); // Skip loading spinner cho focus refresh
     };
 
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
+
+  // Listen for navigation state to refresh data when coming from payment success
+  useEffect(() => {
+    const navigationState = location.state?.refreshData;
+    const paymentCompleted = location.state?.paymentCompleted;
+    if (navigationState || paymentCompleted) {
+      console.log('🔄 [BookingHistory] Navigation state detected - refreshing appointments...', { 
+        refreshData: navigationState, 
+        paymentCompleted,
+        locationState: location.state 
+      });
+      
+      // Force refresh appointments data (skip loading spinner cho navigation refresh)
+      fetchAppointments(true);
+      
+      // Clear navigation state after processing to prevent infinite refresh
+      if (location.state) {
+        console.log('🔄 [BookingHistory] Clearing navigation state to prevent infinite refresh');
+        window.history.replaceState({}, '', location.pathname);
+      }
+    } else {
+      console.log('🔄 [BookingHistory] No navigation state detected, normal load');
+    }
+  }, [location.state]);
 
   useEffect(() => {
     let filtered = appointments;
@@ -514,9 +600,8 @@ const BookingHistory: React.FC = () => {
   };
 
   const handlePayment = (appointment: Appointment) => {
-    // Redirect đến trang thanh toán với thông tin appointment
-    const paymentUrl = `/payment?appointmentId=${appointment.id}&amount=${appointment.price}&service=${encodeURIComponent(appointment.serviceName)}`;
-    navigate(paymentUrl);
+    // Redirect đến trang PaymentProcessPage để tạo PayOS link
+    navigate(`/payment/process?appointmentId=${appointment.id}`);
   };
 
   if (loading) {
@@ -710,6 +795,17 @@ const BookingHistory: React.FC = () => {
               )}
             </div>
             <div className="flex gap-4">
+              <ModernButton
+                variant="outline"
+                icon={<Refresh size={20} />}
+                onClick={() => {
+                  console.log('🔄 [Debug] Manual refresh button clicked');
+                  fetchAppointments();
+                }}
+                loading={loading}
+              >
+                Làm mới
+              </ModernButton>
               <ModernButton
                 variant="primary"
                 icon={<Calendar size={20} />}

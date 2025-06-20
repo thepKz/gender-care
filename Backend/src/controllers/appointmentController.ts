@@ -510,8 +510,8 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        // Chỉ cho phép hủy nếu trạng thái là pending hoặc confirmed
-        if (!['pending', 'confirmed'].includes(appointment.status)) {
+        // Chỉ cho phép hủy nếu trạng thái là pending, pending_payment, hoặc confirmed
+        if (!['pending', 'pending_payment', 'confirmed'].includes(appointment.status)) {
             throw new ValidationError({ status: 'Không thể hủy cuộc hẹn đã hoàn thành hoặc đã hủy' });
         }
 
@@ -711,4 +711,6 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
             message: 'Đã xảy ra lỗi khi cập nhật trạng thái thanh toán'
         });
     }
-}; 
+};
+
+ 

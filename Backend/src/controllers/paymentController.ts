@@ -165,34 +165,52 @@ export class PaymentController {
       const { appointmentId } = req.params;
       const userId = req.user?._id;
 
+      console.log('🔍 [PaymentController] Checking payment status for appointment:', appointmentId, 'user:', userId);
+
       const appointment = await Appointments.findOne({ 
         _id: appointmentId,
         createdByUserId: userId
       });
 
       if (!appointment) {
+        console.log('❌ [PaymentController] Appointment not found');
         return res.status(404).json({
+          success: false,
           message: 'Appointment không tồn tại'
         });
       }
+
+      console.log('📋 [PaymentController] Current appointment status:', appointment.status);
 
       const paymentTracking = await PaymentTracking.findOne({ 
         appointmentId: appointmentId 
       });
 
       if (!paymentTracking) {
+        console.log('❌ [PaymentController] Payment tracking not found');
         return res.status(404).json({
+          success: false,
           message: 'Không tìm thấy thông tin thanh toán'
         });
       }
 
-      if (paymentTracking.status === 'pending') {
+      console.log('💳 [PaymentController] Payment tracking status:', paymentTracking.status);
+      console.log('💳 [PaymentController] OrderCode:', paymentTracking.orderCode);
+
+      // ALWAYS check PayOS status nếu appointment vẫn pending_payment
+      if (appointment.status === 'pending_payment' || paymentTracking.status === 'pending') {
+        console.log('🔄 [PaymentController] Checking with PayOS for latest status...');
+        
         try {
           const paymentInfo = await payosService.getPaymentStatus(
             paymentTracking.orderCode
           );
 
+          console.log('💳 [PaymentController] PayOS status response:', paymentInfo.status);
+
           if (paymentInfo.status === 'PAID') {
+            console.log('✅ [PaymentController] Payment CONFIRMED by PayOS - updating appointment...');
+            
             await paymentTracking.updatePaymentStatus('success', {
               reference: paymentInfo.transactions?.[0]?.reference,
               transactionDateTime: paymentInfo.transactions?.[0]?.transactionDateTime
@@ -202,23 +220,41 @@ export class PaymentController {
             appointment.paymentStatus = 'paid';
             appointment.paidAt = new Date();
             await appointment.save();
+
+            console.log('✅ [PaymentController] Appointment status updated to confirmed');
+
           } else if (paymentInfo.status === 'CANCELLED') {
+            console.log('❌ [PaymentController] Payment cancelled by PayOS');
             await paymentTracking.updatePaymentStatus('cancelled');
+          } else {
+            console.log('⏳ [PaymentController] Payment still pending in PayOS');
           }
         } catch (error) {
-          console.error('Error checking PayOS status:', error);
+          console.error('❌ [PaymentController] Error checking PayOS status:', error);
         }
       }
 
+      // Refresh appointment data after potential update
+      const updatedAppointment = await Appointments.findById(appointmentId);
+
+      if (!updatedAppointment) {
+        console.log('❌ [PaymentController] Updated appointment not found');
+        return res.status(404).json({
+          success: false,
+          message: 'Appointment không tồn tại sau khi cập nhật'
+        });
+      }
+
       return res.status(200).json({
+        success: true,
         message: 'Lấy trạng thái thanh toán thành công',
         data: {
           orderCode: paymentTracking.orderCode,
           status: paymentTracking.status,
           amount: paymentTracking.amount,
-          appointmentStatus: appointment.status,
-          paymentStatus: appointment.paymentStatus,
-          paidAt: appointment.paidAt,
+          appointmentStatus: updatedAppointment.status,
+          paymentStatus: updatedAppointment.paymentStatus,
+          paidAt: updatedAppointment.paidAt,
           createdAt: paymentTracking.createdAt,
           webhookReceived: paymentTracking.webhookReceived
         }
@@ -227,6 +263,7 @@ export class PaymentController {
     } catch (error) {
       console.error('Error checking payment status:', error);
       return res.status(500).json({
+        success: false,
         message: 'Lỗi kiểm tra trạng thái thanh toán',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
