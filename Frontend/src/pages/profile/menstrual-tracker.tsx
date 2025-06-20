@@ -387,18 +387,23 @@ const MenstrualTrackerPage: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Breadcrumb className="mb-6">
-          <Breadcrumb.Item>
-            <Link to="/profile">Tài khoản</Link>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>
-            <Link to="/profile/health-profiles">Hồ sơ sức khỏe</Link>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>
-            <Link to={`/profile/view-profile/${profileId}`}>Chi tiết hồ sơ</Link>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>Quản lý chu kỳ kinh nguyệt</Breadcrumb.Item>
-        </Breadcrumb>
+        <Breadcrumb 
+          className="mb-6"
+          items={[
+            {
+              title: <Link to="/profile">Tài khoản</Link>
+            },
+            {
+              title: <Link to="/profile/health-profiles">Hồ sơ sức khỏe</Link>
+            },
+            {
+              title: <Link to={`/profile/view-profile/${profileId}`}>Chi tiết hồ sơ</Link>
+            },
+            {
+              title: "Quản lý chu kỳ kinh nguyệt"
+            }
+          ]}
+        />
 
         <div className="flex items-center justify-between mb-6">
           <div>

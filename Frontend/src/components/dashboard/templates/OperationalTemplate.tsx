@@ -17,7 +17,11 @@ import {
   BarChartOutlined,
   FileTextOutlined,
   LogoutOutlined,
-  VideoCameraOutlined
+  VideoCameraOutlined,
+  CheckCircleOutlined,
+  TrophyOutlined,
+  ClockCircleOutlined,
+  MedicineBoxOutlined
 } from '@ant-design/icons';
 import StatsCard from '../widgets/StatsCard';
 import ActivityFeed from '../widgets/ActivityFeed';
@@ -29,6 +33,7 @@ import MedicalRecordsManagement from '../../../pages/dashboard/operational/Medic
 import ConsultationManagement from '../../../pages/dashboard/operational/ConsultationManagement';
 
 import { 
+  type DashboardStat,
   defaultOperationalStats, 
   defaultActivities, 
   defaultAppointments,
@@ -36,7 +41,7 @@ import {
 } from '../../../types/dashboard';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
-import { fetchOperationalDashboard } from '../../../services/dashboard';
+import { fetchOperationalDashboard } from '../../../api/endpoints/dashboard';
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
@@ -113,6 +118,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   const { handleLogout } = useAuth();
 
   const [statsCards, setStatsCards] = useState(defaultOperationalStats);
+  const [loading, setLoading] = useState(false);
 
   // Customize content based on role
   const roleSpecificActivities = userRole === 'doctor' 
@@ -134,12 +140,20 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   useEffect(() => {
     (async () => {
       try {
+        setLoading(true);
+        console.log('🔄 Fetching operational dashboard data...');
+        
         const data = await fetchOperationalDashboard();
+        console.log('📊 Operational dashboard data received:', data);
+        
         if (data?.stats) {
-          const mapped = [
+          console.log('📈 Operational stats data:', data.stats);
+          
+          // ✅ Map từ API data thành DashboardStat format
+          const mapped: DashboardStat[] = [
             {
               title: 'Lịch hẹn hôm nay',
-              value: data.stats.todayTotal,
+              value: data.stats.todayAppointments || 0,
               icon: 'CalendarOutlined' as const,
               color: '#10b981',
               change: '',
@@ -147,7 +161,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
             },
             {
               title: 'Lịch hẹn trong tuần',
-              value: data.stats.weekTotal,
+              value: data.stats.weeklyAppointments || 0,
               icon: 'ScheduleOutlined' as const,
               color: '#3b82f6',
               change: '',
@@ -155,7 +169,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
             },
             {
               title: 'Lịch hẹn pending',
-              value: data.stats.pendingCount,
+              value: data.stats.pendingAppointments || 0,
               icon: 'ClockCircleOutlined' as const,
               color: '#f59e0b',
               change: '',
@@ -164,8 +178,47 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
           ];
           setStatsCards(mapped);
         }
+        
       } catch (err) {
-        console.error('fetchOperationalDashboard error', err);
+        console.error('❌ fetchOperationalDashboard error:', err);
+        // ✅ Fallback với stats rỗng thay vì mockdata
+        setStatsCards([
+          {
+            title: 'Lịch hẹn hôm nay',
+            value: 0,
+            icon: 'CalendarOutlined',
+            color: '#3b82f6',
+            change: 'Không có dữ liệu',
+            trend: 'up'
+          },
+          {
+            title: 'Bệnh nhân chờ',
+            value: 0,
+            icon: 'UserOutlined',
+            color: '#f59e0b',
+            change: 'Không có dữ liệu',
+            trend: 'down'
+          },
+          {
+            title: 'Đã hoàn thành',
+            value: 0,
+            icon: 'CheckCircleOutlined',
+            color: '#10b981',
+            change: 'Không có dữ liệu',
+            trend: 'up'
+          },
+          {
+            title: 'Hiệu suất',
+            value: 0,
+            suffix: '%',
+            icon: 'TrophyOutlined',
+            color: '#8b5cf6',
+            change: 'Không có dữ liệu',
+            trend: 'up'
+          }
+        ]);
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
@@ -173,6 +226,19 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   const onLogout = async () => {
     const result = await handleLogout();
     if (result.success) navigate('/');
+  };
+
+  // ✅ Helper để render icon components từ string
+  const getIconComponent = (iconName: string) => {
+    const icons: Record<string, React.ReactNode> = {
+      'UserOutlined': <UserOutlined />,
+      'CalendarOutlined': <CalendarOutlined />,
+      'CheckCircleOutlined': <CheckCircleOutlined />,
+      'TrophyOutlined': <TrophyOutlined />,
+      'ClockCircleOutlined': <ClockCircleOutlined />,
+      'MedicineBoxOutlined': <MedicineBoxOutlined />
+    };
+    return icons[iconName] || <CalendarOutlined />;
   };
 
   const renderDashboard = () => (
@@ -187,13 +253,25 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         </Text>
       </div>
 
-      {/* Stats Cards */}
+      {/* ✅ Stats Cards với loading state */}
       <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>
-        {statsCards.map((stat, index) => (
-          <Col xs={24} sm={12} lg={6} key={index}>
-            <StatsCard stat={stat} />
-          </Col>
-        ))}
+        {loading ? (
+          // Loading skeleton cho stats cards
+          Array.from({ length: 4 }).map((_, index) => (
+            <Col xs={24} sm={12} lg={6} key={index}>
+              <Card loading style={{ borderRadius: '12px' }} />
+            </Col>
+          ))
+        ) : (
+          statsCards.map((stat, index) => (
+            <Col xs={24} sm={12} lg={6} key={index}>
+              <StatsCard stat={{
+                ...stat,
+                icon: stat.icon as string
+              }} />
+            </Col>
+          ))
+        )}
       </Row>
 
       {/* Main Content */}
@@ -204,6 +282,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
             data={defaultAppointments}
             title={userRole === 'doctor' ? 'Lịch khám hôm nay' : 'Lịch hẹn cần xử lý'}
             pagination={false}
+            loading={loading}
           />
         </Col>
 
@@ -219,6 +298,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
                   boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                   border: '1px solid #e5e7eb'
                 }}
+                loading={loading}
               >
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
                   <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -262,38 +342,43 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
                   boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                   border: '1px solid #e5e7eb'
                 }}
+                loading={loading}
               >
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <Text style={{ fontSize: '13px' }}>
-                      {userRole === 'doctor' ? 'Mức độ hài lòng' : 'Hiệu quả xử lý'}
-                    </Text>
-                    <Text strong style={{ fontSize: '13px' }}>
-                      {metrics.patientSatisfaction}%
-                    </Text>
-                  </div>
-                  <Progress percent={metrics.patientSatisfaction} size="small" strokeColor="#52c41a" />
-                </div>
-                
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <Text style={{ fontSize: '13px' }}>Quản lý thời gian</Text>
-                    <Text strong style={{ fontSize: '13px' }}>
-                      {metrics.efficiency}%
-                    </Text>
-                  </div>
-                  <Progress percent={metrics.efficiency} size="small" strokeColor="#faad14" />
-                </div>
-                
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <Text style={{ fontSize: '13px' }}>Thời gian phản hồi</Text>
-                    <Text strong style={{ fontSize: '13px' }}>
-                      {metrics.responseTime}%
-                    </Text>
-                  </div>
-                  <Progress percent={metrics.responseTime} size="small" strokeColor="#3b82f6" />
-                </div>
+                {!loading && (
+                  <>
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <Text style={{ fontSize: '13px' }}>
+                          {userRole === 'doctor' ? 'Mức độ hài lòng' : 'Hiệu quả xử lý'}
+                        </Text>
+                        <Text strong style={{ fontSize: '13px' }}>
+                          {metrics.patientSatisfaction}%
+                        </Text>
+                      </div>
+                      <Progress percent={metrics.patientSatisfaction} size="small" strokeColor="#52c41a" />
+                    </div>
+                    
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <Text style={{ fontSize: '13px' }}>Quản lý thời gian</Text>
+                        <Text strong style={{ fontSize: '13px' }}>
+                          {metrics.efficiency}%
+                        </Text>
+                      </div>
+                      <Progress percent={metrics.efficiency} size="small" strokeColor="#faad14" />
+                    </div>
+                    
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <Text style={{ fontSize: '13px' }}>Thời gian phản hồi</Text>
+                        <Text strong style={{ fontSize: '13px' }}>
+                          {metrics.responseTime}%
+                        </Text>
+                      </div>
+                      <Progress percent={metrics.responseTime} size="small" strokeColor="#3b82f6" />
+                    </div>
+                  </>
+                )}
               </Card>
             </Col>
           </Row>

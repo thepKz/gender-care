@@ -41,6 +41,7 @@ import Promotions from './Promotions';
 import Bills from './Bills';
 import Payments from './Payments';
 import PackagePurchases from './PackagePurchases';
+import PaymentTracking from './PaymentTracking';
 
 // System
 import SystemConfigs from './SystemConfigs';
@@ -90,6 +91,7 @@ export {
   Bills,
   Payments,
   PackagePurchases,
+  PaymentTracking,
   
   // System
   SystemConfigs

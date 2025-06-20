@@ -44,7 +44,7 @@ import {
 } from '../../../types/dashboard';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
-import { fetchManagementDashboard } from '../../../services/dashboard';
+import { fetchManagementDashboard } from '../../../api/endpoints/dashboard';
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
@@ -199,12 +199,34 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         
         if (data?.recentActivities) {
           console.log('📝 Activities:', data.recentActivities);
-          setActivities(data.recentActivities);
+          // Transform API data to match local ActivityItem interface
+          const transformedActivities = data.recentActivities.map((activity: any) => ({
+            id: activity.id,
+            user: activity.title || activity.user,
+            action: activity.description || activity.action,
+            time: typeof activity.time === 'string' ? activity.time : new Date(activity.time).toISOString(),
+            status: activity.status || 'info',
+            avatar: activity.avatar,
+            type: activity.type || 'system'
+          }));
+          setActivities(transformedActivities);
         }
         
         if (data?.todayAppointments) {
           console.log('📅 Today appointments:', data.todayAppointments);
-          setTodayList(data.todayAppointments);
+          // Transform API data to match local AppointmentItem interface  
+          const transformedAppointments = data.todayAppointments.map((appointment: any) => ({
+            id: appointment.id,
+            patientName: appointment.patientName,
+            doctorName: appointment.doctorName,
+            time: appointment.time,
+            status: appointment.status,
+            service: appointment.service || 'Dịch vụ chưa xác định',
+            notes: appointment.notes,
+            priority: appointment.priority || 'medium',
+            phone: appointment.phone
+          }));
+          setTodayList(transformedAppointments);
         }
       } catch (err) {
         console.error('❌ fetchManagementDashboard error', err);
@@ -368,7 +390,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
               title={stat.title}
               value={stat.value}
               suffix={stat.suffix}
-              icon={getIconComponent(stat.icon)}
+              icon={getIconComponent(typeof stat.icon === 'string' ? stat.icon : 'UserOutlined')}
               color={stat.color}
               change={stat.change || ''}
               trend={stat.trend || 'up'}

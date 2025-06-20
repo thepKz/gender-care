@@ -29,10 +29,19 @@ const ServicePackageSchema: Schema = new Schema({
     ref: 'Service',
     required: true
   }],
-  isActive: {
+  durationInDays: {
+    type: Number,
+    default: 30,
+    min: 1
+  },
+  maxUsages: {
     type: Number,
     default: 1,
-    enum: [0, 1]
+    min: 1
+  },
+  isActive: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true

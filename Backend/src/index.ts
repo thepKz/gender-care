@@ -20,6 +20,8 @@ import {
   medicinesRoutes,
   meetingRoutes,
   notificationDaysRoutes,
+  paymentRoutes,
+  packagePurchaseRoutes,
   servicePackageRoutes,
   serviceRoutes,
   testCategoriesRoutes,
@@ -33,7 +35,39 @@ import consultationRoutes from './routes/consultationRoutes';
 import { runAllSeeds } from "./seeds";
 
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
-dotenv.config();
+// Try multiple paths for .env file
+const envPaths = [
+  path.join(__dirname, '../.env'),
+  path.join(process.cwd(), '.env'),
+  path.join(process.cwd(), 'Backend/.env')
+];
+
+let envLoaded = false;
+for (const envPath of envPaths) {
+  try {
+    const result = dotenv.config({ path: envPath });
+    if (!result.error) {
+      console.log(`✅ .env loaded from: ${envPath}`);
+      envLoaded = true;
+      break;
+    }
+  } catch (error) {
+    // Try next path
+  }
+}
+
+if (!envLoaded) {
+  console.log('⚠️ No .env file found, trying default dotenv.config()');
+  dotenv.config();
+}
+
+// Debug: Check if .env is loaded
+console.log('🔍 Environment Variables Check:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT);
+console.log('PAYOS_CLIENT_ID exists:', !!process.env.PAYOS_CLIENT_ID);
+console.log('PAYOS_API_KEY exists:', !!process.env.PAYOS_API_KEY);
+console.log('PAYOS_CHECKSUM_KEY exists:', !!process.env.PAYOS_CHECKSUM_KEY);
 
 // Khởi tạo app express
 const app = express();
@@ -132,6 +166,7 @@ apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/doctors', doctorRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
+apiRouter.use('/package-purchases', packagePurchaseRoutes);
 
 // ✅ NEW: Google Authentication routes
 apiRouter.use('/google-auth', googleAuthRoutes);
@@ -151,6 +186,7 @@ apiRouter.use('/medication-reminders', medicationRemindersRoutes);
 apiRouter.use('/notification-days', notificationDaysRoutes);
 apiRouter.use('/user-profiles', userProfileRoutes);
 apiRouter.use('/appointments', appointmentRoutes);
+apiRouter.use('/payments', paymentRoutes);
 
 // ✅ NEW: Consultation transfer routes
 apiRouter.use('/consultations', consultationRoutes);

@@ -103,9 +103,9 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
                     display: 'block',
                     lineHeight: 1.4
                   }}
-                  ellipsis={{ tooltip: item.action }}
+                  ellipsis={{ tooltip: item.action || 'No action' }}
                 >
-                  {item.action}
+                  {item.action || 'No action'}
                 </Text>
               </div>
               
@@ -118,7 +118,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
                   color: '#9ca3af'
                 }}
               >
-                {item.time}
+                {item.time || 'N/A'}
               </Text>
             </div>
           </List.Item>

@@ -19,72 +19,76 @@ interface TopPerformer {
   }[];
 }
 
-// Mock data cho top performers
-const topPerformersData: TopPerformer[] = [
-  {
-    id: '1',
-    name: 'Dr. Nguyễn Thị Hương',
-    role: 'Bác sĩ',
-    specialty: 'Sản khoa',
-    rating: 4.9,
-    performance: 95,
-    avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=64&h=64&fit=crop&crop=face',
-    metrics: [
-      { label: 'Bệnh nhân', value: 156 },
-      { label: 'Tỷ lệ hài lòng', value: '98%' }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Trần Minh Đức',
-    role: 'Quản lý',
-    specialty: 'Nội tiết sinh sản',
-    rating: 4.8,
-    performance: 92,
-    avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=64&h=64&fit=crop&crop=face',
-    metrics: [
-      { label: 'Dự án hoàn thành', value: 24 },
-      { label: 'Hiệu quả', value: '94%' }
-    ]
-  },
-  {
-    id: '3',
-    name: 'Lê Thị Mai',
-    role: 'Nhân viên',
-    specialty: 'Tâm lý học',
-    rating: 4.7,
-    performance: 89,
-    avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b776?w=64&h=64&fit=crop&crop=face',
-    metrics: [
-      { label: 'Tư vấn', value: 98 },
-      { label: 'Phản hồi tích cực', value: '96%' }
-    ]
-  },
-  {
-    id: '4',
-    name: 'Phạm Văn An',
-    role: 'Bác sĩ',
-    specialty: 'Da liễu',
-    rating: 4.6,
-    performance: 87,
-    metrics: [
-      { label: 'Khám bệnh', value: 89 },
-      { label: 'Đánh giá', value: '92%' }
-    ]
-  }
-];
-
 interface TopPerformersCardProps {
   title?: string;
   showAll?: () => void;
   maxItems?: number;
+  data?: TopPerformer[];
+  loading?: boolean;
 }
 
 const TopPerformersCard: React.FC<TopPerformersCardProps> = ({
   title = "Nhân viên xuất sắc",
   showAll,
-  maxItems = 4
+  maxItems = 4,
+  data,
+  loading = false
 }) => {
+  const defaultTopPerformersData: TopPerformer[] = [
+    {
+      id: '1',
+      name: 'Dr. Nguyễn Thị Hương',
+      role: 'Bác sĩ',
+      specialty: 'Sản khoa',
+      rating: 4.9,
+      performance: 95,
+      avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=64&h=64&fit=crop&crop=face',
+      metrics: [
+        { label: 'Bệnh nhân', value: 156 },
+        { label: 'Tỷ lệ hài lòng', value: '98%' }
+      ]
+    },
+    {
+      id: '2',
+      name: 'Trần Minh Đức',
+      role: 'Quản lý',
+      specialty: 'Nội tiết sinh sản',
+      rating: 4.8,
+      performance: 92,
+      avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=64&h=64&fit=crop&crop=face',
+      metrics: [
+        { label: 'Dự án hoàn thành', value: 24 },
+        { label: 'Hiệu quả', value: '94%' }
+      ]
+    },
+    {
+      id: '3',
+      name: 'Lê Thị Mai',
+      role: 'Nhân viên',
+      specialty: 'Tâm lý học',
+      rating: 4.7,
+      performance: 89,
+      avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b776?w=64&h=64&fit=crop&crop=face',
+      metrics: [
+        { label: 'Tư vấn', value: 98 },
+        { label: 'Phản hồi tích cực', value: '96%' }
+      ]
+    },
+    {
+      id: '4',
+      name: 'Phạm Văn An',
+      role: 'Bác sĩ',
+      specialty: 'Da liễu',
+      rating: 4.6,
+      performance: 87,
+      metrics: [
+        { label: 'Khám bệnh', value: 89 },
+        { label: 'Đánh giá', value: '92%' }
+      ]
+    }
+  ];
+
+  const topPerformersData = data && data.length > 0 ? data : defaultTopPerformersData;
   const displayData = topPerformersData.slice(0, maxItems);
 
   const getRankColor = (index: number) => {
