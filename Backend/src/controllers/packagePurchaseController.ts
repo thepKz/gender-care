@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import PackagePurchases from '../models/PackagePurchases';
-import ServicePackage from '../models/ServicePackage';
+import ServicePackages from '../models/ServicePackages';
 import Bills from '../models/Bills';
 import { UserProfile } from '../models/UserProfile';
 import { AuthRequest } from '../types/auth';
 import { ApiResponse } from '../types';
+import { PackagePricingService } from '../services/packagePricingService';
 
 // POST /package-purchases - Mua gói dịch vụ (mock thành công 100%)
 export const purchasePackage = async (req: AuthRequest, res: Response) => {
@@ -54,7 +55,7 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
     }
 
     // Kiểm tra package tồn tại và active
-    const servicePackage = await ServicePackage.findOne({ 
+    const servicePackage = await ServicePackages.findOne({ 
       _id: packageId, 
       isActive: true 
     });
@@ -87,7 +88,8 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
     const expiredAt = new Date();
     expiredAt.setDate(activatedAt.getDate() + (servicePackage.durationInDays || 30)); // Default 30 ngày
 
-    const totalAllowedUses = servicePackage.maxUsages || 1;
+    // Calculate total allowed uses from services
+    const totalAllowedUses = servicePackage.services.reduce((sum: number, service: any) => sum + service.quantity, 0) || 1;
 
     // Tạo package purchase
     const packagePurchaseData = {
@@ -417,5 +419,419 @@ export const getPackagePurchasesByProfile = async (req: AuthRequest, res: Respon
       message: 'Lỗi hệ thống khi lấy gói dịch vụ theo hồ sơ'
     };
     res.status(500).json(response);
+  }
+};
+
+// 🔹 Purchase a service package - updated for new schema
+export const purchaseServicePackage = async (req: AuthRequest, res: Response) => {
+  try {
+    const { packageId, promotionId } = req.body;
+    const userId = req.user?._id;
+
+    // Validation
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
+    if (!packageId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Package ID is required'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(packageId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid package ID format'
+      });
+    }
+
+    // 🔹 Find package using new model
+    const servicePackage = await ServicePackages.findOne({
+      _id: packageId,
+      isActive: true
+    }).populate('services.serviceId', 'serviceName price');
+
+    if (!servicePackage) {
+      return res.status(404).json({
+        success: false,
+        message: 'Service package not found or inactive'
+      });
+    }
+
+    // 🔹 Simplified pricing calculation
+    const basePrice = servicePackage.price;
+    const discountAmount = promotionId ? Math.round(basePrice * 0.1) : 0; // Mock 10% discount
+    const finalAmount = basePrice - discountAmount;
+
+    // 🔹 Use PackagePricingService to handle purchase
+    const purchase = await PackagePricingService.purchasePackage(
+      userId,
+      packageId,
+      finalAmount
+    );
+
+    // 🔹 Simplified response
+    const response = {
+      success: true,
+      message: 'Package purchased successfully',
+      data: {
+        purchaseId: purchase._id,
+        packageId: servicePackage._id,
+        packageName: servicePackage.name,
+        pricing: {
+          subtotal: basePrice,
+          discountAmount,
+          totalAmount: finalAmount
+        },
+        purchaseDate: purchase.purchaseDate,
+        expiryDate: purchase.expiryDate,
+        durationInDays: servicePackage.durationInDays,
+        status: purchase.status
+      }
+    };
+
+    res.status(201).json(response);
+  } catch (error: any) {
+    console.error('Error purchasing service package:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error purchasing service package',
+      errors: { general: error.message }
+    });
+  }
+};
+
+// 🔹 Get user's purchased packages - updated for new schema
+export const getUserPackagePurchases = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    const { status, page = 1, limit = 10 } = req.query;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
+    // Build filter
+    const filter: any = { userId };
+    if (status && typeof status === 'string') {
+      filter.status = status;
+    }
+
+    // Pagination
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [purchases, total] = await Promise.all([
+      PackagePurchases.find(filter)
+        .populate({
+          path: 'packageId',
+          select: 'name description services durationInDays price',
+          populate: {
+            path: 'services.serviceId',
+            select: 'serviceName price'
+          }
+        })
+        .sort({ purchaseDate: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      PackagePurchases.countDocuments(filter)
+    ]);
+
+    // 🔹 Enhanced response with usage info
+    const purchasesWithUsage = purchases.map(purchase => {
+      const totalServices = purchase.usedServices.length;
+      const totalUsed = purchase.usedServices.reduce((sum: number, service: any) => sum + service.usedQuantity, 0);
+      const totalMax = purchase.usedServices.reduce((sum: number, service: any) => sum + service.maxQuantity, 0);
+      
+      return {
+        ...purchase,
+        usageInfo: {
+          totalServices,
+          totalUsed,
+          totalMax,
+          usagePercentage: totalMax > 0 ? Math.round((totalUsed / totalMax) * 100) : 0
+        }
+      };
+    });
+
+    const response = {
+      success: true,
+      data: {
+        purchases: purchasesWithUsage,
+        pagination: {
+          total,
+          page: Number(page),
+          limit: Number(limit),
+          totalPages: Math.ceil(total / Number(limit))
+        }
+      }
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    console.error('Error fetching user package purchases:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching package purchases',
+      errors: { general: error.message }
+    });
+  }
+};
+
+// 🔹 Get single package purchase details - updated
+export const getPackagePurchaseById = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid purchase ID format'
+      });
+    }
+
+    const purchase = await PackagePurchases.findOne({ _id: id, userId })
+      .populate({
+        path: 'packageId',
+        select: 'name description services durationInDays price',
+        populate: {
+          path: 'services.serviceId',
+          select: 'serviceName price description'
+        }
+      })
+      .lean();
+
+    if (!purchase) {
+      return res.status(404).json({
+        success: false,
+        message: 'Package purchase not found'
+      });
+    }
+
+    // 🔹 Add detailed usage information
+    const servicesWithUsage = purchase.usedServices.map((usedService: any) => {
+      const packageService = (purchase.packageId as any).services.find(
+        (ps: any) => ps.serviceId._id.toString() === usedService.serviceId.toString()
+      );
+      
+      return {
+        serviceInfo: packageService?.serviceId,
+        maxQuantity: usedService.maxQuantity,
+        usedQuantity: usedService.usedQuantity,
+        remainingQuantity: usedService.maxQuantity - usedService.usedQuantity,
+        usagePercentage: Math.round((usedService.usedQuantity / usedService.maxQuantity) * 100)
+      };
+    });
+
+    const response = {
+      success: true,
+      data: {
+        ...purchase,
+        servicesWithUsage,
+        summary: {
+          totalServices: purchase.usedServices.length,
+          totalUsed: purchase.usedServices.reduce((sum: number, s: any) => sum + s.usedQuantity, 0),
+          totalMax: purchase.usedServices.reduce((sum: number, s: any) => sum + s.maxQuantity, 0),
+          daysRemaining: Math.max(0, Math.ceil((new Date(purchase.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        }
+      }
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    console.error('Error fetching package purchase:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching package purchase',
+      errors: { general: error.message }
+    });
+  }
+};
+
+// 🔹 Use service from purchased package - updated
+export const usePackageService = async (req: AuthRequest, res: Response) => {
+  try {
+    const { serviceId, quantity = 1 } = req.body;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
+    if (!serviceId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Service ID is required'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid service ID format'
+      });
+    }
+
+    if (quantity < 1 || !Number.isInteger(quantity)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Quantity must be a positive integer'
+      });
+    }
+
+    // 🔹 Use PackagePricingService to handle service usage
+    const result = await PackagePricingService.usePackageService(userId, serviceId, quantity);
+
+    if (!result.success) {
+      return res.status(400).json({
+        success: false,
+        message: result.message
+      });
+    }
+
+    res.json({
+      success: true,
+      message: result.message,
+      data: {
+        purchaseId: result.purchaseId,
+        serviceId,
+        quantityUsed: quantity
+      }
+    });
+  } catch (error: any) {
+    console.error('Error using package service:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error using package service',
+      errors: { general: error.message }
+    });
+  }
+};
+
+// 🔹 Check if user can use service - new endpoint
+export const checkServiceAvailability = async (req: AuthRequest, res: Response) => {
+  try {
+    const { serviceId, quantity = 1 } = req.query;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
+    if (!serviceId || typeof serviceId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        message: 'Service ID is required'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(serviceId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid service ID format'
+      });
+    }
+
+    // 🔹 Use PackagePricingService to check availability
+    const result = await PackagePricingService.canUserUseService(
+      userId, 
+      serviceId, 
+      Number(quantity)
+    );
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error: any) {
+    console.error('Error checking service availability:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error checking service availability',
+      errors: { general: error.message }
+    });
+  }
+};
+
+// 🔹 Get package purchase statistics for user
+export const getUserPackageStats = async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
+    const stats = await PackagePurchases.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          totalSpent: { $sum: '$purchasePrice' }
+        }
+      }
+    ]);
+
+    const statsMap = {
+      active: { count: 0, totalSpent: 0 },
+      expired: { count: 0, totalSpent: 0 },
+      used_up: { count: 0, totalSpent: 0 }
+    };
+
+    stats.forEach(stat => {
+      if (statsMap[stat._id as keyof typeof statsMap]) {
+        statsMap[stat._id as keyof typeof statsMap] = {
+          count: stat.count,
+          totalSpent: stat.totalSpent
+        };
+      }
+    });
+
+    const totalPurchases = stats.reduce((sum, stat) => sum + stat.count, 0);
+    const totalSpent = stats.reduce((sum, stat) => sum + stat.totalSpent, 0);
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalPurchases,
+          totalSpent
+        },
+        byStatus: statsMap
+      }
+    });
+  } catch (error: any) {
+    console.error('Error fetching user package stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching package statistics',
+      errors: { general: error.message }
+    });
   }
 }; 

@@ -14,7 +14,15 @@ import {
   Tooltip,
   Popconfirm,
   Rate,
-  message
+  message,
+  Row,
+  Col,
+  Statistic,
+  DatePicker,
+  InputNumber,
+  Switch,
+  Descriptions,
+  Upload,
 } from 'antd';
 import {
   SearchOutlined,
@@ -25,22 +33,29 @@ import {
   EyeOutlined,
   MedicineBoxOutlined,
   MailOutlined,
-  PhoneOutlined
+  PhoneOutlined,
+  HomeOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { doctorApi } from '../../../api/endpoints';
+import { doctorApi } from '../../../api/endpoints'; // ✅ FIX: Import từ index file 
+import axiosInstance from '../../../api/axiosConfig'; // Import để lấy base URL
 import { 
   canCreateDoctor, 
   canUpdateDoctor, 
   canDeleteDoctor, 
-  getCurrentUserRole 
+  getCurrentUserRole,
+  getCurrentUser
 } from '../../../utils/permissions';
+import type { Doctor } from '../../../types'; // ✅ Use global type
+import { validateAndFixAuthToken, cleanupInvalidTokens, getValidTokenFromStorage } from '../../../utils/helpers';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 
-interface Doctor {
+// ✅ Create display-specific interface for table
+interface DisplayDoctor {
   key: string;
   id: string;
   fullName: string;
@@ -59,61 +74,113 @@ interface Doctor {
   avatar?: string;
 }
 
+// ✅ Enhanced mapping function to convert API Doctor to DisplayDoctor
+const mapApiDoctorToDisplay = (apiDoctor: any): DisplayDoctor => {
+  console.log('🔄 Mapping API doctor:', apiDoctor); // Debug log
+  
+  // Handle both direct doctor data and populated user data
+  const userData = apiDoctor.userId || apiDoctor.user || apiDoctor;
+  const doctorData = apiDoctor.userId ? apiDoctor : (apiDoctor.doctor || apiDoctor);
+  
+  // ✅ Enhanced field extraction với fallback logic
+  const mappedDoctor = {
+    key: apiDoctor._id || apiDoctor.id || '',
+    id: apiDoctor._id || apiDoctor.id || '',
+    fullName: userData.fullName || userData.name || 'N/A',
+    email: userData.email || 'N/A',
+    phone: userData.phone || userData.phoneNumber || 'N/A',
+    // ✅ Enhanced gender extraction
+    gender: userData.gender || doctorData.gender || apiDoctor.gender || undefined,
+    // ✅ Enhanced address extraction  
+    address: userData.address || doctorData.address || apiDoctor.address || '',
+    specialization: doctorData.specialization || apiDoctor.specialization || 'Chung',
+    experience: doctorData.experience || apiDoctor.experience || 0,
+    rating: doctorData.rating || apiDoctor.rating || 0,
+    education: doctorData.education || apiDoctor.education || '',
+    certificate: doctorData.certificate || apiDoctor.certificate || '',
+    bio: doctorData.bio || apiDoctor.bio || '',
+    status: (userData.isActive === false || doctorData.isDeleted) ? 'inactive' : 'active' as DisplayDoctor['status'],
+    createdAt: apiDoctor.createdAt || new Date().toISOString(),
+    avatar: userData.avatar || doctorData.image || apiDoctor.image || undefined
+  };
+  
+  console.log('✅ Mapped to DisplayDoctor:', mappedDoctor);
+  return mappedDoctor;
+};
+
 const DoctorManagement: React.FC = () => {
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [doctors, setDoctors] = useState<DisplayDoctor[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+  const [editingDoctor, setEditingDoctor] = useState<DisplayDoctor | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
   
   // Get current user role for permissions
   const userRole = getCurrentUserRole();
-  console.log('Current user role:', userRole); // Debug log
-  console.log('Can create doctor:', canCreateDoctor(userRole)); // Debug log
-  console.log('Can update doctor:', canUpdateDoctor(userRole)); // Debug log
-  console.log('Can delete doctor:', canDeleteDoctor(userRole)); // Debug log
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const data = await doctorApi.getAllDoctors();
-      console.log('Raw API data:', data); // Debug log
       
-      if (Array.isArray(data)) {
-        const mapped: Doctor[] = data.map((d: any, idx: number) => ({
-          key: d._id || idx.toString(),
-          id: d._id || d.id || `DOC${idx}`,
-          fullName: d.userId?.fullName || d.fullName || 'N/A',
-          email: d.userId?.email || d.email || 'N/A', 
-          phone: d.userId?.phone || d.phone || '',
-          gender: d.userId?.gender || d.gender || '',
-          address: d.userId?.address || d.address || '',
-          specialization: d.specialization || 'N/A',
-          experience: d.experience || 0,
-          rating: d.rating || 0,
-          education: d.education || '',
-          certificate: d.certificate || '',
-          bio: d.bio || '',
-          status: d.isDeleted ? 'inactive' : 'active',
-          createdAt: d.createdAt ? new Date(d.createdAt).toISOString().split('T')[0] : '',
-          avatar: d.userId?.avatar || d.image || '',
-        }));
-        console.log('Mapped doctors:', mapped); // Debug log
+      // ✅ Validate auth token trước khi gọi API
+      if (!validateAndFixAuthToken()) {
+        return; // Will redirect to login
+      }
+      
+      // Sử dụng getAllWithDetails để lấy thêm feedback và status data
+      const response = await doctorApi.getAllWithDetails();
+      
+      // API trả về { message, data, total }
+      const apiDoctors = response.data || [];
+      
+      if (Array.isArray(apiDoctors)) {
+        // ✅ Use enhanced mapping function
+        const mapped = apiDoctors.map(mapApiDoctorToDisplay);
         setDoctors(mapped);
       }
     } catch (err: any) {
-      console.error('Load data error:', err); // Debug log
-      message.error(err?.response?.data?.message || 'Không thể tải danh sách bác sĩ');
+      // Check if error is 401 - token issue
+      if (err?.response?.status === 401) {
+        console.warn('[DoctorManagement] 401 error, cleaning up auth');
+        cleanupInvalidTokens();
+        message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        return;
+      }
+      
+      // Fallback to basic getAllDoctors if getAllWithDetails fails
+      try {
+        const fallbackData = await doctorApi.getAllDoctors();
+        
+        if (Array.isArray(fallbackData)) {
+          // ✅ Use enhanced mapping function for fallback too
+          const mapped = fallbackData.map(mapApiDoctorToDisplay);
+          setDoctors(mapped);
+        }
+      } catch (fallbackErr: any) {
+        if (fallbackErr?.response?.status === 401) {
+          cleanupInvalidTokens();
+          message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+          return;
+        }
+        message.error(fallbackErr?.response?.data?.message || 'Không thể tải danh sách bác sĩ');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    // ✅ Cleanup invalid tokens on component mount
+    cleanupInvalidTokens();
+    
+    // Validate auth before loading data
+    if (validateAndFixAuthToken()) {
+      loadData();
+    }
   }, []);
 
   const filteredDoctors = doctors.filter(doctor => {
@@ -126,7 +193,7 @@ const DoctorManagement: React.FC = () => {
     return matchesSearch && matchesSpecialty && matchesStatus;
   });
 
-  const getStatusColor = (status: Doctor['status']) => {
+  const getStatusColor = (status: DisplayDoctor['status']) => {
     const colors = {
       active: 'success',
       inactive: 'default',
@@ -135,7 +202,7 @@ const DoctorManagement: React.FC = () => {
     return colors[status];
   };
 
-  const getStatusText = (status: Doctor['status']) => {
+  const getStatusText = (status: DisplayDoctor['status']) => {
     const texts = {
       active: 'Hoạt động',
       inactive: 'Tạm dừng',
@@ -144,31 +211,46 @@ const DoctorManagement: React.FC = () => {
     return texts[status];
   };
 
-  const handleEdit = (doctor: Doctor) => {
+  const handleEdit = (doctor: DisplayDoctor) => {
     setEditingDoctor(doctor);
-    form.setFieldsValue(doctor);
+    
+    // ✅ Enhanced form mapping để ensure all fields được set đúng
+    const formData = {
+      fullName: doctor.fullName || '',
+      email: doctor.email || '',
+      phone: doctor.phone || '',
+      gender: doctor.gender || undefined, // Ensure gender is properly set
+      address: doctor.address || '', // Ensure address is properly set
+      specialization: doctor.specialization || '',
+      experience: doctor.experience || 0,
+      rating: doctor.rating || 0,
+      education: doctor.education || '',
+      certificate: doctor.certificate || '',
+      bio: doctor.bio || '',
+      avatar: doctor.avatar || undefined
+    };
+    
+    console.log('🔄 [EDIT] Setting form fields:', formData);
+    console.log('📊 [EDIT] Original doctor data:', doctor);
+    
+    form.setFieldsValue(formData);
     setIsModalVisible(true);
   };
 
   const handleDelete = async (doctorId: string) => {
     try {
-      console.log('Deleting doctor with ID:', doctorId); // Debug log
       const result = await doctorApi.deleteDoctor(doctorId);
-      console.log('Delete result:', result); // Debug log
       message.success('Xóa bác sĩ thành công');
       loadData();
     } catch (err: any) {
-      console.error('Delete error:', err); // Debug log
-      console.error('Delete error response:', err?.response); // Debug log
       message.error(err?.response?.data?.message || 'Không thể xóa bác sĩ');
     }
   };
 
   const handleModalOk = async () => {
     try {
+      setSubmitting(true);
       const values = await form.validateFields();
-      console.log('Form values:', values); // Debug log
-      console.log('Editing doctor:', editingDoctor); // Debug log
       
       // Ensure experience is number
       if (values.experience) {
@@ -176,24 +258,53 @@ const DoctorManagement: React.FC = () => {
       }
       
       if (editingDoctor) {
-        console.log('Updating doctor with ID:', editingDoctor.id); // Debug log
+        console.log(`🔄 [FRONTEND] Updating doctor with ID: ${editingDoctor.id}`);
+        console.log(`📝 [FRONTEND] Update data:`, values);
+        
         const result = await doctorApi.updateDoctor(editingDoctor.id, values);
-        console.log('Update result:', result); // Debug log
-        message.success('Cập nhật bác sĩ thành công');
+        
+        console.log(`✅ [FRONTEND] Update API response:`, result);
+        message.success(`Cập nhật bác sĩ "${values.fullName}" thành công!`);
       } else {
-        console.log('Creating new doctor'); // Debug log
         const result = await doctorApi.createDoctor(values);
-        console.log('Create result:', result); // Debug log
-        message.success('Tạo bác sĩ thành công');
+        message.success(`Tạo bác sĩ "${values.fullName}" thành công!`);
       }
+      
       setIsModalVisible(false);
       form.resetFields();
       setEditingDoctor(null);
-      loadData();
+      
+      console.log(`🔄 [FRONTEND] Reloading data after update...`);
+      await loadData();
+      console.log(`✅ [FRONTEND] Data reloaded successfully`);
     } catch (err: any) {
-      console.error('Modal submit error:', err); // Debug log
-      console.error('Error response:', err?.response); // Debug log
-      message.error(err?.response?.data?.message || 'Có lỗi xảy ra');
+      // ✅ Enhanced error logging để dễ debug
+      console.error(`❌❌❌ [FRONTEND ERROR] ❌❌❌`);
+      console.error(`🔴 [ERROR TYPE]:`, typeof err);
+      console.error(`🔴 [ERROR OBJECT]:`, err);
+      console.error(`🔴 [ERROR MESSAGE]:`, err?.message);
+      console.error(`🔴 [RESPONSE STATUS]:`, err?.response?.status);
+      console.error(`🔴 [RESPONSE DATA]:`, err?.response?.data);
+      console.error(`🔴 [RESPONSE MESSAGE]:`, err?.response?.data?.message);
+      
+      // Enhanced error message based on error type
+      let errorMessage = 'Có lỗi xảy ra khi cập nhật bác sĩ';
+      
+      if (err?.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+      
+      console.error(`🚨 [FINAL ERROR MESSAGE]:`, errorMessage);
+      message.error(errorMessage);
+      
+      // ✅ Alert backup nếu user không thấy console
+      if (errorMessage.includes('Kinh nghiệm')) {
+        message.warning('💡 Gợi ý: Kinh nghiệm phải từ 0 đến 50 năm!');
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -203,7 +314,7 @@ const DoctorManagement: React.FC = () => {
     setEditingDoctor(null);
   };
 
-  const showDoctorDetails = (doctor: Doctor) => {
+  const showDoctorDetails = (doctor: DisplayDoctor) => {
     Modal.info({
       title: 'Chi tiết bác sĩ',
       width: 600,
@@ -226,13 +337,101 @@ const DoctorManagement: React.FC = () => {
     });
   };
 
-  const columns: ColumnsType<Doctor> = [
+  // ✅ File upload handling functions
+  const handleFileChange = (info: any) => {
+    if (info.file.status === 'uploading') {
+      return;
+    }
+    
+    if (info.file.status === 'done') {
+      // ✅ Handle backend response từ uploadDoctorImage endpoint
+      if (info.file.response && info.file.response.success) {
+        const imageUrl = info.file.response.data.imageUrl;
+        
+        // ✅ Set avatar URL vào form để submit cùng doctor data
+        form.setFieldsValue({ avatar: imageUrl });
+        
+        message.success(`Upload ảnh "${info.file.name}" thành công!`);
+      } else {
+        const errorMsg = info.file.response?.message || 'Upload response không hợp lệ';
+        message.error(`Upload thất bại: ${errorMsg}`);
+      }
+    } else if (info.file.status === 'error') {
+      // ✅ Handle specific error messages từ backend
+      const errorMsg = info.file.response?.message || 
+                      info.file.error?.message || 
+                      'Upload thất bại';
+      
+      // ✅ Check if 401 error - token issue
+      if (info.file.response?.status === 401 || errorMsg.includes('Unauthorized')) {
+        console.warn('[DoctorManagement] Upload 401 error, cleaning up auth');
+        cleanupInvalidTokens();
+        message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        return;
+      }
+      
+      message.error(`Upload thất bại: ${errorMsg}`);
+    }
+  };
+
+  const handleBeforeUpload = (file: any): boolean | Promise<boolean> => {
+    // ✅ Enhanced validation cho medical photos - now includes WebP
+    const isValidFormat = file.type === 'image/jpeg' || 
+                         file.type === 'image/jpg' || 
+                         file.type === 'image/png' || 
+                         file.type === 'image/webp';
+    if (!isValidFormat) {
+      message.error('Chỉ chấp nhận file ảnh định dạng JPG, JPEG, PNG, WebP!');
+      return false;
+    }
+    
+    // ✅ Professional medical photo size limit: 5MB
+    const isLt5M = file.size / 1024 / 1024 < 5;
+    if (!isLt5M) {
+      message.error('Kích thước ảnh không được vượt quá 5MB!');
+      return false;
+    }
+    
+    // ✅ Recommend image dimensions cho professional photos
+    return new Promise<boolean>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          // Recommend minimum resolution cho professional photos
+          if (img.width < 200 || img.height < 200) {
+            message.warning('Khuyến nghị sử dụng ảnh có độ phân giải tối thiểu 200x200px cho chất lượng tốt nhất');
+          }
+          
+          // Recommend square-ish ratio cho profile photos
+          const ratio = img.width / img.height;
+          if (ratio < 0.5 || ratio > 2) {
+            message.info('Khuyến nghị sử dụng ảnh có tỷ lệ gần vuông (1:1) để hiển thị tốt nhất');
+          }
+          
+          resolve(true);
+        };
+        img.onerror = () => {
+          message.error('Không thể đọc file ảnh');
+          reject(false);
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveFile = (file: any) => {
+    return true;
+  };
+
+  const columns: ColumnsType<DisplayDoctor> = [
     {
       title: 'Bác sĩ',
       dataIndex: 'fullName',
       key: 'fullName',
       width: 200,
-      render: (fullName: string, record: Doctor) => (
+      render: (fullName: string, record: DisplayDoctor) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Avatar 
             src={record.avatar} 
@@ -254,7 +453,7 @@ const DoctorManagement: React.FC = () => {
       dataIndex: 'email',
       key: 'email',
       width: 200,
-      render: (email: string, record: Doctor) => (
+      render: (email: string, record: DisplayDoctor) => (
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
             <MailOutlined style={{ color: '#1890ff' }} />
@@ -304,7 +503,7 @@ const DoctorManagement: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       width: 120,
-      render: (status: Doctor['status']) => (
+      render: (status: DisplayDoctor['status']) => (
         <Tag color={getStatusColor(status)}>
           {getStatusText(status)}
         </Tag>
@@ -314,7 +513,7 @@ const DoctorManagement: React.FC = () => {
       title: 'Thao tác',
       key: 'action',
       width: 150,
-      render: (_, record: Doctor) => (
+      render: (_, record: DisplayDoctor) => (
         <Space size="small">
           <Tooltip title="Xem chi tiết">
             <Button 
@@ -432,6 +631,7 @@ const DoctorManagement: React.FC = () => {
         width={700}
         okText={editingDoctor ? 'Cập nhật' : 'Tạo mới'}
         cancelText="Hủy"
+        confirmLoading={submitting}
       >
         <Form
           form={form}
@@ -502,15 +702,49 @@ const DoctorManagement: React.FC = () => {
             <Form.Item
               name="experience"
               label="Kinh nghiệm (năm)"
-              rules={[{ required: true, message: 'Vui lòng nhập số năm kinh nghiệm!' }]}
+              rules={[
+                { required: true, message: 'Vui lòng nhập số năm kinh nghiệm!' },
+                { 
+                  validator: (_, value) => {
+                    if (!value) return Promise.resolve();
+                    const exp = Number(value);
+                    if (isNaN(exp)) {
+                      return Promise.reject(new Error('Kinh nghiệm phải là số hợp lệ!'));
+                    }
+                    if (exp < 0) {
+                      return Promise.reject(new Error('Kinh nghiệm không thể âm!'));
+                    }
+                    if (exp > 50) {
+                      return Promise.reject(new Error('Kinh nghiệm không thể vượt quá 50 năm!'));
+                    }
+                    return Promise.resolve();
+                  }
+                }
+              ]}
               style={{ flex: 1 }}
             >
-              <Input type="number" placeholder="Nhập số năm kinh nghiệm" />
+              <Input 
+                type="number" 
+                placeholder="Nhập số năm kinh nghiệm (0-50)" 
+                max={50}
+                min={0}
+              />
             </Form.Item>
 
             <Form.Item
               name="rating"
               label="Đánh giá"
+              rules={[
+                {
+                  validator: (_, value) => {
+                    if (!value) return Promise.resolve();
+                    if (value < 0 || value > 5) {
+                      return Promise.reject(new Error('Đánh giá phải từ 0 đến 5 sao!'));
+                    }
+                    return Promise.resolve();
+                  }
+                }
+              ]}
               style={{ flex: 1 }}
             >
               <Rate allowHalf />
@@ -550,6 +784,39 @@ const DoctorManagement: React.FC = () => {
               <Option value="inactive">Tạm dừng</Option>
               <Option value="suspended">Bị khóa</Option>
             </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="Ảnh đại diện"
+            name="avatar"
+            extra="Khuyến nghị: JPG/PNG/WebP, tối đa 5MB, tỷ lệ gần vuông (1:1) cho hiển thị tốt nhất"
+          >
+            <Upload
+              name="image"
+              listType="picture-card"
+              maxCount={1}
+              action={`${axiosInstance.defaults.baseURL}/doctors/upload-image`}
+              headers={{
+                'Authorization': `Bearer ${getValidTokenFromStorage('access_token') || ''}`
+              }}
+              beforeUpload={handleBeforeUpload} 
+              onChange={handleFileChange}
+              onRemove={handleRemoveFile}
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              showUploadList={{
+                showPreviewIcon: true,
+                showDownloadIcon: false,
+                showRemoveIcon: true,
+              }}
+            >
+              <div>
+                <UploadOutlined />
+                <div style={{ marginTop: 8 }}>Chọn ảnh bác sĩ</div>
+                <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                  JPG/PNG/WebP supported
+                </div>
+              </div>
+            </Upload>
           </Form.Item>
         </Form>
       </Modal>

@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import * as doctorService from '../services/doctorService';
+import { uploadToCloudinary } from '../services/uploadService';
+import fs from 'fs';
 
 export const getAll = async (req: Request, res: Response) => {
   try {
@@ -353,6 +355,74 @@ export const updateDoctorStatus = async (req: Request, res: Response) => {
     res.status(500).json({ 
       success: false,
       message: 'Lỗi server khi cập nhật trạng thái bác sĩ' 
+    });
+  }
+};
+
+/**
+ * Upload doctor image lên cloudinary với enhanced validation
+ * Enhanced cho medical professional photos
+ */
+export const uploadDoctorImage = async (req: any, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Vui lòng chọn file ảnh' 
+      });
+    }
+
+    // ✅ Enhanced validation cho medical photos - now includes WebP
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(req.file.mimetype)) {
+      // Xóa file tạm không hợp lệ
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        success: false,
+        message: 'Chỉ chấp nhận file ảnh định dạng JPG, JPEG, PNG, WebP'
+      });
+    }
+
+    // Kiểm tra kích thước file (max 5MB cho medical photos)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (req.file.size > maxSize) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        success: false,
+        message: 'Kích thước file không được vượt quá 5MB'
+      });
+    }
+
+    // Upload lên cloudinary với folder riêng cho doctors
+    const imageUrl = await uploadToCloudinary(req.file.path, 'doctors');
+    
+    // Xóa file tạm sau khi upload thành công
+    fs.unlinkSync(req.file.path);
+
+    return res.status(200).json({ 
+      success: true,
+      message: 'Upload ảnh bác sĩ thành công',
+      data: {
+        imageUrl,
+        uploadedAt: new Date()
+      }
+    });
+
+  } catch (error: any) {
+    // Xóa file tạm nếu có lỗi
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (unlinkError) {
+        console.error('Error deleting temp file:', unlinkError);
+      }
+    }
+
+    console.error('Doctor image upload error:', error);
+    return res.status(500).json({ 
+      success: false,
+      message: 'Lỗi upload ảnh bác sĩ', 
+      error: error.message 
     });
   }
 };

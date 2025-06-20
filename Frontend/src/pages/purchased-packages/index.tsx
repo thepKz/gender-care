@@ -1,102 +1,46 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Card, Col, Row, Spin, Tag, Typography, message, Empty, Breadcrumb } from 'antd';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Button, Card, Col, Row, Spin, Tag, Typography, message, Empty, Breadcrumb, Table, Badge, Tooltip, Space, Modal, Descriptions } from 'antd';
 import { motion } from 'framer-motion';
-import { ArrowLeftOutlined, ShoppingOutlined, ClockCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, ShoppingOutlined, ClockCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, EyeOutlined, ScheduleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import packagePurchaseApi from '../../api/endpoints/packagePurchaseApi';
 import { useAuth } from '../../hooks/useAuth';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { CalendarOutlined, UserOutlined, CreditCardOutlined } from '@ant-design/icons';
+import { PackagePurchase, ServiceItem } from '../../types';
 
 const { Title, Text } = Typography;
-
-interface PackagePurchase {
-  _id: string;
-  userId: string;
-  profileId: {
-    _id: string;
-    fullName: string;
-    phone?: string;
-    year?: string;
-    gender: string;
-  } | null;
-  packageId: {
-    _id: string;
-    name: string;
-    description?: string;
-    price: number;
-    serviceIds?: Array<{
-      _id: string;
-      serviceName: string;
-      price?: number;
-      description?: string;
-      serviceType?: string;
-    }>;
-    durationInDays?: number;
-    maxUsages?: number;
-  } | null;
-  billId: {
-    _id: string;
-    subtotal: number;
-    discountAmount?: number;
-    totalAmount: number;
-    status: string;
-    createdAt: string;
-  } | null;
-  activatedAt?: string;
-  expiredAt?: string;
-  remainingUsages?: number;
-  totalAllowedUses?: number;
-  isActive?: boolean;
-  createdAt: string;
-  updatedAt?: string;
-}
 
 const PurchasedPackagesPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [packages, setPackages] = useState<PackagePurchase[]>([]);
-  const [debugTesting, setDebugTesting] = useState(false);
-  const [debugResponse, setDebugResponse] = useState<any>(null);
+  const [purchases, setPurchases] = useState<PackagePurchase[]>([]);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [selectedPurchase, setSelectedPurchase] = useState<PackagePurchase | null>(null);
 
-  useEffect(() => {
-    console.log('🔄 [PurchasedPackages] Component mounted/auth changed:', {
-      isAuthenticated,
-      userId: user?._id,
-      hasUser: !!user
-    });
-    
-    if (!isAuthenticated) {
-      console.log('⚠️ [PurchasedPackages] User not authenticated, redirecting to login');
-      navigate('/login');
-      return;
-    }
-    
-    if (!user?._id) {
-      console.log('⚠️ [PurchasedPackages] User ID not available, waiting...');
-      return;
-    }
-    
-    console.log('✅ [PurchasedPackages] User authenticated, fetching packages');
-    fetchPurchasedPackages();
-  }, [isAuthenticated, user?._id, navigate]);
-
-  const fetchPurchasedPackages = async () => {
+  const fetchPurchases = useCallback(async () => {
     try {
-      console.log('🔍 [Frontend] fetchPurchasedPackages called');
-      console.log('🔍 [Frontend] User authenticated:', isAuthenticated);
-      console.log('🔍 [Frontend] User ID:', user?._id);
+      console.log('🔄 [PurchasedPackages] Component mounted/auth changed:', {
+        isAuthenticated,
+        userId: user?._id,
+        hasUser: !!user
+      });
       
-      setLoading(true);
-
-      // Ensure user is authenticated before making API call
-      if (!isAuthenticated || !user?._id) {
-        console.warn('⚠️ [Frontend] User not authenticated, skipping API call');
-        setPackages([]);
+      if (!isAuthenticated) {
+        console.log('⚠️ [PurchasedPackages] User not authenticated, redirecting to login');
+        navigate('/login');
         return;
       }
+      
+      if (!user?._id) {
+        console.log('⚠️ [PurchasedPackages] User ID not available, waiting...');
+        return;
+      }
+      
+      console.log('✅ [PurchasedPackages] User authenticated, fetching packages');
+      setLoading(true);
 
       const response = await packagePurchaseApi.getUserPurchasedPackages();
       
@@ -107,10 +51,10 @@ const PurchasedPackagesPage: React.FC = () => {
       if (response.success && response.data?.packagePurchases) {
         const packages = response.data.packagePurchases;
         console.log('✅ [Frontend] Setting packages to state:', packages.length);
-        setPackages(packages);
+        setPurchases(packages);
       } else {
         console.log('⚠️ [Frontend] No packages found or API error:', response.message || 'Unknown error');
-        setPackages([]);
+        setPurchases([]);
       }
     } catch (error: any) {
       console.error('❌ [Frontend] Error fetching packages:', error);
@@ -123,79 +67,171 @@ const PurchasedPackagesPage: React.FC = () => {
         message.error('Không thể tải danh sách gói đã mua: ' + (error.response?.data?.message || error.message));
       }
       
-      setPackages([]);
+      setPurchases([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, user?._id, navigate]);
 
-  const testAPIDirectly = async () => {
-    try {
-      setDebugTesting(true);
-      console.log('🔍 [Debug] Manual API test triggered');
-      console.log('🔍 [Debug] Current user from auth:', user);
-      console.log('🔍 [Debug] User ID:', user?._id);
-      console.log('🔍 [Debug] Expected DB user ID: 6856dc397fe2ef6b7bb18ce3');
-      
-      const response = await packagePurchaseApi.getUserPurchasedPackages();
-      console.log('🔍 [Debug] Manual test response:', response);
-      
-      setDebugResponse(response);
-      message.success('Check console for detailed response!');
-    } catch (error: any) {
-      console.error('❌ [Debug] Manual test error:', error);
-      setDebugResponse({ error: error.message, details: error.response?.data });
-      message.error('API test failed - check console');
-    } finally {
-      setDebugTesting(false);
-    }
-  };
+  useEffect(() => {
+    fetchPurchases();
+  }, [fetchPurchases]);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(price);
-  };
-
-  const getStatusTag = (packagePurchase: PackagePurchase) => {
-    if (!packagePurchase.expiredAt || !packagePurchase.remainingUsages) {
-      return <Tag color="blue">Đang xử lý</Tag>;
-    }
-
-    const now = new Date();
-    const expiredAt = new Date(packagePurchase.expiredAt);
-    const isExpired = expiredAt < now;
-    const hasUsagesLeft = packagePurchase.remainingUsages > 0;
-
-    if (packagePurchase.isActive === false) {
-      return <Tag color="red">Đã huỷ</Tag>;
-    }
-    
-    if (isExpired) {
-      return <Tag color="red">Đã hết hạn</Tag>;
-    }
-    
-    if (!hasUsagesLeft) {
-      return <Tag color="orange">Đã hết lượt</Tag>;
-    }
-    
-    return <Tag color="green">Đang hoạt động</Tag>;
-  };
-
-  const getUsageProgress = (packagePurchase: PackagePurchase) => {
-    const totalAllowedUses = packagePurchase.totalAllowedUses || 1;
-    const remainingUsages = packagePurchase.remainingUsages || 0;
-    const usedCount = totalAllowedUses - remainingUsages;
-    const percentage = (usedCount / totalAllowedUses) * 100;
-    
-    return {
-      used: usedCount,
-      total: totalAllowedUses,
-      remaining: remainingUsages,
-      percentage: Math.round(percentage)
+  const renderStatusBadge = (status: PackagePurchase['status']) => {
+    const statusConfig = {
+      active: { 
+        color: 'success', 
+        icon: <CheckCircleOutlined />, 
+        text: 'Đang hoạt động' 
+      },
+      expired: { 
+        color: 'error', 
+        icon: <ExclamationCircleOutlined />, 
+        text: 'Đã hết hạn' 
+      },
+      used_up: { 
+        color: 'warning', 
+        icon: <ClockCircleOutlined />, 
+        text: 'Đã sử dụng hết' 
+      }
     };
+
+    const config = statusConfig[status] || statusConfig.active;
+    
+    return (
+      <Badge 
+        status={config.color as any} 
+        text={
+          <Space>
+            {config.icon}
+            {config.text}
+          </Space>
+        } 
+      />
+    );
   };
+
+  const calculateRemainingServices = (purchase: PackagePurchase) => {
+    if (!purchase.servicePackage?.services || !purchase.usedServices) return 0;
+    
+    const totalServices = purchase.servicePackage.services.reduce(
+      (sum, service) => sum + service.quantity, 
+      0
+    );
+    
+    const usedCount = purchase.usedServices.reduce(
+      (sum, used) => sum + used.usedCount, 
+      0
+    );
+    
+    return Math.max(0, totalServices - usedCount);
+  };
+
+  const calculateDaysRemaining = (purchase: PackagePurchase) => {
+    if (!purchase.expiresAt) return 0;
+    
+    const today = new Date();
+    const expiry = new Date(purchase.expiresAt);
+    const diffTime = expiry.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return Math.max(0, diffDays);
+  };
+
+  const showPurchaseDetails = (purchase: PackagePurchase) => {
+    setSelectedPurchase(purchase);
+    setDetailModalVisible(true);
+  };
+
+  const columns = [
+    {
+      title: 'Gói dịch vụ',
+      key: 'package',
+      render: (_, record: PackagePurchase) => (
+        <div>
+          <Text strong>{record.servicePackage?.name || 'N/A'}</Text>
+          <br />
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            {record.servicePackage?.description || 'Không có mô tả'}
+          </Text>
+        </div>
+      ),
+    },
+    {
+      title: 'Giá trị',
+      dataIndex: 'totalAmount',
+      key: 'totalAmount',
+      render: (amount: number) => (
+        <Text strong className="text-green-600">
+          {new Intl.NumberFormat('vi-VN').format(amount)} VNĐ
+        </Text>
+      ),
+    },
+    {
+      title: 'Dịch vụ',
+      key: 'services',
+      render: (_, record: PackagePurchase) => {
+        const services = record.servicePackage?.services || [];
+        const totalQuantity = services.reduce((sum, service) => sum + service.quantity, 0);
+        const remainingServices = calculateRemainingServices(record);
+        
+        return (
+          <div>
+            <Tag color="blue">{services.length} loại</Tag>
+            <Tag color={remainingServices > 0 ? 'green' : 'red'}>
+              {remainingServices}/{totalQuantity} còn lại
+            </Tag>
+          </div>
+        );
+      },
+    },
+    {
+      title: 'Thời hạn',
+      key: 'validity',
+      render: (_, record: PackagePurchase) => {
+        const daysRemaining = calculateDaysRemaining(record);
+        const purchaseDate = new Date(record.purchaseDate).toLocaleDateString('vi-VN');
+        const expiryDate = record.expiresAt ? 
+          new Date(record.expiresAt).toLocaleDateString('vi-VN') : 'N/A';
+        
+        return (
+          <div>
+            <div>
+              <CalendarOutlined style={{ marginRight: 4, color: '#1890ff' }} />
+              <Text>{purchaseDate}</Text>
+            </div>
+            <div>
+              <ScheduleOutlined style={{ marginRight: 4, color: daysRemaining > 7 ? '#52c41a' : '#ff4d4f' }} />
+              <Text style={{ color: daysRemaining > 7 ? '#52c41a' : '#ff4d4f' }}>
+                {daysRemaining > 0 ? `${daysRemaining} ngày` : 'Đã hết hạn'}
+              </Text>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: PackagePurchase['status']) => renderStatusBadge(status),
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record: PackagePurchase) => (
+        <Space>
+          <Tooltip title="Xem chi tiết">
+            <Button
+              type="link"
+              icon={<EyeOutlined />}
+              onClick={() => showPurchaseDetails(record)}
+            />
+          </Tooltip>
+        </Space>
+      ),
+    },
+  ];
 
   if (!isAuthenticated) {
     return null;
@@ -215,7 +251,7 @@ const PurchasedPackagesPage: React.FC = () => {
                     title: <a href="/">Trang chủ</a>
                   },
                   {
-                    title: <a href="/#/user-profiles">Hồ sơ bệnh án</a>
+                    title: <a href="/user-profiles">Hồ sơ bệnh án</a>
                   },
                   {
                     title: "Gói dịch vụ đã mua"
@@ -271,11 +307,11 @@ const PurchasedPackagesPage: React.FC = () => {
                 <div className="mt-4 flex flex-wrap gap-4 text-sm">
                   <span className="flex items-center space-x-1">
                     <span className="w-2 h-2 bg-white rounded-full"></span>
-                    <span>Tổng: {packages.length} gói</span>
+                    <span>Tổng: {purchases.length} gói</span>
                   </span>
                   <span className="flex items-center space-x-1">
                     <span className="w-2 h-2 bg-green-300 rounded-full"></span>
-                    <span>Đang hoạt động: {packages.filter(p => p.isActive && new Date(p.expiredAt) > new Date() && p.remainingUsages > 0).length}</span>
+                    <span>Đang hoạt động: {purchases.filter(p => p.isActive && new Date(p.expiresAt || p.expiryDate) > new Date() && p.remainingUsages > 0).length}</span>
                   </span>
                 </div>
               </div>
@@ -290,23 +326,13 @@ const PurchasedPackagesPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 🆕 DEBUG RESPONSE DISPLAY */}
-          {debugResponse && (
-            <Card style={{ marginBottom: '20px', background: '#f6f8fa' }}>
-              <Text strong>🔍 Debug Response:</Text>
-              <pre style={{ fontSize: '12px', overflow: 'auto' }}>
-                {JSON.stringify(debugResponse, null, 2)}
-              </pre>
-            </Card>
-          )}
-
           {/* Content */}
           {loading ? (
             <div className="flex justify-center items-center py-20">
               <Spin size="large" />
               <span className="ml-3 text-gray-600">Đang tải danh sách gói đã mua...</span>
             </div>
-          ) : packages.length === 0 ? (
+          ) : purchases.length === 0 ? (
             <div className="text-center py-20">
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -328,121 +354,130 @@ const PurchasedPackagesPage: React.FC = () => {
               </Empty>
             </div>
           ) : (
-            <Row gutter={[16, 16]}>
-              {packages.map((packagePurchase) => {
-                const usage = getUsageProgress(packagePurchase);
-                const pkg = packagePurchase.packageId;
-                const profile = packagePurchase.profileId;
-                const bill = packagePurchase.billId;
-                
-                return (
-                  <Col key={packagePurchase._id} xs={24} lg={12} xl={8}>
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <Card
-                        className="h-full shadow-md hover:shadow-lg transition-shadow duration-200"
-                        title={
-                          <div className="flex items-center justify-between">
-                            <span className="text-lg font-semibold">{pkg.name}</span>
-                            {getStatusTag(packagePurchase)}
-                          </div>
-                        }
-                        extra={
-                          <div className="text-right">
-                            <div className="text-sm text-gray-500">Cho</div>
-                            <div className="font-medium">{profile.fullName}</div>
-                          </div>
-                        }
-                      >
-                        <div className="space-y-4">
-                          {/* Package Description */}
-                          <p className="text-gray-600 text-sm">{pkg.description}</p>
-
-                          {/* Usage Progress */}
-                          <div className="bg-gray-50 rounded-lg p-3">
-                            <div className="flex justify-between items-center mb-2">
-                              <span className="text-sm font-medium">Lượt sử dụng</span>
-                              <span className="text-sm text-gray-600">
-                                {usage.used}/{usage.total}
-                              </span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                style={{ width: `${usage.percentage}%` }}
-                              ></div>
-                            </div>
-                            <div className="text-xs text-gray-500 mt-1">
-                              Còn lại: {usage.remaining} lượt
-                            </div>
-                          </div>
-
-                          {/* Package Details */}
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-600">Giá trị gói:</span>
-                              <span className="font-semibold">{formatPrice(pkg.price)}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-600">Đã thanh toán:</span>
-                              <span className="font-semibold text-green-600">{formatPrice(bill.totalAmount)}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-600">Ngày mua:</span>
-                              <span className="text-sm">{new Date(packagePurchase.createdAt).toLocaleDateString('vi-VN')}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-600">Hết hạn:</span>
-                              <span className="text-sm">{new Date(packagePurchase.expiredAt).toLocaleDateString('vi-VN')}</span>
-                            </div>
-                          </div>
-
-                          {/* Services in Package */}
-                          <div>
-                            <div className="text-sm font-medium mb-2">Dịch vụ bao gồm:</div>
-                            <div className="space-y-1">
-                              {pkg.serviceIds.map((service) => (
-                                <div key={service._id} className="flex justify-between items-center bg-gray-50 p-2 rounded">
-                                  <span className="text-sm">{service.serviceName}</span>
-                                  <span className="text-xs text-gray-500">{formatPrice(service.price)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
-                          {/* Action Buttons */}
-                          <div className="pt-2 border-t">
-                            {packagePurchase.isActive && new Date(packagePurchase.expiredAt) > new Date() && packagePurchase.remainingUsages > 0 ? (
-                              <Button
-                                type="primary"
-                                block
-                                onClick={() => navigate(`/booking?package=${packagePurchase._id}`)}
-                                className="bg-[#0C3C54] hover:bg-[#0C3C54]/90"
-                              >
-                                <CheckCircleOutlined /> Sử dụng gói này
-                              </Button>
-                            ) : (
-                              <Button
-                                block
-                                disabled
-                                className="text-gray-400"
-                              >
-                                <ClockCircleOutlined /> Không thể sử dụng
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    </motion.div>
-                  </Col>
-                );
-              })}
-            </Row>
+            <Table
+              columns={columns}
+              dataSource={purchases}
+              rowKey="_id"
+              pagination={{
+                total: purchases.length,
+                pageSize: 10,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) =>
+                  `${range[0]}-${range[1]} của ${total} gói dịch vụ`,
+              }}
+            />
           )}
         </motion.div>
       </div>
+
+      {/* Detail Modal */}
+      <Modal
+        title="Chi tiết gói dịch vụ"
+        open={detailModalVisible}
+        onCancel={() => setDetailModalVisible(false)}
+        footer={null}
+        width={800}
+      >
+        {selectedPurchase && (
+          <div className="space-y-6">
+            {/* Package Basic Info */}
+            <Card title="Thông tin gói" size="small">
+              <Descriptions column={2} bordered>
+                <Descriptions.Item label="Tên gói" span={2}>
+                  <Text strong>{selectedPurchase.servicePackage?.name}</Text>
+                </Descriptions.Item>
+                <Descriptions.Item label="Mô tả" span={2}>
+                  {selectedPurchase.servicePackage?.description || 'Không có mô tả'}
+                </Descriptions.Item>
+                <Descriptions.Item label="Giá trị">
+                  <Text strong className="text-green-600">
+                    {new Intl.NumberFormat('vi-VN').format(selectedPurchase.totalAmount)} VNĐ
+                  </Text>
+                </Descriptions.Item>
+                <Descriptions.Item label="Trạng thái">
+                  {renderStatusBadge(selectedPurchase.status)}
+                </Descriptions.Item>
+                <Descriptions.Item label="Ngày mua">
+                  {new Date(selectedPurchase.purchaseDate).toLocaleDateString('vi-VN')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Ngày hết hạn">
+                  {selectedPurchase.expiresAt ? 
+                    new Date(selectedPurchase.expiresAt).toLocaleDateString('vi-VN') : 'N/A'}
+                </Descriptions.Item>
+              </Descriptions>
+            </Card>
+
+            {/* Services in Package */}
+            <Card title="Dịch vụ trong gói" size="small">
+              {selectedPurchase.servicePackage?.services?.map((service, index) => {
+                const usedService = selectedPurchase.usedServices?.find(
+                  used => used.serviceId === (
+                    typeof service.serviceId === 'object' ? 
+                    service.serviceId._id : 
+                    service.serviceId
+                  )
+                );
+                
+                const usedCount = usedService?.usedCount || 0;
+                const remainingCount = service.quantity - usedCount;
+                
+                return (
+                  <div key={index} className="flex justify-between items-center p-3 border-b last:border-b-0">
+                    <div>
+                      <Text strong>
+                        {typeof service.serviceId === 'object' ? 
+                          service.serviceId.serviceName : 
+                          'Dịch vụ không xác định'}
+                      </Text>
+                      <br />
+                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                        {typeof service.serviceId === 'object' ? 
+                          service.serviceId.description || 'Không có mô tả' : ''}
+                      </Text>
+                    </div>
+                    <div className="text-right">
+                      <div>
+                        <Tag color={remainingCount > 0 ? 'green' : 'red'}>
+                          {remainingCount}/{service.quantity} còn lại
+                        </Tag>
+                      </div>
+                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                        Đã sử dụng: {usedCount}
+                      </Text>
+                    </div>
+                  </div>
+                );
+              })}
+            </Card>
+
+            {/* Usage History */}
+            {selectedPurchase.usedServices && selectedPurchase.usedServices.length > 0 && (
+              <Card title="Lịch sử sử dụng" size="small">
+                {selectedPurchase.usedServices.map((usage, index) => (
+                  <div key={index} className="flex justify-between items-center p-2 border-b last:border-b-0">
+                    <div>
+                      <Text>Dịch vụ: {
+                        typeof usage.serviceId === 'object' ? 
+                          usage.serviceId.serviceName : 
+                          usage.serviceId
+                      }</Text>
+                      {usage.usedDate && (
+                        <div>
+                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                            Ngày sử dụng: {new Date(usage.usedDate).toLocaleDateString('vi-VN')}
+                          </Text>
+                        </div>
+                      )}
+                    </div>
+                    <Tag color="blue">{usage.usedCount} lần</Tag>
+                  </div>
+                ))}
+              </Card>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

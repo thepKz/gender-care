@@ -21,7 +21,7 @@ import {
 } from 'antd';
 import type { Dayjs } from 'dayjs';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import type { IDoctor } from '../../api/endpoints/doctor';
+import type { IDoctor } from '../../api/endpoints/doctorApi';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;

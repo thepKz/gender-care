@@ -22,7 +22,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import loginHistoryApi from '../../../api/endpoints/loginHistory';
+import { loginHistoryApi } from '../../../api/endpoints';
 import React, { useEffect, useState } from 'react';
 
 const { Title, Text } = Typography;

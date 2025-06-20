@@ -1,51 +1,95 @@
 import axiosInstance from './axiosConfig';
+
+// Import all available API endpoints
 import authApi from './endpoints/auth';
-import blogApi from './endpoints/blog';
+import appointmentApi from './endpoints/appointment';
+import billingApi from './endpoints/billing';
 import consultationApi from './endpoints/consultation';
-import doctorApi from './endpoints/doctor';
+import dashboardApi from './endpoints/dashboard';
+import { doctorApi } from './endpoints/doctorApi';
 import doctorScheduleApi from './endpoints/doctorSchedule';
+import loginHistoryApi from './endpoints/loginHistory';
+import medicalApi from './endpoints/medical';
 import menstrualCycleApi from './endpoints/menstrualCycle';
+import packagePurchaseApi from './endpoints/packagePurchaseApi';
+import paymentApi from './endpoints/payment';
+import * as serviceApiExports from './endpoints/serviceApi';
 import servicePackageApi from './endpoints/servicePackageApi';
+import servicesApi from './endpoints/services';
 import stiTestingApi from './endpoints/stiTesting';
 import userApi from './endpoints/userApi';
 import userProfileApi from './endpoints/userProfileApi';
 
+// Service layer imports
+import { handleAPI } from './services/handleAPI';
+import { userAPI } from './services/userAPI';
+import { doctorAPI } from './services/doctorAPI';
+
+// Combined API object
 const api = {
   auth: authApi,
+  appointment: appointmentApi,
+  billing: billingApi,
   consultation: consultationApi,
+  dashboard: dashboardApi,
   doctor: doctorApi,
   doctorSchedule: doctorScheduleApi,
+  loginHistory: loginHistoryApi,
+  medical: medicalApi,
   menstrualCycle: menstrualCycleApi,
+  packagePurchase: packagePurchaseApi,
+  payment: paymentApi,
+  serviceApi: serviceApiExports,
   servicePackage: servicePackageApi,
+  services: servicesApi,
   stiTesting: stiTestingApi,
-  blog: blogApi,
   user: userApi,
   userProfile: userProfileApi,
 };
 
+// Export individual endpoint APIs
 export {
-    authApi, axiosInstance, blogApi, consultationApi,
-    doctorApi,
-    doctorScheduleApi,
-    menstrualCycleApi,
-    servicePackageApi,
-    stiTestingApi,
-    userApi,
-    userProfileApi
+  authApi,
+  appointmentApi,
+  billingApi,
+  consultationApi,
+  dashboardApi,
+  doctorApi,
+  doctorScheduleApi,
+  loginHistoryApi,
+  medicalApi,
+  menstrualCycleApi,
+  packagePurchaseApi,
+  paymentApi,
+  serviceApiExports,
+  servicePackageApi,
+  servicesApi,
+  stiTestingApi,
+  userApi,
+  userProfileApi,
+  axiosInstance
 };
 
+// Export service layer utilities
+export {
+  handleAPI,
+  userAPI,
+  doctorAPI
+};
+
+// Export combined API object as default
 export default api;
 
-// API Configuration and Services
-export { default as api } from './axiosConfig';
-
-// API Services  
-export { doctorAPI, type CreateDoctorRequest as CreateDoctorAPIRequest, type IDoctor } from './services/doctorAPI';
-export * from './services/handleAPI';
-export * from './services/userAPI';
-
-// API Endpoints
-export * from './endpoints';
-
-// Types & Interfaces
+// Export commonly used types from endpoints
 export type { Doctor, DoctorSchedule } from './endpoints/doctorApi';
+export type { User } from './endpoints/userApi';
+
+// Export commonly used types from types
+export type { 
+  ServicePackage, 
+  ServiceItem, 
+  CreateServicePackageRequest,
+  UpdateServicePackageRequest,
+  PackagePurchase, 
+  UsedService 
+} from '../types';

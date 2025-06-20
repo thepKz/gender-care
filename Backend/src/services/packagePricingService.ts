@@ -1,256 +1,326 @@
-import { IServicePackages } from '../models/ServicePackages';
-import Service from '../models/Service';
 import mongoose from 'mongoose';
+import ServicePackages, { IServicePackages, IServiceItem } from '../models/ServicePackages';
+import PackagePurchases, { IPackagePurchases, PackagePurchaseDocument } from '../models/PackagePurchases';
+import Service from '../models/Service';
 
-export interface IPackagePricingResult {
-  packageId: string;
-  packageName: string;
-  baseServicePrice: number;       // Tổng giá của các dịch vụ trong gói
-  originalPrice: number;          // Giá gốc được tính tự động
-  price: number;                  // Giá đã giảm (nếu có)
-  discountPercentage: number;     // % giảm giá
-  durationInDays: number;         // Thời hạn sử dụng
-  maxUsages: number;             // Số lượt được dùng tối đa
-  maxProfiles: number[];         // Tùy chọn số profile
-  isMultiProfile: boolean;       // Hỗ trợ nhiều hồ sơ
-  pricePerUsage: number;         // Giá mỗi lượt sử dụng
-  pricePerDay: number;           // Giá mỗi ngày sử dụng
-  pricePerProfile: number;       // Giá trung bình mỗi profile (cho multi-profile)
-}
-
-export interface IAutoCalculatedPrice {
-  totalServicePrice: number;     // Tổng giá các dịch vụ
-  calculatedPrice: number;       // Giá được tính (servicePrice x maxUsages)
-}
-
-// Tạo kiểu linh hoạt hơn để chấp nhận cả document và plain object
-export type PackageDataInput = any;
-
-/**
- * Service để tính giá gói dịch vụ theo schema mới:
- * - Không còn multi-profile
- * - Focus vào subscription với duration + usage limit
- * - Pricing dựa trên giá gói thay vì tính toán phức tạp
- */
+// 🔹 Service đơn giản hóa cho Package Pricing
 export class PackagePricingService {
-  
+
   /**
-   * Tự động tính giá gốc từ services và maxUsages
+   * 🔹 Lấy tất cả packages active
    */
-  static async calculateAutoPrice(serviceIds: string[], maxUsages: number): Promise<IAutoCalculatedPrice> {
-    try {
-      // Lấy thông tin các dịch vụ
-      const services = await Service.find({ 
-        _id: { $in: serviceIds }, 
-        isDeleted: 0 
-      }).select('price');
-      
-      if (services.length !== serviceIds.length) {
-        throw new Error('Some services not found or have been deleted');
-      }
-      
-      // Tính tổng giá các dịch vụ
-      const totalServicePrice = services.reduce((sum, service) => sum + service.price, 0);
-      
-      // Giá gốc = Tổng giá dịch vụ × Số lượt sử dụng
-      const calculatedPrice = totalServicePrice * maxUsages;
-      
-      return {
-        totalServicePrice,
-        calculatedPrice
-      };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to calculate auto price: ${error.message}`);
-      }
-      throw new Error('Failed to calculate auto price: Unknown error');
-    }
+  static async getAllActivePackages(): Promise<IServicePackages[]> {
+    return await ServicePackages
+      .find({ isActive: true })
+      .populate('services.serviceId', 'name price duration')
+      .sort({ price: 1 });
   }
 
   /**
-   * Tính giá cho gói dịch vụ với model hybrid
+   * 🔹 Lấy package theo ID
    */
-  static async calculatePackagePricing(packageData: PackageDataInput): Promise<IPackagePricingResult> {
-    try {
-      // Đảm bảo có id string để tránh lỗi
-      const packageId = packageData._id ? 
-        (typeof packageData._id.toString === 'function' ? packageData._id.toString() : String(packageData._id))
-        : 'unknown';
-
-      // Tính giá gốc tự động
-      const autoPrice = await this.calculateAutoPrice(
-        packageData.serviceIds.map((id: any) => id.toString ? id.toString() : String(id)), 
-        packageData.maxUsages
-      );
-      
-      // Tính discount percentage
-      const discountPercentage = packageData.priceBeforeDiscount > 0 
-        ? Math.round(((packageData.priceBeforeDiscount - packageData.price) / packageData.priceBeforeDiscount) * 100)
-        : 0;
-      
-      // Tính các metrics pricing
-      const pricePerUsage = packageData.price / packageData.maxUsages;
-      const pricePerDay = packageData.price / packageData.durationInDays;
-      
-      // Tính giá trung bình mỗi profile (cho multi-profile packages)
-      const avgProfileCount = packageData.maxProfiles.reduce((a: number, b: number) => a + b, 0) / packageData.maxProfiles.length;
-      const pricePerProfile = packageData.isMultiProfile ? packageData.price / avgProfileCount : packageData.price;
-      
-      return {
-        packageId,
-        packageName: packageData.name,
-        baseServicePrice: autoPrice.totalServicePrice,
-        originalPrice: autoPrice.calculatedPrice,  // Giá được tính tự động
-        price: packageData.price,
-        discountPercentage,
-        durationInDays: packageData.durationInDays,
-        maxUsages: packageData.maxUsages,
-        maxProfiles: packageData.maxProfiles,
-        isMultiProfile: packageData.isMultiProfile,
-        pricePerUsage: Math.round(pricePerUsage),
-        pricePerDay: Math.round(pricePerDay),
-        pricePerProfile: Math.round(pricePerProfile)
-      };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to calculate package pricing: ${error.message}`);
-      }
-      throw new Error('Failed to calculate package pricing: Unknown error');
+  static async getPackageById(packageId: string): Promise<IServicePackages | null> {
+    if (!mongoose.Types.ObjectId.isValid(packageId)) {
+      throw new Error('Invalid package ID format');
     }
+
+    return await ServicePackages
+      .findOne({ _id: packageId, isActive: true })
+      .populate('services.serviceId', 'name price duration');
   }
 
   /**
-   * Validate package data trước khi tính giá
+   * 🔹 Tính tổng giá trị services trong package (để validation)
    */
-  static validatePackageData(packageData: Partial<IServicePackages>): boolean {
-    // Validate required fields
-    if (!packageData.durationInDays || packageData.durationInDays < 1) {
-      throw new Error('durationInDays must be at least 1 day');
+  static async calculatePackageValue(packageId: string): Promise<{
+    totalOriginalValue: number;
+    packagePrice: number;
+    discount: number;
+    discountPercentage: number;
+  }> {
+    const packageDoc = await ServicePackages
+      .findById(packageId)
+      .populate('services.serviceId', 'price');
+
+    if (!packageDoc) {
+      throw new Error('Package not found');
     }
 
-    if (!packageData.maxUsages || packageData.maxUsages < 1) {
-      throw new Error('maxUsages must be at least 1');
+    // Tính tổng giá trị gốc của các services
+    let totalOriginalValue = 0;
+    for (const service of packageDoc.services) {
+      const serviceData = service.serviceId as any;
+      totalOriginalValue += (serviceData.price || 0) * service.quantity;
     }
 
-    if (!packageData.serviceIds || !Array.isArray(packageData.serviceIds) || packageData.serviceIds.length === 0) {
-      throw new Error('serviceIds is required and must be a non-empty array');
-    }
-
-    if (!packageData.price || packageData.price < 0) {
-      throw new Error('Price must be a positive number');
-    }
-
-    // Validate duration limits
-    if (packageData.durationInDays > 365) {
-      throw new Error('durationInDays cannot exceed 365 days');
-    }
-
-    // Validate usage limits
-    if (packageData.maxUsages > 1000) {
-      throw new Error('maxUsages cannot exceed 1000');
-    }
-
-    // Validate multi-profile settings
-    if (!packageData.maxProfiles || !Array.isArray(packageData.maxProfiles) || packageData.maxProfiles.length === 0) {
-      throw new Error('maxProfiles is required and must be a non-empty array');
-    }
-
-    const validProfileCounts = packageData.maxProfiles.every(p => Number.isInteger(p) && p >= 1 && p <= 4);
-    if (!validProfileCounts) {
-      throw new Error('maxProfiles must contain valid profile counts (1-4)');
-    }
-
-    return true;
-  }
-
-  /**
-   * Tính value metrics để đánh giá giá trị gói
-   */
-  static calculateValueMetrics(
-    baseServicePrice: number, 
-    price: number, 
-    originalPrice: number
-  ): {
-    savingsAmount: number;
-    savingsPercentage: number;
-    valueRating: 'excellent' | 'good' | 'fair' | 'poor';
-  } {
-    const savingsAmount = originalPrice - price;
-    const savingsPercentage = originalPrice > 0 ? Math.round((savingsAmount / originalPrice) * 100) : 0;
-    
-    let valueRating: 'excellent' | 'good' | 'fair' | 'poor' = 'poor';
-    if (savingsPercentage >= 30) valueRating = 'excellent';
-    else if (savingsPercentage >= 20) valueRating = 'good';
-    else if (savingsPercentage >= 10) valueRating = 'fair';
+    const discount = totalOriginalValue - packageDoc.price;
+    const discountPercentage = totalOriginalValue > 0 
+      ? Math.round((discount / totalOriginalValue) * 100) 
+      : 0;
 
     return {
-      savingsAmount,
-      savingsPercentage,
-      valueRating
+      totalOriginalValue,
+      packagePrice: packageDoc.price,
+      discount: Math.max(0, discount),
+      discountPercentage: Math.max(0, discountPercentage)
     };
   }
 
   /**
-   * Tính toán usage projection cho user planning
+   * 🔹 Mua package - tạo PackagePurchase mới
+   */
+  static async purchasePackage(
+    userId: string, 
+    packageId: string,
+    paymentAmount: number
+  ): Promise<any> {
+    const session = await mongoose.startSession();
+    
+    try {
+      session.startTransaction();
+
+      // Validate package
+      const packageDoc = await ServicePackages.findOne({ 
+        _id: packageId, 
+        isActive: true 
+      }).session(session);
+
+      if (!packageDoc) {
+        throw new Error('Package not found or inactive');
+      }
+
+      // Validate payment amount
+      if (paymentAmount < packageDoc.price) {
+        throw new Error(`Insufficient payment. Required: ${packageDoc.price}, Paid: ${paymentAmount}`);
+      }
+
+      // Tạo purchase record
+      const purchase = new PackagePurchases({
+        userId: new mongoose.Types.ObjectId(userId),
+        packageId: new mongoose.Types.ObjectId(packageId),
+        purchasePrice: paymentAmount,
+        purchaseDate: new Date()
+        // expiryDate và usedServices sẽ được tính trong pre-save hook
+      });
+
+      await purchase.save({ session });
+      await session.commitTransaction();
+
+      return purchase;
+
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  /**
+   * 🔹 Lấy packages đã mua của user
+   */
+  static async getUserPackages(userId: string): Promise<any[]> {
+    return await PackagePurchases
+      .find({ userId })
+      .populate({
+        path: 'packageId',
+        select: 'name description services durationInDays',
+        populate: {
+          path: 'services.serviceId',
+          select: 'name price'
+        }
+      })
+      .sort({ purchaseDate: -1 });
+  }
+
+  /**
+   * 🔹 Sử dụng service từ package đã mua
+   */
+  static async usePackageService(
+    userId: string,
+    serviceId: string,
+    quantity: number = 1
+  ): Promise<{
+    success: boolean;
+    message: string;
+    purchaseId?: string;
+  }> {
+    // Tìm package active có chứa service này
+    const activePurchase = await PackagePurchases.findOne({
+      userId,
+      status: 'active',
+      'usedServices.serviceId': serviceId
+    }) as PackagePurchaseDocument | null;
+
+    if (!activePurchase) {
+      return {
+        success: false,
+        message: 'No active package found with this service'
+      };
+    }
+
+    // Check và update status
+    activePurchase.checkAndUpdateStatus();
+    
+    if (activePurchase.status !== 'active') {
+      await activePurchase.save();
+      return {
+        success: false,
+        message: `Package is ${activePurchase.status}`
+      };
+    }
+
+    // Check có thể sử dụng service không
+    if (!activePurchase.canUseService(serviceId, quantity)) {
+      return {
+        success: false,
+        message: 'Insufficient service quantity remaining'
+      };
+    }
+
+    // Sử dụng service
+    const used = activePurchase.useService(serviceId, quantity);
+    if (!used) {
+      return {
+        success: false,
+        message: 'Failed to use service'
+      };
+    }
+
+    // Update status sau khi sử dụng
+    activePurchase.checkAndUpdateStatus();
+    await activePurchase.save();
+
+    return {
+      success: true,
+      message: 'Service used successfully',
+      purchaseId: activePurchase._id.toString()
+    };
+  }
+
+  /**
+   * 🔹 Check user có thể sử dụng service không
+   */
+  static async canUserUseService(
+    userId: string,
+    serviceId: string,
+    quantity: number = 1
+  ): Promise<{
+    canUse: boolean;
+    remainingQuantity: number;
+    packageName?: string;
+  }> {
+    const activePurchase = await PackagePurchases
+      .findOne({
+        userId,
+        status: 'active',
+        'usedServices.serviceId': serviceId
+      })
+      .populate('packageId', 'name') as PackagePurchaseDocument | null;
+
+    if (!activePurchase) {
+      return {
+        canUse: false,
+        remainingQuantity: 0
+      };
+    }
+
+    // Update status
+    activePurchase.checkAndUpdateStatus();
+    
+    if (activePurchase.status !== 'active') {
+      await activePurchase.save();
+      return {
+        canUse: false,
+        remainingQuantity: 0
+      };
+    }
+
+    const remainingQuantity = activePurchase.getRemainingQuantity(serviceId);
+    const canUse = remainingQuantity >= quantity;
+
+    return {
+      canUse,
+      remainingQuantity,
+      packageName: (activePurchase.packageId as any)?.name
+    };
+  }
+
+  /**
+   * 🔹 Calculate auto price từ services và maxUsages (for backward compatibility)
+   */
+  static async calculateAutoPrice(
+    serviceIds: string[],
+    maxUsages: number
+  ): Promise<{
+    totalServicePrice: number;
+    calculatedPrice: number;
+  }> {
+    // Lấy giá của tất cả services
+    const services = await Service.find({ 
+      _id: { $in: serviceIds.map(id => new mongoose.Types.ObjectId(id)) } 
+    });
+
+    // Tính tổng giá service
+    const totalServicePrice = services.reduce((sum, service) => sum + (service.price || 0), 0);
+    
+    // Tính giá package (giá service * số lần sử dụng, có thể áp dụng discount)
+    const basePrice = totalServicePrice * maxUsages;
+    
+    // Áp dụng discount dựa trên maxUsages (càng nhiều lần sử dụng càng giảm giá)
+    let discountPercent = 0;
+    if (maxUsages >= 10) {
+      discountPercent = 20; // 20% discount cho 10+ lần
+    } else if (maxUsages >= 5) {
+      discountPercent = 10; // 10% discount cho 5+ lần  
+    } else if (maxUsages >= 3) {
+      discountPercent = 5;  // 5% discount cho 3+ lần
+    }
+
+    const calculatedPrice = Math.round(basePrice * (1 - discountPercent / 100));
+
+    return {
+      totalServicePrice,
+      calculatedPrice
+    };
+  }
+
+  /**
+   * 🔹 Calculate usage projection để giúp user chọn package phù hợp
    */
   static calculateUsageProjection(
-    durationInDays: number, 
-    maxUsages: number, 
+    durationInDays: number,
+    totalServicesInPackage: number,
     expectedUsagePerWeek: number
   ): {
-    projectedTotalUsage: number;
-    utilizationRate: number;
+    totalWeeks: number;
+    estimatedUsage: number;
+    usageEfficiency: number;
     recommendation: 'perfect' | 'over' | 'under';
   } {
-    const weeks = durationInDays / 7;
-    const projectedTotalUsage = Math.ceil(expectedUsagePerWeek * weeks);
-    const utilizationRate = Math.min((projectedTotalUsage / maxUsages) * 100, 100);
+    const totalWeeks = Math.ceil(durationInDays / 7);
+    const estimatedUsage = expectedUsagePerWeek * totalWeeks;
     
-    let recommendation: 'perfect' | 'over' | 'under' = 'perfect';
-    if (utilizationRate < 70) recommendation = 'over';
-    else if (utilizationRate > 95) recommendation = 'under';
-
-    return {
-      projectedTotalUsage,
-      utilizationRate,
-      recommendation
-    };
-  }
-
-  /**
-   * Tính giá cho từng profile option trong multi-profile package
-   */
-  static calculateProfilePricing(
-    packageData: PackageDataInput, 
-    selectedProfileCount: number
-  ): {
-    profileCount: number;
-    totalPrice: number;
-    pricePerProfile: number;
-    usagePerProfile: number;
-    isSupported: boolean;
-  } {
-    const isSupported = packageData.maxProfiles.includes(selectedProfileCount);
+    // Tính efficiency (sử dụng bao nhiều % package)
+    const usageEfficiency = totalServicesInPackage > 0 
+      ? Math.round((estimatedUsage / totalServicesInPackage) * 100)
+      : 0;
     
-    if (!isSupported) {
-      return {
-        profileCount: selectedProfileCount,
-        totalPrice: 0,
-        pricePerProfile: 0,
-        usagePerProfile: 0,
-        isSupported: false
-      };
+    // Đưa ra recommendation
+    let recommendation: 'perfect' | 'over' | 'under';
+    if (usageEfficiency >= 80 && usageEfficiency <= 120) {
+      recommendation = 'perfect'; // Sử dụng 80-120% là phù hợp
+    } else if (usageEfficiency > 120) {
+      recommendation = 'under';   // Cần package lớn hơn
+    } else {
+      recommendation = 'over';    // Package quá lớn
     }
 
-    const pricePerProfile = packageData.price / selectedProfileCount;
-    const usagePerProfile = Math.floor(packageData.maxUsages / selectedProfileCount);
-
     return {
-      profileCount: selectedProfileCount,
-      totalPrice: packageData.price,
-      pricePerProfile,
-      usagePerProfile,
-      isSupported: true
+      totalWeeks,
+      estimatedUsage,
+      usageEfficiency,
+      recommendation
     };
   }
 }

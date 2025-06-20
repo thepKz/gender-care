@@ -44,6 +44,17 @@ export interface RegisterRequest {
   phone?: string;
 }
 
+export interface CreateUserRequest {
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+  role: 'guest' | 'customer' | 'doctor' | 'staff' | 'manager' | 'admin';
+  gender: 'male' | 'female' | 'other';
+  address?: string;
+  year?: string;
+}
+
 export interface RegisterResponse {
   user: User;
   token: string;
@@ -86,6 +97,8 @@ export interface LoginHistory {
   ipAddress: string;
   userAgent: string;
   loginAt: string;
+  logoutAt?: string;
+  location?: string;
   status: 'success' | 'failed';
   failReason?: string;
 }
@@ -200,58 +213,35 @@ export interface ServiceResponse {
   message?: string;
 }
 
-// Service package types - Hybrid model with subscription + multi-profile support
+// Service item trong package với quantity
+export interface ServiceItem {
+  serviceId: string | Service;
+  quantity: number;
+}
+
+// Service package types - Simplified for new schema
 export interface ServicePackage {
   _id: string;
   name: string;
-  description: string;
-  priceBeforeDiscount: number;  // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
-  price: number;                // Giá đã giảm (nếu có) – không dùng mã
-  serviceIds: string[] | Service[];
+  description?: string;
+  priceBeforeDiscount: number;
+  price: number;
+  services: ServiceItem[];       // 🔹 NEW: Services with quantity
+  durationInDays: number;        // 🔹 Package duration in days
   isActive: boolean;
-  durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
-  maxUsages: number;           // 🔹 Số lượt được dùng tối đa cho toàn gói
-  maxProfiles: number[];       // 🔹 [1, 2, 4] - Số người tối đa có thể sử dụng gói
-  isMultiProfile: boolean;     // 🔹 Gói này có hỗ trợ nhiều hồ sơ không
-  pricingInfo?: {
-    packageId: string;
-    packageName: string;
-    baseServicePrice: number;       // Tổng giá của các dịch vụ trong gói
-    originalPrice: number;          // Giá gốc được tính tự động
-    discountPercentage: number;     // % giảm giá
-    durationInDays: number;         // Thời hạn sử dụng
-    maxUsages: number;             // Số lượt được dùng tối đa
-    maxProfiles: number[];         // Tùy chọn số profile
-    isMultiProfile: boolean;       // Hỗ trợ nhiều hồ sơ
-    pricePerUsage: number;         // Giá mỗi lượt sử dụng
-    pricePerDay: number;           // Giá mỗi ngày sử dụng
-    pricePerProfile: number;       // Giá trung bình mỗi profile (cho multi-profile)
-  };
-  valueMetrics?: {
-    savingsAmount: number;
-    savingsPercentage: number;
-    valueRating: 'excellent' | 'good' | 'fair' | 'poor';
-  };
-  autoCalculation?: {
-    totalServicePrice: number;     // Tổng giá các dịch vụ
-    calculatedPrice: number;       // Giá được tính tự động
-    formula: string;               // Công thức tính giá
-  };
-  pricingSummary?: string;
+  totalServiceQuantity?: number; // 🔹 Total quantity of all services
+  serviceCount?: number;         // 🔹 Number of different services
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateServicePackageRequest {
   name: string;
-  description: string;
-  priceBeforeDiscount: number;
-  price: number;                // Chỉ cần nhập giá khuyến mãi, priceBeforeDiscount sẽ được tính tự động
-  serviceIds: string[];
-  durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
-  maxUsages: number;           // 🔹 Số lượt được dùng tối đa cho toàn gói
-  maxProfiles: number[];       // 🔹 [1, 2, 4] - Số người tối đa có thể sử dụng gói
-  isMultiProfile: boolean;     // 🔹 Gói này có hỗ trợ nhiều hồ sơ không
+  description?: string;
+  priceBeforeDiscount?: number;
+  price: number;
+  services: ServiceItem[];       // 🔹 NEW: Services with quantity
+  durationInDays?: number;
 }
 
 export interface UpdateServicePackageRequest extends Partial<CreateServicePackageRequest> {
@@ -532,18 +522,34 @@ export interface Payment {
   paymentAt: string;
 }
 
-// Package purchase types - Updated with new subscription fields
+// Used service trong package purchase
+export interface UsedService {
+  serviceId: string | Service;
+  usedCount: number;
+  maxQuantity: number;
+  usedDate?: string;
+}
+
 export interface PackagePurchase {
   _id: string;
-  userId: string;              // Ai là người mua
-  profileId: string;           // Hồ sơ bệnh án nào sử dụng gói này
-  packageId: string;           // FK đến ServicePackages._id
-  billId: string;              // Liên kết hóa đơn thanh toán
-  activatedAt: string;         // 🔹 Ngày bắt đầu sử dụng gói
-  expiredAt: string;           // 🔹 Ngày hết hạn (tính từ activatedAt + durationInDays)
-  remainingUsages: number;     // 🔹 Số lượt còn lại có thể dùng
-  totalAllowedUses: number;    // 🔹 Tổng lượt ban đầu được dùng
-  isActive: boolean;           // 🔹 Gói còn hiệu lực hay đã hết hạn/lượt
+  userId: string;
+  packageId: string;
+  servicePackage?: ServicePackage;
+  purchasePrice: number;
+  totalAmount: number;
+  status: 'active' | 'expired' | 'used_up';
+  isActive: boolean;
+  purchaseDate: string;
+  expiryDate: string;
+  expiresAt?: string;
+  remainingUsages: number;
+  usedServices: UsedService[];
+  usageInfo?: {
+    totalServices: number;
+    totalUsed: number;
+    totalMax: number;
+    usagePercentage: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
