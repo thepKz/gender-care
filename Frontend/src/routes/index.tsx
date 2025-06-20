@@ -31,11 +31,16 @@ import DoctorDetail from '../pages/doctors/DoctorDetail';
 import BookingPage from '../pages/booking';
 import BookingHistoryPage from '../pages/booking-history';
 import FeedbackPage from '../pages/feedback';
-import PaymentPage from '../pages/payment';
+
 
 // Consultation Pages
 import PaymentSuccessPage from '../pages/consultation/PaymentSuccessPage';
 import ServicesPage from '../pages/services';
+
+// Payment Pages
+import PaymentProcessPage from '../pages/payment/PaymentProcessPage';
+import PaymentSuccessPageNew from '../pages/payment/PaymentSuccessPage';
+import PaymentCancelPage from '../pages/payment/PaymentCancelPage';
 
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
@@ -142,11 +147,32 @@ const AppRoutes: React.FC = () => {
         {/* Booking Pages */}
         <Route path="/booking" element={<BookingPage />} />
         <Route path="/booking-history" element={<BookingHistoryPage />} />
-        <Route path="/payment" element={<PaymentPage />} />
+
         <Route path="/feedback" element={<FeedbackPage />} />
         
+        {/* Payment Processing Pages */}
+        <Route path="/payment/process" element={<PaymentProcessPage />} />
+        <Route path="/payment/success" element={
+          // IMMEDIATE redirect for PAID status
+          (() => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const status = urlParams.get('status');
+            const code = urlParams.get('code');
+            const cancel = urlParams.get('cancel');
+            
+            if (code === '00' && cancel === 'false' && status === 'PAID') {
+              console.log('🚨 [RouteLevel] PAID detected - immediate redirect');
+              // Force immediate redirect at route level
+              window.location.replace('/booking-history');
+              return <div>Redirecting...</div>;
+            }
+            
+            return <PaymentSuccessPageNew />;
+          })()
+        } />
+        <Route path="/payment/cancel" element={<PaymentCancelPage />} />
+        
         {/* Consultation Pages */}
-        <Route path="/consultation/payment/:qaId" element={<PaymentPage />} />
         <Route path="/consultation/success/:qaId" element={<PaymentSuccessPage />} />
         
         {/* Demo Pages */}

@@ -136,21 +136,33 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             throw new ValidationError({ general: 'Phải cung cấp một trong hai: packageId hoặc serviceId' });
         }
 
-        // Nếu có packageId, kiểm tra nó có tồn tại không
+        // Tính toán totalAmount dựa trên service/package
+        let totalAmount = 0;
+
+        // Nếu có packageId, kiểm tra nó có tồn tại không và lấy giá
         if (packageId) {
-            const packageExists = await ServicePackages.findById(packageId);
-            if (!packageExists) {
+            const packageData = await ServicePackages.findById(packageId);
+            if (!packageData) {
                 throw new NotFoundError('Không tìm thấy gói dịch vụ');
             }
+            totalAmount = packageData.price;
         }
 
-        // Nếu có serviceId, kiểm tra nó có tồn tại không
+        // Nếu có serviceId, kiểm tra nó có tồn tại không và lấy giá
         if (serviceId) {
-            const serviceExists = await Services.findById(serviceId);
-            if (!serviceExists) {
+            const serviceData = await Services.findById(serviceId);
+            if (!serviceData) {
                 throw new NotFoundError('Không tìm thấy dịch vụ');
             }
+            totalAmount = serviceData.price;
         }
+
+        console.log('💰 [Debug] Payment calculation:', {
+            packageId,
+            serviceId,
+            typeLocation,
+            totalAmount
+        });
 
         // Kiểm tra slot có trống không và lấy thông tin bác sĩ (nếu slotId được cung cấp)
         let assignedDoctorId = null;
@@ -369,7 +381,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         // Trả về kết quả thành công
         return res.status(201).json({
             success: true,
-            message: 'Đặt lịch hẹn thành công',
+            message: 'Đặt lịch hẹn thành công! Vui lòng hoàn tất thanh toán.',
             data: newAppointment
         });
     } catch (error) {
@@ -632,8 +644,8 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        // Chỉ cho phép hủy nếu trạng thái là pending hoặc confirmed
-        if (!['pending', 'confirmed'].includes(appointment.status)) {
+        // Chỉ cho phép hủy nếu trạng thái là pending, pending_payment, hoặc confirmed
+        if (!['pending', 'pending_payment', 'confirmed'].includes(appointment.status)) {
             throw new ValidationError({ status: 'Không thể hủy cuộc hẹn đã hoàn thành hoặc đã hủy' });
         }
 
@@ -1104,4 +1116,6 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
             message: 'Đã xảy ra lỗi khi cập nhật trạng thái thanh toán'
         });
     }
-}; 
+};
+
+ 
