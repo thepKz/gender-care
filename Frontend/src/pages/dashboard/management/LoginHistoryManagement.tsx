@@ -22,6 +22,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import loginHistoryApi from '../../../api/endpoints/loginHistory';
 import React, { useEffect, useState } from 'react';
 
 const { Title, Text } = Typography;
@@ -146,46 +147,6 @@ const LoginHistoryManagement: React.FC = () => {
     } catch (err: any) {
       console.error('❌ Error loading login history:', err);
       message.error(err?.response?.data?.message || 'Không thể tải lịch sử đăng nhập');
-      
-      // Fallback to demo data for development
-      console.log('🔄 Using fallback demo data...');
-      const mockData: LoginHistory[] = [
-        {
-          key: '1',
-          id: '1',
-          userId: 'user1',
-          username: 'admin',
-          fullName: 'Nguyễn Văn Admin',
-          email: 'admin@example.com',
-          loginTime: new Date().toISOString(),
-          ipAddress: '192.168.1.1',
-          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          deviceType: 'desktop',
-          browser: 'Chrome',
-          os: 'Windows',
-          location: 'Hà Nội, Việt Nam',
-          status: 'active'
-        },
-        {
-          key: '2',
-          id: '2',
-          userId: 'user2',
-          username: 'manager',
-          fullName: 'Trần Thị Manager',
-          email: 'manager@example.com',
-          loginTime: new Date(Date.now() - 3600000).toISOString(),
-          logoutTime: new Date().toISOString(),
-          ipAddress: '192.168.1.2',
-          userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X)',
-          deviceType: 'mobile',
-          browser: 'Safari',
-          os: 'iOS',
-          location: 'Hồ Chí Minh, Việt Nam',
-          status: 'logged-out',
-          sessionDuration: 60
-        }
-      ];
-      setLoginHistory(mockData);
     } finally {
       setLoading(false);
     }

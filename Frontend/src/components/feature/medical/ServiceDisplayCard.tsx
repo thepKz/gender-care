@@ -137,7 +137,7 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
           </div>
 
           {/* Status Badge - Nhãn trạng thái */}
-          {service.isActive && (
+          {service.isDeleted === 0 && (
             <div className="absolute top-3 right-3">
               <div className="bg-green-500/90 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm">
                 <span className="text-xs font-medium text-white flex items-center gap-1">
@@ -186,7 +186,7 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
           <div className="flex items-center gap-2 text-sm">
             <ClockCircleOutlined className="text-[#2A7F9E]" />
             <span className="text-gray-600">
-              {service.duration ? `${service.duration} phút` : 'Thời gian linh hoạt'}
+              Thời gian linh hoạt
             </span>
           </div>
         </div>

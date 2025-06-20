@@ -136,7 +136,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
           onClick: () => navigate('/dashboard/manager/services'),
         },
         {
-          key: 'service-packages-management',
+          key: 'service-packages-management', 
           label: 'Quản lý các gói dịch vụ',
           onClick: () => navigate('/dashboard/manager/service-packages'),
         },
@@ -453,7 +453,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
             }
             
             .ant-menu-dark .ant-menu-submenu .ant-menu-item:hover {
-              background-color: rgba(255,255,255,0.15) !important;
+              background-color: rgba(255,255,255,0.2) !important;
               color: white !important;
             }
             
@@ -461,6 +461,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
               background-color: #1890ff !important;
               color: white !important;
             }
+
+
 
             /* Icon styling */
             .ant-menu-item .anticon,
@@ -481,6 +483,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
               margin: 0 !important;
               border-radius: 8px !important;
             }
+
+
           `}
         </style>
         <Menu

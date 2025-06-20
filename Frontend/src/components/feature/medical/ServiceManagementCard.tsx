@@ -95,20 +95,11 @@ const ServiceManagementCard: React.FC<ServiceManagementCardProps> = ({
           {/* Service Status Tags - Nhãn trạng thái dịch vụ */}
           <div className="flex items-center gap-2">
             <Tag 
-              color={service.isDeleted === 1 ? 'red' : (service.isActive === false ? 'orange' : 'green')}
+              color={service.isDeleted === 1 ? 'red' : 'green'}
               className="text-xs font-medium rounded-md border-0"
             >
-              {service.isDeleted === 1 ? 'Ngưng hoạt động' : (service.isActive === false ? 'Tạm dừng' : 'Đang hoạt động')}
+              {service.isDeleted === 1 ? 'Ngưng hoạt động' : 'Đang hoạt động'}
             </Tag>
-            
-            {service.specialRequirements && (
-              <Tag 
-                color="orange"
-                className="text-xs font-medium rounded-md border-0"
-              >
-                Yêu cầu đặc biệt
-              </Tag>
-            )}
           </div>
 
           {/* Action Buttons - Nút hành động */}
@@ -147,11 +138,8 @@ const ServiceManagementCard: React.FC<ServiceManagementCardProps> = ({
             <span className="font-medium text-gray-700">Đánh giá:</span> 4.8/5
           </div>
           <div className="text-xs text-gray-500">
-            <span className="font-medium text-gray-700">Cập nhật:</span> {
-              service.updatedAt 
-                ? new Date(service.updatedAt).toLocaleDateString('vi-VN')
-                : 'Chưa cập nhật'
-            }
+            <span className="font-medium text-gray-700">Cập nhật:</span> Chưa có thông tin
+            
           </div>
         </div>
       </div>

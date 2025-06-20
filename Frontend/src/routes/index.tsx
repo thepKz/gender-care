@@ -44,7 +44,6 @@ import RichTextComposerDemo from '../pages/demo/RichTextComposerDemo';
 
 // Dashboard Wrapper Components
 import ManagementDashboardPage from '../pages/dashboard/management';
-import OperationalDashboardPage from '../pages/dashboard/operational';
 
 // Manager Dashboard Components  
 
@@ -61,7 +60,8 @@ import CyclePage from '../pages/cycle';
 // Hooks
 import { useAuth } from '../hooks/useAuth';
 
-
+// New import
+import OperationalDashboardPage from '../pages/dashboard/operational';
 
 const AppRoutes: React.FC = () => {
   const { isAuthenticated } = useAuth();

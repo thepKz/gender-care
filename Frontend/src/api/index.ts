@@ -5,6 +5,7 @@ import consultationApi from './endpoints/consultation';
 import doctorApi from './endpoints/doctor';
 import doctorScheduleApi from './endpoints/doctorSchedule';
 import menstrualCycleApi from './endpoints/menstrualCycle';
+import servicePackageApi from './endpoints/servicePackageApi';
 import stiTestingApi from './endpoints/stiTesting';
 import userApi from './endpoints/userApi';
 import userProfileApi from './endpoints/userProfileApi';
@@ -15,6 +16,7 @@ const api = {
   doctor: doctorApi,
   doctorSchedule: doctorScheduleApi,
   menstrualCycle: menstrualCycleApi,
+  servicePackage: servicePackageApi,
   stiTesting: stiTestingApi,
   blog: blogApi,
   user: userApi,
@@ -26,6 +28,7 @@ export {
     doctorApi,
     doctorScheduleApi,
     menstrualCycleApi,
+    servicePackageApi,
     stiTestingApi,
     userApi,
     userProfileApi

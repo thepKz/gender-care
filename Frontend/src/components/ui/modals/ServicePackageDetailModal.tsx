@@ -224,14 +224,6 @@ const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
                       {getServiceTypeIcon(service.serviceType)} {getServiceTypeLabel(service.serviceType)}
                     </Tag>
 
-                    {/* Duration */}
-                    {service.duration && (
-                      <div className="flex items-center gap-1 text-gray-600">
-                        <ClockCircleOutlined className="text-blue-primary" />
-                        <span>{service.duration} phút</span>
-                      </div>
-                    )}
-
                     {/* Available Location */}
                     {service.availableAt && service.availableAt.length > 0 && (
                       <div className="flex items-center gap-1 text-gray-600">
@@ -248,14 +240,7 @@ const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
                     )}
                   </div>
 
-                  {/* Special Requirements */}
-                  {service.specialRequirements && (
-                    <div className="mt-2">
-                      <Text className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-md">
-                        ⚠️ {service.specialRequirements}
-                      </Text>
-                    </div>
-                  )}
+                
                 </div>
               </div>
             </div>

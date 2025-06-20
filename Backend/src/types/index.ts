@@ -96,8 +96,8 @@ export interface IService {
   serviceName: string;
   price: number;
   description: string;
+  duration: number; // Duration in minutes
   isDeleted: number;
-  deleteNote?: string;
   serviceType: 'consultation' | 'test' | 'treatment' | 'other';
   availableAt: string[]; // ['Athome', 'Online', 'Center']
 }
@@ -107,13 +107,16 @@ export interface IServicePackage {
   _id: string;
   name: string;
   description: string;
-  priceBeforeDiscount: number;
-  price: number;
+  priceBeforeDiscount: number;                // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
+  price: number;        // Giá đã giảm (nếu có)
   serviceIds: string[];
-  isActive: number;
-  deleteNote?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  isActive: boolean;
+  durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
+  maxUsages: number;           // 🔹 Số lượt được dùng tối đa cho toàn gói
+  maxProfiles: number[];       // 🔹 [1, 2, 4] - Số người tối đa có thể sử dụng gói
+  isMultiProfile: boolean;     // 🔹 Gói này có hỗ trợ nhiều hồ sơ không
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Appointment types
@@ -348,13 +351,18 @@ export interface IPayment {
   paymentAt: Date;
 }
 
-// Package purchase types
+// Package purchase types - Updated with new subscription fields
 export interface IPackagePurchase {
   _id: string;
-  profileId: string;
-  userId: string;
-  packageId: string;
-  billId: string;
+  userId: string;              // Ai là người mua
+  profileId: string;           // Hồ sơ bệnh án nào sử dụng gói này
+  packageId: string;           // FK đến ServicePackages._id
+  billId: string;              // Liên kết hóa đơn thanh toán
+  activatedAt: Date;           // 🔹 Ngày bắt đầu sử dụng gói
+  expiredAt: Date;             // 🔹 Ngày hết hạn (tính từ activatedAt + durationInDays)
+  remainingUsages: number;     // 🔹 Số lượt còn lại có thể dùng
+  totalAllowedUses: number;    // 🔹 Tổng lượt ban đầu được dùng
+  isActive: boolean;           // 🔹 Gói còn hiệu lực hay đã hết hạn/lượt
   createdAt: Date;
   updatedAt: Date;
 }

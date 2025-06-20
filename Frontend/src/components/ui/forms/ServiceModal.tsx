@@ -47,7 +47,6 @@ const ServiceModal: React.FC<ServiceModalProps> = ({
           serviceName: service.serviceName,
           price: service.price,
           description: service.description,
-          image: service.image || '',
           serviceType: service.serviceType,
           availableAt: service.availableAt
         });

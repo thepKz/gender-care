@@ -45,9 +45,6 @@ import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedu
 import MedicineManagement from '../../../pages/dashboard/management/MedicineManagement';
 import TestManagement from '../../../pages/dashboard/management/TestManagement';
 import { 
-  defaultManagementStats, 
-  defaultActivities, 
-  defaultAppointments,
   type DashboardStat,
   type ActivityItem,
   type AppointmentItem
@@ -148,9 +145,9 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
   const { handleLogout } = useAuth();
 
   // Customize stats based on role
-  const [stats, setStats] = useState(defaultManagementStats);
-  const [activities, setActivities] = useState(defaultActivities);
-  const [todayList, setTodayList] = useState(defaultAppointments);
+  const [stats, setStats] = useState<DashboardStat[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [todayList, setTodayList] = useState<AppointmentItem[]>([]);
 
   // Scroll to top when component mounts or page changes
   useEffect(() => {
