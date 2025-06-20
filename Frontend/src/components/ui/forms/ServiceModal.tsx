@@ -224,12 +224,6 @@ const ServiceModal: React.FC<ServiceModalProps> = ({
         >
           <Checkbox.Group className="w-full">
             <Space direction="vertical" className="w-full">
-              <Checkbox value="Athome" className="text-gray-700">
-                🏠 Tại nhà
-              </Checkbox>
-              <Checkbox value="Online" className="text-gray-700">
-                💻 Trực tuyến
-              </Checkbox>
               <Checkbox value="Center" className="text-gray-700">
                 🏥 Tại trung tâm
               </Checkbox>

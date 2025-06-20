@@ -209,12 +209,7 @@ const ComponentShowcase: React.FC = () => {
                 description: "Công nghệ xét nghiệm tiên tiến, kết quả chính xác và nhanh chóng",
                 icon: <Activity size={24} />
               },
-              {
-                image: Image3,
-                title: "Chăm sóc tại nhà",
-                description: "Dịch vụ chăm sóc sức khỏe tận nơi, tiện lợi và an toàn",
-                icon: <Home size={24} />
-              }
+             
             ].map((item, index) => (
               <ModernCard
                 key={index}

@@ -83,10 +83,6 @@ const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
     if (!location) return 'Chưa xác định';
     
     switch (location.toLowerCase()) {
-      case 'athome':
-        return 'Tại nhà';
-      case 'online':
-        return 'Trực tuyến';
       case 'center':
         return 'Tại trung tâm';
       default:
