@@ -5,11 +5,7 @@ import {
   Typography,
   Button,
   Row,
-  Col,
-  Avatar,
-  Dropdown,
-  Space,
-  message
+  Col
 } from 'antd';
 import {
   DashboardOutlined,
@@ -18,10 +14,7 @@ import {
   SettingOutlined,
   HistoryOutlined,
   BarChartOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
   LogoutOutlined,
-  BellOutlined,
   AppstoreOutlined,
   CalendarOutlined,
   DollarOutlined,
@@ -41,7 +34,7 @@ import DoctorManagement from '../../../pages/dashboard/management/DoctorManageme
 import ServiceManagement from '../../../pages/dashboard/management/ServiceManagement';
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
-import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedulePage';
+import DoctorScheduleCalendar from '../widgets/DoctorScheduleCalendar';
 import MedicineManagement from '../../../pages/dashboard/management/MedicineManagement';
 import TestManagement from '../../../pages/dashboard/management/TestManagement';
 import { 
@@ -199,7 +192,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
             }
           ];
           console.log('📋 Mapped stats:', mapped);
-          setStats(mapped as any);
+          setStats(mapped as DashboardStat[]);
         } else {
           console.warn('⚠️ No stats data in response');
         }
@@ -252,7 +245,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
             trend: 'up'
           }
         ];
-        setStats(demoStats as any);
+        setStats(demoStats as DashboardStat[]);
         
         // Demo activities
         const demoActivities = [
@@ -663,7 +656,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
       case 'doctors':
         return <DoctorManagement />;
       case 'schedule':
-        return <DoctorSchedulePage />;
+        return <DoctorScheduleCalendar />;
       case 'services':
         return <ServiceManagement />;
       case 'service-packages':
