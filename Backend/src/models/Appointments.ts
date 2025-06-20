@@ -5,6 +5,7 @@ export interface IAppointments {
   profileId: mongoose.Types.ObjectId;
   packageId?: mongoose.Types.ObjectId;
   serviceId?: mongoose.Types.ObjectId;
+  doctorId?: mongoose.Types.ObjectId; // ID của bác sĩ được chỉ định
   slotId?: mongoose.Types.ObjectId; // embedded document reference
   appointmentDate: Date;
   appointmentTime: string; // "8:00", "9:00"
@@ -14,6 +15,9 @@ export interface IAppointments {
   description?: string;
   notes?: string;
   status: "pending" | "pending_payment" | "confirmed" | "completed" | "cancelled";
+  totalAmount?: number; // Total amount for payment
+  paymentStatus?: "unpaid" | "paid" | "partial" | "refunded";
+  paidAt?: Date; // Timestamp when payment was completed
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -36,6 +40,10 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Services'
+  },
+  doctorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Doctor'
   },
   slotId: {
     type: mongoose.Schema.Types.ObjectId // embedded document reference
@@ -71,6 +79,18 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
     type: String,
     enum: ["pending", "pending_payment", "confirmed", "completed", "cancelled"],
     default: "pending_payment"
+  },
+  totalAmount: {
+    type: Number,
+    min: 0
+  },
+  paymentStatus: {
+    type: String,
+    enum: ["unpaid", "paid", "partial", "refunded"],
+    default: "unpaid"
+  },
+  paidAt: {
+    type: Date
   }
 }, { timestamps: true });
 

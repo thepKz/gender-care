@@ -24,7 +24,10 @@ import {
   MenuUnfoldOutlined,
   LogoutOutlined,
   BellOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  CheckCircleOutlined,
+  TrophyOutlined,
+  MedicineBoxOutlined
 } from '@ant-design/icons';
 import StatsCard from '../widgets/StatsCard';
 import ActivityFeed from '../widgets/ActivityFeed';
@@ -33,16 +36,14 @@ import AppointmentManagement from '../../../pages/dashboard/operational/Appointm
 import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
 
 import {
-  defaultOperationalStats,
   defaultPerformanceMetrics,
-  type DashboardStat,
   type ActivityItem,
   type AppointmentItem,
-  type PerformanceMetric
+  type DashboardStat
 } from '../../../types/dashboard';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
-import { fetchOperationalDashboard } from '../../../services/dashboard';
+import { fetchOperationalDashboard } from '../../../api/endpoints/dashboard';
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
@@ -111,9 +112,10 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   const navigate = useNavigate();
   const { handleLogout } = useAuth();
 
-  const [statsCards, setStatsCards] = useState(defaultOperationalStats);
+  const [statsCards, setStatsCards] = useState<DashboardStat[]>([]);
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const defaultWelcomeMessage = userRole === 'doctor'
     ? `Chào mừng Dr. ${userName}! Hôm nay bạn có ${appointments.length} lịch hẹn và 4 công việc cần hoàn thành.`
@@ -126,39 +128,130 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   useEffect(() => {
     (async () => {
       try {
+        setLoading(true);
+        console.log('🔄 Fetching operational dashboard data...');
+        
         const data = await fetchOperationalDashboard();
+        console.log('📊 Operational dashboard data received:', data);
+        
         if (data?.stats) {
-          const mapped = [
+          console.log('📈 Operational stats data:', data.stats);
+          
+          // ✅ Map từ API data thành DashboardStat format
+          const mapped: DashboardStat[] = [
             {
               title: 'Lịch hẹn hôm nay',
-              value: data.stats.todayTotal,
+              value: data.stats.todayAppointments || 0,
               icon: 'CalendarOutlined',
-              color: '#10b981',
-              change: '',
-              trend: 'up'
-            },
-            {
-              title: 'Lịch hẹn trong tuần',
-              value: data.stats.weekTotal,
-              icon: 'ScheduleOutlined',
               color: '#3b82f6',
-              change: '',
+              change: '15% tăng so với hôm qua',
               trend: 'up'
             },
             {
-              title: 'Lịch hẹn pending',
-              value: data.stats.pendingCount,
-              icon: 'ClockCircleOutlined',
+              title: 'Bệnh nhân chờ',
+              value: data.stats.pendingAppointments || 0,
+              icon: 'UserOutlined',
               color: '#f59e0b',
-              change: '',
+              change: '2 bệnh nhân giảm',
               trend: 'down'
+            },
+            {
+              title: 'Đã hoàn thành',
+              value: data.stats.completedToday || 0,
+              icon: 'CheckCircleOutlined',
+              color: '#10b981',
+              change: `${data.stats.efficiency || 0}% tỷ lệ hoàn thành`,
+              trend: 'up'
+            },
+            {
+              title: 'Hiệu suất',
+              value: data.stats.efficiency || 0,
+              suffix: '%',
+              icon: 'TrophyOutlined',
+              color: '#8b5cf6',
+              change: '1% tăng',
+              trend: 'up'
             }
           ];
-          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-          setStatsCards(mapped as any);
+          
+          console.log('📋 Mapped operational stats:', mapped);
+          setStatsCards(mapped);
         }
+        
+        // ✅ Load appointments list từ API
+        if (data?.appointments) {
+          console.log('📅 Operational appointments:', data.appointments);
+          // Transform API data to match local AppointmentItem interface
+          const transformedAppointments = data.appointments.map((appointment: any) => ({
+            id: appointment.id,
+            patientName: appointment.patientName,
+            doctorName: appointment.doctorName,
+            time: appointment.time,
+            status: appointment.status,
+            service: appointment.service || 'Dịch vụ chưa xác định',
+            notes: appointment.notes,
+            priority: appointment.priority || 'medium',
+            phone: appointment.phone
+          }));
+          setAppointments(transformedAppointments);
+        }
+        
+        // ✅ Load recent activities nếu có
+        if (data?.recentActivities) {
+          console.log('📝 Operational activities:', data.recentActivities);
+          // Transform API data to match local ActivityItem interface
+          const transformedActivities = data.recentActivities.map((activity: any) => ({
+            id: activity.id,
+            user: activity.title || activity.user,
+            action: activity.description || activity.action,
+            time: typeof activity.time === 'string' ? activity.time : new Date(activity.time).toISOString(),
+            status: activity.status || 'info',
+            avatar: activity.avatar,
+            type: activity.type || 'system'
+          }));
+          setActivities(transformedActivities);
+        }
+        
       } catch (err) {
-        console.error('fetchOperationalDashboard error', err);
+        console.error('❌ fetchOperationalDashboard error:', err);
+        // ✅ Fallback với stats rỗng thay vì mockdata
+        setStatsCards([
+          {
+            title: 'Lịch hẹn hôm nay',
+            value: 0,
+            icon: 'CalendarOutlined',
+            color: '#3b82f6',
+            change: 'Không có dữ liệu',
+            trend: 'up'
+          },
+          {
+            title: 'Bệnh nhân chờ',
+            value: 0,
+            icon: 'UserOutlined',
+            color: '#f59e0b',
+            change: 'Không có dữ liệu',
+            trend: 'down'
+          },
+          {
+            title: 'Đã hoàn thành',
+            value: 0,
+            icon: 'CheckCircleOutlined',
+            color: '#10b981',
+            change: 'Không có dữ liệu',
+            trend: 'up'
+          },
+          {
+            title: 'Hiệu suất',
+            value: 0,
+            suffix: '%',
+            icon: 'TrophyOutlined',
+            color: '#8b5cf6',
+            change: 'Không có dữ liệu',
+            trend: 'up'
+          }
+        ]);
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
@@ -166,6 +259,19 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   const onLogout = async () => {
     const result = await handleLogout();
     if (result.success) navigate('/');
+  };
+
+  // ✅ Helper để render icon components từ string
+  const getIconComponent = (iconName: string) => {
+    const icons: Record<string, React.ReactNode> = {
+      'UserOutlined': <UserOutlined />,
+      'CalendarOutlined': <CalendarOutlined />,
+      'CheckCircleOutlined': <CheckCircleOutlined />,
+      'TrophyOutlined': <TrophyOutlined />,
+      'ClockCircleOutlined': <ClockCircleOutlined />,
+      'MedicineBoxOutlined': <MedicineBoxOutlined />
+    };
+    return icons[iconName] || <CalendarOutlined />;
   };
 
   const renderDashboard = () => (
@@ -180,13 +286,25 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         </Text>
       </div>
 
-      {/* Stats Cards */}
+      {/* ✅ Stats Cards với loading state */}
       <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>
-        {statsCards.map((stat, index) => (
-          <Col xs={24} sm={12} lg={6} key={index}>
-            <StatsCard stat={stat} />
-          </Col>
-        ))}
+        {loading ? (
+          // Loading skeleton cho stats cards
+          Array.from({ length: 4 }).map((_, index) => (
+            <Col xs={24} sm={12} lg={6} key={index}>
+              <Card loading style={{ borderRadius: '12px' }} />
+            </Col>
+          ))
+        ) : (
+          statsCards.map((stat, index) => (
+            <Col xs={24} sm={12} lg={6} key={index}>
+              <StatsCard stat={{
+                ...stat,
+                icon: stat.icon as string
+              }} />
+            </Col>
+          ))
+        )}
       </Row>
 
       {/* Main Content */}
@@ -197,6 +315,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
             data={appointments}
             title={userRole === 'doctor' ? 'Lịch khám hôm nay' : 'Lịch hẹn cần xử lý'}
             pagination={false}
+            loading={loading}
           />
         </Col>
 
@@ -212,37 +331,40 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
                   boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                   border: '1px solid #e5e7eb'
                 }}
+                loading={loading}
               >
-                <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                    <Progress
-                      type="circle"
-                      percent={metrics.appointmentCompletion}
-                      width={120}
-                      strokeColor="#667eea"
-                      strokeWidth={8}
-                    />
-                    <div style={{
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      textAlign: 'center'
-                    }}>
-                      <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>
-                        {Math.round(appointments.length * metrics.appointmentCompletion / 100)}/{appointments.length}
-                      </div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                        Hoàn thành
+                {!loading && (
+                  <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <Progress
+                        type="circle"
+                        percent={metrics.appointmentCompletion}
+                        width={120}
+                        strokeColor="#667eea"
+                        strokeWidth={8}
+                      />
+                      <div style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>
+                          {Math.round(appointments.length * metrics.appointmentCompletion / 100)}/{appointments.length}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                          Hoàn thành
+                        </div>
                       </div>
                     </div>
+                    <div style={{ marginTop: '16px' }}>
+                      <Text type="secondary">
+                        {userRole === 'doctor' ? 'Bệnh nhân đã khám' : 'Công việc đã xong'}
+                      </Text>
+                    </div>
                   </div>
-                  <div style={{ marginTop: '16px' }}>
-                    <Text type="secondary">
-                      {userRole === 'doctor' ? 'Bệnh nhân đã khám' : 'Công việc đã xong'}
-                    </Text>
-                  </div>
-                </div>
+                )}
               </Card>
             </Col>
 
@@ -255,38 +377,43 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
                   boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                   border: '1px solid #e5e7eb'
                 }}
+                loading={loading}
               >
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <Text style={{ fontSize: '13px' }}>
-                      {userRole === 'doctor' ? 'Mức độ hài lòng' : 'Hiệu quả xử lý'}
-                    </Text>
-                    <Text strong style={{ fontSize: '13px' }}>
-                      {metrics.patientSatisfaction}%
-                    </Text>
-                  </div>
-                  <Progress percent={metrics.patientSatisfaction} size="small" strokeColor="#52c41a" />
-                </div>
-                
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <Text style={{ fontSize: '13px' }}>Quản lý thời gian</Text>
-                    <Text strong style={{ fontSize: '13px' }}>
-                      {metrics.efficiency}%
-                    </Text>
-                  </div>
-                  <Progress percent={metrics.efficiency} size="small" strokeColor="#faad14" />
-                </div>
-                
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <Text style={{ fontSize: '13px' }}>Thời gian phản hồi</Text>
-                    <Text strong style={{ fontSize: '13px' }}>
-                      {metrics.responseTime}%
-                    </Text>
-                  </div>
-                  <Progress percent={metrics.responseTime} size="small" strokeColor="#3b82f6" />
-                </div>
+                {!loading && (
+                  <>
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <Text style={{ fontSize: '13px' }}>
+                          {userRole === 'doctor' ? 'Mức độ hài lòng' : 'Hiệu quả xử lý'}
+                        </Text>
+                        <Text strong style={{ fontSize: '13px' }}>
+                          {metrics.patientSatisfaction}%
+                        </Text>
+                      </div>
+                      <Progress percent={metrics.patientSatisfaction} size="small" strokeColor="#52c41a" />
+                    </div>
+                    
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <Text style={{ fontSize: '13px' }}>Quản lý thời gian</Text>
+                        <Text strong style={{ fontSize: '13px' }}>
+                          {metrics.efficiency}%
+                        </Text>
+                      </div>
+                      <Progress percent={metrics.efficiency} size="small" strokeColor="#faad14" />
+                    </div>
+                    
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <Text style={{ fontSize: '13px' }}>Thời gian phản hồi</Text>
+                        <Text strong style={{ fontSize: '13px' }}>
+                          {metrics.responseTime}%
+                        </Text>
+                      </div>
+                      <Progress percent={metrics.responseTime} size="small" strokeColor="#3b82f6" />
+                    </div>
+                  </>
+                )}
               </Card>
             </Col>
           </Row>
@@ -297,8 +424,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
       <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
         <Col xs={24}>
           <ActivityFeed 
-            activities={activities.slice(0, 5)}
-            title={userRole === 'doctor' ? 'Hoạt động khám bệnh' : 'Hoạt động gần đây'}
+            activities={activities}
+            title="Hoạt động gần đây"
+            loading={loading}
           />
         </Col>
       </Row>

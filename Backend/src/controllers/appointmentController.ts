@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { Appointments, DoctorSchedules, Services, ServicePackages, UserProfiles } from '../models';
+import { Appointments, DoctorSchedules, Services, ServicePackages, UserProfiles, PackagePurchases } from '../models';
 import { NotFoundError } from '../errors/notFoundError';
 import { ValidationError } from '../errors/validationError';
 import { UnauthorizedError } from '../errors/unauthorizedError';
@@ -63,9 +63,27 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
             .populate('profileId', 'fullName gender phone year')
             .populate('serviceId', 'serviceName price serviceType')
             .populate('packageId', 'name price')
+            .populate({
+                path: 'doctorId',
+                match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
+                populate: {
+                    path: 'userId',
+                    select: 'fullName email avatar'
+                }
+            })
             .sort({ appointmentDate: -1, appointmentTime: -1 })
             .skip(skip)
             .limit(limitNumber);
+
+        // Debug logging để kiểm tra dữ liệu doctor
+        console.log('🔍 [Debug] Sample appointment doctor data:', appointments.slice(0, 2).map(apt => ({
+            _id: apt._id,
+            doctorId: apt.doctorId,
+            doctorIdType: typeof apt.doctorId,
+            hasDoctor: apt.doctorId ? true : false,
+            doctorUserId: (apt.doctorId as any)?.userId,
+            doctorFullName: (apt.doctorId as any)?.userId?.fullName
+        })));
 
         return res.status(200).json({
             success: true,
@@ -118,23 +136,36 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             throw new ValidationError({ general: 'Phải cung cấp một trong hai: packageId hoặc serviceId' });
         }
 
-        // Nếu có packageId, kiểm tra nó có tồn tại không
+        // Tính toán totalAmount dựa trên service/package
+        let totalAmount = 0;
+
+        // Nếu có packageId, kiểm tra nó có tồn tại không và lấy giá
         if (packageId) {
-            const packageExists = await ServicePackages.findById(packageId);
-            if (!packageExists) {
+            const packageData = await ServicePackages.findById(packageId);
+            if (!packageData) {
                 throw new NotFoundError('Không tìm thấy gói dịch vụ');
             }
+            totalAmount = packageData.price;
         }
 
-        // Nếu có serviceId, kiểm tra nó có tồn tại không
+        // Nếu có serviceId, kiểm tra nó có tồn tại không và lấy giá
         if (serviceId) {
-            const serviceExists = await Services.findById(serviceId);
-            if (!serviceExists) {
+            const serviceData = await Services.findById(serviceId);
+            if (!serviceData) {
                 throw new NotFoundError('Không tìm thấy dịch vụ');
             }
+            totalAmount = serviceData.price;
         }
 
-        // Kiểm tra slot có trống không (nếu slotId được cung cấp)
+        console.log('💰 [Debug] Payment calculation:', {
+            packageId,
+            serviceId,
+            typeLocation,
+            totalAmount
+        });
+
+        // Kiểm tra slot có trống không và lấy thông tin bác sĩ (nếu slotId được cung cấp)
+        let assignedDoctorId = null;
         if (slotId) {
             console.log('🔍 [Debug] Checking slot availability:', { slotId, appointmentDate, appointmentTime });
 
@@ -150,6 +181,10 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
                 console.log('❌ [Debug] No schedule found containing slotId:', slotId);
                 throw new NotFoundError('Không tìm thấy slot thời gian');
             }
+
+            // Lấy doctorId từ schedule để assign vào appointment
+            assignedDoctorId = schedule.doctorId;
+            console.log('🔍 [Debug] Assigned doctor ID:', assignedDoctorId);
 
             // Tìm slot cụ thể và kiểm tra trạng thái
             let slotFound = false;
@@ -180,36 +215,173 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             throw new ValidationError({ address: 'Địa chỉ là bắt buộc khi chọn loại địa điểm là "home"' });
         }
 
-        // Tạo appointment mới
-        const newAppointment = await Appointments.create({
-            createdByUserId: req.user?._id, // Lấy từ middleware xác thực
-            profileId,
-            packageId: packageId || undefined,
-            serviceId: serviceId || undefined,
-            slotId: slotId || undefined,
-            appointmentDate,
-            appointmentTime,
-            appointmentType,
-            typeLocation,
-            address,
-            description,
-            notes,
-            status: 'pending'
-        });
+        // 🎯 PACKAGE USAGE INTEGRATION: Non-transaction approach for single-node MongoDB
+        let newAppointment: any = null;
+        let packagePurchase: any = null;
+        let originalRemainingUsages = 0;
+        let packageUpdatePerformed = false;
 
-        // Nếu có slotId, cập nhật trạng thái slot thành "Booked"
-        if (slotId) {
-            await DoctorSchedules.updateOne(
-                { 'weekSchedule.slots._id': new mongoose.Types.ObjectId(slotId) },
-                { $set: { 'weekSchedule.$.slots.$[slot].status': 'Booked' } },
-                { arrayFilters: [{ 'slot._id': new mongoose.Types.ObjectId(slotId) }] }
-            );
+        try {
+            // 🔍 STEP 1: If using packageId, validate and consume package usage first
+            if (packageId) {
+                console.log('🔍 [Package Creation] Appointment uses package, validating purchased package...', {
+                    packageId,
+                    userId: req.user?._id,
+                    profileId
+                });
+
+                // Find the corresponding package purchase record
+                packagePurchase = await PackagePurchases.findOne({
+                    userId: req.user?._id,
+                    profileId,
+                    packageId,
+                    isActive: true,
+                    remainingUsages: { $gt: 0 },
+                    expiredAt: { $gt: new Date() }
+                });
+
+                if (!packagePurchase) {
+                    console.log('❌ [Package Creation] No valid package purchase found', {
+                        packageId,
+                        userId: req.user?._id,
+                        profileId
+                    });
+                    throw new ValidationError({ 
+                        package: 'Không tìm thấy gói dịch vụ hợp lệ hoặc gói đã hết lượt sử dụng' 
+                    });
+                }
+
+                console.log('✅ [Package Creation] Found valid package purchase, consuming usage...', {
+                    packagePurchaseId: packagePurchase._id?.toString() || 'unknown',
+                    remainingUsages: packagePurchase.remainingUsages,
+                    totalAllowedUses: packagePurchase.totalAllowedUses
+                });
+
+                // Store original value for logging and potential rollback
+                originalRemainingUsages = packagePurchase.remainingUsages;
+
+                // Validate remaining usages
+                if (packagePurchase.remainingUsages <= 0) {
+                    throw new ValidationError({ 
+                        package: 'Gói dịch vụ đã hết lượt sử dụng' 
+                    });
+                }
+
+                // Calculate new values
+                const newRemainingUsages = packagePurchase.remainingUsages - 1;
+                const now = new Date();
+                const newIsActive = (packagePurchase.expiredAt > now && newRemainingUsages > 0);
+
+                // Update package purchase with optimistic approach
+                const updateResult = await PackagePurchases.findByIdAndUpdate(
+                    packagePurchase._id,
+                    {
+                        $set: {
+                            remainingUsages: newRemainingUsages,
+                            isActive: newIsActive
+                        }
+                    },
+                    { new: true }
+                );
+
+                if (!updateResult) {
+                    throw new ValidationError({ 
+                        package: 'Không thể cập nhật gói dịch vụ, có thể gói đã bị xóa' 
+                    });
+                }
+
+                packageUpdatePerformed = true;
+
+                console.log('✅ [Package Creation] Successfully consumed package usage', {
+                    packagePurchaseId: packagePurchase._id?.toString() || 'unknown',
+                    oldRemainingUsages: originalRemainingUsages,
+                    newRemainingUsages: newRemainingUsages,
+                    isStillActive: newIsActive
+                });
+            }
+
+            // 🔍 STEP 2: Create appointment
+            // For package bookings, set status to 'confirmed' directly since package is already consumed
+            // For service bookings, set status to 'pending_payment' as before
+            const appointmentStatus = packageId ? 'confirmed' : 'pending_payment';
+
+            newAppointment = await Appointments.create({
+                createdByUserId: req.user?._id, // Lấy từ middleware xác thực
+                profileId,
+                packageId: packageId || undefined,
+                serviceId: serviceId || undefined,
+                doctorId: assignedDoctorId || undefined, // Gán bác sĩ từ slot
+                slotId: slotId || undefined,
+                appointmentDate,
+                appointmentTime,
+                appointmentType,
+                typeLocation,
+                address,
+                description,
+                notes,
+                status: appointmentStatus
+            });
+
+            // 🔍 STEP 3: Update slot status if needed
+            if (slotId) {
+                await DoctorSchedules.updateOne(
+                    { 'weekSchedule.slots._id': new mongoose.Types.ObjectId(slotId) },
+                    { $set: { 'weekSchedule.$.slots.$[slot].status': 'Booked' } },
+                    { arrayFilters: [{ 'slot._id': new mongoose.Types.ObjectId(slotId) }] }
+                );
+            }
+
+            console.log('✅ [Success] Appointment creation and package usage completed successfully', {
+                appointmentId: newAppointment._id?.toString() || 'unknown',
+                status: appointmentStatus,
+                hasPackage: !!packageId,
+                packageConsumed: packageUpdatePerformed
+            });
+
+        } catch (error: any) {
+            console.error('❌ [Error] Error in appointment creation + package usage:', error);
+            
+            // Manual rollback for package usage if appointment creation failed
+            if (packageUpdatePerformed && packagePurchase && originalRemainingUsages > 0) {
+                console.log('🔄 [Rollback] Attempting to rollback package usage...');
+                try {
+                    const now = new Date();
+                    const rollbackIsActive = (packagePurchase.expiredAt > now && originalRemainingUsages > 0);
+                    
+                    await PackagePurchases.findByIdAndUpdate(
+                        packagePurchase._id,
+                        {
+                            $set: {
+                                remainingUsages: originalRemainingUsages,
+                                isActive: rollbackIsActive
+                            }
+                        }
+                    );
+                    console.log('✅ [Rollback] Package usage rolled back successfully');
+                } catch (rollbackError) {
+                    console.error('❌ [Rollback] Failed to rollback package usage:', rollbackError);
+                    // Log for manual intervention
+                    console.error('🚨 [Critical] Manual intervention required for package:', {
+                        packagePurchaseId: packagePurchase._id?.toString(),
+                        shouldBeRemainingUsages: originalRemainingUsages
+                    });
+                }
+            }
+            
+            // Re-throw the original error
+            if (error instanceof ValidationError || error instanceof NotFoundError) {
+                throw error;
+            }
+            
+            throw new ValidationError({ 
+                general: error.message || 'Không thể tạo cuộc hẹn và sử dụng gói dịch vụ' 
+            });
         }
 
         // Trả về kết quả thành công
         return res.status(201).json({
             success: true,
-            message: 'Đặt lịch hẹn thành công',
+            message: 'Đặt lịch hẹn thành công! Vui lòng hoàn tất thanh toán.',
             data: newAppointment
         });
     } catch (error) {
@@ -250,7 +422,15 @@ export const getAppointmentById = async (req: Request, res: Response) => {
             .populate('profileId', 'fullName gender phone year')
             .populate('serviceId', 'serviceName price serviceType')
             .populate('packageId', 'name price serviceIds')
-            .populate('createdByUserId', 'fullName email');
+            .populate('createdByUserId', 'fullName email')
+            .populate({
+                path: 'doctorId',
+                match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
+                populate: {
+                    path: 'userId',
+                    select: 'fullName email avatar'
+                }
+            });
 
         if (!appointment) {
             throw new NotFoundError('Không tìm thấy cuộc hẹn');
@@ -368,7 +548,15 @@ export const updateAppointment = async (req: Request, res: Response) => {
             { new: true }
         ).populate('profileId', 'fullName gender phone year')
             .populate('serviceId', 'serviceName price serviceType')
-            .populate('packageId', 'name price serviceIds');
+            .populate('packageId', 'name price serviceIds')
+            .populate({
+                path: 'doctorId',
+                match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
+                populate: {
+                    path: 'userId',
+                    select: 'fullName email avatar'
+                }
+            });
 
         return res.status(200).json({
             success: true,
@@ -456,32 +644,163 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
             }
         }
 
-        // Chỉ cho phép hủy nếu trạng thái là pending hoặc confirmed
-        if (!['pending', 'confirmed'].includes(appointment.status)) {
+        // Chỉ cho phép hủy nếu trạng thái là pending, pending_payment, hoặc confirmed
+        if (!['pending', 'pending_payment', 'confirmed'].includes(appointment.status)) {
             throw new ValidationError({ status: 'Không thể hủy cuộc hẹn đã hoàn thành hoặc đã hủy' });
         }
 
-        // Giải phóng slot nếu có
-        if (appointment.slotId) {
-            await DoctorSchedules.updateOne(
-                { 'weekSchedule.slots._id': appointment.slotId },
-                { $set: { 'weekSchedule.$.slots.$[slot].status': 'Free' } },
-                { arrayFilters: [{ 'slot._id': appointment.slotId }] }
+        // 🎯 PACKAGE REFUND INTEGRATION: Non-transaction approach for single-node MongoDB
+        let packagePurchase: any = null;
+        let originalRemainingUsages = 0;
+        let packageRefundPerformed = false;
+
+        try {
+            // 🔍 STEP 1: If appointment uses package, refund +1 usage back to package
+            if (appointment.packageId) {
+                console.log('🔍 [Package Refund] Appointment uses package, processing refund...', {
+                    appointmentId: id,
+                    packageId: appointment.packageId,
+                    userId: appointment.createdByUserId,
+                    profileId: appointment.profileId
+                });
+
+                // Find the corresponding package purchase record
+                packagePurchase = await PackagePurchases.findOne({
+                    userId: appointment.createdByUserId,
+                    profileId: appointment.profileId,
+                    packageId: appointment.packageId,
+                    // Note: We don't filter by isActive here because we want to refund even expired packages
+                    expiredAt: { $gt: new Date() } // Only refund if package hasn't expired yet
+                });
+
+                if (!packagePurchase) {
+                    console.log('⚠️ [Package Refund] No package purchase found or package expired', {
+                        appointmentId: id,
+                        packageId: appointment.packageId,
+                        userId: appointment.createdByUserId,
+                        profileId: appointment.profileId
+                    });
+                    // Continue with cancellation even if package not found (maybe manual appointment)
+                } else {
+                    console.log('✅ [Package Refund] Found package purchase, refunding usage...', {
+                        packagePurchaseId: packagePurchase._id?.toString() || 'unknown',
+                        currentRemainingUsages: packagePurchase.remainingUsages,
+                        totalAllowedUses: packagePurchase.totalAllowedUses
+                    });
+
+                    // Store original value for logging and potential rollback
+                    originalRemainingUsages = packagePurchase.remainingUsages;
+
+                    // Validate we don't refund more than total allowed uses
+                    if (packagePurchase.remainingUsages >= packagePurchase.totalAllowedUses) {
+                        console.log('⚠️ [Package Refund] Package already at maximum usage, skipping refund', {
+                            packagePurchaseId: packagePurchase._id?.toString(),
+                            remainingUsages: packagePurchase.remainingUsages,
+                            totalAllowedUses: packagePurchase.totalAllowedUses
+                        });
+                        // Continue with cancellation but don't refund
+                    } else {
+                        // Calculate new values - add back 1 usage
+                        const newRemainingUsages = packagePurchase.remainingUsages + 1;
+                        const now = new Date();
+                        const newIsActive = (packagePurchase.expiredAt > now && newRemainingUsages > 0);
+
+                        // Update package purchase with optimistic approach
+                        const updateResult = await PackagePurchases.findByIdAndUpdate(
+                            packagePurchase._id,
+                            {
+                                $set: {
+                                    remainingUsages: newRemainingUsages,
+                                    isActive: newIsActive
+                                }
+                            },
+                            { new: true }
+                        );
+
+                        if (!updateResult) {
+                            console.log('❌ [Package Refund] Failed to update package purchase, continuing with cancellation');
+                            // Continue with cancellation even if package update failed
+                        } else {
+                            packageRefundPerformed = true;
+
+                            console.log('✅ [Package Refund] Successfully refunded package usage', {
+                                packagePurchaseId: packagePurchase._id?.toString() || 'unknown',
+                                oldRemainingUsages: originalRemainingUsages,
+                                newRemainingUsages: newRemainingUsages,
+                                isNowActive: newIsActive
+                            });
+                        }
+                    }
+                }
+            }
+
+            // 🔍 STEP 2: Free up the slot if appointment had one
+            if (appointment.slotId) {
+                await DoctorSchedules.updateOne(
+                    { 'weekSchedule.slots._id': appointment.slotId },
+                    { $set: { 'weekSchedule.$.slots.$[slot].status': 'Free' } },
+                    { arrayFilters: [{ 'slot._id': appointment.slotId }] }
+                );
+                console.log('✅ [Slot Liberation] Successfully freed up appointment slot', {
+                    slotId: appointment.slotId?.toString()
+                });
+            }
+
+            // 🔍 STEP 3: Update appointment status to cancelled
+            const updatedAppointment = await Appointments.findByIdAndUpdate(
+                id,
+                { $set: { status: 'cancelled' } },
+                { new: true }
             );
+
+            console.log('✅ [Success] Appointment cancellation completed successfully', {
+                appointmentId: id,
+                hasPackage: !!appointment.packageId,
+                packageRefunded: packageRefundPerformed,
+                slotFreed: !!appointment.slotId
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: packageRefundPerformed 
+                    ? 'Hủy cuộc hẹn thành công và đã hoàn trả lượt sử dụng gói dịch vụ'
+                    : 'Hủy cuộc hẹn thành công',
+                data: updatedAppointment
+            });
+
+        } catch (error: any) {
+            console.error('❌ [Error] Error in appointment cancellation + package refund:', error);
+            
+            // Manual rollback for package refund if appointment cancellation failed
+            if (packageRefundPerformed && packagePurchase && originalRemainingUsages >= 0) {
+                console.log('🔄 [Rollback] Attempting to rollback package refund...');
+                try {
+                    const now = new Date();
+                    const rollbackIsActive = (packagePurchase.expiredAt > now && originalRemainingUsages > 0);
+                    
+                    await PackagePurchases.findByIdAndUpdate(
+                        packagePurchase._id,
+                        {
+                            $set: {
+                                remainingUsages: originalRemainingUsages,
+                                isActive: rollbackIsActive
+                            }
+                        }
+                    );
+                    console.log('✅ [Rollback] Package refund rolled back successfully');
+                } catch (rollbackError) {
+                    console.error('❌ [Rollback] Failed to rollback package refund:', rollbackError);
+                    // Log for manual intervention
+                    console.error('🚨 [Critical] Manual intervention required for package refund rollback:', {
+                        packagePurchaseId: packagePurchase._id?.toString(),
+                        shouldBeRemainingUsages: originalRemainingUsages
+                    });
+                }
+            }
+            
+            // Re-throw the original error
+            throw error;
         }
-
-        // Cập nhật trạng thái thành cancelled
-        const updatedAppointment = await Appointments.findByIdAndUpdate(
-            id,
-            { $set: { status: 'cancelled' } },
-            { new: true }
-        );
-
-        return res.status(200).json({
-            success: true,
-            message: 'Hủy cuộc hẹn thành công',
-            data: updatedAppointment
-        });
     } catch (error) {
         console.error('Error in deleteAppointment:', error);
         if (error instanceof NotFoundError) {
@@ -623,16 +942,156 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
             throw new ValidationError({ status: `Chỉ có thể cập nhật thanh toán cho cuộc hẹn đang chờ thanh toán. Trạng thái hiện tại: ${appointment.status}` });
         }
 
-        // Cập nhật trạng thái sang confirmed
-        const updatedAppointment = await Appointments.findByIdAndUpdate(
-            id,
-            { $set: { status: 'confirmed' } },
-            { new: true }
-        ).populate('profileId', 'fullName gender phone year')
+        // 🎯 PACKAGE USAGE INTEGRATION: Non-transaction approach for single-node MongoDB
+        let packagePurchase: any = null;
+        let originalRemainingUsages = 0;
+        let packageUpdatePerformed = false;
+        
+        try {
+            // 🔍 STEP 1: Check and consume package usage if appointment uses package
+            if (appointment.packageId) {
+                console.log('🔍 [Package Usage] Appointment uses package, checking purchased package...', {
+                    appointmentId: id,
+                    packageId: appointment.packageId,
+                    userId: appointment.createdByUserId,
+                    profileId: appointment.profileId
+                });
+
+                // Find the corresponding package purchase record
+                packagePurchase = await PackagePurchases.findOne({
+                    userId: appointment.createdByUserId,
+                    profileId: appointment.profileId,
+                    packageId: appointment.packageId,
+                    isActive: true,
+                    remainingUsages: { $gt: 0 },
+                    expiredAt: { $gt: new Date() }
+                });
+
+                if (!packagePurchase) {
+                    console.log('❌ [Package Usage] No valid package purchase found', {
+                        appointmentId: id,
+                        packageId: appointment.packageId,
+                        userId: appointment.createdByUserId,
+                        profileId: appointment.profileId
+                    });
+                    throw new ValidationError({ 
+                        package: 'Không tìm thấy gói dịch vụ hợp lệ hoặc gói đã hết lượt sử dụng' 
+                    });
+                }
+
+                console.log('✅ [Package Usage] Found valid package purchase, consuming usage...', {
+                    packagePurchaseId: packagePurchase._id?.toString() || 'unknown',
+                    remainingUsages: packagePurchase.remainingUsages,
+                    totalAllowedUses: packagePurchase.totalAllowedUses
+                });
+
+                // Store original value for logging and potential rollback
+                originalRemainingUsages = packagePurchase.remainingUsages;
+
+                // Validate remaining usages
+                if (packagePurchase.remainingUsages <= 0) {
+                    throw new ValidationError({ 
+                        package: 'Gói dịch vụ đã hết lượt sử dụng' 
+                    });
+                }
+
+                // Calculate new values
+                const newRemainingUsages = packagePurchase.remainingUsages - 1;
+                const now = new Date();
+                const newIsActive = (packagePurchase.expiredAt > now && newRemainingUsages > 0);
+
+                // Update package purchase with optimistic approach
+                const updateResult = await PackagePurchases.findByIdAndUpdate(
+                    packagePurchase._id,
+                    {
+                        $set: {
+                            remainingUsages: newRemainingUsages,
+                            isActive: newIsActive
+                        }
+                    },
+                    { new: true }
+                );
+
+                if (!updateResult) {
+                    throw new ValidationError({ 
+                        package: 'Không thể cập nhật gói dịch vụ, có thể gói đã bị xóa' 
+                    });
+                }
+
+                packageUpdatePerformed = true;
+
+                console.log('✅ [Package Usage] Successfully consumed package usage', {
+                    packagePurchaseId: packagePurchase._id?.toString() || 'unknown',
+                    oldRemainingUsages: originalRemainingUsages,
+                    newRemainingUsages: newRemainingUsages,
+                    isStillActive: newIsActive
+                });
+            }
+
+            // 🔍 STEP 2: Update appointment status to confirmed
+            await Appointments.findByIdAndUpdate(
+                id,
+                { $set: { status: 'confirmed' } }
+            );
+
+            console.log('✅ [Success] Package usage and appointment status updated successfully', {
+                appointmentId: id,
+                hasPackage: !!appointment.packageId,
+                packageConsumed: packageUpdatePerformed
+            });
+
+        } catch (error: any) {
+            console.error('❌ [Error] Error in package usage + appointment update:', error);
+            
+            // Manual rollback for package usage if appointment update failed
+            if (packageUpdatePerformed && packagePurchase && originalRemainingUsages > 0) {
+                console.log('🔄 [Rollback] Attempting to rollback package usage...');
+                try {
+                    const now = new Date();
+                    const rollbackIsActive = (packagePurchase.expiredAt > now && originalRemainingUsages > 0);
+                    
+                    await PackagePurchases.findByIdAndUpdate(
+                        packagePurchase._id,
+                        {
+                            $set: {
+                                remainingUsages: originalRemainingUsages,
+                                isActive: rollbackIsActive
+                            }
+                        }
+                    );
+                    console.log('✅ [Rollback] Package usage rolled back successfully');
+                } catch (rollbackError) {
+                    console.error('❌ [Rollback] Failed to rollback package usage:', rollbackError);
+                    // Log for manual intervention
+                    console.error('🚨 [Critical] Manual intervention required for package:', {
+                        packagePurchaseId: packagePurchase._id?.toString(),
+                        shouldBeRemainingUsages: originalRemainingUsages
+                    });
+                }
+            }
+            
+            // Re-throw the original error
+            if (error instanceof ValidationError || error instanceof NotFoundError) {
+                throw error;
+            }
+            
+            throw new ValidationError({ 
+                package: error.message || 'Không thể xử lý thanh toán và sử dụng gói dịch vụ' 
+            });
+        }
+
+        // 🔍 STEP 3: Fetch updated appointment with populated data (outside transaction)
+        const updatedAppointment = await Appointments.findById(id)
+            .populate('profileId', 'fullName gender phone year')
             .populate('serviceId', 'serviceName price serviceType')
             .populate('packageId', 'name price serviceIds');
 
-        console.log('Payment status updated successfully');
+        console.log('✅ [Payment] Payment status updated successfully', {
+            appointmentId: id,
+            newStatus: 'confirmed',
+            hasPackage: !!appointment.packageId
+        });
+        
         return res.status(200).json({
             success: true,
             message: 'Xác nhận thanh toán thành công',
@@ -657,4 +1116,6 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
             message: 'Đã xảy ra lỗi khi cập nhật trạng thái thanh toán'
         });
     }
-}; 
+};
+
+ 

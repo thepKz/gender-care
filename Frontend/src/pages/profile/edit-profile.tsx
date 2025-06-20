@@ -220,15 +220,20 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Breadcrumb className="mb-6">
-          <Breadcrumb.Item>
-            <Link to="/profile">Tài khoản</Link>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>
-            <Link to="/profile">Hồ sơ sức khỏe</Link>
-          </Breadcrumb.Item>
-          <Breadcrumb.Item>Chỉnh sửa hồ sơ</Breadcrumb.Item>
-        </Breadcrumb>
+        <Breadcrumb 
+          className="mb-6"
+          items={[
+            {
+              title: <Link to="/profile">Tài khoản</Link>
+            },
+            {
+              title: <Link to="/profile">Hồ sơ sức khỏe</Link>
+            },
+            {
+              title: "Chỉnh sửa hồ sơ"
+            }
+          ]}
+        />
 
         <div className="flex items-center justify-between mb-6">
           <div>

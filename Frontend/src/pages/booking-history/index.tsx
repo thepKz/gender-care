@@ -23,9 +23,10 @@ import {
     User
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { appointmentApi } from '../../api/endpoints';
 import { consultationApi } from '../../api';
+import axiosInstance from '../../api/axiosConfig';
 import { useAuth } from '../../hooks/useAuth';
 import ModernButton from '../../components/ui/ModernButton';
 import ModernCard from '../../components/ui/ModernCard';
@@ -58,6 +59,7 @@ interface Appointment {
 
 const BookingHistory: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -70,120 +72,37 @@ const BookingHistory: React.FC = () => {
   const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
-  // Mock data
-  const mockAppointments: Appointment[] = [
-    {
-      id: 'apt1',
-      serviceId: 'consultation',
-      serviceName: 'Tư vấn sức khỏe',
-      doctorName: 'BS. Nguyễn Thị Hương',
-      doctorAvatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-      appointmentDate: '2024-01-15',
-      appointmentTime: '09:00',
-      typeLocation: 'clinic',
-      status: 'completed',
-      price: 500000,
-      createdAt: '2024-01-10',
-      description: 'Tư vấn về sức khỏe sinh sản',
-      canCancel: false,
-      canReschedule: false,
-      rating: 5,
-      feedback: 'Bác sĩ tư vấn rất tận tình và chuyên nghiệp'
-    },
-    {
-      id: 'apt2',
-      serviceId: 'sti-testing',
-      serviceName: 'Xét nghiệm STI/STD',
-      packageName: 'Gói Tiêu chuẩn',
-      doctorName: 'BS. Trần Văn Minh',
-      doctorAvatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150',
-      appointmentDate: '2024-01-20',
-      appointmentTime: '14:30',
-      typeLocation: 'home',
-      status: 'confirmed',
-      price: 1500000,
-      createdAt: '2024-01-18',
-      address: '123 Nguyễn Văn Cừ, Quận 5, TP.HCM',
-      canCancel: true,
-      canReschedule: true
-    },
-    {
-      id: 'apt3',
-      serviceId: 'health-checkup',
-      serviceName: 'Khám sức khỏe tổng quát',
-      appointmentDate: '2024-01-25',
-      appointmentTime: '10:00',
-      typeLocation: 'clinic',
-      status: 'pending_payment',
-      price: 800000,
-      createdAt: '2024-01-22',
-      description: 'Khám sức khỏe định kỳ',
-      canCancel: true,
-      canReschedule: true
-    },
-    {
-      id: 'apt4',
-      serviceId: 'consultation',
-      serviceName: 'Tư vấn sức khỏe',
-      doctorName: 'BS. Lê Thị Mai',
-      doctorAvatar: 'https://images.unsplash.com/photo-1594824388853-d0c2b7b5e6b7?w=150',
-      appointmentDate: '2024-01-12',
-      appointmentTime: '16:00',
-      typeLocation: 'online',
-      status: 'cancelled',
-      price: 300000,
-      createdAt: '2024-01-10',
-      notes: 'Hủy do bận việc đột xuất',
-      canCancel: false,
-      canReschedule: false
-    },
-    {
-      id: 'apt5',
-      serviceId: 'sti-testing',
-      serviceName: 'Xét nghiệm STI/STD mới',
-      doctorName: 'BS. Nguyễn Văn A',
-      doctorAvatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150',
-      appointmentDate: '2024-06-10',
-      appointmentTime: '10:00',
-      typeLocation: 'clinic',
-      status: 'pending_payment',
-      price: 1200000,
-      createdAt: '2024-06-08',
-      description: 'Xét nghiệm STI/STD định kỳ',
-      canCancel: true,
-      canReschedule: true
-    }
-  ];
 
-  const fetchAppointments = async () => {
+
+  const fetchAppointments = async (skipLoading = false) => {
     // Kiểm tra authentication trước khi gọi API
     if (!isAuthenticated || !user) {
-      console.log('🔍 [Debug] User not authenticated, redirecting to login...');
       navigate('/login');
       return;
     }
 
-    setLoading(true);
+    // Chỉ set loading nếu không phải là background refresh
+    if (!skipLoading) {
+      setLoading(true);
+    }
     try {
       // Phân quyền: Admin/Staff/Manager có thể xem tất cả, Customer chỉ xem của mình
       const isManagementRole = ['admin', 'staff', 'manager'].includes(user.role);
       
       let response;
       if (isManagementRole) {
-        console.log('🔍 [Debug] Fetching ALL appointments for management role:', user.role);
-        response = await appointmentApi.getAllAppointments();
-        console.log('🔍 [Debug] All Appointments API response:', response);
+        // Lấy tất cả appointments không phân trang
+        response = await appointmentApi.getAllAppointments({ limit: 100 });
       } else {
-        console.log('🔍 [Debug] Fetching user appointments for customer:', user._id);
-        response = await consultationApi.getUserAppointments();
-        console.log('🔍 [Debug] User Appointments API response:', response);
+        response = await consultationApi.getUserAppointments({ createdByUserId: user._id });
       }
       
       // Handle different response structures for different APIs
       let appointmentsData = [];
+      
       if (isManagementRole) {
-        // appointmentApi.getAllAppointments() response structure
-        appointmentsData = response.data?.appointments || response.data?.data?.appointments || [];
+        // appointmentApi.getAllAppointments() response structure: { success: true, data: { appointments, pagination } }
+        appointmentsData = response.data?.appointments || [];
       } else {
         // consultationApi.getUserAppointments() response structure  
         appointmentsData = response.data?.data?.appointments || response.data?.appointments || [];
@@ -194,7 +113,12 @@ const BookingHistory: React.FC = () => {
           _id: string;
           serviceId?: { _id: string; serviceName: string; price: number };
           packageId?: { name: string; price: number };
-          doctorId?: { fullName: string; avatar: string };
+          doctorId?: { 
+            _id: string;
+            userId?: { fullName: string; avatar: string; email: string };
+            fullName?: string; 
+            avatar?: string; 
+          };
           appointmentDate: string;
           appointmentTime: string;
           typeLocation: string;
@@ -210,58 +134,178 @@ const BookingHistory: React.FC = () => {
           serviceId: apt.serviceId?._id || '',
           serviceName: apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
           packageName: apt.packageId?.name,
-          doctorName: apt.doctorId?.fullName || 'Chưa chỉ định', // Backend không populate doctorId
-          doctorAvatar: apt.doctorId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+          doctorName: (() => {
+            // Kiểm tra các trường hợp khác nhau
+            if (!apt.doctorId) {
+              return 'Chưa chỉ định bác sĩ';
+            }
+            
+            // Trường hợp doctorId là string (chưa populate)
+            if (typeof apt.doctorId === 'string') {
+              return 'Chưa chỉ định bác sĩ';
+            }
+            
+            // Trường hợp doctorId đã được populate
+            if (apt.doctorId.userId?.fullName) {
+              return apt.doctorId.userId.fullName;
+            }
+            
+            // Trường hợp fallback với fullName trực tiếp
+            if (apt.doctorId.fullName) {
+              return apt.doctorId.fullName;
+            }
+            
+            return 'Chưa chỉ định bác sĩ';
+          })(),
+          doctorAvatar: (() => {
+              if (!apt.doctorId || typeof apt.doctorId === 'string') {
+                return 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150';
+              }
+              return apt.doctorId.userId?.avatar || apt.doctorId.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150';
+            })(),
           appointmentDate: new Date(apt.appointmentDate).toISOString().split('T')[0],
           appointmentTime: apt.appointmentTime,
           typeLocation: apt.typeLocation as string,
-          status: (apt.status === 'pending' ? 'pending_payment' : apt.status) as string, // Convert legacy pending to pending_payment
+          status: apt.status as string, // Giữ nguyên status từ database theo ERD
           price: apt.packageId?.price || apt.serviceId?.price || 0,
           createdAt: new Date(apt.createdAt).toISOString(),
           description: apt.description,
           notes: apt.notes,
           address: apt.address,
-          canCancel: ['pending', 'pending_payment', 'confirmed'].includes(apt.status),
-          canReschedule: ['pending', 'pending_payment', 'confirmed'].includes(apt.status),
+          canCancel: ['pending', 'confirmed'].includes(apt.status),
+          canReschedule: ['pending', 'confirmed'].includes(apt.status),
           rating: apt.rating,
           feedback: apt.feedback
         }));
-        console.log('✅ [Debug] Formatted appointments:', formattedAppointments);
-        console.log('🔍 [Debug] Appointments with pending_payment status:', 
-          formattedAppointments.filter((apt: Appointment) => apt.status === 'pending_payment'));
-        console.log('🔍 [Debug] Appointments with confirmed status:', 
-          formattedAppointments.filter((apt: Appointment) => apt.status === 'confirmed'));
+
         setAppointments(formattedAppointments);
         setFilteredAppointments(formattedAppointments);
       }
     } catch (error) {
       console.error('❌ [Debug] Error fetching appointments:', error);
-      console.log('ℹ️ [Debug] Falling back to mock data');
-      // Fallback to mock data if API fails
-      setAppointments(mockAppointments);
-      setFilteredAppointments(mockAppointments);
-      console.log('✅ [Debug] Mock appointments loaded:', mockAppointments);
-      console.log('🔍 [Debug] Mock appointments with pending_payment status:', 
-        mockAppointments.filter(apt => apt.status === 'pending_payment'));
+      
+      // 🔥 HIỂN THỊ LỖI CHI TIẾT THAY VÌ FALLBACK TO MOCK DATA
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          message.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+          navigate('/login');
+          return;
+        } else if (error.response?.status === 403) {
+          message.error('Bạn không có quyền truy cập dữ liệu này.');
+        } else if (error.response?.status === 404) {
+          message.error('API endpoint không tồn tại.');
+        } else if (error.response?.status >= 500) {
+          message.error('Lỗi server. Vui lòng thử lại sau.');
+        } else {
+          message.error(`Lỗi API: ${error.response?.data?.message || error.message}`);
+        }
+      } else {
+        message.error('Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.');
+      }
+      
+      // Set empty array when API error occurs
+      setAppointments([]);
+      setFilteredAppointments([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAppointments();
-  }, []);
+    if (!isAuthenticated || !user) {
+      console.log('🔍 [Debug] User not authenticated, redirecting to login...');
+      navigate('/login');
+      return;
+    }
 
-  // Listen for focus event to refresh data when returning from payment page
+    // Initial fetch
+    fetchAppointments();
+  }, [isAuthenticated, user, navigate]); // Bỏ appointments khỏi dependency để tránh vòng lặp
+
+  // Separate useEffect for auto-polling pending payments
+  useEffect(() => {
+    if (!appointments.length) return;
+
+    const autoCheckPayments = async () => {
+      try {
+        // Chỉ check nếu có appointments đang pending_payment
+        const pendingPayments = appointments.filter(apt => apt.status === 'pending_payment');
+        
+        if (pendingPayments.length > 0) {
+          console.log('🔄 [Auto-Poll] Found pending payments, checking...', pendingPayments.map(apt => apt.id));
+          
+          for (const appointment of pendingPayments) {
+            try {
+              // Check payment status qua PayOS API
+              const paymentStatusResponse = await axiosInstance.get(`/payments/appointments/${appointment.id}/payment/status`);
+              
+              if (paymentStatusResponse.data?.success && paymentStatusResponse.data?.data) {
+                const paymentData = paymentStatusResponse.data.data;
+                console.log('💳 [Auto-Poll] Payment status for', appointment.id, ':', paymentData.status);
+                
+                // Nếu payment đã thành công nhưng appointment vẫn pending_payment
+                if (paymentData.status === 'success' && paymentData.appointmentStatus === 'confirmed') {
+                  console.log('✅ [Auto-Poll] Payment confirmed by backend, refreshing appointments...');
+                  // Refresh appointments để lấy data mới (skip loading spinner)
+                  fetchAppointments(true);
+                  return; // Exit early after refresh
+                }
+              }
+            } catch (error) {
+              console.log('🔍 [Auto-Poll] Error checking payment for', appointment.id, ':', error.message);
+            }
+          }
+        }
+      } catch (error) {
+        console.log('🔍 [Auto-Poll] Auto-check error:', error.message);
+      }
+    };
+
+    // Auto-check mỗi 30 giây thay vì 10 giây (ít aggressive hơn)
+    const pollInterval = setInterval(autoCheckPayments, 30000);
+    
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [appointments]); // Separate useEffect cho auto-polling
+
+  // Separate useEffect for window focus handler
   useEffect(() => {
     const handleFocus = () => {
-      console.log('🔄 [Debug] Page focused - refreshing appointments...');
+
       fetchAppointments();
     };
 
     window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
+
+  // Listen for navigation state to refresh data when coming from payment success
+  useEffect(() => {
+    const navigationState = location.state?.refreshData;
+    const paymentCompleted = location.state?.paymentCompleted;
+    if (navigationState || paymentCompleted) {
+      console.log('🔄 [BookingHistory] Navigation state detected - refreshing appointments...', { 
+        refreshData: navigationState, 
+        paymentCompleted,
+        locationState: location.state 
+      });
+      
+      // Force refresh appointments data (skip loading spinner cho navigation refresh)
+      fetchAppointments(true);
+      
+      // Clear navigation state after processing to prevent infinite refresh
+      if (location.state) {
+        console.log('🔄 [BookingHistory] Clearing navigation state to prevent infinite refresh');
+        window.history.replaceState({}, '', location.pathname);
+      }
+    } else {
+      console.log('🔄 [BookingHistory] No navigation state detected, normal load');
+    }
+  }, [location.state]);
 
   useEffect(() => {
     let filtered = appointments;
@@ -301,9 +345,7 @@ const BookingHistory: React.FC = () => {
 
   const statusConfig = {
     pending: { color: '#faad14', text: 'Chờ xác nhận', icon: <Timer size={16} /> },
-    pending_payment: { color: '#ff7a00', text: 'Chờ thanh toán', icon: <DocumentText size={16} /> },
     confirmed: { color: '#52c41a', text: 'Đã xác nhận', icon: <TickCircle size={16} /> },
-    in_progress: { color: '#1890ff', text: 'Đang thực hiện', icon: <Activity size={16} /> },
     completed: { color: '#722ed1', text: 'Hoàn thành', icon: <TickCircle size={16} /> },
     cancelled: { color: '#f5222d', text: 'Đã hủy', icon: <Trash size={16} /> }
   };
@@ -312,7 +354,6 @@ const BookingHistory: React.FC = () => {
     online: { icon: <MonitorMobbile size={16} />, text: 'Online' },
     Online: { icon: <MonitorMobbile size={16} />, text: 'Online' }, // Backend trả về "Online" với O hoa
     clinic: { icon: <Location size={16} />, text: 'Phòng khám' },
-    home: { icon: <Home size={16} />, text: 'Tại nhà' }
   };
 
   const formatPrice = (price: number) => {
@@ -336,7 +377,7 @@ const BookingHistory: React.FC = () => {
       // Hiển thị loading message
       const loadingMessage = message.loading('Đang hủy lịch hẹn...', 0);
       
-      console.log('🔍 [Debug] Cancelling appointment:', appointment.id);
+
       
       // Gọi API hủy lịch - API mới đã được cập nhật để tự động trả lại slot trống
       const response = await appointmentApi.deleteAppointment(appointment.id);
@@ -345,7 +386,6 @@ const BookingHistory: React.FC = () => {
       loadingMessage();
       
       if (response.success) {
-        console.log('✅ [Debug] Cancel appointment response:', response);
         message.success({
           content: 'Hủy cuộc hẹn thành công! Lịch đã được trả lại.',
           icon: <TickCircle size={20} className="text-green-500" />,
@@ -364,7 +404,6 @@ const BookingHistory: React.FC = () => {
         );
       } else {
         // Xử lý trường hợp API trả về thành công nhưng không có success flag
-        console.log('✅ [Debug] Appointment cancelled without success flag');
         message.success({
           content: 'Hủy cuộc hẹn thành công! Lịch đã được trả lại.',
           icon: <TickCircle size={20} className="text-green-500" />,
@@ -399,7 +438,7 @@ const BookingHistory: React.FC = () => {
           if (firstErrorMessage) {
             errorMessage = firstErrorMessage as string;
             errorType = firstErrorKey;
-            console.log('🔍 [Debug] Lỗi validation:', { key: firstErrorKey, message: errorMessage });
+
           }
         } 
         // Trường hợp lỗi quyền truy cập (403)
@@ -446,14 +485,59 @@ const BookingHistory: React.FC = () => {
       
       // Làm mới danh sách lịch hẹn sau 1 giây
       setTimeout(() => {
-        console.log('🔄 [Debug] Refreshing appointments after cancellation');
         fetchAppointments();
       }, 1000);
     }
   };
 
   const handleReschedule = (appointment: Appointment) => {
-    navigate(`/booking?reschedule=${appointment.id}&service=${appointment.serviceId}`);
+    // 🎯 PACKAGE RESCHEDULE VALIDATION: Only allow direct reschedule for service appointments
+    if (appointment.packageName) {
+      // Package appointment → show modal requiring cancellation first
+      Modal.info({
+        title: '⚠️ Yêu cầu hủy lịch trước khi đổi lịch',
+        content: (
+          <div className="space-y-4">
+            <p className="text-gray-700">
+              Để đổi lịch gói dịch vụ <strong>"{appointment.packageName}"</strong>, 
+              bạn cần hủy lịch hiện tại trước và đặt lịch mới.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <h4 className="font-medium text-blue-800 mb-2">Quy trình đổi lịch gói dịch vụ:</h4>
+              <ol className="text-sm text-blue-700 space-y-1">
+                <li>1. Hủy lịch hẹn hiện tại (số lượt sử dụng sẽ được hoàn lại)</li>
+                <li>2. Đặt lịch mới với thời gian phù hợp</li>
+                <li>3. Hệ thống sẽ tự động sử dụng lượt từ gói dịch vụ</li>
+              </ol>
+            </div>
+            <p className="text-sm text-gray-600">
+              💡 <strong>Lưu ý:</strong> Quy định này chỉ áp dụng cho gói dịch vụ để đảm bảo 
+              tính chính xác của việc quản lý lượt sử dụng.
+            </p>
+          </div>
+        ),
+        okText: 'Đã hiểu',
+        width: 600,
+        className: 'reschedule-package-modal',
+        maskClosable: true,
+        icon: null, // Remove default icon để sử dụng emoji trong title
+      });
+      
+      console.log('🔍 [Package Reschedule] Blocked reschedule for package appointment:', {
+        appointmentId: appointment.id,
+        packageName: appointment.packageName,
+        serviceName: appointment.serviceName
+      });
+    } else {
+      // Service appointment → navigate normally as before
+      navigate(`/booking?reschedule=${appointment.id}&service=${appointment.serviceId}`);
+      
+      console.log('🔍 [Service Reschedule] Allowing direct reschedule for service appointment:', {
+        appointmentId: appointment.id,
+        serviceId: appointment.serviceId,
+        serviceName: appointment.serviceName
+      });
+    }
   };
 
   // const handleRebook = (appointment: Appointment) => {
@@ -472,9 +556,8 @@ const BookingHistory: React.FC = () => {
   };
 
   const handlePayment = (appointment: Appointment) => {
-    // Redirect đến trang thanh toán với thông tin appointment
-    const paymentUrl = `/payment?appointmentId=${appointment.id}&amount=${appointment.price}&service=${encodeURIComponent(appointment.serviceName)}`;
-    navigate(paymentUrl);
+    // Redirect đến trang PaymentProcessPage để tạo PayOS link
+    navigate(`/payment/process?appointmentId=${appointment.id}`);
   };
 
   if (loading) {
@@ -669,6 +752,17 @@ const BookingHistory: React.FC = () => {
             </div>
             <div className="flex gap-4">
               <ModernButton
+                variant="outline"
+                icon={<Refresh size={20} />}
+                onClick={() => {
+                  console.log('🔄 [Debug] Manual refresh button clicked');
+                  fetchAppointments();
+                }}
+                loading={loading}
+              >
+                Làm mới
+              </ModernButton>
+              <ModernButton
                 variant="primary"
                 icon={<Calendar size={20} />}
                 onClick={() => navigate('/booking')}
@@ -711,9 +805,7 @@ const BookingHistory: React.FC = () => {
             >
               <Option value="all">Tất cả trạng thái</Option>
               <Option value="pending">Chờ xác nhận</Option>
-              <Option value="pending_payment">Chờ thanh toán</Option>
               <Option value="confirmed">Đã xác nhận</Option>
-              <Option value="in_progress">Đang thực hiện</Option>
               <Option value="completed">Hoàn thành</Option>
               <Option value="cancelled">Đã hủy</Option>
             </Select>
@@ -730,7 +822,6 @@ const BookingHistory: React.FC = () => {
               <Option value="consultation">Tư vấn sức khỏe</Option>
               <Option value="sti-testing">Xét nghiệm STI/STD</Option>
               <Option value="health-checkup">Khám sức khỏe</Option>
-              <Option value="home-sampling">Lấy mẫu tại nhà</Option>
               <Option value="cycle-tracking">Theo dõi chu kỳ</Option>
             </Select>
 
@@ -813,10 +904,10 @@ const BookingHistory: React.FC = () => {
               icon: <TickCircle size={24} />
             },
             {
-              label: 'Chờ thanh toán', 
-              value: appointments.filter(a => a.status === 'pending_payment').length,
-              color: 'orange',
-              icon: <DocumentText size={24} />
+              label: 'Đã xác nhận', 
+              value: appointments.filter(a => a.status === 'confirmed').length,
+              color: 'green',
+              icon: <TickCircle size={24} />
             },
             {
               label: 'Đã hủy',
@@ -986,15 +1077,7 @@ const BookingHistory: React.FC = () => {
                                   </button>
                                 )}
 
-                                {appointment.status === 'pending_payment' && (
-                                  <button
-                                    onClick={() => handlePayment(appointment)}
-                                    className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
-                                    title="Thanh toán"
-                                  >
-                                    <DocumentText size={16} />
-                                  </button>
-                                )}
+
 
                                 {appointment.canCancel && (
                                   <button
@@ -1129,15 +1212,7 @@ const BookingHistory: React.FC = () => {
                           </button>
                         )}
 
-                        {appointment.status === 'pending_payment' && (
-                          <button
-                            onClick={() => handlePayment(appointment)}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg transition-colors"
-                          >
-                            <DocumentText size={12} />
-                            <span>Thanh toán</span>
-                          </button>
-                        )}
+
 
                         {appointment.canCancel && (
                           <button
@@ -1271,16 +1346,7 @@ const BookingHistory: React.FC = () => {
                             </ModernButton>
                           )}
 
-                          {appointment.status === 'pending_payment' && (
-                            <ModernButton
-                              variant="primary"
-                              className="text-sm bg-orange-500 hover:bg-orange-600"
-                              icon={<DocumentText size={14} />}
-                              onClick={() => handlePayment(appointment)}
-                            >
-                              Thanh toán
-                            </ModernButton>
-                          )}
+
 
                           {appointment.canCancel && (
                             <ModernButton
@@ -1483,9 +1549,8 @@ const BookingHistory: React.FC = () => {
                     },
                     ...(selectedAppointment.status !== 'cancelled' ? [
                       {
-                        color: selectedAppointment.status === 'pending_payment' ? 'orange' : 
-                               selectedAppointment.status === 'pending' ? 'blue' : 'green',
-                        children: selectedAppointment.status === 'pending_payment' ? 'Chờ thanh toán' : 'Chờ xác nhận'
+                        color: selectedAppointment.status === 'pending' ? 'blue' : 'green',
+                        children: selectedAppointment.status === 'pending' ? 'Chờ xác nhận' : 'Đã xác nhận'
                       }
                     ] : []),
                     ...(selectedAppointment.status === 'confirmed' || selectedAppointment.status === 'in_progress' || selectedAppointment.status === 'completed' ? [

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Package Purchase API</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .result { margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 3px; white-space: pre-wrap; font-family: monospace; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; }
+    </style>
+</head>
+<body>
+    <h1>Test Package Purchase API</h1>
+    
+    <div class="test-section">
+        <h3>1. Test Database Data</h3>
+        <button onclick="testDatabase()">Check Database Data</button>
+        <div id="db-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. Test User Purchased Packages</h3>
+        <button onclick="testUserPackages()">Get User Packages</button>
+        <div id="user-packages-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. Test Purchase Package</h3>
+        <input type="text" id="profileId" placeholder="Profile ID" style="width: 200px; margin: 5px;">
+        <input type="text" id="packageId" placeholder="Package ID" style="width: 200px; margin: 5px;">
+        <button onclick="testPurchase()">Purchase Package</button>
+        <div id="purchase-result" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        
+        // Mock token - Replace with real token
+        const AUTH_TOKEN = 'Bearer your-actual-token-here';
+        
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': AUTH_TOKEN
+                    }
+                };
+                
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                const result = await response.json();
+                
+                return {
+                    status: response.status,
+                    data: result,
+                    ok: response.ok
+                };
+            } catch (error) {
+                return {
+                    status: 0,
+                    data: { error: error.message },
+                    ok: false
+                };
+            }
+        }
+        
+        async function testDatabase() {
+            const result = await apiCall('/package-purchases/test');
+            const resultDiv = document.getElementById('db-result');
+            
+            if (result.ok) {
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ Success (${result.status})\n` + JSON.stringify(result.data, null, 2);
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error (${result.status})\n` + JSON.stringify(result.data, null, 2);
+            }
+        }
+        
+        async function testUserPackages() {
+            const result = await apiCall('/package-purchases/user');
+            const resultDiv = document.getElementById('user-packages-result');
+            
+            if (result.ok) {
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ Success (${result.status})\n` + JSON.stringify(result.data, null, 2);
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error (${result.status})\n` + JSON.stringify(result.data, null, 2);
+            }
+        }
+        
+        async function testPurchase() {
+            const profileId = document.getElementById('profileId').value;
+            const packageId = document.getElementById('packageId').value;
+            
+            if (!profileId || !packageId) {
+                alert('Please enter both Profile ID and Package ID');
+                return;
+            }
+            
+            const result = await apiCall('/package-purchases', 'POST', {
+                profileId,
+                packageId
+            });
+            
+            const resultDiv = document.getElementById('purchase-result');
+            
+            if (result.ok) {
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ Success (${result.status})\n` + JSON.stringify(result.data, null, 2);
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Error (${result.status})\n` + JSON.stringify(result.data, null, 2);
+            }
+        }
+        
+        // Auto-load database test on page load
+        window.onload = () => {
+            console.log('🔍 Test page loaded. Click buttons to test API endpoints.');
+            console.log('⚠️ Make sure to replace AUTH_TOKEN with a real token');
+        };
+    </script>
+</body>
+</html> 

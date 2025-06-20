@@ -46,8 +46,6 @@ const useAuth = (): UseAuthResult => {
    * Kiểm tra trạng thái đăng nhập khi ứng dụng khởi động
    */
   useEffect(() => {
-    // Tạm thời comment để debug register issue
-    /*
     // Kiểm tra xem có cookie access_token hoặc localStorage access_token không
     const hasCookies = document.cookie.split(';').some(c => c.trim().startsWith('access_token='));
     const hasLocalStorageToken = localStorage.getItem('access_token');
@@ -84,8 +82,6 @@ const useAuth = (): UseAuthResult => {
     if (!checkAuthAttemptRef.current) {
       checkAuth();
     }
-    */
-    console.log('Auto-check auth disabled for debugging');
   }, [dispatch]);
 
   /**

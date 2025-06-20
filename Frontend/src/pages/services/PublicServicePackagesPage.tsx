@@ -89,9 +89,7 @@ const PublicServicePackagesPage: React.FC = () => {
     }));
   };
 
-  const handleBookingPackage = (servicePackage: ServicePackage) => {
-    console.log('Booking package:', servicePackage);
-  };
+
 
   return (
     <div className="public-service-packages-page bg-gradient-to-br from-gray-50 to-green-50 min-h-screen">
@@ -214,7 +212,6 @@ const PublicServicePackagesPage: React.FC = () => {
                       servicePackage={servicePackage}
                       className="h-full"
                       showBookingButton={true}
-                      onBookingClick={handleBookingPackage}
                     />
                   </Col>
                 ))}

@@ -112,11 +112,7 @@ const PublicServicesPage: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Handle booking package
-  const handleBookingPackage = (servicePackage: ServicePackage) => {
-    console.log('Booking package:', servicePackage);
-    navigate('/booking');
-  };
+
 
   return (
     <div className="min-h-screen bg-white">
@@ -395,7 +391,6 @@ const PublicServicesPage: React.FC = () => {
                     <WarpBackground className="h-full group cursor-pointer">
                                              <ServicePackageDisplayCard
                          servicePackage={pkg}
-                         onBookingClick={handleBookingPackage}
                          className="h-full border-0 shadow-none"
                        />
                     </WarpBackground>
