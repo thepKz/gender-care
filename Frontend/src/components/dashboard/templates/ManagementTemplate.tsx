@@ -27,7 +27,8 @@ import {
   DollarOutlined,
   TrophyOutlined,
   CheckCircleOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  ExperimentOutlined
 } from '@ant-design/icons';
 import EnhancedStatsCard from '../widgets/EnhancedStatsCard';
 import ActivityFeed from '../widgets/ActivityFeed';
@@ -41,6 +42,8 @@ import ServiceManagement from '../../../pages/dashboard/management/ServiceManage
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
 import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedulePage';
+import MedicineManagement from '../../../pages/dashboard/management/MedicineManagement';
+import TestManagement from '../../../pages/dashboard/management/TestManagement';
 import { 
   defaultManagementStats, 
   defaultActivities, 
@@ -89,6 +92,16 @@ const getMenuItems = (role: 'admin' | 'manager') => {
       key: 'service-packages',
       icon: <AppstoreOutlined />,
       label: 'Quản lý gói dịch vụ',
+    },
+    {
+      key: 'medicines',
+      icon: <MedicineBoxOutlined />,
+      label: 'Quản lý thuốc',
+    },
+    {
+      key: 'test-categories',
+      icon: <ExperimentOutlined />,
+      label: 'Quản lý loại xét nghiệm',
     },
     {
       key: 'login-history',
@@ -658,6 +671,10 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         return <ServiceManagement />;
       case 'service-packages':
         return <ServicePackageManagement />;
+      case 'medicines':
+        return <MedicineManagement />;
+      case 'test-categories':
+        return <TestManagement />;
       case 'login-history':
         return <LoginHistoryManagement />;
       case 'reports':
