@@ -1,4 +1,3 @@
-
 import bcrypt from 'bcryptjs';
 import Doctor from '../models/Doctor';
 import User from '../models/User';
@@ -161,5 +160,38 @@ const seedDoctors = async () => {
   }
 };
 
-export default seedDoctors; 
+export default seedDoctors;
+
+// Thêm kết nối MongoDB và chạy seed
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
+
+const runSeed = async () => {
+  try {
+    // Kết nối MongoDB
+    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/gender-healthcare';
+    await mongoose.connect(mongoURI);
+    console.log('✅ Kết nối MongoDB thành công');
+
+    // Chạy seed
+    await seedDoctors();
+
+  } catch (error) {
+    console.error('❌ Lỗi khi seed doctors:', error);
+  } finally {
+    await mongoose.disconnect();
+    console.log('👋 Đã ngắt kết nối MongoDB');
+    process.exit(0);
+  }
+};
+
+// Chỉ chạy khi được gọi trực tiếp
+if (require.main === module) {
+  console.log('🚀 Doctor Seed Tool');
+  console.log('==================');
+  runSeed();
+} 
 
