@@ -11,6 +11,7 @@ import { Button, Card, Dropdown, Tag, Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { ServicePackage } from '../../../types';
 import ServicePackageDetailModal from '../modals/ServicePackageDetailModal';
+import PurchasePackageModal from '../modals/PurchasePackageModal';
 
 interface ServicePackageCardProps {
   servicePackage: ServicePackage;

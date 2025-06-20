@@ -19,6 +19,7 @@ import {
   medicinesRoutes,
   meetingRoutes,
   notificationDaysRoutes,
+  packagePurchaseRoutes,
   servicePackageRoutes,
   serviceRoutes,
   testCategoriesRoutes,
@@ -130,6 +131,7 @@ apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/doctors', doctorRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
+apiRouter.use('/package-purchases', packagePurchaseRoutes);
 
 // Thêm Test Management routes
 apiRouter.use('/test-categories', testCategoriesRoutes);

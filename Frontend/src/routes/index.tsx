@@ -53,6 +53,7 @@ import CreateProfilePage from '../pages/profile/create-profile';
 import EditProfilePage from '../pages/profile/edit-profile';
 import UserProfilesPage from '../pages/profile/UserProfilesPage';
 import ViewProfilePage from '../pages/profile/view-profile';
+import PurchasedPackagesPage from '../pages/purchased-packages';
 
 // Import Cycle Page
 import CyclePage from '../pages/cycle';
@@ -131,6 +132,9 @@ const AppRoutes: React.FC = () => {
         
         {/* User Profiles Page */}
         <Route path="/user-profiles" element={isAuthenticated ? <UserProfilesPage /> : <Navigate to="/login" replace />} />
+        
+        {/* Purchased Packages Page */}
+        <Route path="/purchased-packages" element={isAuthenticated ? <PurchasedPackagesPage /> : <Navigate to="/login" replace />} />
         
         {/* Cycle Tracking Page */}
         <Route path="/cycle" element={isAuthenticated ? <CyclePage /> : <Navigate to="/login" replace />} />

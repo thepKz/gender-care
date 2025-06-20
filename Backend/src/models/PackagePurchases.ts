@@ -22,12 +22,12 @@ const PackagePurchasesSchema = new mongoose.Schema<IPackagePurchases>({
   },
   profileId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'UserProfiles', 
+    ref: 'UserProfile', 
     required: true 
   },
   packageId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'ServicePackages', 
+    ref: 'ServicePackage', 
     required: true 
   },
   billId: { 
@@ -90,8 +90,8 @@ PackagePurchasesSchema.pre('save', async function(next) {
   try {
     // Nếu document mới và chưa có expiredAt, tính từ package
     if (this.isNew && !this.expiredAt) {
-      const ServicePackages = mongoose.model('ServicePackages');
-      const packageDoc = await ServicePackages.findById(this.packageId);
+      const ServicePackage = mongoose.model('ServicePackage');
+      const packageDoc = await ServicePackage.findById(this.packageId);
       
       if (!packageDoc) {
         return next(new Error('Package not found'));
@@ -99,12 +99,12 @@ PackagePurchasesSchema.pre('save', async function(next) {
       
       // Set expiredAt dựa trên activatedAt + durationInDays
       const expiredDate = new Date(this.activatedAt);
-      expiredDate.setDate(expiredDate.getDate() + packageDoc.durationInDays);
+      expiredDate.setDate(expiredDate.getDate() + (packageDoc.durationInDays || 30));
       this.expiredAt = expiredDate;
       
       // Set totalAllowedUses từ package nếu chưa có
       if (!this.totalAllowedUses) {
-        this.totalAllowedUses = packageDoc.maxUsages;
+        this.totalAllowedUses = packageDoc.maxUsages || 1;
       }
       
       // Set remainingUsages nếu chưa có

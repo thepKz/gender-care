@@ -495,7 +495,53 @@ const BookingHistory: React.FC = () => {
   };
 
   const handleReschedule = (appointment: Appointment) => {
-    navigate(`/booking?reschedule=${appointment.id}&service=${appointment.serviceId}`);
+    // 🎯 PACKAGE RESCHEDULE VALIDATION: Only allow direct reschedule for service appointments
+    if (appointment.packageName) {
+      // Package appointment → show modal requiring cancellation first
+      Modal.info({
+        title: '⚠️ Yêu cầu hủy lịch trước khi đổi lịch',
+        content: (
+          <div className="space-y-4">
+            <p className="text-gray-700">
+              Để đổi lịch gói dịch vụ <strong>"{appointment.packageName}"</strong>, 
+              bạn cần hủy lịch hiện tại trước và đặt lịch mới.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <h4 className="font-medium text-blue-800 mb-2">Quy trình đổi lịch gói dịch vụ:</h4>
+              <ol className="text-sm text-blue-700 space-y-1">
+                <li>1. Hủy lịch hẹn hiện tại (số lượt sử dụng sẽ được hoàn lại)</li>
+                <li>2. Đặt lịch mới với thời gian phù hợp</li>
+                <li>3. Hệ thống sẽ tự động sử dụng lượt từ gói dịch vụ</li>
+              </ol>
+            </div>
+            <p className="text-sm text-gray-600">
+              💡 <strong>Lưu ý:</strong> Quy định này chỉ áp dụng cho gói dịch vụ để đảm bảo 
+              tính chính xác của việc quản lý lượt sử dụng.
+            </p>
+          </div>
+        ),
+        okText: 'Đã hiểu',
+        width: 600,
+        className: 'reschedule-package-modal',
+        maskClosable: true,
+        icon: null, // Remove default icon để sử dụng emoji trong title
+      });
+      
+      console.log('🔍 [Package Reschedule] Blocked reschedule for package appointment:', {
+        appointmentId: appointment.id,
+        packageName: appointment.packageName,
+        serviceName: appointment.serviceName
+      });
+    } else {
+      // Service appointment → navigate normally as before
+      navigate(`/booking?reschedule=${appointment.id}&service=${appointment.serviceId}`);
+      
+      console.log('🔍 [Service Reschedule] Allowing direct reschedule for service appointment:', {
+        appointmentId: appointment.id,
+        serviceId: appointment.serviceId,
+        serviceName: appointment.serviceName
+      });
+    }
   };
 
   // const handleRebook = (appointment: Appointment) => {
