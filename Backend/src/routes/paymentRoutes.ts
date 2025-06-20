@@ -13,4 +13,7 @@ router.post('/appointments/:appointmentId/payment/cancel', authMiddleware, payme
 // Public webhook route - không cần auth vì PayOS gọi
 router.post('/payos/webhook', paymentController.payosWebhook);
 
+// Fast confirm payment với status=PAID từ PayOS URL
+router.put('/fast-confirm', authMiddleware, paymentController.fastConfirmPayment);
+
 export default router; 

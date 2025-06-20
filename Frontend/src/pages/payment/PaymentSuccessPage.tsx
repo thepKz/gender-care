@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axiosInstance from '../../api/axiosConfig';
+import { fastConfirmPayment } from '../../api/endpoints/payment';
 
 interface AppointmentData {
   appointmentDate: string;
@@ -12,6 +13,11 @@ interface AppointmentData {
 }
 
 const PaymentSuccessPage = () => {
+  // FORCE RENDER DEBUG
+  console.log('🚨 [PaymentSuccess] COMPONENT RENDERING!!!');
+  console.log('🚨 [PaymentSuccess] Current URL:', window.location.href);
+  
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const appointmentId = searchParams.get('appointmentId');
   
@@ -47,31 +53,50 @@ const PaymentSuccessPage = () => {
 
   // CRITICAL: IMMEDIATE redirect for PAID status without ANY delay
   useEffect(() => {
+    console.log('🚀 [PaymentSuccess] Component mounted/updated');
+    console.log('🔍 [PaymentSuccess] Current URL:', window.location.href);
+    
     const code = searchParams.get('code');
     const cancel = searchParams.get('cancel');
     const status = searchParams.get('status');
     
-    console.log('🎯 [PaymentSuccess] URL Parameters:', { code, cancel, status, appointmentId });
+    console.log('🎯 [PaymentSuccess] URL Parameters:', { 
+      code, 
+      cancel, 
+      status, 
+      appointmentId,
+      updateAttempted 
+    });
     
-    if (code === '00' && cancel === 'false' && status === 'PAID') {
-      console.log('🚨 [PaymentSuccess] PAID DETECTED - IMMEDIATE REDIRECT NO DELAY');
+    // Debug exact condition check
+    const isPaid = code === '00' && cancel === 'false' && status === 'PAID';
+    console.log('✅ [PaymentSuccess] Is PAID condition met?', isPaid);
+    
+    if (isPaid) {
+      console.log('🚨 [PaymentSuccess] PAID DETECTED - STARTING REDIRECT');
       
       // START API call in background
       if (appointmentId && !updateAttempted) {
+        console.log('🔄 [PaymentSuccess] Starting API call...');
         updateAppointmentPaymentStatus();
       }
       
-      // FORCE IMMEDIATE REDIRECT - don't wait for API
-      window.location.href = '/booking-history';
+      // Use React Router navigation với replace để clean URL
+      console.log('🚀 [PaymentSuccess] Calling navigate...');
+      navigate('/booking-history', { replace: true });
+      console.log('✅ [PaymentSuccess] Navigate called');
       return;
-    } else if (cancel === 'true') {
-      setPaymentStatus('cancelled');
-    } else if (status && status !== 'PAID') {
-      setPaymentStatus('pending');
     } else {
-      setPaymentStatus('failed');
+      console.log('⚠️ [PaymentSuccess] PAID condition not met, setting other status');
+      if (cancel === 'true') {
+        setPaymentStatus('cancelled');
+      } else if (status && status !== 'PAID') {
+        setPaymentStatus('pending');
+      } else {
+        setPaymentStatus('failed');
+      }
     }
-  }, [searchParams, appointmentId]);
+  }, [searchParams, appointmentId, updateAttempted, navigate]);
 
   // Auto redirect countdown
   useEffect(() => {
@@ -106,37 +131,70 @@ const PaymentSuccessPage = () => {
   const updateAppointmentPaymentStatus = async () => {
     setUpdateAttempted(true);
     
+    const orderCode = searchParams.get('orderCode');
+    const status = searchParams.get('status');
+    
+    if (!orderCode || !status) {
+      console.error('❌ [PaymentSuccess] Missing orderCode or status from URL');
+      setError('Thiếu thông tin thanh toán');
+      setLoading(false);
+      return;
+    }
+    
     try {
-      console.log('💳 [PaymentSuccess] Updating payment status for:', appointmentId);
+      console.log('⚡ [PaymentSuccess] Fast confirming payment for:', appointmentId);
       
-      // Call payment update API
-      const updateResponse = await axiosInstance.put(`/appointments/${appointmentId}/payment`, {
-        status: 'confirmed'
+      // Use NEW fast confirm API
+      const updateResponse = await fastConfirmPayment({
+        appointmentId: appointmentId!,
+        orderCode: orderCode,
+        status: status
       });
       
-      console.log('✅ [PaymentSuccess] Update response:', updateResponse.data);
+      console.log('✅ [PaymentSuccess] Fast confirm response:', updateResponse);
       
-      // Fetch updated appointment
-      const appointmentResponse = await axiosInstance.get(`/appointments/${appointmentId}`);
-      
-      if (appointmentResponse.data?.data) {
-        setAppointment(appointmentResponse.data.data);
-        console.log('📋 [PaymentSuccess] Updated appointment loaded:', appointmentResponse.data.data.status);
+      if (updateResponse.success) {
+        setAppointment({
+          appointmentDate: '', // Sẽ được load từ API khác nếu cần
+          appointmentTime: '',
+          status: 'confirmed',
+          totalAmount: 0
+        });
+        console.log('📋 [PaymentSuccess] Payment confirmed successfully');
+        
+        // Set success immediately để có thể redirect
+        setPaymentStatus('success');
+        
+        // Immediate redirect after successful fast confirm
+        console.log('🚀 [PaymentSuccess] Fast confirm successful, redirecting immediately...');
+        setTimeout(() => {
+          window.location.href = '/booking-history';
+        }, 1000); // 1 second delay for user to see success message
       }
       
     } catch (error) {
-      console.error('❌ [PaymentSuccess] Update failed:', error);
-      console.error('❌ [PaymentSuccess] Error details:', error.response?.data);
+      console.error('❌ [PaymentSuccess] Fast confirm failed:', error);
       
-      // Fallback: still fetch appointment info
+      // Fallback to old API method
       try {
+        console.log('🔄 [PaymentSuccess] Falling back to old API...');
+        const updateResponse = await axiosInstance.put(`/appointments/${appointmentId}/payment`, {
+          status: 'confirmed'
+        });
+        
+        console.log('✅ [PaymentSuccess] Fallback update response:', updateResponse.data);
+        
+        // Fetch updated appointment
         const appointmentResponse = await axiosInstance.get(`/appointments/${appointmentId}`);
+        
         if (appointmentResponse.data?.data) {
           setAppointment(appointmentResponse.data.data);
+          console.log('📋 [PaymentSuccess] Updated appointment loaded:', appointmentResponse.data.data.status);
         }
-      } catch (fetchError) {
-        console.error('❌ [PaymentSuccess] Fetch fallback failed:', fetchError);
-        setError('Không thể cập nhật trạng thái thanh toán');
+        
+      } catch (fallbackError) {
+        console.error('❌ [PaymentSuccess] Both fast confirm and fallback failed:', fallbackError);
+        setError('Không thể cập nhật trạng thái thanh toán. Vui lòng kiểm tra lịch sử đặt lịch.');
       }
     } finally {
       setLoading(false);
@@ -163,11 +221,8 @@ const PaymentSuccessPage = () => {
 
   const handleNavigateToBookingHistory = () => {
     console.log('🚀 [PaymentSuccess] Navigating to booking history...');
-    // Clear all state
     setCountdown(0);
-    
-    // Force complete page reload to clear stuck URL - fix URL không thay đổi
-    window.location.replace('/booking-history');
+    navigate('/booking-history', { replace: true });
   };
 
   const handleSkipCountdown = () => {
@@ -381,7 +436,7 @@ const PaymentSuccessPage = () => {
             </button>
             
             <button 
-              onClick={() => window.location.replace('/')}
+              onClick={() => navigate('/', { replace: true })}
               className="w-full border border-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition duration-200"
             >
               Về trang chủ

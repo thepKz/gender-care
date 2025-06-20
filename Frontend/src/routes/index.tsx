@@ -148,7 +148,24 @@ const AppRoutes: React.FC = () => {
         
         {/* Payment Processing Pages */}
         <Route path="/payment/process" element={<PaymentProcessPage />} />
-        <Route path="/payment/success" element={<PaymentSuccessPageNew />} />
+        <Route path="/payment/success" element={
+          // IMMEDIATE redirect for PAID status
+          (() => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const status = urlParams.get('status');
+            const code = urlParams.get('code');
+            const cancel = urlParams.get('cancel');
+            
+            if (code === '00' && cancel === 'false' && status === 'PAID') {
+              console.log('🚨 [RouteLevel] PAID detected - immediate redirect');
+              // Force immediate redirect at route level
+              window.location.replace('/booking-history');
+              return <div>Redirecting...</div>;
+            }
+            
+            return <PaymentSuccessPageNew />;
+          })()
+        } />
         <Route path="/payment/cancel" element={<PaymentCancelPage />} />
         
         {/* Consultation Pages */}

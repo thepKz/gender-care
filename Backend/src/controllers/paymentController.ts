@@ -206,10 +206,10 @@ export class PaymentController {
             paymentTracking.orderCode
           );
 
-          console.log('💳 [PaymentController] PayOS status response:', paymentInfo.status);
+          console.log('[PaymentController] PayOS status response:', paymentInfo.status);
 
           if (paymentInfo.status === 'PAID') {
-            console.log('✅ [PaymentController] Payment CONFIRMED by PayOS - updating appointment...');
+            console.log('[PaymentController] Payment CONFIRMED by PayOS - updating appointment...');
             
             await paymentTracking.updatePaymentStatus('success', {
               reference: paymentInfo.transactions?.[0]?.reference,
@@ -221,16 +221,16 @@ export class PaymentController {
             appointment.paidAt = new Date();
             await appointment.save();
 
-            console.log('✅ [PaymentController] Appointment status updated to confirmed');
+            console.log('[PaymentController] Appointment status updated to confirmed');
 
           } else if (paymentInfo.status === 'CANCELLED') {
-            console.log('❌ [PaymentController] Payment cancelled by PayOS');
+            console.log('PaymentController] Payment cancelled by PayOS');
             await paymentTracking.updatePaymentStatus('cancelled');
           } else {
-            console.log('⏳ [PaymentController] Payment still pending in PayOS');
+            console.log('[PaymentController] Payment still pending in PayOS');
           }
         } catch (error) {
-          console.error('❌ [PaymentController] Error checking PayOS status:', error);
+          console.error('[PaymentController] Error checking PayOS status:', error);
         }
       }
 
@@ -238,7 +238,7 @@ export class PaymentController {
       const updatedAppointment = await Appointments.findById(appointmentId);
 
       if (!updatedAppointment) {
-        console.log('❌ [PaymentController] Updated appointment not found');
+        console.log('[PaymentController] Updated appointment not found');
         return res.status(404).json({
           success: false,
           message: 'Appointment không tồn tại sau khi cập nhật'
@@ -321,6 +321,133 @@ export class PaymentController {
       console.error('Error canceling payment:', error);
       return res.status(500).json({
         message: 'Lỗi hủy thanh toán',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  // Fast confirm payment khi đã có status=PAID từ PayOS URL
+  fastConfirmPayment = async (req: AuthRequest, res: Response) => {
+    try {
+      const { appointmentId, orderCode, status } = req.body;
+      const userId = req.user?._id;
+
+      console.log('🚀 [PaymentController] Fast confirm payment:', { appointmentId, orderCode, status, userId });
+
+      // Validate required fields
+      if (!appointmentId || !orderCode || !status) {
+        return res.status(400).json({
+          success: false,
+          message: 'Thiếu thông tin cần thiết: appointmentId, orderCode, status'
+        });
+      }
+
+      // Chỉ chấp nhận status PAID
+      if (status !== 'PAID') {
+        return res.status(400).json({
+          success: false,
+          message: 'Chỉ chấp nhận thanh toán thành công (status=PAID)'
+        });
+      }
+
+      // Tìm appointment
+      const appointment = await Appointments.findOne({ 
+        _id: appointmentId,
+        createdByUserId: userId
+      });
+
+      if (!appointment) {
+        console.log('❌ [PaymentController] Appointment not found for fast confirm');
+        return res.status(404).json({
+          success: false,
+          message: 'Appointment không tồn tại'
+        });
+      }
+
+      // Nếu đã confirmed rồi thì trả về thành công luôn
+      if ((appointment.status as any) === 'confirmed') {
+        console.log('✅ [PaymentController] Appointment already confirmed');
+        return res.status(200).json({
+          success: true,
+          message: 'Cuộc hẹn đã được xác nhận trước đó',
+          data: {
+            appointmentStatus: appointment.status,
+            paymentStatus: appointment.paymentStatus,
+            paidAt: appointment.paidAt
+          }
+        });
+      }
+
+      // Tìm payment tracking
+      const paymentTracking = await PaymentTracking.findOne({ 
+        appointmentId: appointmentId,
+        orderCode: parseInt(orderCode)
+      });
+
+      if (!paymentTracking) {
+        console.log('❌ [PaymentController] Payment tracking not found for fast confirm');
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy thông tin thanh toán với orderCode này'
+        });
+      }
+
+      // Nếu payment đã success rồi thì trả về luôn
+      if (paymentTracking.status === 'success') {
+        console.log('✅ [PaymentController] Payment already success');
+        // Đảm bảo appointment cũng đã confirmed
+        if ((appointment.status as any) !== 'confirmed') {
+          (appointment.status as any) = 'confirmed';
+          (appointment.paymentStatus as any) = 'paid';
+          appointment.paidAt = new Date();
+          await appointment.save();
+        }
+        
+        return res.status(200).json({
+          success: true,
+          message: 'Thanh toán đã được xác nhận trước đó',
+          data: {
+            appointmentStatus: 'confirmed',
+            paymentStatus: 'paid',
+            paidAt: appointment.paidAt
+          }
+        });
+      }
+
+      // FAST UPDATE - Tin tưởng status=PAID từ PayOS URL
+      console.log('⚡ [PaymentController] Fast updating payment status to success...');
+      
+      // Update payment tracking
+      await paymentTracking.updatePaymentStatus('success', {
+        fastConfirmTimestamp: new Date(),
+        statusFromUrl: status
+      });
+
+      // Update appointment
+      (appointment.status as any) = 'confirmed';
+      (appointment.paymentStatus as any) = 'paid';
+      appointment.paidAt = new Date();
+      await appointment.save();
+
+      console.log('✅ [PaymentController] Fast confirm completed successfully');
+
+      return res.status(200).json({
+        success: true,
+        message: 'Xác nhận thanh toán nhanh thành công',
+        data: {
+          orderCode: paymentTracking.orderCode,
+          appointmentStatus: appointment.status,
+          paymentStatus: appointment.paymentStatus,
+          paidAt: appointment.paidAt,
+          fastConfirmed: true
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ [PaymentController] Error in fast confirm payment:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Lỗi xác nhận thanh toán nhanh',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }

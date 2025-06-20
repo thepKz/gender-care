@@ -57,10 +57,23 @@ export const cancelPayment = async (appointmentId: string): Promise<{ success: b
   return response.data;
 };
 
+/**
+ * Fast confirm payment khi đã có status=PAID từ PayOS URL
+ */
+export const fastConfirmPayment = async (data: {
+  appointmentId: string;
+  orderCode: string;
+  status: string;
+}): Promise<{success: boolean; message: string; data?: unknown}> => {
+  const response = await axiosInstance.put('/payments/fast-confirm', data);
+  return response.data;
+};
+
 const paymentApi = {
   createPaymentLink,
   checkPaymentStatus,
   cancelPayment,
+  fastConfirmPayment,
 };
 
 export default paymentApi; 
