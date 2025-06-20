@@ -27,14 +27,13 @@ import {
   LeftOutlined,
   RightOutlined,
   PlayCircleOutlined,
-  ReloadOutlined,
-  StopOutlined
+  ReloadOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import appointmentManagementService from '../../../api/services/appointmentManagementService';
-import { UnifiedAppointment } from '../../../types/appointment';
+import { UnifiedAppointment, ApiConsultation } from '../../../types/appointment';
 import { meetingAPI, MeetingData } from '../../../api/endpoints/meeting';
 import { mockConsultations, ConsultationMockData } from '../../../shared/mockData/consultationMockData';
 
@@ -96,6 +95,42 @@ const DoctorScheduleCalendar: React.FC = () => {
   const [currentMeeting, setCurrentMeeting] = useState<MeetingData | null>(null);
 
   // Load real appointment data from API + Mock consultations for testing
+  // Transform ConsultationMockData to UnifiedAppointment
+  const transformMockDataToUnified = (mockData: ConsultationMockData[]): UnifiedAppointment[] => {
+    return mockData.map(mock => ({
+      key: mock._id,
+      _id: mock._id,
+      patientName: mock.patientName,
+      patientPhone: mock.patientPhone,
+      serviceName: mock.serviceName,
+      serviceType: 'consultation',
+      appointmentDate: mock.appointmentDate,
+      appointmentTime: mock.appointmentTime,
+      appointmentType: 'online-consultation' as const,
+      typeLocation: 'Online' as const,
+      description: mock.description,
+      notes: mock.notes,
+      status: mock.status,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      type: 'consultation' as const,
+      originalData: {
+        _id: mock._id,
+        userId: mock.userId,
+        fullName: mock.fullName,
+        phone: mock.phone,
+        question: mock.question,
+        status: mock.status,
+        appointmentDate: mock.appointmentDate,
+        appointmentSlot: mock.appointmentSlot,
+        notes: mock.notes,
+        doctorNotes: mock.doctorNotes,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      } as ApiConsultation
+    }));
+  };
+
   const loadAppointments = async () => {
     try {
       setLoading(true);
@@ -107,8 +142,11 @@ const DoctorScheduleCalendar: React.FC = () => {
         limit: 500 // Lấy nhiều để cover cả tuần
       });
       
-      // Mix real data với mock consultations để test
-      const mixedData = [...appointmentData, ...mockConsultations];
+      // Transform mock consultations to UnifiedAppointment format
+      const transformedMockData = transformMockDataToUnified(mockConsultations);
+      
+      // Mix real data với transformed mock consultations để test
+      const mixedData = [...appointmentData, ...transformedMockData];
       
       console.log('✅ [DEBUG] Calendar loaded appointments:', mixedData.length);
       setAppointments(mixedData);
@@ -119,7 +157,8 @@ const DoctorScheduleCalendar: React.FC = () => {
       
       // Fallback to mock data for testing
       console.log('📋 [DEBUG] Using mock consultation data for testing');
-      setAppointments(mockConsultations);
+      const transformedMockData = transformMockDataToUnified(mockConsultations);
+      setAppointments(transformedMockData);
     } finally {
       setLoading(false);
     }
@@ -382,23 +421,21 @@ const DoctorScheduleCalendar: React.FC = () => {
     try {
       setMeetingLoading(true);
 
-      // For mock data, simulate status change
-      if (mockConsultations.find(m => m._id === appointment._id)) {
+      // For mock data, simulate status change - check if it's from our transformed mock data
+      const isFromMockData = mockConsultations.find(m => m._id === appointment._id);
+      if (isFromMockData) {
         console.log('🧪 [MOCK] Simulating consultation start for:', appointment.patientName);
         
-        // Update status in mock data
-        const mockConsultation = appointment as ConsultationMockData;
         if (config.action === 'join') {
-          // Start consultation
-          mockConsultation.status = 'consulting';
-          if (mockConsultation.originalData) {
-            mockConsultation.originalData.status = 'consulting';
+          // Start consultation - update status in the original data
+          if (appointment.originalData && 'status' in appointment.originalData) {
+            (appointment.originalData as ApiConsultation).status = 'consulting';
           }
           message.success(`Đã bắt đầu tư vấn với ${appointment.patientName}`);
         }
         
         // Open Jitsi meeting
-        const meetingLink = mockConsultation.meetingLink || `https://meet.jit.si/consultation-${appointment._id}-${Date.now()}`;
+        const meetingLink = isFromMockData.meetingLink || `https://meet.jit.si/consultation-${appointment._id}-${Date.now()}`;
         window.open(meetingLink, '_blank');
         message.success('Đã mở Jitsi Meet');
         
@@ -486,14 +523,14 @@ const DoctorScheduleCalendar: React.FC = () => {
     try {
       setMeetingLoading(true);
 
-      // For mock data, simulate completion
-      if (mockConsultations.find(m => m._id === appointment._id)) {
+      // For mock data, simulate completion - check if it's from our transformed mock data
+      const isFromMockData = mockConsultations.find(m => m._id === appointment._id);
+      if (isFromMockData) {
         console.log('🧪 [MOCK] Completing consultation for:', appointment.patientName);
         
-        const mockConsultation = appointment as ConsultationMockData;
-        mockConsultation.status = 'completed';
-        if (mockConsultation.originalData) {
-          mockConsultation.originalData.status = 'completed';
+        // Update status in the original data
+        if (appointment.originalData && 'status' in appointment.originalData) {
+          (appointment.originalData as ApiConsultation).status = 'completed';
         }
         
         message.success(`Đã hoàn thành tư vấn với ${appointment.patientName}`);
