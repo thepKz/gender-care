@@ -1,9 +1,8 @@
 import express from 'express';
-import { PaymentController } from '../controllers/paymentController';
+import paymentController from '../controllers/paymentController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = express.Router();
-const paymentController = new PaymentController();
 
 // Protected routes - require authentication
 router.post('/appointments/:appointmentId/payment', authMiddleware, paymentController.createPaymentLink);

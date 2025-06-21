@@ -11,7 +11,7 @@ export class PaymentController {
       const { appointmentId } = req.params;
       const userId = req.user?._id;
 
-      const appointment = await Appointments.findOne({ 
+      const appointment = await Appointments.findOne({
         _id: appointmentId,
         createdByUserId: userId,
         status: 'pending_payment'
@@ -23,8 +23,8 @@ export class PaymentController {
         });
       }
 
-      const existingPayment = await PaymentTracking.findOne({ 
-        appointmentId: appointmentId 
+      const existingPayment = await PaymentTracking.findOne({
+        appointmentId: appointmentId
       });
 
       if (existingPayment && existingPayment.status === 'success') {
@@ -33,9 +33,30 @@ export class PaymentController {
         });
       }
 
-      const amount = appointment.totalAmount || 0;
+      // Tính toán amount từ service hoặc package
+      let amount = appointment.totalAmount || 0;
+
+      // Nếu totalAmount = 0, tính lại từ service/package
+      if (amount === 0) {
+        if (appointment.serviceId) {
+          const serviceData = (appointment.serviceId as any);
+          amount = serviceData.price || 0;
+        } else if (appointment.packageId) {
+          const packageData = (appointment.packageId as any);
+          amount = packageData.price || 0;
+        }
+      }
+
+      // Validate amount
+      if (amount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Không thể tạo thanh toán với số tiền bằng 0. Vui lòng kiểm tra lại dịch vụ hoặc gói.',
+          error: 'INVALID_AMOUNT'
+        });
+      }
       const serviceName = (appointment.serviceId as any)?.serviceName || (appointment.packageId as any)?.name || 'Dịch vụ y tế';
-      
+
       // PayOS chỉ cho phép description tối đa 25 ký tự
       let description = `Thanh toán - ${serviceName}`;
       if (description.length > 25) {
@@ -51,8 +72,8 @@ export class PaymentController {
         description,
         customerName: req.user?.fullName || 'Khách hàng',
         customerEmail: req.user?.email,
-        returnUrl: `${process.env.FRONTEND_URL}/payment/success?appointmentId=${appointmentId}`,
-        cancelUrl: `${process.env.FRONTEND_URL}/payment/cancel?appointmentId=${appointmentId}`
+        returnUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/success?appointmentId=${appointmentId}`,
+        cancelUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/cancel?appointmentId=${appointmentId}`
       });
 
       let paymentTracking;
@@ -167,7 +188,7 @@ export class PaymentController {
 
       console.log('🔍 [PaymentController] Checking payment status for appointment:', appointmentId, 'user:', userId);
 
-      const appointment = await Appointments.findOne({ 
+      const appointment = await Appointments.findOne({
         _id: appointmentId,
         createdByUserId: userId
       });
@@ -182,8 +203,8 @@ export class PaymentController {
 
       console.log('📋 [PaymentController] Current appointment status:', appointment.status);
 
-      const paymentTracking = await PaymentTracking.findOne({ 
-        appointmentId: appointmentId 
+      const paymentTracking = await PaymentTracking.findOne({
+        appointmentId: appointmentId
       });
 
       if (!paymentTracking) {
@@ -200,7 +221,7 @@ export class PaymentController {
       // ALWAYS check PayOS status nếu appointment vẫn pending_payment
       if (appointment.status === 'pending_payment' || paymentTracking.status === 'pending') {
         console.log('🔄 [PaymentController] Checking with PayOS for latest status...');
-        
+
         try {
           const paymentInfo = await payosService.getPaymentStatus(
             paymentTracking.orderCode
@@ -210,7 +231,7 @@ export class PaymentController {
 
           if (paymentInfo.status === 'PAID') {
             console.log('[PaymentController] Payment CONFIRMED by PayOS - updating appointment...');
-            
+
             await paymentTracking.updatePaymentStatus('success', {
               reference: paymentInfo.transactions?.[0]?.reference,
               transactionDateTime: paymentInfo.transactions?.[0]?.transactionDateTime
@@ -276,7 +297,7 @@ export class PaymentController {
       const { appointmentId } = req.params;
       const userId = req.user?._id;
 
-      const appointment = await Appointments.findOne({ 
+      const appointment = await Appointments.findOne({
         _id: appointmentId,
         createdByUserId: userId,
         status: 'pending_payment'
@@ -288,7 +309,7 @@ export class PaymentController {
         });
       }
 
-      const paymentTracking = await PaymentTracking.findOne({ 
+      const paymentTracking = await PaymentTracking.findOne({
         appointmentId: appointmentId,
         status: 'pending'
       });
@@ -309,7 +330,7 @@ export class PaymentController {
       }
 
       await paymentTracking.updatePaymentStatus('cancelled');
-      
+
       appointment.status = 'pending';
       await appointment.save();
 
@@ -351,7 +372,7 @@ export class PaymentController {
       }
 
       // Tìm appointment
-      const appointment = await Appointments.findOne({ 
+      const appointment = await Appointments.findOne({
         _id: appointmentId,
         createdByUserId: userId
       });
@@ -379,7 +400,7 @@ export class PaymentController {
       }
 
       // Tìm payment tracking
-      const paymentTracking = await PaymentTracking.findOne({ 
+      const paymentTracking = await PaymentTracking.findOne({
         appointmentId: appointmentId,
         orderCode: parseInt(orderCode)
       });
@@ -402,7 +423,7 @@ export class PaymentController {
           appointment.paidAt = new Date();
           await appointment.save();
         }
-        
+
         return res.status(200).json({
           success: true,
           message: 'Thanh toán đã được xác nhận trước đó',
@@ -416,7 +437,7 @@ export class PaymentController {
 
       // FAST UPDATE - Tin tưởng status=PAID từ PayOS URL
       console.log('⚡ [PaymentController] Fast updating payment status to success...');
-      
+
       // Update payment tracking
       await paymentTracking.updatePaymentStatus('success', {
         fastConfirmTimestamp: new Date(),
@@ -452,4 +473,6 @@ export class PaymentController {
       });
     }
   };
-} 
+}
+
+export default new PaymentController();
