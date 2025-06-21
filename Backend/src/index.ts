@@ -63,6 +63,7 @@ if (!envLoaded) {
 console.log('🔍 Environment Variables Check:');
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('PORT:', process.env.PORT);
+console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
 console.log('PAYOS_CLIENT_ID exists:', !!process.env.PAYOS_CLIENT_ID);
 console.log('PAYOS_API_KEY exists:', !!process.env.PAYOS_API_KEY);
 console.log('PAYOS_CHECKSUM_KEY exists:', !!process.env.PAYOS_CHECKSUM_KEY);
@@ -160,7 +161,7 @@ app.use('/api', apiRouter);
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/users', userRoutes);
 apiRouter.use('/login-history', loginHistoryRoutes);
-apiRouter.use('/dashboard', dashboardRoutes); 
+apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/doctors', doctorRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);

@@ -1,4 +1,4 @@
-import { ConfigProvider, notification } from 'antd';
+import { ConfigProvider, notification, App as AntApp } from 'antd';
 import React, { useEffect } from 'react';
 import { useAuth } from './hooks/useAuth';
 import { useAppDispatch } from './redux/hooks';
@@ -87,7 +87,9 @@ const App: React.FC = () => {
         },
       }}
     >
-      <AppRoutes />
+      <AntApp>
+        <AppRoutes />
+      </AntApp>
     </ConfigProvider>
   );
 };
