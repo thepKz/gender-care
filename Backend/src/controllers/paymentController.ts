@@ -1,7 +1,9 @@
 import { Request, Response } from 'express';
-import payosService from '../services/payosService';
-import PaymentTracking from '../models/PaymentTracking';
 import Appointments from '../models/Appointments';
+import PaymentTracking from '../models/PaymentTracking';
+import '../models/Service';
+import '../models/ServicePackages';
+import payosService from '../services/payosService';
 import { AuthRequest } from '../types/auth';
 
 export class PaymentController {
