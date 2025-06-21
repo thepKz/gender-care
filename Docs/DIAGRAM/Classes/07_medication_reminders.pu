@@ -1,0 +1,161 @@
+@startuml 07_medication_reminders
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Medication Reminders System - Class Diagram (Real Implementation)
+
+package "Medication Management System" {
+    class Medicines {
+        - name : string
+        - type : MedicineType
+        - description : string
+        - defaultDosage : string
+        - defaultTimingInstructions : string
+        - isActive : boolean
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + getName() : string
+        + getType() : MedicineType
+        + getDefaultDosage() : string
+        + activate() : boolean
+        + deactivate() : boolean
+        - validateType() : boolean
+    }
+
+    class MedicationReminders {
+        - createdByUserId : ObjectId
+        - profileId : ObjectId
+        - medicalRecordId : ObjectId
+        - medicines : IMedicines[]
+        - startDate : Date
+        - endDate : Date
+        - isActive : boolean
+        - isDeleted : boolean
+        - notes : string
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createReminder() : boolean
+        + updateReminder() : boolean
+        + deleteReminder() : boolean
+        + getActiveMedicines() : IMedicines[]
+        + addMedicine(medicine) : boolean
+        + removeMedicine(medicineId) : boolean
+        - validateDateRange() : boolean
+        - checkConflicts() : boolean
+    }
+
+    class EmbeddedMedicines {
+        - name : string
+        - type : MedicineType
+        - dosage : string
+        - reminderTimes : string[]
+        - frequency : FrequencyType
+        - instructions : string
+        --
+        + setReminderTime(time) : boolean
+        + updateDosage(dosage) : string
+        + getNextReminderTime() : string
+        - validateTimeFormat() : boolean
+        - calculateNextReminder() : Date
+    }
+
+    class User {
+        - id : ObjectId
+        - email : string
+        - fullName : string
+        - role : UserRole
+        - isActive : boolean
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createMedicationReminder() : boolean
+        + getMedicationHistory() : MedicationReminders[]
+        - validateAccess() : boolean
+    }
+
+    class UserProfiles {
+        - ownerId : ObjectId
+        - fullName : string
+        - dateOfBirth : Date
+        - gender : string
+        - phone : string
+        - address : string
+        - emergencyContact : string
+        - isActive : boolean
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + getProfile() : UserProfiles
+        + updateProfile() : boolean
+        + getMedicalHistory() : MedicalRecords[]
+        - validateProfileData() : boolean
+    }
+
+    class MedicalRecords {
+        - patientId : ObjectId
+        - doctorId : ObjectId
+        - appointmentId : ObjectId
+        - diagnosis : string
+        - medicines : object[]
+        - notes : string
+        - visitDate : Date
+        - nextAppointmentDate : Date
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createRecord() : boolean
+        + updateRecord() : boolean
+        + getMedicines() : object[]
+        + generateReminders() : boolean
+        - validateMedicalData() : boolean
+    }
+
+    enum MedicineType {
+        contraceptive
+        vitamin
+        other
+        antibiotic
+        painkiller
+    }
+
+    enum FrequencyType {
+        daily
+        twice_daily
+        weekly
+        as_needed
+    }
+
+    enum UserRole {
+        customer
+        doctor
+        staff
+        manager
+        admin
+    }
+}
+
+' Relationships based on actual code
+User ||--|| UserRole : "has"
+User ||--o{ MedicationReminders : "creates"
+User ||--o{ UserProfiles : "owns"
+
+UserProfiles ||--o{ MedicationReminders : "has reminders"
+UserProfiles ||--o{ MedicalRecords : "has records"
+
+MedicationReminders ||--o{ EmbeddedMedicines : "contains"
+MedicationReminders }o--|| User : "created by"
+MedicationReminders }o--|| UserProfiles : "for profile"
+MedicationReminders }o--o| MedicalRecords : "derived from"
+
+EmbeddedMedicines ||--|| MedicineType : "categorized as"
+EmbeddedMedicines ||--|| FrequencyType : "scheduled with"
+
+Medicines ||--|| MedicineType : "classified as"
+
+MedicalRecords }o--|| User : "for patient"
+MedicalRecords ||--o{ EmbeddedMedicines : "prescribes"
+
+@enduml 

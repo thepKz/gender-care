@@ -1,0 +1,257 @@
+@startuml 18_payment_processing
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Payment Processing System - Class Diagram
+
+package "Payment System" {
+    class Payments {
+        - id : ObjectId
+        - userId : ObjectId
+        - billId : ObjectId
+        - amount : number
+        - currency : string
+        - method : PaymentMethod
+        - status : PaymentStatus
+        - transactionId : string
+        - paymentReference : string
+        - processedAt : Date
+        - failureReason : string
+        - refundAmount : number
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + processPayment() : boolean
+        + refundPayment(amount) : boolean
+        + verifyPayment() : boolean
+        + cancelPayment() : boolean
+        + getPaymentDetails() : object
+        + updateStatus(status) : boolean
+        - validatePaymentData() : boolean
+        - generateTransactionId() : string
+        - logPaymentEvent() : boolean
+    }
+
+    class Bills {
+        - id : ObjectId
+        - userId : ObjectId
+        - appointmentId : ObjectId
+        - serviceIds : ObjectId[]
+        - subtotal : number
+        - tax : number
+        - discount : number
+        - totalAmount : number
+        - currency : string
+        - status : BillStatus
+        - dueDate : Date
+        - paidAt : Date
+        - notes : string
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + generateBill() : boolean
+        + calculateTotal() : number
+        + applyDiscount(amount) : boolean
+        + markAsPaid() : boolean
+        + markAsOverdue() : boolean
+        + sendBillNotification() : boolean
+        + splitBill(parts) : Bills[]
+        - validateBillData() : boolean
+        - calculateTax() : number
+        - formatBillNumber() : string
+    }
+
+    class PaymentMethods {
+        - id : ObjectId
+        - userId : ObjectId
+        - type : MethodType
+        - provider : string
+        - accountNumber : string
+        - expiryDate : Date
+        - isDefault : boolean
+        - isActive : boolean
+        - metadata : object
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + addPaymentMethod() : boolean
+        + updatePaymentMethod(data) : boolean
+        + deletePaymentMethod() : boolean
+        + setAsDefault() : boolean
+        + validateMethod() : boolean
+        + encryptSensitiveData() : boolean
+        - maskAccountNumber() : string
+        - validateExpiryDate() : boolean
+        - checkSecurityCode() : boolean
+    }
+
+    class PayOSGateway {
+        - gatewayId : string
+        - apiKey : string
+        - secretKey : string
+        - environment : string
+        - webhookUrl : string
+        - timeout : number
+        - retryAttempts : number
+        - isActive : boolean
+        --
+        + initializePayment(data) : object
+        + confirmPayment(transactionId) : boolean
+        + cancelPayment(transactionId) : boolean
+        + refundPayment(transactionId, amount) : boolean
+        + getTransactionStatus(transactionId) : string
+        + handleWebhook(payload) : boolean
+        + validateSignature(signature, data) : boolean
+        - buildPaymentUrl(data) : string
+        - parseWebhookData(payload) : object
+        - logGatewayResponse(response) : boolean
+    }
+
+    class PaymentHistory {
+        - id : ObjectId
+        - paymentId : ObjectId
+        - action : HistoryAction
+        - previousStatus : PaymentStatus
+        - newStatus : PaymentStatus
+        - amount : number
+        - performedBy : ObjectId
+        - reason : string
+        - metadata : object
+        - timestamp : Date
+        --
+        + recordAction() : boolean
+        + getPaymentHistory(paymentId) : PaymentHistory[]
+        + generateAuditReport() : object
+        - validateHistoryData() : boolean
+        - formatHistoryEntry() : string
+    }
+
+    class Refunds {
+        - id : ObjectId
+        - paymentId : ObjectId
+        - amount : number
+        - reason : string
+        - status : RefundStatus
+        - refundReference : string
+        - requestedBy : ObjectId
+        - approvedBy : ObjectId
+        - processedAt : Date
+        - createdAt : Date
+        --
+        + requestRefund() : boolean
+        + approveRefund() : boolean
+        + processRefund() : boolean
+        + rejectRefund(reason) : boolean
+        + getRefundStatus() : RefundStatus
+        - validateRefundAmount() : boolean
+        - notifyRefundStatus() : boolean
+    }
+
+    enum PaymentMethod {
+        CREDIT_CARD
+        DEBIT_CARD
+        BANK_TRANSFER
+        E_WALLET
+        PAYOS
+        CASH
+        INSURANCE
+    }
+
+    enum PaymentStatus {
+        PENDING
+        PROCESSING
+        COMPLETED
+        FAILED
+        CANCELLED
+        REFUNDED
+        PARTIALLY_REFUNDED
+    }
+
+    enum BillStatus {
+        DRAFT
+        SENT
+        PAID
+        OVERDUE
+        CANCELLED
+        REFUNDED
+    }
+
+    enum MethodType {
+        VISA
+        MASTERCARD
+        MOMO
+        ZALOPAY
+        BANK_ACCOUNT
+        PAYPAL
+    }
+
+    enum HistoryAction {
+        CREATED
+        UPDATED
+        CANCELLED
+        REFUNDED
+        COMPLETED
+        FAILED
+    }
+
+    enum RefundStatus {
+        REQUESTED
+        APPROVED
+        PROCESSING
+        COMPLETED
+        REJECTED
+        FAILED
+    }
+}
+
+' External entities
+class User {
+    - id : ObjectId
+    - name : string
+    - email : string
+}
+
+class Appointment {
+    - id : ObjectId
+    - patientId : ObjectId
+    - doctorId : ObjectId
+    - totalCost : number
+}
+
+class Service {
+    - id : ObjectId
+    - name : string
+    - price : number
+}
+
+' Relationships
+Payments }o--|| User : "made by"
+Payments }o--|| Bills : "for"
+Payments ||--|| PaymentMethod : "using"
+Payments ||--|| PaymentStatus : "has"
+Payments ||--o{ PaymentHistory : "tracked in"
+Payments ||--o{ Refunds : "may have"
+
+Bills }o--|| User : "billed to"
+Bills }o--|| Appointment : "for"
+Bills ||--o{ Service : "includes"
+Bills ||--|| BillStatus : "has"
+Bills ||--o{ Payments : "paid by"
+
+PaymentMethods }o--|| User : "belongs to"
+PaymentMethods ||--|| MethodType : "of type"
+
+PayOSGateway ||--o{ Payments : "processes"
+
+PaymentHistory }o--|| Payments : "tracks"
+PaymentHistory }o--|| User : "performed by"
+PaymentHistory ||--|| HistoryAction : "records"
+PaymentHistory ||--|| PaymentStatus : "from/to"
+
+Refunds }o--|| Payments : "for"
+Refunds }o--|| User : "requested by"
+Refunds }o--|| User : "approved by"
+Refunds ||--|| RefundStatus : "has"
+
+@enduml 

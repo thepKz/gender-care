@@ -1,0 +1,99 @@
+@startuml 02_user_profile
+
+skinparam classAttributeIconSize 0
+skinparam backgroundColor LightYellow
+skinparam classBackgroundColor LightBlue
+skinparam classBorderColor DarkBlue
+
+title User Profile Management - Class Diagram (Actual Implementation)
+
+package "User Profile System" {
+    class Users {
+        - _id : ObjectId
+        - email : string [unique]
+        - password : string
+        - fullName : string
+        - phone : string
+        - avatar : string
+        - gender : string
+        - address : string
+        - year : DateTime
+        - role : string
+        - emailVerified : boolean
+        - isActive : boolean
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + getProfile() : UserProfiles
+        + updateProfile(data) : boolean
+        + deleteProfile() : boolean
+        + getStaffDetails() : StaffDetails
+        - validateUserData() : boolean
+        - sanitizeInput(input) : string
+    }
+
+    class UserProfiles {
+        - _id : ObjectId
+        - ownerId : ObjectId
+        - fullName : string
+        - gender : string
+        - phone : string
+        - year : DateTime
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + updateProfile(data) : boolean
+        + getFullName() : string
+        + calculateAge() : number
+        + validateProfileData() : boolean
+        - formatProfileInfo() : object
+    }
+
+    class StaffDetails {
+        - _id : ObjectId
+        - userId : ObjectId [unique]
+        - staffType : string
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + updateStaffInfo(data) : boolean
+        + getStaffType() : string
+        + isActiveStaff() : boolean
+        - validateStaffData() : boolean
+        - notifyStaffChanges() : boolean
+    }
+
+    enum UserRole {
+        GUEST
+        CUSTOMER
+        DOCTOR
+        STAFF
+        MANAGER
+        ADMIN
+    }
+
+    enum Gender {
+        MALE
+        FEMALE
+        OTHER
+    }
+
+    enum StaffType {
+        NURSING
+        BLOGERS
+        NORMAL
+    }
+}
+
+' Relationships
+Users ||--o{ UserProfiles : "has multiple"
+Users ||--o| StaffDetails : "may have"
+Users ||--|| UserRole : "assigned"
+
+UserProfiles }o--|| Users : "belongs to"
+UserProfiles ||--|| Gender : "identifies as"
+
+StaffDetails }o--|| Users : "extends"
+StaffDetails ||--|| StaffType : "categorized as"
+
+@enduml 

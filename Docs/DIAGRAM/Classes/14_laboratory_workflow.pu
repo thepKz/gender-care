@@ -1,0 +1,141 @@
+@startuml 14_laboratory_workflow
+
+skinparam classAttributeIconSize 0
+skinparam backgroundColor LightYellow
+skinparam classBackgroundColor LightBlue
+skinparam classBorderColor DarkBlue
+
+title Laboratory Test Processing - Class Diagram (Actual Implementation)
+
+package "Simple Laboratory System" {
+    class AppointmentTests {
+        - _id : ObjectId
+        - appointmentId : string
+        - description : string
+        - name : string
+        - price : number
+        - preparationGuidelines : string
+        - resultWaitTime : string
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + createTest() : boolean
+        + updateTestInfo(data) : boolean
+        + setPreparationGuidelines(guidelines) : boolean
+        + estimateWaitTime(time) : boolean
+        + calculateTestCost() : number
+        + getTestDetails() : object
+        - validateTestData() : boolean
+        - formatTestInfo() : string
+    }
+
+    class TestResults {
+        - _id : ObjectId
+        - appointmentTestId : ObjectId
+        - conclusion : string
+        - recommendations : string
+        - createdAt : DateTime
+        --
+        + processTestResult() : boolean
+        + addConclusion(conclusion) : boolean
+        + addRecommendations(recommendations) : boolean
+        + finalizeResult() : boolean
+        + getResultSummary() : object
+        + exportResult() : string
+        - validateResultData() : boolean
+        - formatResultOutput() : object
+    }
+
+    class TestResultItems {
+        - _id : ObjectId
+        - testResultId : ObjectId
+        - itemNameId : ObjectId
+        - value : string
+        - unit : string
+        - currentRange : string
+        - flag : string
+        --
+        + recordMeasurement(value) : boolean
+        + setResultFlag(flag) : boolean
+        + compareToRange() : string
+        + updateValue(newValue) : boolean
+        + validateMeasurement() : boolean
+        + getItemDetails() : object
+        - determineFlag() : string
+        - calculateDeviation() : number
+    }
+
+    class TestCategories {
+        - _id : ObjectId
+        - name : string [unique]
+        - description : string
+        - unit : string
+        - normalRange : string
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + createTestCategory() : boolean
+        + updateCategory(data) : boolean
+        + setNormalRange(range) : boolean
+        + setDefaultUnit(unit) : boolean
+        + searchCategories(name) : TestCategories[]
+        + getActiveCategories() : TestCategories[]
+        - validateCategoryData() : boolean
+        - checkRangeFormat() : boolean
+    }
+
+    enum TestFlag {
+        HIGH
+        LOW
+        NORMAL
+    }
+
+    enum TestStatus {
+        PENDING
+        IN_PROGRESS
+        COMPLETED
+        CANCELLED
+    }
+
+    note right of AppointmentTests
+        Simple lab workflow:
+        1. Test is ordered (AppointmentTests)
+        2. Test is processed (no complex workflow)
+        3. Results are recorded (TestResults)
+        4. Individual measurements (TestResultItems)
+        
+        No equipment tracking, QC, or workflow steps
+    end note
+
+    note right of TestResults
+        Basic result processing:
+        - Simple conclusion and recommendations
+        - No approval workflow
+        - No critical value alerts
+        - No quality flags
+    end note
+}
+
+' External references for context
+class Appointments {
+    - _id : ObjectId
+    - profileId : ObjectId
+    - appointmentDate : DateTime
+    - status : string
+}
+
+class Users {
+    - _id : ObjectId
+    - fullName : string
+    - role : string
+}
+
+' Relationships - Simple flow
+Appointments ||--o{ AppointmentTests : "includes tests"
+AppointmentTests ||--o| TestResults : "produces"
+TestResults ||--o{ TestResultItems : "contains items"
+TestResultItems }o--|| TestCategories : "references"
+TestResultItems ||--|| TestFlag : "has flag"
+Users ||--o{ TestResults : "may review"
+
+@enduml 
