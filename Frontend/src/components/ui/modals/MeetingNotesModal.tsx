@@ -11,7 +11,9 @@ import {
   Divider,
   Card,
   Row,
-  Col
+  Col,
+  Checkbox,
+  Alert
 } from 'antd';
 import {
   VideoCameraOutlined,
@@ -22,7 +24,9 @@ import {
   SaveOutlined,
   PoweroffOutlined,
   PhoneOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  ExclamationCircleOutlined,
+  CameraOutlined
 } from '@ant-design/icons';
 import consultationApi from '../../../api/endpoints/consultation';
 
@@ -64,6 +68,10 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [meetingDetails, setMeetingDetails] = useState<MeetingDetails | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+
+  // 🎥 Recording Confirmation Modal state
+  const [recordingModalVisible, setRecordingModalVisible] = useState(false);
+  const [recordingConfirmed, setRecordingConfirmed] = useState(false);
 
   // Load meeting details khi modal mở
   useEffect(() => {
@@ -118,10 +126,36 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
   };
 
   const handleJoinMeeting = () => {
+    console.log('🎯 [JOIN-MEETING] Requesting to join meeting from MeetingNotesModal');
+    
+    // 🎥 Show recording confirmation modal first
+    setRecordingConfirmed(false);
+    setRecordingModalVisible(true);
+  };
+
+  // 🎥 Handle recording confirmation and actual meeting join
+  const handleConfirmRecordingAndJoin = () => {
+    if (!recordingConfirmed) {
+      message.warning('Vui lòng xác nhận đã hiểu về việc ghi hình buổi tư vấn');
+      return;
+    }
+
     if (meetingDetails?.meetingLink) {
       window.open(meetingDetails.meetingLink, '_blank');
       message.success('Đã mở meeting trong tab mới');
+      
+      // ✅ Close modal and reset state
+      setRecordingModalVisible(false);
+      setRecordingConfirmed(false);
+    } else {
+      message.error('Không tìm thấy link meeting');
     }
+  };
+
+  // 🎥 Handle recording modal close
+  const handleRecordingModalClose = () => {
+    setRecordingModalVisible(false);
+    setRecordingConfirmed(false);
   };
 
   const handleCompleteMeeting = async () => {
@@ -375,6 +409,109 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
           </Card>
         </>
       )}
+
+      {/* 🎥 Recording Confirmation Modal */}
+      <Modal
+        title={
+          <Space>
+            <ExclamationCircleOutlined style={{ color: '#fa8c16' }} />
+            <span>Xác nhận ghi hình buổi tư vấn</span>
+          </Space>
+        }
+        open={recordingModalVisible}
+        onCancel={handleRecordingModalClose}
+        footer={[
+          <Button key="cancel" onClick={handleRecordingModalClose}>
+            Hủy bỏ
+          </Button>,
+          <Button 
+            key="confirm" 
+            type="primary" 
+            disabled={!recordingConfirmed}
+            onClick={handleConfirmRecordingAndJoin}
+            icon={<CameraOutlined />}
+          >
+            Xác nhận và Tham gia Meeting
+          </Button>
+        ]}
+        width={600}
+        maskClosable={false}
+        destroyOnClose
+      >
+        <div style={{ marginBottom: '20px' }}>
+          <Alert
+            message="Thông báo quan trọng về ghi hình buổi tư vấn"
+            description={
+              <div style={{ marginTop: '12px', lineHeight: '1.6' }}>
+                <p><strong>Để đảm bảo chất lượng dịch vụ và bảo vệ quyền lợi của cả hai bên, bác sĩ vui lòng:</strong></p>
+                <ul style={{ paddingLeft: '20px', margin: '12px 0' }}>
+                  <li><strong>Tự ghi hình</strong> toàn bộ buổi tư vấn bằng phần mềm ghi màn hình trên máy tính của mình</li>
+                  <li><strong>Lưu trữ file ghi hình</strong> tại máy tính cá nhân với tên file theo format: <code>YYYYMMDD_HH-mm_TenBenhNhan.mp4</code></li>
+                  <li><strong>Ghi chú ngày giờ</strong> vào sổ tay hoặc lịch cá nhân để tra cứu khi cần</li>
+                  <li><strong>Bảo mật thông tin</strong> bệnh nhân và chỉ cung cấp khi có yêu cầu chính thức từ trung tâm</li>
+                </ul>
+                <p style={{ color: '#fa8c16', fontWeight: 'bold', marginTop: '16px' }}>
+                  ⚠️ <strong>Lưu ý:</strong> Nếu không thực hiện ghi hình và xảy ra tranh chấp, công ty sẽ không chịu trách nhiệm về các vấn đề pháp lý phát sinh.
+                </p>
+              </div>
+            }
+            type="warning"
+            showIcon
+          />
+        </div>
+
+        <div style={{ 
+          padding: '16px', 
+          background: '#f9f9f9', 
+          borderRadius: '8px',
+          marginBottom: '20px'
+        }}>
+          <h4 style={{ margin: '0 0 8px 0', color: '#1890ff' }}>
+            📋 Thông tin buổi tư vấn:
+          </h4>
+          <Row gutter={16}>
+            <Col span={12}>
+              <p><strong>Bệnh nhân:</strong> {consultationData.patientName}</p>
+              <p><strong>Số điện thoại:</strong> {consultationData.patientPhone}</p>
+            </Col>
+            <Col span={12}>
+              <p><strong>Thời gian:</strong> {consultationData.appointmentTime}</p>
+              <p><strong>Meeting Link:</strong> {meetingDetails?.meetingLink ? 'Có sẵn' : 'Không có'}</p>
+            </Col>
+          </Row>
+          <p style={{ margin: '8px 0 0 0' }}>
+            <strong>Vấn đề:</strong> {consultationData.description}
+          </p>
+        </div>
+
+        <div style={{ 
+          padding: '16px', 
+          border: '2px dashed #d9d9d9', 
+          borderRadius: '8px',
+          textAlign: 'center'
+        }}>
+          <Checkbox
+            checked={recordingConfirmed}
+            onChange={(e) => setRecordingConfirmed(e.target.checked)}
+            style={{ fontSize: '16px' }}
+          >
+            <strong>
+              Tôi xác nhận đã đọc và hiểu các yêu cầu trên. Tôi sẽ tự ghi hình buổi tư vấn và chịu trách nhiệm về việc lưu trữ, bảo mật thông tin bệnh nhân.
+            </strong>
+          </Checkbox>
+        </div>
+
+        <div style={{ 
+          marginTop: '16px', 
+          padding: '12px', 
+          background: '#e6f7ff', 
+          borderRadius: '6px',
+          fontSize: '14px',
+          color: '#0050b3'
+        }}>
+          💡 <strong>Gợi ý phần mềm ghi màn hình:</strong> OBS Studio (miễn phí), Bandicam, Camtasia, hoặc sử dụng tính năng ghi màn hình có sẵn trên hệ điều hành.
+        </div>
+      </Modal>
     </Modal>
   );
 };
