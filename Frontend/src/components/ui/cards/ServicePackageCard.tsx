@@ -170,7 +170,7 @@ const ServicePackageCard: React.FC<ServicePackageCardProps> = ({
                 onClick={handleViewDetail}
                 className="text-blue-primary hover:text-blue-secondary hover:underline font-medium transition-colors duration-200"
               >
-                Xem chi tiết {servicePackage.serviceIds.length} dịch vụ
+                Xem chi tiết {servicePackage.services.length} dịch vụ
               </button>
             </div>
 

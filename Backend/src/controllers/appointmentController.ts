@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { Appointments, DoctorSchedules, Services, ServicePackages, UserProfiles, PackagePurchases } from '../models';
+import { Appointments, DoctorSchedules, Service, ServicePackages, UserProfiles, PackagePurchases } from '../models';
 import { NotFoundError } from '../errors/notFoundError';
 import { ValidationError } from '../errors/validationError';
 import { UnauthorizedError } from '../errors/unauthorizedError';
@@ -150,7 +150,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
         // Nếu có serviceId, kiểm tra nó có tồn tại không và lấy giá
         if (serviceId) {
-            const serviceData = await Services.findById(serviceId);
+            const serviceData = await Service.findById(serviceId);
             if (!serviceData) {
                 throw new NotFoundError('Không tìm thấy dịch vụ');
             }

@@ -38,7 +38,16 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      rollupOptions: {},
+      rollupOptions: {
+        // Ensure all necessary files are included in build
+        input: {
+          main: path.resolve(__dirname, 'index.html'),
+        },
+      },
+      // Copy additional files to build output
+      copyPublicDir: true,
     },
+    // Ensure all public files including web.config are copied
+    publicDir: 'public',
   };
 });

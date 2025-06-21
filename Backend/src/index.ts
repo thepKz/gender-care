@@ -27,7 +27,8 @@ import {
   testResultItemsRoutes,
   testResultsRoutes,
   userProfileRoutes,
-  userRoutes
+  userRoutes,
+  systemLogRoutes
 } from "./routes";
 
 import { runAllSeeds } from "./seeds";
@@ -71,6 +72,31 @@ console.log('PAYOS_CHECKSUM_KEY exists:', !!process.env.PAYOS_CHECKSUM_KEY);
 // Khởi tạo app express
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Trust proxy để lấy real IP từ reverse proxy/load balancer
+app.set('trust proxy', true); // Cho phép lấy IP từ X-Forwarded-For header
+
+// Middleware để extract real IP address
+app.use((req, res, next) => {
+  // Lấy real IP từ các headers phổ biến
+  req.realIP = req.ip || 
+    req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
+    req.headers['x-real-ip']?.toString() ||
+    req.connection?.remoteAddress ||
+    req.socket?.remoteAddress ||
+    'unknown';
+
+  // Convert IPv6 localhost về IPv4 cho development
+  if (req.realIP === '::1' || req.realIP === '::ffff:127.0.0.1') {
+    req.realIP = '127.0.0.1';
+  }
+
+  // Chỉ log IP cho authentication endpoints để tránh spam
+  if (req.path.includes('/auth/') || req.path.includes('/login')) {
+  console.log(`🌐 Real IP detected: ${req.realIP} (Original: ${req.ip})`);
+  }
+  next();
+});
 
 // Cấu hình CORS cho nhiều origin
 const allowedOrigins = [
@@ -183,6 +209,7 @@ apiRouter.use('/notification-days', notificationDaysRoutes);
 apiRouter.use('/user-profiles', userProfileRoutes);
 apiRouter.use('/appointments', appointmentRoutes);
 apiRouter.use('/payments', paymentRoutes);
+apiRouter.use('/system-logs', systemLogRoutes);
 
 // Middleware xử lý lỗi
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -57,8 +57,7 @@ const UserProfilesPageContent: React.FC = () => {
   }, []);
 
   const handleAddProfile = () => {
-    setEditingProfile(null);
-    setModalVisible(true);
+    navigate('/profile/create');
   };
 
   const handleEditProfile = (profile: UserProfile) => {
@@ -109,7 +108,7 @@ const UserProfilesPageContent: React.FC = () => {
                     title: <a href="/">Trang chủ</a>
                   },
                   {
-                    title: <a href="/#/profile">Trang cá nhân</a>
+                    title: <a href="/profile">Trang cá nhân</a>
                   },
                   {
                     title: "Hồ sơ bệnh án"
@@ -135,7 +134,7 @@ const UserProfilesPageContent: React.FC = () => {
             <Button
               icon={<ArrowLeftOutlined />}
               size="large"
-              onClick={() => { window.location.hash = '#/profile'; }}
+              onClick={() => navigate('/profile')}
               className="hidden md:flex bg-[#0C3C54] text-white border-0 hover:bg-[#0C3C54]/90"
             >
               Quay lại
@@ -174,7 +173,7 @@ const UserProfilesPageContent: React.FC = () => {
                   <Button 
                     size="small"
                     className="bg-white/20 text-white border-white/30 hover:bg-white/30 hover:text-white font-medium px-3 py-1 rounded-lg text-sm"
-                    onClick={() => { window.location.hash = '#/purchased-packages'; }}
+                    onClick={() => navigate('/purchased-packages')}
                   >
                     📦 Xem gói dịch vụ đã mua
                   </Button>
@@ -191,8 +190,6 @@ const UserProfilesPageContent: React.FC = () => {
               </Button>
             </div>
           </div>
-
-       
 
           {/* Search + Nút */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
@@ -233,7 +230,7 @@ const UserProfilesPageContent: React.FC = () => {
             filterGender={filterGender}
             onFilter={filterByGender}
             onResetFilters={resetFilters}
-            onView={(id) => { window.location.hash = `#/profile/view-profile/${id}`; }}
+            onView={(id) => navigate(`/profile/view-profile/${id}`)}
           />
 
           {/* Profile Modal */}

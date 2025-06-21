@@ -8,7 +8,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appointmentApi } from '../../api/endpoints';
-import doctorApi from '../../api/endpoints/doctor';
+import { doctorApi } from '../../api/endpoints/doctorApi';
 import doctorScheduleApi from '../../api/endpoints/doctorSchedule';
 import servicesApi from '../../api/endpoints/services';
 import userProfileApiInstance from '../../api/endpoints/userProfileApi';

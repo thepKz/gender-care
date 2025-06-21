@@ -129,25 +129,46 @@ export const getAllLoginHistory = async (req: AuthRequest, res: Response) => {
       await LoginHistory.countDocuments(filter);
 
     // Format the response
-    const formattedHistory = loginHistory.map((record: any) => ({
-      id: record._id,
-      userId: record.userId?._id,
-      username: record.userId?.email?.split('@')[0] || 'unknown',
-      fullName: record.userId?.fullName || 'N/A',
-      email: record.userId?.email || 'N/A',
-      phone: record.userId?.phone || 'N/A',
-      loginTime: record.loginAt,
-      logoutTime: null, // We don't track logout time yet
-      ipAddress: record.ipAddress || 'N/A',
-      userAgent: record.userAgent || 'N/A',
-      deviceType: getUserDeviceType(record.userAgent),
-      browser: getUserBrowser(record.userAgent),
-      os: getUserOS(record.userAgent),
-      location: 'N/A', // Would need IP geolocation service
-      status: record.status === 'success' ? 'active' : 'failed',
-      failReason: record.failReason,
-      sessionDuration: null // We don't track session duration yet
-    }));
+    const formattedHistory = loginHistory.map((record: any) => {
+      // Calculate session duration nếu có logout time
+      const sessionDurationMinutes = record.logoutAt ? 
+        Math.round((new Date(record.logoutAt).getTime() - new Date(record.loginAt).getTime()) / (1000 * 60)) : 
+        null;
+
+      // Determine status based on logout time và login status
+      let status = 'active'; // Default
+      if (record.status === 'failed') {
+        status = 'failed';
+      } else if (record.logoutAt) {
+        status = 'logged-out';
+      } else {
+        // Check if session might be expired (more than 7 days old)
+        const daysSinceLogin = (new Date().getTime() - new Date(record.loginAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceLogin > 7) {
+          status = 'expired';
+        }
+      }
+
+      return {
+        id: record._id,
+        userId: record.userId?._id,
+        username: record.userId?.email?.split('@')[0] || 'unknown',
+        fullName: record.userId?.fullName || 'N/A',
+        email: record.userId?.email || 'N/A',
+        phone: record.userId?.phone || 'N/A',
+        loginTime: record.loginAt,
+        logoutTime: record.logoutAt || null, // Hiển thị thời gian logout thực tế
+        ipAddress: record.ipAddress || 'N/A',
+        userAgent: record.userAgent || 'N/A',
+        deviceType: getUserDeviceType(record.userAgent),
+        browser: getUserBrowser(record.userAgent),
+        os: getUserOS(record.userAgent),
+        location: record.location || 'Unknown Location', // Sử dụng location từ database
+        status: status, // Status được tính toán chính xác
+        failReason: record.failReason,
+        sessionDuration: sessionDurationMinutes // Session duration thực tế
+      };
+    });
 
     res.json({
       success: true,

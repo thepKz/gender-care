@@ -119,7 +119,7 @@ const ServicePackageDisplayCard: React.FC<ServicePackageDisplayCardProps> = ({
               onClick={handleViewDetail}
               className="text-[#0C3C54] hover:text-[#2A7F9E] hover:underline font-medium transition-colors duration-200"
             >
-              Xem chi tiết {servicePackage.serviceIds.length} dịch vụ
+              Xem chi tiết {servicePackage.services?.length || 0} dịch vụ
             </button>
           </div>
 
@@ -127,6 +127,24 @@ const ServicePackageDisplayCard: React.FC<ServicePackageDisplayCardProps> = ({
           <div className="flex items-center gap-2 text-sm">
             <span className="text-green-500">✓</span>
             <span className="text-gray-600">Tiết kiệm chi phí</span>
+          </div>
+
+          {/* 🔹 NEW: Total Service Quantity Display */}
+          {servicePackage.totalServiceQuantity && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-blue-500">✓</span>
+              <span className="text-gray-600">
+                Tổng {servicePackage.totalServiceQuantity} lượt sử dụng
+              </span>
+            </div>
+          )}
+
+          {/* 🔹 NEW: Duration Display */}
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-purple-500">📅</span>
+            <span className="text-gray-600">
+              Thời hạn {servicePackage.durationInDays} ngày
+            </span>
           </div>
         </div>
 
