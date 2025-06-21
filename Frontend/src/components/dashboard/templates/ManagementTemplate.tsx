@@ -34,7 +34,7 @@ import DoctorManagement from '../../../pages/dashboard/management/DoctorManageme
 import ServiceManagement from '../../../pages/dashboard/management/ServiceManagement';
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
-import DoctorScheduleCalendar from '../widgets/DoctorScheduleCalendar';
+import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedulePage';
 import MedicineManagement from '../../../pages/dashboard/management/MedicineManagement';
 import TestManagement from '../../../pages/dashboard/management/TestManagement';
 import { 
@@ -48,6 +48,31 @@ import { fetchManagementDashboard } from '../../../api/endpoints/dashboard';
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
+
+// Define proper interfaces for API response data
+interface ApiActivityItem {
+  id: string;
+  title?: string;
+  user?: string;
+  description?: string;
+  action?: string;
+  time: string | Date;
+  status?: string;
+  avatar?: string;
+  type?: string;
+}
+
+interface ApiAppointmentItem {
+  id: string;
+  patientName: string;
+  doctorName: string;
+  time: string;
+  status: string;
+  service?: string;
+  notes?: string;
+  priority?: string;
+  phone?: string;
+}
 
 interface ManagementTemplateProps {
   userRole: 'admin' | 'manager';
@@ -200,14 +225,14 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         if (data?.recentActivities) {
           console.log('📝 Activities:', data.recentActivities);
           // Transform API data to match local ActivityItem interface
-          const transformedActivities = data.recentActivities.map((activity: any) => ({
+          const transformedActivities = (data.recentActivities as unknown as ApiActivityItem[]).map((activity) => ({
             id: activity.id,
-            user: activity.title || activity.user,
-            action: activity.description || activity.action,
+            user: activity.title || activity.user || 'Unknown User',
+            action: activity.description || activity.action || 'Unknown Action',
             time: typeof activity.time === 'string' ? activity.time : new Date(activity.time).toISOString(),
-            status: activity.status || 'info',
+            status: (activity.status as ActivityItem['status']) || 'info',
             avatar: activity.avatar,
-            type: activity.type || 'system'
+            type: (activity.type as ActivityItem['type']) || 'system'
           }));
           setActivities(transformedActivities);
         }
@@ -215,15 +240,15 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         if (data?.todayAppointments) {
           console.log('📅 Today appointments:', data.todayAppointments);
           // Transform API data to match local AppointmentItem interface  
-          const transformedAppointments = data.todayAppointments.map((appointment: any) => ({
+          const transformedAppointments = (data.todayAppointments as unknown as ApiAppointmentItem[]).map((appointment) => ({
             id: appointment.id,
             patientName: appointment.patientName,
             doctorName: appointment.doctorName,
             time: appointment.time,
-            status: appointment.status,
+            status: appointment.status as AppointmentItem['status'],
             service: appointment.service || 'Dịch vụ chưa xác định',
             notes: appointment.notes,
-            priority: appointment.priority || 'medium',
+            priority: (appointment.priority as AppointmentItem['priority']) || 'medium',
             phone: appointment.phone
           }));
           setTodayList(transformedAppointments);
@@ -457,6 +482,17 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                       Dịch vụ
                     </Button>
                   </Col>
+                  <Col span={12}>
+                    <Button 
+                      type="default" 
+                      icon={<CalendarOutlined />} 
+                      size="small"
+                      block
+                      onClick={() => setSelectedKey('schedule')}
+                    >
+                      Lịch làm việc
+                    </Button>
+                  </Col>
                   {userRole === 'admin' && (
                     <>
                       <Col span={12}>
@@ -678,7 +714,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
       case 'doctors':
         return <DoctorManagement />;
       case 'schedule':
-        return <DoctorScheduleCalendar />;
+        return <DoctorSchedulePage />;
       case 'services':
         return <ServiceManagement />;
       case 'service-packages':
