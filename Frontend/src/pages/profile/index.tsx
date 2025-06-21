@@ -251,8 +251,8 @@ const ProfilePage: React.FC = () => {
                   </div>
                   <div className="mb-6">
                     <h4 className="text-sm font-medium text-gray-500 mb-1">Email</h4>
-                    <p className="text-lg text-gray-800 flex items-center">
-                      {user.email}
+                    <div className="text-lg text-gray-800 flex items-center">
+                      <span>{user.email}</span>
                       {user.emailVerified ? (
                         <div className="bg-green-500/30 border-green-300 text-white px-2 py-1 text-base font-medium rounded-lg ml-2">
                           ✓ Đã xác thực
@@ -265,7 +265,7 @@ const ProfilePage: React.FC = () => {
                           </Link>
                         </div>
                       )}
-                    </p>
+                    </div>
                   </div>
                 </div>
                 <div>

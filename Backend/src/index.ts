@@ -19,16 +19,16 @@ import {
   medicinesRoutes,
   meetingRoutes,
   notificationDaysRoutes,
-  paymentRoutes,
   packagePurchaseRoutes,
+  paymentRoutes,
   servicePackageRoutes,
   serviceRoutes,
+  systemLogRoutes,
   testCategoriesRoutes,
   testResultItemsRoutes,
   testResultsRoutes,
   userProfileRoutes,
-  userRoutes,
-  systemLogRoutes
+  userRoutes
 } from "./routes";
 
 import { runAllSeeds } from "./seeds";

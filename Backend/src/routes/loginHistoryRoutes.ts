@@ -5,8 +5,8 @@ import { roleMiddleware } from "../middleware/roleMiddleware";
 
 const router = express.Router();
 
-// GET /login-history - Get all login history for management (Admin/Manager only)
-router.get("/", authMiddleware, roleMiddleware(['admin', 'manager']), getAllLoginHistory);
+// GET /login-history - Get all login history for management (Admin/Manager/Staff)
+router.get("/", authMiddleware, roleMiddleware(['admin', 'manager', 'staff']), getAllLoginHistory);
 
 router.post("/", createLoginHistory);
 router.get("/:userId", getLoginHistoryByUser);

@@ -1,31 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Form, 
-  Input, 
-  Select, 
-  DatePicker, 
-  Button, 
-  Card, 
-  notification, 
-  Typography,
-  Breadcrumb,
-  Spin,
-  Modal
-} from 'antd';
-import { 
-  SaveOutlined, 
-  ArrowLeftOutlined, 
-  TeamOutlined,
-  FormOutlined,
-  ExclamationCircleOutlined
+import {
+    ArrowLeftOutlined,
+    ExclamationCircleOutlined,
+    FormOutlined,
+    TeamOutlined
 } from '@ant-design/icons';
-import { useNavigate, Link, useParams } from 'react-router-dom';
+import {
+    Breadcrumb,
+    Button,
+    Card,
+    DatePicker,
+    Form,
+    Input,
+    Modal,
+    notification,
+    Select,
+    Spin,
+    Typography
+} from 'antd';
 import { motion } from 'framer-motion';
 import moment from 'moment';
-import userProfileApi from '../../api/endpoints/userProfileApi';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import userProfileApi, { UpdateUserProfileRequest } from '../../api/endpoints/userProfileApi';
 import { useAuth } from '../../hooks/useAuth';
 import { UserProfile } from '../../types';
-import { UpdateUserProfileRequest } from '../../api/endpoints/userProfileApi';
 
 const { Title, Text } = Typography;
 const { confirm } = Modal;
@@ -199,7 +197,10 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
   if (fetchLoading) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-3xl flex justify-center items-center min-h-[60vh]">
-        <Spin size="large" tip="Đang tải thông tin hồ sơ..." />
+        <div className="text-center">
+          <Spin size="large" />
+          <div className="mt-2 text-gray-600">Đang tải thông tin hồ sơ...</div>
+        </div>
       </div>
     );
   }

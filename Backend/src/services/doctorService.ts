@@ -199,10 +199,17 @@ export const createDoctor = async (doctorInfo: any) => {
 
     const email = `bs.${normalizedName}@genderhealthcare.com`;
 
-    // Kiểm tra email đã tồn tại chưa
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      throw new Error(`Email ${email} đã tồn tại. Vui lòng đặt tên khác cho bác sĩ.`);
+    // Validate email và phone không trùng lặp
+    const existingUserByEmail = await User.findOne({ email });
+    if (existingUserByEmail) {
+      throw new Error(`Email ${email} đã tồn tại trong hệ thống`);
+    }
+
+    if (doctorInfo.phone) {
+      const existingUserByPhone = await User.findOne({ phone: doctorInfo.phone });
+      if (existingUserByPhone) {
+        throw new Error(`Số điện thoại ${doctorInfo.phone} đã tồn tại trong hệ thống`);
+      }
     }
 
     // Tạo password mặc định
@@ -215,6 +222,7 @@ export const createDoctor = async (doctorInfo: any) => {
       password: hashedPassword,
       fullName: doctorInfo.fullName,
       phone: doctorInfo.phone || '',
+      avatar: doctorInfo.image || '', // Sync avatar từ doctor image
       gender: doctorInfo.gender || 'other',
       address: doctorInfo.address || '',
       role: 'doctor',
@@ -225,10 +233,11 @@ export const createDoctor = async (doctorInfo: any) => {
     // Loại bỏ các field user khỏi doctorInfo để tránh duplicate
     const { fullName, phone, gender, address, ...pureDoctorlnfo } = doctorInfo;
 
-    // Tạo doctor record với userId vừa tạo
+    // Tạo doctor record với userId vừa tạo, đồng bộ image với user avatar
     const doctor = await Doctor.create({
       userId: user._id,
-      ...pureDoctorlnfo
+      ...pureDoctorlnfo,
+      image: doctorInfo.image || user.avatar // Đảm bảo sync image
     });
 
     // Populate user info để trả về
@@ -260,6 +269,20 @@ export const updateDoctor = async (id: string, data: any) => {
       console.warn(`⚠️ Cố gắng cập nhật userId cho doctor ${id}, đã bị loại bỏ`);
     }
 
+    // Tìm doctor để lấy userId cho sync avatar
+    const existingDoctor = await Doctor.findById(id);
+    if (!existingDoctor) {
+      throw new Error('Không tìm thấy bác sĩ để cập nhật');
+    }
+
+    // Nếu có cập nhật image, đồng bộ với user avatar
+    if (updateData.image) {
+      await User.findByIdAndUpdate(existingDoctor.userId, {
+        avatar: updateData.image
+      });
+      console.log(`🔄 Đã sync avatar user với doctor image: ${updateData.image}`);
+    }
+
     // Validate experience nếu có
     if (updateData.experience !== undefined) {
       const exp = Number(updateData.experience);
@@ -286,20 +309,17 @@ export const updateDoctor = async (id: string, data: any) => {
     console.log(`🔄 [UPDATE START] Doctor ID: ${id}`);
     console.log(`📝 [UPDATE DATA]:`, JSON.stringify(updateData, null, 2));
 
-    // Tìm doctor trước để check existence và log current state
-    const existingDoctor = await Doctor.findById(id).populate('userId', 'fullName email');
-    if (!existingDoctor) {
-      throw new Error('Không tìm thấy bác sĩ để cập nhật');
-    }
-
-    console.log(`👤 [BEFORE UPDATE] Doctor: ${(existingDoctor as any)?.userId?.fullName}`);
+    // Populate để log current state
+    const populatedDoctor = await Doctor.findById(id).populate('userId', 'fullName email');
+    
+    console.log(`👤 [BEFORE UPDATE] Doctor: ${(populatedDoctor as any)?.userId?.fullName}`);
     console.log(`📊 [BEFORE UPDATE] Current data:`, {
-      bio: existingDoctor.bio,
-      experience: existingDoctor.experience,
-      rating: existingDoctor.rating,
-      specialization: existingDoctor.specialization,
-      education: existingDoctor.education,
-      certificate: existingDoctor.certificate,
+      bio: populatedDoctor?.bio,
+      experience: populatedDoctor?.experience,
+      rating: populatedDoctor?.rating,
+      specialization: populatedDoctor?.specialization,
+      education: populatedDoctor?.education,
+      certificate: populatedDoctor?.certificate,
     });
 
     // Thực hiện update với options đầy đủ

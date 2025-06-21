@@ -313,3 +313,59 @@ Type '"guest"' is not assignable to type '"customer" | "doctor" | "staff" | "man
 **Next Step:** Sync role types between global types và userApi types
 
 ---
+
+# Changelog - Gender Healthcare Service Management
+
+## [2024-01-21] - Doctor Schedule Management & Bug Fixes
+
+### Added
+- **Tìm kiếm lịch làm việc bác sĩ**: Implement chức năng quản lý lịch làm việc bác sĩ vào dashboard manager/admin
+- **DoctorScheduleManagement Component**: Page quản lý đầy đủ với tìm kiếm, filter, thống kê
+- **Advanced Search Integration**: Sử dụng hooks và utils có sẵn cho tìm kiếm nâng cao
+
+### Features
+- 🔍 **Tìm kiếm theo tên bác sĩ và chuyên khoa**
+- 📊 **Thống kê real-time**: Tổng slots, slots trống, slots đã đặt
+- 📅 **Hiển thị chi tiết lịch theo ngày**
+- 🎯 **Filter theo chuyên khoa**
+- 📋 **Expandable rows** để xem chi tiết slots theo ngày
+- 🔄 **Auto-refresh** và pagination
+
+### Technical Implementation
+- **API Integration**: Sử dụng `doctorScheduleApi.getAll()` cho staff/manager/admin
+- **Real-time Stats**: Tính toán thống kê từ dữ liệu filtered
+- **Responsive UI**: Table với scroll, pagination và mobile-friendly
+- **Role-based Access**: Tích hợp với permission system
+
+## [2024-01-21] - Permission & API Bug Fixes
+
+### Fixed
+- **Lỗi phân quyền quản lý người dùng**: Thêm quyền `staff` vào các API quản lý user
+- **Lỗi lịch sử đăng nhập**: Manager và Staff giờ có thể truy cập login history
+- **Validation email/phone trùng lặp**: Kiểm tra trùng lặp khi tạo bác sĩ mới
+- **Đồng bộ avatar**: Doctor.image được sync với User.avatar
+
+### Changed
+- **User Routes**: Thêm `staff` vào roleMiddleware cho các endpoint:
+  - `GET /users` - Lấy danh sách người dùng
+  - `GET /users/statistics` - Thống kê hệ thống  
+  - `GET /users/:userId` - Chi tiết người dùng
+- **Login History Routes**: Thêm `staff` vào `/login-history` endpoint
+- **Doctor Service**: 
+  - Enhanced validation cho email/phone khi tạo doctor
+  - Tự động sync avatar giữa User và Doctor models
+  - Improved error handling và logging
+
+### Technical Details
+- Cập nhật `Backend/src/routes/userRoutes.ts` 
+- Cập nhật `Backend/src/routes/loginHistoryRoutes.ts`
+- Enhanced `Backend/src/services/doctorService.ts`
+- Maintained backward compatibility với existing code
+
+### Impact
+- Managers có thể quản lý doctors hiệu quả hơn
+- Không còn lỗi trùng lặp khi tạo bác sĩ
+- Avatar đồng bộ chính xác giữa User và Doctor
+- Improved security với proper validation
+
+---
