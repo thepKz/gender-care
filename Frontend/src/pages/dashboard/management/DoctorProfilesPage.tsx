@@ -48,13 +48,15 @@ interface User {
 }
 
 interface FeedbackData {
-  totalCount: number;
+  totalFeedbacks: number;
   averageRating: number;
   ratingDistribution: { [key: number]: number };
   feedbacks: Array<{
+    _id: string;
     rating: number;
-    comment: string;
-    customerName: string;
+    feedback: string;
+    comment?: string;
+    appointmentId?: any;
     createdAt: string;
   }>;
   message: string;
@@ -114,7 +116,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
       const enhancedBasicData: DoctorWithDetails[] = basicData.map(doctor => ({
         ...doctor,
         feedback: {
-          totalCount: 0,
+          totalFeedbacks: 0,
           averageRating: doctor.rating || 0,
           ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
           feedbacks: [],
@@ -235,7 +237,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
       
       // Create mock feedback data for now
       const mockFeedback: FeedbackData = {
-        totalCount: 0,
+        totalFeedbacks: 0,
         averageRating: 0,
         message: 'Chưa có đánh giá nào',
         ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
@@ -333,7 +335,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
         // Use enhanced feedback data if available
         const feedbackData = record.feedback;
         
-        if (feedbackData && feedbackData.totalCount > 0) {
+        if (feedbackData && feedbackData.totalFeedbacks > 0) {
           return (
             <Space direction="vertical" size={2}>
               <Space>
@@ -346,7 +348,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
                 icon={<CommentOutlined />}
                 onClick={() => showFeedbackDetails()}
               >
-                {feedbackData.totalCount} đánh giá
+                {feedbackData.totalFeedbacks} đánh giá
               </Button>
             </Space>
           );
@@ -402,7 +404,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
           <div>⭐ {record.feedback?.averageRating?.toFixed(1) || record.rating || 0}/5</div>
           {record.feedback && (
             <div style={{ fontSize: '12px', color: '#666' }}>
-              💬 {record.feedback.totalCount} feedback
+              💬 {record.feedback.totalFeedbacks} feedback
             </div>
           )}
         </div>
@@ -426,7 +428,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
             size="small"
             icon={<EyeOutlined />}
             onClick={() => showFeedbackDetails()}
-            disabled={!record.feedback || record.feedback.totalCount === 0}
+            disabled={!record.feedback || record.feedback.totalFeedbacks === 0}
           >
             Xem đánh giá
           </Button>
@@ -682,7 +684,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
                 <Col span={8}>
                   <Statistic
                     title="Tổng đánh giá"
-                    value={selectedDoctorFeedback.totalCount}
+                    value={selectedDoctorFeedback.totalFeedbacks}
                     prefix={<CommentOutlined />}
                   />
                 </Col>
@@ -727,7 +729,7 @@ const ManagerDoctorProfilesPage: React.FC = () => {
                             <strong>Nhận xét:</strong> {feedback.comment}
                           </Paragraph>
                           <Text type="secondary" style={{ fontSize: '12px' }}>
-                            Khách hàng: {feedback.customerName}
+                            Khách hàng: {feedback.comment || 'Không có tên'}
                           </Text>
                         </div>
                       }

@@ -19,7 +19,6 @@ import {
   getQAMeeting,
   joinQAMeeting,
   completeQAMeeting,
-,
   manualTriggerScheduling,
   batchProcessPaidQAs,
   cancelConsultationByDoctor,

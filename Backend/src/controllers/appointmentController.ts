@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { Appointments, DoctorSchedules, Services, ServicePackages, UserProfiles, PackagePurchases, Doctor } from '../models';
+import { Appointments, DoctorSchedules, Service, ServicePackages, UserProfiles, PackagePurchases, Doctor } from '../models';
 import { NotFoundError } from '../errors/notFoundError';
 import { ValidationError } from '../errors/validationError';
 import { UnauthorizedError } from '../errors/unauthorizedError';
