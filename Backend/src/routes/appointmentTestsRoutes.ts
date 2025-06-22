@@ -2,24 +2,25 @@ import { Router } from 'express';
 import appointmentTestsController from '../controllers/appointmentTestsController';
 import { authMiddleware } from '../middleware/authMiddleware';
 import { roleMiddleware } from '../middleware/roleMiddleware';
+import { requireRole, requireAnyRole } from '../middleware/roleHierarchy';
 
 const router = Router();
 
 // Routes cho AppointmentTests
 
-// GET /api/appointment-tests - Lấy tất cả appointment tests (Admin, Doctor, Nursing Staff)
+// GET /api/appointment-tests - Lấy tất cả appointment tests (Staff, Manager, Admin)  
 router.get(
   '/',
   authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff']),
+  requireRole('staff'), // Now admin and manager can access via hierarchy
   appointmentTestsController.getAllAppointmentTests
 );
 
-// GET /api/appointment-tests/stats/:year/:month - Thống kê theo tháng (Admin, Manager)
+// GET /api/appointment-tests/stats/:year/:month - Thống kê theo tháng (Manager, Admin)
 router.get(
   '/stats/:year/:month',
   authMiddleware,
-  roleMiddleware(['admin', 'manager']),
+  requireRole('manager'), // Admin can access via hierarchy
   appointmentTestsController.getTestStatsByMonth
 );
 
@@ -27,7 +28,7 @@ router.get(
 router.get(
   '/appointment/:appointmentId/total-price',
   authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'customer']),
+  requireAnyRole(['staff', 'customer']), // Staff + hierarchy + customer
   appointmentTestsController.calculateTotalPriceByAppointment
 );
 
@@ -35,7 +36,7 @@ router.get(
 router.get(
   '/appointment/:appointmentId',
   authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'customer']),
+  requireAnyRole(['staff', 'customer']), // Staff + hierarchy + customer
   appointmentTestsController.getAppointmentTestsByAppointmentId
 );
 
@@ -43,31 +44,31 @@ router.get(
 router.get(
   '/:id',
   authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'customer']),
+  requireAnyRole(['staff', 'customer']), // Staff + hierarchy + customer
   appointmentTestsController.getAppointmentTestById
 );
 
-// POST /api/appointment-tests - Tạo appointment test mới (Doctor, Nursing Staff)
+// POST /api/appointment-tests - Tạo appointment test mới (Staff, Manager, Admin)
 router.post(
   '/',
   authMiddleware,
-  roleMiddleware(['doctor', 'nursing_staff']),
+  requireRole('staff'), // Now manager and admin can create via hierarchy
   appointmentTestsController.createAppointmentTest
 );
 
-// PUT /api/appointment-tests/:id - Cập nhật appointment test (Doctor, Nursing Staff)
+// PUT /api/appointment-tests/:id - Cập nhật appointment test (Staff, Manager, Admin)
 router.put(
   '/:id',
   authMiddleware,
-  roleMiddleware(['doctor', 'nursing_staff']),
+  requireRole('staff'), // Now manager and admin can update via hierarchy
   appointmentTestsController.updateAppointmentTest
 );
 
-// DELETE /api/appointment-tests/:id - Xóa appointment test (Doctor, Admin)
+// DELETE /api/appointment-tests/:id - Xóa appointment test (Manager, Admin)
 router.delete(
   '/:id',
   authMiddleware,
-  roleMiddleware(['doctor', 'admin']),
+  requireRole('manager'), // Admin can delete via hierarchy
   appointmentTestsController.deleteAppointmentTest
 );
 

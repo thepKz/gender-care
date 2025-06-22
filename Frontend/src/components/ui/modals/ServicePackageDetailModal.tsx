@@ -83,10 +83,6 @@ const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
     if (!location) return 'Chưa xác định';
     
     switch (location.toLowerCase()) {
-      case 'athome':
-        return 'Tại nhà';
-      case 'online':
-        return 'Trực tuyến';
       case 'center':
         return 'Tại trung tâm';
       default:
@@ -94,14 +90,25 @@ const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
     }
   };
 
-  // Get services from serviceIds (handle both string and Service object)
+  // Get services from services array (handle both string and Service object)
   const getServices = (): Service[] => {
-    return servicePackage.serviceIds.filter(service => 
-      typeof service === 'object' && service !== null
-    ) as Service[];
+    return servicePackage.services
+      ?.map(serviceItem => {
+        if (typeof serviceItem.serviceId === 'object' && serviceItem.serviceId !== null) {
+          return { 
+            ...serviceItem.serviceId as Service,
+            quantity: serviceItem.quantity
+          };
+        }
+        return null;
+      })
+      .filter(Boolean) as Service[] || [];
   };
 
   const services = getServices();
+
+  // 🔹 Calculate total service quantity
+  const totalQuantity = servicePackage.services?.reduce((sum, item) => sum + item.quantity, 0) || 0;
 
   return (
     <Modal
@@ -122,7 +129,7 @@ const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
                 {servicePackage.name}
               </Title>
               <Text className="text-gray-600 leading-relaxed">
-                {servicePackage.description}
+                {servicePackage.description || 'Gói dịch vụ chăm sóc sức khỏe toàn diện'}
               </Text>
             </div>
             <div className="flex-shrink-0">
@@ -132,6 +139,24 @@ const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* 🔹 Package Summary Info */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="bg-blue-50 p-3 rounded-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-blue-500">📊</span>
+              <Text strong>Tổng lượt sử dụng</Text>
+            </div>
+            <div className="text-lg font-bold text-blue-600">{totalQuantity} lượt</div>
+          </div>
+          <div className="bg-purple-50 p-3 rounded-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-purple-500">📅</span>
+              <Text strong>Thời hạn sử dụng</Text>
+            </div>
+            <div className="text-lg font-bold text-purple-600">{servicePackage.durationInDays} ngày</div>
           </div>
         </div>
 
@@ -175,102 +200,124 @@ const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
 
         <Divider orientation="left">
           <span className="text-gray-700 font-semibold">
-            Bao gồm {services.length} dịch vụ
+            Bao gồm {services.length} dịch vụ - {totalQuantity} lượt sử dụng
           </span>
         </Divider>
 
         {/* Services List */}
         <div className="space-y-4 max-h-96 overflow-y-auto">
-          {services.map((service, index) => (
-            <div
-              key={service._id || index}
-              className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow duration-200"
-            >
-              <div className="flex items-start gap-4">
-                {/* Service Icon */}
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-green-50 rounded-xl flex items-center justify-center">
-                    <span className="text-2xl">
-                      {getServiceTypeIcon(service.serviceType)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Service Details */}
-                <div className="flex-1">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <Title level={5} className="mb-1 text-gray-900">
-                        {service.serviceName}
-                      </Title>
-                      <Text className="text-gray-600 text-sm">
-                        {service.description}
-                      </Text>
-                    </div>
-                    <div className="text-right">
-                      <Text strong className="text-blue-primary">
-                        {formatPrice(service.price)} VNĐ
-                      </Text>
+          {servicePackage.services?.map((serviceItem, index) => {
+            const service = typeof serviceItem.serviceId === 'object' ? serviceItem.serviceId as Service : null;
+            if (!service) return null;
+            
+            return (
+              <div
+                key={service._id || index}
+                className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow duration-200"
+              >
+                <div className="flex items-start gap-4">
+                  {/* Service Icon */}
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-green-50 rounded-xl flex items-center justify-center">
+                      <span className="text-2xl">
+                        {getServiceTypeIcon(service.serviceType)}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Service Meta */}
-                  <div className="flex items-center gap-4 text-sm">
-                    {/* Service Type */}
-                    <Tag
-                      color="blue"
-                      className="rounded-md border-0"
-                    >
-                      {getServiceTypeIcon(service.serviceType)} {getServiceTypeLabel(service.serviceType)}
-                    </Tag>
+                  {/* Service Details */}
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <Title level={5} className="mb-1 text-gray-900">
+                          {service.serviceName}
+                        </Title>
+                        
+                        {/* 🔹 NEW: Quantity Display */}
+                        <div className="flex items-center gap-3 mb-2">
+                          <Tag color="blue" className="flex items-center gap-1">
+                            <span className="text-blue-500">🔢</span>
+                            {serviceItem.quantity} lượt
+                          </Tag>
+                          <Tag color="green">
+                            {getServiceTypeLabel(service.serviceType)}
+                          </Tag>
+                        </div>
+                      </div>
+                      
+                      <div className="text-right">
+                        <Text strong className="text-lg text-green-600">
+                          {formatPrice(service.price)} VNĐ
+                        </Text>
+                        <div className="text-xs text-gray-500">/ lượt</div>
+                      </div>
+                    </div>
 
-                    {/* Available Location */}
+                    <Text className="text-gray-600 text-sm leading-relaxed mb-3">
+                      {service.description || 'Dịch vụ chăm sóc sức khỏe chuyên nghiệp'}
+                    </Text>
+
+                    {/* Available Locations */}
                     {service.availableAt && service.availableAt.length > 0 && (
-                      <div className="flex items-center gap-1 text-gray-600">
-                        <EnvironmentOutlined className="text-blue-primary" />
-                        <span>
-                          {getLocationIcon(service.availableAt[0])} {getLocationLabel(service.availableAt[0])}
-                          {service.availableAt.length > 1 && (
-                            <span className="text-xs text-gray-400 ml-1">
-                              +{service.availableAt.length - 1}
-                            </span>
-                          )}
-                        </span>
+                      <div className="flex items-center gap-2 mb-2">
+                        <EnvironmentOutlined className="text-blue-500" />
+                        <Text className="text-sm text-gray-700 font-medium">
+                          Địa điểm:
+                        </Text>
+                        <div className="flex gap-1">
+                          {service.availableAt.map((location: string, locationIndex: number) => (
+                            <Tag 
+                              key={locationIndex}
+                              color="blue"
+                              className="flex items-center gap-1 text-xs"
+                            >
+                              <span>{getLocationIcon(location)}</span>
+                              {getLocationLabel(location)}
+                            </Tag>
+                          ))}
+                        </div>
                       </div>
                     )}
-                  </div>
 
-                
+                    {/* Service Benefits */}
+                    <div className="flex items-center gap-2">
+                      <CheckCircleOutlined className="text-green-500" />
+                      <Text className="text-sm text-gray-600">
+                        Bao gồm trong gói - Tiết kiệm chi phí
+                      </Text>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
-        {/* Package Benefits */}
-        <div className="mt-6 bg-blue-50 p-4 rounded-xl">
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircleOutlined className="text-blue-primary" />
-            <Text strong className="text-blue-primary">
+        {/* Package Benefits Footer */}
+        <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl border border-blue-200/50">
+          <div className="flex items-center gap-2 mb-2">
+            <ClockCircleOutlined className="text-blue-600" />
+            <Text strong className="text-blue-600">
               Ưu điểm của gói dịch vụ
             </Text>
           </div>
+          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-green-500">✓</span>
-              <span className="text-gray-700">Tiết kiệm chi phí</span>
+              <CheckCircleOutlined className="text-green-500" />
+              <span>Tiết kiệm {discountPercentage > 0 ? `${discountPercentage}%` : ''} chi phí</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-green-500">✓</span>
-              <span className="text-gray-700">Chăm sóc toàn diện</span>
+              <CheckCircleOutlined className="text-green-500" />
+              <span>Thời hạn {servicePackage.durationInDays} ngày</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-green-500">✓</span>
-              <span className="text-gray-700">Ưu tiên đặt lịch</span>
+              <CheckCircleOutlined className="text-green-500" />
+              <span>Tổng {totalQuantity} lượt sử dụng</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-green-500">✓</span>
-              <span className="text-gray-700">Hỗ trợ tư vấn 24/7</span>
+              <CheckCircleOutlined className="text-green-500" />
+              <span>Chăm sóc chuyên nghiệp</span>
             </div>
           </div>
         </div>

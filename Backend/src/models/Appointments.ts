@@ -39,7 +39,7 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Services'
+    ref: 'Service'
   },
   doctorId: {
     type: mongoose.Schema.Types.ObjectId,

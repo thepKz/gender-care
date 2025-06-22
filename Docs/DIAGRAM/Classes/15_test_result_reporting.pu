@@ -1,0 +1,163 @@
+@startuml 15_test_result_reporting
+
+skinparam classAttributeIconSize 0
+skinparam backgroundColor LightYellow
+skinparam classBackgroundColor LightBlue
+skinparam classBorderColor DarkBlue
+
+title Test Result Reporting System - Class Diagram (Actual Implementation)
+
+package "Simple Test Result System" {
+    class TestResults {
+        - _id : ObjectId
+        - appointmentTestId : ObjectId
+        - conclusion : string
+        - recommendations : string
+        - createdAt : DateTime
+        --
+        + createTestResult() : boolean
+        + updateResult(data) : boolean
+        + deleteResult() : boolean
+        + addConclusion(conclusion) : boolean
+        + addRecommendations(recommendations) : boolean
+        + getResultItems() : TestResultItems[]
+        + generateSimpleReport() : object
+        + exportResultData() : string
+        - validateResultData() : boolean
+        - formatOutput() : object
+    }
+
+    class TestResultItems {
+        - _id : ObjectId
+        - testResultId : ObjectId
+        - itemNameId : ObjectId
+        - value : string
+        - unit : string
+        - currentRange : string
+        - flag : string
+        --
+        + createResultItem() : boolean
+        + updateItem(data) : boolean
+        + deleteItem() : boolean
+        + setValue(value) : boolean
+        + setFlag(flag) : boolean
+        + compareToNormalRange() : string
+        + getItemDetails() : object
+        + exportItemData() : string
+        - validateItemValue() : boolean
+        - determineFlag() : string
+    }
+
+    class TestCategories {
+        - _id : ObjectId
+        - name : string [unique]
+        - description : string
+        - unit : string
+        - normalRange : string
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + createCategory() : boolean
+        + updateCategory(data) : boolean
+        + setNormalRange(range) : boolean
+        + getCategories() : TestCategories[]
+        + searchByName(name) : TestCategories[]
+        + validateRange(value) : boolean
+        + formatRangeInfo() : string
+        - checkRangeFormat() : boolean
+        - validateCategoryData() : boolean
+    }
+
+    class AppointmentTests {
+        - _id : ObjectId
+        - appointmentId : string
+        - description : string
+        - name : string
+        - price : number
+        - preparationGuidelines : string
+        - resultWaitTime : string
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + getTestInfo() : object
+        + hasResults() : boolean
+        + getResults() : TestResults[]
+        + calculateCost() : number
+        + getGuidelines() : string
+        + estimateCompletionTime() : string
+        - validateTestData() : boolean
+        - formatTestInfo() : string
+    }
+
+    enum TestFlag {
+        HIGH
+        LOW
+        NORMAL
+    }
+
+    enum ReportFormat {
+        JSON
+        PDF
+        CSV
+        XML
+    }
+
+    note right of TestResults
+        Simple reporting system:
+        - Basic conclusion and recommendations
+        - No complex approval workflow
+        - No critical value alerts
+        - No quality management
+        - Basic export functionality
+    end note
+
+    note right of TestResultItems
+        Basic result items:
+        - Simple value recording
+        - Basic flag system (high/low/normal)
+        - Reference to test categories
+        - No complex validation rules
+    end note
+
+    note top of TestCategories
+        Test reference data:
+        - Defines test parameters
+        - Normal range information
+        - Units for measurements
+        - Used for result validation
+    end note
+}
+
+' External references for context
+class Appointments {
+    - _id : ObjectId
+    - profileId : ObjectId
+    - appointmentDate : DateTime
+    - status : string
+}
+
+class UserProfiles {
+    - _id : ObjectId
+    - ownerId : ObjectId
+    - fullName : string
+    - gender : string
+}
+
+class Users {
+    - _id : ObjectId
+    - fullName : string
+    - role : string
+}
+
+' Relationships - Simple structure
+Appointments ||--o{ AppointmentTests : "includes"
+AppointmentTests ||--o| TestResults : "generates"
+TestResults ||--o{ TestResultItems : "contains"
+TestResultItems }o--|| TestCategories : "references"
+TestResultItems ||--|| TestFlag : "has flag"
+
+' External relationships
+Appointments }o--|| UserProfiles : "for profile"
+UserProfiles }o--|| Users : "belongs to"
+
+@enduml 

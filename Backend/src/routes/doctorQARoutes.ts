@@ -1,5 +1,6 @@
 import express from 'express';
 import { verifyToken, verifyStaff, verifyDoctor } from '../middleware/auth';
+import { requireRole } from '../middleware/roleHierarchy';
 import {
   getLeastBookedDoctor,
   getBestAssignment,
@@ -18,6 +19,7 @@ import {
   getQAMeeting,
   joinQAMeeting,
   completeQAMeeting,
+,
   manualTriggerScheduling,
   batchProcessPaidQAs,
   cancelConsultationByDoctor,
@@ -34,16 +36,18 @@ const router = express.Router();
 
 // =============== SPECIFIC ROUTES FIRST (Tránh conflict với :id) ===============
 // GET /api/doctor-qa/best-assignment - Tìm assignment tốt nhất cho slot gần nhất (STAFF/MANAGER/ADMIN)
-router.get('/doctor-qa/best-assignment', verifyToken, verifyStaff, getBestAssignment);
+router.get('/doctor-qa/best-assignment', verifyToken, requireRole('staff'), getBestAssignment);
 
 // GET /api/doctor-qa/least-booked-doctor - Legacy: Tìm bác sĩ có ít slot booked nhất (STAFF/MANAGER/ADMIN)
-router.get('/doctor-qa/least-booked-doctor', verifyToken, verifyStaff, getLeastBookedDoctor);
+router.get('/doctor-qa/least-booked-doctor', verifyToken, requireRole('staff'), getLeastBookedDoctor);
 
 // GET /api/doctor-qa/live - Lấy consultation đang LIVE hiện tại (DOCTOR/STAFF)
 router.get('/doctor-qa/live', verifyToken, getLiveConsultations);
 
 // GET /api/doctor-qa/today - Lấy tất cả consultation HÔM NAY (DOCTOR/STAFF)
 router.get('/doctor-qa/today', verifyToken, getTodayConsultations);
+
+
 
 // GET /api/doctor-qa/my-requests - Lấy yêu cầu tư vấn của user đang đăng nhập
 router.get('/doctor-qa/my-requests', verifyToken, getMyDoctorQAs);
@@ -56,7 +60,7 @@ router.get('/doctor-qa/my', verifyToken, verifyDoctor, getMyDoctorQAAsDoctor);
 router.post('/doctor-qa', verifyToken, createDoctorQA);
 
 // GET /api/doctor-qa - Lấy tất cả yêu cầu tư vấn (có thể filter) - STAFF/MANAGER/ADMIN
-router.get('/doctor-qa', verifyToken, verifyStaff, getAllDoctorQAs);
+router.get('/doctor-qa', verifyToken, requireRole('staff'), getAllDoctorQAs);
 
 // =============== DOCTOR ROUTES (Cần auth doctor) ===============
 // GET /api/doctor-qa/doctor/:doctorId - Lấy yêu cầu tư vấn của bác sĩ cụ thể
@@ -92,13 +96,13 @@ router.put('/doctor-qa/:id/cancel-by-doctor', verifyToken, verifyDoctor, cancelC
 router.put('/doctor-qa/:id/confirm', verifyToken, doctorConfirmQA);
 
 // PUT /api/doctor-qa/:id/schedule - Staff xếp lịch cụ thể (STAFF/MANAGER/ADMIN)
-router.put('/doctor-qa/:id/schedule', verifyToken, verifyStaff, scheduleQA);
+router.put('/doctor-qa/:id/schedule', verifyToken, requireRole('staff'), scheduleQA);
 
 // PUT /api/doctor-qa/:id/status - Cập nhật trạng thái tổng quát (STAFF/MANAGER/ADMIN)
-router.put('/doctor-qa/:id/status', verifyToken, verifyStaff, updateQAStatus);
+router.put('/doctor-qa/:id/status', verifyToken, requireRole('staff'), updateQAStatus);
 
 // DELETE /api/doctor-qa/:id - Xóa yêu cầu tư vấn (STAFF/MANAGER/ADMIN)
-router.delete('/doctor-qa/:id', verifyToken, verifyStaff, deleteDoctorQA);
+router.delete('/doctor-qa/:id', verifyToken, requireRole('staff'), deleteDoctorQA);
 
 // =============== PAYMENT GATEWAY ROUTES ===============
 // PUT /api/doctor-qa/:id/payment - Cập nhật trạng thái thanh toán (webhook)
@@ -120,6 +124,8 @@ router.put('/doctor-qa/:id/manual-schedule', verifyToken, verifyStaff, manualTri
 
 // POST /api/doctor-qa/batch-process-paid - Batch process tất cả paid QAs (STAFF)
 router.post('/doctor-qa/batch-process-paid', verifyToken, verifyStaff, batchProcessPaidQAs);
+
+
 
 
 export default router; 

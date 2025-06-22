@@ -6,10 +6,10 @@ import { Calendar, momentLocalizer, View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '../../styles/calendar.css';
 import type {
-  AdvancedCalendarProps,
-  CalendarEvent,
-  CalendarView,
-  EventStyleGetter
+    AdvancedCalendarProps,
+    CalendarEvent,
+    CalendarView,
+    EventStyleGetter
 } from '../../types/calendar';
 import CalendarToolbar from './CalendarToolbar';
 
@@ -296,7 +296,10 @@ const AdvancedCalendar: React.FC<AdvancedCalendarProps> = ({
     return (
       <Card className={`advanced-calendar ${className}`}>
         <div className="calendar-loading">
-          <Spin size="large" tip="Đang tải lịch làm việc..." />
+          <div className="text-center">
+          <Spin size="large" />
+          <div className="mt-2 text-gray-600">Đang tải lịch làm việc...</div>
+        </div>
         </div>
       </Card>
     );

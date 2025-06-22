@@ -21,6 +21,7 @@ import testResultItemsRoutes from "./testResultItemsRoutes";
 import testResultsRoutes from "./testResultsRoutes";
 import userProfileRoutes from "./userProfileRoutes";
 import userRoutes from "./userRoutes";
-export { appointmentRoutes, appointmentTestsRoutes, authRoutes, blogPostRoutes, dashboardRoutes, doctorQARoutes, doctorRoutes, googleAuthRoutes, loginHistoryRoutes, medicalRecordsRoutes, medicationRemindersRoutes, medicinesRoutes, meetingRoutes, notificationDaysRoutes, paymentRoutes, packagePurchaseRoutes,servicePackageRoutes, serviceRoutes, testCategoriesRoutes, testResultItemsRoutes, testResultsRoutes, userProfileRoutes, userRoutes };
+import systemLogRoutes from "./systemLogRoutes";
+export { appointmentRoutes, appointmentTestsRoutes, authRoutes, blogPostRoutes, dashboardRoutes, doctorQARoutes, doctorRoutes, googleAuthRoutes, loginHistoryRoutes, medicalRecordsRoutes, medicationRemindersRoutes, medicinesRoutes, meetingRoutes, notificationDaysRoutes, paymentRoutes, packagePurchaseRoutes,servicePackageRoutes, serviceRoutes, systemLogRoutes, testCategoriesRoutes, testResultItemsRoutes, testResultsRoutes, userProfileRoutes, userRoutes };
 
 

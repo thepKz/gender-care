@@ -2,18 +2,18 @@ import express from "express";
 import multer from 'multer';
 import {
     changePassword,
-    getCurrentUserProfile,
-    updateUserAvatar,
-    updateUserProfile,
-    uploadAvatarImage,
+    createUser,
+    deleteUser,
     // Admin functions
     getAllUsers,
+    getCurrentUserProfile,
+    getSystemStatistics,
     getUserById,
-    createUser,
-    updateUserRole,
     toggleUserStatus,
-    deleteUser,
-    getSystemStatistics
+    updateUserAvatar,
+    updateUserProfile,
+    updateUserRole,
+    uploadAvatarImage
 } from "../controllers/userController";
 import { verifyToken } from "../middleware/auth";
 import { roleMiddleware } from "../middleware/roleMiddleware";
@@ -29,12 +29,12 @@ router.put("/profile/me/avatar", verifyToken, updateUserAvatar);
 router.put("/profile/me/change-password", verifyToken, changePassword);
 router.post("/profile/me/avatar/upload", verifyToken, upload.single('avatar'), uploadAvatarImage);
 
-// ===== ADMIN & MANAGER ROUTES =====
-// Quản lý người dùng (Admin & Manager)
-router.get("/", verifyToken, roleMiddleware(['admin', 'manager']), getAllUsers);
+// ===== ADMIN, MANAGER & STAFF ROUTES =====
+// Quản lý người dùng (Admin, Manager & Staff)
+router.get("/", verifyToken, roleMiddleware(['admin', 'manager', 'staff']), getAllUsers);
 router.post("/", verifyToken, roleMiddleware(['admin', 'manager']), createUser);
-router.get("/statistics", verifyToken, roleMiddleware(['admin', 'manager']), getSystemStatistics);
-router.get("/:userId", verifyToken, roleMiddleware(['admin', 'manager']), getUserById);
+router.get("/statistics", verifyToken, roleMiddleware(['admin', 'manager', 'staff']), getSystemStatistics);
+router.get("/:userId", verifyToken, roleMiddleware(['admin', 'manager', 'staff']), getUserById);
 router.put("/:userId/role", verifyToken, roleMiddleware(['admin', 'manager']), updateUserRole);
 router.patch("/:userId/toggle-status", verifyToken, roleMiddleware(['admin', 'manager']), toggleUserStatus);
 router.delete("/:userId", verifyToken, roleMiddleware(['admin', 'manager']), deleteUser);

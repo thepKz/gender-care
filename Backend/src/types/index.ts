@@ -50,6 +50,8 @@ export interface ILoginHistory {
   ipAddress: string;
   userAgent: string;
   loginAt: Date;
+  logoutAt?: Date;
+  location?: string;
   status: 'success' | 'failed';
   failReason?: string;
 }
@@ -416,4 +418,13 @@ export interface PaginatedResponse<T> {
     limit: number;
     totalPages: number;
   };
+}
+
+// Extend Express Request interface để include realIP
+declare global {
+  namespace Express {
+    interface Request {
+      realIP?: string;
+    }
+  }
 }

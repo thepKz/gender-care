@@ -67,11 +67,6 @@ const Header: React.FC = () => {
     },
     {
       key: "3",
-      label: "Lấy mẫu tại nhà",
-      onClick: () => navigate('/services/home-sampling'),
-    },
-    {
-      key: "4",
       label: "Theo dõi chu kỳ kinh nguyệt",
       onClick: () => navigate('/services/cycle-tracking'),
     }

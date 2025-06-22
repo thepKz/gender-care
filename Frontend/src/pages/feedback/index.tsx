@@ -73,8 +73,7 @@ const Feedback: React.FC = () => {
 
   const locationConfig = {
     online: { icon: <MonitorMobbile size={16} />, text: 'Online' },
-    clinic: { icon: <Location size={16} />, text: 'Phòng khám' },
-    home: { icon: <Home size={16} />, text: 'Tại nhà' }
+    clinic: { icon: <Location size={16} />, text: 'Phòng khám' }
   };
 
   const positiveOptions = [

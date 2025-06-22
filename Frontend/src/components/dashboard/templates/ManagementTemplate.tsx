@@ -5,7 +5,10 @@ import {
   Typography,
   Button,
   Row,
-  Col
+  Col,
+  Card,
+  List,
+  Statistic
 } from 'antd';
 import {
   DashboardOutlined,
@@ -14,6 +17,7 @@ import {
   SettingOutlined,
   HistoryOutlined,
   BarChartOutlined,
+  SecurityScanOutlined,
   LogoutOutlined,
   AppstoreOutlined,
   CalendarOutlined,
@@ -24,15 +28,12 @@ import {
   ExperimentOutlined
 } from '@ant-design/icons';
 import EnhancedStatsCard from '../widgets/EnhancedStatsCard';
-import ActivityFeed from '../widgets/ActivityFeed';
 import TableWidget from '../widgets/TableWidget';
-import RolePermissionTable from '../widgets/RolePermissionTable';
-import TopPerformersCard from '../widgets/TopPerformersCard';
-import BrowserUsageChart from '../widgets/BrowserUsageChart';
 import UserManagement from '../../../pages/dashboard/management/UserManagement';
 import DoctorManagement from '../../../pages/dashboard/management/DoctorManagement';
 import ServiceManagement from '../../../pages/dashboard/management/ServiceManagement';
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
+import SystemLogManagement from '../../../pages/dashboard/management/SystemLogManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
 import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedulePage';
 import MedicineManagement from '../../../pages/dashboard/management/MedicineManagement';
@@ -122,6 +123,11 @@ const getMenuItems = (role: 'admin' | 'manager') => {
       key: 'login-history',
       icon: <HistoryOutlined />,
       label: 'Lịch sử đăng nhập',
+    },
+    {
+      key: 'system-logs',
+      icon: <SecurityScanOutlined />,
+      label: 'System Logs',
     },
     {
       key: 'reports',
@@ -425,46 +431,82 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         ))}
       </Row>
 
-      {/* Main Content */}
+      {/* Main Content - Simplified Layout */}
       <Row gutter={[24, 24]}>
-        {/* Recent Activities */}
-        <Col xs={24} lg={14}>
-          <ActivityFeed 
-            activities={activities}
-            title="Hoạt động gần đây"
-          />
-        </Col>
-
-        {/* Right Column */}
-        <Col xs={24} lg={10}>
+        {/* Left Column - Today's Schedule & Quick Actions */}
+        <Col xs={24} lg={16}>
           <Row gutter={[0, 24]}>
             {/* Today's Appointments */}
             <Col xs={24}>
               <TableWidget 
-                data={todayList.slice(0, 5)}
-                title="Lịch hẹn hôm nay"
+                data={todayList.slice(0, 8)}
+                title="📅 Lịch hẹn hôm nay"
                 pagination={false}
               />
             </Col>
 
+            {/* Recent Activities - Compact Version */}
+            {activities.length > 0 && (
+              <Col xs={24}>
+                <Card
+                  title="🔄 Hoạt động gần đây"
+                  size="small"
+                  style={{ 
+                    borderRadius: '12px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)' 
+                  }}
+                >
+                  <List
+                    dataSource={activities.slice(0, 3)}
+                    renderItem={(item: any) => (
+                      <List.Item style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
+                        <List.Item.Meta
+                          avatar={<Avatar size="small" icon={<UserOutlined />} />}
+                          title={<Text style={{ fontSize: '14px' }}>{item.title}</Text>}
+                          description={
+                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                              {item.description}
+                            </Text>
+                          }
+                        />
+                        <Text type="secondary" style={{ fontSize: '11px' }}>
+                          {item.time ? new Date(item.time).toLocaleTimeString('vi-VN') : ''}
+                        </Text>
+                      </List.Item>
+                    )}
+                  />
+                  {activities.length > 3 && (
+                    <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                      <Button type="link" size="small">
+                        Xem thêm {activities.length - 3} hoạt động
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              </Col>
+            )}
+          </Row>
+        </Col>
+
+        {/* Right Column - Quick Actions & System Info */}
+        <Col xs={24} lg={8}>
+          <Row gutter={[0, 24]}>
             {/* Quick Actions Card */}
             <Col xs={24}>
-              <div style={{
-                background: '#fff',
-                borderRadius: '12px',
-                padding: '20px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                border: '1px solid #f0f0f0'
-              }}>
-                <Title level={4} style={{ marginBottom: '16px' }}>
-                  ⚡ Thao tác nhanh
-                </Title>
-                <Row gutter={[12, 12]}>
-                  <Col span={12}>
+              <Card
+                title="⚡ Thao tác nhanh"
+                size="small"
+                style={{
+                  borderRadius: '12px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}
+              >
+                <Row gutter={[8, 8]}>
+                  <Col span={24}>
                     <Button 
                       type="primary" 
                       icon={<UserOutlined />} 
-                      size="small"
+                      size="middle"
                       block
                       onClick={() => setSelectedKey('doctors')}
                     >
@@ -475,9 +517,9 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                     <Button 
                       type="default" 
                       icon={<MedicineBoxOutlined />} 
-                      size="small"
+                      size="middle"
                       block
-                      onClick={() => setSelectedKey('services')}
+                      onClick={() => setSelectedKey('schedule')}
                     >
                       Dịch vụ
                     </Button>
@@ -518,186 +560,109 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                     </>
                   )}
                 </Row>
-              </div>
+              </Card>
             </Col>
 
-            {/* Browser Usage Chart */}
+            {/* System Status - Compact */}
             <Col xs={24}>
-              <BrowserUsageChart 
-                title="Phân tích truy cập"
-                showDetails={false}
-              />
+              <Card
+                title="📊 Tình trạng hệ thống"
+                size="small"
+                style={{
+                  borderRadius: '12px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}
+              >
+                <Row gutter={[8, 16]}>
+                  <Col span={12}>
+                    <Statistic
+                      title="Bác sĩ hoạt động"
+                      value={stats.find(s => s.title === 'Tổng bác sĩ')?.value || 0}
+                      prefix={<UserOutlined style={{ color: '#52c41a' }} />}
+                      valueStyle={{ fontSize: '18px', color: '#52c41a' }}
+                    />
+                  </Col>
+                  <Col span={12}>
+                    <Statistic
+                      title="Dịch vụ"
+                      value={stats.find(s => s.title === 'Tổng dịch vụ')?.value || 0}
+                      prefix={<MedicineBoxOutlined style={{ color: '#1890ff' }} />}
+                      valueStyle={{ fontSize: '18px', color: '#1890ff' }}
+                    />
+                  </Col>
+                  <Col span={24}>
+                    <div style={{ 
+                      padding: '12px', 
+                      background: '#f6ffed', 
+                      borderRadius: '8px',
+                      border: '1px solid #b7eb8f',
+                      textAlign: 'center'
+                    }}>
+                      <Text style={{ color: '#52c41a', fontWeight: 500 }}>
+                        ✅ Hệ thống hoạt động bình thường
+                      </Text>
+                    </div>
+                  </Col>
+                </Row>
+              </Card>
             </Col>
           </Row>
         </Col>
       </Row>
 
-      {/* System Overview Section */}
-      <Row gutter={[24, 24]} style={{ marginTop: '32px' }}>
-        <Col xs={24} md={12}>
-          <div style={{
-            background: '#fff',
-            borderRadius: '12px',
-            padding: '20px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            border: '1px solid #f0f0f0',
-            height: '200px'
-          }}>
-            <Title level={4} style={{ marginBottom: '16px' }}>
-              📊 Tổng quan hệ thống
-            </Title>
-            <Row gutter={[16, 16]}>
-              <Col span={8} style={{ textAlign: 'center' }}>
-                <div style={{ color: '#1890ff', fontSize: '24px', fontWeight: 'bold' }}>
-                  {stats[0]?.value || 0}
-                </div>
-                <div style={{ fontSize: '12px', color: '#666' }}>Bác sĩ</div>
-              </Col>
-              <Col span={8} style={{ textAlign: 'center' }}>
-                <div style={{ color: '#52c41a', fontSize: '24px', fontWeight: 'bold' }}>
-                  {stats[1]?.value || 0}
-                </div>
-                <div style={{ fontSize: '12px', color: '#666' }}>Dịch vụ</div>
-              </Col>
-              <Col span={8} style={{ textAlign: 'center' }}>
-                <div style={{ color: '#fa8c16', fontSize: '24px', fontWeight: 'bold' }}>
-                  {stats[2]?.value || 0}
-                </div>
-                <div style={{ fontSize: '12px', color: '#666' }}>Lịch hẹn</div>
-              </Col>
-            </Row>
-            <div style={{ 
-              marginTop: '20px', 
-              textAlign: 'center',
-              padding: '12px',
-              background: '#f6ffed',
-              border: '1px solid #b7eb8f',
-              borderRadius: '6px'
-            }}>
-              <Text style={{ color: '#52c41a', fontWeight: 'bold' }}>
-                💰 Doanh thu tháng: {(stats[3]?.value || 0).toLocaleString('vi-VN')} VNĐ
-              </Text>
-            </div>
-          </div>
-        </Col>
 
-        <Col xs={24} md={12}>
-          <div style={{
-            background: '#fff',
-            borderRadius: '12px',
-            padding: '20px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-            border: '1px solid #f0f0f0',
-            height: '200px'
-          }}>
-            <Title level={4} style={{ marginBottom: '16px' }}>
-              🎯 Hiệu suất hôm nay
-            </Title>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ 
-                width: '80px', 
-                height: '80px', 
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 16px',
-                fontSize: '24px',
-                fontWeight: 'bold'
-              }}>
-                {Math.round((todayList.length / Math.max(Number(stats[2]?.value) || 1, 1)) * 100)}%
-              </div>
-              <Text style={{ fontSize: '14px', color: '#666' }}>
-                Tiến độ lịch hẹn hôm nay
-              </Text>
-              <div style={{ marginTop: '12px' }}>
-                <Text style={{ fontSize: '12px', color: '#999' }}>
-                  {todayList.length} / {Number(stats[2]?.value) || 0} lịch hẹn đã được xử lý
-                </Text>
-              </div>
-            </div>
-          </div>
-        </Col>
-      </Row>
 
-      {/* Enhanced Admin Sections */}
+      {/* Optional: Admin-only advanced features */}
       {userRole === 'admin' && (
-        <>
-          {/* Role Permission Table */}
-          <Row gutter={[24, 24]} style={{ marginTop: '32px' }}>
-            <Col xs={24}>
-              <RolePermissionTable />
-            </Col>
-          </Row>
-
-          {/* Top Performers and Browser Usage */}
-          <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
-            <Col xs={24} lg={16}>
-              <TopPerformersCard 
-                title="Nhân viên xuất sắc tháng này"
-                maxItems={3}
-                showAll={() => console.log('Navigate to performance page')}
-              />
-            </Col>
-            
-            <Col xs={24} lg={8}>
-              <BrowserUsageChart 
-                title="Chi tiết truy cập"
-                showDetails={true}
-              />
-            </Col>
-          </Row>
-
-          {/* Admin Badge */}
-          <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
-            <Col xs={24}>
-              <div style={{
-                padding: '20px',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
+          <Col xs={24}>
+            <Card
+              title="🔧 Quản trị nâng cao"
+              size="small"
+              style={{
                 borderRadius: '12px',
-                color: 'white',
-                textAlign: 'center'
-              }}>
-                <Title level={4} style={{ color: 'white', margin: '0 0 8px 0' }}>
-                  🔧 Quyền Admin - Toàn quyền hệ thống
-                </Title>
-                <Text style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Bạn có thể truy cập tất cả chức năng quản lý, phân quyền người dùng, cấu hình hệ thống và xem báo cáo chi tiết.
-                </Text>
-              </div>
-            </Col>
-          </Row>
-        </>
-      )}
-
-      {/* Manager Enhanced Section */}
-      {userRole === 'manager' && (
-        <Row gutter={[24, 24]} style={{ marginTop: '32px' }}>
-          <Col xs={24} lg={16}>
-            <TopPerformersCard 
-              title="Đội ngũ xuất sắc"
-              maxItems={4}
-              showAll={() => console.log('Navigate to team performance')}
-            />
-          </Col>
-          
-          <Col xs={24} lg={8}>
-            <div style={{
-              padding: '20px',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              borderRadius: '12px',
-              color: 'white',
-              textAlign: 'center'
-            }}>
-              <Title level={4} style={{ color: 'white', margin: '0 0 8px 0' }}>
-                📊 Quản lý vận hành
-              </Title>
-              <Text style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Quản lý hiệu quả các hoạt động hàng ngày và theo dõi performance team.
-              </Text>
-            </div>
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+              }}
+            >
+              <Row gutter={[16, 16]}>
+                <Col span={6}>
+                  <Button 
+                    icon={<SettingOutlined />} 
+                    block
+                    onClick={() => setSelectedKey('users')}
+                  >
+                    Quản lý người dùng
+                  </Button>
+                </Col>
+                <Col span={6}>
+                  <Button 
+                    icon={<BarChartOutlined />} 
+                    block
+                    onClick={() => setSelectedKey('reports')}
+                  >
+                    Báo cáo & Thống kê
+                  </Button>
+                </Col>
+                <Col span={6}>
+                  <Button 
+                    icon={<SettingOutlined />} 
+                    block
+                    onClick={() => setSelectedKey('settings')}
+                  >
+                    Cấu hình hệ thống
+                  </Button>
+                </Col>
+                <Col span={6}>
+                  <Button 
+                    icon={<FileTextOutlined />} 
+                    block
+                    onClick={() => setSelectedKey('logs')}
+                  >
+                    Nhật ký hệ thống
+                  </Button>
+                </Col>
+              </Row>
+            </Card>
           </Col>
         </Row>
       )}
@@ -725,6 +690,9 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         return <TestManagement />;
       case 'login-history':
         return <LoginHistoryManagement />;
+      case 'system-logs':
+        if (userRole === 'admin' || userRole === 'manager') return <SystemLogManagement />;
+        return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
       case 'reports':
         return (
           <div style={{ padding: '24px' }}>

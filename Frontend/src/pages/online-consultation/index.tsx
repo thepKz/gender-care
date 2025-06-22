@@ -23,6 +23,7 @@ import FloatingAppointmentButton from '../../components/ui/common/FloatingAppoin
 import ModalDialog from '../../components/ui/primitives/ModalDialog';
 import Accordion, { AccordionItem } from '../../components/ui/primitives/Accordion';
 import { consultationApi } from '../../api';
+import { useNavigate } from 'react-router-dom';
 
 // MagicUI Components
 import { BlurFade } from '../../components/ui/blur-fade';
@@ -63,6 +64,7 @@ const CountUp: React.FC<{ end: number; duration?: number; suffix?: string }> = (
 };
 
 const OnlineConsultationPage: React.FC = () => {
+  const navigate = useNavigate();
   // Form state
   const [form, setForm] = useState<OnlineConsultationFormData>({
     fullName: '',
@@ -352,7 +354,7 @@ const OnlineConsultationPage: React.FC = () => {
                 <PrimaryButton
                   variant="outline"
                   className="!border-white !text-white !font-bold !px-8 !py-6 !text-lg hover:!bg-white hover:!text-[#0C3C54]"
-                  onClick={() => window.location.href = '/#/counselors'}
+                  onClick={() => navigate('/counselors')}
                 >
                   Xem bác sĩ
                 </PrimaryButton>

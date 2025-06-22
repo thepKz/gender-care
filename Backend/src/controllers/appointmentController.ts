@@ -150,7 +150,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
         // Nếu có serviceId, kiểm tra nó có tồn tại không và lấy giá
         if (serviceId) {
-            const serviceData = await Services.findById(serviceId);
+            const serviceData = await Service.findById(serviceId);
             if (!serviceData) {
                 throw new NotFoundError('Không tìm thấy dịch vụ');
             }

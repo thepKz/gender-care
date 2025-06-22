@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Select, DatePicker, Button, Tooltip, message, Spin, Breadcrumb, Typography, Tabs } from 'antd';
-import { ArrowLeftOutlined, CalendarOutlined, BarChartOutlined, ExportOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, CalendarOutlined, ExportOutlined } from '@ant-design/icons';
+import { Breadcrumb, Button, DatePicker, message, Select, Spin, Tabs, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
+import React, { useEffect, useState } from 'react';
 // import * as XLSX from 'xlsx';
-import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuth } from '../../hooks/useAuth';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import userProfileApi from '../../api/endpoints/userProfileApi';
-import menstrualCycleApi from '../../api/endpoints/menstrualCycle';
+import { useAuth } from '../../hooks/useAuth';
 import { UserProfile } from '../../types';
 
 const { Title, Text, Paragraph } = Typography;
@@ -358,7 +357,10 @@ const MenstrualTrackerPage: React.FC = () => {
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl flex justify-center items-center min-h-[60vh]">
-        <Spin size="large" tip="Đang tải thông tin..." />
+        <div className="text-center">
+          <Spin size="large" />
+          <div className="mt-2 text-gray-600">Đang tải thông tin...</div>
+        </div>
       </div>
     );
   }

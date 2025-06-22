@@ -1,28 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Form, 
-  Input, 
-  Select, 
-  DatePicker, 
-  Button, 
-  Card, 
-  notification, 
-  Typography,
-  Breadcrumb,
-  Spin,
-  Modal
-} from 'antd';
-import { 
-  SaveOutlined, 
-  ArrowLeftOutlined, 
-  TeamOutlined,
-  FormOutlined,
-  ExclamationCircleOutlined
+import {
+    ArrowLeftOutlined,
+    ExclamationCircleOutlined,
+    FormOutlined,
+    TeamOutlined
 } from '@ant-design/icons';
-import { useNavigate, Link, useParams } from 'react-router-dom';
+import {
+    Breadcrumb,
+    Button,
+    Card,
+    DatePicker,
+    Form,
+    Input,
+    Modal,
+    notification,
+    Select,
+    Spin,
+    Typography
+} from 'antd';
 import { motion } from 'framer-motion';
 import moment from 'moment';
-import userProfileApi from '../../api/endpoints/userProfileApi';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import userProfileApi, { UpdateUserProfileRequest } from '../../api/endpoints/userProfileApi';
 import { useAuth } from '../../hooks/useAuth';
 import { UserProfile } from '../../types';
 
@@ -44,11 +43,9 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
+      return;
     }
-  }, [isAuthenticated, navigate]);
-
-  // Lấy thông tin hồ sơ cần chỉnh sửa
-  useEffect(() => {
+    // Lấy thông tin hồ sơ cần chỉnh sửa
     const fetchProfile = async () => {
       if (!profileId) {
         notification.error({
@@ -120,34 +117,26 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
     };
 
     fetchProfile();
-  }, [profileId, form, navigate]);
+  }, [isAuthenticated, navigate, profileId]);
 
   // Xử lý cập nhật hồ sơ
   const handleSubmit = async (values: any) => {
-    if (!profileId) return;
-
     try {
       setLoading(true);
       
-      // Định dạng lại ngày sinh nếu có
-      const formattedValues = {
-        ...values,
-        year: values.year ? values.year.format('YYYY-MM-DD') : undefined
+      const profileData: UpdateUserProfileRequest = {
+        fullName: values.fullName,
+        phone: values.phone,
+        year: values.year ? values.year.format('YYYY-MM-DD') : undefined,
+        gender: values.gender,
       };
-      
-      console.log('Sending update request with data:', formattedValues);
-      
-      // Gọi API cập nhật hồ sơ
-      const response = await userProfileApi.updateProfile(profileId, formattedValues);
-      console.log('Update response:', response);
-      
+
+      await userProfileApi.updateProfile(profileId!, profileData);
       notification.success({
         message: 'Thành công',
         description: 'Cập nhật hồ sơ bệnh án thành công!'
       });
-      
-      // Chuyển hướng đến trang danh sách hồ sơ
-      window.location.hash = '#/user-profiles';
+      navigate('/user-profiles');
     } catch (error: any) {
       console.error('Error updating profile:', error);
       
@@ -193,7 +182,7 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
             message: 'Thành công',
             description: 'Xóa hồ sơ bệnh án thành công!'
           });
-          window.location.hash = '#/user-profiles';
+          navigate('/user-profiles');
         } catch (error) {
           console.error('Error deleting profile:', error);
           notification.error({
@@ -208,7 +197,10 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
   if (fetchLoading) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-3xl flex justify-center items-center min-h-[60vh]">
-        <Spin size="large" tip="Đang tải thông tin hồ sơ..." />
+        <div className="text-center">
+          <Spin size="large" />
+          <div className="mt-2 text-gray-600">Đang tải thông tin hồ sơ...</div>
+        </div>
       </div>
     );
   }
@@ -247,8 +239,9 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
           </div>
           <Button 
             icon={<ArrowLeftOutlined />} 
-            onClick={() => navigate('/profile')}
-            className="flex items-center"
+            size="large"
+            onClick={() => navigate('/user-profiles')}
+            className="hidden md:flex bg-[#0C3C54] text-white border-0 hover:bg-[#0C3C54]/90"
           >
             Quay lại
           </Button>
@@ -346,14 +339,11 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
               </Button>
               
               <Button
-                type="primary"
-                htmlType="submit"
                 size="large"
-                loading={loading}
-                icon={<SaveOutlined />}
-                className="rounded-lg bg-[#0C3C54] hover:bg-[#1a5570] border-none px-8"
+                onClick={() => navigate('/user-profiles')}
+                className="px-8 py-2 h-auto border-gray-300 text-gray-600 hover:border-[#0C3C54] hover:text-[#0C3C54]"
               >
-                Cập nhật
+                Hủy bỏ
               </Button>
             </div>
           </Form>

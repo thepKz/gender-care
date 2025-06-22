@@ -258,7 +258,6 @@ const AppointmentManagement: React.FC = () => {
   const getLocationText = (location: Appointment['typeLocation']) => {
     const texts = {
       clinic: 'Phòng khám',
-      home: 'Tại nhà',
       Online: 'Trực tuyến'
     };
     return texts[location];
@@ -709,7 +708,6 @@ const AppointmentManagement: React.FC = () => {
             >
               <Option value="all">Tất cả địa điểm</Option>
               <Option value="clinic">Phòng khám</Option>
-              <Option value="home">Tại nhà</Option>
               <Option value="Online">Trực tuyến</Option>
             </Select>
             <Select

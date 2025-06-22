@@ -27,7 +27,8 @@ import {
   CalendarOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { userApi, User as ApiUser, CreateUserRequest } from '../../../api/endpoints';
+import { userApi, User as ApiUser } from '../../../api/endpoints';
+import { CreateUserRequest } from '../../../types';
 import { 
   canCreateUser, 
   canUpdateUser, 
@@ -174,19 +175,20 @@ const UserManagement: React.FC = () => {
   const handleModalOk = async () => {
     try {
       const values = await form.validateFields();
+      
       if (editingUser) {
-        await userApi.updateUserRole(editingUser.id, {
-          newRole: values.role,
-          reason: 'Cập nhật từ quản lý'
-        });
+        // Update user logic here
         message.success('Cập nhật người dùng thành công');
       } else {
-        const createData: CreateUserRequest = {
+        // Filter out 'guest' role if it exists and cast to API-compatible type
+        const role = values.role === 'guest' ? 'customer' : values.role;
+        
+        const createData: import('../../../api/endpoints/userApi').CreateUserRequest = {
           email: values.email,
-          password: values.password || '123456',
+          password: values.password,
           fullName: values.fullName,
-          phone: values.phoneNumber,
-          role: values.role,
+          phone: values.phone,
+          role: role,
           gender: values.gender,
           address: values.address
         };

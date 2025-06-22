@@ -1,0 +1,101 @@
+@startuml 20_blog_content
+
+skinparam classAttributeIconSize 0
+skinparam backgroundColor LightYellow
+skinparam classBackgroundColor LightBlue
+skinparam classBorderColor DarkBlue
+
+title Blog Content Management System - Class Diagram (Actual Implementation)
+
+package "Simple Blog System" {
+    class BlogPosts {
+        - _id : ObjectId
+        - title : string
+        - slug : string [unique]
+        - content : string
+        - excerpt : string
+        - authorId : ObjectId
+        - thumbnail : string
+        - published : boolean
+        - publishedAt : DateTime
+        - likes : number
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + createPost() : boolean
+        + updatePost(data) : boolean
+        + publishPost() : boolean
+        + unpublishPost() : boolean
+        + incrementLikes() : boolean
+        + generateSlug() : string
+        + addToCategory(categoryId) : boolean
+        + removeFromCategory(categoryId) : boolean
+    }
+
+    class BlogCategories {
+        - _id : ObjectId
+        - name : string [unique]
+        - slug : string [unique]
+        - description : string
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + createCategory() : boolean
+        + updateCategory(data) : boolean
+        + deleteCategory() : boolean
+        + generateSlug() : string
+        + getPostsByCategory() : BlogPosts[]
+        + getPostCount() : number
+    }
+
+    class PostCategories {
+        - _id : ObjectId
+        - postId : ObjectId
+        - categoryId : ObjectId
+        --
+        + createRelation() : boolean
+        + deleteRelation() : boolean
+        + checkRelationExists() : boolean
+    }
+}
+
+package "External References" {
+    class Users {
+        - _id : ObjectId
+        - fullName : string
+        - email : string
+        - role : string
+    }
+}
+
+' Relationships
+BlogPosts }o--|| Users : "authored by"
+PostCategories }o--|| BlogPosts : "categorizes"
+PostCategories }o--|| BlogCategories : "belongs to"
+BlogPosts ||--o{ PostCategories : "can have multiple categories"
+BlogCategories ||--o{ PostCategories : "contains multiple posts"
+
+' Notes
+note right of BlogPosts
+  Theo ERD và code thực tế:
+  - Cấu trúc blog cơ bản
+  - authorId ref tới Users
+  - slug unique để SEO
+  - likes counter đơn giản
+end note
+
+note right of PostCategories
+  Many-to-many relationship:
+  - 1 post có thể thuộc nhiều categories
+  - 1 category có thể chứa nhiều posts
+  - Junction table đơn giản
+end note
+
+note right of BlogCategories
+  Category management đơn giản:
+  - name và slug unique
+  - description optional
+  - Auto-generate slug
+end note
+
+@enduml 

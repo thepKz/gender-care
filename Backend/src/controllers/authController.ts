@@ -5,6 +5,7 @@ import { ValidationError } from "../errors/validationError";
 import { AuthToken, LoginHistory, OtpCode, User } from "../models";
 import { sendVerificationEmail } from "../services/emails";
 import { signRefreshToken, signToken, verifyRefreshToken } from "../utils";
+import { getRealIP, getLocationFromIP } from "../utils";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "203228075747-cnn4bmrbnkeqmbiouptng2kajeur2fjp.apps.googleusercontent.com";
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -347,12 +348,16 @@ export const login = async (req: Request, res: Response) => {
       isRevoked: false
     });
 
-    // Lưu lịch sử đăng nhập
+    // Lưu lịch sử đăng nhập với location
+    const realIP = getRealIP(req);
+    const locationData = await getLocationFromIP(realIP);
+
     await LoginHistory.create({
       userId: user._id,
-      ipAddress: req.ip || 'unknown',
+      ipAddress: realIP,
       userAgent: req.headers['user-agent'] || 'unknown',
       loginAt: new Date(),
+      location: locationData.location || 'Unknown Location',
       status: 'success'
     });
 
@@ -493,12 +498,16 @@ export const loginWithGoogle = async (req: Request, res: Response) => {
       isRevoked: false
     });
 
-    // Lưu lịch sử đăng nhập
+    // Lưu lịch sử đăng nhập với location cho Google login
+    const realIP = getRealIP(req);
+    const locationData = await getLocationFromIP(realIP);
+
     await LoginHistory.create({
       userId: user._id,
-      ipAddress: req.ip || 'unknown',
+      ipAddress: realIP,
       userAgent: req.headers['user-agent'] || 'unknown',
       loginAt: new Date(),
+      location: locationData.location || 'Unknown Location',
       status: 'success'
     });
 
@@ -709,7 +718,28 @@ export const logout = async (req: Request, res: Response) => {
     
     if (refreshToken) {
       // Tìm và vô hiệu hóa refresh token trong database
-      await AuthToken.updateOne({ refreshToken }, { isRevoked: true });
+      const tokenDoc = await AuthToken.findOne({ refreshToken, isRevoked: false });
+      
+      if (tokenDoc) {
+        // Update logout time trong LoginHistory cho user
+        // Tìm session login gần nhất chưa có logoutAt
+        await LoginHistory.findOneAndUpdate(
+          { 
+            userId: tokenDoc.userId,
+            logoutAt: null,
+            status: 'success' 
+          },
+          { 
+            logoutAt: new Date() 
+          },
+          { 
+            sort: { loginAt: -1 } // Lấy session login gần nhất
+          }
+        );
+        
+        // Vô hiệu hóa refresh token
+        await AuthToken.updateOne({ refreshToken }, { isRevoked: true });
+      }
     }
     
     // Xóa cookie

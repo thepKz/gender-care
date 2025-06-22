@@ -11,7 +11,7 @@ import StaffDetails from './StaffDetails';
 import DoctorSchedules from './DoctorSchedules';
 
 // Services & Appointments
-import Services from './Services';
+import Service from './Service';
 import ServicePackages from './ServicePackages';
 import Appointments from './Appointments';
 
@@ -45,6 +45,7 @@ import PaymentTracking from './PaymentTracking';
 
 // System
 import SystemConfigs from './SystemConfigs';
+import SystemLog from './SystemLogs';
 
 // Export all models
 export {
@@ -61,7 +62,7 @@ export {
   DoctorSchedules,
   
   // Services & Appointments
-  Services,
+  Service,
   ServicePackages,
   Appointments,
   
@@ -94,7 +95,8 @@ export {
   PaymentTracking,
   
   // System
-  SystemConfigs
+  SystemConfigs,
+  SystemLog
 };
 
 // Export interfaces

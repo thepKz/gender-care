@@ -13,6 +13,7 @@ import {
     cancelAppointmentByDoctor
 } from '../controllers/appointmentController';
 import { verifyToken, verifyAdmin, verifyCustomer, verifyStaff, verifyDoctor } from '../middleware';
+import { requireRole } from '../middleware/roleHierarchy';
 
 const router = Router();
 
@@ -54,9 +55,9 @@ router.get('/:id', getAppointmentById);
 /**
  * @route   PUT /api/appointments/:id
  * @desc    Cập nhật thông tin cuộc hẹn
- * @access  Private (Staff)
+ * @access  Private (Staff, Manager, Admin) - Updated with role hierarchy
  */
-router.put('/:id', verifyToken, verifyStaff, updateAppointment);
+router.put('/:id', verifyToken, requireRole('staff'), updateAppointment);
 
 /**
  * @route   DELETE /api/appointments/:id
@@ -68,9 +69,9 @@ router.delete('/:id', verifyToken, deleteAppointment);
 /**
  * @route   PUT /api/appointments/:id/status
  * @desc    Cập nhật trạng thái cuộc hẹn
- * @access  Private (Staff)
+ * @access  Private (Staff, Manager, Admin) - Updated with role hierarchy
  */
-router.put('/:id/status', verifyToken, verifyStaff, updateAppointmentStatus);
+router.put('/:id/status', verifyToken, requireRole('staff'), updateAppointmentStatus);
 
 /**
  * @route   PUT /api/appointments/:id/payment
