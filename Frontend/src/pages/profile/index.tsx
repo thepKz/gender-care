@@ -1,29 +1,24 @@
-import { CalendarOutlined, CameraOutlined, HomeFilled, LockOutlined, TeamOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Button, Skeleton, Spin, Upload, notification } from 'antd';
+import { CameraOutlined, HomeFilled, LockOutlined, SaveOutlined, UserOutlined } from '@ant-design/icons';
+import { Avatar, Button, Col, DatePicker, Form, Input, notification, Row, Select, Skeleton, Spin, Upload } from 'antd';
 import { motion } from 'framer-motion';
+import moment from 'moment';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import userApi from '../../api/endpoints/userApi';
 import Image1 from '../../assets/images/image1.jpg';
 import ChangePasswordForm from '../../components/feature/auth/ChangePasswordForm';
-import ProfilesList from '../../components/feature/profile/ProfilesList';
 import { useAuth } from '../../hooks/useAuth';
 import './profile.css';
 
-const TabItems = [
-  { key: "1", label: "Thông tin cá nhân", icon: <UserOutlined /> },
-  { key: "2", label: "Lịch sử đặt lịch", icon: <CalendarOutlined /> },
-  { key: "3", label: "Hồ sơ bệnh án", icon: <TeamOutlined /> },
-  { key: "4", label: "Đổi mật khẩu", icon: <LockOutlined /> },
-];
-
 const ProfilePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("1");
+  const [editMode, setEditMode] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
   const { user, isAuthenticated, fetchProfile } = useAuth();
   const navigate = useNavigate();
   const [uploading, setUploading] = useState(false);
   const [currentAvatar, setCurrentAvatar] = useState<string | null>(null);
+  const [form] = Form.useForm();
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -69,7 +64,53 @@ const ProfilePage: React.FC = () => {
     }
   }, [user?.avatar]);
 
+  // Set form values when user data is loaded
+  useEffect(() => {
+    if (user) {
+      form.setFieldsValue({
+        fullName: user.fullName,
+        phone: user.phone,
+        gender: user.gender,
+        year: user.year ? moment(user.year) : null,
+      });
+    }
+  }, [user, form]);
 
+  const handleUpdateProfile = async (values: {
+    fullName: string;
+    phone?: string;
+    gender?: 'male' | 'female' | 'other';
+    year?: moment.Moment;
+  }) => {
+    try {
+      setUpdateLoading(true);
+      
+      const updateData = {
+        fullName: values.fullName,
+        phone: values.phone,
+        gender: values.gender,
+        year: values.year ? values.year.toISOString() : null,
+      };
+
+      await userApi.updateUserProfile(updateData);
+      
+      notification.success({
+        message: 'Cập nhật thành công',
+        description: 'Thông tin cá nhân đã được cập nhật',
+      });
+      
+      await fetchProfile();
+      setEditMode(false);
+    } catch (error: unknown) {
+      console.error('Lỗi cập nhật thông tin:', error);
+              notification.error({
+          message: 'Lỗi cập nhật',
+          description: 'Không thể cập nhật thông tin. Vui lòng thử lại sau.',
+        });
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -126,6 +167,7 @@ const ProfilePage: React.FC = () => {
           </motion.div>
         </div>
       </div>
+      
       {/* Main Content */}
       <div className="container mx-auto px-2 py-10 md:px-0 max-w-6xl">
         <motion.div
@@ -134,7 +176,7 @@ const ProfilePage: React.FC = () => {
           transition={{ duration: 0.6, delay: 0.1 }}
         >
           {/* Profile Header Card */}
-          <div className="mt-5 mb-12 border-0 shadow-lg bg-[#0C3C54] text-white rounded-2xl p-8 md:p-14 pt-16 flex flex-col md:flex-row items-center md:items-start gap-8">
+          <div className="mt-5 mb-8 border-0 shadow-lg bg-[#0C3C54] text-white rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center md:items-center gap-6">
             <motion.div
               whileHover={{ scale: 1.05 }}
               className="relative group"
@@ -183,10 +225,10 @@ const ProfilePage: React.FC = () => {
               >
                 <div className="relative cursor-pointer">
                   <Avatar
-                    size={120}
+                    size={80}
                     src={currentAvatar || user.avatar || Image1}
                     icon={!(currentAvatar || user.avatar) && <UserOutlined />}
-                    className="border-4 border-white shadow-xl bg-white transition-transform duration-300 hover:scale-105"
+                    className="border-3 border-white shadow-lg bg-white transition-transform duration-300 hover:scale-105"
                     style={{ objectFit: 'cover', backgroundColor: '#fff' }}
                   />
                   <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300">
@@ -201,48 +243,144 @@ const ProfilePage: React.FC = () => {
               </Upload>
             </motion.div>
             <div className="text-center md:text-left flex-1">
-              <h2 className="text-2xl font-bold text-white mb-2">{user.fullName || 'Người dùng'}</h2>
-              <p className="text-white/80 text-lg mb-3">{user.email}</p>
-              <div className="flex flex-wrap gap-3 justify-center md:justify-start">
-                <div className="bg-white/20 border-white/30 text-white px-4 py-1 text-base font-medium rounded-lg">
-                  {user.role === 'customer' ? 'Khách hàng' : user.role === 'doctor' ? 'Bác sĩ' : user.role === 'admin' ? 'Quản trị viên' : 'Người dùng'}
-                </div>
-                {user.gender && (
-                  <div className="bg-white/20 border-white/30 text-white px-4 py-1 text-base font-medium rounded-lg">
-                    {user.gender === 'male' ? 'Nam' : user.gender === 'female' ? 'Nữ' : 'Khác'}
-                  </div>
-                )}
-                {user.emailVerified && (
-                  <div className="bg-green-500/30 border-green-300 text-white px-4 py-1 text-base font-medium rounded-lg">
-                    ✓ Đã xác thực
-                  </div>
-                )}
-              </div>
+              <h2 className="text-xl font-semibold text-white mb-0">Xin chào, {user.fullName || 'Người dùng'}!</h2>
             </div>
           </div>
-          {/* Main Tabs Content */}
+
+          {/* Personal Information Section */}
           <div className="border-0 shadow-lg rounded-2xl p-6 md:p-10 bg-white mb-12">
-            <div className="flex items-center mb-8">
-              <div className="p-3 bg-[#0C3C54]/10 rounded-full">
-                <UserOutlined className="text-2xl text-[#0C3C54]" />
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center">
+                <div className="p-3 bg-[#0C3C54]/10 rounded-full">
+                  <UserOutlined className="text-2xl text-[#0C3C54]" />
+                </div>
+                <h3 className="text-xl font-semibold text-[#0C3C54] ml-4">Thông tin cá nhân</h3>
               </div>
-              <h3 className="text-xl font-semibold text-[#0C3C54] ml-4">Thông tin chi tiết</h3>
-            </div>
-            <div className="flex gap-4 mb-8">
-              {TabItems.map(item => (
-                <button
-                  key={item.key}
-                  onClick={() => setActiveTab(item.key)}
-                  className={`flex items-center gap-2 px-6 py-2 rounded-lg text-base font-semibold transition-all duration-200
-                    ${activeTab === item.key ? 'bg-[#0C3C54] text-white' : 'bg-[#0C3C54]/10 text-[#0C3C54] hover:bg-[#0C3C54]/20'}`}
+              {!editMode && (
+                <Button
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  onClick={() => setEditMode(true)}
+                  className="bg-[#0C3C54] hover:bg-[#0C3C54]/90 border-0"
                 >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </button>
-              ))}
+                  Chỉnh sửa
+                </Button>
+              )}
             </div>
-            {/* Nội dung từng tab */}
-            {activeTab === "1" && (
+
+            {editMode ? (
+              <Form
+                form={form}
+                layout="vertical"
+                onFinish={handleUpdateProfile}
+                className="space-y-6"
+              >
+                <Row gutter={24}>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label={<span className="text-gray-700 font-medium">Họ và tên</span>}
+                      name="fullName"
+                      rules={[
+                        { required: true, message: 'Vui lòng nhập họ tên!' },
+                        { min: 2, message: 'Họ tên phải có ít nhất 2 ký tự!' }
+                      ]}
+                    >
+                      <Input
+                        size="large"
+                        placeholder="Nhập họ và tên"
+                        className="rounded-xl border-gray-200 hover:border-[#0C3C54] focus:border-[#0C3C54]"
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label={<span className="text-gray-700 font-medium">Số điện thoại</span>}
+                      name="phone"
+                      rules={[
+                        { pattern: /^[0-9]{10,11}$/, message: 'Số điện thoại không hợp lệ!' }
+                      ]}
+                    >
+                      <Input
+                        size="large"
+                        placeholder="Nhập số điện thoại"
+                        className="rounded-xl border-gray-200 hover:border-[#0C3C54] focus:border-[#0C3C54]"
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label={<span className="text-gray-700 font-medium">Giới tính</span>}
+                      name="gender"
+                    >
+                      <Select
+                        size="large"
+                        placeholder="Chọn giới tính"
+                        className="rounded-xl"
+                        options={[
+                          { value: 'male', label: 'Nam' },
+                          { value: 'female', label: 'Nữ' },
+                          { value: 'other', label: 'Khác' }
+                        ]}
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} md={12}>
+                    <Form.Item
+                      label={<span className="text-gray-700 font-medium">Ngày sinh</span>}
+                      name="year"
+                    >
+                      <DatePicker
+                        size="large"
+                        placeholder="Chọn ngày sinh"
+                        className="w-full rounded-xl border-gray-200 hover:border-[#0C3C54] focus:border-[#0C3C54]"
+                        format="DD/MM/YYYY"
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24}>
+                    <div className="mb-6">
+                      <h4 className="text-sm font-medium text-gray-500 mb-1">Email</h4>
+                      <div className="text-lg text-gray-800 flex items-center">
+                        <span>{user.email}</span>
+                        {user.emailVerified ? (
+                          <div className="bg-green-500/30 border-green-300 text-white px-2 py-1 text-base font-medium rounded-lg ml-2">
+                            ✓ Đã xác thực
+                          </div>
+                        ) : (
+                          <div className="bg-yellow-500/30 border-yellow-300 text-white px-2 py-1 text-base font-medium rounded-lg ml-2">
+                            Chưa xác thực
+                            <Link to="/verify-email" className="ml-2 text-[#0C3C54] hover:text-[#0C3C54]/80 hover:underline">
+                              Xác thực ngay
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Col>
+                </Row>
+
+                <div className="flex justify-end gap-4 pt-6">
+                  <Button
+                    onClick={() => {
+                      setEditMode(false);
+                      form.resetFields();
+                    }}
+                    className="px-6"
+                  >
+                    Hủy
+                  </Button>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    loading={updateLoading}
+                    icon={<SaveOutlined />}
+                    className="bg-[#0C3C54] hover:bg-[#0C3C54]/90 border-0 px-6"
+                  >
+                    {updateLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </Button>
+                </div>
+              </Form>
+            ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <div className="mb-6">
@@ -304,44 +442,26 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
             )}
-            {activeTab === "2" && (
-              <div className="text-center py-12">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gray-100 rounded-full flex items-center justify-center">
-                  <CalendarOutlined className="text-3xl text-gray-400" />
-                </div>
-                <p className="text-gray-600 mb-6 text-lg">Chưa có lịch sử đặt lịch</p>
-                <p className="text-gray-500 mb-8">Hãy đặt lịch ngay để trải nghiệm dịch vụ của chúng tôi.</p>
-                <button className="bg-[#0C3C54] hover:bg-[#0C3C54]/90 text-white rounded-lg px-8 py-3 h-auto transition-all duration-200 hover:shadow-lg hover:scale-105 font-semibold">
-                  Đặt lịch ngay
-                </button>
-              </div>
-            )}
-            {activeTab === "3" && (
-              <div>
-                <ProfilesList />
-                <div className="mt-6 text-center">
-                  <button
-                    className="bg-[#0C3C54] hover:bg-[#0C3C54]/90 text-white rounded-lg px-8 py-3 h-auto transition-all duration-200 hover:shadow-lg hover:scale-105 font-semibold flex items-center gap-2 mx-auto"
-                    onClick={() => navigate('/user-profiles')}
-                  >
-                    <TeamOutlined /> Xem tất cả hồ sơ bệnh án
-                  </button>
-                </div>
-              </div>
-            )}
-            {activeTab === "4" && (
-              <div>
-                <ChangePasswordForm 
-                  onSuccess={() => {
-                    notification.success({
-                      message: 'Cập nhật thành công',
-                      description: 'Mật khẩu đã được thay đổi an toàn',
-                    });
-                  }}
-                />
-              </div>
-            )}
           </div>
+
+          {/* Change Password Section */}
+          <div className="border-0 shadow-lg rounded-2xl p-6 md:p-10 bg-white mb-12">
+            <div className="flex items-center mb-8">
+              <div className="p-3 bg-[#0C3C54]/10 rounded-full">
+                <LockOutlined className="text-2xl text-[#0C3C54]" />
+              </div>
+              <h3 className="text-xl font-semibold text-[#0C3C54] ml-4">Đổi mật khẩu</h3>
+            </div>
+            <ChangePasswordForm 
+              onSuccess={() => {
+                notification.success({
+                  message: 'Cập nhật thành công',
+                  description: 'Mật khẩu đã được thay đổi an toàn',
+                });
+              }}
+            />
+          </div>
+
         </motion.div>
       </div>
     </div>
