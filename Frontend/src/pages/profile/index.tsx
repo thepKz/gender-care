@@ -1,4 +1,4 @@
-import { CameraOutlined, HomeFilled, LockOutlined, SaveOutlined, UserOutlined } from '@ant-design/icons';
+import { CameraOutlined, LockOutlined, SaveOutlined, UserOutlined } from '@ant-design/icons';
 import { Avatar, Button, Col, DatePicker, Form, Input, notification, Row, Select, Skeleton, Spin, Upload } from 'antd';
 import { motion } from 'framer-motion';
 import moment from 'moment';
@@ -136,38 +136,7 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
-      {/* Header Section */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-4 pt-10 pb-8 max-w-6xl">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="flex items-center justify-between"
-          >
-            <div className="flex items-center space-x-4 pt-5 pb-5">
-              <div className="p-3 bg-[#0C3C54]/10 rounded-full">
-                <UserOutlined className="text-2xl text-[#0C3C54]" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-[#0C3C54] m-0">Hồ sơ cá nhân</h1>
-                <p className="text-[#0C3C54]/70 text-base m-0">Quản lý thông tin tài khoản và cài đặt của bạn</p>
-              </div>
-            </div>
-            <Button
-              type="primary"
-              size="large"
-              icon={<HomeFilled />}
-              onClick={() => navigate('/')} 
-              className="bg-[#0C3C54] hover:bg-[#0C3C54]/90 border-0 shadow-lg px-6 py-2 text-base font-semibold"
-            >
-              Về trang chủ
-            </Button>
-          </motion.div>
-        </div>
-      </div>
-      
+    <div className="bg-[#f8fafc]">
       {/* Main Content */}
       <div className="container mx-auto px-2 py-10 md:px-0 max-w-6xl">
         <motion.div
@@ -176,7 +145,7 @@ const ProfilePage: React.FC = () => {
           transition={{ duration: 0.6, delay: 0.1 }}
         >
           {/* Profile Header Card */}
-          <div className="mt-5 mb-8 border-0 shadow-lg bg-[#0C3C54] text-white rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center md:items-center gap-6">
+          <div className="mt-32 mb-8 border-0 shadow-lg bg-[#0C3C54] text-white rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center md:items-center gap-6">
             <motion.div
               whileHover={{ scale: 1.05 }}
               className="relative group"

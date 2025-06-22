@@ -66,35 +66,40 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSuccess }) =>
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
+      {/* Description */}
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+        <p className="text-sm text-gray-700">
+          Mật khẩu tối thiểu 8 kí tự, phải chứa chữ thường, in hoa, số, ký tự đặc biệt
+        </p>
+      </div>
+      
       <Form
         form={form}
         layout="vertical"
         onFinish={onFinish}
         autoComplete="off"
-        className="space-y-6"
+        className="space-y-4"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Form.Item
-            label={<span className="text-gray-700 font-medium">Mật khẩu hiện tại</span>}
-            name="currentPassword"
-            rules={[
-              { required: true, message: 'Vui lòng nhập mật khẩu hiện tại!' },
-            ]}
-          >
-            <Input.Password
-              prefix={<LockOutlined className="text-gray-400" />}
-              placeholder="Nhập mật khẩu hiện tại"
-              size="large"
-              iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
-              className="rounded-xl border-gray-200 hover:border-[#0C3C54] focus:border-[#0C3C54] transition-all duration-200"
-              style={{ paddingTop: '12px', paddingBottom: '12px' }}
-            />
-          </Form.Item>
+        {/* Mật khẩu hiện tại - Full width */}
+        <Form.Item
+          label={<span className="text-gray-700 font-medium">Mật khẩu hiện tại</span>}
+          name="currentPassword"
+          rules={[
+            { required: true, message: 'Vui lòng nhập mật khẩu hiện tại!' },
+          ]}
+        >
+          <Input.Password
+            prefix={<LockOutlined className="text-gray-400" />}
+            placeholder="Nhập mật khẩu hiện tại"
+            size="large"
+            iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+            className="rounded-xl border-gray-200 hover:border-[#0C3C54] focus:border-[#0C3C54] transition-all duration-200"
+            style={{ paddingTop: '12px', paddingBottom: '12px' }}
+          />
+        </Form.Item>
 
-          <div></div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Mật khẩu mới và Xác nhận - Cùng hàng */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Form.Item
             label={<span className="text-gray-700 font-medium">Mật khẩu mới</span>}
             name="newPassword"
@@ -176,14 +181,14 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSuccess }) =>
         )}
 
         {/* Submit Button */}
-        <div className="pt-8 pb-4 flex justify-center">
+        <div className="flex justify-center mt-4">
           <Button
             type="primary"
             htmlType="submit"
             loading={loading}
             size="large"
             icon={<LockOutlined />}
-            className="bg-gradient-to-r from-[#0C3C54] to-[#1a5570] border-none rounded-xl font-semibold px-12 py-3 h-auto hover:scale-105 hover:shadow-xl transition-all duration-200 text-white min-w-[200px]"
+            className="bg-gradient-to-r from-[#0C3C54] to-[#1a5570] border-none rounded-xl font-semibold px-8 py-3 h-auto hover:scale-105 hover:shadow-xl transition-all duration-200 text-white"
           >
             {loading ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
           </Button>
