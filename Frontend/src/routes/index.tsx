@@ -158,7 +158,7 @@ const AppRoutes: React.FC = () => {
         
         {/* Consultation Pages */}
         <Route path="/consultation/payment/:qaId" element={<PaymentPage />} />
-        <Route path="/consultation/success/:qaId" element={<ConsultationPaymentSuccessPage />} />
+        <Route path="/consultation/success/:qaId?" element={<ConsultationPaymentSuccessPage />} />
         
         {/* Demo Pages */}
         <Route path="/demo" element={<DemoIndexPage />} />

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Button, Typography, Space } from 'antd';
+import { Card, Button, Typography, Space, message } from 'antd';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -9,6 +9,7 @@ import {
   Heart,
   MoneyRecive
 } from 'iconsax-react';
+import { fastConfirmPayment } from '../../api/endpoints/payment';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -16,28 +17,64 @@ const PaymentSuccessPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  const [paymentStatus, setPaymentStatus] = useState('pending');
+  const [paymentStatus, setPaymentStatus] = useState('checking');
   const [countdown, setCountdown] = useState(0);
 
-  // Đơn giản: Chỉ check URL params
+  // Check URL params và gọi API để lưu vào database
   useEffect(() => {
+    const appointmentId = searchParams.get('appointmentId');
     const code = searchParams.get('code');
     const cancel = searchParams.get('cancel');
     const status = searchParams.get('status');
+    const orderCode = searchParams.get('orderCode') || searchParams.get('id');
     
-    console.log('URL Parameters:', { code, cancel, status });
+    console.log('🔍 Appointment Success - URL Parameters:', { appointmentId, code, cancel, status, orderCode });
     
-    // Nếu có status=PAID trên URL thì coi như thành công
-    const isPaid = code === '00' && cancel === 'false' && status === 'PAID';
-    
-    if (isPaid) {
-      console.log('Payment SUCCESS detected from URL');
-      setPaymentStatus('success');
-      setCountdown(5); // 5 giây countdown
+    // Nếu có URL parameters từ PayOS thì process payment
+    if (code && status && orderCode && appointmentId) {
+      const isPaid = code === '00' && cancel === 'false' && status === 'PAID';
+      
+      if (isPaid) {
+        console.log('✅ Appointment Payment SUCCESS detected from URL');
+        handlePayOSSuccess(appointmentId, orderCode, status);
+      } else {
+        console.log('❌ Appointment Payment FAILED from URL');
+        setPaymentStatus('failed');
+      }
     } else {
+      // Nếu không có đủ params, coi như failed
+      console.log('❌ Missing required URL parameters');
       setPaymentStatus('failed');
     }
   }, [searchParams]);
+
+  const handlePayOSSuccess = async (appointmentId: string, orderCode: string, status: string) => {
+    try {
+      console.log('🚀 Fast confirming appointment payment...', { appointmentId, orderCode, status });
+      
+      // Gọi API để confirm payment với backend
+      const response = await fastConfirmPayment({
+        appointmentId,
+        orderCode,
+        status
+      });
+      
+      if (response.success) {
+        console.log('✅ Appointment payment confirmed successfully');
+        message.success('Thanh toán thành công! Lịch hẹn đã được xác nhận.');
+        setPaymentStatus('success');
+        setCountdown(5); // 5s countdown
+      } else {
+        throw new Error(response.message || 'Không thể xác nhận thanh toán');
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error confirming appointment payment:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Lỗi xác nhận thanh toán';
+      message.error(errorMessage);
+      setPaymentStatus('failed');
+    }
+  };
 
   // Auto redirect countdown
   useEffect(() => {
@@ -61,6 +98,24 @@ const PaymentSuccessPage = () => {
     setCountdown(0);
     handleNavigateToBookingHistory();
   };
+
+  // CHECKING STATE
+  if (paymentStatus === 'checking') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center">
+        <div className="text-center">
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"
+          />
+          <Text className="text-lg text-gray-600">
+            🔄 Đang xử lý thanh toán và lưu vào hệ thống...
+          </Text>
+        </div>
+      </div>
+    );
+  }
 
   // SUCCESS STATE
   if (paymentStatus === 'success') {
@@ -94,49 +149,44 @@ const PaymentSuccessPage = () => {
               </Title>
               
               <Paragraph className="text-gray-600 text-lg mb-6">
-                Lịch hẹn của bạn đã được thanh toán thành công.<br/>
-                Chúng tôi đang cập nhật thông tin vào hệ thống.
+                Lịch hẹn của bạn đã được thanh toán và lưu vào hệ thống thành công.<br/>
+                Thông tin đã được cập nhật vào database.
               </Paragraph>
             </motion.div>
 
             <motion.div 
-              className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-6"
+              className="bg-green-50 p-4 rounded-xl border border-green-200 mb-6"
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.7 }}
             >
               <div className="flex items-center justify-center gap-3 mb-3">
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                >
-                  <MoneyRecive size={24} color="#3B82F6" variant="Bold" />
-                </motion.div>
-                <Text className="text-blue-700 font-semibold">
-                  Đang cập nhật trạng thái thanh toán...
+                <CheckSquare size={24} color="#059669" variant="Bold" />
+                <Text className="text-green-700 font-semibold">
+                  ✅ Đã lưu vào database thành công!
                 </Text>
               </div>
-              <Text className="text-blue-600 text-sm">
-                💾 Lưu thông tin vào hệ thống<br/>
-                📧 Gửi email xác nhận
+              <Text className="text-green-600 text-sm">
+                💾 Thông tin thanh toán đã được ghi nhận<br/>
+                📧 Email xác nhận đã được gửi
               </Text>
             </motion.div>
 
             {countdown > 0 && (
               <motion.div 
-                className="bg-green-50 p-4 rounded-xl border border-green-200 mb-6"
+                className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-6"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.9 }}
               >
                 <div className="flex items-center justify-center gap-2 mb-2">
-                  <Clock size={20} color="#059669" />
-                  <Text className="text-green-800 font-medium">
+                  <Clock size={20} color="#3B82F6" />
+                  <Text className="text-blue-800 font-medium">
                     Tự động chuyển sau
                   </Text>
                 </div>
                 <motion.div 
-                  className="bg-green-500 text-white font-bold text-xl px-3 py-1 rounded-lg inline-block"
+                  className="bg-blue-500 text-white font-bold text-xl px-3 py-1 rounded-lg inline-block"
                   animate={{ scale: [1, 1.1, 1] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 >
@@ -147,7 +197,7 @@ const PaymentSuccessPage = () => {
                     type="link"
                     size="small"
                     onClick={handleSkipCountdown}
-                    className="text-green-600 hover:text-green-700 p-0"
+                    className="text-blue-600 hover:text-blue-700 p-0"
                   >
                     ⚡ Chuyển ngay
                   </Button>
@@ -218,7 +268,7 @@ const PaymentSuccessPage = () => {
           </Title>
           
           <Paragraph className="text-gray-600 mb-6">
-            Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại.
+            Có lỗi xảy ra trong quá trình thanh toán hoặc thiếu thông tin. Vui lòng thử lại.
           </Paragraph>
           
           <Space direction="vertical" className="w-full" size="middle">

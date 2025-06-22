@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Button, Row, Col, Typography, Tag, Divider, Steps, Space, message } from 'antd';
-import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   TickSquare as CheckSquare, 
@@ -32,17 +32,19 @@ interface ConsultationInfo {
 }
 
 const PaymentSuccessPage: React.FC = () => {
-  const { qaId } = useParams<{ qaId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const { qaId: pathQaId } = useParams<{ qaId?: string }>();
+  
+  // Get qaId from either URL path params or query params
+  const qaId = pathQaId || searchParams.get('qaId');
   
   const [consultation, setConsultation] = useState<ConsultationInfo | null>(
     location.state?.consultation || null
   );
   const [isLoading, setIsLoading] = useState(!consultation);
   const [paymentStatus, setPaymentStatus] = useState<'checking' | 'success' | 'failed'>('checking');
-  const [countdown, setCountdown] = useState(0);
 
   // Check URL parameters for PayOS success
   useEffect(() => {
@@ -70,7 +72,6 @@ const PaymentSuccessPage: React.FC = () => {
     } else {
       // Nếu có consultation từ state, coi như success
       setPaymentStatus('success');
-      setCountdown(5);
     }
   }, [searchParams, qaId, consultation]);
 
@@ -91,7 +92,6 @@ const PaymentSuccessPage: React.FC = () => {
         console.log('✅ Consultation payment confirmed successfully');
         message.success('Thanh toán thành công! Yêu cầu tư vấn đã được xác nhận.');
         setPaymentStatus('success');
-        setCountdown(5); // 5s countdown
         
         // Fetch updated consultation info
         if (!consultation) {
@@ -101,27 +101,15 @@ const PaymentSuccessPage: React.FC = () => {
         throw new Error(response.data.message || 'Không thể xác nhận thanh toán');
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ Error confirming consultation payment:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Lỗi xác nhận thanh toán';
+      const errorMessage = (error as any)?.response?.data?.message || (error as Error)?.message || 'Lỗi xác nhận thanh toán';
       message.error(errorMessage);
       setPaymentStatus('failed');
     }
   };
 
-  // Auto redirect countdown
-  useEffect(() => {
-    if (paymentStatus === 'success' && countdown > 0) {
-      const timer = setTimeout(() => {
-        if (countdown === 1) {
-          navigate('/booking-history', { replace: true });
-        } else {
-          setCountdown(countdown - 1);
-        }
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [paymentStatus, countdown, navigate]);
+  // Note: Removed auto redirect countdown as per user request
 
   const fetchConsultationInfo = async () => {
     if (!qaId) return;
@@ -130,9 +118,8 @@ const PaymentSuccessPage: React.FC = () => {
       const response = await consultationApi.getConsultationById(qaId);
       setConsultation(response.data.data);
       setPaymentStatus('success');
-      setCountdown(5);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Lỗi lấy thông tin tư vấn';
+    } catch (error: unknown) {
+      const errorMessage = (error as any)?.response?.data?.message || (error as Error)?.message || 'Lỗi lấy thông tin tư vấn';
       message.error(errorMessage);
       setPaymentStatus('failed');
     } finally {
@@ -148,10 +135,7 @@ const PaymentSuccessPage: React.FC = () => {
     navigate('/');
   };
 
-  const handleSkipCountdown = () => {
-    setCountdown(0);
-    handleViewConsultations();
-  };
+  // Note: Removed handleSkipCountdown as countdown is no longer needed
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -368,38 +352,7 @@ const PaymentSuccessPage: React.FC = () => {
                   </ul>
                 </div>
 
-                {/* Countdown Display */}
-                {countdown > 0 && (
-                  <motion.div 
-                    className="bg-green-50 p-4 rounded-xl border border-green-200 mb-6"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                  >
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <Clock size={20} color="#059669" />
-                      <Text className="text-green-800 font-medium">
-                        Tự động chuyển về lịch sử sau
-                      </Text>
-                    </div>
-                    <motion.div 
-                      className="bg-green-500 text-white font-bold text-xl px-3 py-1 rounded-lg inline-block"
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                    >
-                      {countdown}s
-                    </motion.div>
-                    <div className="mt-2">
-                      <Button 
-                        type="link"
-                        size="small"
-                        onClick={handleSkipCountdown}
-                        className="text-green-600 hover:text-green-700 p-0"
-                      >
-                        ⚡ Chuyển ngay
-                      </Button>
-                    </div>
-                  </motion.div>
-                )}
+                {/* Note: Removed countdown display as per user request */}
 
                 {/* Action Buttons */}
                 <Space className="w-full" direction="vertical" size="middle">

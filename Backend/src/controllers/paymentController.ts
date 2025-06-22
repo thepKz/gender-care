@@ -17,7 +17,7 @@ export class PaymentController {
       const consultation = await DoctorQA.findOne({
         _id: qaId,
         userId: userId,
-        status: 'pending_payment'
+        status: { $in: ['pending', 'pending_payment'] }
       });
 
       if (!consultation) {
@@ -51,13 +51,20 @@ export class PaymentController {
 
       const description = 'Tư vấn trực tuyến';
 
+      // Update consultation status to pending_payment nếu không phải là scheduled
+      if (consultation.status !== 'scheduled') {
+        consultation.status = 'pending_payment';
+        await consultation.save();
+        console.log('📝 Updated consultation status to pending_payment');
+      }
+
       const paymentData = await payosService.createPaymentLink({
         appointmentId: qaId,
         amount,
         description,
         customerName: req.user?.fullName || consultation.fullName,
         customerEmail: req.user?.email,
-        returnUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/consultation/success/${qaId}`,
+        returnUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/consultation/success?qaId=${qaId}`,
         cancelUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/online-consultation`
       });
 
@@ -577,7 +584,7 @@ export class PaymentController {
       const consultation = await DoctorQA.findOne({
         _id: qaId,
         userId: userId,
-        status: 'pending_payment'
+        status: { $in: ['pending', 'pending_payment'] }
       });
 
       if (!consultation) {
