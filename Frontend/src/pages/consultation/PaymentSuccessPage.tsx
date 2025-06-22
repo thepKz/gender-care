@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Button, Row, Col, Typography, Tag, Divider, Steps, Space, message } from 'antd';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   TickSquare as CheckSquare, 
@@ -35,36 +35,122 @@ const PaymentSuccessPage: React.FC = () => {
   const { qaId } = useParams<{ qaId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  
   const [consultation, setConsultation] = useState<ConsultationInfo | null>(
     location.state?.consultation || null
   );
   const [isLoading, setIsLoading] = useState(!consultation);
+  const [paymentStatus, setPaymentStatus] = useState<'checking' | 'success' | 'failed'>('checking');
+  const [countdown, setCountdown] = useState(0);
 
+  // Check URL parameters for PayOS success
   useEffect(() => {
-    if (!consultation && qaId) {
+    const code = searchParams.get('code');
+    const cancel = searchParams.get('cancel');
+    const status = searchParams.get('status');
+    const orderCode = searchParams.get('orderCode');
+    
+    console.log('🔍 Consultation Success - URL Parameters:', { code, cancel, status, orderCode, qaId });
+    
+    // Nếu có URL parameters từ PayOS thì process payment
+    if (code && status && orderCode && qaId) {
+      const isPaid = code === '00' && cancel === 'false' && status === 'PAID';
+      
+      if (isPaid) {
+        console.log('✅ Consultation Payment SUCCESS detected from URL');
+        handlePayOSSuccess(orderCode, status);
+      } else {
+        console.log('❌ Consultation Payment FAILED from URL');
+        setPaymentStatus('failed');
+      }
+    } else if (!consultation && qaId) {
+      // Nếu không có URL params, fetch consultation info và coi như success
       fetchConsultationInfo();
+    } else {
+      // Nếu có consultation từ state, coi như success
+      setPaymentStatus('success');
+      setCountdown(5);
     }
-  }, [qaId, consultation]);
+  }, [searchParams, qaId, consultation]);
+
+  const handlePayOSSuccess = async (orderCode: string, status: string) => {
+    if (!qaId) return;
+    
+    try {
+      console.log('🚀 Fast confirming consultation payment...', { qaId, orderCode, status });
+      
+      // Gọi API để confirm payment với backend
+      const response = await consultationApi.fastConfirmConsultationPayment({
+        qaId,
+        orderCode,
+        status
+      });
+      
+      if (response.data.success) {
+        console.log('✅ Consultation payment confirmed successfully');
+        message.success('Thanh toán thành công! Yêu cầu tư vấn đã được xác nhận.');
+        setPaymentStatus('success');
+        setCountdown(5); // 5s countdown
+        
+        // Fetch updated consultation info
+        if (!consultation) {
+          fetchConsultationInfo();
+        }
+      } else {
+        throw new Error(response.data.message || 'Không thể xác nhận thanh toán');
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error confirming consultation payment:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Lỗi xác nhận thanh toán';
+      message.error(errorMessage);
+      setPaymentStatus('failed');
+    }
+  };
+
+  // Auto redirect countdown
+  useEffect(() => {
+    if (paymentStatus === 'success' && countdown > 0) {
+      const timer = setTimeout(() => {
+        if (countdown === 1) {
+          navigate('/booking-history', { replace: true });
+        } else {
+          setCountdown(countdown - 1);
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [paymentStatus, countdown, navigate]);
 
   const fetchConsultationInfo = async () => {
+    if (!qaId) return;
+    
     try {
-      const response = await consultationApi.getConsultationById(qaId!);
+      const response = await consultationApi.getConsultationById(qaId);
       setConsultation(response.data.data);
+      setPaymentStatus('success');
+      setCountdown(5);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Lỗi lấy thông tin tư vấn';
       message.error(errorMessage);
-      navigate('/online-consultation');
+      setPaymentStatus('failed');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleViewConsultations = () => {
-    navigate('/profile/consultations');
+    navigate('/booking-history', { replace: true });
   };
 
   const handleBackHome = () => {
     navigate('/');
+  };
+
+  const handleSkipCountdown = () => {
+    setCountdown(0);
+    handleViewConsultations();
   };
 
   const containerVariants = {
@@ -90,13 +176,65 @@ const PaymentSuccessPage: React.FC = () => {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || paymentStatus === 'checking') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-green-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-primary mx-auto mb-4"></div>
-          <Text className="text-lg text-gray-600">Đang tải thông tin...</Text>
+          <Text className="text-lg text-gray-600">
+            {paymentStatus === 'checking' ? 'Đang xử lý thanh toán...' : 'Đang tải thông tin...'}
+          </Text>
         </div>
+      </div>
+    );
+  }
+
+  // FAILED STATE
+  if (paymentStatus === 'failed') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 py-12 px-4">
+        <motion.div 
+          className="max-w-md mx-auto"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card className="border-0 shadow-xl rounded-2xl text-center">
+            <div className="text-red-500 mb-4">
+              <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            
+            <Title level={3} className="text-red-600 mb-4">
+              ❌ Thanh toán thất bại
+            </Title>
+            
+            <Paragraph className="text-gray-600 mb-6">
+              Có lỗi xảy ra trong quá trình thanh toán tư vấn. Vui lòng thử lại.
+            </Paragraph>
+            
+            <Space direction="vertical" className="w-full" size="middle">
+              <Button 
+                type="primary"
+                size="large"
+                onClick={() => navigate('/online-consultation')}
+                className="w-full bg-blue-600 hover:bg-blue-700 border-none h-12 text-lg font-semibold rounded-xl"
+                icon={<Calendar size={20} />}
+              >
+                🔄 Thử lại đặt tư vấn
+              </Button>
+              
+              <Button 
+                size="large"
+                onClick={handleBackHome}
+                className="w-full h-12 text-lg font-semibold rounded-xl border-gray-300"
+                icon={<Heart size={20} />}
+              >
+                🏠 Về trang chủ
+              </Button>
+            </Space>
+          </Card>
+        </motion.div>
       </div>
     );
   }
@@ -230,6 +368,39 @@ const PaymentSuccessPage: React.FC = () => {
                   </ul>
                 </div>
 
+                {/* Countdown Display */}
+                {countdown > 0 && (
+                  <motion.div 
+                    className="bg-green-50 p-4 rounded-xl border border-green-200 mb-6"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Clock size={20} color="#059669" />
+                      <Text className="text-green-800 font-medium">
+                        Tự động chuyển về lịch sử sau
+                      </Text>
+                    </div>
+                    <motion.div 
+                      className="bg-green-500 text-white font-bold text-xl px-3 py-1 rounded-lg inline-block"
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    >
+                      {countdown}s
+                    </motion.div>
+                    <div className="mt-2">
+                      <Button 
+                        type="link"
+                        size="small"
+                        onClick={handleSkipCountdown}
+                        className="text-green-600 hover:text-green-700 p-0"
+                      >
+                        ⚡ Chuyển ngay
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Action Buttons */}
                 <Space className="w-full" direction="vertical" size="middle">
                   <Button
@@ -239,7 +410,7 @@ const PaymentSuccessPage: React.FC = () => {
                     className="w-full bg-green-primary hover:bg-green-secondary border-none h-12 text-lg font-semibold rounded-xl"
                     icon={<Calendar size={20} />}
                   >
-                    Xem lịch sử tư vấn
+                    📋 Xem lịch sử tư vấn
                   </Button>
                   
                   <Button
@@ -248,7 +419,7 @@ const PaymentSuccessPage: React.FC = () => {
                     className="w-full h-12 text-lg font-semibold rounded-xl border-green-primary text-green-primary hover:bg-green-50"
                     icon={<Heart size={20} />}
                   >
-                    Về trang chủ
+                    🏠 Về trang chủ
                   </Button>
                 </Space>
               </Card>
@@ -325,7 +496,7 @@ const PaymentSuccessPage: React.FC = () => {
                     <div>
                       <Text className="text-gray-500 block mb-2">Giá dịch vụ:</Text>
                       <Text className="font-bold text-green-primary text-lg">
-                        100.000 VND
+                        200.000 VND
                       </Text>
                     </div>
                   </div>

@@ -65,7 +65,7 @@ export const fastConfirmPayment = async (data: {
   orderCode: string;
   status: string;
 }): Promise<{success: boolean; message: string; data?: unknown}> => {
-  const response = await axiosInstance.put('/payments/fast-confirm', data);
+  const response = await axiosInstance.put('/payments/appointments/fast-confirm', data);
   return response.data;
 };
 

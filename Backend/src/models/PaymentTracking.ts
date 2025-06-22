@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 
 export interface IPaymentTracking extends mongoose.Document {
-  appointmentId: mongoose.Types.ObjectId;
+  serviceType: 'appointment' | 'consultation';
+  appointmentId?: mongoose.Types.ObjectId;
+  doctorQAId?: mongoose.Types.ObjectId;
   orderCode: number;
   paymentLinkId?: string;
   paymentGateway: 'payos' | 'vnpay' | 'momo';
@@ -29,11 +31,20 @@ export interface IPaymentTracking extends mongoose.Document {
 }
 
 const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
+  serviceType: {
+    type: String,
+    enum: ['appointment', 'consultation'],
+    required: true
+  },
   appointmentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Appointments',
-    required: true,
-    unique: true
+    required: false
+  },
+  doctorQAId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'DoctorQA',
+    required: false
   },
   orderCode: {
     type: Number,
@@ -98,12 +109,30 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   timestamps: true 
 });
 
+PaymentTrackingSchema.pre('save', function() {
+  if (this.serviceType === 'appointment' && !this.appointmentId) {
+    throw new Error('appointmentId is required for appointment service type');
+  }
+  if (this.serviceType === 'consultation' && !this.doctorQAId) {
+    throw new Error('doctorQAId is required for consultation service type');
+  }
+  if (this.appointmentId && this.doctorQAId) {
+    throw new Error('Cannot have both appointmentId and doctorQAId');
+  }
+});
+
 PaymentTrackingSchema.index({ appointmentId: 1 });
+PaymentTrackingSchema.index({ doctorQAId: 1 });
 PaymentTrackingSchema.index({ orderCode: 1 });
 PaymentTrackingSchema.index({ status: 1 });
+PaymentTrackingSchema.index({ serviceType: 1 });
 
 PaymentTrackingSchema.statics.findAppointmentByOrderCode = function(orderCode: number) {
-  return this.findOne({ orderCode }).populate('appointmentId');
+  return this.findOne({ orderCode, serviceType: 'appointment' }).populate('appointmentId');
+};
+
+PaymentTrackingSchema.statics.findConsultationByOrderCode = function(orderCode: number) {
+  return this.findOne({ orderCode, serviceType: 'consultation' }).populate('doctorQAId');
 };
 
 PaymentTrackingSchema.methods.updatePaymentStatus = function(

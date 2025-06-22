@@ -459,14 +459,14 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                 >
                   <List
                     dataSource={activities.slice(0, 3)}
-                    renderItem={(item: any) => (
+                    renderItem={(item: ActivityItem) => (
                       <List.Item style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
                         <List.Item.Meta
                           avatar={<Avatar size="small" icon={<UserOutlined />} />}
-                          title={<Text style={{ fontSize: '14px' }}>{item.title}</Text>}
+                          title={<Text style={{ fontSize: '14px' }}>{item.user}</Text>}
                           description={
                             <Text type="secondary" style={{ fontSize: '12px' }}>
-                              {item.description}
+                              {item.action}
                             </Text>
                           }
                         />

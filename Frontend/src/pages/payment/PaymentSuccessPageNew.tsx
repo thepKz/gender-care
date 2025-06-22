@@ -16,29 +16,26 @@ const PaymentSuccessPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  const [paymentStatus, setPaymentStatus] = useState<'success' | 'failed' | 'pending'>('pending');
+  const [paymentStatus, setPaymentStatus] = useState('pending');
   const [countdown, setCountdown] = useState(0);
 
-  // Đơn giản hóa: Chỉ check URL params
+  // Đơn giản: Chỉ check URL params
   useEffect(() => {
     const code = searchParams.get('code');
     const cancel = searchParams.get('cancel');
     const status = searchParams.get('status');
-    const appointmentId = searchParams.get('appointmentId');
     
-    console.log('🔍 [PaymentSuccess] URL Parameters:', { code, cancel, status, appointmentId });
+    console.log('URL Parameters:', { code, cancel, status });
     
     // Nếu có status=PAID trên URL thì coi như thành công
     const isPaid = code === '00' && cancel === 'false' && status === 'PAID';
     
     if (isPaid) {
-      console.log('✅ [PaymentSuccess] Payment SUCCESS detected from URL');
+      console.log('Payment SUCCESS detected from URL');
       setPaymentStatus('success');
       setCountdown(5); // 5 giây countdown
-    } else if (cancel === 'true') {
-      setPaymentStatus('failed');
     } else {
-      setPaymentStatus('pending');
+      setPaymentStatus('failed');
     }
   }, [searchParams]);
 
@@ -47,14 +44,14 @@ const PaymentSuccessPage = () => {
     if (paymentStatus === 'success' && countdown > 0) {
       const timer = setTimeout(() => {
         if (countdown === 1) {
-          handleNavigateToBookingHistory();
+          navigate('/booking-history', { replace: true });
         } else {
           setCountdown(countdown - 1);
         }
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [paymentStatus, countdown]);
+  }, [paymentStatus, countdown, navigate]);
 
   const handleNavigateToBookingHistory = () => {
     navigate('/booking-history', { replace: true });
@@ -65,7 +62,7 @@ const PaymentSuccessPage = () => {
     handleNavigateToBookingHistory();
   };
 
-  // 🎉 SUCCESS STATE - Đơn giản và đẹp
+  // SUCCESS STATE
   if (paymentStatus === 'success') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-green-50 to-purple-50 flex items-center justify-center py-8">
@@ -76,7 +73,6 @@ const PaymentSuccessPage = () => {
           transition={{ duration: 0.6 }}
         >
           <Card className="border-0 shadow-2xl rounded-3xl text-center overflow-hidden">
-            {/* Success Icon */}
             <motion.div 
               className="mb-6"
               initial={{ scale: 0 }}
@@ -88,7 +84,6 @@ const PaymentSuccessPage = () => {
               </div>
             </motion.div>
 
-            {/* Success Message */}
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -104,7 +99,6 @@ const PaymentSuccessPage = () => {
               </Paragraph>
             </motion.div>
 
-            {/* Processing Status */}
             <motion.div 
               className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-6"
               initial={{ y: 20, opacity: 0 }}
@@ -128,7 +122,6 @@ const PaymentSuccessPage = () => {
               </Text>
             </motion.div>
 
-            {/* Countdown Timer */}
             {countdown > 0 && (
               <motion.div 
                 className="bg-green-50 p-4 rounded-xl border border-green-200 mb-6"
@@ -162,7 +155,6 @@ const PaymentSuccessPage = () => {
               </motion.div>
             )}
 
-            {/* Action Buttons */}
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -190,7 +182,6 @@ const PaymentSuccessPage = () => {
               </Space>
             </motion.div>
 
-            {/* Footer Note */}
             <motion.div 
               className="mt-6 p-3 bg-gray-50 rounded-lg"
               initial={{ opacity: 0 }}
@@ -207,7 +198,7 @@ const PaymentSuccessPage = () => {
     );
   }
 
-  // 🚨 ERROR/PENDING STATE
+  // ERROR STATE
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 py-12 px-4">
       <motion.div 
@@ -223,14 +214,11 @@ const PaymentSuccessPage = () => {
           </div>
           
           <Title level={3} className="text-red-600 mb-4">
-            {paymentStatus === 'failed' ? '❌ Thanh toán bị hủy' : '⚠️ Trạng thái không xác định'}
+            ❌ Thanh toán thất bại
           </Title>
           
           <Paragraph className="text-gray-600 mb-6">
-            {paymentStatus === 'failed' 
-              ? 'Bạn đã hủy quá trình thanh toán. Lịch hẹn vẫn được giữ nguyên.'
-              : 'Không thể xác định trạng thái thanh toán. Vui lòng kiểm tra lại.'
-            }
+            Có lỗi xảy ra trong quá trình thanh toán. Vui lòng thử lại.
           </Paragraph>
           
           <Space direction="vertical" className="w-full" size="middle">

@@ -123,8 +123,35 @@ const consultationApi = {
     return axiosInstance.get(`/doctor-qa/${qaId}`);
   },
 
-  // Cập nhật trạng thái thanh toán (payment gateway webhook/mock)
+  // =============== PAYMENT INTEGRATION APIs ===============
+
+  // Tạo payment link cho consultation
+  createConsultationPaymentLink: (qaId: string) => {
+    return axiosInstance.post(`/payments/consultations/${qaId}/payment`);
+  },
+
+  // Check payment status cho consultation
+  checkConsultationPaymentStatus: (qaId: string) => {
+    return axiosInstance.get(`/payments/consultations/${qaId}/payment/status`);
+  },
+
+  // Cancel payment cho consultation
+  cancelConsultationPayment: (qaId: string) => {
+    return axiosInstance.post(`/payments/consultations/${qaId}/payment/cancel`);
+  },
+
+  // Fast confirm consultation payment
+  fastConfirmConsultationPayment: (data: {
+    qaId: string;
+    orderCode: string;
+    status: string;
+  }) => {
+    return axiosInstance.put('/payments/consultations/fast-confirm', data);
+  },
+
+  // ✅ LEGACY: Cập nhật trạng thái thanh toán (deprecated - use payment system above)
   updatePaymentStatus: (qaId: string, data: UpdatePaymentStatusParams) => {
+    console.warn('updatePaymentStatus is deprecated. Use payment system APIs instead.');
     return axiosInstance.put(`/doctor-qa/${qaId}/payment`, data);
   },
 

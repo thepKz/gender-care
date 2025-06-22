@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import Appointments from '../models/Appointments';
+import DoctorQA from '../models/DoctorQA';
 import PaymentTracking from '../models/PaymentTracking';
 import '../models/Service';
 import '../models/ServicePackages';
@@ -7,6 +8,108 @@ import payosService from '../services/payosService';
 import { AuthRequest } from '../types/auth';
 
 export class PaymentController {
+  // Tạo payment link cho consultation
+  createConsultationPaymentLink = async (req: AuthRequest, res: Response) => {
+    try {
+      const { qaId } = req.params;
+      const userId = req.user?._id;
+
+      const consultation = await DoctorQA.findOne({
+        _id: qaId,
+        userId: userId,
+        status: 'pending_payment'
+      });
+
+      if (!consultation) {
+        return res.status(404).json({
+          success: false,
+          message: 'Consultation không tồn tại hoặc không thể thanh toán'
+        });
+      }
+
+      const existingPayment = await PaymentTracking.findOne({
+        doctorQAId: qaId,
+        serviceType: 'consultation'
+      });
+
+      if (existingPayment && existingPayment.status === 'success') {
+        return res.status(400).json({
+          success: false,
+          message: 'Consultation này đã được thanh toán'
+        });
+      }
+
+      const amount = consultation.consultationFee;
+
+      if (amount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Không thể tạo thanh toán với số tiền bằng 0',
+          error: 'INVALID_AMOUNT'
+        });
+      }
+
+      const description = 'Tư vấn trực tuyến';
+
+      const paymentData = await payosService.createPaymentLink({
+        appointmentId: qaId,
+        amount,
+        description,
+        customerName: req.user?.fullName || consultation.fullName,
+        customerEmail: req.user?.email,
+        returnUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/consultation/success/${qaId}`,
+        cancelUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/online-consultation`
+      });
+
+      let paymentTracking;
+      if (existingPayment) {
+        existingPayment.orderCode = paymentData.orderCode;
+        existingPayment.amount = amount;
+        existingPayment.description = description;
+        existingPayment.status = 'pending';
+        existingPayment.paymentUrl = paymentData.checkoutUrl;
+        existingPayment.paymentLinkId = paymentData.paymentLinkId;
+        existingPayment.expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        paymentTracking = await existingPayment.save();
+      } else {
+        paymentTracking = await PaymentTracking.create({
+          serviceType: 'consultation',
+          doctorQAId: qaId,
+          orderCode: paymentData.orderCode,
+          paymentLinkId: paymentData.paymentLinkId,
+          paymentGateway: 'payos',
+          amount,
+          description,
+          customerName: req.user?.fullName || consultation.fullName,
+          customerEmail: req.user?.email,
+          customerPhone: consultation.phone,
+          status: 'pending',
+          paymentUrl: paymentData.checkoutUrl
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Tạo payment link cho consultation thành công',
+        data: {
+          paymentUrl: paymentData.checkoutUrl,
+          orderCode: paymentData.orderCode,
+          amount: amount,
+          qrCode: paymentData.qrCode,
+          expiredAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        }
+      });
+
+    } catch (error) {
+      console.error('Error creating consultation payment link:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Lỗi tạo payment link cho consultation',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
   // Tạo payment link cho appointment
   createPaymentLink = async (req: AuthRequest, res: Response) => {
     try {
@@ -26,7 +129,8 @@ export class PaymentController {
       }
 
       const existingPayment = await PaymentTracking.findOne({
-        appointmentId: appointmentId
+        appointmentId: appointmentId,
+        serviceType: 'appointment'
       });
 
       if (existingPayment && existingPayment.status === 'success') {
@@ -90,6 +194,7 @@ export class PaymentController {
         paymentTracking = await existingPayment.save();
       } else {
         paymentTracking = await PaymentTracking.create({
+          serviceType: 'appointment',
           appointmentId: appointmentId,
           orderCode: paymentData.orderCode,
           paymentLinkId: paymentData.paymentLinkId,
@@ -137,38 +242,61 @@ export class PaymentController {
         return res.status(404).json({ message: 'Payment not found' });
       }
 
-      const appointment = await Appointments.findById(paymentTracking.appointmentId);
-      if (!appointment) {
-        console.error(`Appointment not found for ID: ${paymentTracking.appointmentId}`);
-        return res.status(404).json({ message: 'Appointment not found' });
-      }
+      console.log(`📥 Webhook received for ${paymentTracking.serviceType} service`);
 
-      if (code === '00') {
-        await paymentTracking.updatePaymentStatus('success', {
-          reference: data?.reference,
-          transactionDateTime: data?.transactionDateTime,
-          counterAccountInfo: data?.counterAccountInfo,
-          virtualAccount: data?.virtualAccount
-        }, true);
-
-        appointment.status = 'confirmed';
-        appointment.paymentStatus = 'paid';
-        appointment.paidAt = new Date();
-        await appointment.save();
-
-        console.log(`Payment successful for orderCode: ${orderCode}`);
-      } else {
-        await paymentTracking.updatePaymentStatus('failed', {
-          code,
-          desc
-        }, true);
-
-        if (appointment.status === 'pending_payment') {
-          appointment.status = 'pending';
+      if (paymentTracking.serviceType === 'appointment') {
+        const appointment = await Appointments.findById(paymentTracking.appointmentId);
+        if (!appointment) {
+          console.error(`Appointment not found for ID: ${paymentTracking.appointmentId}`);
+          return res.status(404).json({ message: 'Appointment not found' });
         }
-        await appointment.save();
 
-        console.log(`Payment failed for orderCode: ${orderCode}, reason: ${desc}`);
+        if (code === '00') {
+          await paymentTracking.updatePaymentStatus('success', {
+            reference: data?.reference,
+            transactionDateTime: data?.transactionDateTime,
+            counterAccountInfo: data?.counterAccountInfo,
+            virtualAccount: data?.virtualAccount
+          }, true);
+
+          appointment.status = 'confirmed';
+          appointment.paymentStatus = 'paid';
+          appointment.paidAt = new Date();
+          await appointment.save();
+
+          console.log(`✅ Appointment payment successful for orderCode: ${orderCode}`);
+        } else {
+          await paymentTracking.updatePaymentStatus('failed', { code, desc }, true);
+          if (appointment.status === 'pending_payment') {
+            appointment.status = 'pending';
+          }
+          await appointment.save();
+          console.log(`❌ Appointment payment failed for orderCode: ${orderCode}, reason: ${desc}`);
+        }
+
+      } else if (paymentTracking.serviceType === 'consultation') {
+        const consultation = await DoctorQA.findById(paymentTracking.doctorQAId);
+        if (!consultation) {
+          console.error(`Consultation not found for ID: ${paymentTracking.doctorQAId}`);
+          return res.status(404).json({ message: 'Consultation not found' });
+        }
+
+        if (code === '00') {
+          await paymentTracking.updatePaymentStatus('success', {
+            reference: data?.reference,
+            transactionDateTime: data?.transactionDateTime,
+            counterAccountInfo: data?.counterAccountInfo,
+            virtualAccount: data?.virtualAccount
+          }, true);
+
+          consultation.status = 'scheduled';
+          await consultation.save();
+
+          console.log(`✅ Consultation payment successful for orderCode: ${orderCode}`);
+        } else {
+          await paymentTracking.updatePaymentStatus('failed', { code, desc }, true);
+          console.log(`❌ Consultation payment failed for orderCode: ${orderCode}, reason: ${desc}`);
+        }
       }
 
       return res.status(200).json({ message: 'Webhook processed successfully' });
@@ -206,7 +334,8 @@ export class PaymentController {
       console.log('📋 [PaymentController] Current appointment status:', appointment.status);
 
       const paymentTracking = await PaymentTracking.findOne({
-        appointmentId: appointmentId
+        appointmentId: appointmentId,
+        serviceType: 'appointment'
       });
 
       if (!paymentTracking) {
@@ -293,6 +422,95 @@ export class PaymentController {
     }
   };
 
+  // Check consultation payment status
+  checkConsultationPaymentStatus = async (req: AuthRequest, res: Response) => {
+    try {
+      const { qaId } = req.params;
+      const userId = req.user?._id;
+
+      console.log('🔍 [PaymentController] Checking consultation payment status for QA:', qaId, 'user:', userId);
+
+      const consultation = await DoctorQA.findOne({
+        _id: qaId,
+        userId: userId
+      });
+
+      if (!consultation) {
+        console.log('❌ [PaymentController] Consultation not found');
+        return res.status(404).json({
+          success: false,
+          message: 'Consultation không tồn tại'
+        });
+      }
+
+      console.log('📋 [PaymentController] Current consultation status:', consultation.status);
+
+      const paymentTracking = await PaymentTracking.findOne({
+        doctorQAId: qaId,
+        serviceType: 'consultation'
+      });
+
+      if (!paymentTracking) {
+        console.log('❌ [PaymentController] Consultation payment tracking not found');
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy thông tin thanh toán cho consultation này'
+        });
+      }
+
+      // Check PayOS status if still pending
+      if (consultation.status === 'pending_payment' || paymentTracking.status === 'pending') {
+        console.log('🔄 [PaymentController] Checking consultation with PayOS...');
+
+        try {
+          const paymentInfo = await payosService.getPaymentStatus(paymentTracking.orderCode);
+
+          if (paymentInfo.status === 'PAID') {
+            console.log('[PaymentController] Consultation payment CONFIRMED by PayOS');
+
+            await paymentTracking.updatePaymentStatus('success', {
+              reference: paymentInfo.transactions?.[0]?.reference,
+              transactionDateTime: paymentInfo.transactions?.[0]?.transactionDateTime
+            });
+
+            consultation.status = 'scheduled';
+            await consultation.save();
+
+            console.log('[PaymentController] Consultation status updated to scheduled');
+          } else if (paymentInfo.status === 'CANCELLED') {
+            await paymentTracking.updatePaymentStatus('cancelled');
+          }
+        } catch (error) {
+          console.error('[PaymentController] Error checking consultation PayOS status:', error);
+        }
+      }
+
+      // Refresh consultation data
+      const updatedConsultation = await DoctorQA.findById(qaId);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Lấy trạng thái thanh toán consultation thành công',
+        data: {
+          orderCode: paymentTracking.orderCode,
+          status: paymentTracking.status,
+          amount: paymentTracking.amount,
+          consultationStatus: updatedConsultation?.status,
+          createdAt: paymentTracking.createdAt,
+          webhookReceived: paymentTracking.webhookReceived
+        }
+      });
+
+    } catch (error) {
+      console.error('Error checking consultation payment status:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Lỗi kiểm tra trạng thái thanh toán consultation',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
   // Cancel payment
   cancelPayment = async (req: AuthRequest, res: Response) => {
     try {
@@ -313,6 +531,7 @@ export class PaymentController {
 
       const paymentTracking = await PaymentTracking.findOne({
         appointmentId: appointmentId,
+        serviceType: 'appointment',
         status: 'pending'
       });
 
@@ -344,6 +563,68 @@ export class PaymentController {
       console.error('Error canceling payment:', error);
       return res.status(500).json({
         message: 'Lỗi hủy thanh toán',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  // Cancel consultation payment
+  cancelConsultationPayment = async (req: AuthRequest, res: Response) => {
+    try {
+      const { qaId } = req.params;
+      const userId = req.user?._id;
+
+      const consultation = await DoctorQA.findOne({
+        _id: qaId,
+        userId: userId,
+        status: 'pending_payment'
+      });
+
+      if (!consultation) {
+        return res.status(404).json({
+          success: false,
+          message: 'Consultation không tồn tại hoặc không thể hủy thanh toán'
+        });
+      }
+
+      const paymentTracking = await PaymentTracking.findOne({
+        doctorQAId: qaId,
+        serviceType: 'consultation',
+        status: 'pending'
+      });
+
+      if (!paymentTracking) {
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy payment đang chờ để hủy'
+        });
+      }
+
+      try {
+        await payosService.cancelPaymentLink(
+          paymentTracking.orderCode,
+          'Người dùng hủy thanh toán consultation'
+        );
+      } catch (error) {
+        console.error('Error canceling PayOS consultation payment:', error);
+      }
+
+      await paymentTracking.updatePaymentStatus('cancelled');
+
+      // Consultation sẽ bị hủy luôn
+      consultation.status = 'cancelled';
+      await consultation.save();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Hủy thanh toán consultation thành công'
+      });
+
+    } catch (error) {
+      console.error('Error canceling consultation payment:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Lỗi hủy thanh toán consultation',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -404,6 +685,7 @@ export class PaymentController {
       // Tìm payment tracking
       const paymentTracking = await PaymentTracking.findOne({
         appointmentId: appointmentId,
+        serviceType: 'appointment',
         orderCode: parseInt(orderCode)
       });
 
@@ -471,6 +753,124 @@ export class PaymentController {
       return res.status(500).json({
         success: false,
         message: 'Lỗi xác nhận thanh toán nhanh',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  // Fast confirm consultation payment
+  fastConfirmConsultationPayment = async (req: AuthRequest, res: Response) => {
+    try {
+      const { qaId, orderCode, status } = req.body;
+      const userId = req.user?._id;
+
+      console.log('🚀 [PaymentController] Fast confirm consultation payment:', { qaId, orderCode, status, userId });
+
+      // Validate required fields
+      if (!qaId || !orderCode || !status) {
+        return res.status(400).json({
+          success: false,
+          message: 'Thiếu thông tin cần thiết: qaId, orderCode, status'
+        });
+      }
+
+      // Chỉ chấp nhận status PAID
+      if (status !== 'PAID') {
+        return res.status(400).json({
+          success: false,
+          message: 'Chỉ chấp nhận thanh toán thành công (status=PAID)'
+        });
+      }
+
+      // Tìm consultation
+      const consultation = await DoctorQA.findOne({
+        _id: qaId,
+        userId: userId
+      });
+
+      if (!consultation) {
+        console.log('❌ [PaymentController] Consultation not found for fast confirm');
+        return res.status(404).json({
+          success: false,
+          message: 'Consultation không tồn tại'
+        });
+      }
+
+      // Nếu đã scheduled rồi thì trả về thành công luôn
+      if (consultation.status === 'scheduled') {
+        console.log('✅ [PaymentController] Consultation already scheduled');
+        return res.status(200).json({
+          success: true,
+          message: 'Consultation đã được xác nhận trước đó',
+          data: {
+            consultationStatus: consultation.status
+          }
+        });
+      }
+
+      // Tìm payment tracking
+      const paymentTracking = await PaymentTracking.findOne({
+        doctorQAId: qaId,
+        serviceType: 'consultation',
+        orderCode: parseInt(orderCode)
+      });
+
+      if (!paymentTracking) {
+        console.log('❌ [PaymentController] Consultation payment tracking not found for fast confirm');
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy thông tin thanh toán consultation với orderCode này'
+        });
+      }
+
+      // Nếu payment đã success rồi thì trả về luôn
+      if (paymentTracking.status === 'success') {
+        console.log('✅ [PaymentController] Consultation payment already success');
+        // Đảm bảo consultation cũng đã scheduled
+        if ((consultation.status as any) !== 'scheduled') {
+          (consultation.status as any) = 'scheduled';
+          await consultation.save();
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: 'Thanh toán consultation đã được xác nhận trước đó',
+          data: {
+            consultationStatus: 'scheduled'
+          }
+        });
+      }
+
+      // FAST UPDATE - Tin tưởng status=PAID từ PayOS URL
+      console.log('⚡ [PaymentController] Fast updating consultation payment status to success...');
+
+      // Update payment tracking
+      await paymentTracking.updatePaymentStatus('success', {
+        fastConfirmTimestamp: new Date(),
+        statusFromUrl: status
+      });
+
+      // Update consultation
+      (consultation.status as any) = 'scheduled';
+      await consultation.save();
+
+      console.log('✅ [PaymentController] Fast confirm consultation completed successfully');
+
+      return res.status(200).json({
+        success: true,
+        message: 'Xác nhận thanh toán consultation nhanh thành công',
+        data: {
+          orderCode: paymentTracking.orderCode,
+          consultationStatus: consultation.status,
+          fastConfirmed: true
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ [PaymentController] Error in fast confirm consultation payment:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Lỗi xác nhận thanh toán consultation nhanh',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }

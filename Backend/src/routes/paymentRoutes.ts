@@ -4,15 +4,21 @@ import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = express.Router();
 
-// Protected routes - require authentication
+// ✅ APPOINTMENT PAYMENT ROUTES - Protected routes require authentication
 router.post('/appointments/:appointmentId/payment', authMiddleware, paymentController.createPaymentLink);
 router.get('/appointments/:appointmentId/payment/status', authMiddleware, paymentController.checkPaymentStatus);
 router.post('/appointments/:appointmentId/payment/cancel', authMiddleware, paymentController.cancelPayment);
 
-// Public webhook route - không cần auth vì PayOS gọi
+// ✅ CONSULTATION PAYMENT ROUTES - Protected routes require authentication  
+router.post('/consultations/:qaId/payment', authMiddleware, paymentController.createConsultationPaymentLink);
+router.get('/consultations/:qaId/payment/status', authMiddleware, paymentController.checkConsultationPaymentStatus);
+router.post('/consultations/:qaId/payment/cancel', authMiddleware, paymentController.cancelConsultationPayment);
+
+// ✅ WEBHOOK ROUTE - Public route (PayOS calls this)
 router.post('/payos/webhook', paymentController.payosWebhook);
 
-// Fast confirm payment với status=PAID từ PayOS URL
-router.put('/fast-confirm', authMiddleware, paymentController.fastConfirmPayment);
+// ✅ FAST CONFIRM ROUTES - With status=PAID from PayOS URL
+router.put('/appointments/fast-confirm', authMiddleware, paymentController.fastConfirmPayment);
+router.put('/consultations/fast-confirm', authMiddleware, paymentController.fastConfirmConsultationPayment);
 
 export default router; 
