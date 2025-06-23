@@ -110,7 +110,7 @@ const AppRoutes: React.FC = () => {
       <Route element={<ProfileLayout />}>
         <Route path="/profile" element={isAuthenticated ? <ProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/profile/edit" element={isAuthenticated ? <ProfileEditPage /> : <Navigate to="/login" replace />} />
-        <Route path="/profile/create-profile" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/create-profile" element={<Navigate to="/user-profiles/create" replace />} />
         <Route path="/profile/edit-profile/:profileId" element={isAuthenticated ? <EditProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/profile/view-profile/:profileId" element={isAuthenticated ? <ViewProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/medical-records/:profileId" element={isAuthenticated ? <NotFoundPage /> : <Navigate to="/login" replace />} />
@@ -137,6 +137,7 @@ const AppRoutes: React.FC = () => {
         
         {/* User Profiles Page */}
         <Route path="/user-profiles" element={isAuthenticated ? <UserProfilesPage /> : <Navigate to="/login" replace />} />
+        <Route path="/user-profiles/create" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
         
         {/* Purchased Packages Page */}
         <Route path="/purchased-packages" element={isAuthenticated ? <PurchasedPackagesPage /> : <Navigate to="/login" replace />} />

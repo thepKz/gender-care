@@ -6,21 +6,15 @@ import {
   DatePicker, 
   Button, 
   Card, 
-  notification, 
   Typography,
-  Breadcrumb,
-  message,
-  Row,
-  Col
+  message
 } from 'antd';
 import { 
-  SaveOutlined, 
   ArrowLeftOutlined, 
-  TeamOutlined,
   FormOutlined,
   UserAddOutlined
 } from '@ant-design/icons';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import dayjs from 'dayjs';
 import { useAuth } from '../../hooks/useAuth';
@@ -28,11 +22,10 @@ import { CreateUserProfileRequest } from '../../api/endpoints/userProfileApi';
 import userProfileApi from '../../api/endpoints/userProfileApi';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 const CreateProfile: React.FC = () => {
   const navigate = useNavigate();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
@@ -45,15 +38,34 @@ const CreateProfile: React.FC = () => {
 
   // Tính toán ngày tối thiểu là 10 năm trước tính từ hiện tại
   const disabledDate = (current: dayjs.Dayjs) => {
+    if (!current) return false;
+    
     // Không cho phép chọn ngày trong tương lai
-    if (current > dayjs().endOf('day')) {
+    if (current.isAfter(dayjs(), 'day')) {
       return true;
     }
-    // Không cho phép chọn ngày dưới 10 tuổi
-    return current > dayjs().subtract(10, 'years');
+    
+    // Không cho phép chọn ngày dưới 10 tuổi (sinh sau 10 năm trước)
+    const minDate = dayjs().subtract(10, 'years');
+    if (current.isAfter(minDate, 'day')) {
+      return true;
+    }
+    
+    // Không cho phép chọn ngày quá xa (trước 120 năm)
+    const maxDate = dayjs().subtract(120, 'years');
+    if (current.isBefore(maxDate, 'day')) {
+      return true;
+    }
+    
+    return false;
   };
 
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: {
+    fullName: string;
+    gender: 'male' | 'female' | 'other';
+    phone?: string;
+    year?: dayjs.Dayjs;
+  }) => {
     try {
       setLoading(true);
       
@@ -67,9 +79,10 @@ const CreateProfile: React.FC = () => {
       await userProfileApi.createProfile(profileData);
       message.success('Tạo hồ sơ thành công!');
       navigate('/user-profiles');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi tạo hồ sơ';
       console.error('Error creating profile:', error);
-      message.error(error.message || 'Có lỗi xảy ra khi tạo hồ sơ');
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -80,17 +93,10 @@ const CreateProfile: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="bg-[#f8fafc]">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white shadow-sm border-b mt-[50.5px]">
         <div className="container mx-auto px-4 py-6">
-          <Breadcrumb className="mb-4">
-            <Breadcrumb.Item><a href="/">Trang chủ</a></Breadcrumb.Item>
-            <Breadcrumb.Item><a href="/profile">Trang cá nhân</a></Breadcrumb.Item>
-            <Breadcrumb.Item><a href="/user-profiles">Hồ sơ bệnh án</a></Breadcrumb.Item>
-            <Breadcrumb.Item>Tạo hồ sơ mới</Breadcrumb.Item>
-          </Breadcrumb>
-
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-3 bg-[#0C3C54]/10 rounded-full">
@@ -120,8 +126,9 @@ const CreateProfile: React.FC = () => {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        className="pt-6"
       >
-        <div className="container mx-auto px-4 py-8 max-w-3xl">
+        <div className="container mx-auto px-4 py-6 max-w-3xl mb-6">
           <Card className="rounded-xl shadow-md">
             <Form
               form={form}
@@ -143,7 +150,7 @@ const CreateProfile: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <Form.Item
                   name="fullName"
-                  label="Họ và tên"
+                  label={<span>Họ và tên <span className="text-red-500">*</span></span>}
                   rules={[
                     { required: true, message: 'Vui lòng nhập họ và tên' },
                     { min: 2, message: 'Họ và tên phải có ít nhất 2 ký tự' }
@@ -158,7 +165,7 @@ const CreateProfile: React.FC = () => {
                 
                 <Form.Item
                   name="gender"
-                  label="Giới tính"
+                  label={<span>Giới tính <span className="text-red-500">*</span></span>}
                   rules={[{ required: true, message: 'Vui lòng chọn giới tính' }]}
                 >
                   <Select 
@@ -175,11 +182,12 @@ const CreateProfile: React.FC = () => {
                 
                 <Form.Item
                   name="phone"
-                  label="Số điện thoại"
+                  label={<span>Số điện thoại <span className="text-red-500">*</span></span>}
                   rules={[
+                    { required: true, message: 'Vui lòng nhập số điện thoại' },
                     { 
                       pattern: /^[0-9]{10}$/, 
-                      message: 'Số điện thoại phải có 10 chữ số'
+                      message: 'Số điện thoại phải có đúng 10 chữ số'
                     }
                   ]}
                 >
@@ -187,16 +195,23 @@ const CreateProfile: React.FC = () => {
                     placeholder="Nhập số điện thoại" 
                     className="rounded-lg" 
                     size="large"
+                    maxLength={10}
+                    onKeyPress={(e) => {
+                      if (!/[0-9]/.test(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
                   />
                 </Form.Item>
                 
                 <Form.Item
                   name="year"
-                  label="Ngày sinh"
+                  label={<span>Ngày sinh <span className="text-red-500">*</span></span>}
                   rules={[
+                    { required: true, message: 'Vui lòng chọn ngày sinh' },
                     {
                       validator: (_, value) => {
-                        if (value && value > dayjs().subtract(10, 'years')) {
+                        if (value && value.isAfter(dayjs().subtract(10, 'years'), 'day')) {
                           return Promise.reject('Tuổi phải từ 10 trở lên');
                         }
                         return Promise.resolve();
@@ -210,6 +225,9 @@ const CreateProfile: React.FC = () => {
                     size="large"
                     format="DD/MM/YYYY"
                     disabledDate={disabledDate}
+                    showToday={false}
+                    allowClear
+                    defaultPickerValue={dayjs().subtract(25, 'years')}
                   />
                 </Form.Item>
               </div>

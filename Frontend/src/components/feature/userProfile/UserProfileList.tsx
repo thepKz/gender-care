@@ -1,5 +1,5 @@
-import { ClearOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Card, Col, Empty, Row, Spin } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
+import { Button, Card, Col, Row, Spin } from 'antd';
 import { AnimatePresence, motion } from 'framer-motion';
 import React from 'react';
 import { UserProfile } from '../../../types';
@@ -19,8 +19,8 @@ interface UserProfileListProps {
   onSort?: (sortBy: string) => void;
   filterGender: 'all' | 'male' | 'female' | 'other';
   onFilter?: (gender: 'all' | 'male' | 'female' | 'other') => void;
-  onResetFilters: () => void;
   onView: (id: string) => void;
+  hasActiveFilters?: boolean;
 }
 
 const UserProfileList: React.FC<UserProfileListProps> = ({
@@ -31,20 +31,9 @@ const UserProfileList: React.FC<UserProfileListProps> = ({
   onAdd,
   searchQuery,
   filterGender,
-  onResetFilters,
-  onView
+  onView,
+  hasActiveFilters = false
 }) => {
-  const getStatistics = () => {
-    const total = profiles.length;
-    const maleCount = profiles.filter(p => p.gender === 'male').length;
-    const femaleCount = profiles.filter(p => p.gender === 'female').length;
-    const otherCount = profiles.filter(p => p.gender === 'other').length;
-    
-    return { total, male: maleCount, female: femaleCount, other: otherCount };
-  };
-
-  const stats = getStatistics();
-  const hasActiveFilters = searchQuery.trim() !== '' || filterGender !== 'all';
 
   if (loading) {
     return (
@@ -56,7 +45,7 @@ const UserProfileList: React.FC<UserProfileListProps> = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Profiles Grid */}
       {profiles.length === 0 ? (
         <motion.div
@@ -64,50 +53,60 @@ const UserProfileList: React.FC<UserProfileListProps> = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Card className="text-center py-20">
-            <Empty
-              image="/images/empty-profiles.svg"
-              imageStyle={{ height: 120 }}
-              description={
-                <div className="space-y-2">
-                  <h3 className="text-lg font-medium text-gray-800">
-                    {hasActiveFilters ? 'Không tìm thấy kết quả' : 'Chưa có hồ sơ bệnh án nào'}
+          <Card className="text-center py-16">
+            {hasActiveFilters ? (
+              // UI cho trường hợp không tìm thấy kết quả từ bộ lọc
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-800">
+                  Không tìm thấy kết quả
+                </h3>
+              </div>
+            ) : (
+              // UI cho trường hợp chưa có hồ sơ nào
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <h3 className="text-xl font-semibold text-gray-800">
+                    Chưa có hồ sơ bệnh án nào
                   </h3>
-                  <p className="text-gray-600">
-                    {hasActiveFilters 
-                      ? 'Thử thay đổi bộ lọc để tìm thấy hồ sơ phù hợp'
-                      : 'Hãy tạo hồ sơ bệnh án đầu tiên cho bản thân hoặc người thân'
-                    }
+                  <p className="text-gray-600 max-w-md mx-auto">
+                    Hãy tạo hồ sơ bệnh án đầu tiên cho bản thân hoặc người thân để bắt đầu quản lý sức khỏe.
                   </p>
                 </div>
-              }
-            >
-              <div className="mt-4 space-x-2">
-                {hasActiveFilters ? (
-                  <Button onClick={onResetFilters} icon={<ClearOutlined />}>
-                    Xóa bộ lọc
-                  </Button>
-                ) : (
-                  <Button type="primary" onClick={onAdd} icon={<PlusOutlined />} size="large">
-                    Tạo hồ sơ đầu tiên
-                  </Button>
-                )}
+
+                <Button 
+                  type="primary" 
+                  onClick={onAdd} 
+                  icon={<PlusOutlined />} 
+                  size="large"
+                  className="px-8 py-3 h-auto text-base"
+                >
+                  Tạo hồ sơ đầu tiên
+                </Button>
               </div>
-            </Empty>
+            )}
           </Card>
         </motion.div>
       ) : (
         <motion.div layout>
-          <Row gutter={[16, 16]}>
+          <Row gutter={[8, 8]} justify="start" align="stretch">
             <AnimatePresence>
               {profiles.map((profile) => (
-                <Col key={profile._id} xs={24} sm={12} lg={8} xl={6}>
+                <Col 
+                  key={profile._id} 
+                  xs={24} 
+                  sm={12} 
+                  md={12} 
+                  lg={8} 
+                  xl={6} 
+                  xxl={4}
+                  className="flex"
+                >
                   <UserProfileCard
                     profile={profile}
                     onEdit={onEdit}
                     onDelete={onDelete}
                     onView={() => onView(profile._id)}
-                    className="h-full"
+                    className="w-full"
                   />
                 </Col>
               ))}
@@ -118,8 +117,14 @@ const UserProfileList: React.FC<UserProfileListProps> = ({
 
       {/* Results Count */}
       {profiles.length > 0 && (
-        <div className="text-center text-gray-600 text-sm">
-          Hiển thị {profiles.length} hồ sơ {hasActiveFilters && `từ ${stats.total} tổng số`}
+        <div className="text-center text-gray-600 text-sm mt-4 p-3 bg-white rounded-lg border border-gray-100">
+          <span className="font-medium text-gray-700">
+            {hasActiveFilters ? (
+              <>Tìm thấy <span className="text-blue-600 font-semibold">{profiles.length}</span> hồ sơ phù hợp</>
+            ) : (
+              <>Tổng cộng <span className="text-green-600 font-semibold">{profiles.length}</span> hồ sơ</>
+            )}
+          </span>
         </div>
       )}
     </div>

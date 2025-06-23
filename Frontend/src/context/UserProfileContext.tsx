@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+import dayjs from 'dayjs';
 import { UserProfile } from '../types';
 
 interface UserProfileState {
@@ -10,6 +11,7 @@ interface UserProfileState {
   sortBy: 'name' | 'date' | 'gender';
   sortOrder: 'asc' | 'desc';
   filterGender: 'all' | 'male' | 'female' | 'other';
+  filterDateRange: [dayjs.Dayjs, dayjs.Dayjs] | null;
 }
 
 type UserProfileAction =
@@ -23,6 +25,7 @@ type UserProfileAction =
   | { type: 'SET_SEARCH_QUERY'; payload: string }
   | { type: 'SET_SORT'; payload: { sortBy: 'name' | 'date' | 'gender'; sortOrder: 'asc' | 'desc' } }
   | { type: 'SET_FILTER_GENDER'; payload: 'all' | 'male' | 'female' | 'other' }
+  | { type: 'SET_FILTER_DATE_RANGE'; payload: [dayjs.Dayjs, dayjs.Dayjs] | null }
   | { type: 'RESET_FILTERS' };
 
 const initialState: UserProfileState = {
@@ -33,7 +36,8 @@ const initialState: UserProfileState = {
   searchQuery: '',
   sortBy: 'date',
   sortOrder: 'desc',
-  filterGender: 'all'
+  filterGender: 'all',
+  filterDateRange: null
 };
 
 const userProfileReducer = (state: UserProfileState, action: UserProfileAction): UserProfileState => {
@@ -78,13 +82,17 @@ const userProfileReducer = (state: UserProfileState, action: UserProfileAction):
     case 'SET_FILTER_GENDER':
       return { ...state, filterGender: action.payload };
     
+    case 'SET_FILTER_DATE_RANGE':
+      return { ...state, filterDateRange: action.payload };
+    
     case 'RESET_FILTERS':
       return {
         ...state,
         searchQuery: '',
         sortBy: 'date',
         sortOrder: 'desc',
-        filterGender: 'all'
+        filterGender: 'all',
+        filterDateRange: null
       };
     
     default:
@@ -100,6 +108,7 @@ interface UserProfileContextType {
   getFilteredAndSortedProfiles: () => UserProfile[];
   clearError: () => void;
   resetFilters: () => void;
+  getCurrentFilters: () => { gender: 'all' | 'male' | 'female' | 'other'; dateRange: [dayjs.Dayjs, dayjs.Dayjs] | null };
 }
 
 const UserProfileContext = createContext<UserProfileContextType | undefined>(undefined);
@@ -129,6 +138,16 @@ export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ childr
       filteredProfiles = filteredProfiles.filter(profile =>
         profile.gender === state.filterGender
       );
+    }
+
+    // Filter by date range
+    if (state.filterDateRange && state.filterDateRange.length === 2) {
+      const [startDate, endDate] = state.filterDateRange;
+      filteredProfiles = filteredProfiles.filter(profile => {
+        const profileDate = dayjs(profile.createdAt);
+        return profileDate.isAfter(startDate.startOf('day')) && 
+               profileDate.isBefore(endDate.endOf('day'));
+      });
     }
 
     // Sort profiles
@@ -163,12 +182,19 @@ export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ childr
     dispatch({ type: 'RESET_FILTERS' });
   };
 
+  // Helper function để lấy current filters cho UI
+  const getCurrentFilters = () => ({
+    gender: state.filterGender,
+    dateRange: state.filterDateRange
+  });
+
   const contextValue: UserProfileContextType = {
     state,
     dispatch,
     getFilteredAndSortedProfiles,
     clearError,
-    resetFilters
+    resetFilters,
+    getCurrentFilters
   };
 
   return (

@@ -1,5 +1,5 @@
-import { CalendarOutlined, PhoneOutlined, UserOutlined } from '@ant-design/icons';
-import { Col, DatePicker, Form, Input, Modal, Row, Select } from 'antd';
+
+import { DatePicker, Form, Input, Modal, Select } from 'antd';
 import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
 import React, { useEffect } from 'react';
@@ -68,31 +68,16 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
     onCancel();
   };
 
-  const validatePhone = (_: unknown, value: string) => {
-    if (!value) return Promise.resolve();
-    
-    const phoneRegex = /^[0-9]{10,11}$/;
-    if (!phoneRegex.test(value)) {
-      return Promise.reject(new Error('Số điện thoại không hợp lệ (10-11 chữ số)'));
-    }
-    return Promise.resolve();
-  };
-
-  const modalTitle = title || (isEditing ? 'Chỉnh sửa hồ sơ bệnh án' : 'Thêm hồ sơ bệnh án mới');
+  const modalTitle = title || (isEditing ? 'Chỉnh sửa thông tin cơ bản' : 'Thêm hồ sơ bệnh án mới');
 
   return (
     <Modal
-      title={
-        <div className="flex items-center space-x-2">
-          <UserOutlined className="text-blue-500" />
-          <span className="text-lg font-semibold">{modalTitle}</span>
-        </div>
-      }
+      title={modalTitle}
       open={visible}
       onCancel={handleCancel}
       onOk={handleSubmit}
       confirmLoading={loading}
-      okText={isEditing ? "Cập nhật" : "Tạo mới"}
+      okText={isEditing ? "Lưu thay đổi" : "Tạo mới"}
       cancelText="Hủy"
       width={600}
       destroyOnClose
@@ -104,129 +89,88 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-700 mb-2">
-            💡 <strong>Lưu ý:</strong> Hồ sơ bệnh án có thể được tạo cho bản thân hoặc người thân trong gia đình.
-          </p>
-          <p className="text-xs text-blue-600">
-            Thông tin này sẽ được sử dụng để đặt lịch khám và quản lý lịch sử y tế.
-          </p>
-        </div>
+
 
         <Form
           form={form}
           layout="vertical"
           requiredMark={false}
           autoComplete="off"
-          className="space-y-4"
+          className="mt-4"
         >
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item
-                name="fullName"
-                label={
-                  <span className="flex items-center space-x-1">
-                    <UserOutlined className="text-gray-500" />
-                    <span>Họ và tên</span>
-                    <span className="text-red-500">*</span>
-                  </span>
-                }
-                rules={[
-                  { required: true, message: 'Vui lòng nhập họ và tên' },
-                  { min: 2, message: 'Họ tên phải có ít nhất 2 ký tự' },
-                  { max: 50, message: 'Họ tên không được vượt quá 50 ký tự' },
-                  {
-                    pattern: /^[a-zA-ZÀ-ỹ\s]+$/,
-                    message: 'Họ tên chỉ được chứa chữ cái và khoảng trắng'
-                  }
-                ]}
-              >
-                <Input
-                  placeholder="Nhập họ và tên đầy đủ"
-                  size="large"
-                  prefix={<UserOutlined className="text-gray-400" />}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item
+            label={
+              <span>
+                Họ và tên <span className="text-red-500">*</span>
+              </span>
+            }
+            name="fullName"
+            rules={[
+              { required: true, message: 'Vui lòng nhập họ và tên' },
+              { min: 2, message: 'Họ tên phải có ít nhất 2 ký tự' },
+              { max: 50, message: 'Họ tên không được quá 50 ký tự' }
+            ]}
+          >
+            <Input placeholder="Nhập họ và tên" />
+          </Form.Item>
 
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="gender"
-                label={
-                  <span className="flex items-center space-x-1">
-                    <span>Giới tính</span>
-                    <span className="text-red-500">*</span>
-                  </span>
-                }
-                rules={[{ required: true, message: 'Vui lòng chọn giới tính' }]}
-              >
-                <Select
-                  placeholder="Chọn giới tính"
-                  size="large"
-                  options={[
-                    { value: 'male', label: '👨 Nam' },
-                    { value: 'female', label: '👩 Nữ' },
-                    { value: 'other', label: '🧑 Khác' }
-                  ]}
-                />
-              </Form.Item>
-            </Col>
+          <Form.Item
+            label={
+              <span>
+                Giới tính <span className="text-red-500">*</span>
+              </span>
+            }
+            name="gender"
+            rules={[{ required: true, message: 'Vui lòng chọn giới tính' }]}
+          >
+            <Select placeholder="Chọn giới tính">
+              <Select.Option value="male">Nam</Select.Option>
+              <Select.Option value="female">Nữ</Select.Option>
+              <Select.Option value="other">Khác</Select.Option>
+            </Select>
+          </Form.Item>
 
-            <Col span={12}>
-              <Form.Item
-                name="year"
-                label={
-                  <span className="flex items-center space-x-1">
-                    <CalendarOutlined className="text-gray-500" />
-                    <span>Năm sinh</span>
-                  </span>
-                }
-              >
-                <DatePicker
-                  placeholder="Chọn năm sinh"
-                  size="large"
-                  picker="year"
-                  disabledDate={(current) => current && current > dayjs().endOf('year')}
-                  className="w-full"
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item
+            label={
+              <span>
+                Số điện thoại <span className="text-red-500">*</span>
+              </span>
+            }
+            name="phone"
+            rules={[
+              { required: true, message: 'Vui lòng nhập số điện thoại' },
+              { pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải có đúng 10 chữ số' }
+            ]}
+          >
+            <Input placeholder="Nhập số điện thoại" maxLength={10} />
+          </Form.Item>
 
-          <Row gutter={16}>
-            <Col span={24}>
-              <Form.Item
-                name="phone"
-                label={
-                  <span className="flex items-center space-x-1">
-                    <PhoneOutlined className="text-gray-500" />
-                    <span>Số điện thoại</span>
-                  </span>
-                }
-                rules={[
-                  { validator: validatePhone }
-                ]}
-              >
-                <Input
-                  placeholder="Nhập số điện thoại (tùy chọn)"
-                  size="large"
-                  prefix={<PhoneOutlined className="text-gray-400" />}
-                  maxLength={11}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item
+            label={
+              <span>
+                Ngày sinh <span className="text-red-500">*</span>
+              </span>
+            }
+            name="year"
+            rules={[
+              { required: true, message: 'Vui lòng chọn ngày sinh' }
+            ]}
+          >
+            <DatePicker
+              placeholder="Chọn ngày sinh"
+              format="DD/MM/YYYY"
+              className="w-full"
+              disabledDate={(current) => {
+                return current && current > dayjs().endOf('day');
+              }}
+            />
+          </Form.Item>
         </Form>
 
-        <div className="mt-6 p-3 bg-gray-50 rounded-lg">
-          <p className="text-xs text-gray-600 flex items-start space-x-2">
-            <span>🔒</span>
-            <span>
-              Thông tin cá nhân sẽ được bảo mật và chỉ sử dụng cho mục đích y tế. 
-              Bạn có thể cập nhật hoặc xóa thông tin này bất kỳ lúc nào.
-            </span>
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-600">
+            Thông tin cá nhân sẽ được bảo mật và chỉ sử dụng cho mục đích y tế. 
+            Bạn có thể cập nhật hoặc xóa thông tin này bất kỳ lúc nào.
           </p>
         </div>
       </motion.div>
