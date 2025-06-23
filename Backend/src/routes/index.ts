@@ -10,6 +10,7 @@ import medicalRecordsRoutes from './medicalRecordsRoutes';
 import medicationRemindersRoutes from './medicationRemindersRoutes';
 import medicinesRoutes from './medicinesRoutes';
 import meetingRoutes from './meetingRoutes';
+import menstrualCycleRoutes from './menstrualCycleRoutes';
 import notificationDaysRoutes from './notificationDaysRoutes';
 import packagePurchaseRoutes from './packagePurchaseRoutes';
 import paymentRoutes from './paymentRoutes';
@@ -21,6 +22,6 @@ import testResultsRoutes from "./testResultsRoutes";
 import userProfileRoutes from "./userProfileRoutes";
 import userRoutes from "./userRoutes";
 import systemLogRoutes from "./systemLogRoutes";
-export { appointmentRoutes, appointmentTestsRoutes, authRoutes, blogPostRoutes, dashboardRoutes, doctorQARoutes, doctorRoutes, loginHistoryRoutes, medicalRecordsRoutes, medicationRemindersRoutes, medicinesRoutes, meetingRoutes, notificationDaysRoutes, paymentRoutes, packagePurchaseRoutes,servicePackageRoutes, serviceRoutes, systemLogRoutes, testCategoriesRoutes, testResultItemsRoutes, testResultsRoutes, userProfileRoutes, userRoutes };
+export { appointmentRoutes, appointmentTestsRoutes, authRoutes, blogPostRoutes, dashboardRoutes, doctorQARoutes, doctorRoutes, loginHistoryRoutes, medicalRecordsRoutes, medicationRemindersRoutes, medicinesRoutes, meetingRoutes, menstrualCycleRoutes, notificationDaysRoutes, paymentRoutes, packagePurchaseRoutes, servicePackageRoutes, serviceRoutes, systemLogRoutes, testCategoriesRoutes, testResultItemsRoutes, testResultsRoutes, userProfileRoutes, userRoutes };
 
 
