@@ -70,9 +70,9 @@ const PaymentProcessPage = () => {
         setErrorMessage(result.message || 'Không thể tạo liên kết thanh toán');
         setStatus('error');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payment creation error:', error);
-      setErrorMessage('Lỗi kết nối. Vui lòng thử lại.');
+      setErrorMessage(error.response?.data?.message || error.message || 'Lỗi kết nối. Vui lòng thử lại.');
       setStatus('error');
     }
   };
@@ -104,9 +104,9 @@ const PaymentProcessPage = () => {
         setErrorMessage(result.message || 'Không thể hủy thanh toán');
         setStatus('error');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payment cancellation error:', error);
-      setErrorMessage('Lỗi kết nối. Vui lòng thử lại.');
+      setErrorMessage(error.response?.data?.message || error.message || 'Lỗi kết nối. Vui lòng thử lại.');
       setStatus('error');
     }
   };

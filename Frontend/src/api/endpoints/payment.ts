@@ -35,8 +35,11 @@ export interface PaymentStatusResponse {
  * Tạo payment link cho appointment
  */
 export const createPaymentLink = async (data: CreatePaymentLinkRequest): Promise<CreatePaymentLinkResponse> => {
-  const { appointmentId } = data;
-  const response = await axiosInstance.post(`/payments/appointments/${appointmentId}/payment`);
+  const { appointmentId, returnUrl, cancelUrl } = data;
+  const response = await axiosInstance.post(`/payments/appointments/${appointmentId}/payment`, {
+    returnUrl,
+    cancelUrl
+  });
   return response.data;
 };
 

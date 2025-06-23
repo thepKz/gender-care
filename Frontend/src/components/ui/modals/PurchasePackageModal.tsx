@@ -215,19 +215,6 @@ const PurchasePackageModal: React.FC<PurchasePackageModalProps> = ({
                 <UserOutlined />
                 Chọn hồ sơ bệnh án
               </Title>
-              {profilesLoaded && (
-                <Button 
-                  type="link" 
-                  size="small"
-                  onClick={() => {
-                    setProfilesLoaded(false);
-                    fetchUserProfiles();
-                  }}
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  🔄 Làm mới
-                </Button>
-              )}
             </div>
             <Text type="secondary">Gói dịch vụ sẽ được gán cho hồ sơ này</Text>
           </div>
@@ -297,7 +284,7 @@ const PurchasePackageModal: React.FC<PurchasePackageModalProps> = ({
             className="flex-1 bg-blue-600 hover:bg-blue-700"
           >
             <CreditCardOutlined />
-            Mua ngay - {formatPrice(servicePackage.price)}
+            Thanh toán - {formatPrice(servicePackage.price)}
           </Button>
         </div>
       </div>
