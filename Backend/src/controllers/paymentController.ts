@@ -10,6 +10,8 @@ import { PackagePurchaseService } from '../services/packagePurchaseService';
 import { AuthRequest } from '../types/auth';
 
 export class PaymentController {
+  // Payment controller handles all payment-related operations
+  
   // Tạo payment link cho consultation
   createConsultationPaymentLink = async (req: AuthRequest, res: Response) => {
     try {
@@ -584,7 +586,6 @@ export class PaymentController {
 
       console.log('✅ [CancelPayment] Appointment found, looking for payment tracking...');
 
-      // Try to find payment tracking - but don't require it
       const paymentTracking = await PaymentTracking.findOne({
         appointmentId: appointmentId,
         serviceType: 'appointment',
@@ -606,16 +607,13 @@ export class PaymentController {
         console.error('Error canceling PayOS payment:', error);
       }
 
-          await paymentTracking.updatePaymentStatus('cancelled');
-          console.log('✅ [CancelPayment] PaymentTracking status updated to cancelled');
-        } else {
-          console.log('⚠️ [CancelPayment] PaymentTracking already in status:', paymentTracking.status);
-        }
+      if (paymentTracking.status === 'pending') {
+        await paymentTracking.updatePaymentStatus('cancelled');
+        console.log('✅ [CancelPayment] PaymentTracking status updated to cancelled');
       } else {
-        console.log('⚠️ [CancelPayment] No PaymentTracking found - proceeding with appointment cancel anyway');
+        console.log('⚠️ [CancelPayment] PaymentTracking already in status:', paymentTracking.status);
       }
 
-      // Update appointment status regardless of PaymentTracking
       appointment.status = 'payment_cancelled';
       await appointment.save();
       console.log('✅ [CancelPayment] Appointment status updated to payment_cancelled');
