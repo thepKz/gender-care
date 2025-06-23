@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import ServicePackages from '../models/ServicePackages';
 import Service from '../models/Service';
 import { AuthRequest, ApiResponse, PaginationQuery } from '../types';
-import { PackagePricingService } from '../services/packagePricingService';
+import { PackagePurchaseService } from '../services/packagePurchaseService';
 import mongoose from 'mongoose';
 
 // GET /service-packages - Get all service packages (updated for new schema)
@@ -472,7 +472,7 @@ export const getServicePackageById = async (req: Request, res: Response) => {
 };
 
 // GET /service-packages/:id/pricing - Get package pricing info (simplified)
-export const getPackagePricing = async (req: Request, res: Response) => {
+export const getPackagePurchase = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -484,7 +484,7 @@ export const getPackagePricing = async (req: Request, res: Response) => {
       });
     }
 
-    const pricingInfo = await PackagePricingService.calculatePackageValue(id);
+    const pricingInfo = await PackagePurchaseService.calculatePackageValue(id);
 
     const response: ApiResponse<any> = {
       success: true,
@@ -525,7 +525,7 @@ export const calculateAutoPrice = async (req: Request, res: Response) => {
     }
 
     // Auto-calculate price
-    const autoPrice = await PackagePricingService.calculateAutoPrice(serviceIds, maxUsages);
+    const autoPrice = await PackagePurchaseService.calculateAutoPrice(serviceIds, maxUsages);
 
     const response: ApiResponse<any> = {
       success: true,
@@ -584,7 +584,7 @@ export const getUsageProjection = async (req: Request, res: Response) => {
       (sum, service) => sum + service.quantity, 0
     ) || 0;
 
-    const projection = PackagePricingService.calculateUsageProjection(
+    const projection = PackagePurchaseService.calculateUsageProjection(
       packageData.durationInDays,
       totalServicesInPackage, // Use total service quantity instead of maxUsages
       Number(expectedUsagePerWeek)

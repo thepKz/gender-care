@@ -6,7 +6,7 @@ import Bills from '../models/Bills';
 import { UserProfile } from '../models/UserProfile';
 import { AuthRequest } from '../types/auth';
 import { ApiResponse } from '../types';
-import { PackagePricingService } from '../services/packagePricingService';
+import { PackagePurchaseService } from '../services/packagePurchaseService';
 
 // POST /package-purchases - Mua gói dịch vụ (mock thành công 100%)
 export const purchasePackage = async (req: AuthRequest, res: Response) => {
@@ -468,8 +468,8 @@ export const purchaseServicePackage = async (req: AuthRequest, res: Response) =>
     const discountAmount = promotionId ? Math.round(basePrice * 0.1) : 0; // Mock 10% discount
     const finalAmount = basePrice - discountAmount;
 
-    // 🔹 Use PackagePricingService to handle purchase
-    const purchase = await PackagePricingService.purchasePackage(
+    // 🔹 Use PackagePurchaseService to handle purchase
+    const purchase = await PackagePurchaseService.purchasePackage(
       userId,
       packageId,
       finalAmount
@@ -698,8 +698,8 @@ export const usePackageService = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 🔹 Use PackagePricingService to handle service usage
-    const result = await PackagePricingService.usePackageService(userId, serviceId, quantity);
+    // 🔹 Use PackagePurchaseService to handle service usage
+    const result = await PackagePurchaseService.usePackageService(userId, serviceId, quantity);
 
     if (!result.success) {
       return res.status(400).json({
@@ -754,8 +754,8 @@ export const checkServiceAvailability = async (req: AuthRequest, res: Response) 
       });
     }
 
-    // 🔹 Use PackagePricingService to check availability
-    const result = await PackagePricingService.canUserUseService(
+    // 🔹 Use PackagePurchaseService to check availability
+    const result = await PackagePurchaseService.canUserUseService(
       userId, 
       serviceId, 
       Number(quantity)

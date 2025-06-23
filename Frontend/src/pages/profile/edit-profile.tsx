@@ -125,6 +125,7 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
       setLoading(true);
       
       const profileData: UpdateUserProfileRequest = {
+        id: profileId!,
         fullName: values.fullName,
         phone: values.phone,
         year: values.year ? values.year.format('YYYY-MM-DD') : undefined,

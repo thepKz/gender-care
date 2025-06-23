@@ -24,7 +24,7 @@ export interface AutoCalculatedPriceResponse {
   message?: string;
 }
 
-export interface PackagePricingResponse {
+export interface PackagePurchaseResponse {
   success: boolean;
   data: {
     package: any;
@@ -146,14 +146,14 @@ export const deleteServicePackage = (id: string): Promise<{ success: boolean; me
  * Khôi phục service package đã xóa (Manager only)
  */
 export const recoverServicePackage = (id: string): Promise<ServicePackageResponse> => {
-  return servicePackageApi.put(`/${id}/recover`).then(res => res.data);
+  return servicePackageApi.post(`/${id}/recover`).then(res => res.data);
 };
 
 /**
  * Lấy thông tin pricing cho một gói dịch vụ cụ thể với value metrics
  */
-export const getPackagePricing = (id: string): Promise<PackagePricingResponse> => {
-  return servicePackageApi.get(`/${id}/pricing`).then(res => res.data);
+export const getPackagePurchase = (id: string): Promise<PackagePurchaseResponse> => {
+  return servicePackageApi.get(`/${id}/purchase`).then(res => res.data);
 };
 
 /**
@@ -182,7 +182,7 @@ export default {
   searchServicePackages,
   deleteServicePackage,
   recoverServicePackage,
-  getPackagePricing,
+  getPackagePurchase,
   getUsageProjection,
   calculateAutoPrice,
   getServicePackageById
