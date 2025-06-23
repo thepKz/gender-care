@@ -1,12 +1,4 @@
-import {
-    DollarOutlined,
-    EditOutlined,
-    GiftOutlined,
-    PictureOutlined,
-    PlusOutlined,
-    DeleteOutlined,
-    TeamOutlined
-} from '@ant-design/icons';
+// No icons needed - removed all icon imports
 import {
     Alert,
     Button,
@@ -77,13 +69,13 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
     }
   };
 
-  // Auto-calculate price when services change
+  // Auto-calculate priceBeforeDiscount when services change
   const handleServicesChange = (services: ServiceItem[]) => {
     const totalPrice = calculateTotalServicePrice(services);
     if (totalPrice > 0) {
       setTimeout(() => {
         form.setFieldsValue({
-          price: totalPrice
+          priceBeforeDiscount: totalPrice
         });
       }, 0);
     }
@@ -109,6 +101,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
         form.setFieldsValue({
           name: servicePackage.name,
           description: servicePackage.description,
+          priceBeforeDiscount: servicePackage.priceBeforeDiscount,
           price: servicePackage.price,
           services: services,
           durationInDays: servicePackage.durationInDays,
@@ -143,13 +136,20 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
         return;
       }
 
+      // Validate price <= priceBeforeDiscount
+      if (values.price > values.priceBeforeDiscount) {
+        message.error('Giá gói không được lớn hơn giá gốc');
+        return;
+      }
+
       const submitData: CreateServicePackageRequest | UpdateServicePackageRequest = {
         name: values.name.trim(),
         description: values.description?.trim() || '',
+        priceBeforeDiscount: values.priceBeforeDiscount ? Number(values.priceBeforeDiscount) : undefined,
         price: Number(values.price),
         services: values.services,
         durationInDays: Number(values.durationInDays),
-        ...(isEditMode && { isActive: values.isActive })
+        isActive: values.isActive
       };
 
       await onSubmit(submitData);
@@ -171,6 +171,23 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
     onCancel();
   };
 
+  // Get available services for a specific field (excluding already selected services in other fields)
+  const getAvailableServicesForField = (currentFieldIndex: number) => {
+    const currentServices = form.getFieldValue('services') || [];
+    const selectedServiceIds = currentServices
+      .map((service: any, index: number) => {
+        // Exclude current field from filtering
+        if (index === currentFieldIndex) return null;
+        return service?.serviceId;
+      })
+      .filter((id: string) => id); // Remove null/undefined values
+
+    // Filter out already selected services
+    return availableServices.filter(service => 
+      !selectedServiceIds.includes(service._id)
+    );
+  };
+
   // Format price
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN').format(price);
@@ -181,15 +198,9 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
       title={
         <div className="flex items-center gap-3">
           {isEditMode ? (
-            <>
-              <EditOutlined className="text-blue-600" />
-              <span>Chỉnh sửa gói dịch vụ</span>
-            </>
+            <span>Chỉnh sửa gói dịch vụ</span>
           ) : (
-            <>
-              <PlusOutlined className="text-green-600" />
-              <span>Tạo gói dịch vụ mới</span>
-            </>
+            <span>Tạo gói dịch vụ mới</span>
           )}
         </div>
       }
@@ -206,42 +217,18 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
         className="mt-4"
       >
         {/* Basic Information */}
-        <Row gutter={16}>
-          <Col span={12}>
-            <Form.Item
-              name="name"
-              label="Tên gói dịch vụ"
-              rules={[
-                { required: true, message: 'Vui lòng nhập tên gói dịch vụ' },
-                { min: 3, message: 'Tên gói phải có ít nhất 3 ký tự' }
-              ]}
-            >
-              <Input 
-                placeholder="Nhập tên gói dịch vụ" 
-                prefix={<GiftOutlined />}
-              />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item
-              name="price"
-              label="Giá gói (VNĐ)"
-              rules={[
-                { required: true, message: 'Vui lòng nhập giá gói' },
-                { type: 'number', min: 0, message: 'Giá phải lớn hơn 0' }
-              ]}
-            >
-              <InputNumber
-                placeholder="Giá sẽ tự động tính"
-                min={0}
-                className="w-full"
-                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
-                prefix={<DollarOutlined />}
-              />
-            </Form.Item>
-          </Col>
-        </Row>
+        <Form.Item
+          name="name"
+          label="Tên gói dịch vụ"
+          rules={[
+            { required: true, message: 'Vui lòng nhập tên gói dịch vụ' },
+            { min: 3, message: 'Tên gói phải có ít nhất 3 ký tự' }
+          ]}
+        >
+          <Input 
+            placeholder="Nhập tên gói dịch vụ" 
+          />
+        </Form.Item>
 
         <Form.Item
           name="description"
@@ -254,6 +241,42 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
             maxLength={500}
           />
         </Form.Item>
+
+        {/* Duration and Status Row */}
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="durationInDays"
+              label="Thời hạn sử dụng (ngày)"
+              rules={[
+                { required: true, message: 'Vui lòng nhập thời hạn' },
+                { type: 'number', min: 1, max: 365, message: 'Thời hạn từ 1-365 ngày' }
+              ]}
+            >
+              <InputNumber
+                placeholder="Ví dụ: 30"
+                min={1}
+                max={365}
+                className="w-full"
+                addonAfter="ngày"
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="isActive"
+              label="Trạng thái"
+              rules={[
+                { required: true, message: 'Vui lòng chọn trạng thái' }
+              ]}
+            >
+              <Select placeholder="Chọn trạng thái">
+                <Option value={true}>Hoạt động</Option>
+                <Option value={false}>Ngưng hoạt động</Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        </Row>
 
         {/* Services with Quantities */}
         <Form.Item
@@ -277,149 +300,205 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
           >
             {(fields, { add, remove }, { errors }) => (
               <div>
-                {fields.map(({ key, name, ...restField }) => (
-                  <Row key={key} gutter={8} className="mb-3 p-3 border border-gray-200 rounded-lg">
-                    <Col span={14}>
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'serviceId']}
-                        label="Dịch vụ"
-                        rules={[{ required: true, message: 'Chọn dịch vụ' }]}
-                      >
-                        <Select
-                          placeholder="Chọn dịch vụ"
-                          loading={servicesLoading}
-                          showSearch
-                          optionFilterProp="children"
-                          onChange={() => {
-                            // Trigger price recalculation
-                            const currentServices = form.getFieldValue('services');
-                            handleServicesChange(currentServices);
-                          }}
+                {fields.map(({ key, name, ...restField }) => {
+                  const isMultipleServices = fields.length >= 2;
+                  const availableServicesForField = getAvailableServicesForField(name);
+                  
+                  return (
+                    <Row key={key} gutter={8} className="mb-3">
+                      <Col span={14}>
+                        <Form.Item
+                          {...restField}
+                          name={[name, 'serviceId']}
+                          label="Dịch vụ"
+                          rules={[{ required: true, message: 'Chọn dịch vụ' }]}
                         >
-                          {availableServices.map((service) => (
-                            <Option key={service._id} value={service._id}>
-                              <div className="flex justify-between">
-                                <span>{service.serviceName}</span>
-                                <span className="text-green-600">
-                                  {formatPrice(service.price)} VNĐ
-                                </span>
-                              </div>
-                            </Option>
-                          ))}
-                        </Select>
-                      </Form.Item>
-                    </Col>
-                    <Col span={6}>
-                      <Form.Item
-                        {...restField}
-                        name={[name, 'quantity']}
-                        label="Số lượng"
-                        rules={[
-                          { required: true, message: 'Nhập số lượng' },
-                          { type: 'number', min: 1, message: 'Số lượng phải >= 1' }
-                        ]}
-                      >
-                        <InputNumber
-                          placeholder="Số lượng"
-                          min={1}
-                          className="w-full"
-                          onChange={() => {
-                            // Trigger price recalculation
+                          <Select
+                            placeholder="Chọn dịch vụ"
+                            loading={servicesLoading}
+                            showSearch
+                            filterOption={(input, option) => {
+                              // Find the service by option value to get serviceName
+                              const service = availableServicesForField.find(s => s._id === option?.value);
+                              if (!service) return false;
+                              
+                              // Case-insensitive search in serviceName
+                              return service.serviceName.toLowerCase().includes(input.toLowerCase());
+                            }}
+                            onChange={() => {
+                              // Set quantity to 1 if multiple services
+                              if (isMultipleServices) {
+                                const currentServices = form.getFieldValue('services');
+                                currentServices[name].quantity = 1;
+                                form.setFieldsValue({ services: currentServices });
+                              }
+                              
+                              // Force re-render to update available services in other selects
+                              setTimeout(() => {
+                                const currentServices = form.getFieldValue('services');
+                                form.setFieldsValue({ services: [...currentServices] });
+                                handleServicesChange(currentServices);
+                              }, 0);
+                            }}
+                          >
+                            {availableServicesForField.map((service) => (
+                              <Option key={service._id} value={service._id}>
+                                <div className="flex justify-between">
+                                  <span>{service.serviceName}</span>
+                                  <span className="text-green-600">
+                                    {formatPrice(service.price)} VNĐ
+                                  </span>
+                                </div>
+                              </Option>
+                            ))}
+                          </Select>
+                        </Form.Item>
+                      </Col>
+                      <Col span={6}>
+                        <Form.Item
+                          {...restField}
+                          name={[name, 'quantity']}
+                          label="Số lượng"
+                          rules={[
+                            { required: true, message: 'Nhập số lượng' },
+                            { type: 'number', min: 1, message: 'Số lượng phải >= 1' }
+                          ]}
+                          initialValue={isMultipleServices ? 1 : undefined}
+                        >
+                          <InputNumber
+                            placeholder="Số lượng"
+                            min={1}
+                            className="w-full"
+                            disabled={isMultipleServices}
+                            value={isMultipleServices ? 1 : undefined}
+                            onChange={() => {
+                              // Only trigger price recalculation if not disabled
+                              if (!isMultipleServices) {
+                                setTimeout(() => {
+                                  const currentServices = form.getFieldValue('services');
+                                  handleServicesChange(currentServices);
+                                }, 100);
+                              }
+                            }}
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col span={4} className="flex items-center justify-center">
+                        <Button
+                          type="link"
+                          danger
+                          onClick={() => {
+                            remove(name);
+                            
+                            // After removal, if only 1 service left, enable quantity editing
                             setTimeout(() => {
                               const currentServices = form.getFieldValue('services');
+                              
+                              // Force re-render to update disabled state
+                              form.setFieldsValue({ services: [...currentServices] });
+                              
                               handleServicesChange(currentServices);
                             }, 100);
                           }}
-                        />
-                      </Form.Item>
-                    </Col>
-                    <Col span={4} className="flex items-center justify-center">
-                      <Button
-                        type="link"
-                        danger
-                        onClick={() => {
-                          remove(name);
-                          // Trigger price recalculation after removal
-                          setTimeout(() => {
-                            const currentServices = form.getFieldValue('services');
-                            handleServicesChange(currentServices);
-                          }, 100);
-                        }}
-                        icon={<DeleteOutlined />}
-                        className="mt-6"
-                      />
-                    </Col>
-                  </Row>
-                ))}
+                        >
+                          Xóa
+                        </Button>
+                      </Col>
+                    </Row>
+                  );
+                })}
+                
+                <Form.ErrorList errors={errors} />
                 
                 <Button
                   type="dashed"
-                  onClick={() => add({ serviceId: '', quantity: 1 })}
-                  block
-                  icon={<PlusOutlined />}
-                  className="mb-2"
+                  onClick={() => {
+                    add();
+                    
+                    // If this will be the second service, set all quantities to 1
+                    setTimeout(() => {
+                      const currentServices = form.getFieldValue('services');
+                      if (currentServices && currentServices.length >= 2) {
+                        const updatedServices = currentServices.map((service: any) => ({
+                          ...service,
+                          quantity: 1
+                        }));
+                        form.setFieldsValue({ services: updatedServices });
+                        handleServicesChange(updatedServices);
+                      }
+                    }, 0);
+                  }}
+                  style={{ width: '100%' }}
+                  className="mt-2"
                 >
                   Thêm dịch vụ
                 </Button>
-                <Form.ErrorList errors={errors} />
               </div>
             )}
           </Form.List>
         </Form.Item>
 
-        {/* Duration */}
+        {/* Pricing Section - Giá gốc (readonly) và Giá gói (user input) nằm ngang */}
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item
-              name="durationInDays"
-              label="Thời hạn sử dụng (ngày)"
-              rules={[
-                { required: true, message: 'Vui lòng nhập thời hạn' },
-                { type: 'number', min: 1, max: 365, message: 'Thời hạn từ 1-365 ngày' }
-              ]}
+              name="priceBeforeDiscount"
+              label="Giá gốc (VNĐ)"
+              tooltip="Giá gốc được tự động tính từ tổng giá các dịch vụ đã chọn"
             >
               <InputNumber
-                placeholder="Ví dụ: 30"
-                min={1}
-                max={365}
+                placeholder="Giá gốc tự động tính"
                 className="w-full"
-                addonAfter="ngày"
+                readOnly
+                disabled
+                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
               />
             </Form.Item>
           </Col>
           <Col span={12}>
-            {isEditMode && (
-              <Form.Item
-                name="isActive"
-                label="Trạng thái"
-                valuePropName="checked"
-              >
-                <Select placeholder="Chọn trạng thái">
-                  <Option value={true}>Hoạt động</Option>
-                  <Option value={false}>Tạm dừng</Option>
-                </Select>
-              </Form.Item>
-            )}
+            <Form.Item
+              name="price"
+              label="Giá gói (VNĐ)"
+              rules={[
+                { required: true, message: 'Vui lòng nhập giá gói' },
+                { type: 'number', min: 0, message: 'Giá phải lớn hơn hoặc bằng 0' },
+                {
+                  validator: (_, value) => {
+                    const priceBeforeDiscount = form.getFieldValue('priceBeforeDiscount');
+                    if (value && priceBeforeDiscount && value > priceBeforeDiscount) {
+                      return Promise.reject('Giá gói không được lớn hơn giá gốc');
+                    }
+                    return Promise.resolve();
+                  }
+                }
+              ]}
+            >
+              <InputNumber
+                placeholder="Nhập giá gói"
+                min={0}
+                className="w-full"
+                formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
+              />
+            </Form.Item>
           </Col>
         </Row>
 
         {/* Submit Buttons */}
-        <Form.Item className="mb-0 text-right">
-          <Space>
-            <Button onClick={handleCancel}>
-              Hủy
-            </Button>
-            <Button 
-              type="primary" 
-              htmlType="submit" 
-              loading={loading}
-              icon={isEditMode ? <EditOutlined /> : <PlusOutlined />}
-            >
-              {isEditMode ? 'Cập nhật' : 'Tạo gói'}
-            </Button>
-          </Space>
-        </Form.Item>
+        <Divider />
+        <div className="flex justify-end gap-3">
+          <Button onClick={handleCancel}>
+            Hủy
+          </Button>
+          <Button 
+            type="primary" 
+            htmlType="submit"
+            loading={loading}
+          >
+            {isEditMode ? 'Cập nhật' : 'Tạo gói'}
+          </Button>
+        </div>
       </Form>
     </Modal>
   );
