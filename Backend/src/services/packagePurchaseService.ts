@@ -3,8 +3,8 @@ import ServicePackages, { IServicePackages, IServiceItem } from '../models/Servi
 import PackagePurchases, { IPackagePurchases, PackagePurchaseDocument } from '../models/PackagePurchases';
 import Service from '../models/Service';
 
-// 🔹 Service đơn giản hóa cho Package Pricing
-export class PackagePricingService {
+// 🔹 Service đơn giản hóa cho Package Purchase
+export class PackagePurchaseService {
 
   /**
    * 🔹 Lấy tất cả packages active
@@ -323,4 +323,4 @@ export class PackagePricingService {
       recommendation
     };
   }
-}
+} 

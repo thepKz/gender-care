@@ -77,18 +77,20 @@ class PayOSService {
       // Debug log environment variables
       console.log('🔍 PayOS Environment Check:', {
         clientId: config.clientId ? `${config.clientId.substring(0, 4)}***` : 'MISSING',
-        apiKey: config.apiKey ? `${config.apiKey.substring(0, 4)}***` : 'MISSING',
-        checksumKey: config.checksumKey ? `${config.checksumKey.substring(0, 4)}***` : 'MISSING'
+        apiKey: config.apiKey ? `${config.apiKey.substring(0, 4)}***` : 'MISSING', 
+        checksumKey: config.checksumKey ? `${config.checksumKey.substring(0, 4)}***` : 'MISSING',
+        nodeEnv: process.env.NODE_ENV || 'not set'
       });
 
       // Validate configuration
       if (!config.clientId || !config.apiKey || !config.checksumKey) {
-        console.warn('⚠️ PayOS credentials not configured. Payment features will be disabled.');
-        console.warn('Missing credentials:', {
-          clientId: !config.clientId,
-          apiKey: !config.apiKey,
-          checksumKey: !config.checksumKey
+        console.error('❌ PayOS credentials not configured. Payment features will be disabled.');
+        console.error('Missing credentials:', {
+          clientId: !config.clientId ? 'MISSING' : 'OK',
+          apiKey: !config.apiKey ? 'MISSING' : 'OK', 
+          checksumKey: !config.checksumKey ? 'MISSING' : 'OK'
         });
+        console.error('Please set these environment variables: PAYOS_CLIENT_ID, PAYOS_API_KEY, PAYOS_CHECKSUM_KEY');
         this.isConfigured = false;
         return;
       }

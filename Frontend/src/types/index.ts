@@ -170,6 +170,7 @@ export interface CreateServiceRequest {
   image?: string;
   serviceType: 'consultation' | 'test' | 'treatment' | 'other';
   availableAt: ('Athome' | 'Online' | 'Center')[];
+  status?: 'active' | 'inactive';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
@@ -242,6 +243,7 @@ export interface CreateServicePackageRequest {
   price: number;
   services: ServiceItem[];       // 🔹 NEW: Services with quantity
   durationInDays?: number;
+  isActive?: boolean;             // ✅ NEW: Add isActive to CreateServicePackageRequest
 }
 
 export interface UpdateServicePackageRequest extends Partial<CreateServicePackageRequest> {

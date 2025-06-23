@@ -2,9 +2,11 @@ import { Request, Response } from 'express';
 import Appointments from '../models/Appointments';
 import DoctorQA from '../models/DoctorQA';
 import PaymentTracking from '../models/PaymentTracking';
+import PackagePurchases from '../models/PackagePurchases';
 import '../models/Service';
 import '../models/ServicePackages';
 import payosService from '../services/payosService';
+import { PackagePurchaseService } from '../services/packagePurchaseService';
 import { AuthRequest } from '../types/auth';
 
 export class PaymentController {
@@ -160,14 +162,28 @@ export class PaymentController {
         }
       }
 
-      // Validate amount
+      // Validate required fields
+      if (!req.body.returnUrl || !req.body.cancelUrl) {
+        return res.status(400).json({
+          success: false,
+          message: 'returnUrl và cancelUrl là bắt buộc'
+        });
+      }
+
       if (amount <= 0) {
         return res.status(400).json({
           success: false,
-          message: 'Không thể tạo thanh toán với số tiền bằng 0. Vui lòng kiểm tra lại dịch vụ hoặc gói.',
-          error: 'INVALID_AMOUNT'
+          message: 'Amount phải lớn hơn 0'
         });
       }
+
+      console.log('💳 [CreatePaymentLink] Creating payment for appointment:', {
+        appointmentId,
+        amount,
+        bookingType: appointment.bookingType,
+        hasService: !!appointment.serviceId,
+        hasPackage: !!appointment.packageId
+      });
       const serviceName = (appointment.serviceId as any)?.serviceName || (appointment.packageId as any)?.name || 'Dịch vụ y tế';
 
       // PayOS chỉ cho phép description tối đa 25 ký tự
@@ -377,10 +393,34 @@ export class PaymentController {
               transactionDateTime: paymentInfo.transactions?.[0]?.transactionDateTime
             });
 
+            // 🔹 Xử lý payment thành công cho appointment
             appointment.status = 'confirmed';
             appointment.paymentStatus = 'paid';
             appointment.paidAt = new Date();
             await appointment.save();
+
+            // 🔹 CRITICAL: Tạo PackagePurchase nếu là new_package booking
+            if (appointment.bookingType === 'new_package' && appointment.packageId && !appointment.packagePurchaseId) {
+              try {
+                console.log(`🎯 [CheckPayment] Creating PackagePurchase for new_package appointment ${appointment._id}`);
+                
+                const packagePurchase = await PackagePurchaseService.purchasePackage(
+                  appointment.createdByUserId.toString(),
+                  appointment.packageId.toString(),
+                  appointment.totalAmount || 0
+                );
+
+                console.log(`✅ [CheckPayment] PackagePurchase created successfully: ${packagePurchase._id}`);
+                
+                // Update appointment với packagePurchaseId reference
+                appointment.packagePurchaseId = packagePurchase._id;
+                await appointment.save();
+                
+              } catch (packageError) {
+                console.error(`❌ [CheckPayment] Error creating PackagePurchase for appointment ${appointment._id}:`, packageError);
+                // Note: Không throw error để không block appointment confirmation
+              }
+            }
 
             console.log('[PaymentController] Appointment status updated to confirmed');
 
@@ -526,6 +566,8 @@ export class PaymentController {
       const { appointmentId } = req.params;
       const userId = req.user?._id;
 
+      console.log('🔄 [CancelPayment] Starting cancel for appointment:', appointmentId, 'user:', userId);
+
       const appointment = await Appointments.findOne({
         _id: appointmentId,
         createdByUserId: userId,
@@ -533,11 +575,16 @@ export class PaymentController {
       });
 
       if (!appointment) {
+        console.log('❌ [CancelPayment] Appointment not found or cannot cancel');
         return res.status(404).json({
+          success: false,
           message: 'Appointment không tồn tại hoặc không thể hủy thanh toán'
         });
       }
 
+      console.log('✅ [CancelPayment] Appointment found, looking for payment tracking...');
+
+      // Try to find payment tracking - but don't require it
       const paymentTracking = await PaymentTracking.findOne({
         appointmentId: appointmentId,
         serviceType: 'appointment',
@@ -559,18 +606,29 @@ export class PaymentController {
         console.error('Error canceling PayOS payment:', error);
       }
 
-      await paymentTracking.updatePaymentStatus('cancelled');
+          await paymentTracking.updatePaymentStatus('cancelled');
+          console.log('✅ [CancelPayment] PaymentTracking status updated to cancelled');
+        } else {
+          console.log('⚠️ [CancelPayment] PaymentTracking already in status:', paymentTracking.status);
+        }
+      } else {
+        console.log('⚠️ [CancelPayment] No PaymentTracking found - proceeding with appointment cancel anyway');
+      }
 
-      appointment.status = 'pending';
+      // Update appointment status regardless of PaymentTracking
+      appointment.status = 'payment_cancelled';
       await appointment.save();
+      console.log('✅ [CancelPayment] Appointment status updated to payment_cancelled');
 
       return res.status(200).json({
+        success: true,
         message: 'Hủy thanh toán thành công'
       });
 
     } catch (error) {
-      console.error('Error canceling payment:', error);
+      console.error('❌ [CancelPayment] Error canceling payment:', error);
       return res.status(500).json({
+        success: false,
         message: 'Lỗi hủy thanh toán',
         error: error instanceof Error ? error.message : 'Unknown error'
       });

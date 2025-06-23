@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Appointments, DoctorSchedules, Service, ServicePackages, UserProfiles, PackagePurchases, Doctor } from '../models';
+import payosService from '../services/payosService';
 import { NotFoundError } from '../errors/notFoundError';
 import { ValidationError } from '../errors/validationError';
 import { UnauthorizedError } from '../errors/unauthorizedError';
@@ -215,114 +216,161 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             throw new ValidationError({ address: 'Địa chỉ là bắt buộc khi chọn loại địa điểm là "home"' });
         }
 
-        // 🎯 PACKAGE USAGE INTEGRATION: Non-transaction approach for single-node MongoDB
+        // 🎯 NEW DUAL FLOW LOGIC: Detect package type and handle accordingly
+        const userId = req.user?._id;
+        
+        // Thêm logic detect bookingType dựa trên request body
+        const { bookingType = 'service_only', packagePurchaseId } = req.body;
+        
+        console.log('🔍 [Booking Flow] Detected booking type:', {
+            bookingType,
+            packageId,
+            packagePurchaseId,
+            serviceId
+        });
+
         let newAppointment: any = null;
-        let packagePurchase: any = null;
-        let originalRemainingUsages = 0;
-        let packageUpdatePerformed = false;
 
         try {
-            // 🔍 STEP 1: If using packageId, validate and consume package usage first
-            if (packageId) {
-                console.log('🔍 [Package Creation] Appointment uses package, validating purchased package...', {
-                    packageId,
-                    userId: req.user?._id,
-                    profileId
-                });
+            // 🔗 LUỒNG 1: Gói dịch vụ chưa thanh toán (new_package) - SIMPLIFIED
+            if (bookingType === 'new_package' && packageId) {
+                console.log('🎯 [Flow 1] New package booking - creating appointment for payment...');
+                
+                // Validate package exists
+                const packageData = await ServicePackages.findById(packageId);
+                if (!packageData) {
+                    throw new NotFoundError('Không tìm thấy gói dịch vụ');
+                }
 
-                // Find the corresponding package purchase record
-                packagePurchase = await PackagePurchases.findOne({
-                    userId: req.user?._id,
+                // Tạo appointment với timeout 15 phút (như service thường)
+                const expiresAt = new Date();
+                expiresAt.setMinutes(expiresAt.getMinutes() + 15);
+                
+                newAppointment = new Appointments({
+                    createdByUserId: userId,
                     profileId,
                     packageId,
-                    isActive: true,
-                    remainingUsages: { $gt: 0 },
-                    expiredAt: { $gt: new Date() }
+                    doctorId: assignedDoctorId,
+                    slotId,
+                    appointmentDate,
+                    appointmentTime,
+                    appointmentType,
+                    typeLocation,
+                    address,
+                    description,
+                    notes,
+                    status: 'pending_payment', // Giống như service thường
+                    totalAmount: packageData.price,
+                    paymentStatus: 'unpaid',
+                    bookingType: 'new_package',
+                    expiresAt // Vẫn giữ timeout 15 phút
+                });
+
+                await newAppointment.save();
+                console.log('✅ [Flow 1] Created package appointment for payment processing');
+
+            }
+            // 🔗 LUỒNG 2: Gói dịch vụ đã mua (purchased_package)  
+            else if (bookingType === 'purchased_package' && packagePurchaseId) {
+                console.log('🎯 [Flow 2] Purchased package booking - consuming usage immediately...');
+
+                // Validate package purchase
+                const packagePurchase = await PackagePurchases.findOne({
+                    _id: packagePurchaseId,
+                    userId: userId,
+                    status: 'active'
                 });
 
                 if (!packagePurchase) {
-                    console.log('❌ [Package Creation] No valid package purchase found', {
-                        packageId,
-                        userId: req.user?._id,
-                        profileId
-                    });
                     throw new ValidationError({ 
-                        package: 'Không tìm thấy gói dịch vụ hợp lệ hoặc gói đã hết lượt sử dụng' 
+                        package: 'Không tìm thấy gói dịch vụ đã mua hoặc gói đã hết hạn' 
                     });
                 }
 
-                console.log('✅ [Package Creation] Found valid package purchase, consuming usage...', {
-                    packagePurchaseId: packagePurchase._id?.toString() || 'unknown',
-                    remainingUsages: packagePurchase.remainingUsages,
-                    totalAllowedUses: packagePurchase.totalAllowedUses
+                // Check remaining usages using PackagePurchase methods
+                const serviceIdForUsage = serviceId; // Trong trường hợp này sẽ cần serviceId cụ thể
+                if (!packagePurchase.canUseService(serviceIdForUsage)) {
+                    throw new ValidationError({ 
+                        package: 'Gói dịch vụ đã hết lượt sử dụng hoặc không chứa dịch vụ này' 
+                    });
+                }
+
+                // Consume package service usage
+                const usageSuccess = packagePurchase.useService(serviceIdForUsage);
+                if (!usageSuccess) {
+                    throw new ValidationError({ 
+                        package: 'Không thể sử dụng gói dịch vụ' 
+                    });
+                }
+
+                // Save package changes
+                await packagePurchase.save();
+
+                // Tạo completed appointment (không cần thanh toán)
+                newAppointment = new Appointments({
+                    createdByUserId: userId,
+                    profileId,
+                    packageId: packagePurchase.packageId,
+                    serviceId,
+                    doctorId: assignedDoctorId,
+                    slotId,
+                    appointmentDate,
+                    appointmentTime,
+                    appointmentType,
+                    typeLocation,
+                    address,
+                    description,
+                    notes,
+                    status: 'completed',
+                    totalAmount: 0, // Đã thanh toán trong package
+                    paymentStatus: 'paid',
+                    paidAt: new Date(),
+                    bookingType: 'purchased_package',
+                    packagePurchaseId: packagePurchase._id
                 });
 
-                // Store original value for logging and potential rollback
-                originalRemainingUsages = packagePurchase.remainingUsages;
+                await newAppointment.save();
+                console.log('✅ [Flow 2] Created completed appointment using purchased package');
 
-                // Validate remaining usages
-                if (packagePurchase.remainingUsages <= 0) {
-                    throw new ValidationError({ 
-                        package: 'Gói dịch vụ đã hết lượt sử dụng' 
-                    });
-                }
-
-                // Calculate new values
-                const newRemainingUsages = packagePurchase.remainingUsages - 1;
-                const now = new Date();
-                const newIsActive = (packagePurchase.expiredAt > now && newRemainingUsages > 0);
-
-                // Update package purchase with optimistic approach
-                const updateResult = await PackagePurchases.findByIdAndUpdate(
-                    packagePurchase._id,
-                    {
-                        $set: {
-                            remainingUsages: newRemainingUsages,
-                            isActive: newIsActive
-                        }
-                    },
-                    { new: true }
-                );
-
-                if (!updateResult) {
-                    throw new ValidationError({ 
-                        package: 'Không thể cập nhật gói dịch vụ, có thể gói đã bị xóa' 
-                    });
-                }
-
-                packageUpdatePerformed = true;
-
-                console.log('✅ [Package Creation] Successfully consumed package usage', {
-                    packagePurchaseId: packagePurchase._id?.toString() || 'unknown',
-                    oldRemainingUsages: originalRemainingUsages,
-                    newRemainingUsages: newRemainingUsages,
-                    isStillActive: newIsActive
-                });
             }
+            // 🔗 LUỒNG 3: Dịch vụ đơn lẻ (service_only) - GIỮ NGUYÊN LOGIC CŨ
+            else if (bookingType === 'service_only' && serviceId) {
+                console.log('🎯 [Flow 3] Service-only booking - original logic...');
+                
+                const serviceData = await Service.findById(serviceId);
+                if (!serviceData) {
+                    throw new NotFoundError('Không tìm thấy dịch vụ');
+                }
 
-            // 🔍 STEP 2: Create appointment
-            // For package bookings, set status to 'confirmed' directly since package is already consumed
-            // For service bookings, set status to 'pending_payment' as before
-            const appointmentStatus = packageId ? 'confirmed' : 'pending_payment';
+                newAppointment = new Appointments({
+                    createdByUserId: userId,
+                    profileId,
+                    serviceId,
+                    doctorId: assignedDoctorId,
+                    slotId,
+                    appointmentDate,
+                    appointmentTime,
+                    appointmentType,
+                    typeLocation,
+                    address,
+                    description,
+                    notes,
+                    status: 'pending_payment',
+                    totalAmount: serviceData.price,
+                    paymentStatus: 'unpaid',
+                    bookingType: 'service_only'
+                });
 
-            newAppointment = await Appointments.create({
-                createdByUserId: req.user?._id, // Lấy từ middleware xác thực
-                profileId,
-                packageId: packageId || undefined,
-                serviceId: serviceId || undefined,
-                doctorId: assignedDoctorId || undefined, // Gán bác sĩ từ slot
-                slotId: slotId || undefined,
-                appointmentDate,
-                appointmentTime,
-                appointmentType,
-                typeLocation,
-                address,
-                description,
-                notes,
-                status: appointmentStatus
-            });
+                await newAppointment.save();
+                console.log('✅ [Flow 3] Created service appointment');
+                         }
+             else {
+                 throw new ValidationError({ 
+                     general: 'Loại đặt lịch không hợp lệ hoặc thiếu thông tin bắt buộc' 
+                 });
+             }
 
-            // 🔍 STEP 3: Update slot status if needed
+            // 🔍 Update slot status if needed
             if (slotId) {
                 await DoctorSchedules.updateOne(
                     { 'weekSchedule.slots._id': new mongoose.Types.ObjectId(slotId) },
@@ -331,42 +379,14 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
                 );
             }
 
-            console.log('✅ [Success] Appointment creation and package usage completed successfully', {
+            console.log('✅ [Success] New booking flow completed successfully', {
                 appointmentId: newAppointment._id?.toString() || 'unknown',
-                status: appointmentStatus,
-                hasPackage: !!packageId,
-                packageConsumed: packageUpdatePerformed
+                bookingType,
+                status: newAppointment.status
             });
 
         } catch (error: any) {
-            console.error('❌ [Error] Error in appointment creation + package usage:', error);
-            
-            // Manual rollback for package usage if appointment creation failed
-            if (packageUpdatePerformed && packagePurchase && originalRemainingUsages > 0) {
-                console.log('🔄 [Rollback] Attempting to rollback package usage...');
-                try {
-                    const now = new Date();
-                    const rollbackIsActive = (packagePurchase.expiredAt > now && originalRemainingUsages > 0);
-                    
-                    await PackagePurchases.findByIdAndUpdate(
-                        packagePurchase._id,
-                        {
-                            $set: {
-                                remainingUsages: originalRemainingUsages,
-                                isActive: rollbackIsActive
-                            }
-                        }
-                    );
-                    console.log('✅ [Rollback] Package usage rolled back successfully');
-                } catch (rollbackError) {
-                    console.error('❌ [Rollback] Failed to rollback package usage:', rollbackError);
-                    // Log for manual intervention
-                    console.error('🚨 [Critical] Manual intervention required for package:', {
-                        packagePurchaseId: packagePurchase._id?.toString(),
-                        shouldBeRemainingUsages: originalRemainingUsages
-                    });
-                }
-            }
+            console.error('❌ [Error] Error in new booking flow:', error);
             
             // Re-throw the original error
             if (error instanceof ValidationError || error instanceof NotFoundError) {
@@ -374,16 +394,20 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             }
             
             throw new ValidationError({ 
-                general: error.message || 'Không thể tạo cuộc hẹn và sử dụng gói dịch vụ' 
+                general: error.message || 'Không thể tạo cuộc hẹn' 
             });
         }
 
         // Trả về kết quả thành công
-        return res.status(201).json({
+        const responseData: any = {
             success: true,
-            message: 'Đặt lịch hẹn thành công! Vui lòng hoàn tất thanh toán.',
+            message: bookingType === 'purchased_package' 
+                ? 'Đặt lịch hẹn thành công!' 
+                : 'Đặt lịch hẹn thành công! Vui lòng hoàn tất thanh toán.',
             data: newAppointment
-        });
+        };
+
+        return res.status(201).json(responseData);
     } catch (error) {
         console.error('Error in createAppointment:', error);
         if (error instanceof NotFoundError) {
