@@ -32,8 +32,8 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   appointmentId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Appointments',
-    required: true,
-    unique: true
+    required: true
+    // Remove unique constraint - allow multiple payment attempts
   },
   orderCode: {
     type: Number,

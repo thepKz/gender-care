@@ -14,10 +14,14 @@ export interface IAppointments {
   address?: string;
   description?: string;
   notes?: string;
-  status: "pending" | "pending_payment" | "confirmed" | "completed" | "cancelled";
+  status: "pending" | "pending_payment" | "confirmed" | "completed" | "cancelled" | "payment_cancelled" | "expired";
   totalAmount?: number; // Total amount for payment
   paymentStatus?: "unpaid" | "paid" | "partial" | "refunded";
   paidAt?: Date; // Timestamp when payment was completed
+  bookingType?: "new_package" | "purchased_package" | "service_only"; // Phân biệt loại đặt lịch
+  packagePurchaseId?: mongoose.Types.ObjectId; // Reference đến package đã mua (cho purchased_package)
+  expiresAt?: Date; // Thời gian hết hạn cho pending appointments (15 phút)
+  paymentLinkId?: string; // PayOS order code/payment link ID
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -77,7 +81,7 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   status: {
     type: String,
-    enum: ["pending", "pending_payment", "confirmed", "completed", "cancelled"],
+    enum: ["pending", "pending_payment", "confirmed", "completed", "cancelled", "payment_cancelled", "expired"],
     default: "pending_payment"
   },
   totalAmount: {
@@ -91,6 +95,21 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   paidAt: {
     type: Date
+  },
+  bookingType: {
+    type: String,
+    enum: ["new_package", "purchased_package", "service_only"],
+    default: "service_only"
+  },
+  packagePurchaseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PackagePurchases'
+  },
+  expiresAt: {
+    type: Date
+  },
+  paymentLinkId: {
+    type: String
   }
 }, { timestamps: true });
 
