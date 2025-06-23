@@ -34,6 +34,7 @@ import {
 import consultationRoutes from './routes/consultationRoutes';
 
 import { runAllSeeds } from "./seeds";
+import { startAutoTransitionService } from './services/appointmentAutoTransitionService';
 
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
 // Try multiple paths for .env file
@@ -228,11 +229,15 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// Khởi động server (trừ khi đang chạy test)
-if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`Server đang chạy tại http://localhost:${PORT}`);
-  });
-}
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // 🤖 Start auto status transition service
+  startAutoTransitionService();
+  
+  console.log('🚀 Server started successfully with all services');
+});
 
 export default app;

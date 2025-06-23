@@ -165,6 +165,39 @@ class AppointmentManagementService {
   }
 
   /**
+   * Lấy danh sách tất cả cuộc hẹn cho Staff (chỉ appointment, không có consultation)
+   * Staff có thể xem tất cả lịch hẹn appointment của tất cả bác sĩ để hỗ trợ nhập liệu
+   */
+  async getStaffAppointments(filters: AppointmentFilters = {}): Promise<UnifiedAppointment[]> {
+    try {
+      console.log('👥 [DEBUG] Fetching all appointments for staff with filters:', filters);
+      
+      // Gọi API thông qua appointmentApi để consistency
+      const response = await appointmentApi.getStaffAppointments(filters);
+      
+      console.log('👥 [DEBUG] Staff appointments API Response:', response);
+      
+      // Handle response format
+      const appointmentData = response?.data?.appointments || response?.appointments || [];
+      
+      if (!Array.isArray(appointmentData)) {
+        console.warn('⚠️ [WARNING] Invalid staff appointments data format:', appointmentData);
+        return [];
+      }
+      
+      // Transform appointments to unified format
+      const appointments = this.transformAppointments(appointmentData);
+      
+      console.log('✅ [DEBUG] Staff appointments loaded:', appointments.length);
+      
+      return appointments;
+    } catch (error) {
+      console.error('❌ [ERROR] Failed to fetch staff appointments:', error);
+      return [];
+    }
+  }
+
+  /**
    * Transform API appointments to unified format
    */
   private transformAppointments(appointments: ApiAppointment[]): UnifiedAppointment[] {

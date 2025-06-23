@@ -10,10 +10,11 @@ import {
     getAppointmentsByDoctorId,
     getMyAppointments,
     confirmAppointment,
-    cancelAppointmentByDoctor
+    cancelAppointmentByDoctor,
+    getStaffAppointments
 } from '../controllers/appointmentController';
 import { verifyToken, verifyAdmin, verifyCustomer, verifyStaff, verifyDoctor } from '../middleware';
-import { requireRole } from '../middleware/roleHierarchy';
+import { requireRole, requireAnyRole } from '../middleware/roleHierarchy';
 
 const router = Router();
 
@@ -33,10 +34,17 @@ router.post('/', verifyToken, createAppointment);
 
 /**
  * @route   GET /api/appointments/my
- * @desc    Lấy danh sách cuộc hẹn của bác sĩ hiện tại
- * @access  Private (Doctor only)
+ * @desc    Lấy danh sách cuộc hẹn của bác sĩ hiện tại hoặc tất cả appointments cho staff
+ * @access  Private (Doctor và Staff)
  */
-router.get('/my', verifyToken, verifyDoctor, getMyAppointments);
+router.get('/my', verifyToken, requireAnyRole(['doctor', 'staff']), getMyAppointments);
+
+/**
+ * @route   GET /api/appointments/staff
+ * @desc    Lấy danh sách tất cả cuộc hẹn appointment cho Staff (không có consultation)
+ * @access  Private (Staff, Manager, Admin)
+ */
+router.get('/staff', verifyToken, requireRole('staff'), getStaffAppointments);
 
 /**
  * @route   GET /api/appointments/doctor/:doctorId

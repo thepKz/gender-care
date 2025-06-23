@@ -1476,7 +1476,7 @@ export const cancelAppointmentByDoctor = async (req: AuthRequest, res: Response)
 };
 
 /**
- * Lấy danh sách cuộc hẹn của bác sĩ hiện tại (từ token)
+ * Lấy danh sách cuộc hẹn của bác sĩ hiện tại (từ token) hoặc tất cả appointments cho staff
  * Không cần truyền doctorId trong params
  */
 export const getMyAppointments = async (req: AuthRequest, res: Response) => {
@@ -1495,12 +1495,72 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
             throw new UnauthorizedError('Không tìm thấy thông tin người dùng trong token');
         }
 
-        // Kiểm tra user có phải doctor không
-        if (req.user.role !== 'doctor') {
-            throw new UnauthorizedError('Chỉ bác sĩ mới có thể truy cập endpoint này');
+        // Kiểm tra user có phải doctor hoặc staff không
+        if (!['doctor', 'staff'].includes(req.user.role)) {
+            throw new UnauthorizedError('Chỉ bác sĩ hoặc nhân viên mới có thể truy cập endpoint này');
         }
 
-        // Tìm doctor record dựa trên userId từ token
+        // Nếu là staff, trả về tất cả appointments (similar to getStaffAppointments)
+        if (req.user.role === 'staff') {
+            const matchStage: any = {
+                // ✅ Fix: Lấy tất cả appointments, frontend sẽ filter
+            };
+
+            // Áp dụng các bộ lọc nếu có
+            if (status) matchStage.status = status;
+
+            // Lọc theo khoảng thời gian
+            if (startDate && endDate) {
+                matchStage.appointmentDate = {
+                    $gte: new Date(startDate as string),
+                    $lte: new Date(endDate as string)
+                };
+            } else if (startDate) {
+                matchStage.appointmentDate = { $gte: new Date(startDate as string) };
+            } else if (endDate) {
+                matchStage.appointmentDate = { $lte: new Date(endDate as string) };
+            }
+
+            // Tính toán skip value cho phân trang
+            const pageNumber = parseInt(page as string, 10);
+            const limitNumber = parseInt(limit as string, 10);
+            const skip = (pageNumber - 1) * limitNumber;
+
+            // Đếm tổng số bản ghi thỏa mãn điều kiện
+            const total = await Appointments.countDocuments(matchStage);
+
+            // Lấy dữ liệu với populate các trường liên quan
+            const appointments = await Appointments.find(matchStage)
+                .populate('profileId', 'fullName gender phone year')
+                .populate('serviceId', 'serviceName price serviceType')
+                .populate('packageId', 'name price')
+                .populate({
+                    path: 'doctorId',
+                    match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
+                    populate: {
+                        path: 'userId',
+                        select: 'fullName email avatar'
+                    }
+                })
+                .sort({ appointmentDate: -1, appointmentTime: -1 })
+                .skip(skip)
+                .limit(limitNumber);
+
+            return res.status(200).json({
+                success: true,
+                data: {
+                    appointments,
+                    pagination: {
+                        total,
+                        page: pageNumber,
+                        limit: limitNumber,
+                        pages: Math.ceil(total / limitNumber)
+                    }
+                }
+            });
+        }
+
+        // Logic cho Doctor: Tìm doctor record dựa trên userId từ token
         const doctor = await Doctor.findOne({ userId: req.user._id });
         
         if (!doctor) {
@@ -1694,6 +1754,107 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
         return res.status(500).json({
             success: false,
             message: 'Đã xảy ra lỗi khi lấy danh sách cuộc hẹn của bác sĩ'
+        });
+    }
+};
+
+/**
+ * Lấy danh sách tất cả cuộc hẹn cho Staff (chỉ appointment, không có consultation)
+ * Staff có thể xem tất cả lịch hẹn appointment của tất cả bác sĩ để hỗ trợ nhập liệu
+ */
+export const getStaffAppointments = async (req: AuthRequest, res: Response) => {
+    try {
+        const {
+            page = 1,
+            limit = 10,
+            status,
+            startDate,
+            endDate,
+            doctorId
+        } = req.query;
+
+        // Kiểm tra user có trong token không và có phải staff không
+        if (!req.user?._id) {
+            throw new UnauthorizedError('Không tìm thấy thông tin người dùng trong token');
+        }
+
+        if (req.user.role !== 'staff') {
+            throw new UnauthorizedError('Chỉ nhân viên mới có thể truy cập endpoint này');
+        }
+
+        const matchStage: any = {
+            // ✅ Fix: Loại bỏ filter quá chặt, lấy tất cả appointments
+            // Backend sẽ lấy tất cả, frontend sẽ filter hiển thị
+        };
+
+        // Áp dụng các bộ lọc nếu có
+        if (status) matchStage.status = status;
+
+        // Lọc theo bác sĩ nếu có
+        if (doctorId && mongoose.Types.ObjectId.isValid(doctorId as string)) {
+            matchStage.doctorId = new mongoose.Types.ObjectId(doctorId as string);
+        }
+
+        // Lọc theo khoảng thời gian
+        if (startDate && endDate) {
+            matchStage.appointmentDate = {
+                $gte: new Date(startDate as string),
+                $lte: new Date(endDate as string)
+            };
+        } else if (startDate) {
+            matchStage.appointmentDate = { $gte: new Date(startDate as string) };
+        } else if (endDate) {
+            matchStage.appointmentDate = { $lte: new Date(endDate as string) };
+        }
+
+        // Tính toán skip value cho phân trang
+        const pageNumber = parseInt(page as string, 10);
+        const limitNumber = parseInt(limit as string, 10);
+        const skip = (pageNumber - 1) * limitNumber;
+
+        // Đếm tổng số bản ghi thỏa mãn điều kiện
+        const total = await Appointments.countDocuments(matchStage);
+
+        // Lấy dữ liệu với populate các trường liên quan
+        const appointments = await Appointments.find(matchStage)
+            .populate('profileId', 'fullName gender phone year')
+            .populate('serviceId', 'serviceName price serviceType')
+            .populate('packageId', 'name price')
+            .populate({
+                path: 'doctorId',
+                match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
+                populate: {
+                    path: 'userId',
+                    select: 'fullName email avatar'
+                }
+            })
+            .sort({ appointmentDate: -1, appointmentTime: -1 })
+            .skip(skip)
+            .limit(limitNumber);
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                appointments,
+                pagination: {
+                    total,
+                    page: pageNumber,
+                    limit: limitNumber,
+                    pages: Math.ceil(total / limitNumber)
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error in getStaffAppointments:', error);
+        if (error instanceof UnauthorizedError) {
+            return res.status(403).json({
+                success: false,
+                message: error.message
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi lấy danh sách cuộc hẹn cho staff'
         });
     }
 }; 

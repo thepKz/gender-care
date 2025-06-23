@@ -51,6 +51,17 @@ export const appointmentApi = {
         }
     },
 
+    // Lấy danh sách tất cả cuộc hẹn cho Staff (chỉ appointment, không có consultation)
+    getStaffAppointments: async (filters: AppointmentFilters = {}) => {
+        try {
+            const response = await axiosInstance.get('/appointments/staff', { params: filters });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching staff appointments:', error);
+            throw error;
+        }
+    },
+
     // Lấy chi tiết cuộc hẹn theo ID
     getAppointmentById: async (id: string) => {
         const response = await axiosInstance.get(`/appointments/${id}`);

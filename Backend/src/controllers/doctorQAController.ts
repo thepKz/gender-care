@@ -250,7 +250,7 @@ export const getDoctorQAByDoctorId = async (req: Request, res: Response): Promis
   }
 };
 
-// GET /api/doctor-qa/my - Lấy yêu cầu tư vấn của bác sĩ hiện tại (DOCTOR ONLY)
+// GET /api/doctor-qa/my - Lấy yêu cầu tư vấn của bác sĩ hiện tại hoặc tất cả consultations cho staff
 export const getMyDoctorQAAsDoctor = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?._id;
@@ -262,15 +262,36 @@ export const getMyDoctorQAAsDoctor = async (req: AuthRequest, res: Response): Pr
       return;
     }
 
-    // Kiểm tra user có phải doctor không
-    if (req.user?.role !== 'doctor') {
+    // Kiểm tra user có phải doctor hoặc staff không
+    if (!['doctor', 'staff'].includes(req.user?.role || '')) {
       res.status(403).json({ 
-        message: 'Chỉ bác sĩ mới có thể truy cập endpoint này' 
+        message: 'Chỉ bác sĩ hoặc nhân viên mới có thể truy cập endpoint này' 
       });
       return;
     }
 
-    // Import Doctor model dynamically để tránh circular dependency
+    // Nếu là staff, trả về tất cả consultations
+    if (req.user?.role === 'staff') {
+      try {
+        // Lấy tất cả consultations cho staff (không cần filter theo doctor)
+        const allQAs = await doctorQAService.getAllDoctorQAs({});
+        
+        res.status(200).json({
+          message: `Lấy danh sách tất cả yêu cầu tư vấn thành công (${allQAs.length} yêu cầu)`,
+          data: allQAs
+        });
+        return;
+      } catch (error: any) {
+        console.error('Error getting all consultations for staff:', error);
+        res.status(500).json({ 
+          message: error.message || 'Lỗi server khi lấy danh sách tư vấn cho staff',
+          data: []
+        });
+        return;
+      }
+    }
+
+    // Logic cho Doctor: Import Doctor model dynamically để tránh circular dependency
     const { Doctor } = await import('../models');
     
     // Tìm doctor record dựa trên userId từ token

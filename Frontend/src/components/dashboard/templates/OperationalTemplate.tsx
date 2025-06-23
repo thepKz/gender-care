@@ -54,8 +54,49 @@ interface OperationalTemplateProps {
 
 // Xây dựng menu động theo vai trò Staff / Doctor
 const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
-  // Mục chung
-  const base = [
+  if (role === 'doctor') {
+    // Bác sĩ: menu đầy đủ
+    return [
+      {
+        key: 'dashboard',
+        icon: <DashboardOutlined />,
+        label: 'Tổng quan',
+      },
+      {
+        key: 'patients',
+        icon: <UserOutlined />,
+        label: 'Bệnh nhân',
+      },
+      {
+        key: 'medical-records',
+        icon: <FileTextOutlined />,
+        label: 'Hồ sơ y tế',
+      },
+      {
+        key: 'appointments',
+        icon: <CalendarOutlined />,
+        label: 'Quản lý lịch hẹn',
+      },
+      {
+        key: 'schedule',
+        icon: <ScheduleOutlined />,
+        label: 'Lịch làm việc',
+      },
+      {
+        key: 'consultations',
+        icon: <VideoCameraOutlined />,
+        label: 'Tư vấn trực tuyến',
+      },
+      {
+        key: 'reports',
+        icon: <BarChartOutlined />,
+        label: 'Báo cáo',
+      },
+    ];
+  }
+
+  // Staff: không có lịch làm việc cá nhân, bệnh nhân và hồ sơ y tế
+  return [
     {
       key: 'dashboard',
       icon: <DashboardOutlined />,
@@ -67,44 +108,11 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
       label: 'Quản lý lịch hẹn',
     },
     {
-      key: 'schedule',
-      icon: <ScheduleOutlined />,
-      label: 'Lịch làm việc',
-    },
-    {
       key: 'reports',
       icon: <BarChartOutlined />,
       label: 'Báo cáo',
     },
   ];
-
-  if (role === 'doctor') {
-    // Bác sĩ: thêm consultation management
-    return [
-      base[0], // dashboard
-      {
-        key: 'patients',
-        icon: <UserOutlined />,
-        label: 'Bệnh nhân',
-      },
-      {
-        key: 'medical-records',
-        icon: <FileTextOutlined />,
-        label: 'Hồ sơ y tế',
-      },
-      base[1], // appointments  
-      base[2], // schedule
-      {
-        key: 'consultations',
-        icon: <VideoCameraOutlined />,
-        label: 'Tư vấn trực tuyến',
-      },
-      base[3], // reports
-    ];
-  }
-
-  // Staff: không thấy bệnh nhân & hồ sơ
-  return base;
 };
 
 const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
@@ -394,14 +402,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         </Row>
       )}
 
-      {/* Staff Schedule Overview - only show for staff */}
-      {userRole === 'staff' && (
-        <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
-          <Col xs={24}>
-            <ScheduleOverview />
-          </Col>
-        </Row>
-      )}
+      {/* Staff không hiển thị lịch làm việc - chỉ doctor mới có */}
 
       {/* Recent Activities */}
       <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
@@ -457,9 +458,17 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         }
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
       case 'schedule':
+        if (userRole === 'doctor') {
+          return (
+            <div style={{ padding: '24px' }}>
+              <DoctorScheduleCalendar />
+            </div>
+          );
+        }
         return (
           <div style={{ padding: '24px' }}>
-            <DoctorScheduleCalendar />
+            <Title level={3}>403 - Chỉ bác sĩ mới có quyền xem lịch làm việc cá nhân</Title>
+            <p>Staff có thể xem lịch hẹn thông qua trang "Quản lý lịch hẹn".</p>
           </div>
         );
       case 'reports':

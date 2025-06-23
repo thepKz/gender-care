@@ -4,7 +4,7 @@
 // ✅ SIMPLIFIED STATUS TYPES (CHỈ SỬA STATUS THÔI)
 export type AppointmentStatus = 'pending_payment' | 'scheduled' | 'completed' | 'cancelled';
 export type ConsultationStatus = 'pending_payment' | 'scheduled' | 'consulting' | 'completed' | 'cancelled';
-export type UnifiedStatus = 'pending_payment' | 'scheduled' | 'consulting' | 'completed' | 'cancelled';
+export type UnifiedStatus = 'pending_payment' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled';
 
 // API Response Interfaces from Backend
 export interface ApiAppointment {
@@ -75,6 +75,7 @@ export interface UnifiedAppointment {
   serviceName: string;
   serviceType: string;
   doctorName?: string;
+  doctorSpecialization?: string;
   appointmentDate: string;
   appointmentTime: string;
   appointmentType: 'consultation' | 'test' | 'online-consultation' | 'other';
