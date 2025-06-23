@@ -103,7 +103,6 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   expiresAt: {
     type: Date,
     default: () => new Date(Date.now() + 15 * 60 * 1000),
-    index: { expireAfterSeconds: 0 }
   }
 }, { 
   timestamps: true 
@@ -127,6 +126,18 @@ PaymentTrackingSchema.index({ orderCode: 1 });
 PaymentTrackingSchema.index({ status: 1 });
 PaymentTrackingSchema.index({ serviceType: 1 });
 
+// 🔧 NEW: Add conditional index only for pending payments cleanup
+PaymentTrackingSchema.index(
+  { "expiresAt": 1 }, 
+  { 
+    expireAfterSeconds: 0,
+    partialFilterExpression: { 
+      status: "pending",
+      expiresAt: { $ne: null }
+    }
+  }
+);
+
 PaymentTrackingSchema.statics.findAppointmentByOrderCode = function(orderCode: number) {
   return this.findOne({ orderCode, serviceType: 'appointment' }).populate('appointmentId');
 };
@@ -148,6 +159,12 @@ PaymentTrackingSchema.methods.updatePaymentStatus = function(
     this.webhookReceived = true;
     this.webhookProcessedAt = new Date();
   }
+  
+  // 🛡️ PRESERVE PAYMENT HISTORY: Remove expiry for completed payments
+  if (status === 'success' || status === 'failed' || status === 'cancelled') {
+    this.expiresAt = null; // Keep forever for audit trail
+  }
+  
   return this.save();
 };
 

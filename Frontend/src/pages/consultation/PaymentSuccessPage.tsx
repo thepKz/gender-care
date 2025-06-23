@@ -205,7 +205,7 @@ const PaymentSuccessPage: React.FC = () => {
                 className="w-full bg-blue-600 hover:bg-blue-700 border-none h-12 text-lg font-semibold rounded-xl"
                 icon={<Calendar size={20} />}
               >
-                🔄 Thử lại đặt tư vấn
+                 Thử lại đặt tư vấn
               </Button>
               
               <Button 
@@ -214,7 +214,7 @@ const PaymentSuccessPage: React.FC = () => {
                 className="w-full h-12 text-lg font-semibold rounded-xl border-gray-300"
                 icon={<Heart size={20} />}
               >
-                🏠 Về trang chủ
+                 Về trang chủ
               </Button>
             </Space>
           </Card>
@@ -363,7 +363,7 @@ const PaymentSuccessPage: React.FC = () => {
                     className="w-full bg-green-primary hover:bg-green-secondary border-none h-12 text-lg font-semibold rounded-xl"
                     icon={<Calendar size={20} />}
                   >
-                    📋 Xem lịch sử tư vấn
+                     Xem lịch sử tư vấn
                   </Button>
                   
                   <Button
@@ -372,7 +372,7 @@ const PaymentSuccessPage: React.FC = () => {
                     className="w-full h-12 text-lg font-semibold rounded-xl border-green-primary text-green-primary hover:bg-green-50"
                     icon={<Heart size={20} />}
                   >
-                    🏠 Về trang chủ
+                     Về trang chủ
                   </Button>
                 </Space>
               </Card>

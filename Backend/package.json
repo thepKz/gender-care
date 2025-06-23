@@ -5,9 +5,9 @@
   "scripts": {
     "start": "node dist/index.js",
     "start:prod": "NODE_OPTIONS='--max-old-space-size=1024' node dist/index.js",
-    "build": "tsc && copyfiles -f src/swagger.yaml dist/",
+    "build": "tsc",
     "build:prod": "NODE_OPTIONS='--max-old-space-size=1024' tsc && copyfiles -f src/swagger.yaml dist/",
-    "dev": "nodemon --exec ts-node src/index.ts",
+    "dev": "nodemon src/index.ts",
     "seed:doctors": "ts-node src/seeds/doctorSeed.ts",
     "seed:staff": "ts-node src/seeds/staffSeed.ts",
     "seed:medicines": "ts-node src/seeds/medicinesSeed.ts",
@@ -15,12 +15,13 @@
     "seed:services": "ts-node src/scripts/seedServices.ts",
     "seed": "ts-node src/scripts/seedAll.ts",
     "seed:all": "npm run seed:staff && npm run seed:doctors && npm run seed:medicines && npm run seed:test-categories",
-    "test": "jest --detectOpenHandles",
+    "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:unit": "jest tests/unit",
     "test:integration": "jest tests/basic.test.ts",
-    "test:auth": "jest tests/auth.test.ts"
+    "test:auth": "jest tests/auth.test.ts",
+    "fix-payment-ttl": "ts-node src/scripts/fixPaymentTrackingTTL.ts"
   },
   "keywords": [],
   "author": "",

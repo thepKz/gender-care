@@ -272,6 +272,7 @@ export class PaymentController {
           await appointment.save();
 
           console.log(`✅ Appointment payment successful for orderCode: ${orderCode}`);
+          console.log(`🛡️ Payment data preserved for audit trail - will not auto-delete`);
         } else {
           await paymentTracking.updatePaymentStatus('failed', { code, desc }, true);
           if (appointment.status === 'pending_payment') {
@@ -279,6 +280,7 @@ export class PaymentController {
           }
           await appointment.save();
           console.log(`❌ Appointment payment failed for orderCode: ${orderCode}, reason: ${desc}`);
+          console.log(`🛡️ Failed payment data preserved for audit trail`);
         }
 
       } else if (paymentTracking.serviceType === 'consultation') {
