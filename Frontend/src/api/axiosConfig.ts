@@ -14,7 +14,7 @@ const axiosInstance = axios.create({
 
 // Log configuration in development only
 if (import.meta.env.DEV) {
-  console.log('🔧 Axios Config:', {
+  console.log('Axios Config:', {
     baseURL: axiosInstance.defaults.baseURL,
     mode: import.meta.env.MODE,
     hasViteApiUrl: !!import.meta.env.VITE_API_URL,
@@ -39,10 +39,6 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers = config.headers || {} as AxiosRequestHeaders;
       config.headers['Authorization'] = `Bearer ${token}`;
-
-      if (import.meta.env.DEV) {
-        console.log('[axiosConfig] Adding token to request:', config.url);
-      }
     }
 
     return config;
