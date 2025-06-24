@@ -41,6 +41,7 @@ import ServiceManagement from '../../../pages/dashboard/management/ServiceManage
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import SystemLogManagement from '../../../pages/dashboard/management/SystemLogManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
+import TestCategoriesManagement from '../../../pages/dashboard/management/TestCategoriesManagement';
 import { 
   type DashboardStat,
   type ActivityItem,
@@ -81,6 +82,11 @@ const getMenuItems = (role: 'admin' | 'manager') => {
       key: 'service-packages',
       icon: <AppstoreOutlined />,
       label: 'Quản lý gói dịch vụ',
+    },
+    {
+      key: 'test-categories',
+      icon: <FileTextOutlined />,
+      label: 'Quản lý danh mục xét nghiệm',
     },
     {
       key: 'login-history',
@@ -551,6 +557,8 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         return <ServiceManagement />;
       case 'service-packages':
         return <ServicePackageManagement />;
+      case 'test-categories':
+        return <TestCategoriesManagement />;
       case 'login-history':
         return <LoginHistoryManagement />;
       case 'system-logs':

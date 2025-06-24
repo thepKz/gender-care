@@ -7,11 +7,13 @@ import seedUserProfiles from './userProfilesSeed';
 import seedPosts from './blogPostsSeed';
 import seedDoctorSchedules from './doctorScheduleSeeds';
 import seedServicePackages from './servicePackageSeeds';
+import seedTestCategories from './testCategoriesSeed';
 export const runAllSeeds = async () => {
   try {
     console.log('🌱 Bắt đầu chạy tất cả seed data...');
 
     // Chạy seeds theo thứ tự dependency
+    await seedTestCategories(); // Test Categories trước (independent)
     await seedServices();     // Services trước (independent)
     await seedMedicines();    // Medicines trước (independent)
     await seedUserProfiles(); // UserProfiles (cần tạo user + profiles cho medical records)
@@ -36,6 +38,7 @@ export {
   seedUserProfiles, 
   seedDoctorSchedules, 
   seedServicePackages,
-  seedPosts
+  seedPosts,
+  seedTestCategories
 };
 

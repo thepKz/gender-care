@@ -17,6 +17,7 @@ export { default as stiTestingApi } from './stiTesting';
 export { default as userApi } from './userApi';
 export { default as userProfileApi } from './userProfileApi';
 export * from './systemLogApi';
+export * from './testManagementApi';
 
 // Export commonly used types
 export type { Doctor, DoctorSchedule, IDoctor, IDoctorFeedback, IDoctorStatus } from './doctorApi';

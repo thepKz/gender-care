@@ -34,6 +34,9 @@ import ActivityFeed from '../widgets/ActivityFeed';
 import TableWidget from '../widgets/TableWidget';
 import AppointmentManagement from '../../../pages/dashboard/operational/AppointmentManagement';
 import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
+import DoctorAppointmentSchedule from '../../../pages/dashboard/operational/DoctorAppointmentSchedule';
+import TestResultsEntry from '../../../pages/dashboard/operational/TestResultsEntry';
+import ServiceTestConfiguration from '../../../pages/dashboard/operational/ServiceTestConfiguration';
 
 import {
   defaultPerformanceMetrics,
@@ -56,7 +59,7 @@ interface OperationalTemplateProps {
 
 // Xây dựng menu động theo vai trò Staff / Doctor
 const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
-  // Mục chung
+  // Mục chung cho cả doctor và staff
   const base = [
     {
       key: 'dashboard',
@@ -64,26 +67,32 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
       label: 'Tổng quan',
     },
     {
-      key: 'appointments',
+      key: 'my-appointments',
       icon: <CalendarOutlined />,
-      label: 'Quản lý lịch hẹn',
+      label: 'Lịch hẹn của tôi',
     },
     {
-      key: 'schedule',
+      key: 'test-results',
+      icon: <MedicineBoxOutlined />,
+      label: 'Nhập kết quả xét nghiệm',
+    },
+    {
+      key: 'test-config',
       icon: <ScheduleOutlined />,
-      label: 'Lịch làm việc',
-    },
-    {
-      key: 'reports',
-      icon: <BarChartOutlined />,
-      label: 'Báo cáo',
+      label: 'Cấu hình xét nghiệm',
     },
   ];
 
   if (role === 'doctor') {
-    // Bác sĩ: thêm bệnh nhân, hồ sơ; không cần lịch hẹn chi tiết
+    // Bác sĩ: thêm bệnh nhân, hồ sơ và quản lý lịch hẹn tổng thể
     return [
-      base[0],
+      base[0], // dashboard
+      base[1], // my-appointments
+      {
+        key: 'appointments',
+        icon: <CalendarOutlined />,
+        label: 'Quản lý tất cả lịch hẹn',
+      },
       {
         key: 'patients',
         icon: <UserOutlined />,
@@ -94,12 +103,28 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
         icon: <FileTextOutlined />,
         label: 'Hồ sơ y tế',
       },
-      ...base.slice(1),
+      base[2], // test-results
+      base[3], // test-config
+      {
+        key: 'reports',
+        icon: <BarChartOutlined />,
+        label: 'Báo cáo',
+      },
     ];
   }
 
-  // Staff: không thấy bệnh nhân & hồ sơ
-  return base;
+  // Staff: menu cơ bản
+  return [
+    base[0], // dashboard
+    base[1], // my-appointments
+    base[2], // test-results
+    base[3], // test-config
+    {
+      key: 'reports',
+      icon: <BarChartOutlined />,
+      label: 'Báo cáo',
+    },
+  ];
 };
 
 const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
@@ -339,7 +364,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
                       <Progress
                         type="circle"
                         percent={metrics.appointmentCompletion}
-                        width={120}
+                        size={120}
                         strokeColor="#667eea"
                         strokeWidth={8}
                       />
@@ -457,13 +482,28 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
     switch (selectedKey) {
       case 'dashboard':
         return renderDashboard();
+        
+      // Lịch hẹn của tôi - cho cả doctor và staff
+      case 'my-appointments':
+        return <DoctorAppointmentSchedule />;
+        
+      // Quản lý tất cả lịch hẹn - chỉ cho doctor
       case 'appointments':
-        if (userRole === 'staff') return <AppointmentManagement />;
-        // Doctor cũng có thể xem nhưng không quản lý chi tiết -> hiển thị read-only
-        return <AppointmentManagement />;
+        if (userRole === 'doctor') return <AppointmentManagement />;
+        return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
+        
+      // Nhập kết quả xét nghiệm - cho cả doctor và staff
+      case 'test-results':
+        return <TestResultsEntry />;
+        
+      // Cấu hình xét nghiệm - cho cả doctor và staff
+      case 'test-config':
+        return <ServiceTestConfiguration />;
+        
       case 'medical-records':
         if (userRole === 'doctor') return <MedicalRecordsManagement />;
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
+        
       case 'patients':
         if (userRole === 'doctor') {
           return (
@@ -474,13 +514,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
           );
         }
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
-      case 'schedule':
-        return (
-          <div style={{ padding: '24px' }}>
-            <Title level={2}>Lịch làm việc</Title>
-            <p>Trang lịch làm việc đang được phát triển...</p>
-          </div>
-        );
+        
       case 'reports':
         return (
           <div style={{ padding: '24px' }}>
@@ -488,6 +522,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
             <p>Trang báo cáo đang được phát triển...</p>
           </div>
         );
+        
       default:
         return renderDashboard();
     }
