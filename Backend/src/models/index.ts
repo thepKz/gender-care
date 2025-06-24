@@ -42,6 +42,12 @@ import Payments from './Payments';
 import PackagePurchases from './PackagePurchases';
 import PaymentTracking from './PaymentTracking';
 
+// Test Management  
+import TestCategories from './TestCategories';
+import TestResults from './TestResults';
+import TestResultItems from './TestResultItems';
+import ServiceTestCategories from './ServiceTestCategories';
+
 // System
 import SystemConfigs from './SystemConfigs';
 import SystemLog from './SystemLogs';
@@ -91,6 +97,12 @@ export {
   Payments,
   PackagePurchases,
   PaymentTracking,
+  
+  // Test Management
+  TestCategories,
+  TestResults,
+  TestResultItems,
+  ServiceTestCategories,
   
   // System
   SystemConfigs,

@@ -68,22 +68,24 @@ class TestResultsController {
     }
   };
 
-  // POST /api/test-results - Tạo test result mới (Doctor và Nursing Staff)
+  // POST /api/test-results - Tạo test result mới (Doctor và Staff)
   createTestResult = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { appointmentTestId, conclusion, recommendations } = req.body;
+      const { appointmentId, profileId, doctorId, conclusion, recommendations } = req.body;
       const userRole = req.user?.role || '';
 
-      if (!appointmentTestId) {
+      if (!appointmentId || !profileId || !doctorId) {
         res.status(400).json({
           success: false,
-          message: 'Appointment test ID is required'
+          message: 'Appointment ID, Profile ID, and Doctor ID are required'
         });
         return;
       }
 
       const data = {
-        appointmentTestId,
+        appointmentId,
+        profileId,
+        doctorId,
         conclusion: conclusion?.trim(),
         recommendations: recommendations?.trim()
       };
@@ -202,7 +204,7 @@ class TestResultsController {
         return;
       }
 
-      const result = await this.testResultsService.getTestResultsByCustomerId(customerId, page, limit);
+      const result = await this.testResultsService.getTestResultsByProfileId(customerId, page, limit);
 
       res.status(200).json({
         success: true,
@@ -237,7 +239,7 @@ class TestResultsController {
   getTestResultsByAppointmentTestId = async (req: Request, res: Response): Promise<void> => {
     try {
       const { appointmentTestId } = req.params;
-      const testResults = await this.testResultsService.getTestResultsByAppointmentTestId(appointmentTestId);
+      const testResults = await this.testResultsService.getTestResultsByAppointmentId(appointmentTestId);
 
       res.status(200).json({
         success: true,

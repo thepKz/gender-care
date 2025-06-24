@@ -225,10 +225,25 @@ export interface IAppointmentTest {
 
 export interface ITestResult {
   _id: string;
-  appointmentTestId: string;
+  appointmentId: string;
+  profileId: string;
+  doctorId: string;
   conclusion: string;
   recommendations: string;
   createdAt: Date;
+}
+
+export interface IServiceTestCategories {
+  _id: string;
+  serviceId: string;
+  testCategoryId: string;
+  isRequired: boolean;
+  customNormalRange?: string;
+  customUnit?: string;
+  targetValue?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ITestCategory {
