@@ -74,19 +74,13 @@ const OnlineConsultationPage: React.FC = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Scroll to top on mount – UX
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Toast auto-hide
-  useEffect(() => {
-    if (!toast) return;
-    const id = setTimeout(() => setToast(null), 3000);
-    return () => clearTimeout(id);
-  }, [toast]);
+
 
   // Features data (icon + title + desc)
   const features = [
@@ -188,15 +182,12 @@ const OnlineConsultationPage: React.FC = () => {
 
     // Basic validation
     if (form.fullName.trim().length < 3) {
-      setToast({ type: 'error', message: 'Họ tên phải có ít nhất 3 ký tự.' });
       return;
     }
     if (!/^[0-9]{10,11}$/.test(form.phone.trim())) {
-      setToast({ type: 'error', message: 'Số điện thoại không hợp lệ.' });
       return;
     }
     if (form.question.trim().length < 10) {
-      setToast({ type: 'error', message: 'Câu hỏi phải có ít nhất 10 ký tự.' });
       return;
     }
 
@@ -221,36 +212,7 @@ const OnlineConsultationPage: React.FC = () => {
       console.log('🎉 [FRONTEND] QA Creation successful:', res.data);
       
       // Check nếu có auto-assignment info từ backend
-      if (res.data.autoAssigned && res.data.assignmentInfo) {
-        const { doctorName, appointmentDate, appointmentSlot, message } = res.data.assignmentInfo;
-        const formattedDate = new Date(appointmentDate).toLocaleDateString('vi-VN');
-        
-        setToast({ 
-          type: 'success', 
-          message: `🎯 ${message}
-📅 Ngày: ${formattedDate}
-🕐 Giờ: ${appointmentSlot}
-👨‍⚕️ Bác sĩ: ${doctorName}
-💰 Vui lòng thanh toán trong 15 phút để giữ lịch hẹn.` 
-        });
-      } 
-      // Fallback: check populated data structure
-      else if (consultationData.doctorId && consultationData.appointmentDate && consultationData.appointmentSlot) {
-        const doctorName = consultationData.doctorId.userId?.fullName || 'Bác sĩ';
-        const appointmentDate = new Date(consultationData.appointmentDate).toLocaleDateString('vi-VN');
-        const appointmentTime = consultationData.appointmentSlot;
-        
-        setToast({ 
-          type: 'success', 
-          message: `✅ Đặt lịch thành công! 
-📅 Ngày: ${appointmentDate}
-🕐 Giờ: ${appointmentTime}
-👨‍⚕️ Bác sĩ: ${doctorName}
-💰 Vui lòng thanh toán trong 15 phút để giữ lịch hẹn.` 
-        });
-      } else {
-        setToast({ type: 'success', message: 'Tạo yêu cầu tư vấn thành công! Vui lòng thanh toán để hoàn tất.' });
-      }
+      console.log('Consultation created successfully:', consultationData);
       
       // Chuyển hướng đến trang thanh toán
       setTimeout(() => {
@@ -258,7 +220,7 @@ const OnlineConsultationPage: React.FC = () => {
       }, 2000);
       
     } catch (err: any) {
-      setToast({ type: 'error', message: err?.response?.data?.message || err.message || 'Có lỗi xảy ra.' });
+      console.error('Error creating consultation:', err?.response?.data?.message || err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -363,8 +325,6 @@ const OnlineConsultationPage: React.FC = () => {
           </BlurFade>
         </div>
       </section>
-
-
 
       {/* Features Section */}
       <section className="py-20 bg-white">
@@ -615,31 +575,6 @@ const OnlineConsultationPage: React.FC = () => {
           </div>
         </div>
       </section>
-
-      {/* Toast notification */}
-      {toast && (
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 50 }}
-          className={`fixed bottom-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg text-white max-w-sm ${
-            toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-1">
-              {toast.type === 'success' ? (
-                <Shield size={20} variant="Bold" />
-              ) : (
-                <InfoCircle size={20} variant="Bold" />
-              )}
-            </div>
-            <div className="font-medium whitespace-pre-line text-sm leading-relaxed">
-              {toast.message}
-            </div>
-          </div>
-        </motion.div>
-      )}
 
       {/* Floating button */}
       <FloatingAppointmentButton onAppointmentClick={scrollToForm} />
