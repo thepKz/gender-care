@@ -1,0 +1,251 @@
+@startuml 09_healthcare_services
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Healthcare Services System - Class Diagram (Real Implementation)
+
+package "Healthcare Services System" {
+    class Service {
+        - serviceName : string
+        - price : number
+        - description : string
+        - duration : number
+        - isDeleted : number
+        - serviceType : ServiceType
+        - availableAt : string[]
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createService() : boolean
+        + updateService() : boolean
+        + deleteService() : boolean
+        + getAvailableLocations() : string[]
+        + calculatePrice() : number
+        + isAvailable() : boolean
+        - validateServiceData() : boolean
+        - checkAvailability() : boolean
+    }
+
+    class ServicePackages {
+        - name : string
+        - description : string
+        - priceBeforeDiscount : number
+        - price : number
+        - services : IServiceItem[]
+        - durationInDays : number
+        - isActive : boolean
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createPackage() : boolean
+        + updatePackage() : boolean
+        + addService(serviceId, quantity) : boolean
+        + removeService(serviceId) : boolean
+        + calculateTotalPrice() : number
+        + getTotalServiceQuantity() : number
+        + hasService(serviceId) : boolean
+        + getServiceQuantity(serviceId) : number
+        + activate() : boolean
+        + deactivate() : boolean
+        - validatePackageData() : boolean
+        - checkPriceLogic() : boolean
+        - preventDuplicateServices() : boolean
+    }
+
+    class ServiceItem {
+        - serviceId : ObjectId
+        - quantity : number
+        --
+        + getService() : Service
+        + updateQuantity(quantity) : boolean
+        + getTotalPrice() : number
+        - validateQuantity() : boolean
+    }
+
+    class PackagePurchases {
+        - userId : ObjectId
+        - packageId : ObjectId
+        - purchaseDate : Date
+        - expiryDate : Date
+        - totalPrice : number
+        - status : PurchaseStatus
+        - usedServices : UsedService[]
+        - paymentId : ObjectId
+        - billingId : ObjectId
+        - notes : string
+        - isActive : boolean
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + purchasePackage() : boolean
+        + useService(serviceId, quantity) : boolean
+        + canUseService(serviceId, quantity) : boolean
+        + getRemainingQuantity(serviceId) : number
+        + extendExpiry(days) : boolean
+        + calculateRemainingValue() : number
+        + getUsageHistory() : UsedService[]
+        + isExpired() : boolean
+        + activate() : boolean
+        + deactivate() : boolean
+        - validatePurchase() : boolean
+        - updateExpiryDate() : boolean
+        - calculateTotalUsage() : number
+    }
+
+    class UsedService {
+        - serviceId : ObjectId
+        - quantityUsed : number
+        - usedAt : Date
+        - appointmentId : ObjectId
+        - notes : string
+        --
+        + recordUsage() : boolean
+        + getUsageDetails() : object
+        - validateUsage() : boolean
+    }
+
+    class User {
+        - id : ObjectId
+        - email : string
+        - fullName : string
+        - role : UserRole
+        - isActive : boolean
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + purchasePackage(packageId) : boolean
+        + getMyPurchases() : PackagePurchases[]
+        + usePackageService(serviceId) : boolean
+        + getAvailableServices() : Service[]
+        - validateAccess() : boolean
+    }
+
+    class Payments {
+        - userId : ObjectId
+        - billId : ObjectId
+        - packagePurchaseId : ObjectId
+        - amount : number
+        - paymentMethod : PaymentMethod
+        - payosOrderCode : string
+        - status : PaymentStatus
+        - paidAt : Date
+        - notes : string
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + processPayment() : boolean
+        + confirmPayment() : boolean
+        + refundPayment() : boolean
+        + getPaymentHistory() : Payments[]
+        - validatePaymentData() : boolean
+        - updatePaymentStatus() : boolean
+    }
+
+    class Bills {
+        - userId : ObjectId
+        - packagePurchaseId : ObjectId
+        - billNumber : string
+        - totalAmount : number
+        - status : BillStatus
+        - dueDate : Date
+        - paidDate : Date
+        - notes : string
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + generateBill() : boolean
+        + markAsPaid() : boolean
+        + sendReminder() : boolean
+        + calculateLateFee() : number
+        - validateBillData() : boolean
+        - generateBillNumber() : string
+    }
+
+    enum ServiceType {
+        consultation
+        test
+        treatment
+        other
+    }
+
+    enum PurchaseStatus {
+        active
+        expired
+        cancelled
+        suspended
+    }
+
+    enum PaymentMethod {
+        credit_card
+        bank_transfer
+        payos
+        cash
+    }
+
+    enum PaymentStatus {
+        pending
+        completed
+        failed
+        refunded
+        cancelled
+    }
+
+    enum BillStatus {
+        pending
+        paid
+        overdue
+        cancelled
+    }
+
+    enum UserRole {
+        customer
+        doctor
+        staff
+        manager
+        admin
+    }
+
+    enum AvailableLocation {
+        Athome
+        Online
+        Center
+    }
+}
+
+' Relationships based on actual code
+Service ||--|| ServiceType : "categorized as"
+Service ||--o{ AvailableLocation : "available at"
+Service ||--o{ ServiceItem : "included in"
+
+ServicePackages ||--o{ ServiceItem : "contains"
+ServicePackages ||--o{ PackagePurchases : "purchased as"
+
+ServiceItem }o--|| Service : "references"
+ServiceItem }o--|| ServicePackages : "belongs to"
+
+PackagePurchases }o--|| User : "purchased by"
+PackagePurchases }o--|| ServicePackages : "for package"
+PackagePurchases ||--|| PurchaseStatus : "has status"
+PackagePurchases ||--o{ UsedService : "tracks usage"
+PackagePurchases ||--|| Payments : "paid via"
+PackagePurchases ||--|| Bills : "billed as"
+
+UsedService }o--|| Service : "uses"
+UsedService }o--|| PackagePurchases : "within purchase"
+
+User ||--|| UserRole : "has role"
+User ||--o{ PackagePurchases : "makes purchases"
+User ||--o{ Payments : "makes payments"
+User ||--o{ Bills : "receives bills"
+
+Payments }o--|| User : "by user"
+Payments }o--|| PackagePurchases : "for purchase"
+Payments ||--|| PaymentMethod : "via method"
+Payments ||--|| PaymentStatus : "has status"
+
+Bills }o--|| User : "for user"
+Bills }o--|| PackagePurchases : "for purchase"
+Bills ||--|| BillStatus : "has status"
+
+@enduml 

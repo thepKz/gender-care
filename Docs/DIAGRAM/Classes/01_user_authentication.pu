@@ -1,0 +1,129 @@
+@startuml 01_user_authentication
+
+skinparam classAttributeIconSize 0
+skinparam backgroundColor LightYellow
+skinparam classBackgroundColor LightBlue
+skinparam classBorderColor DarkBlue
+
+title User Authentication System - Class Diagram (Actual Implementation)
+
+package "Authentication System" {
+    class Users {
+        - _id : ObjectId
+        - email : string [unique]
+        - password : string
+        - fullName : string
+        - phone : string
+        - avatar : string
+        - gender : string
+        - address : string
+        - year : DateTime
+        - role : string
+        - emailVerified : boolean
+        - isActive : boolean
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + login(credentials) : AuthToken
+        + logout() : boolean
+        + changePassword(oldPass, newPass) : boolean
+        + resetPassword(email) : boolean
+        + verifyEmail(code) : boolean
+        + updateProfile(data) : boolean
+        - hashPassword(password) : string
+        - validatePassword(password) : boolean
+    }
+
+    class AuthToken {
+        - _id : ObjectId
+        - userId : ObjectId
+        - refreshToken : string
+        - userAgent : string
+        - ipAddress : string
+        - expiresAt : Date
+        - isRevoked : boolean
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + generateToken() : string
+        + validateToken() : boolean
+        + refreshToken() : AuthToken
+        + revokeToken() : boolean
+        + isExpired() : boolean
+        - createJWT() : string
+        - verifyJWT(token) : boolean
+    }
+
+    class OtpCodes {
+        - _id : ObjectId
+        - userId : ObjectId
+        - type : string
+        - otp : string
+        - expires : DateTime
+        - verified : boolean
+        - verifiedAt : DateTime
+        - attempts : number
+        - createdAt : DateTime
+        --
+        + generateOTP() : string
+        + verifyOTP(inputCode) : boolean
+        + resendOTP() : boolean
+        + expireOTP() : boolean
+        + incrementAttempt() : boolean
+        - generateRandomCode() : string
+        - isValidAttempt() : boolean
+    }
+
+    class LoginHistory {
+        - _id : ObjectId
+        - userId : ObjectId
+        - ipAddress : string
+        - userAgent : string
+        - loginAt : DateTime
+        - status : string
+        - failReason : string
+        --
+        + recordLogin() : boolean
+        + getRecentLogins(userId) : LoginHistory[]
+        + getFailedAttempts(userId) : number
+        + isAccountLocked(userId) : boolean
+        - detectSuspiciousActivity() : boolean
+        - logSecurityEvent() : boolean
+    }
+
+    enum UserRole {
+        GUEST
+        CUSTOMER
+        DOCTOR
+        STAFF
+        MANAGER
+        ADMIN
+    }
+
+    enum OtpType {
+        EMAIL_VERIFICATION
+        PASSWORD_RESET
+        LOGIN
+    }
+
+    enum LoginStatus {
+        SUCCESS
+        FAILED
+    }
+}
+
+' Relationships
+Users ||--o{ AuthToken : "has"
+Users ||--o{ OtpCodes : "receives"
+Users ||--o{ LoginHistory : "makes"
+Users ||--|| UserRole : "assigned"
+
+AuthToken }o--|| Users : "belongs to"
+
+OtpCodes }o--|| Users : "sent to"
+OtpCodes ||--|| OtpType : "of type"
+
+LoginHistory }o--|| Users : "by"
+LoginHistory ||--|| LoginStatus : "with status"
+
+@enduml 

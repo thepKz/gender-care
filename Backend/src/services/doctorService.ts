@@ -91,7 +91,7 @@ export const getDoctorActiveStatus = async (doctorId: string) => {
 // Enhanced function: Lấy tất cả doctors với feedback và status
 export const getAllDoctorsWithDetails = async () => {
   try {
-    const doctors = await Doctor.find().populate('userId', 'fullName email avatar phone isActive');
+    const doctors = await Doctor.find().populate('userId', 'fullName email avatar phone gender address isActive');
     
     const doctorsWithDetails = [];
     
@@ -117,7 +117,7 @@ export const getAllDoctorsWithDetails = async () => {
 // Enhanced function: Lấy doctor by ID với feedback và status  
 export const getDoctorByIdWithDetails = async (id: string) => {
   try {
-    const doctor = await Doctor.findById(id).populate('userId', 'fullName email avatar phone isActive');
+    const doctor = await Doctor.findById(id).populate('userId', 'fullName email avatar phone gender address isActive');
     
     if (!doctor) {
       throw new Error('Không tìm thấy bác sĩ');
@@ -138,8 +138,9 @@ export const getDoctorByIdWithDetails = async (id: string) => {
   }
 };
 
-export const getAllDoctors = () => Doctor.find().populate('userId', 'fullName email avatar phone');
-export const getDoctorById = (id: string) => Doctor.findById(id).populate('userId', 'fullName email avatar phone');
+// ✅ Enhanced populate để include gender và address fields
+export const getAllDoctors = () => Doctor.find().populate('userId', 'fullName email avatar phone gender address isActive');
+export const getDoctorById = (id: string) => Doctor.findById(id).populate('userId', 'fullName email avatar phone gender address isActive');
 
 // PUBLIC: Lấy thông tin cơ bản của bác sĩ (không bao gồm thông tin nhạy cảm)
 export const getDoctorPublicInfo = async (id: string) => {
@@ -198,10 +199,17 @@ export const createDoctor = async (doctorInfo: any) => {
 
     const email = `bs.${normalizedName}@genderhealthcare.com`;
 
-    // Kiểm tra email đã tồn tại chưa
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      throw new Error(`Email ${email} đã tồn tại. Vui lòng đặt tên khác cho bác sĩ.`);
+    // Validate email và phone không trùng lặp
+    const existingUserByEmail = await User.findOne({ email });
+    if (existingUserByEmail) {
+      throw new Error(`Email ${email} đã tồn tại trong hệ thống`);
+    }
+
+    if (doctorInfo.phone) {
+      const existingUserByPhone = await User.findOne({ phone: doctorInfo.phone });
+      if (existingUserByPhone) {
+        throw new Error(`Số điện thoại ${doctorInfo.phone} đã tồn tại trong hệ thống`);
+      }
     }
 
     // Tạo password mặc định
@@ -214,6 +222,7 @@ export const createDoctor = async (doctorInfo: any) => {
       password: hashedPassword,
       fullName: doctorInfo.fullName,
       phone: doctorInfo.phone || '',
+      avatar: doctorInfo.image || '', // Sync avatar từ doctor image
       gender: doctorInfo.gender || 'other',
       address: doctorInfo.address || '',
       role: 'doctor',
@@ -224,10 +233,11 @@ export const createDoctor = async (doctorInfo: any) => {
     // Loại bỏ các field user khỏi doctorInfo để tránh duplicate
     const { fullName, phone, gender, address, ...pureDoctorlnfo } = doctorInfo;
 
-    // Tạo doctor record với userId vừa tạo
+    // Tạo doctor record với userId vừa tạo, đồng bộ image với user avatar
     const doctor = await Doctor.create({
       userId: user._id,
-      ...pureDoctorlnfo
+      ...pureDoctorlnfo,
+      image: doctorInfo.image || user.avatar // Đảm bảo sync image
     });
 
     // Populate user info để trả về
@@ -244,16 +254,120 @@ export const createDoctor = async (doctorInfo: any) => {
   }
 };
 
-export const updateDoctor = (id: string, data: any) => {
-  // Loại bỏ userId khỏi data để đảm bảo không thể cập nhật
-  const { userId, ...updateData } = data;
-  
-  // Nếu có người cố tình gửi userId, ghi log cảnh báo
-  if (userId) {
-    console.warn(`Cố gắng cập nhật userId cho doctor ${id}, đã bị loại bỏ`);
+export const updateDoctor = async (id: string, data: any) => {
+  try {
+    // Validate ObjectId
+    if (!isValidObjectId(id)) {
+      throw new Error('ID bác sĩ không hợp lệ');
+    }
+
+    // Loại bỏ userId khỏi data để đảm bảo không thể cập nhật
+    const { userId, ...updateData } = data;
+    
+    // Nếu có người cố tình gửi userId, ghi log cảnh báo
+    if (userId) {
+      console.warn(`⚠️ Cố gắng cập nhật userId cho doctor ${id}, đã bị loại bỏ`);
+    }
+
+    // Tìm doctor để lấy userId cho sync avatar
+    const existingDoctor = await Doctor.findById(id);
+    if (!existingDoctor) {
+      throw new Error('Không tìm thấy bác sĩ để cập nhật');
+    }
+
+    // Nếu có cập nhật image, đồng bộ với user avatar
+    if (updateData.image) {
+      await User.findByIdAndUpdate(existingDoctor.userId, {
+        avatar: updateData.image
+      });
+      console.log(`🔄 Đã sync avatar user với doctor image: ${updateData.image}`);
+    }
+
+    // Validate experience nếu có
+    if (updateData.experience !== undefined) {
+      const exp = Number(updateData.experience);
+      if (isNaN(exp) || exp < 0 || exp > 50) {
+        throw new Error('Kinh nghiệm phải là số từ 0 đến 50 năm');
+      }
+      updateData.experience = exp;
+    }
+
+    // Validate rating nếu có
+    if (updateData.rating !== undefined) {
+      const rating = Number(updateData.rating);
+      if (isNaN(rating) || rating < 0 || rating > 5) {
+        throw new Error('Rating phải là số từ 0 đến 5');
+      }
+      updateData.rating = rating;
+    }
+
+    // Validate gender nếu có
+    if (updateData.gender && !['male', 'female', 'other'].includes(updateData.gender)) {
+      throw new Error('Giới tính phải là male, female hoặc other');
+    }
+
+    console.log(`🔄 [UPDATE START] Doctor ID: ${id}`);
+    console.log(`📝 [UPDATE DATA]:`, JSON.stringify(updateData, null, 2));
+
+    // Populate để log current state
+    const populatedDoctor = await Doctor.findById(id).populate('userId', 'fullName email');
+    
+    console.log(`👤 [BEFORE UPDATE] Doctor: ${(populatedDoctor as any)?.userId?.fullName}`);
+    console.log(`📊 [BEFORE UPDATE] Current data:`, {
+      bio: populatedDoctor?.bio,
+      experience: populatedDoctor?.experience,
+      rating: populatedDoctor?.rating,
+      specialization: populatedDoctor?.specialization,
+      education: populatedDoctor?.education,
+      certificate: populatedDoctor?.certificate,
+    });
+
+    // Thực hiện update với options đầy đủ
+    const updatedDoctor = await Doctor.findByIdAndUpdate(
+      id, 
+      { 
+        $set: updateData,
+        updatedAt: new Date() // Force update timestamp
+      }, 
+      { 
+        new: true,           // Return updated document
+        runValidators: true, // Run mongoose validators
+        upsert: false,       // Don't create if not exists
+        setDefaultsOnInsert: false
+      }
+    ).populate('userId', 'fullName email avatar phone');
+
+    if (!updatedDoctor) {
+      throw new Error('Không thể cập nhật bác sĩ - doctor không tồn tại sau update');
+    }
+
+    console.log(`✅ [AFTER UPDATE] Doctor: ${(updatedDoctor as any)?.userId?.fullName}`);
+    console.log(`📊 [AFTER UPDATE] Updated data:`, {
+      bio: updatedDoctor.bio,
+      experience: updatedDoctor.experience,  
+      rating: updatedDoctor.rating,
+      specialization: updatedDoctor.specialization,
+      education: updatedDoctor.education,
+      certificate: updatedDoctor.certificate,
+      updatedAt: updatedDoctor.updatedAt
+    });
+
+    // Verify update trong database bằng cách query lại
+    const verifyDoctor = await Doctor.findById(id);
+    console.log(`🔍 [VERIFICATION] Database state after update:`, {
+      bio: verifyDoctor?.bio,
+      experience: verifyDoctor?.experience,
+      updatedAt: verifyDoctor?.updatedAt
+    });
+
+    console.log(`🎉 [UPDATE SUCCESS] Doctor ${id} updated successfully`);
+    
+    return updatedDoctor;
+  } catch (error: any) {
+    console.error(`❌ [UPDATE ERROR] Doctor ID ${id}:`, error.message);
+    console.error(`❌ [UPDATE ERROR] Stack:`, error.stack);
+    throw error;
   }
-  
-  return Doctor.findByIdAndUpdate(id, updateData, { new: true }).populate('userId', 'fullName email avatar phone');
 };
 
 export const deleteDoctor = (id: string) => Doctor.findByIdAndDelete(id);

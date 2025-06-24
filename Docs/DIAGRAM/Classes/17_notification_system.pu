@@ -1,0 +1,130 @@
+@startuml 17_notification_system
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Notification System - Class Diagram (Real Implementation)
+
+package "Simple Notification System" {
+    class NotificationDays {
+        - reminderId : ObjectId
+        - notificationTimes : Date
+        - status : NotificationStatus
+        - reason : string
+        - takenAt : Date
+        - snoozedUntil : Date
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createNotification() : boolean
+        + updateStatus(status) : boolean
+        + markAsTaken(reason) : boolean
+        + markAsSkipped(reason) : boolean
+        + snoozeNotification(until) : boolean
+        + sendNotification() : boolean
+        + getNotificationsByReminder(reminderId) : NotificationDays[]
+        + getMyNotifications(userId) : NotificationDays[]
+        + getAllNotifications() : NotificationDays[]
+        + getNotificationStatistics() : object
+        - validateStatus() : boolean
+        - checkOverdue() : boolean
+    }
+
+    class MedicationReminders {
+        - id : ObjectId
+        - createdByUserId : ObjectId
+        - profileId : ObjectId
+        - medicineIds : ObjectId[]
+        - title : string
+        - description : string
+        - startDate : Date
+        - endDate : Date
+        - frequency : string
+        - timesPerDay : number
+        - notificationTimes : Date[]
+        - dosage : string
+        - instructions : string
+        - isActive : boolean
+        --
+        + createReminder() : boolean
+        + updateReminder(data) : boolean
+        + deleteReminder() : boolean
+        + activateReminder() : boolean
+        + deactivateReminder() : boolean
+        + addNotificationTime(time) : boolean
+        + removeNotificationTime(time) : boolean
+        + getActiveReminders() : MedicationReminders[]
+        + generateNotifications() : NotificationDays[]
+        - validateReminderData() : boolean
+    }
+
+    class User {
+        - id : ObjectId
+        - email : string
+        - fullName : string
+        - role : UserRole
+        --
+        + getMyNotifications() : NotificationDays[]
+        + getMyReminders() : MedicationReminders[]
+        + updateNotificationStatus(notificationId, status) : boolean
+        + snoozeNotification(notificationId, until) : boolean
+    }
+
+    class UserProfiles {
+        - userId : ObjectId
+        - fullName : string
+        - phoneNumber : string
+        - email : string
+        --
+        + getProfileNotifications() : NotificationDays[]
+        + getRemindersByProfile() : MedicationReminders[]
+    }
+
+    class Medicines {
+        - name : string
+        - type : MedicineType
+        - description : string
+        - defaultDosage : string
+        - defaultTimingInstructions : string
+        - isActive : boolean
+        --
+        + getMedicineInfo() : object
+        + getDefaultInstructions() : string
+        + isValidForReminder() : boolean
+    }
+
+    enum NotificationStatus {
+        pending
+        sent
+        failed
+        taken
+        skipped
+        snoozed
+    }
+
+    enum UserRole {
+        customer
+        doctor
+        staff
+        manager
+        admin
+    }
+
+    enum MedicineType {
+        tablet
+        capsule
+        liquid
+        injection
+        topical
+        inhaler
+        other
+    }
+}
+
+' Relationships
+NotificationDays }|--|| MedicationReminders : "notification for"
+MedicationReminders }|--|| User : "created by"
+MedicationReminders }|--|| UserProfiles : "for profile"
+MedicationReminders }|--o{ Medicines : "contains medicines"
+
+@enduml 

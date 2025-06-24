@@ -33,6 +33,35 @@ export const appointmentApi = {
         return response.data;
     },
 
+    // Lấy danh sách cuộc hẹn theo doctorId
+    getAppointmentsByDoctorId: async (doctorId: string, filters: AppointmentFilters = {}) => {
+        const response = await axiosInstance.get(`/appointments/doctor/${doctorId}`, { params: filters });
+        return response.data;
+    },
+
+    // Lấy danh sách cuộc hẹn của bác sĩ hiện tại (không cần doctorId)
+    getMyAppointments: async (filters: AppointmentFilters = {}) => {
+        try {
+            const response = await axiosInstance.get('/appointments/my', { params: filters });
+            return response.data;
+        } catch (error) {
+            // Handle case khi doctor chưa có record trong hệ thống
+            console.error('Error fetching doctor appointments:', error);
+            throw error;
+        }
+    },
+
+    // Lấy danh sách tất cả cuộc hẹn cho Staff (chỉ appointment, không có consultation)
+    getStaffAppointments: async (filters: AppointmentFilters = {}) => {
+        try {
+            const response = await axiosInstance.get('/appointments/staff', { params: filters });
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching staff appointments:', error);
+            throw error;
+        }
+    },
+
     // Lấy chi tiết cuộc hẹn theo ID
     getAppointmentById: async (id: string) => {
         const response = await axiosInstance.get(`/appointments/${id}`);
@@ -119,6 +148,18 @@ export const appointmentApi = {
     // Cập nhật trạng thái thanh toán
     updatePaymentStatus: async (id: string, status: 'confirmed') => {
         const response = await axiosInstance.put(`/appointments/${id}/payment`, { status });
+        return response.data;
+    },
+
+    // Xác nhận cuộc hẹn (paid -> confirmed)
+    confirmAppointment: async (id: string) => {
+        const response = await axiosInstance.put(`/appointments/${id}/confirm`);
+        return response.data;
+    },
+
+    // Hủy cuộc hẹn bởi bác sĩ với lý do
+    cancelAppointmentByDoctor: async (id: string, reason: string) => {
+        const response = await axiosInstance.put(`/appointments/${id}/cancel-by-doctor`, { reason });
         return response.data;
     }
 };

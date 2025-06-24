@@ -40,10 +40,16 @@ export const createProfile = async (req: AuthRequest, res: Response) => {
 // Lấy tất cả profiles (admin/staff only)
 export const getAllProfiles = async (req: AuthRequest, res: Response) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const filters = {
+      page: parseInt(req.query.page as string) || 1,
+      limit: parseInt(req.query.limit as string) || 10,
+      search: req.query.search as string,
+      gender: req.query.gender as 'all' | 'male' | 'female' | 'other',
+      dateFrom: req.query.dateFrom as string,
+      dateTo: req.query.dateTo as string
+    };
 
-    const result = await userProfileService.getAllUserProfiles(page, limit);
+    const result = await userProfileService.getAllUserProfiles(filters);
 
     res.json({
       message: 'Lấy danh sách hồ sơ bệnh án thành công',

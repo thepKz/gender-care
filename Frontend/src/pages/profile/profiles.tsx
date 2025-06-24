@@ -63,11 +63,6 @@ const ProfilesPage: React.FC = () => {
     }
   };
 
-  const handleCreateProfile = () => {
-    setSelectedProfile(null);
-    setIsModalVisible(true);
-  };
-
   const handleEditProfile = (profile: UserProfile) => {
     setSelectedProfile(profile);
     setIsModalVisible(true);
@@ -279,7 +274,10 @@ const ProfilesPage: React.FC = () => {
           {/* Profiles List */}
           {loading ? (
             <Card className="text-center py-16 border-0 shadow-md">
-              <Spin size="large" tip="Đang tải danh sách hồ sơ..." />
+              <div className="text-center">
+          <Spin size="large" />
+          <div className="mt-2 text-gray-600">Đang tải danh sách hồ sơ...</div>
+        </div>
             </Card>
           ) : profiles.length === 0 ? (
             <Card className="text-center py-16 border-0 shadow-md">

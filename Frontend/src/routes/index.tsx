@@ -34,12 +34,13 @@ import FeedbackPage from '../pages/feedback';
 
 
 // Consultation Pages
-import PaymentSuccessPage from '../pages/consultation/PaymentSuccessPage';
+import PaymentPage from '../pages/consultation/PaymentPage';
+import ConsultationPaymentSuccessPage from '../pages/consultation/PaymentSuccessPage';
 import ServicesPage from '../pages/services';
 
 // Payment Pages
 import PaymentProcessPage from '../pages/payment/PaymentProcessPage';
-import PaymentSuccessPageNew from '../pages/payment/PaymentSuccessPage';
+import PaymentSuccessPage from '../pages/payment/PaymentSuccessPage';
 import PaymentCancelPage from '../pages/payment/PaymentCancelPage';
 
 // Demo Pages
@@ -110,7 +111,7 @@ const AppRoutes: React.FC = () => {
       <Route element={<ProfileLayout />}>
         <Route path="/profile" element={isAuthenticated ? <ProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/profile/edit" element={isAuthenticated ? <ProfileEditPage /> : <Navigate to="/login" replace />} />
-        <Route path="/profile/create-profile" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/create-profile" element={<Navigate to="/user-profiles/create" replace />} />
         <Route path="/profile/edit-profile/:profileId" element={isAuthenticated ? <EditProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/profile/view-profile/:profileId" element={isAuthenticated ? <ViewProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/medical-records/:profileId" element={isAuthenticated ? <NotFoundPage /> : <Navigate to="/login" replace />} />
@@ -137,6 +138,7 @@ const AppRoutes: React.FC = () => {
         
         {/* User Profiles Page */}
         <Route path="/user-profiles" element={isAuthenticated ? <UserProfilesPage /> : <Navigate to="/login" replace />} />
+        <Route path="/user-profiles/create" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
         
         {/* Purchased Packages Page */}
         <Route path="/purchased-packages" element={isAuthenticated ? <PurchasedPackagesPage /> : <Navigate to="/login" replace />} />
@@ -152,28 +154,12 @@ const AppRoutes: React.FC = () => {
         
         {/* Payment Processing Pages */}
         <Route path="/payment/process" element={<PaymentProcessPage />} />
-        <Route path="/payment/success" element={
-          // IMMEDIATE redirect for PAID status
-          (() => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const status = urlParams.get('status');
-            const code = urlParams.get('code');
-            const cancel = urlParams.get('cancel');
-            
-            if (code === '00' && cancel === 'false' && status === 'PAID') {
-              console.log('🚨 [RouteLevel] PAID detected - immediate redirect');
-              // Force immediate redirect at route level
-              window.location.replace('/booking-history');
-              return <div>Redirecting...</div>;
-            }
-            
-            return <PaymentSuccessPageNew />;
-          })()
-        } />
+        <Route path="/payment/success" element={<PaymentSuccessPage />} />
         <Route path="/payment/cancel" element={<PaymentCancelPage />} />
         
         {/* Consultation Pages */}
-        <Route path="/consultation/success/:qaId" element={<PaymentSuccessPage />} />
+        <Route path="/consultation/payment/:qaId" element={<PaymentPage />} />
+        <Route path="/consultation/success/:qaId?" element={<ConsultationPaymentSuccessPage />} />
         
         {/* Demo Pages */}
         <Route path="/demo" element={<DemoIndexPage />} />

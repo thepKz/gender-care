@@ -37,7 +37,7 @@ export const canCreateUser = (userRole: string): boolean => {
 };
 
 export const canUpdateUser = (userRole: string): boolean => {
-  return ['admin', 'manager'].includes(userRole);
+  return ['admin'].includes(userRole);
 };
 
 export const canDeleteUser = (userRole: string): boolean => {
@@ -57,18 +57,13 @@ export const canViewLoginHistory = (userRole: string): boolean => {
 export const getCurrentUserRole = (): string => {
   try {
     const userInfo = localStorage.getItem('user_info');
-    console.log('Raw user_info from localStorage:', userInfo); // Debug log
     
     if (userInfo) {
       const parsed = JSON.parse(userInfo);
-      console.log('Parsed user info:', parsed); // Debug log
-      console.log('User role:', parsed.role); // Debug log
       return parsed.role || 'customer';
     }
-    console.log('No user_info found in localStorage'); // Debug log
     return 'customer';
-  } catch (error) {
-    console.error('Error getting user role:', error);
+  } catch {
     return 'customer';
   }
 };
@@ -81,8 +76,7 @@ export const getCurrentUser = () => {
       return JSON.parse(userInfo);
     }
     return null;
-  } catch (error) {
-    console.error('Error getting user info:', error);
+  } catch {
     return null;
   }
 }; 

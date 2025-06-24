@@ -6,14 +6,16 @@ import {
     ClockCircleOutlined,
     CustomerServiceOutlined,
     DashboardOutlined,
-    DatabaseOutlined,
+    FileTextOutlined,
     HeartOutlined,
+    HistoryOutlined,
     LogoutOutlined,
     MedicineBoxOutlined,
     MenuOutlined,
     SettingOutlined,
     TeamOutlined,
-    UserOutlined
+    UserOutlined,
+    VideoCameraOutlined
 } from '@ant-design/icons';
 import { Avatar, Badge, Button, Dropdown, Layout, Menu, Space, Typography } from 'antd';
 import React, { useState } from 'react';
@@ -37,49 +39,34 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
   // Menu items cho Admin
   const adminMenuItems = [
     {
-      key: 'overview',
-      icon: <DashboardOutlined />,
-      label: 'Tổng quan',
-      onClick: () => navigate('/dashboard/admin'),
+      key: 'users',
+      icon: <TeamOutlined />,
+      label: 'Quản lý người dùng',
+      onClick: () => navigate('/dashboard/management'),
     },
     {
-      key: 'doctors',
-      icon: <MedicineBoxOutlined />,
-      label: 'Quản lý bác sĩ',
-      children: [
-        {
-          key: 'doctors-profiles',
-          label: 'Quản lý hồ sơ bác sĩ',
-          onClick: () => navigate('/dashboard/admin/doctors/profiles'),
-        },
-        {
-          key: 'doctors-schedule',
-          label: 'Quản lý lịch làm việc',
-          onClick: () => navigate('/dashboard/admin/doctors/schedule'),
-        },
-        {
-          key: 'doctors-performance',
-          label: 'Đánh giá hiệu suất',
-          onClick: () => navigate('/dashboard/admin/doctors/performance'),
-        },
-        {
-          key: 'doctors-specialties',
-          label: 'Chuyên khoa bác sĩ',
-          onClick: () => navigate('/dashboard/admin/doctors/specialties'),
-        },
-      ],
+      key: 'login-history',
+      icon: <HistoryOutlined />,
+      label: 'Lịch sử đăng nhập',
+      onClick: () => navigate('/dashboard/admin/login-history'),
+    },
+    {
+      key: 'system-logs',
+      icon: <FileTextOutlined />,
+      label: 'System Logs',
+      onClick: () => navigate('/dashboard/admin/system-logs'),
     },
     {
       key: 'reports',
       icon: <BarChartOutlined />,
-      label: 'Báo cáo & Thống kê',
+      label: 'Báo cáo',
       onClick: () => navigate('/dashboard/admin/reports'),
     },
     {
-      key: 'system',
-      icon: <DatabaseOutlined />,
-      label: 'Hệ thống',
-      onClick: () => navigate('/dashboard/admin/system'),
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: 'Cài đặt',
+      onClick: () => navigate('/dashboard/admin/settings'),
     },
   ];
 
@@ -192,6 +179,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
       onClick: () => navigate('/dashboard/doctor/my-schedule'),
     },
     {
+      key: 'consultations',
+      icon: <VideoCameraOutlined />,
+      label: 'Tư vấn trực tuyến',
+      onClick: () => navigate('/dashboard/doctor/consultations'),
+    },
+    {
       key: 'my-patients',
       icon: <HeartOutlined />,
       label: 'Bệnh nhân của tôi',
@@ -279,6 +272,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
         style={{
           background: 'linear-gradient(180deg, #667eea 0%, #764ba2 100%)',
           boxShadow: '2px 0 8px 0 rgba(29,35,41,.05)',
+          position: 'fixed',
+          height: '100vh',
+          left: 0,
+          top: 0,
+          overflow: 'auto',
+          zIndex: 100,
         }}
       >
         {/* Logo */}
@@ -482,14 +481,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
         </style>
         <Menu
           mode="inline"
-          defaultSelectedKeys={['overview']}
+          defaultSelectedKeys={userRole === 'admin' ? ['users'] : ['overview']}
           openKeys={openKeys}
           onOpenChange={setOpenKeys}
           inlineCollapsed={collapsed}
           style={{
             background: 'transparent',
             border: 'none',
-            color: 'white'
+            color: 'white',
+            height: 'calc(100vh - 120px)', // Trừ đi height của logo
+            overflowY: 'auto'
           }}
           items={menuItems}
           theme="dark"
@@ -508,7 +509,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
       </Sider>
 
       {/* Main Layout */}
-      <Layout>
+      <Layout style={{ 
+        marginLeft: collapsed ? 80 : 250,
+        transition: 'margin-left 0.2s',
+      }}>
         {/* Header */}
         <Header style={{ 
           padding: '0 24px', 
@@ -517,7 +521,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          boxShadow: '0 1px 4px rgba(0,21,41,.08)'
+          boxShadow: '0 1px 4px rgba(0,21,41,.08)',
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          left: collapsed ? 80 : 250,
+          zIndex: 99,
+          transition: 'left 0.2s',
         }}>
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <Button
@@ -586,7 +596,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
           background: 'white',
           borderRadius: '12px',
           boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          overflow: 'auto'
+          overflow: 'auto',
+          marginTop: 88, // 64px header + 24px margin
+          minHeight: 'calc(100vh - 88px)',
         }}>
           {children}
         </Content>

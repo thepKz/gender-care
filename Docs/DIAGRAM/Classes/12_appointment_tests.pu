@@ -1,0 +1,115 @@
+@startuml 12_appointment_tests
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Appointment Tests Management - Class Diagram (Real Implementation)
+
+package "Appointment Tests System" {
+    class AppointmentTests {
+        - appointmentId : string
+        - description : string
+        - name : string
+        - price : number
+        - preparationGuidelines : string
+        - resultWaitTime : string
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createTest() : boolean
+        + updateTest(data) : boolean
+        + deleteTest() : boolean
+        + calculateTotalPrice() : number
+        + getTestsByAppointment(appointmentId) : AppointmentTests[]
+        + validateTestData() : boolean
+        - checkDuplicateTest() : boolean
+        - validatePrice() : boolean
+    }
+
+    class Appointments {
+        - createdByUserId : ObjectId
+        - profileId : ObjectId
+        - appointmentDate : Date
+        - appointmentTime : string
+        - appointmentType : AppointmentType
+        - status : AppointmentStatus
+        - totalAmount : number
+        --
+        + getTestsForAppointment() : AppointmentTests[]
+        + calculateTotalTestCost() : number
+        + hasTests() : boolean
+        + addTest(testId) : boolean
+    }
+
+    class TestResults {
+        - appointmentTestId : ObjectId
+        - testValue : string
+        - resultStatus : ResultStatus
+        - testDate : Date
+        - notes : string
+        --
+        + createResult() : boolean
+        + updateResult(value) : boolean
+        + getResultForTest() : TestResults
+        + isResultReady() : boolean
+    }
+
+    class User {
+        - id : ObjectId
+        - email : string
+        - fullName : string
+        - role : UserRole
+        --
+        + bookTestAppointment() : boolean
+        + getMyTestResults() : TestResults[]
+        + canAccessTestResults() : boolean
+    }
+
+    class UserProfiles {
+        - userId : ObjectId
+        - fullName : string
+        - phoneNumber : string
+        - dateOfBirth : Date
+        - gender : string
+        --
+        + getProfileForTests() : object
+        + isEligibleForTest(testName) : boolean
+    }
+
+    enum AppointmentType {
+        consultation
+        test
+        other
+    }
+
+    enum AppointmentStatus {
+        pending
+        pending_payment
+        confirmed
+        completed
+        cancelled
+    }
+
+    enum ResultStatus {
+        pending
+        completed
+        reviewed
+        cancelled
+    }
+
+    enum UserRole {
+        customer
+        doctor
+        staff
+        manager
+        admin
+    }
+}
+
+' Relationships
+AppointmentTests }|--|| Appointments : "belongs to"
+TestResults }|--|| AppointmentTests : "result of"
+Appointments }|--|| User : "created by"
+Appointments }|--|| UserProfiles : "for profile"
+
+@enduml 

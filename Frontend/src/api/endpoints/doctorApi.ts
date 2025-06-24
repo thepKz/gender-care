@@ -1,5 +1,28 @@
 import axiosInstance from '../axiosConfig';
 
+// ===== MERGED INTERFACES FROM BOTH FILES =====
+
+export interface IDoctorFeedback {
+  totalFeedbacks: number;
+  averageRating: number;
+  feedbacks: Array<{
+    _id: string;
+    rating: number;
+    feedback: string;
+    comment?: string;
+    appointmentId?: any;
+    createdAt: string;
+  }>;
+  message: string;
+}
+
+export interface IDoctorStatus {
+  isActive: boolean;
+  statusText: string;
+  message: string;
+}
+
+// Base doctor info từ user
 export interface DoctorInfo {
   _id: string;
   fullName: string;
@@ -7,8 +30,12 @@ export interface DoctorInfo {
   avatar?: string;
   phone?: string;
   role?: string;
+  isActive?: boolean;
+  gender?: string;
+  address?: string;
 }
 
+// Main Doctor interface - merged và standardized
 export interface Doctor {
   _id: string;
   userId: DoctorInfo;
@@ -21,7 +48,14 @@ export interface Doctor {
   certificate?: string;
   createdAt: string;
   updatedAt: string;
+  isDeleted?: boolean;
+  // Enhanced fields
+  feedback?: IDoctorFeedback;
+  status?: IDoctorStatus;
 }
+
+// Backwards compatibility - alias cho IDoctor
+export interface IDoctor extends Doctor {}
 
 export interface DoctorSchedule {
   _id: string;
@@ -46,11 +80,46 @@ export interface AvailableDoctor {
   }>;
 }
 
-// API Functions
+export interface CreateDoctorRequest {
+  fullName: string;
+  phone?: string;
+  gender?: string;
+  address?: string;
+  bio?: string;
+  experience?: number;
+  image?: string;
+  specialization?: string;
+  education?: string;
+  certificate?: string;
+}
+
+export interface UpdateDoctorRequest {
+  bio?: string;
+  experience?: number;
+  image?: string;
+  specialization?: string;
+  education?: string;
+  certificate?: string;
+}
+
+// ===== CONSOLIDATED DOCTOR API =====
 export const doctorApi = {
-  // Lấy tất cả bác sĩ (public)
+  // ===== BASIC CRUD OPERATIONS =====
+  
+  // Lấy tất cả bác sĩ (basic info)
   getAllDoctors: async (): Promise<Doctor[]> => {
     const response = await axiosInstance.get('/doctors');
+    return response.data;
+  },
+
+  // Alias cho backwards compatibility
+  getAll: async (): Promise<Doctor[]> => {
+    return doctorApi.getAllDoctors();
+  },
+
+  // 🆕 NEW: Lấy danh sách tất cả bác sĩ với feedback và status details  
+  getAllWithDetails: async (): Promise<{ message: string; data: Doctor[]; total: number }> => {
+    const response = await axiosInstance.get('/doctors/details/all');
     return response.data;
   },
 
@@ -63,6 +132,90 @@ export const doctorApi = {
   // Lấy thông tin bác sĩ theo ID với full access (staff only)
   getDoctorByIdFull: async (id: string): Promise<Doctor> => {
     const response = await axiosInstance.get(`/doctors/${id}`);
+    return response.data;
+  },
+
+  // Alias cho compatibility
+  getById: async (id: string): Promise<Doctor> => {
+    return doctorApi.getDoctorByIdFull(id);
+  },
+
+  // 🆕 NEW: Lấy thông tin bác sĩ theo ID với feedback và status details
+  getByIdWithDetails: async (id: string): Promise<{ message: string; data: Doctor }> => {
+    const response = await axiosInstance.get(`/doctors/${id}/details`);
+    return response.data;
+  },
+
+  // 🆕 NEW: Lấy chỉ feedback của doctor
+  getFeedbacks: async (id: string): Promise<{ message: string; data: IDoctorFeedback }> => {
+    const response = await axiosInstance.get(`/doctors/${id}/feedbacks`);
+    return response.data;
+  },
+
+  // 🆕 NEW: Lấy chỉ trạng thái của doctor
+  getStatus: async (id: string): Promise<{ message: string; data: IDoctorStatus }> => {
+    const response = await axiosInstance.get(`/doctors/${id}/status`);
+    return response.data;
+  },
+
+  // 🆕 NEW: Cập nhật trạng thái active/inactive của doctor (Manager only)
+  updateStatus: async (id: string, isActive: boolean): Promise<{ message: string; data: any }> => {
+    const response = await axiosInstance.put(`/doctors/${id}/status`, { isActive });
+    return response.data;
+  },
+
+  // Tạo bác sĩ mới (staff only)
+  createDoctor: async (doctorData: CreateDoctorRequest): Promise<Doctor> => {
+    const response = await axiosInstance.post('/doctors', doctorData);
+    return response.data;
+  },
+
+  // Alias cho compatibility
+  create: async (doctorData: CreateDoctorRequest): Promise<Doctor> => {
+    return doctorApi.createDoctor(doctorData);
+  },
+
+  // Cập nhật thông tin bác sĩ (staff only)
+  updateDoctor: async (id: string, doctorData: UpdateDoctorRequest): Promise<Doctor> => {
+    const response = await axiosInstance.put(`/doctors/${id}`, doctorData);
+    return response.data;
+  },
+
+  // Alias cho compatibility
+  update: async (id: string, doctorData: UpdateDoctorRequest): Promise<Doctor> => {
+    return doctorApi.updateDoctor(id, doctorData);
+  },
+
+  // Xóa bác sĩ (staff only)
+  deleteDoctor: async (id: string): Promise<void> => {
+    await axiosInstance.delete(`/doctors/${id}`);
+  },
+
+  // Alias cho compatibility
+  delete: async (id: string): Promise<void> => {
+    return doctorApi.deleteDoctor(id);
+  },
+
+  // ===== AVAILABILITY & SCHEDULING =====
+
+  // Lấy bác sĩ có sẵn lịch (public)
+  getAvailableDoctors: async (date?: string, timeSlot?: string): Promise<AvailableDoctor[]> => {
+    const params: any = {};
+    if (date) params.date = date;
+    if (timeSlot) params.timeSlot = timeSlot;
+    
+    const response = await axiosInstance.get('/doctors/available', { params });
+    return response.data;
+  },
+
+  // Alias cho compatibility
+  getAvailable: async (date?: string, timeSlot?: string): Promise<Doctor[]> => {
+    const params = new URLSearchParams();
+    if (date) params.append('date', date);
+    if (timeSlot) params.append('timeSlot', timeSlot);
+    
+    const endpoint = `/doctors/available${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await axiosInstance.get(endpoint);
     return response.data;
   },
 
@@ -80,35 +233,8 @@ export const doctorApi = {
     return response.data;
   },
 
-  // Tìm bác sĩ có lịch trống (public)
-  getAvailableDoctors: async (date?: string, timeSlot?: string): Promise<AvailableDoctor[]> => {
-    const params: any = {};
-    if (date) params.date = date;
-    if (timeSlot) params.timeSlot = timeSlot;
-    
-    const response = await axiosInstance.get('/doctors/available', { params });
-    return response.data;
-  },
-
-  // === STAFF ONLY APIs ===
+  // ===== STAFF ONLY OPERATIONS =====
   
-  // Tạo bác sĩ mới (staff only)
-  createDoctor: async (doctorData: Partial<Doctor>): Promise<Doctor> => {
-    const response = await axiosInstance.post('/doctors', doctorData);
-    return response.data;
-  },
-
-  // Cập nhật thông tin bác sĩ (staff only)
-  updateDoctor: async (id: string, doctorData: Partial<Doctor>): Promise<Doctor> => {
-    const response = await axiosInstance.put(`/doctors/${id}`, doctorData);
-    return response.data;
-  },
-
-  // Xóa bác sĩ (staff only)
-  deleteDoctor: async (id: string): Promise<void> => {
-    await axiosInstance.delete(`/doctors/${id}`);
-  },
-
   // Tạo lịch cho bác sĩ (staff only)
   createDoctorSchedule: async (id: string, scheduleData: { date: string }): Promise<DoctorSchedule> => {
     const response = await axiosInstance.post(`/doctors/${id}/schedules`, scheduleData);
@@ -154,6 +280,28 @@ export const doctorApi = {
   // Tạo lịch hàng loạt cho cả tháng (staff only)
   createBulkDoctorScheduleForMonth: async (id: string, month: number, year: number): Promise<DoctorSchedule> => {
     const response = await axiosInstance.post(`/doctors/${id}/schedules/bulk-month`, { month, year });
+    return response.data;
+  },
+
+  // ===== ENHANCED DOCTOR IMAGE UPLOAD =====
+  
+  /**
+   * Upload doctor image to Cloudinary
+   * Enhanced cho medical professional photos
+   */
+  uploadImage: async (formData: FormData): Promise<{ success: boolean; data: { imageUrl: string; uploadedAt: string } }> => {
+    const response = await axiosInstance.post('/doctors/upload-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      // ✅ Upload progress tracking
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          console.log(`Upload progress: ${percentCompleted}%`);
+        }
+      }
+    });
     return response.data;
   },
 };

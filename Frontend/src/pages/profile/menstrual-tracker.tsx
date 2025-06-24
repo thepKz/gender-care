@@ -1,17 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Select, DatePicker, Button, Tooltip, message, Spin, Breadcrumb, Typography, Tabs } from 'antd';
-import { ArrowLeftOutlined, CalendarOutlined, BarChartOutlined, ExportOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, CalendarOutlined, ExportOutlined } from '@ant-design/icons';
+import { Breadcrumb, Button, DatePicker, message, Select, Spin, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
+import React, { useEffect, useState } from 'react';
 // import * as XLSX from 'xlsx';
-import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAuth } from '../../hooks/useAuth';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import userProfileApi from '../../api/endpoints/userProfileApi';
-import menstrualCycleApi from '../../api/endpoints/menstrualCycle';
+import { useAuth } from '../../hooks/useAuth';
 import { UserProfile } from '../../types';
 
-const { Title, Text, Paragraph } = Typography;
-const { TabPane } = Tabs;
+const { Title, Text } = Typography;
 const NUM_DAYS = 31;
 
 // Mapping tem: icon, màu, text, ý nghĩa
@@ -100,7 +98,6 @@ const MenstrualTrackerPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState('1');
   const [error, setError] = useState<string | null>(null);
   
   // Dữ liệu chu kỳ
@@ -132,12 +129,13 @@ const MenstrualTrackerPage: React.FC = () => {
       
       // Kiểm tra và xử lý nhiều cấu trúc dữ liệu có thể có
       let profileData;
-      if ((response as any)?.data?.data) {
-        profileData = (response as any).data.data;
-      } else if ((response as any)?.data) {
-        profileData = (response as any).data;
+      const responseWithData = response as { data?: { data?: UserProfile } | UserProfile };
+      if (responseWithData?.data && typeof responseWithData.data === 'object' && 'data' in responseWithData.data) {
+        profileData = responseWithData.data.data;
+      } else if (responseWithData?.data) {
+        profileData = responseWithData.data;
       } else {
-        profileData = response;
+        profileData = response as UserProfile;
       }
       
       if (!profileData) {
@@ -229,25 +227,6 @@ const MenstrualTrackerPage: React.FC = () => {
   const exportToExcel = () => {
     // TODO: Install xlsx package first: npm install xlsx @types/xlsx
     message.info('Tính năng xuất Excel sẽ được cập nhật sau!');
-    /*
-    const wsData = [
-      ['Trường/Ngày', ...Array.from({ length: NUM_DAYS }, (_, i) => i + 1)],
-      ['Tem', ...tem.map(v => (v ? TEM_MAP[v]?.text : ''))],
-      ['Cảm giác', ...sensation.map(v => {
-        const option = SENSATION_OPTIONS.find(opt => opt.value === v);
-        return option ? option.label : '';
-      })],
-      ['Quan sát chất nhờn', ...mucus.map(v => {
-        const option = MUCUS_OPTIONS.find(opt => opt.value === v);
-        return option ? option.label : '';
-      })],
-    ];
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'ChuKy');
-    XLSX.writeFile(wb, `ChuKy_${profile?.fullName || 'HoSo'}_${month.format('YYYY_MM')}.xlsx`);
-    message.success('Đã xuất dữ liệu thành công!');
-    */
   };
 
   // Render cell: nếu đang chỉnh sửa thì hiện Select, không thì chỉ hiện icon+text+tooltip
@@ -358,7 +337,10 @@ const MenstrualTrackerPage: React.FC = () => {
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl flex justify-center items-center min-h-[60vh]">
-        <Spin size="large" tip="Đang tải thông tin..." />
+        <div className="text-center">
+          <Spin size="large" />
+          <div className="mt-2 text-gray-600">Đang tải thông tin...</div>
+        </div>
       </div>
     );
   }

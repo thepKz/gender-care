@@ -1,5 +1,5 @@
-import axiosInstance from '../axiosConfig';
 import { UserProfile } from '../../types';
+import axiosInstance from '../axiosConfig';
 
 export interface CreateUserProfileRequest {
   fullName: string;
@@ -8,7 +8,9 @@ export interface CreateUserProfileRequest {
   year?: string;
 }
 
-export interface UpdateUserProfileRequest extends Partial<CreateUserProfileRequest> {}
+export interface UpdateUserProfileRequest extends Partial<CreateUserProfileRequest> {
+  id: string;
+}
 
 export interface UserProfileResponse {
   message: string;
@@ -37,7 +39,7 @@ class UserProfileApi {
   // Lấy tất cả profiles của user hiện tại
   async getMyProfiles(): Promise<UserProfile[]> {
     try {
-      const response = await axiosInstance.get<UserProfileListResponse>(`${this.baseUrl}/me`);
+      const response = await axiosInstance.get<UserProfileListResponse>(`${this.baseUrl}/my-profiles`);
       return response.data.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Lỗi khi tải danh sách hồ sơ');

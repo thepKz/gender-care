@@ -11,7 +11,7 @@ import StaffDetails from './StaffDetails';
 import DoctorSchedules from './DoctorSchedules';
 
 // Services & Appointments
-import Services from './Services';
+import Service from './Service';
 import ServicePackages from './ServicePackages';
 import Appointments from './Appointments';
 
@@ -25,9 +25,14 @@ import NotificationDays from './NotificationDays';
 import MedicalRecords, { IMedicalRecords, IMedicalRecordMedicines } from './MedicalRecords';
 import Medicines, { IMedicines as IMedicinesData } from './Medicines';
 
+// Testing & Results
+import TestResults from './TestResults';
+import AppointmentTests from './AppointmentTests';
+
 // Doctor QA & Meeting
 import DoctorQA from './DoctorQA';
 import Meeting from './Meeting';
+import GoogleAuth from './GoogleAuth';
 
 // Content & Community
 import BlogCategories from './BlogCategories';
@@ -44,6 +49,7 @@ import PaymentTracking from './PaymentTracking';
 
 // System
 import SystemConfigs from './SystemConfigs';
+import SystemLog from './SystemLogs';
 
 // Export all models
 export {
@@ -60,7 +66,7 @@ export {
   DoctorSchedules,
   
   // Services & Appointments
-  Services,
+  Service,
   ServicePackages,
   Appointments,
   
@@ -74,9 +80,14 @@ export {
   MedicalRecords,
   Medicines,
   
+  // Testing & Results
+  TestResults,
+  AppointmentTests,
+  
   // Doctor QA & Meeting
   DoctorQA,
   Meeting,
+  GoogleAuth,
   
   // Content & Community
   BlogCategories,
@@ -92,7 +103,8 @@ export {
   PaymentTracking,
   
   // System
-  SystemConfigs
+  SystemConfigs,
+  SystemLog
 };
 
 // Export interfaces

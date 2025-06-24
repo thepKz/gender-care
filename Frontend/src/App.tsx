@@ -1,5 +1,6 @@
-import { ConfigProvider, notification } from 'antd';
+import { ConfigProvider, notification, App as AntApp } from 'antd';
 import React, { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { useAppDispatch } from './redux/hooks';
 import { updateUser } from './redux/slices/authSlice';
@@ -38,27 +39,62 @@ const getUserInfoFromCookie = () => {
   return null;
 };
 
+// Helper function để handle SPA redirect từ 404 fallback
+const handleSpaRedirect = (navigate: (to: string, options?: any) => void, location: any) => {
+  // Kiểm tra query parameter từ 404.html redirect
+  const urlParams = new URLSearchParams(location.search);
+  const redirectPath = urlParams.get('redirect');
+  
+  if (redirectPath) {
+    // Redirect tới path được store từ 404.html
+    console.log('🔄 SPA Redirect from 404 fallback:', redirectPath);
+    navigate(redirectPath, { replace: true });
+    return true;
+  }
+  
+  // Kiểm tra sessionStorage từ 404.html
+  try {
+    const storedPath = sessionStorage.getItem('spa_redirect_path');
+    if (storedPath && storedPath !== location.pathname + location.search + location.hash) {
+      console.log('🔄 SPA Redirect from sessionStorage:', storedPath);
+      sessionStorage.removeItem('spa_redirect_path');
+      navigate(storedPath, { replace: true });
+      return true;
+    }
+  } catch (e) {
+    // Ignore storage errors
+  }
+  
+  return false;
+};
+
 const App: React.FC = () => {
   const { fetchProfile } = useAuth();
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // Cleanup tokens không hợp lệ trước khi làm gì khác
     cleanupInvalidTokens();
+    
+    // Handle SPA redirect từ 404 fallback ngay khi app load
+    const wasRedirected = handleSpaRedirect(navigate, location);
     
     // Nếu có cookie user_info thì cập nhật redux ngay
     const userInfo = getUserInfoFromCookie();
     if (userInfo) {
       dispatch(updateUser(userInfo));
     }
-    // Sau đó vẫn gọi fetchProfile để xác thực lại
-    if (hasAccessToken()) {
+    
+    // Sau đó vẫn gọi fetchProfile để xác thực lại (chỉ khi không redirect)
+    if (hasAccessToken() && !wasRedirected) {
       fetchProfile().catch(() => {
         // Bắt lỗi nếu có để ngăn app crash
         console.error('Không thể lấy thông tin người dùng');
       });
     }
-  }, [dispatch, fetchProfile]);
+  }, [dispatch, fetchProfile, navigate, location]);
 
   return (
     <ConfigProvider
@@ -87,7 +123,9 @@ const App: React.FC = () => {
         },
       }}
     >
-      <AppRoutes />
+      <AntApp>
+        <AppRoutes />
+      </AntApp>
     </ConfigProvider>
   );
 };

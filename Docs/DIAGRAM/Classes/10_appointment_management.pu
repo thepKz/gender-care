@@ -1,0 +1,136 @@
+@startuml 10_appointment_management
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Appointment Management System - Class Diagram (Real Implementation)
+
+package "Appointment Management System" {
+    class Appointments {
+        - createdByUserId : ObjectId
+        - profileId : ObjectId
+        - packageId : ObjectId
+        - serviceId : ObjectId
+        - doctorId : ObjectId
+        - slotId : ObjectId
+        - appointmentDate : Date
+        - appointmentTime : string
+        - appointmentType : AppointmentType
+        - typeLocation : LocationType
+        - address : string
+        - description : string
+        - notes : string
+        - status : AppointmentStatus
+        - totalAmount : number
+        - paymentStatus : PaymentStatus
+        - paidAt : Date
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createAppointment() : boolean
+        + updateStatus(status) : boolean
+        + updatePaymentStatus(status) : boolean
+        + validateRequiredFields() : boolean
+        + calculateTotalAmount() : number
+        + isEligibleForModification() : boolean
+        - validatePackageOrService() : boolean
+    }
+
+    class User {
+        - id : ObjectId
+        - email : string
+        - fullName : string
+        - role : UserRole
+        - isActive : boolean
+        --
+        + createAppointment() : boolean
+        + getMyAppointments() : Appointments[]
+        + canBookAppointment() : boolean
+    }
+
+    class UserProfiles {
+        - userId : ObjectId
+        - fullName : string
+        - phoneNumber : string
+        - dateOfBirth : Date
+        - gender : string
+        - address : string
+        --
+        + getProfileInfo() : object
+        + updateProfile() : boolean
+        + isEligibleForService() : boolean
+    }
+
+    class Doctor {
+        - id : ObjectId
+        - fullName : string
+        - specialization : string
+        - isActive : boolean
+        --
+        + getAssignedAppointments() : Appointments[]
+        + isAvailable(date, time) : boolean
+        + acceptAppointment(id) : boolean
+    }
+
+    class Service {
+        - serviceName : string
+        - price : number
+        - description : string
+        - duration : number
+        - serviceType : ServiceType
+        - isDeleted : number
+        --
+        + isAvailable() : boolean
+        + getPrice() : number
+        + getServiceDetails() : object
+    }
+
+    class ServicePackages {
+        - packageName : string
+        - description : string
+        - price : number
+        - duration : number
+        - services : ObjectId[]
+        - isActive : boolean
+        --
+        + getPackageDetails() : object
+        + calculateTotalPrice() : number
+        + isValidPackage() : boolean
+    }
+
+    enum AppointmentType {
+        consultation
+        test
+        other
+    }
+
+    enum LocationType {
+        clinic
+        home
+        Online
+    }
+
+    enum AppointmentStatus {
+        pending
+        pending_payment
+        confirmed
+        completed
+        cancelled
+    }
+
+    enum PaymentStatus {
+        unpaid
+        paid
+        partial
+        refunded
+    }
+}
+
+' Relationships
+Appointments }|--|| User : "created by"
+Appointments }|--|| UserProfiles : "for profile"
+Appointments }|--o| Doctor : "assigned to"
+Appointments }|--o| Service : "books service"
+Appointments }|--o| ServicePackages : "books package"
+
+@enduml 

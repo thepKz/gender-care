@@ -1,0 +1,117 @@
+@startuml 11_meeting_management
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Meeting Management System - Class Diagram (Real Implementation)
+
+package "Meeting Management System" {
+    class Meeting {
+        - qaId : ObjectId
+        - doctorId : ObjectId
+        - userId : ObjectId
+        - meetingLink : string
+        - meetingId : string
+        - scheduledStartTime : Date
+        - scheduledEndTime : Date
+        - actualStartTime : Date
+        - actualEndTime : Date
+        - status : MeetingStatus
+        - participants : Participant[]
+        - notes : string
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createMeeting() : boolean
+        + updateMeetingLink(newLink) : boolean
+        + startMeeting() : boolean
+        + completeMeeting(notes) : boolean
+        + addParticipant(userId, type) : boolean
+        + participantJoined(participantId, type) : boolean
+        + participantLeft(participantId, type) : boolean
+        + isParticipantInMeeting(userId, type) : boolean
+        - validateMeetingTime() : boolean
+        - generateMeetingLink() : string
+    }
+
+    class Participant <<embedded>> {
+        - userId : ObjectId
+        - userType : ParticipantType
+        - joinedAt : Date
+        - leftAt : Date
+        --
+        + markJoined() : boolean
+        + markLeft() : boolean
+        + getDuration() : number
+        + isCurrentlyInMeeting() : boolean
+    }
+
+    class DoctorQA {
+        - doctorId : ObjectId
+        - userId : ObjectId
+        - fullName : string
+        - phone : string
+        - question : string
+        - status : QAStatus
+        - appointmentDate : Date
+        - appointmentSlot : string
+        - meetingLink : string
+        - meetingId : string
+        --
+        + assignMeeting(meetingData) : boolean
+        + updateMeetingInfo(link, id) : boolean
+        + isReadyForMeeting() : boolean
+    }
+
+    class Doctor {
+        - id : ObjectId
+        - fullName : string
+        - specialization : string
+        - isActive : boolean
+        --
+        + createMeetingForQA(qaId) : boolean
+        + joinMeeting(meetingId) : boolean
+        + completeMeeting(meetingId, notes) : boolean
+        + getMyMeetings() : Meeting[]
+    }
+
+    class User {
+        - id : ObjectId
+        - email : string
+        - fullName : string
+        - role : UserRole
+        --
+        + joinMeeting(meetingId) : boolean
+        + leaveMeeting(meetingId) : boolean
+        + getMyMeetings() : Meeting[]
+    }
+
+    enum MeetingStatus {
+        scheduled
+        in_progress
+        completed
+        cancelled
+    }
+
+    enum ParticipantType {
+        doctor
+        user
+    }
+
+    enum QAStatus {
+        pending
+        assigned
+        scheduled
+        completed
+        cancelled
+    }
+}
+
+' Relationships
+Meeting }|--|| DoctorQA : "created for"
+Meeting }|--|| Doctor : "hosted by"
+Meeting }|--|| User : "attended by"
+Meeting ||--o{ Participant : "contains"
+Participant }|--|| User : "references"
+
+@enduml 

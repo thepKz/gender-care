@@ -54,7 +54,10 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
       <List
         dataSource={activities}
         renderItem={(item) => (
-          <List.Item style={{ padding: '16px 0', border: 'none' }}>
+          <List.Item 
+            key={item.id} 
+            style={{ padding: '16px 0', border: 'none' }}
+          >
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -70,7 +73,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
                   flexShrink: 0
                 }}
               >
-                {!item.avatar && item.user?.charAt(0)}
+                {!item.avatar && item.user && item.user.charAt(0)}
               </Avatar>
               
               {/* Content */}
@@ -89,7 +92,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
                     }}
                     ellipsis
                   >
-                    {item.user || 'N/A'}
+                    {item.user || 'Người dùng'}
                   </Text>
                   <Badge status={getBadgeStatus(item.status)} />
                 </div>

@@ -93,6 +93,25 @@
   .text-enhanced span:last-child {
     margin-right: 0;
   }
+  
+  /* Search button blue theme - Exact match với hình */
+  .search-blue-button .ant-input-search-button {
+    background-color: #1890ff !important;
+    border-color: #1890ff !important;
+    color: white !important;
+  }
+  
+  .search-blue-button .ant-input-search-button:hover {
+    background-color: #40a9ff !important;
+    border-color: #40a9ff !important;
+    color: white !important;
+  }
+  
+  .search-blue-button .ant-input-search-button:focus {
+    background-color: #096dd9 !important;
+    border-color: #096dd9 !important;
+    color: white !important;
+  }
 }
 
 @keyframes fadeInUp {

@@ -626,94 +626,37 @@ export const getAllDoctorsSchedulesForStaff = async (req: Request, res: Response
   }
 };
 
-// DEBUG ENDPOINT - Test schedule creation logic với timezone fix
+// DEBUG ENDPOINT - Test schedule creation logic với timezone utils
 export const debugScheduleCreation = async (req: Request, res: Response) => {
   try {
     const { testMonth = 6, testYear = 2025 } = req.query;
     const month = parseInt(testMonth as string);
     const year = parseInt(testYear as string);
 
-    const debugInfo = {
-      month,
-      year,
-      testResults: [] as any[],
-      summary: {
-        totalDays: 0,
-        mondayToFriday: 0,
-        fridayCount: 0, // Đếm riêng thứ 6
-        saturdays: 0,
-        sundays: 0,
-        shouldCreateCount: 0
-      },
-      timezoneInfo: {
-        systemTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        utcOffset: new Date().getTimezoneOffset()
-      }
-    };
-
-    // Generate all days in month and test logic
-    const daysInMonth = new Date(year, month, 0).getDate();
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      // FIX: Dùng string để tránh timezone issue
-      const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-      const date = new Date(dateStr);
-      const dayOfWeek = date.getDay();
-      const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-
-      // UPDATED: Test logic mới - chỉ loại bỏ Chủ nhật
-      const isSunday = dayOfWeek === 0;
-      const shouldCreate = !isSunday; // T2-T7 đều được tạo
-
-      const result = {
-        date: dateStr,
-        dayOfWeek,
-        dayName: dayNames[dayOfWeek],
-        isSunday,
-        shouldCreate,
-        isFriday: dayOfWeek === 5,
-        isSaturday: dayOfWeek === 6, // Đánh dấu thứ 7 mới được thêm
-        reason: isSunday
-          ? `Bị loại bỏ - Chủ nhật`
-          : `Được phép tạo lịch - ${dayNames[dayOfWeek]} (T2-T7)`
-      };
-
-      debugInfo.testResults.push(result);
-      debugInfo.summary.totalDays++;
-
-      if (dayOfWeek >= 1 && dayOfWeek <= 5) debugInfo.summary.mondayToFriday++;
-      if (dayOfWeek === 5) debugInfo.summary.fridayCount++; // Đếm riêng thứ 6
-      if (dayOfWeek === 6) debugInfo.summary.saturdays++;
-      if (dayOfWeek === 0) debugInfo.summary.sundays++;
-      if (shouldCreate) debugInfo.summary.shouldCreateCount++;
-    }
-
-    // Thống kê thứ 6 cụ thể
-    const fridaysInMonth = debugInfo.testResults.filter(r => r.isFriday);
-
-    // Thống kê thứ 7 cũng
-    const saturdaysInMonth = debugInfo.testResults.filter(r => r.isSaturday);
+    // 🔥 USING NEW TIMEZONE UTILS
+    const { debugMonthWorkingDays } = await import('../utils/timezoneUtils');
+    const monthAnalysis = debugMonthWorkingDays(month, year);
 
     return res.status(200).json({
-      message: `🔄 REVERTED: Debug test cho tháng ${month}/${year} - Logic: T2-T6 (Monday-Friday)`,
-      data: debugInfo,
+      message: `🔥 NEW LOGIC: Debug test cho tháng ${month}/${year} - Sử dụng Timezone Utils`,
+      data: monthAnalysis,
+      businessRules: {
+        workingDays: "T2-T6 (Monday-Friday)",
+        excludedDays: "T7 (Saturday) và CN (Sunday)",
+        timezone: "Asia/Ho_Chi_Minh (UTC+7)"
+      },
       fridaysAnalysis: {
-        totalFridays: fridaysInMonth.length,
-        fridayDates: fridaysInMonth.map(f => f.date),
-        allShouldBeCreated: fridaysInMonth.every(f => f.shouldCreate)
+        totalFridays: monthAnalysis.workingDays.filter(d => d.dayOfWeek === 5).length,
+        fridayDates: monthAnalysis.workingDays.filter(d => d.dayOfWeek === 5).map(d => d.date),
+        allWorkingDays: true
       },
       saturdaysAnalysis: {
-        totalSaturdays: saturdaysInMonth.length,
-        saturdayDates: saturdaysInMonth.map(s => s.date),
-        allShouldBeCreated: saturdaysInMonth.every(s => s.shouldCreate),
-        note: "🚫 Thứ 7 bây giờ BỊ LOẠI BỎ (không tạo lịch)"
+        totalSaturdays: monthAnalysis.weekends.filter(d => d.dayOfWeek === 6).length,
+        saturdayDates: monthAnalysis.weekends.filter(d => d.dayOfWeek === 6).map(d => d.date),
+        allExcluded: true,
+        note: "🚫 Thứ 7 bị loại bỏ (không tạo lịch)"
       },
-      expectedBehavior: {
-        description: "🔄 BACK TO NORMAL: Chỉ tạo lịch từ thứ 2 (Monday=1) đến thứ 6 (Friday=5)",
-        shouldExclude: ["Thứ 7 (Saturday=6)", "Chủ nhật (Sunday=0)"],
-        shouldInclude: ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6"]
-      },
-      conclusion: `✅ Logic chuẩn: Làm việc T2-T6 (${debugInfo.summary.mondayToFriday} ngày), nghỉ cuối tuần (${debugInfo.summary.saturdays + debugInfo.summary.sundays} ngày)`
+      conclusion: `✅ Logic chuẩn với Timezone Utils: Làm việc T2-T6 (${monthAnalysis.summary.totalWorkingDays} ngày), nghỉ cuối tuần (${monthAnalysis.summary.totalWeekends} ngày)`
     });
 
   } catch (error: any) {

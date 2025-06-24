@@ -100,7 +100,19 @@ const consultationApi = {
   createOnlineConsultation: (data: CreateOnlineConsultationParams) => {
     return axiosInstance.post('/doctor-qa', data);
   },
-
+  
+  // Lấy consultation đang LIVE hiện tại (DOCTOR/STAFF)
+  getLiveConsultations: (doctorId?: string) => {
+    const params = doctorId ? { doctorId } : {};
+    return axiosInstance.get('/doctor-qa/live', { params });
+  },
+  
+  // Lấy tất cả consultation HÔM NAY (DOCTOR/STAFF) 
+  getTodayConsultations: (doctorId?: string) => {
+    const params = doctorId ? { doctorId } : {};
+    return axiosInstance.get('/doctor-qa/today', { params });
+  },
+  
   // Lấy danh sách yêu cầu tư vấn của user đang đăng nhập
   getMyConsultationRequests: (params?: QueryParams) => {
     return axiosInstance.get('/doctor-qa/my-requests', { params });
@@ -111,8 +123,35 @@ const consultationApi = {
     return axiosInstance.get(`/doctor-qa/${qaId}`);
   },
 
-  // Cập nhật trạng thái thanh toán (payment gateway webhook/mock)
+  // =============== PAYMENT INTEGRATION APIs ===============
+
+  // Tạo payment link cho consultation
+  createConsultationPaymentLink: (qaId: string) => {
+    return axiosInstance.post(`/payments/consultations/${qaId}/create`);
+  },
+
+  // Check payment status cho consultation
+  checkConsultationPaymentStatus: (qaId: string) => {
+    return axiosInstance.get(`/payments/consultations/${qaId}/status`);
+  },
+
+  // Cancel payment cho consultation
+  cancelConsultationPayment: (qaId: string) => {
+    return axiosInstance.post(`/payments/consultations/${qaId}/cancel`);
+  },
+
+  // Fast confirm consultation payment (for PayOS return URLs)
+  fastConfirmConsultationPayment: (data: {
+    qaId: string;
+    orderCode: string;
+    status: string;
+  }) => {
+    return axiosInstance.post(`/payments/consultations/fast-confirm`, data);
+  },
+
+  // ✅ LEGACY: Cập nhật trạng thái thanh toán (deprecated - use payment system above)
   updatePaymentStatus: (qaId: string, data: UpdatePaymentStatusParams) => {
+    console.warn('updatePaymentStatus is deprecated. Use payment system APIs instead.');
     return axiosInstance.put(`/doctor-qa/${qaId}/payment`, data);
   },
 
@@ -165,6 +204,24 @@ const consultationApi = {
     return axiosInstance.get(`/doctor-qa/doctor/${doctorId}`, { params });
   },
 
+  // Alias method cho getDoctorConsultations (để consistent với naming)
+  getDoctorQAByDoctorId: (doctorId: string, params?: QueryParams) => {
+    return axiosInstance.get(`/doctor-qa/doctor/${doctorId}`, { params });
+  },
+  
+  // Lấy yêu cầu tư vấn của bác sĩ hiện tại (không cần doctorId)
+  getMyConsultations: (params?: QueryParams) => {
+    try {
+      return axiosInstance.get('/doctor-qa/my', { params });
+    } catch (error) {
+      // Handle case khi doctor chưa có record trong hệ thống
+      console.error('Error fetching doctor consultations:', error);
+      throw error;
+    }
+  },
+  
+
+  
   // Tìm bác sĩ có ít lịch đặt nhất (STAFF only)
   getLeastBookedDoctor: () => {
     return axiosInstance.get('/doctor-qa/least-booked-doctor');
@@ -198,6 +255,59 @@ const consultationApi = {
   // Lấy chi tiết câu hỏi (legacy)
   getQuestionDetail: (id: string) => {
     return consultationApi.getConsultationById(id);
+  },
+
+  // Xác nhận cuộc tư vấn (paid -> confirmed)
+  confirmConsultation: (qaId: string) => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/confirm-consultation`);
+  },
+
+  // =============== NEW: CONSULTATION TRANSFER APIs ===============
+  
+  // Check available doctors trong cùng slot với consultation
+  checkAvailableDoctors: (consultationId: string) => {
+    return axiosInstance.get(`/consultations/${consultationId}/check-available-doctors`);
+  },
+  
+  // Transfer consultation sang bác sĩ khác trong cùng slot
+  transferConsultation: (consultationId: string, data: {
+    newDoctorId: string;
+    transferReason: string;
+  }) => {
+    return axiosInstance.post(`/consultations/${consultationId}/transfer`, data);
+  },
+
+  // =============== NEW: MEETING WORKFLOW APIs ===============
+  
+  // Kiểm tra consultation đã có Meeting record chưa
+  checkMeetingExistence: (qaId: string) => {
+    return axiosInstance.get(`/doctor-qa/${qaId}/check-meeting`);
+  },
+  
+  // Tạo hồ sơ Meeting cho consultation (DOCTOR ONLY)
+  createMeetingRecord: (qaId: string) => {
+    return axiosInstance.post(`/doctor-qa/${qaId}/create-meeting`);
+  },
+  
+  // Hoàn thành consultation và meeting (DOCTOR ONLY)
+  completeConsultationWithMeeting: (qaId: string, doctorNotes?: string) => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/complete-consultation`, { doctorNotes });
+  },
+
+  // =============== NEW: MEETING NOTES & DETAILS APIs ===============
+  
+  // Cập nhật meeting notes và thông tin (DOCTOR ONLY)
+  updateMeetingNotes: (qaId: string, meetingData: {
+    notes?: string;
+    maxParticipants?: number;
+    actualStartTime?: Date;
+  }) => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/update-meeting`, meetingData);
+  },
+  
+  // Lấy chi tiết meeting của consultation
+  getMeetingDetails: (qaId: string) => {
+    return axiosInstance.get(`/doctor-qa/${qaId}/meeting-details`);
   }
 };
 

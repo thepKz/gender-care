@@ -8,7 +8,7 @@ import {
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { appointmentApi } from '../../api/endpoints';
-import doctorApi from '../../api/endpoints/doctor';
+import { doctorApi } from '../../api/endpoints/doctorApi';
 import doctorScheduleApi from '../../api/endpoints/doctorSchedule';
 import servicesApi from '../../api/endpoints/services';
 import userProfileApiInstance from '../../api/endpoints/userProfileApi';
@@ -165,9 +165,11 @@ const Booking: React.FC = () => {
   const [userProfiles, setUserProfiles] = useState<UserProfile[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [purchasedPackages, setPurchasedPackages] = useState<any[]>([]);
+  const [activeServicePackages, setActiveServicePackages] = useState<any[]>([]);
   
-  // ✅ ADD: Loading state for purchased packages
+  // ✅ ADD: Loading states
   const [loadingPurchasedPackages, setLoadingPurchasedPackages] = useState(false);
+  const [loadingActivePackages, setLoadingActivePackages] = useState(false);
 
   // State cho modal tạo profile mới
   const [showCreateProfileModal, setShowCreateProfileModal] = useState(false);
@@ -645,6 +647,39 @@ const Booking: React.FC = () => {
     }
   };
 
+  // Fetch active service packages (available for booking)
+  const fetchActiveServicePackages = async () => {
+    setLoadingActivePackages(true);
+    try {
+      console.log('🔍 [Frontend] Fetching active service packages...');
+      
+      // Import servicePackageApi
+      const { getServicePackages } = await import('../../api/endpoints/servicePackageApi');
+      
+      const response = await getServicePackages({
+        isActive: true,
+        page: 1,
+        limit: 50 // Get enough packages
+      });
+      
+      console.log('✅ [Frontend] Active packages response:', response);
+      
+      if (response.success && response.data?.packages) {
+        const packages = response.data.packages;
+        console.log('✅ [Frontend] Active service packages:', packages.length);
+        setActiveServicePackages(packages);
+      } else {
+        console.log('⚠️ [Frontend] No active packages found');
+        setActiveServicePackages([]);
+      }
+    } catch (error: any) {
+      console.error('❌ [Frontend] Error fetching active service packages:', error);
+      setActiveServicePackages([]);
+    } finally {
+      setLoadingActivePackages(false);
+    }
+  };
+
   // Fetch data from API
   const fetchServices = async () => {
     setLoadingServices(true);
@@ -992,50 +1027,76 @@ const Booking: React.FC = () => {
         throw validationError;
       }
       
-      // 🎯 PACKAGE ID LOGIC FIX: Handle both package selection flows
-      let finalPackageId: string | undefined = undefined;
-      let finalServiceId: string | undefined = undefined;
-
+      // 🎯 NEW DUAL FLOW LOGIC: Determine booking type and prepare data accordingly
+      let appointmentData: any = {};
+      
       if (usingPurchasedPackage && selectedPurchasedPackage) {
-        // User selected from purchased packages - need to extract the ServicePackage._id
+        // 🔗 LUỒNG 2: Gói dịch vụ đã mua (purchased_package)
         const purchasedPackageRecord = purchasedPackages.find(pp => pp._id === selectedPurchasedPackage);
-        if (purchasedPackageRecord?.packageId?._id) {
-          finalPackageId = purchasedPackageRecord.packageId._id;
-          console.log('🎯 [Package Fix] Using purchased package ServicePackage ID:', {
-            purchasedPackageRecordId: selectedPurchasedPackage,
-            extractedServicePackageId: finalPackageId,
-            packageName: purchasedPackageRecord.packageId.name
-          });
-        } else {
+        if (!purchasedPackageRecord?.packageId?._id) {
           throw new Error('Không tìm thấy thông tin gói dịch vụ đã mua');
         }
+
+        appointmentData = {
+          profileId: selectedProfile,
+          packageId: purchasedPackageRecord.packageId._id,
+          serviceId: selectedService, // Dịch vụ cụ thể trong gói
+          doctorId: actualDoctorId || undefined,
+          slotId: actualSlotId,
+          appointmentDate: selectedDate,
+          appointmentTime: selectedTimeSlot,
+          appointmentType: getSelectedService()?.category as 'consultation' | 'test' | 'other' || 'other',
+          typeLocation: typeLocation,
+          address: values.address,
+          description: values.description,
+          notes: values.notes,
+          bookingType: 'purchased_package',
+          packagePurchaseId: selectedPurchasedPackage
+        };
+
+        console.log('🔗 [Flow 2] Purchased package booking data:', appointmentData);
+
       } else if (!usingPurchasedPackage && selectedPackage) {
-        // User selected a package from service packages
-        finalPackageId = selectedPackage;
-        console.log('🎯 [Package Fix] Using direct ServicePackage ID:', finalPackageId);
+        // 🔗 LUỒNG 1: Gói dịch vụ chưa thanh toán (new_package)
+        appointmentData = {
+          profileId: selectedProfile,
+          packageId: selectedPackage,
+          doctorId: actualDoctorId || undefined,
+          slotId: actualSlotId,
+          appointmentDate: selectedDate,
+          appointmentTime: selectedTimeSlot,
+          appointmentType: 'other', // Package type
+          typeLocation: typeLocation,
+          address: values.address,
+          description: values.description,
+          notes: values.notes,
+          bookingType: 'new_package'
+        };
+
+        console.log('🔗 [Flow 1] New package booking data:', appointmentData);
+
       } else if (!usingPurchasedPackage && selectedService) {
-        // User selected a standalone service
-        finalServiceId = selectedService;
-        console.log('🎯 [Package Fix] Using standalone service:', finalServiceId);
+        // 🔗 LUỒNG 3: Dịch vụ đơn lẻ (service_only) - GIỮ NGUYÊN
+        appointmentData = {
+          profileId: selectedProfile,
+          serviceId: selectedService,
+          doctorId: actualDoctorId || undefined,
+          slotId: actualSlotId,
+          appointmentDate: selectedDate,
+          appointmentTime: selectedTimeSlot,
+          appointmentType: getSelectedService()?.category as 'consultation' | 'test' | 'other' || 'other',
+          typeLocation: typeLocation,
+          address: values.address,
+          description: values.description,
+          notes: values.notes,
+          bookingType: 'service_only'
+        };
+
+        console.log('🔗 [Flow 3] Service-only booking data:', appointmentData);
+
       } else {
         throw new Error('Vui lòng chọn dịch vụ hoặc gói dịch vụ');
       }
-
-      // Create appointment using API
-      const appointmentData = {
-        profileId: selectedProfile,
-        packageId: finalPackageId,
-        serviceId: finalServiceId,
-        doctorId: actualDoctorId || undefined, // ✅ Sử dụng doctor ID đã validate
-        slotId: actualSlotId, // Sử dụng slot ID thật hoặc time string
-        appointmentDate: selectedDate,
-        appointmentTime: selectedTimeSlot, // Luôn gửi time string
-        appointmentType: getSelectedService()?.category as 'consultation' | 'test' | 'other' || 'other',
-        typeLocation: typeLocation,
-        address: values.address,
-        description: values.description,
-        notes: values.notes
-      };
       
       console.log('🔍 [Debug] Appointment data being sent:', JSON.stringify(appointmentData, null, 2));
       
@@ -1043,15 +1104,30 @@ const Booking: React.FC = () => {
       
       console.log('Booking response:', response);
       
-      // Kiểm tra xem appointment có cần thanh toán không
-      if (response && response.data && response.data.status === 'pending_payment') {
-        message.success('Đặt lịch thành công! Chuyển đến trang thanh toán...');
-        // Chuyển đến trang thanh toán với PayOS
-        const appointmentId = response.data.id || response.data._id;
-        navigate(`/payment/process?appointmentId=${appointmentId}`);
-      } else {
+      // 🎯 NEW DUAL FLOW RESPONSE HANDLING
+      console.log('📋 [Response] Booking response:', response);
+      
+      const appointment = response?.data;
+      
+      if (appointment?.status === 'pending_payment' && appointmentData?.bookingType === 'new_package') {
+        // LUỒNG 1: Gói dịch vụ chưa thanh toán - chuyển đến lịch sử đặt lịch, có nút thanh toán ở đó
+        message.success('Đặt lịch thành công! Vào lịch sử đặt lịch để thanh toán.');
+        navigate('/booking-history');
+        
+      } else if (appointment?.status === 'completed') {
+        // LUỒNG 2: Gói dịch vụ đã mua - hoàn thành ngay lập tức
         message.success('Đặt lịch thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.');
-        // Nếu không cần thanh toán (ví dụ: free service) thì chuyển đến booking history
+        navigate('/booking-history');
+        
+      } else if (appointment?.status === 'pending_payment') {
+        // LUỒNG 3: Dịch vụ đơn lẻ - cần thanh toán thông thường
+        message.success('Đặt lịch thành công! Chuyển đến trang thanh toán...');
+        const appointmentId = appointment.id || appointment._id;
+        navigate(`/payment/process?appointmentId=${appointmentId}`);
+        
+      } else {
+        // Fallback cho các trường hợp khác
+        message.success('Đặt lịch thành công! Chúng tôi sẽ liên hệ với bạn sớm nhất.');
         navigate('/booking-history');
       }
     } catch (error) {
@@ -1096,6 +1172,18 @@ const Booking: React.FC = () => {
     }
   }, [isAuthenticated, user?._id]);
 
+  // ✅ Fetch active service packages when switching to packages tab
+  useEffect(() => {
+    if (usingPurchasedPackage) {
+      console.log('🔄 [Package Tab] Switched to packages tab, fetching data...');
+      // Fetch both purchased packages (if authenticated) and active packages
+      if (isAuthenticated && user?._id) {
+        fetchPurchasedPackages();
+      }
+      fetchActiveServicePackages();
+    }
+  }, [usingPurchasedPackage, isAuthenticated, user?._id]);
+
   // Load time slots when date changes
   useEffect(() => {
     if (selectedDate) {
@@ -1130,14 +1218,24 @@ const Booking: React.FC = () => {
     }
   }, [selectedDoctor, doctorAvailability, selectedDate, selectedTimeSlot]);
 
-  // Auto-select service from URL params
+  // Auto-select service or package from URL params
   useEffect(() => {
     const serviceParam = searchParams.get('service');
-    if (serviceParam && services.find(s => s.id === serviceParam)) {
+    const packageParam = searchParams.get('packageId');
+    const typeParam = searchParams.get('type');
+    
+    if (packageParam && typeParam === 'package') {
+      // Coming from ServicePackageDisplayCard
+      console.log('🔗 [URL Param] Auto-selecting package from URL:', packageParam);
+      setUsingPurchasedPackage(true); // Switch to packages tab
+      setSelectedPackage(packageParam);
+      setSelectedService('');
+      // Don't auto-advance, let user see package selection first
+    } else if (serviceParam && services.find(s => s.id === serviceParam)) {
       setSelectedService(serviceParam);
       setCurrentStep(1); // Skip to doctor selection
     }
-  }, [searchParams, services]);
+  }, [searchParams, services, activeServicePackages]);
 
   // Helper function to get calendar days
   const getCalendarDays = () => {
@@ -1313,7 +1411,7 @@ const Booking: React.FC = () => {
                           : 'text-gray-600 hover:text-gray-900'
                       }`}
                     >
-                      Gói đã mua ({purchasedPackages.length})
+                      Gói dịch vụ
                     </button>
                   </div>
                 </div>
@@ -1373,55 +1471,24 @@ const Booking: React.FC = () => {
                   </div>
                 )}
 
-                {/* Purchased Packages Grid */}
+                {/* ✅ Service Packages Section - New Layout */}
                 {usingPurchasedPackage && (
-                  <div>
-                    {/* ✅ ADD: Loading state for purchased packages */}
-                    {loadingPurchasedPackages ? (
+                  <div className="space-y-6">
+                    {/* Loading State */}
+                    {(loadingPurchasedPackages || loadingActivePackages) && (
                       <div className="flex justify-center items-center py-12">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-                        <span className="ml-3 text-gray-600">Đang tải gói đã mua...</span>
+                        <span className="ml-3 text-gray-600">Đang tải gói dịch vụ...</span>
                       </div>
-                    ) : purchasedPackages.length === 0 ? (
-                      <div className="text-center py-12">
-                        <div className="text-gray-400 text-6xl mb-4">📦</div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Không có gói dịch vụ khả dụng</h3>
-                        <p className="text-gray-500 mb-4">
-                          {!isAuthenticated 
-                            ? 'Vui lòng đăng nhập để xem gói dịch vụ đã mua.'
-                            : 'Bạn chưa mua gói dịch vụ nào hoặc các gói đã hết lượt sử dụng. Hãy chuyển về dịch vụ đơn lẻ hoặc mua gói dịch vụ mới.'
-                          }
-                        </p>
-                        <div className="flex justify-center space-x-3">
-                          <button 
-                            onClick={() => setUsingPurchasedPackage(false)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                          >
-                            Chọn dịch vụ đơn lẻ
-                          </button>
-                          <button 
-                            onClick={fetchPurchasedPackages}
-                            disabled={loadingPurchasedPackages}
-                            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50"
-                          >
-                            🔄 Thử lại
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        {/* ✅ ADD: Header with count and refresh */}
-                        <div className="flex justify-between items-center mb-4">
-                          <h4 className="text-lg font-medium text-gray-900">
-                            Tìm thấy {purchasedPackages.length} gói khả dụng
+                    )}
+
+                    {/* ✅ 1. Purchased Packages Section (If user has any) */}
+                    {!loadingPurchasedPackages && !loadingActivePackages && isAuthenticated && purchasedPackages.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-lg font-semibold text-gray-900">
+                            Gói dịch vụ đã mua ({purchasedPackages.length})
                           </h4>
-                          <button 
-                            onClick={fetchPurchasedPackages}
-                            disabled={loadingPurchasedPackages}
-                            className="px-3 py-1 text-sm bg-green-100 text-green-600 rounded-md hover:bg-green-200 disabled:opacity-50"
-                          >
-                            🔄 Làm mới
-                          </button>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -1434,6 +1501,7 @@ const Booking: React.FC = () => {
                                 key={packagePurchase._id}
                                 onClick={() => {
                                   setSelectedPurchasedPackage(packagePurchase._id);
+                                  setSelectedPackage(''); // Clear active package selection
                                   handleNext();
                                 }}
                                 className={`border rounded-lg p-4 cursor-pointer transition ${
@@ -1445,11 +1513,11 @@ const Booking: React.FC = () => {
                                 <div className="flex items-start justify-between mb-3">
                                   <div className="flex items-center">
                                     <div className="p-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white mr-3">
-                                      📦
+                                      ✓
                                     </div>
                                     <div className="flex-1">
                                       <h3 className="text-lg font-semibold">{pkg.name || 'Gói dịch vụ'}</h3>
-                                      <p className="text-sm text-green-600">Đã mua</p>
+                                      <p className="text-sm text-green-600 font-medium">Đã mua</p>
                                     </div>
                                   </div>
                                   <div className="text-right">
@@ -1464,17 +1532,97 @@ const Booking: React.FC = () => {
                                 <p className="text-gray-600 text-sm mb-3 line-clamp-2">{pkg.description || 'Gói dịch vụ y tế'}</p>
                                 <div className="flex justify-between items-center">
                                   <span className="text-sm text-gray-500">Đã thanh toán</span>
-                                  <span className="font-bold text-green-600">✓ Đã mua</span>
+                                  <span className="font-bold text-green-600">✓ Sẵn sàng sử dụng</span>
                                 </div>
-                                {(packagePurchase.remainingUsages || 1) === 0 && (
-                                  <div className="mt-2 px-2 py-1 bg-red-100 text-red-600 text-xs rounded text-center">
-                                    Đã hết lượt sử dụng
-                                  </div>
-                                )}
                               </div>
                             );
                           })}
                         </div>
+                      </div>
+                    )}
+
+                    {/* ✅ 2. Active Service Packages Section (Always show) */}
+                    {!loadingPurchasedPackages && !loadingActivePackages && (
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-lg font-semibold text-gray-900">
+                            Gói dịch vụ ({activeServicePackages.length})
+                          </h4>
+                        </div>
+                        
+                        {activeServicePackages.length === 0 ? (
+                          <div className="text-center py-8">
+                            <div className="text-gray-400 text-4xl mb-3">📦</div>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Không có gói dịch vụ nào</h3>
+                            <p className="text-gray-500">Hiện tại không có gói dịch vụ nào đang hoạt động.</p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {activeServicePackages.map(servicePackage => (
+                              <div 
+                                key={servicePackage._id}
+                                onClick={() => {
+                                  setSelectedPackage(servicePackage._id);
+                                  setSelectedPurchasedPackage(''); // Clear purchased package selection
+                                  setUsingPurchasedPackage(false); // Switch to normal package flow
+                                  handleNext();
+                                }}
+                                className={`border rounded-lg p-4 cursor-pointer transition ${
+                                  selectedPackage === servicePackage._id 
+                                    ? 'border-blue-500 bg-blue-50' 
+                                    : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
+                                }`}
+                              >
+                                <div className="flex items-center mb-3">
+                                  <div className="p-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white mr-3">
+                                    🎁
+                                  </div>
+                                  <div className="flex-1">
+                                    <h3 className="text-lg font-semibold">{servicePackage.name}</h3>
+                                    <p className="text-sm text-blue-600">{servicePackage.services?.length || 0} dịch vụ</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-sm font-medium text-blue-600">
+                                      {formatPrice(servicePackage.price)}
+                                    </div>
+                                    {servicePackage.priceBeforeDiscount && servicePackage.priceBeforeDiscount > servicePackage.price && (
+                                      <div className="text-xs text-gray-500 line-through">
+                                        {formatPrice(servicePackage.priceBeforeDiscount)}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <p className="text-gray-600 text-sm mb-3 line-clamp-2">{servicePackage.description || 'Gói dịch vụ y tế toàn diện'}</p>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm text-gray-500">Thời hạn: {servicePackage.durationInDays} ngày</span>
+                                  <span className="font-bold text-blue-600">Chọn gói</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ✅ Empty State - When no packages at all */}
+                    {!loadingPurchasedPackages && !loadingActivePackages && 
+                     (!isAuthenticated || purchasedPackages.length === 0) && 
+                     activeServicePackages.length === 0 && (
+                      <div className="text-center py-12">
+                        <div className="text-gray-400 text-6xl mb-4">📦</div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Không có gói dịch vụ khả dụng</h3>
+                        <p className="text-gray-500 mb-4">
+                          {!isAuthenticated 
+                            ? 'Vui lòng đăng nhập để xem gói dịch vụ đã mua.'
+                            : 'Hiện tại không có gói dịch vụ nào khả dụng. Hãy chuyển về dịch vụ đơn lẻ.'
+                          }
+                        </p>
+                        <button 
+                          onClick={() => setUsingPurchasedPackage(false)}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                        >
+                          Chọn dịch vụ đơn lẻ
+                        </button>
                       </div>
                     )}
                   </div>

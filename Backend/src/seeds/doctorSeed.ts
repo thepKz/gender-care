@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import Doctor from '../models/Doctor';
 import User from '../models/User';
+import DoctorSchedules from '../models/DoctorSchedules';
 
 const seedDoctors = async () => {
   try {
@@ -128,6 +129,7 @@ const seedDoctors = async () => {
     ];
 
     // Tạo từng bác sĩ
+    const createdDoctors = [];
     for (const data of doctorsData) {
       // Hash password
       const hashedPassword = await bcrypt.hash(data.user.password, 10);
@@ -144,16 +146,60 @@ const seedDoctors = async () => {
         userId: newUser._id
       });
 
+      createdDoctors.push(newDoctor);
       console.log(`✅ Đã tạo bác sĩ: ${data.user.fullName} (${data.doctor.specialization})`);
     }
 
-    console.log('🎉 Hoàn thành seed 5 bác sĩ demo!');
+    // 🗓️ TẠO DOCTOR SCHEDULES MẪU
+    console.log('\n🗓️ Đang tạo lịch làm việc mẫu cho bác sĩ...');
+    
+    const timeSlots = [
+      "07:00-08:00", "08:00-09:00", "09:00-10:00", "10:00-11:00",
+      "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"
+    ];
+
+    // Tạo lịch cho 7 ngày tới từ hôm nay
+    const today = new Date();
+    const schedulePromises = createdDoctors.map(async (doctor) => {
+      const weekSchedule = [];
+      
+      for (let i = 0; i < 7; i++) {
+        const workDate = new Date(today);
+        workDate.setDate(today.getDate() + i);
+        workDate.setHours(0, 0, 0, 0);
+        
+        // Tạo slots cho ngày này
+        const slots = timeSlots.map(slotTime => ({
+          slotTime,
+          status: 'Free'
+        }));
+        
+        weekSchedule.push({
+          dayOfWeek: workDate,
+          slots
+        });
+      }
+      
+      // Tạo DoctorSchedule record
+      const schedule = await DoctorSchedules.create({
+        doctorId: doctor._id,
+        weekSchedule
+      });
+      
+      console.log(`   ✅ Tạo lịch làm việc cho ${doctor.userId ? 'doctor' : 'unknown'} (7 ngày, ${timeSlots.length} slots/ngày)`);
+      return schedule;
+    });
+
+    await Promise.all(schedulePromises);
+
+    console.log('🎉 Hoàn thành seed 5 bác sĩ demo và lịch làm việc!');
     console.log('\n📋 Thông tin đăng nhập:');
     console.log('   Email: dr.nguyen@genderhealthcare.com | Password: doctor123');
     console.log('   Email: dr.le@genderhealthcare.com | Password: doctor123');
     console.log('   Email: dr.tran@genderhealthcare.com | Password: doctor123');
     console.log('   Email: dr.pham@genderhealthcare.com | Password: doctor123');
     console.log('   Email: dr.hoang@genderhealthcare.com | Password: doctor123');
+    console.log('\n🗓️ Mỗi bác sĩ có 7 ngày lịch làm việc từ hôm nay với 8 time slots mỗi ngày');
 
   } catch (error) {
     console.error('❌ Lỗi khi seed doctors:', error);

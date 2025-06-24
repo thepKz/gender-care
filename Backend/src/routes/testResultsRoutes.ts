@@ -71,4 +71,7 @@ router.delete(
   testResultsController.deleteTestResult
 );
 
+// ✅ Add new route for checking test results existence
+router.get('/check/:appointmentId', testResultsController.checkTestResultsByAppointment);
+
 export default router; 

@@ -1,0 +1,169 @@
+@startuml 08_doctor_qa
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Doctor Q&A System - Class Diagram (Real Implementation)
+
+package "Doctor Consultation System" {
+    class DoctorQA {
+        - doctorId : ObjectId
+        - userId : ObjectId
+        - fullName : string
+        - phone : string
+        - notes : string
+        - question : string
+        - status : QAStatus
+        - consultationFee : number
+        - appointmentDate : Date
+        - appointmentSlot : string
+        - slotId : ObjectId
+        - doctorNotes : string
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createQA() : boolean
+        + updateStatus(status) : boolean
+        + assignDoctor(doctorId) : boolean
+        + scheduleAppointment(date, slot) : boolean
+        + addDoctorNotes(notes) : boolean
+        + calculateFee() : number
+        + getQAHistory() : DoctorQA[]
+        - validateQuestion() : boolean
+        - checkDoctorAvailability() : boolean
+        - notifyParties() : boolean
+    }
+
+    class User {
+        - id : ObjectId
+        - email : string
+        - fullName : string
+        - phone : string
+        - role : UserRole
+        - isActive : boolean
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createQARequest() : boolean
+        + getMyQARequests() : DoctorQA[]
+        + updateProfile() : boolean
+        - validateAccess() : boolean
+    }
+
+    class Doctor {
+        - userId : ObjectId
+        - specialization : string
+        - licenseNumber : string
+        - experience : number
+        - consultationFee : number
+        - isActive : boolean
+        - rating : number
+        - totalConsultations : number
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + getAssignedQAs() : DoctorQA[]
+        + respondToQA(qaId, notes) : boolean
+        + updateConsultationFee(fee) : boolean
+        + getStatistics() : object
+        - validateLicense() : boolean
+        - calculateRating() : number
+    }
+
+    class DoctorSchedules {
+        - doctorId : ObjectId
+        - date : Date
+        - slots : ScheduleSlot[]
+        - isActive : boolean
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + getAvailableSlots() : ScheduleSlot[]
+        + bookSlot(slotId) : boolean
+        + releaseSlot(slotId) : boolean
+        + isSlotAvailable(slotId) : boolean
+        - validateSchedule() : boolean
+        - updateSlotStatus() : boolean
+    }
+
+    class Meeting {
+        - qaId : ObjectId
+        - doctorId : ObjectId
+        - patientId : ObjectId
+        - meetingLink : string
+        - meetingId : string
+        - startTime : Date
+        - endTime : Date
+        - status : MeetingStatus
+        - recordingUrl : string
+        - meetingNotes : string
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createMeeting() : boolean
+        + startMeeting() : boolean
+        + endMeeting() : boolean
+        + generateMeetingLink() : string
+        + saveMeetingNotes(notes) : boolean
+        - validateMeetingTime() : boolean
+        - setupRecording() : boolean
+    }
+
+    enum QAStatus {
+        pending_payment
+        paid
+        doctor_confirmed
+        scheduled
+        consulting
+        completed
+        cancelled
+    }
+
+    enum UserRole {
+        customer
+        doctor
+        staff
+        manager
+        admin
+    }
+
+    enum MeetingStatus {
+        scheduled
+        in_progress
+        completed
+        cancelled
+        no_show
+    }
+
+    enum SlotStatus {
+        available
+        booked
+        completed
+        cancelled
+    }
+}
+
+' Relationships based on actual code
+DoctorQA }o--|| User : "requested by"
+DoctorQA }o--|| Doctor : "assigned to"
+DoctorQA }o--o| DoctorSchedules : "scheduled in"
+DoctorQA ||--|| QAStatus : "has status"
+DoctorQA ||--o| Meeting : "may have"
+
+User ||--|| UserRole : "has role"
+User ||--o{ DoctorQA : "creates requests"
+
+Doctor }o--|| User : "is a"
+Doctor ||--o{ DoctorQA : "handles"
+Doctor ||--o{ DoctorSchedules : "manages"
+Doctor ||--o{ Meeting : "participates in"
+
+DoctorSchedules }o--|| Doctor : "belongs to"
+DoctorSchedules ||--|| SlotStatus : "slot status"
+
+Meeting }o--|| DoctorQA : "for consultation"
+Meeting }o--|| Doctor : "with doctor"
+Meeting }o--|| User : "with patient"
+Meeting ||--|| MeetingStatus : "has status"
+
+@enduml 
