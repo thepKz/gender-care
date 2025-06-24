@@ -258,8 +258,10 @@ const ServiceTestConfigurationInner: React.FC = () => {
 
   const handleEditTestCategory = (item: ServiceTestCategory) => {
     setEditingItem(item);
+    const testCategory = getTestCategoryDetails(item.testCategoryId);
     form.setFieldsValue({
-      testCategoryId: item.testCategoryId,
+      testCategoryName: testCategory?.name || '',
+      description: testCategory?.description || '',
       isRequired: item.isRequired,
       customNormalRange: item.customNormalRange,
       customUnit: item.customUnit,
@@ -292,30 +294,71 @@ const ServiceTestConfigurationInner: React.FC = () => {
         return;
       }
 
-      const data: CreateServiceTestCategoryData = {
-        serviceId: selectedService._id,
-        testCategoryId: values.testCategoryId,
-        isRequired: values.isRequired || false,
-        customNormalRange: values.customNormalRange,
-        customUnit: values.customUnit,
-        targetValue: values.targetValue,
-        notes: values.notes,
-        minValue: values.minValue,
-        maxValue: values.maxValue
-      };
-
       if (editingItem) {
+        // Chỉnh sửa service test category hiện có
+        const data: CreateServiceTestCategoryData = {
+          serviceId: selectedService._id,
+          testCategoryId: editingItem.testCategoryId,
+          isRequired: values.isRequired || false,
+          customNormalRange: values.customNormalRange,
+          customUnit: values.customUnit,
+          targetValue: values.targetValue,
+          notes: values.notes,
+          minValue: values.minValue,
+          maxValue: values.maxValue
+        };
+
         await serviceTestCategoriesApi.update(editingItem._id, data);
         message.success('Đã cập nhật cấu hình xét nghiệm thành công');
       } else {
+        // Tạo mới: Tạo test category trước, sau đó tạo service test category
+        
+        // 1. Tạo test category mới
+        const testCategoryResponse = await fetch('/api/test-categories', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          },
+          body: JSON.stringify({
+            name: values.testCategoryName,
+            description: values.description,
+            unit: values.customUnit,
+            normalRange: values.customNormalRange
+          })
+        });
+
+        if (!testCategoryResponse.ok) {
+          throw new Error('Lỗi khi tạo loại xét nghiệm');
+        }
+
+        const newTestCategory = await testCategoryResponse.json();
+        
+        // 2. Tạo service test category với test category vừa tạo
+        const data: CreateServiceTestCategoryData = {
+          serviceId: selectedService._id,
+          testCategoryId: newTestCategory.data._id,
+          isRequired: values.isRequired || false,
+          customNormalRange: values.customNormalRange,
+          customUnit: values.customUnit,
+          targetValue: values.targetValue,
+          notes: values.notes,
+          minValue: values.minValue,
+          maxValue: values.maxValue
+        };
+
         await serviceTestCategoriesApi.create(data);
-        message.success('Đã thêm cấu hình xét nghiệm thành công');
+        message.success('Đã tạo chỉ số xét nghiệm mới thành công');
+        
+        // Reload test categories để cập nhật danh sách
+        loadInitialData();
       }
 
       setIsModalVisible(false);
       loadServiceTestCategories(selectedService._id);
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Có lỗi xảy ra');
+      console.error('Modal error:', error);
     }
   };
 
@@ -729,40 +772,42 @@ const ServiceTestConfigurationInner: React.FC = () => {
         />
       </Card>
 
-      {/* Modal để nhập chi tiết chỉ số */}
+      {/* Modal để tạo/chỉnh sửa chỉ số */}
       <Modal
-        title={editingItem ? 'Chỉnh sửa chỉ số xét nghiệm' : 'Thêm chỉ số xét nghiệm'}
+        title={editingItem ? 'Chỉnh sửa cấu hình chỉ số' : 'Tạo chỉ số xét nghiệm mới'}
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={() => setIsModalVisible(false)}
         width={800}
-        okText={editingItem ? 'Cập nhật' : 'Thêm'}
+        okText={editingItem ? 'Cập nhật' : 'Tạo mới'}
         cancelText="Hủy"
       >
         <Form form={form} layout="vertical">
+          <Alert
+            message={`Tạo chỉ số xét nghiệm cho dịch vụ: ${selectedService?.serviceName}`}
+            type="info"
+            showIcon
+            className="mb-4"
+          />
+          
           <Form.Item
-            name="testCategoryId"
-            label="Chọn loại xét nghiệm"
-            rules={[{ required: true, message: 'Vui lòng chọn loại xét nghiệm' }]}
+            name="testCategoryName"
+            label="Tên chỉ số xét nghiệm"
+            rules={[{ required: true, message: 'Vui lòng nhập tên chỉ số' }]}
           >
-            <Select
-              placeholder="Chọn loại xét nghiệm"
+            <Input 
+              placeholder="VD: Cholesterol, Glucose, HIV Test..."
               disabled={!!editingItem}
-              showSearch
-              optionFilterProp="children"
-            >
-              {testCategories.map(category => (
-                <Option key={category._id} value={category._id}>
-                  <div>
-                    <div><strong>{category.name}</strong></div>
-                    <div className="text-sm text-gray-500">
-                      {category.normalRange && `Khoảng chuẩn mặc định: ${category.normalRange}`}
-                      {category.unit && ` | Đơn vị: ${category.unit}`}
-                    </div>
-                  </div>
-                </Option>
-              ))}
-            </Select>
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="description"
+            label="Mô tả chỉ số"
+          >
+            <Input 
+              placeholder="VD: Đo lượng cholesterol trong máu..."
+            />
           </Form.Item>
 
           <Row gutter={16}>

@@ -14,11 +14,11 @@ router.get(
   testCategoriesController.getAllTestCategories
 );
 
-// GET /api/test-categories/dropdown - Lấy test categories cho dropdown (Doctor và Nursing Staff)
+// GET /api/test-categories/dropdown - Lấy test categories cho dropdown (Doctor, Staff, Nursing Staff, Admin)
 router.get(
   '/dropdown',
   authMiddleware,
-  roleMiddleware(['doctor', 'nursing_staff', 'admin']),
+  roleMiddleware(['doctor', 'staff', 'nursing_staff', 'admin']),
   testCategoriesController.getTestCategoriesForDropdown
 );
 
@@ -29,19 +29,19 @@ router.get(
   testCategoriesController.getTestCategoryById
 );
 
-// POST /api/test-categories - Tạo test category mới (Chỉ Admin và Nursing Staff)
+// POST /api/test-categories - Tạo test category mới (Admin, Nursing Staff, Doctor, Staff)
 router.post(
   '/',
   authMiddleware,
-  roleMiddleware(['admin', 'nursing_staff']),
+  roleMiddleware(['admin', 'nursing_staff', 'doctor', 'staff']),
   testCategoriesController.createTestCategory
 );
 
-// PUT /api/test-categories/:id - Cập nhật test category (Chỉ Admin và Nursing Staff)
+// PUT /api/test-categories/:id - Cập nhật test category (Admin, Nursing Staff, Doctor, Staff)
 router.put(
   '/:id',
   authMiddleware,
-  roleMiddleware(['admin', 'nursing_staff']),
+  roleMiddleware(['admin', 'nursing_staff', 'doctor', 'staff']),
   testCategoriesController.updateTestCategory
 );
 
