@@ -237,7 +237,7 @@ const BookingHistory: React.FC = () => {
           for (const appointment of pendingPayments) {
             try {
               // Check payment status qua PayOS API
-              const paymentStatusResponse = await axiosInstance.get(`/payments/appointments/${appointment.id}/payment/status`);
+              const paymentStatusResponse = await axiosInstance.get(`/payments/appointments/${appointment.id}/status`);
               
               if (paymentStatusResponse.data?.success && paymentStatusResponse.data?.data) {
                 const paymentData = paymentStatusResponse.data.data;
@@ -566,7 +566,7 @@ const BookingHistory: React.FC = () => {
     try {
       console.log('🔄 [CancelPayment] Cancelling payment for appointment:', appointment.id);
       
-      const response = await axiosInstance.post(`/payments/appointments/${appointment.id}/payment/cancel`);
+              const response = await axiosInstance.post(`/payments/appointments/${appointment.id}/cancel`);
       
       if (response.data?.success) {
         message.success('Hủy thanh toán thành công!');

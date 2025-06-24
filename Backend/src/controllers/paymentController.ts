@@ -32,7 +32,7 @@ export class PaymentController {
       }
 
       const existingPayment = await PaymentTracking.findOne({
-        doctorQAId: qaId,
+        recordId: qaId,
         serviceType: 'consultation'
       });
 
@@ -63,7 +63,8 @@ export class PaymentController {
       }
 
       const paymentData = await payosService.createPaymentLink({
-        appointmentId: qaId,
+        recordId: qaId,
+        serviceType: 'consultation',
         amount,
         description,
         customerName: req.user?.fullName || consultation.fullName,
@@ -85,7 +86,7 @@ export class PaymentController {
       } else {
         paymentTracking = await PaymentTracking.create({
           serviceType: 'consultation',
-          doctorQAId: qaId,
+          recordId: qaId,
           orderCode: paymentData.orderCode,
           paymentLinkId: paymentData.paymentLinkId,
           paymentGateway: 'payos',
@@ -140,7 +141,7 @@ export class PaymentController {
       }
 
       const existingPayment = await PaymentTracking.findOne({
-        appointmentId: appointmentId,
+        recordId: appointmentId,
         serviceType: 'appointment'
       });
 
@@ -198,7 +199,8 @@ export class PaymentController {
       }
 
       const paymentData = await payosService.createPaymentLink({
-        appointmentId: appointmentId,
+        recordId: appointmentId,
+        serviceType: 'appointment',
         amount,
         description,
         customerName: req.user?.fullName || 'Khách hàng',
@@ -220,7 +222,7 @@ export class PaymentController {
       } else {
         paymentTracking = await PaymentTracking.create({
           serviceType: 'appointment',
-          appointmentId: appointmentId,
+          recordId: appointmentId,
           orderCode: paymentData.orderCode,
           paymentLinkId: paymentData.paymentLinkId,
           paymentGateway: 'payos',
@@ -270,9 +272,9 @@ export class PaymentController {
       console.log(`📥 Webhook received for ${paymentTracking.serviceType} service`);
 
       if (paymentTracking.serviceType === 'appointment') {
-        const appointment = await Appointments.findById(paymentTracking.appointmentId);
+        const appointment = await Appointments.findById(paymentTracking.recordId);
         if (!appointment) {
-          console.error(`Appointment not found for ID: ${paymentTracking.appointmentId}`);
+          console.error(`Appointment not found for ID: ${paymentTracking.recordId}`);
           return res.status(404).json({ message: 'Appointment not found' });
         }
 
@@ -290,7 +292,6 @@ export class PaymentController {
           await appointment.save();
 
           console.log(`✅ Appointment payment successful for orderCode: ${orderCode}`);
-          console.log(`🛡️ Payment data preserved for audit trail - will not auto-delete`);
         } else {
           await paymentTracking.updatePaymentStatus('failed', { code, desc }, true);
           if (appointment.status === 'pending_payment') {
@@ -298,13 +299,12 @@ export class PaymentController {
           }
           await appointment.save();
           console.log(`❌ Appointment payment failed for orderCode: ${orderCode}, reason: ${desc}`);
-          console.log(`🛡️ Failed payment data preserved for audit trail`);
         }
 
       } else if (paymentTracking.serviceType === 'consultation') {
-        const consultation = await DoctorQA.findById(paymentTracking.doctorQAId);
+        const consultation = await DoctorQA.findById(paymentTracking.recordId);
         if (!consultation) {
-          console.error(`Consultation not found for ID: ${paymentTracking.doctorQAId}`);
+          console.error(`Consultation not found for ID: ${paymentTracking.recordId}`);
           return res.status(404).json({ message: 'Consultation not found' });
         }
 
@@ -361,7 +361,7 @@ export class PaymentController {
       console.log('📋 [PaymentController] Current appointment status:', appointment.status);
 
       const paymentTracking = await PaymentTracking.findOne({
-        appointmentId: appointmentId,
+        recordId: appointmentId,
         serviceType: 'appointment'
       });
 
@@ -497,7 +497,7 @@ export class PaymentController {
       console.log('📋 [PaymentController] Current consultation status:', consultation.status);
 
       const paymentTracking = await PaymentTracking.findOne({
-        doctorQAId: qaId,
+        recordId: qaId,
         serviceType: 'consultation'
       });
 
@@ -587,7 +587,7 @@ export class PaymentController {
       console.log('✅ [CancelPayment] Appointment found, looking for payment tracking...');
 
       const paymentTracking = await PaymentTracking.findOne({
-        appointmentId: appointmentId,
+        recordId: appointmentId,
         serviceType: 'appointment',
         status: 'pending'
       });
@@ -653,7 +653,7 @@ export class PaymentController {
       }
 
       const paymentTracking = await PaymentTracking.findOne({
-        doctorQAId: qaId,
+        recordId: qaId,
         serviceType: 'consultation',
         status: 'pending'
       });
@@ -749,7 +749,7 @@ export class PaymentController {
 
       // Tìm payment tracking
       const paymentTracking = await PaymentTracking.findOne({
-        appointmentId: appointmentId,
+        recordId: appointmentId,
         serviceType: 'appointment',
         orderCode: parseInt(orderCode)
       });
@@ -875,7 +875,7 @@ export class PaymentController {
 
       // Tìm payment tracking
       const paymentTracking = await PaymentTracking.findOne({
-        doctorQAId: qaId,
+        recordId: qaId,
         serviceType: 'consultation',
         orderCode: parseInt(orderCode)
       });

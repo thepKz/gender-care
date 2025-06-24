@@ -10,7 +10,8 @@ interface PayOSConfig {
 
 // Payment request interface
 interface CreatePaymentRequest {
-  appointmentId: string;
+  recordId: string; // ✅ UNIFIED: appointmentId OR doctorQAId
+  serviceType: 'appointment' | 'consultation';
   amount: number;
   description: string;
   customerName: string;
@@ -135,7 +136,7 @@ class PayOSService {
       }
 
       // Generate unique order code
-      const orderCode = this.generateOrderCode(request.appointmentId);
+      const orderCode = this.generateOrderCode(request.recordId);
 
       // Ensure description is within PayOS limits (max 25 characters)
       const description = request.description.length > 25
@@ -166,7 +167,8 @@ class PayOSService {
         orderCode: paymentData.orderCode,
         amount: paymentData.amount,
         description: paymentData.description,
-        appointmentId: request.appointmentId,
+        recordId: request.recordId,
+        serviceType: request.serviceType,
         returnUrl: paymentData.returnUrl,
         cancelUrl: paymentData.cancelUrl
       });
@@ -187,7 +189,8 @@ class PayOSService {
         message: error.message,
         stack: error.stack,
         requestData: {
-          appointmentId: request.appointmentId,
+          recordId: request.recordId,
+          serviceType: request.serviceType,
           amount: request.amount,
           description: request.description,
           returnUrl: request.returnUrl,
@@ -336,12 +339,12 @@ class PayOSService {
   }
 
   /**
-   * Generate unique order code từ appointment ID
+   * Generate unique order code từ record ID
    */
-  private generateOrderCode(appointmentId: string): number {
-    // Tạo order code unique từ timestamp và appointment ID hash
+  private generateOrderCode(recordId: string): number {
+    // Tạo order code unique từ timestamp và record ID hash
     const timestamp = Math.floor(Date.now() / 1000);
-    const hash = crypto.createHash('md5').update(appointmentId).digest('hex');
+    const hash = crypto.createHash('md5').update(recordId).digest('hex');
     const hashNumber = parseInt(hash.substring(0, 6), 16);
 
     // Combine timestamp và hash để tạo order code unique
@@ -349,7 +352,7 @@ class PayOSService {
     const orderCode = (timestamp % 100000) * 10000 + (hashNumber % 10000);
 
     console.log('🔢 Generated order code:', {
-      appointmentId,
+      recordId,
       orderCode,
       timestamp,
       hashNumber
@@ -359,17 +362,17 @@ class PayOSService {
   }
 
   /**
-   * Extract appointment ID từ order code
+   * Extract record ID từ order code
    */
   private extractAppointmentIdFromOrderCode(orderCode: number): string | null {
-    // Lưu mapping orderCode -> appointmentId vào database hoặc cache
+    // Lưu mapping orderCode -> recordId vào database hoặc cache
     // Hiện tại return null vì cần implement mapping storage
 
-    console.log('🔍 Extracting appointment ID from order code:', orderCode);
+    console.log('🔍 Extracting record ID from order code:', orderCode);
 
     // TODO: Implement proper mapping storage
     // For now, this will be handled by the payment creation process
-    // that stores the orderCode -> appointmentId mapping
+    // that stores the orderCode -> recordId mapping
 
     return null;
   }

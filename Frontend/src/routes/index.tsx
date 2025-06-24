@@ -40,7 +40,7 @@ import ServicesPage from '../pages/services';
 
 // Payment Pages
 import PaymentProcessPage from '../pages/payment/PaymentProcessPage';
-import PaymentSuccessPage from '../pages/payment/PaymentSuccessPageNew';
+import PaymentSuccessPage from '../pages/payment/PaymentSuccessPage';
 import PaymentCancelPage from '../pages/payment/PaymentCancelPage';
 
 // Demo Pages

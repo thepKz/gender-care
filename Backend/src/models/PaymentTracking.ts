@@ -2,8 +2,7 @@ import mongoose from 'mongoose';
 
 export interface IPaymentTracking extends mongoose.Document {
   serviceType: 'appointment' | 'consultation';
-  appointmentId?: mongoose.Types.ObjectId;
-  doctorQAId?: mongoose.Types.ObjectId;
+  recordId: mongoose.Types.ObjectId;
   orderCode: number;
   paymentLinkId?: string;
   paymentGateway: 'payos' | 'vnpay' | 'momo';
@@ -36,15 +35,13 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
     enum: ['appointment', 'consultation'],
     required: true
   },
-  appointmentId: {
+  recordId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Appointments',
-    required: false
-  },
-  doctorQAId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'DoctorQA',
-    required: false
+    required: true,
+    refPath: 'serviceType',
+    ref: function() {
+      return this.serviceType === 'appointment' ? 'Appointments' : 'DoctorQA';
+    }
   },
   orderCode: {
     type: Number,
@@ -109,24 +106,18 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
 });
 
 PaymentTrackingSchema.pre('save', function() {
-  if (this.serviceType === 'appointment' && !this.appointmentId) {
-    throw new Error('appointmentId is required for appointment service type');
+  if (!this.recordId) {
+    throw new Error('recordId is required');
   }
-  if (this.serviceType === 'consultation' && !this.doctorQAId) {
-    throw new Error('doctorQAId is required for consultation service type');
-  }
-  if (this.appointmentId && this.doctorQAId) {
-    throw new Error('Cannot have both appointmentId and doctorQAId');
+  if (!this.serviceType) {
+    throw new Error('serviceType is required');
   }
 });
 
-PaymentTrackingSchema.index({ appointmentId: 1 });
-PaymentTrackingSchema.index({ doctorQAId: 1 });
-PaymentTrackingSchema.index({ orderCode: 1 });
+PaymentTrackingSchema.index({ serviceType: 1, recordId: 1 }, { unique: true });
+PaymentTrackingSchema.index({ orderCode: 1 }, { unique: true });
 PaymentTrackingSchema.index({ status: 1 });
-PaymentTrackingSchema.index({ serviceType: 1 });
 
-// 🔧 NEW: Add conditional index only for pending payments cleanup
 PaymentTrackingSchema.index(
   { "expiresAt": 1 }, 
   { 
@@ -139,11 +130,17 @@ PaymentTrackingSchema.index(
 );
 
 PaymentTrackingSchema.statics.findAppointmentByOrderCode = function(orderCode: number) {
-  return this.findOne({ orderCode, serviceType: 'appointment' }).populate('appointmentId');
+  return this.findOne({ 
+    orderCode, 
+    serviceType: 'appointment' 
+  }).populate('recordId');
 };
 
 PaymentTrackingSchema.statics.findConsultationByOrderCode = function(orderCode: number) {
-  return this.findOne({ orderCode, serviceType: 'consultation' }).populate('doctorQAId');
+  return this.findOne({ 
+    orderCode, 
+    serviceType: 'consultation' 
+  }).populate('recordId');
 };
 
 PaymentTrackingSchema.methods.updatePaymentStatus = function(
@@ -160,9 +157,8 @@ PaymentTrackingSchema.methods.updatePaymentStatus = function(
     this.webhookProcessedAt = new Date();
   }
   
-  // 🛡️ PRESERVE PAYMENT HISTORY: Remove expiry for completed payments
   if (status === 'success' || status === 'failed' || status === 'cancelled') {
-    this.expiresAt = null; // Keep forever for audit trail
+    this.expiresAt = null;
   }
   
   return this.save();
