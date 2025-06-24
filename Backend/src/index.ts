@@ -49,7 +49,7 @@ for (const envPath of envPaths) {
   try {
     const result = dotenv.config({ path: envPath });
     if (!result.error) {
-      console.log(`✅ .env loaded from: ${envPath}`);
+      console.log(`.env loaded from: ${envPath}`);
       envLoaded = true;
       break;
     }
@@ -59,18 +59,9 @@ for (const envPath of envPaths) {
 }
 
 if (!envLoaded) {
-  console.log('⚠️ No .env file found, trying default dotenv.config()');
+  console.log('No .env file found, trying default dotenv.config()');
   dotenv.config();
 }
-
-// Debug: Check if .env is loaded
-console.log('🔍 Environment Variables Check:');
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('PORT:', process.env.PORT);
-console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
-console.log('PAYOS_CLIENT_ID exists:', !!process.env.PAYOS_CLIENT_ID);
-console.log('PAYOS_API_KEY exists:', !!process.env.PAYOS_API_KEY);
-console.log('PAYOS_CHECKSUM_KEY exists:', !!process.env.PAYOS_CHECKSUM_KEY);
 
 // Khởi tạo app express
 const app = express();
@@ -96,7 +87,7 @@ app.use((req, res, next) => {
 
   // Chỉ log IP cho authentication endpoints để tránh spam
   if (req.path.includes('/auth/') || req.path.includes('/login')) {
-  console.log(`🌐 Real IP detected: ${req.realIP} (Original: ${req.ip})`);
+    console.log(`Real IP detected: ${req.realIP} (Original: ${req.ip})`);
   }
   next();
 });
@@ -134,7 +125,7 @@ app.use(cors({
     }
   },
   credentials: true, // Quan trọng: cho phép gửi cookie
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   optionsSuccessStatus: 200 // Để support legacy browsers
 }));
@@ -234,10 +225,10 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   
-  // 🤖 Start auto status transition service
+  // Start auto status transition service
   startAutoTransitionService();
   
-  console.log('🚀 Server started successfully with all services');
+  console.log('Server started successfully with all services');
 });
 
 export default app;
