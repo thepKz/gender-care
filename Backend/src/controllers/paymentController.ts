@@ -740,6 +740,7 @@ export class PaymentController {
           success: true,
           message: 'Cuộc hẹn đã được xác nhận trước đó',
           data: {
+            amount: appointment.totalAmount || 0, // ✅ FIX: Dùng appointment.totalAmount thay vì paymentTracking
             appointmentStatus: appointment.status,
             paymentStatus: appointment.paymentStatus,
             paidAt: appointment.paidAt
@@ -777,6 +778,7 @@ export class PaymentController {
           success: true,
           message: 'Thanh toán đã được xác nhận trước đó',
           data: {
+            amount: paymentTracking.amount, // ✅ FIX: Thêm amount vào response
             appointmentStatus: 'confirmed',
             paymentStatus: 'paid',
             paidAt: appointment.paidAt
@@ -806,6 +808,7 @@ export class PaymentController {
         message: 'Xác nhận thanh toán nhanh thành công',
         data: {
           orderCode: paymentTracking.orderCode,
+          amount: paymentTracking.amount, // ✅ FIX: Thêm amount vào response
           appointmentStatus: appointment.status,
           paymentStatus: appointment.paymentStatus,
           paidAt: appointment.paidAt,
@@ -926,6 +929,7 @@ export class PaymentController {
         message: 'Xác nhận thanh toán consultation nhanh thành công',
         data: {
           orderCode: paymentTracking.orderCode,
+          amount: paymentTracking.amount, // ✅ FIX: Thêm amount vào response
           consultationStatus: consultation.status,
           fastConfirmed: true
         }

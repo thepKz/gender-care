@@ -77,9 +77,9 @@ router.delete('/:id', verifyToken, deleteAppointment);
 /**
  * @route   PUT /api/appointments/:id/status
  * @desc    Cập nhật trạng thái cuộc hẹn
- * @access  Private (Staff, Manager, Admin) - Updated with role hierarchy
+ * @access  Private (Doctor, Staff, Manager, Admin) - Allow doctors to update status for consulting workflow
  */
-router.put('/:id/status', verifyToken, requireRole('staff'), updateAppointmentStatus);
+router.put('/:id/status', verifyToken, requireAnyRole(['doctor', 'staff']), updateAppointmentStatus);
 
 /**
  * @route   PUT /api/appointments/:id/payment

@@ -8,7 +8,6 @@ import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import {
   appointmentRoutes,
-  appointmentTestsRoutes,
   authRoutes,
   dashboardRoutes,
   doctorQARoutes,
@@ -25,6 +24,7 @@ import {
   paymentRoutes,
   servicePackageRoutes,
   serviceRoutes,
+  serviceTestCategoriesRoutes,
   systemLogRoutes,
   testCategoriesRoutes,
   testResultItemsRoutes,
@@ -191,6 +191,7 @@ apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/doctors', doctorRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
+apiRouter.use('/service-test-categories', serviceTestCategoriesRoutes);
 apiRouter.use('/package-purchases', packagePurchaseRoutes);
 
 // ✅ NEW: Google Authentication routes
@@ -198,7 +199,6 @@ apiRouter.use('/google-auth', googleAuthRoutes);
 
 // Thêm Test Management routes
 apiRouter.use('/test-categories', testCategoriesRoutes);
-apiRouter.use('/appointment-tests', appointmentTestsRoutes);
 apiRouter.use('/test-results', testResultsRoutes);
 apiRouter.use('/test-result-items', testResultItemsRoutes);
 

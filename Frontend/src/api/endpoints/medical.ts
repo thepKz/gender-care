@@ -81,6 +81,100 @@ const medicalApi = {
         'Content-Type': 'multipart/form-data',
       },
     });
+  },
+
+  // Lấy medical records theo appointment ID
+  getMedicalRecordsByAppointment: async (appointmentId: string) => {
+    const response = await axiosInstance.get(`/medical-records/appointment/${appointmentId}`);
+    return response;
+  },
+
+  // Kiểm tra medical record existence
+  checkMedicalRecordByAppointment: async (appointmentId: string) => {
+    const response = await axiosInstance.get(`/medical-records/check/${appointmentId}`);
+    return response;
+  },
+
+  // Lấy medical records theo profile ID
+  getMedicalRecordsByProfile: async (profileId: string, page: number = 1, limit: number = 10) => {
+    const response = await axiosInstance.get(`/medical-records/profile/${profileId}`, {
+      params: { page, limit }
+    });
+    return response;
+  },
+
+  // Xóa medical record
+  deleteMedicalRecord: async (recordId: string) => {
+    const response = await axiosInstance.delete(`/medical-records/${recordId}`);
+    return response;
+  },
+
+  // Lấy danh sách medicines
+  getMedicines: async (page: number = 1, limit: number = 20, search?: string) => {
+    const response = await axiosInstance.get('/medicines', {
+      params: { page, limit, search }
+    });
+    return response;
+  },
+
+  // Tìm kiếm medicines
+  searchMedicines: async (query: string, limit: number = 20) => {
+    const response = await axiosInstance.get('/medicines/search', {
+      params: { q: query, limit }
+    });
+    return response;
+  },
+
+  // Tạo medicine mới (Admin/Pharmacist only)
+  createMedicine: async (data: {
+    name: string;
+    activeIngredient?: string;
+    dosageForm: string;
+    strength?: string;
+    manufacturer?: string;
+    description?: string;
+    sideEffects?: string;
+    contraindications?: string;
+    storageConditions?: string;
+  }) => {
+    const response = await axiosInstance.post('/medicines', data);
+    return response;
+  },
+
+  // Tạo medication reminder
+  createMedicationReminder: async (data: {
+    profileId: string;
+    medicineId: string;
+    medicalRecordId?: string;
+    dosage: string;
+    frequency: string;
+    duration: number;
+    instructions?: string;
+    reminderTimes: string[];
+  }) => {
+    const response = await axiosInstance.post('/medication-reminders', data);
+    return response;
+  },
+
+  // Lấy medication reminders theo profile
+  getMedicationRemindersByProfile: async (profileId: string) => {
+    const response = await axiosInstance.get(`/medication-reminders/profile/${profileId}`);
+    return response;
+  },
+
+  // Đánh dấu đã uống thuốc
+  markMedicationTaken: async (reminderId: string, data: {
+    takenAt: string;
+    notes?: string;
+  }) => {
+    const response = await axiosInstance.put(`/medication-reminders/${reminderId}/take`, data);
+    return response;
+  },
+
+  // Lấy medication dashboard
+  getMedicationDashboard: async (profileId: string) => {
+    const response = await axiosInstance.get(`/medication-reminders/dashboard/${profileId}`);
+    return response;
   }
 };
 

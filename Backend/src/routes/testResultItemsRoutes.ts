@@ -71,4 +71,36 @@ router.delete(
   testResultItemsController.deleteTestResultItem
 );
 
+// POST /api/test-result-items/auto-evaluate - Tạo test result item với auto-evaluation (Doctor, Nursing Staff)
+router.post(
+  '/auto-evaluate',
+  authMiddleware,
+  roleMiddleware(['doctor', 'nursing_staff']),
+  testResultItemsController.createTestResultItemWithAutoEvaluation
+);
+
+// POST /api/test-result-items/bulk-auto-evaluate - Tạo nhiều test result items với auto-evaluation (Doctor, Nursing Staff)
+router.post(
+  '/bulk-auto-evaluate',
+  authMiddleware,
+  roleMiddleware(['doctor', 'nursing_staff']),
+  testResultItemsController.createMultipleTestResultItemsWithAutoEvaluation
+);
+
+// GET /api/test-result-items/template/:serviceId - Lấy template cho việc nhập kết quả xét nghiệm (Doctor, Nursing Staff)
+router.get(
+  '/template/:serviceId',
+  authMiddleware,
+  roleMiddleware(['doctor', 'nursing_staff']),
+  testResultItemsController.getTestResultTemplateForService
+);
+
+// POST /api/test-result-items/evaluate-value - Auto-evaluate một giá trị (Doctor, Nursing Staff)
+router.post(
+  '/evaluate-value',
+  authMiddleware,
+  roleMiddleware(['doctor', 'nursing_staff']),
+  testResultItemsController.autoEvaluateValue
+);
+
 export default router; 

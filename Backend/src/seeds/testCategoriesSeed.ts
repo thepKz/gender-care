@@ -1,39 +1,8 @@
-import mongoose from 'mongoose';
+
 import TestCategories from '../models/TestCategories';
-import { config } from 'dotenv';
 
-// Load biến môi trường
-config();
+const testCategoriesData = [
 
-interface TestCategorySeed {
-  name: string;
-  description: string;
-  unit: string;
-  normalRange: string;
-}
-
-const testCategoriesData: TestCategorySeed[] = [
-  // 1. Blood Sugar Tests
-  {
-    name: 'Glucose lúc đói',
-    description: 'Đo nồng độ đường huyết sau khi nhịn ăn ít nhất 8 giờ',
-    unit: 'mg/dL',
-    normalRange: '70-100'
-  },
-  {
-    name: 'HbA1c',
-    description: 'Đo nồng độ đường huyết trung bình trong 2-3 tháng qua',
-    unit: '%',
-    normalRange: '4.0-5.6'
-  },
-  {
-    name: 'Glucose sau ăn 2h',
-    description: 'Đo nồng độ đường huyết 2 giờ sau khi ăn',
-    unit: 'mg/dL',
-    normalRange: '<140'
-  },
-
-  // 2. Lipid Panel Tests
   {
     name: 'Cholesterol toàn phần',
     description: 'Đo tổng lượng cholesterol trong máu',
@@ -42,204 +11,142 @@ const testCategoriesData: TestCategorySeed[] = [
   },
   {
     name: 'HDL Cholesterol',
-    description: 'Cholesterol tốt - giúp bảo vệ tim mạch',
+
+    description: 'Cholesterol lipoprotein mật độ cao (cholesterol tốt)',
+
     unit: 'mg/dL',
     normalRange: '>40 (nam), >50 (nữ)'
   },
   {
     name: 'LDL Cholesterol',
-    description: 'Cholesterol xấu - có thể gây tắc nghẽn động mạch',
+
+    description: 'Cholesterol lipoprotein mật độ thấp (cholesterol xấu)',
+
     unit: 'mg/dL',
     normalRange: '<100'
   },
   {
     name: 'Triglycerides',
-    description: 'Chất béo trong máu có thể gây bệnh tim mạch',
+
+    description: 'Triglycerides trong máu',
     unit: 'mg/dL',
     normalRange: '<150'
   },
-
-  // 3. Liver Function Tests
+  {
+    name: 'Glucose',
+    description: 'Đường huyết lúc đói',
+    unit: 'mg/dL',
+    normalRange: '70-100'
+  },
+  {
+    name: 'HbA1c',
+    description: 'Hemoglobin A1c (đường huyết trung bình 3 tháng)',
+    unit: '%',
+    normalRange: '<5.7'
+  },
   {
     name: 'ALT (SGPT)',
-    description: 'Enzyme gan - chỉ báo tổn thương tế bào gan',
-    unit: 'IU/L',
-    normalRange: '7-41'
+    description: 'Alanine aminotransferase - enzyme gan',
+    unit: 'U/L',
+    normalRange: '7-56'
   },
   {
     name: 'AST (SGOT)',
-    description: 'Enzyme gan - chỉ báo tổn thương gan và tim',
-    unit: 'IU/L',
-    normalRange: '13-35'
+    description: 'Aspartate aminotransferase - enzyme gan',
+    unit: 'U/L',
+    normalRange: '10-40'
   },
-  {
-    name: 'Bilirubin toàn phần',
-    description: 'Sản phẩm phân hủy hồng cầu - chỉ báo chức năng gan',
-    unit: 'mg/dL',
-    normalRange: '0.2-1.2'
-  },
-
-  // 4. Kidney Function Tests
   {
     name: 'Creatinine',
-    description: 'Chỉ báo chức năng thận và khối lượng cơ',
+    description: 'Creatinine huyết thanh - chức năng thận',
     unit: 'mg/dL',
-    normalRange: '0.6-1.2 (nam), 0.5-1.1 (nữ)'
+    normalRange: '0.6-1.2'
   },
   {
-    name: 'Urea',
-    description: 'Sản phẩm chuyển hóa protein - chỉ báo chức năng thận',
+    name: 'BUN',
+    description: 'Blood Urea Nitrogen - chức năng thận',
     unit: 'mg/dL',
-    normalRange: '7-25'
+    normalRange: '6-24'
   },
-  {
-    name: 'eGFR',
-    description: 'Tốc độ lọc cầu thận ước tính',
-    unit: 'mL/min/1.73m²',
-    normalRange: '>60'
-  },
-
-  // 5. Thyroid Function Tests
   {
     name: 'TSH',
-    description: 'Hormone kích thích tuyến giáp',
+    description: 'Thyroid Stimulating Hormone - tuyến giáp',
     unit: 'mIU/L',
-    normalRange: '0.4-4.0'
+    normalRange: '0.27-4.20'
   },
   {
-    name: 'Free T4',
-    description: 'Hormone tuyến giáp tự do',
+    name: 'T3',
+    description: 'Triiodothyronine - hormone tuyến giáp',
     unit: 'ng/dL',
-    normalRange: '0.8-1.8'
+    normalRange: '80-200'
   },
   {
-    name: 'Free T3',
-    description: 'Hormone tuyến giáp hoạt tính tự do',
-    unit: 'pg/mL',
-    normalRange: '2.3-4.2'
+    name: 'T4',
+    description: 'Thyroxine - hormone tuyến giáp',
+    unit: 'μg/dL',
+    normalRange: '5.1-14.1'
   },
-
-  // 6. Complete Blood Count
   {
     name: 'Hemoglobin',
-    description: 'Protein vận chuyển oxy trong hồng cầu',
+    description: 'Huyết sắc tố',
     unit: 'g/dL',
-    normalRange: '12-15 (nữ), 14-17 (nam)'
+    normalRange: '12-15.5 (nữ), 13.5-17.5 (nam)'
   },
   {
     name: 'Hematocrit',
-    description: 'Tỷ lệ thể tích hồng cầu trong máu',
+    description: 'Tỷ lệ hồng cầu trong máu',
     unit: '%',
-    normalRange: '36-46 (nữ), 41-50 (nam)'
+    normalRange: '36-46 (nữ), 41-53 (nam)'
   },
   {
-    name: 'Bạch cầu',
-    description: 'Tế bào bạch cầu - chỉ báo nhiễm trùng và miễn dịch',
-    unit: 'cells/μL',
-    normalRange: '4,000-11,000'
+    name: 'WBC',
+    description: 'Bạch cầu',
+    unit: '10³/μL',
+    normalRange: '4.5-11.0'
   },
   {
-    name: 'Tiểu cầu',
-    description: 'Tế bào giúp đông máu',
-    unit: 'cells/μL',
-    normalRange: '150,000-450,000'
+    name: 'Platelet',
+    description: 'Tiểu cầu',
+    unit: '10³/μL',
+    normalRange: '150-450'
   },
-
-  // 7. Inflammation Markers
   {
-    name: 'CRP',
-    description: 'Protein phản ứng C - chỉ báo viêm nhiễm',
-    unit: 'mg/L',
+    name: 'PSA',
+    description: 'Prostate-Specific Antigen - tuyến tiền liệt',
+    unit: 'ng/mL',
+    normalRange: '<4.0'
+  },
+  {
+    name: 'CA 125',
+    description: 'Cancer Antigen 125 - dấu ấn ung thư buồng trứng',
+    unit: 'U/mL',
+    normalRange: '<35'
+  },
+  {
+    name: 'CEA',
+    description: 'Carcinoembryonic Antigen - dấu ấn ung thư',
+    unit: 'ng/mL',
     normalRange: '<3.0'
-  },
-  {
-    name: 'ESR',
-    description: 'Tốc độ lắng hồng cầu - chỉ báo viêm nhiễm',
-    unit: 'mm/h',
-    normalRange: '<20 (nam), <30 (nữ)'
-  },
-
-  // 8. Vitamin & Minerals
-  {
-    name: 'Vitamin D',
-    description: 'Vitamin hỗ trợ hấp thu canxi và sức khỏe xương',
-    unit: 'ng/mL',
-    normalRange: '30-100'
-  },
-  {
-    name: 'Vitamin B12',
-    description: 'Vitamin cần thiết cho hệ thần kinh và tạo máu',
-    unit: 'pg/mL',
-    normalRange: '300-900'
-  },
-  {
-    name: 'Folate',
-    description: 'Vitamin B9 cần thiết cho tạo DNA và hồng cầu',
-    unit: 'ng/mL',
-    normalRange: '3-17'
   }
 ];
 
-async function seedTestCategories() {
+const seedTestCategories = async () => {
   try {
-    // Kết nối đến MongoDB
-    await mongoose.connect(process.env.MONGO_URI as string);
-    console.log('✅ Connected to MongoDB for Test Categories seeding');
-
+    console.log('🧪 Bắt đầu seed Test Categories...');
+    
     // Xóa dữ liệu cũ
     await TestCategories.deleteMany({});
-    console.log('🧹 Cleared existing test categories');
-
-    // Tạo test categories mới
-    const createdCategories = await TestCategories.insertMany(testCategoriesData);
-    console.log(`✅ Created ${createdCategories.length} test categories`);
-
-    // Hiển thị thống kê
-    const stats = {
-      total: createdCategories.length,
-      withUnit: createdCategories.filter(cat => cat.unit && cat.unit.trim().length > 0).length,
-      withNormalRange: createdCategories.filter(cat => cat.normalRange && cat.normalRange.trim().length > 0).length,
-      complete: createdCategories.filter(cat => 
-        cat.unit && cat.unit.trim().length > 0 && 
-        cat.normalRange && cat.normalRange.trim().length > 0
-      ).length
-    };
-
-    console.log('\n📊 Test Categories Statistics:');
-    console.log(`   🔬 Tổng số loại xét nghiệm: ${stats.total}`);
-    console.log(`   📏 Có đơn vị đo: ${stats.withUnit}`);
-    console.log(`   📊 Có giá trị chuẩn: ${stats.withNormalRange}`);
-    console.log(`   ✅ Thông tin đầy đủ: ${stats.complete}`);
-
-    // Hiển thị một số examples
-    console.log('\n🔍 Ví dụ về test categories đã tạo:');
-    const examples = createdCategories.slice(0, 5);
-    examples.forEach((cat, index) => {
-      console.log(`   ${index + 1}. ${cat.name} (${cat.unit}) - Bình thường: ${cat.normalRange}`);
-    });
-
-    console.log('\n🎉 Test Categories seeding completed successfully!');
     
+    // Thêm dữ liệu mới
+    const created = await TestCategories.insertMany(testCategoriesData);
+    
+    console.log(`✅ Đã tạo ${created.length} test categories thành công!`);
+    return created;
   } catch (error) {
-    console.error('❌ Error seeding test categories:', error);
+    console.error('❌ Lỗi khi seed Test Categories:', error);
     throw error;
-  } finally {
-    await mongoose.disconnect();
-    console.log('🔌 Disconnected from MongoDB');
   }
-}
+};
 
-// Chạy seed nếu file được thực thi trực tiếp
-if (require.main === module) {
-  seedTestCategories()
-    .then(() => {
-      console.log('✅ Test Categories seed process completed');
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error('❌ Test Categories seed process failed:', error);
-      process.exit(1);
-    });
-}
+export default seedTestCategories; 
 
-export { seedTestCategories }; 

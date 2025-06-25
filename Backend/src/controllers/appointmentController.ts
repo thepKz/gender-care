@@ -859,8 +859,8 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
             throw new ValidationError({ id: 'ID cuộc hẹn không hợp lệ' });
         }
 
-        // Kiểm tra status có hợp lệ không
-        if (!['pending', 'pending_payment', 'paid', 'confirmed', 'completed', 'cancelled'].includes(status)) {
+        // Kiểm tra status có hợp lệ không - Updated với consulting status
+        if (!['pending', 'pending_payment', 'paid', 'scheduled', 'confirmed', 'consulting', 'completed', 'cancelled'].includes(status)) {
             throw new ValidationError({ status: 'Trạng thái không hợp lệ' });
         }
 

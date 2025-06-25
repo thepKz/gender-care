@@ -278,6 +278,171 @@ class TestResultItemsController {
       }
     }
   };
+
+  // POST /api/test-result-items/auto-evaluate - Tạo test result item với auto-evaluation
+  createTestResultItemWithAutoEvaluation = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { testResultId, itemNameId, value, unit, currentRange } = req.body;
+      const userRole = req.user?.role || '';
+
+      if (!testResultId || !itemNameId || !value) {
+        res.status(400).json({
+          success: false,
+          message: 'Test result ID, item name ID, and value are required'
+        });
+        return;
+      }
+
+      const data = {
+        testResultId,
+        itemNameId,
+        value,
+        unit,
+        currentRange
+      };
+
+      const newTestResultItem = await this.testResultItemsService.createTestResultItemWithAutoEvaluation(data, userRole);
+
+      res.status(201).json({
+        success: true,
+        message: 'Test result item created with auto-evaluation successfully',
+        data: newTestResultItem
+      });
+    } catch (error: any) {
+      if (error.message.includes('Only') || error.message.includes('required') || 
+          error.message.includes('not found') || error.message.includes('already exists')) {
+        res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to create test result item with auto-evaluation',
+          error: error.message
+        });
+      }
+    }
+  };
+
+  // POST /api/test-result-items/bulk-auto-evaluate - Tạo nhiều test result items với auto-evaluation
+  createMultipleTestResultItemsWithAutoEvaluation = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+      const { testResultId, items } = req.body;
+      const userRole = req.user?.role || '';
+
+      if (!testResultId || !items || !Array.isArray(items) || items.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: 'Test result ID and items array are required'
+        });
+        return;
+      }
+
+      const data = { testResultId, items };
+      const createdItems = await this.testResultItemsService.createMultipleTestResultItemsWithAutoEvaluation(data, userRole);
+
+      res.status(201).json({
+        success: true,
+        message: `${createdItems.length} test result items created with auto-evaluation successfully`,
+        data: createdItems
+      });
+    } catch (error: any) {
+      if (error.message.includes('Only') || error.message.includes('required') || 
+          error.message.includes('not found') || error.message.includes('already exists')) {
+        res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to create test result items with auto-evaluation',
+          error: error.message
+        });
+      }
+    }
+  };
+
+  // GET /api/test-result-items/template/:serviceId - Lấy template cho việc nhập kết quả xét nghiệm
+  getTestResultTemplateForService = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { serviceId } = req.params;
+
+      const template = await this.testResultItemsService.getTestResultTemplateForService(serviceId);
+
+      if (!template) {
+        res.status(404).json({
+          success: false,
+          message: 'Service not found or has no test categories'
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Test result template retrieved successfully',
+        data: template
+      });
+    } catch (error: any) {
+      if (error.message.includes('Invalid')) {
+        res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to retrieve test result template',
+          error: error.message
+        });
+      }
+    }
+  };
+
+  // POST /api/test-result-items/evaluate-value - Auto-evaluate một giá trị
+  autoEvaluateValue = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { serviceId, testCategoryId, value } = req.body;
+
+      if (!serviceId || !testCategoryId || !value) {
+        res.status(400).json({
+          success: false,
+          message: 'Service ID, test category ID, and value are required'
+        });
+        return;
+      }
+
+      const evaluation = await this.testResultItemsService.autoEvaluateValue(serviceId, testCategoryId, value);
+
+      if (!evaluation) {
+        res.status(404).json({
+          success: false,
+          message: 'Unable to evaluate value - service or test category not found or no range configured'
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Value evaluated successfully',
+        data: evaluation
+      });
+    } catch (error: any) {
+      if (error.message.includes('Invalid')) {
+        res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to evaluate value',
+          error: error.message
+        });
+      }
+    }
+  };
 }
 
 export default new TestResultItemsController(); 
