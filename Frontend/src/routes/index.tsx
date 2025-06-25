@@ -47,6 +47,7 @@ import PaymentCancelPage from '../pages/payment/PaymentCancelPage';
 import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
 import RichTextComposerDemo from '../pages/demo/RichTextComposerDemo';
+import TestManagementDemo from '../pages/demo/TestManagementDemo';
 
 // Dashboard Wrapper Components
 import ManagementDashboardPage from '../pages/dashboard/management';
@@ -165,6 +166,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/demo" element={<DemoIndexPage />} />
         <Route path="/demo/components" element={<ComponentShowcasePage />} />
         <Route path="/demo/composer" element={<RichTextComposerDemo />} />
+        <Route path="/demo/test-management" element={<TestManagementDemo />} />
         
         {/* Các route khác */}
         <Route path="*" element={<NotFoundPage />} />

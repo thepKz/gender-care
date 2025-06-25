@@ -37,9 +37,13 @@ import ServiceManagement from '../../../pages/dashboard/management/ServiceManage
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import SystemLogManagement from '../../../pages/dashboard/management/SystemLogManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
+
 import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedulePage';
 import MedicineManagement from '../../../pages/dashboard/management/MedicineManagement';
 import TestManagement from '../../../pages/dashboard/management/TestManagement';
+
+import TestCategoriesManagement from '../../../pages/dashboard/management/TestCategoriesManagement';
+
 import { 
   type DashboardStat,
   type ActivityItem,
@@ -149,14 +153,17 @@ const getMenuItems = (role: 'admin' | 'manager') => {
       label: 'Quản lý gói dịch vụ',
     },
     {
+
       key: 'medicines',
       icon: <MedicineBoxOutlined />,
       label: 'Quản lý thuốc',
     },
     {
+
       key: 'test-categories',
-      icon: <ExperimentOutlined />,
-      label: 'Quản lý loại xét nghiệm',
+      icon: <FileTextOutlined />,
+      label: 'Quản lý danh mục xét nghiệm',
+
     },
     {
       key: 'login-history',
@@ -690,10 +697,13 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         return <ServiceManagement />;
       case 'service-packages':
         return <ServicePackageManagement />;
+
       case 'medicines':
         return <MedicineManagement />;
+
       case 'test-categories':
-        return <TestManagement />;
+        return <TestCategoriesManagement />;
+
       case 'login-history':
         return <LoginHistoryManagement />;
       case 'system-logs':

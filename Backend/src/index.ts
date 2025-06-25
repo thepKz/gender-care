@@ -25,6 +25,7 @@ import {
   paymentRoutes,
   servicePackageRoutes,
   serviceRoutes,
+  serviceTestCategoriesRoutes,
   systemLogRoutes,
   testCategoriesRoutes,
   testResultItemsRoutes,
@@ -191,6 +192,7 @@ apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/doctors', doctorRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
+apiRouter.use('/service-test-categories', serviceTestCategoriesRoutes);
 apiRouter.use('/package-purchases', packagePurchaseRoutes);
 
 // ✅ NEW: Google Authentication routes

@@ -1,16 +1,28 @@
 import mongoose from 'mongoose';
 
 export interface ITestResults {
-  appointmentTestId: mongoose.Types.ObjectId;
+  appointmentId: mongoose.Types.ObjectId;
+  profileId: mongoose.Types.ObjectId;
+  doctorId: mongoose.Types.ObjectId;
   conclusion?: string;
   recommendations?: string;
   createdAt?: Date;
 }
 
 const TestResultsSchema = new mongoose.Schema<ITestResults>({
-  appointmentTestId: { 
+  appointmentId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'AppointmentTests', 
+    ref: 'Appointments', 
+    required: true 
+  },
+  profileId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'UserProfiles', 
+    required: true 
+  },
+  doctorId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Doctor', 
     required: true 
   },
   conclusion: { 
@@ -24,7 +36,9 @@ const TestResultsSchema = new mongoose.Schema<ITestResults>({
 });
 
 // Tạo index để tối ưu hóa truy vấn
-TestResultsSchema.index({ appointmentTestId: 1 });
+TestResultsSchema.index({ appointmentId: 1 });
+TestResultsSchema.index({ profileId: 1 });
+TestResultsSchema.index({ doctorId: 1 });
 
 const TestResults = mongoose.model<ITestResults>('TestResults', TestResultsSchema);
 
