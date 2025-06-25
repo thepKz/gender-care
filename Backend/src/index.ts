@@ -19,6 +19,7 @@ import {
   medicationRemindersRoutes,
   medicinesRoutes,
   meetingRoutes,
+  menstrualCycleRoutes,
   notificationDaysRoutes,
   packagePurchaseRoutes,
   paymentRoutes,
@@ -35,6 +36,7 @@ import consultationRoutes from './routes/consultationRoutes';
 
 import { runAllSeeds } from "./seeds";
 import { startAutoTransitionService } from './services/appointmentAutoTransitionService';
+import { menstrualCycleReminderService } from "./services/menstrualCycleReminderService";
 
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
 // Try multiple paths for .env file
@@ -73,7 +75,7 @@ app.set('trust proxy', true); // Cho phép lấy IP từ X-Forwarded-For header
 // Middleware để extract real IP address
 app.use((req, res, next) => {
   // Lấy real IP từ các headers phổ biến
-  req.realIP = req.ip || 
+  req.realIP = req.ip ||
     req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
     req.headers['x-real-ip']?.toString() ||
     req.connection?.remoteAddress ||
@@ -87,6 +89,7 @@ app.use((req, res, next) => {
 
   // Chỉ log IP cho authentication endpoints để tránh spam
   if (req.path.includes('/auth/') || req.path.includes('/login')) {
+
     console.log(`Real IP detected: ${req.realIP} (Original: ${req.ip})`);
   }
   next();
@@ -166,6 +169,9 @@ const connectDB = async () => {
       await runAllSeeds();
     }
 
+    // Khởi tạo reminder service cho menstrual cycles
+    menstrualCycleReminderService.initializeDailyReminders();
+
   } catch (error) {
     console.error(`Lỗi: ${error}`);
     process.exit(1);
@@ -204,6 +210,8 @@ apiRouter.use('/medicines', medicinesRoutes);
 apiRouter.use('/medication-reminders', medicationRemindersRoutes);
 apiRouter.use('/notification-days', notificationDaysRoutes);
 apiRouter.use('/user-profiles', userProfileRoutes);
+// Menstrual Cycle routes
+apiRouter.use('/', menstrualCycleRoutes);
 apiRouter.use('/appointments', appointmentRoutes);
 apiRouter.use('/payments', paymentRoutes);
 apiRouter.use('/system-logs', systemLogRoutes);

@@ -17,7 +17,9 @@ import Appointments from './Appointments';
 
 // Health Tracking
 import MenstrualCycles from './MenstrualCycles';
-import CycleSymptoms from './CycleSymptoms';
+import CycleDays from './CycleSymptoms'; // Renamed from CycleSymptoms to CycleDays
+import MenstrualCycleReminders from './MenstrualCycleReminders';
+import MenstrualCycleReports from './MenstrualCycleReports';
 import MedicationReminders, { IMedicationReminders, IMedicines } from './MedicationReminders';
 import NotificationDays from './NotificationDays';
 
@@ -59,23 +61,25 @@ export {
   LoginHistory,
   OtpCode,
   UserProfiles,
-  
+
   // Doctor & Staff Management
   Doctor,
   StaffDetails,
   DoctorSchedules,
-  
+
   // Services & Appointments
   Service,
   ServicePackages,
   Appointments,
-  
+
   // Health Tracking
   MenstrualCycles,
-  CycleSymptoms,
+  CycleDays,
+  MenstrualCycleReminders,
+  MenstrualCycleReports,
   MedicationReminders,
   NotificationDays,
-  
+
   // Medical Records & Medicines
   MedicalRecords,
   Medicines,
@@ -88,20 +92,20 @@ export {
   DoctorQA,
   Meeting,
   GoogleAuth,
-  
+
   // Content & Community
   BlogCategories,
   BlogPosts,
   PostCategories,
   Feedbacks,
-  
+
   // Business & Billing
   Promotions,
   Bills,
   Payments,
   PackagePurchases,
   PaymentTracking,
-  
+
   // System
   SystemConfigs,
   SystemLog
