@@ -221,6 +221,19 @@ export interface ITestResult {
   createdAt: Date;
 }
 
+export interface IServiceTestCategories {
+  _id: string;
+  serviceId: string;
+  testCategoryId: string;
+  isRequired: boolean;
+  customNormalRange?: string;
+  customUnit?: string;
+  targetValue?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface ITestCategory {
   _id: string;
   name: string;

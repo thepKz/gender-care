@@ -112,6 +112,33 @@ export const randomText = (num: number) => {
 };
 
 /**
+ * Generate a random strong password
+ * Password will contain uppercase, lowercase, numbers and special characters
+ */
+export const generateRandomPassword = (length: number = 12): string => {
+  const lowercaseChars = 'abcdefghijklmnopqrstuvwxyz';
+  const uppercaseChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const numberChars = '0123456789';
+  const specialChars = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+  
+  // Ensure password contains at least one character from each category
+  let password = '';
+  password += lowercaseChars[Math.floor(Math.random() * lowercaseChars.length)];
+  password += uppercaseChars[Math.floor(Math.random() * uppercaseChars.length)];
+  password += numberChars[Math.floor(Math.random() * numberChars.length)];
+  password += specialChars[Math.floor(Math.random() * specialChars.length)];
+  
+  // Fill the rest with random characters from all categories
+  const allChars = lowercaseChars + uppercaseChars + numberChars + specialChars;
+  for (let i = password.length; i < length; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+  
+  // Shuffle the password to randomize the order
+  return password.split('').sort(() => 0.5 - Math.random()).join('');
+};
+
+/**
  * Extract real IP address từ request
  */
 export const getRealIP = (req: Request): string => {
@@ -152,7 +179,7 @@ export const getLocationFromIP = async (ip: string): Promise<GeolocationData> =>
       };
     }
 
-    console.log(`🔍 Getting location for IP: ${ip}`);
+    console.log(`Getting location for IP: ${ip}`);
     
     // Sử dụng ip-api.com (free service)
     const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,regionName,city,timezone,isp,query`);
@@ -178,14 +205,14 @@ export const getLocationFromIP = async (ip: string): Promise<GeolocationData> =>
         location: location || 'Unknown Location'
       };
     } else {
-      console.warn(`⚠️ Geolocation failed for IP ${ip}:`, data.message);
+      console.warn(`Geolocation failed for IP ${ip}:`, data.message);
       return {
         ip,
         location: 'Unknown Location'
       };
     }
   } catch (error) {
-    console.error(`❌ Error getting location for IP ${ip}:`, error);
+    console.error(`Error getting location for IP ${ip}:`, error);
     return {
       ip,
       location: 'Unknown Location'

@@ -25,6 +25,8 @@ interface ConsultationInfo {
   doctorId?: string;
   appointmentDate?: string;
   appointmentSlot?: string;
+  consultationFee: number;
+  serviceName?: string;
   createdAt: string;
 }
 
@@ -35,8 +37,6 @@ const PaymentPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   
-  const paymentAmount = 200000; // 200k VND
-
   useEffect(() => {
     if (qaId) {
       fetchConsultationInfo();
@@ -45,9 +45,20 @@ const PaymentPage: React.FC = () => {
 
   const fetchConsultationInfo = async () => {
     try {
+      console.log('🔍 [PaymentPage] Fetching consultation info for qaId:', qaId);
       const response = await consultationApi.getConsultationById(qaId!);
-      setConsultation(response.data.data);
+      const consultationData = response.data.data;
+      
+      console.log('✅ [PaymentPage] Consultation data received:', {
+        id: consultationData._id,
+        consultationFee: consultationData.consultationFee,
+        status: consultationData.status,
+        fullName: consultationData.fullName
+      });
+      
+      setConsultation(consultationData);
     } catch (error: any) {
+      console.error('❌ [PaymentPage] Error fetching consultation:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Lỗi lấy thông tin tư vấn';
       message.error(errorMessage);
       navigate('/online-consultation');
@@ -234,7 +245,7 @@ const PaymentPage: React.FC = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <Text className="text-gray-600">Dịch vụ:</Text>
-                      <Text className="font-semibold">Tư vấn trực tuyến</Text>
+                      <Text className="font-semibold">{consultation.serviceName || 'Tư vấn trực tuyến'}</Text>
                     </div>
                     <div className="flex justify-between items-center">
                       <Text className="text-gray-600">Mã đơn hàng:</Text>
@@ -256,7 +267,7 @@ const PaymentPage: React.FC = () => {
                     <div className="flex justify-between items-center">
                       <Text className="text-lg font-semibold text-gray-800">Tổng chi phí:</Text>
                       <Text className="text-2xl font-bold text-green-primary">
-                        {formatCurrency(paymentAmount)}
+                        {formatCurrency(consultation.consultationFee)}
                       </Text>
                     </div>
                   </div>

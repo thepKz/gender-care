@@ -36,7 +36,7 @@ export interface PaymentStatusResponse {
  */
 export const createPaymentLink = async (data: CreatePaymentLinkRequest): Promise<CreatePaymentLinkResponse> => {
   const { appointmentId, returnUrl, cancelUrl } = data;
-  const response = await axiosInstance.post(`/payments/appointments/${appointmentId}/payment`, {
+  const response = await axiosInstance.post(`/payments/appointments/${appointmentId}/create`, {
     returnUrl,
     cancelUrl
   });
@@ -48,7 +48,7 @@ export const createPaymentLink = async (data: CreatePaymentLinkRequest): Promise
  * Kiểm tra trạng thái thanh toán
  */
 export const checkPaymentStatus = async (appointmentId: string): Promise<PaymentStatusResponse> => {
-  const response = await axiosInstance.get(`/payments/appointments/${appointmentId}/payment/status`);
+  const response = await axiosInstance.get(`/payments/appointments/${appointmentId}/status`);
   return response.data;
 };
 
@@ -56,19 +56,19 @@ export const checkPaymentStatus = async (appointmentId: string): Promise<Payment
  * Hủy thanh toán
  */
 export const cancelPayment = async (appointmentId: string): Promise<{ success: boolean; message: string }> => {
-  const response = await axiosInstance.post(`/payments/appointments/${appointmentId}/payment/cancel`);
+  const response = await axiosInstance.post(`/payments/appointments/${appointmentId}/cancel`);
   return response.data;
 };
 
 /**
- * Fast confirm payment khi đã có status=PAID từ PayOS URL
+ * Fast confirm appointment payment (for PayOS return URLs)
  */
 export const fastConfirmPayment = async (data: {
   appointmentId: string;
   orderCode: string;
   status: string;
 }): Promise<{success: boolean; message: string; data?: unknown}> => {
-  const response = await axiosInstance.put('/payments/appointments/fast-confirm', data);
+  const response = await axiosInstance.post('/payments/appointments/fast-confirm', data);
   return response.data;
 };
 

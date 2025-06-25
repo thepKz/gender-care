@@ -127,26 +127,26 @@ const consultationApi = {
 
   // Tạo payment link cho consultation
   createConsultationPaymentLink: (qaId: string) => {
-    return axiosInstance.post(`/payments/consultations/${qaId}/payment`);
+    return axiosInstance.post(`/payments/consultations/${qaId}/create`);
   },
 
   // Check payment status cho consultation
   checkConsultationPaymentStatus: (qaId: string) => {
-    return axiosInstance.get(`/payments/consultations/${qaId}/payment/status`);
+    return axiosInstance.get(`/payments/consultations/${qaId}/status`);
   },
 
   // Cancel payment cho consultation
   cancelConsultationPayment: (qaId: string) => {
-    return axiosInstance.post(`/payments/consultations/${qaId}/payment/cancel`);
+    return axiosInstance.post(`/payments/consultations/${qaId}/cancel`);
   },
 
-  // Fast confirm consultation payment
+  // Fast confirm consultation payment (for PayOS return URLs)
   fastConfirmConsultationPayment: (data: {
     qaId: string;
     orderCode: string;
     status: string;
   }) => {
-    return axiosInstance.put('/payments/consultations/fast-confirm', data);
+    return axiosInstance.post(`/payments/consultations/fast-confirm`, data);
   },
 
   // ✅ LEGACY: Cập nhật trạng thái thanh toán (deprecated - use payment system above)

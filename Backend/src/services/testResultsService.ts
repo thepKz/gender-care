@@ -1,4 +1,7 @@
 import TestResults, { ITestResults } from '../models/TestResults';
+import Appointments from '../models/Appointments';
+import UserProfiles from '../models/UserProfiles';
+import Doctor from '../models/Doctor';
 import mongoose from 'mongoose';
 
 // Service class để xử lý business logic cho TestResults
@@ -118,7 +121,7 @@ export class TestResultsService {
     return testResult;
   }
 
-  // Tạo test result mới (chỉ Doctor mới được tạo)
+  // Tạo test result mới (Doctor và Staff được tạo)
   async createTestResult(data: {
     appointmentId: string;
     profileId: string;
@@ -126,9 +129,9 @@ export class TestResultsService {
     conclusion?: string;
     recommendations?: string;
   }, createdByRole: string): Promise<ITestResults> {
-    // Kiểm tra quyền hạn - chỉ doctor và nursing staff
-    if (!['doctor', 'nursing_staff'].includes(createdByRole)) {
-      throw new Error('Only doctors and nursing staff can create test results');
+    // Kiểm tra quyền hạn - chỉ doctor và staff
+    if (!['doctor', 'staff', 'admin'].includes(createdByRole)) {
+      throw new Error('Only doctors and staff can create test results');
     }
 
     // Validate input data
@@ -149,7 +152,6 @@ export class TestResultsService {
     if (!appointment) {
       throw new Error('Appointment not found');
     }
-
     // Kiểm tra đã có test result cho appointment này chưa
     const existingResult = await TestResults.findOne({
       appointmentId: data.appointmentId
@@ -171,14 +173,14 @@ export class TestResultsService {
     return await testResult.save();
   }
 
-  // Cập nhật test result (chỉ Doctor được phép)
+  // Cập nhật test result (Doctor và Staff được phép)
   async updateTestResult(id: string, data: {
     conclusion?: string;
     recommendations?: string;
   }, updatedByRole: string): Promise<ITestResults> {
-    // Kiểm tra quyền hạn - chỉ doctor và nursing staff
-    if (!['doctor', 'nursing_staff'].includes(updatedByRole)) {
-      throw new Error('Only doctors and nursing staff can update test results');
+    // Kiểm tra quyền hạn - chỉ doctor và staff
+    if (!['doctor', 'staff', 'admin'].includes(updatedByRole)) {
+      throw new Error('Only doctors and staff can update test results');
     }
 
     // Validate ObjectId format
@@ -202,7 +204,28 @@ export class TestResultsService {
       id,
       updateData,
       { new: true, runValidators: true }
-    );
+    ).populate([
+      {
+        path: 'appointmentId',
+        select: 'appointmentDate appointmentTime serviceId',
+        populate: {
+          path: 'serviceId',
+          select: 'serviceName serviceType'
+        }
+      },
+      {
+        path: 'profileId',
+        select: 'fullName gender'
+      },
+      {
+        path: 'doctorId',
+        select: 'specialization',
+        populate: {
+          path: 'userId',
+          select: 'fullName'
+        }
+      }
+    ]);
 
     if (!updatedResult) {
       throw new Error('Failed to update test result');
@@ -223,19 +246,22 @@ export class TestResultsService {
       throw new Error('Invalid test result ID format');
     }
 
-    // Kiểm tra có test result items liên quan không
+    // Kiểm tra tồn tại
+    const existingResult = await TestResults.findById(id);
+    if (!existingResult) {
+      throw new Error('Test result not found');
+    }
+
+    // Kiểm tra xem có test result items nào liên quan không
     const TestResultItems = (await import('../models/TestResultItems')).default;
-    const itemsCount = await TestResultItems.countDocuments({ testResultId: id });
+    const relatedItems = await TestResultItems.find({ testResultId: id });
     
-    if (itemsCount > 0) {
-      throw new Error('Cannot delete test result as it has associated test result items');
+    if (relatedItems.length > 0) {
+      throw new Error('Cannot delete test result with associated test result items');
     }
 
     // Thực hiện xóa
-    const deletedResult = await TestResults.findByIdAndDelete(id);
-    if (!deletedResult) {
-      throw new Error('Test result not found or already deleted');
-    }
+    await TestResults.findByIdAndDelete(id);
   }
 
   // Lấy test results theo profile ID (để customer xem kết quả của profile)
@@ -251,7 +277,6 @@ export class TestResultsService {
     }
 
     const skip = (page - 1) * limit;
-
     const [testResults, total] = await Promise.all([
       TestResults.find({ profileId })
         .populate({
@@ -275,7 +300,6 @@ export class TestResultsService {
         .sort({ createdAt: -1 }),
       TestResults.countDocuments({ profileId })
     ]);
-
     return {
       testResults,
       total,
@@ -291,6 +315,7 @@ export class TestResultsService {
     resultsWithRecommendations: number;
     completionRate: number;
   }> {
+
     // Validate input
     if (year < 2000 || year > 3000) {
       throw new Error('Invalid year');
@@ -320,7 +345,7 @@ export class TestResultsService {
           resultsWithConclusion: {
             $sum: {
               $cond: [
-                { $and: [{ $ne: ['$conclusion', null] }, { $ne: ['$conclusion', ''] }] },
+                { $and: [{ $ne: ["$conclusion", null] }, { $ne: ["$conclusion", ""] }] },
                 1,
                 0
               ]
@@ -329,7 +354,7 @@ export class TestResultsService {
           resultsWithRecommendations: {
             $sum: {
               $cond: [
-                { $and: [{ $ne: ['$recommendations', null] }, { $ne: ['$recommendations', ''] }] },
+                { $and: [{ $ne: ["$recommendations", null] }, { $ne: ["$recommendations", ""] }] },
                 1,
                 0
               ]

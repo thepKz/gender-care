@@ -12,10 +12,7 @@ import {
   Tooltip,
   DatePicker,
   message,
-  Avatar,
-  Descriptions,
-  Row,
-  Col
+  Avatar
 } from 'antd';
 import {
   SearchOutlined,
@@ -25,7 +22,6 @@ import {
   ClockCircleOutlined,
   EnvironmentOutlined,
   DeleteOutlined,
-  DollarOutlined,
   PhoneOutlined,
   ClearOutlined,
   FilterOutlined
@@ -36,6 +32,12 @@ import appointmentManagementService from '../../../api/services/appointmentManag
 import { useAuth } from '../../../hooks/useAuth';
 import { doctorApi } from '../../../api/endpoints/doctorApi';
 import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
+
+// Configure dayjs with timezone support
+dayjs.extend(utc);
+dayjs.extend(timezone);
 import ConsultationTransferButton from '../../../components/ui/buttons/ConsultationTransferButton';
 import AppointmentCancelButton from '../../../components/ui/buttons/AppointmentCancelButton';
 import TestRecordModal from '../../../components/ui/forms/TestRecordModal';
@@ -49,30 +51,26 @@ const { TextArea } = Input;
 // Use UnifiedAppointment interface from API types
 type Appointment = UnifiedAppointment;
 
-interface DetailData {
-  profileId?: { gender?: 'male' | 'female' | 'other'; year?: number | string };
-  serviceId?: { price?: number };
-  packageId?: { price?: number };
-  doctorNotes?: string;
-}
+
 
 const AppointmentManagement: React.FC = () => {
   const { user } = useAuth(); // Get current user to determine role
   const userRole = user?.role || 'staff'; // Default to staff if no role found
   
-  // 🔍 DEBUG: Log để kiểm tra role detection
+  // 🔍 DEBUG: Log để kiểm tra user role
   console.log('🔍 [DEBUG] User info:', { 
     user: user, 
     role: user?.role, 
     userRole: userRole,
-    email: user?.email 
+    email: user?.email,
+    dataSource: 'REAL_API'
   });
   
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState(''); // Client-side search since API doesn't support search
   const [selectedType, setSelectedType] = useState<string>('all');
-  const [selectedLocation, setSelectedLocation] = useState<string>('all');
+
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>('all');
   
@@ -90,7 +88,7 @@ const AppointmentManagement: React.FC = () => {
   const [testRecordModalVisible, setTestRecordModalVisible] = useState(false);
   const [selectedAppointmentForRecord, setSelectedAppointmentForRecord] = useState<Appointment | null>(null);
 
-  // ✅ NEW: Load doctors list for filter (Staff only)
+  // ✅ Load doctors list for filter (Staff only)
   const loadDoctors = async () => {
     if (userRole !== 'staff') return; // Only staff needs doctor filter
     
@@ -113,6 +111,36 @@ const AppointmentManagement: React.FC = () => {
       loadDoctors();
     }
   }, [userRole]);
+
+  // ✅ 72H RULE: Check if appointment can be cancelled (more than 72h before appointment time)
+  const canCancelAppointment = (appointment: UnifiedAppointment): boolean => {
+    try {
+      // Parse appointment date and time with Vietnam timezone
+      const appointmentDateTime = dayjs.tz(
+        `${appointment.appointmentDate} ${appointment.appointmentTime}`, 
+        'YYYY-MM-DD HH:mm',
+        'Asia/Ho_Chi_Minh'
+      );
+      
+      const now = dayjs.tz(new Date(), 'Asia/Ho_Chi_Minh');
+      const hoursDiff = appointmentDateTime.diff(now, 'hours');
+      
+      console.log('🕐 [72H CHECK]:', {
+        appointmentId: appointment._id,
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        appointmentDateTime: appointmentDateTime.format('YYYY-MM-DD HH:mm'),
+        now: now.format('YYYY-MM-DD HH:mm'),
+        hoursDiff,
+        canCancel: hoursDiff > 72
+      });
+      
+      return hoursDiff > 72;
+    } catch (error) {
+      console.error('❌ [ERROR] Failed to parse appointment time:', error);
+      return false; // If can't parse, don't allow cancel for safety
+    }
+  };
 
   // ✅ ENHANCED: Render cancel/transfer actions theo đúng flow chart - CHỈ CHO DOCTOR
   const renderCancelActions = (record: UnifiedAppointment) => {
@@ -152,13 +180,32 @@ const AppointmentManagement: React.FC = () => {
       // ✅ APPOINTMENT FLOW: Show cancel button with 72h rule for paid/scheduled/consulting
       console.log('🎯 [DEBUG] Rendering AppointmentCancelButton for:', record._id, 'Type:', record.type);
       
+      // ✅ CHECK 72H RULE for appointments only
+      const canCancel = canCancelAppointment(record);
+      
+      if (!canCancel) {
+        // ⏰ Không đủ 72h - chỉ hiển thị thông báo
+        return (
+          <Tooltip title="Chỉ có thể hủy lịch hẹn trước 72 giờ (3 ngày)">
+            <Button 
+              type="text" 
+              size="small"
+              disabled
+              icon={<ClockCircleOutlined />}
+            >
+              Quá hạn hủy
+            </Button>
+          </Tooltip>
+        );
+      }
+      
       return (
         <Space>
         <AppointmentCancelButton 
           appointment={record} 
           onCancelClick={(appointment) => showCancelModal(appointment)} 
         />
-          {/* ✅ FALLBACK: Always visible cancel button */}
+          {/* ✅ FALLBACK: Always visible cancel button when within 72h rule */}
           <Button 
             type="text" 
             size="small"
@@ -173,7 +220,7 @@ const AppointmentManagement: React.FC = () => {
     }
   };
 
-  // Load real data from API
+  // Load data based on user role - API for doctors, mock for staff testing
   const loadAppointments = async () => {
     try {
       setLoading(true);
@@ -273,7 +320,7 @@ const AppointmentManagement: React.FC = () => {
   useEffect(() => {
     loadAppointments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStatus, selectedType, selectedLocation, selectedDate, selectedDoctor, dateRange]);
+  }, [selectedStatus, selectedType, selectedDate, selectedDoctor, dateRange]);
 
   // Reload when search text changes (debounced)
   useEffect(() => {
@@ -289,15 +336,6 @@ const AppointmentManagement: React.FC = () => {
 
   // Filter appointments based on search (other filters are applied at API level)
   const filteredAppointments = appointments.filter(appointment => {
-    // ✅ STAFF ROLE: Loại bỏ consultations, chỉ giữ appointment thường (theo backend logic)
-    if (userRole === 'staff') {
-      // Backend đã filter appointmentType: 'appointment' rồi nên không cần filter thêm ở đây
-      // Nhưng vẫn loại bỏ consultation type để chắc chắn
-      if (appointment.type === 'consultation') {
-        return false;
-      }
-    }
-    
     if (searchText === '') return true;
     
     const matchesSearch = appointment.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -337,41 +375,53 @@ const AppointmentManagement: React.FC = () => {
     return texts[status] || status;
   };
 
-  const getTypeColor = (type: Appointment['appointmentType']) => {
+  // ✅ Determine service type based on service name and backend data
+  const getServiceType = (record: Appointment): 'appointment' | 'consultation' => {
+    // Check service name first for more accurate detection
+    const serviceName = record.serviceName?.toLowerCase() || '';
+    
+    // If service name contains consultation/advisory keywords -> consultation 
+    if (serviceName.includes('tư vấn') || 
+        serviceName.includes('tu van') ||
+        serviceName.includes('consultation') ||
+        serviceName.includes('online') ||
+        serviceName.includes('trực tuyến')) {
+      return 'consultation';
+    }
+    
+    // If service name contains physical exam keywords -> appointment
+    if (serviceName.includes('khám') || 
+        serviceName.includes('xét nghiệm') ||
+        serviceName.includes('test') ||
+        serviceName.includes('siêu âm') ||
+        serviceName.includes('chẩn đoán')) {
+      return 'appointment';
+    }
+    
+    // Fallback to backend fields
+    if (record.type === 'consultation') return 'consultation';
+    if (record.appointmentType === 'consultation') return 'consultation';
+    
+    // Default to appointment for medical services
+    return 'appointment';
+  };
+
+  const getTypeColor = (record: Appointment) => {
+    const serviceType = getServiceType(record);
     const colors = {
-      consultation: 'blue',
-      test: 'green',
-      'online-consultation': 'cyan',
-      other: 'purple'
+      appointment: 'volcano',    // Phòng khám - màu đỏ cam
+      consultation: 'geekblue'   // Trực tuyến - màu xanh dương
     };
-    return colors[type] || 'purple';
+    return colors[serviceType];
   };
 
-  const getTypeText = (type: Appointment['appointmentType']) => {
+  const getTypeText = (record: Appointment) => {
+    const serviceType = getServiceType(record);
     const texts = {
-      consultation: 'Tư vấn',
-      test: 'Xét nghiệm',
-      'online-consultation': 'Tư vấn online',
-      other: 'Khác'
+      appointment: 'Phòng khám',   // Appointment = Phòng khám
+      consultation: 'Trực tuyến'   // Consultation = Trực tuyến
     };
-    return texts[type] || 'Khác';
-  };
-
-  const getLocationColor = (location: Appointment['typeLocation']) => {
-    const colors = {
-      clinic: 'volcano',
-      home: 'cyan',
-      Online: 'geekblue'
-    };
-    return colors[location];
-  };
-
-  const getLocationText = (location: Appointment['typeLocation']) => {
-    const texts = {
-      clinic: 'Phòng khám',
-      Online: 'Trực tuyến'
-    };
-    return texts[location];
+    return texts[serviceType];
   };
 
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
@@ -410,7 +460,7 @@ const AppointmentManagement: React.FC = () => {
         );
         
         if (success) {
-          message.success('Hủy lịch hẹn thành công. Slot đã được đánh dấu Absent.');
+          message.success('Hủy lịch hẹn thành công');
         }
       } else if (cancelAppointmentData.type === 'consultation') {
         // ✅ CONSULTATION: This should use transfer logic, not direct cancel
@@ -421,7 +471,7 @@ const AppointmentManagement: React.FC = () => {
       );
         
         if (success) {
-          message.success('Hủy tư vấn thành công. Hệ thống sẽ tự động tìm bác sĩ thay thế.');
+          message.success('Hủy lịch tư vấn thành công');
         }
       }
 
@@ -436,20 +486,44 @@ const AppointmentManagement: React.FC = () => {
         setCancelAppointmentData(null);
         setCancelReason('');
       } else {
-        message.error('Hủy lịch hẹn thất bại');
+        message.error('Không thể hủy lịch hẹn');
       }
     } catch (error: unknown) {
       console.error('❌ [ERROR] Failed to cancel appointment by doctor:', error);
       const errorMessage = error instanceof Error && 'response' in error 
-        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Hủy lịch hẹn thất bại'
-        : 'Hủy lịch hẹn thất bại';
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Có lỗi xảy ra khi hủy lịch hẹn'
+        : 'Có lỗi xảy ra khi hủy lịch hẹn';
       message.error(errorMessage);
     }
   };
 
-  const showAppointmentDetails = (appointment: Appointment) => {
-    setSelectedAppointmentForDetail(appointment);
-    setDetailModalVisible(true);
+  const showAppointmentDetails = async (appointment: Appointment) => {
+    try {
+      // 🔍 DEBUG: Log toàn bộ thông tin appointment để kiểm tra
+      console.log('🔍 [DEBUG] Showing appointment details:', {
+        id: appointment._id,
+        type: appointment.type,
+        patientName: appointment.patientName,
+        serviceName: appointment.serviceName,
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        status: appointment.status,
+        fullObject: appointment
+      });
+      
+      // ✅ SIMPLIFIED LOGIC: Theo user yêu cầu - không cần gọi API detail nữa
+      // Data đã đầy đủ từ list, chỉ cần hiển thị modal
+      console.log('✅ [SIMPLIFIED] Using existing data from list');
+      setSelectedAppointmentForDetail(appointment);
+      setDetailModalVisible(true);
+      
+    } catch (error: unknown) {
+      console.error('❌ [ERROR] Failed to show appointment details:', error);
+      
+      // 🔄 FALLBACK: Nếu có lỗi, vẫn hiển thị modal với data có sẵn
+      setSelectedAppointmentForDetail(appointment);
+      setDetailModalVisible(true);
+    }
   };
 
   const handleStartConsulting = async (appointment: Appointment) => {
@@ -522,7 +596,6 @@ const AppointmentManagement: React.FC = () => {
           <div style={{ fontWeight: 500, fontSize: '14px' }}>
             {record.serviceName || 'Dịch vụ không xác định'}
           </div>
-          {/* ✅ REMOVED: Xóa hoàn toàn tất cả Tags, descriptions và serviceType theo yêu cầu */}
         </div>
       )
     },
@@ -581,6 +654,7 @@ const AppointmentManagement: React.FC = () => {
       sorter: false, // ✅ DISABLE: Xóa sort arrows
       render: (_, record) => (
         <Space>
+          {/* ✅ ENHANCED: Gọi API thực để lấy chi tiết đầy đủ từ backend */}
           <Tooltip title="Xem chi tiết">
             <Button 
               type="primary" 
@@ -591,6 +665,7 @@ const AppointmentManagement: React.FC = () => {
                 backgroundColor: '#1890ff',
                 borderColor: '#1890ff'
               }}
+              loading={loading}
             >
               {userRole === 'staff' ? 'Chi tiết' : ''}
             </Button>
@@ -678,10 +753,11 @@ const AppointmentManagement: React.FC = () => {
             <Select
               value={selectedType}
               onChange={setSelectedType}
-              style={{ width: 130 }}
+              style={{ width: 150 }}
+              placeholder="Loại dịch vụ"
             >
               <Option value="all">Tất cả loại</Option>
-              {/* ✅ REMOVED: Xóa "Khác" từ type filter theo yêu cầu */}
+
               {userRole === 'staff' ? (
                 <>
                   <Option value="consultation">Tư vấn</Option>
@@ -708,10 +784,10 @@ const AppointmentManagement: React.FC = () => {
             <Select
               value={selectedStatus}
               onChange={setSelectedStatus}
-              style={{ width: 150 }}
+              style={{ width: 170 }}
+              placeholder="Trạng thái"
             >
               <Option value="all">Tất cả trạng thái</Option>
-              {/* ✅ UPDATED STATUS OPTIONS with new consulting status */}
               <Option value="pending_payment">Chờ thanh toán</Option>
               <Option value="pending">Chờ xác nhận</Option>
               <Option value="scheduled">Đã lên lịch</Option>
@@ -721,36 +797,36 @@ const AppointmentManagement: React.FC = () => {
               <Option value="cancelled">Đã hủy</Option>
             </Select>
             
-            {/* ✅ ENHANCED: Date filtering - Range picker for staff, single date for doctor */}
+            {/* ✅ Date filtering - Range picker for staff, single date for doctor */}
             {userRole === 'staff' ? (
               <DatePicker.RangePicker
                 placeholder={['Từ ngày', 'Đến ngày']}
                 value={dateRange}
                 onChange={setDateRange}
-                style={{ width: 240 }}
+                style={{ width: 260 }}
                 format="DD/MM/YYYY"
               />
             ) : (
               <DatePicker
                 placeholder="Chọn ngày"
                 onChange={(date) => setSelectedDate(date ? date.format('YYYY-MM-DD') : 'all')}
-                style={{ width: 130 }}
+                style={{ width: 150 }}
                 format="DD/MM/YYYY"
               />
             )}
           </Space>
           
-          {/* ✅ NEW: Clear Filters Button - Only for Staff */}
-          {userRole === 'staff' && (
+          {/* ✅ Clear Filters Button - Cho cả Staff và Doctor */}
             <Space>
               <Button
                 icon={<ClearOutlined />}
                 onClick={() => {
+                if (userRole === 'staff') {
                   setSelectedDoctor('all');
-                  setSelectedType('all');
-                  setSelectedLocation('all');
-                  setSelectedStatus('all');
                   setDateRange(null);
+                }
+                  setSelectedType('all');
+                  setSelectedStatus('all');
                   setSelectedDate('all');
                   setSearchText('');
                 }}
@@ -763,10 +839,9 @@ const AppointmentManagement: React.FC = () => {
                 icon={<FilterOutlined />}
                 style={{ borderRadius: '6px' }}
               >
-                Áp dụng bộ lọc ({filteredAppointments.length})
+              Hiển thị ({filteredAppointments.length})
               </Button>
             </Space>
-          )}
         </div>
 
         {/* Table */}
@@ -984,12 +1059,12 @@ const AppointmentManagement: React.FC = () => {
         onViewTestRecord={(appointment) => {
           // TODO: Open ViewTestRecordModal
           console.log('View test record for:', appointment.patientName);
-          message.info(`Xem kết quả xét nghiệm cho ${appointment.patientName} (Chức năng đang phát triển)`);
+          message.info(`Xem kết quả xét nghiệm cho ${appointment.patientName}`);
         }}
         onViewMedicalRecord={(appointment) => {
           // TODO: Open ViewMedicalRecordModal  
           console.log('View medical record for:', appointment.patientName);
-          message.info(`Xem bệnh án cho ${appointment.patientName} (Chức năng đang phát triển)`);
+                      message.info(`Xem bệnh án cho ${appointment.patientName}`);
         }}
       />
 

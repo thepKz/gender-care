@@ -18,11 +18,13 @@ import {
   medicationRemindersRoutes,
   medicinesRoutes,
   meetingRoutes,
+  menstrualCycleRoutes,
   notificationDaysRoutes,
   packagePurchaseRoutes,
   paymentRoutes,
   servicePackageRoutes,
   serviceRoutes,
+  serviceTestCategoriesRoutes,
   systemLogRoutes,
   testCategoriesRoutes,
   testResultItemsRoutes,
@@ -34,6 +36,7 @@ import consultationRoutes from './routes/consultationRoutes';
 
 import { runAllSeeds } from "./seeds";
 import { startAutoTransitionService } from './services/appointmentAutoTransitionService';
+import { menstrualCycleReminderService } from "./services/menstrualCycleReminderService";
 
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
 // Try multiple paths for .env file
@@ -48,7 +51,7 @@ for (const envPath of envPaths) {
   try {
     const result = dotenv.config({ path: envPath });
     if (!result.error) {
-      console.log(`✅ .env loaded from: ${envPath}`);
+      console.log(`.env loaded from: ${envPath}`);
       envLoaded = true;
       break;
     }
@@ -58,18 +61,9 @@ for (const envPath of envPaths) {
 }
 
 if (!envLoaded) {
-  console.log('⚠️ No .env file found, trying default dotenv.config()');
+  console.log('No .env file found, trying default dotenv.config()');
   dotenv.config();
 }
-
-// Debug: Check if .env is loaded
-console.log('🔍 Environment Variables Check:');
-console.log('NODE_ENV:', process.env.NODE_ENV);
-console.log('PORT:', process.env.PORT);
-console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
-console.log('PAYOS_CLIENT_ID exists:', !!process.env.PAYOS_CLIENT_ID);
-console.log('PAYOS_API_KEY exists:', !!process.env.PAYOS_API_KEY);
-console.log('PAYOS_CHECKSUM_KEY exists:', !!process.env.PAYOS_CHECKSUM_KEY);
 
 // Khởi tạo app express
 const app = express();
@@ -81,7 +75,7 @@ app.set('trust proxy', true); // Cho phép lấy IP từ X-Forwarded-For header
 // Middleware để extract real IP address
 app.use((req, res, next) => {
   // Lấy real IP từ các headers phổ biến
-  req.realIP = req.ip || 
+  req.realIP = req.ip ||
     req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
     req.headers['x-real-ip']?.toString() ||
     req.connection?.remoteAddress ||
@@ -95,7 +89,8 @@ app.use((req, res, next) => {
 
   // Chỉ log IP cho authentication endpoints để tránh spam
   if (req.path.includes('/auth/') || req.path.includes('/login')) {
-  console.log(`🌐 Real IP detected: ${req.realIP} (Original: ${req.ip})`);
+
+    console.log(`Real IP detected: ${req.realIP} (Original: ${req.ip})`);
   }
   next();
 });
@@ -133,7 +128,7 @@ app.use(cors({
     }
   },
   credentials: true, // Quan trọng: cho phép gửi cookie
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   optionsSuccessStatus: 200 // Để support legacy browsers
 }));
@@ -174,6 +169,9 @@ const connectDB = async () => {
       await runAllSeeds();
     }
 
+    // Khởi tạo reminder service cho menstrual cycles
+    menstrualCycleReminderService.initializeDailyReminders();
+
   } catch (error) {
     console.error(`Lỗi: ${error}`);
     process.exit(1);
@@ -193,6 +191,7 @@ apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/doctors', doctorRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
+apiRouter.use('/service-test-categories', serviceTestCategoriesRoutes);
 apiRouter.use('/package-purchases', packagePurchaseRoutes);
 
 // ✅ NEW: Google Authentication routes
@@ -211,6 +210,8 @@ apiRouter.use('/medicines', medicinesRoutes);
 apiRouter.use('/medication-reminders', medicationRemindersRoutes);
 apiRouter.use('/notification-days', notificationDaysRoutes);
 apiRouter.use('/user-profiles', userProfileRoutes);
+// Menstrual Cycle routes
+apiRouter.use('/', menstrualCycleRoutes);
 apiRouter.use('/appointments', appointmentRoutes);
 apiRouter.use('/payments', paymentRoutes);
 apiRouter.use('/system-logs', systemLogRoutes);
@@ -232,10 +233,10 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   
-  // 🤖 Start auto status transition service
+  // Start auto status transition service
   startAutoTransitionService();
   
-  console.log('🚀 Server started successfully with all services');
+  console.log('Server started successfully with all services');
 });
 
 export default app;

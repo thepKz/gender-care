@@ -306,12 +306,3 @@ Table MedicalRecords {
   createdAt DateTime 
   updatedAt DateTime 
 }
-
-// SUMMARY OF KEY RELATIONSHIP FIXES:
-// 1. Appointments - KEPT ORIGINAL STRUCTURE as requested
-// 2. Added profileId to Feedbacks - Need to know who gave feedback
-// 3. Added profileId to MedicationReminders - Direct reference for easier queries  
-// 4. Added appointmentId, profileId, doctorId to TestResults - Critical missing links
-// 5. Added profileId to DoctorQA - Know which profile the question relates to
-// 6. Added constraint notes for Bills - Must have either package or appointment
-// 7. Removed "guest" role f

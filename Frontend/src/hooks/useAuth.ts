@@ -49,21 +49,21 @@ const useAuth = (): UseAuthResult => {
     // Kiểm tra xem có cookie access_token hoặc localStorage access_token không
     const hasCookies = document.cookie.split(';').some(c => c.trim().startsWith('access_token='));
     const hasLocalStorageToken = localStorage.getItem('access_token');
-    
+
     const checkAuth = async () => {
       // Đánh dấu đã thử, để tránh retry liên tục khi lỗi
       checkAuthAttemptRef.current = true;
-      
+
       // Thực hiện kiểm tra nếu có cookie hoặc localStorage token
       if (hasCookies || hasLocalStorageToken) {
         try {
           // Gọi API để kiểm tra token và lấy thông tin user
           await dispatch(getProfile()).unwrap();
-          
-          // Chỉ log thành công trong môi trường dev
-          if (import.meta.env.DEV) {
-            console.log("Đã xác thực thành công từ", hasCookies ? "cookies" : "localStorage");
-          }
+
+          // Chỉ log thành công khi debug cần thiết
+          // if (import.meta.env.DEV) {
+          //   console.log("Đã xác thực thành công từ", hasCookies ? "cookies" : "localStorage");
+          // }
         } catch {
           // Nếu token invalid, clear localStorage
           if (hasLocalStorageToken && !hasCookies) {

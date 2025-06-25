@@ -216,6 +216,18 @@ class TestResultsController {
     try {
       const { appointmentId } = req.params;
       const testResults = await this.testResultsService.getTestResultsByAppointmentId(appointmentId);
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
+
+      // Kiểm tra quyền: customer chỉ được xem kết quả của mình
+      if (req.user?.role === 'customer' && req.user?._id !== customerId) {
+        res.status(403).json({
+          success: false,
+          message: 'You can only view your own test results'
+        });
+        return;
+      }
+      const result = await this.testResultsService.getTestResultsByProfileId(customerId, page, limit);
 
       res.status(200).json({
         success: true,
@@ -244,8 +256,8 @@ class TestResultsController {
       const { profileId } = req.params;
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
-
       const result = await this.testResultsService.getTestResultsByProfileId(profileId, page, limit);
+
 
       res.status(200).json({
         success: true,

@@ -10,7 +10,6 @@ import {
   Descriptions,
   Row,
   Col,
-  message,
   Spin
 } from 'antd';
 import {
@@ -51,13 +50,6 @@ interface RecordStatus {
   loading: boolean;
 }
 
-interface DetailData {
-  profileId?: { gender?: 'male' | 'female' | 'other'; year?: number | string };
-  serviceId?: { price?: number };
-  packageId?: { price?: number };
-  doctorNotes?: string;
-}
-
 const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   visible,
   appointment,
@@ -75,6 +67,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   });
   const [detailData, setDetailData] = useState<DetailData | null>(null);
   const [medicalRecordModalVisible, setMedicalRecordModalVisible] = useState(false);
+
 
   // Check record status when appointment changes
   useEffect(() => {
@@ -95,6 +88,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
       console.log('🏥 Medical record check:', medicalResponse.data);
       console.log('🧪 Test result check:', testResponse.data);
+
 
       setRecordStatus({
         hasMedicalRecord: medicalResponse.data?.exists || false,
@@ -150,7 +144,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
   useEffect(() => {
     if (visible && appointment) {
-      loadDetailData();
+      // ✅ SIMPLIFIED: Không cần load thêm data, dùng data có sẵn từ list
+      console.log('✅ [DETAIL] Using data from list:', appointment);
     } else {
       // Reset state when modal closes
       setRecordStatus({
@@ -158,7 +153,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         hasTestResults: false,
         loading: false
       });
-      setDetailData(null);
     }
   }, [visible, appointment]);
 
@@ -340,11 +334,34 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
+    // 🔍 DEBUG: Log input để kiểm tra format
+    console.log('🔍 [DEBUG] Format date input:', dateString);
+    
+    if (!dateString) {
+      console.log('⚠️ [WARN] Empty date string');
+      return 'Chưa có thông tin';
+    }
+    
+    try {
+      const date = new Date(dateString);
+      
+      // Kiểm tra date có hợp lệ không
+      if (isNaN(date.getTime())) {
+        console.log('⚠️ [WARN] Invalid date:', dateString);
+        return dateString; // Trả về original string nếu không parse được
+      }
+      
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      const formatted = `${day}/${month}/${year}`;
+      
+      console.log('✅ [DEBUG] Date formatted:', { input: dateString, output: formatted });
+      return formatted;
+    } catch (error) {
+      console.error('❌ [ERROR] Date formatting error:', error);
+      return dateString; // Fallback to original string
+    }
   };
 
   const renderActionButtons = () => {
@@ -378,7 +395,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 <Button
                   type="default"
                   icon={<MedicineBoxOutlined />}
-                  onClick={() => appointment && onViewMedicalRecord?.(appointment)}
+                  onClick={handleViewMedicalRecord}
                   loading={recordStatus.loading}
                   size="large"
                   style={{ marginRight: 8 }}
@@ -406,7 +423,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 <Button
                   type="default"
                   icon={<FileSearchOutlined />}
-                  onClick={() => appointment && onViewTestRecord?.(appointment)}
+                  onClick={handleViewTestRecord}
                   loading={recordStatus.loading}
                   size="large"
                   style={{ marginRight: 8 }}
@@ -433,6 +450,20 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   };
 
   if (!appointment) return null;
+
+  // 🔍 DEBUG: Log toàn bộ appointment data để debug
+  console.log('🔍 [DEBUG] AppointmentDetailModal received appointment:', {
+    id: appointment._id,
+    patientName: appointment.patientName,
+    serviceName: appointment.serviceName,
+    appointmentDate: appointment.appointmentDate,
+    appointmentTime: appointment.appointmentTime,
+    appointmentType: appointment.appointmentType,
+    typeLocation: appointment.typeLocation,
+    status: appointment.status,
+    type: appointment.type,
+    fullData: appointment
+  });
 
   return (
     <Modal
@@ -505,16 +536,21 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                     {getStatusText(appointment.status)}
                   </Tag>
                 </Descriptions.Item>
-                {detailData?.profileId?.gender && (
-                  <Descriptions.Item label="Giới tính">
-                    {detailData.profileId.gender === 'male' ? 'Nam' : 
-                     detailData.profileId.gender === 'female' ? 'Nữ' : 'Khác'}
-                  </Descriptions.Item>
-                )}
-                {detailData?.profileId?.year && (
-                  <Descriptions.Item label="Năm sinh">
-                    {detailData.profileId.year}
-                  </Descriptions.Item>
+                {/* ✅ SIMPLIFIED: Lấy thông tin từ originalData nếu có */}
+                {appointment.originalData && 'profileId' in appointment.originalData && (
+                  <>
+                    {appointment.originalData.profileId?.gender && (
+                      <Descriptions.Item label="Giới tính">
+                        {appointment.originalData.profileId.gender === 'male' ? 'Nam' : 
+                         appointment.originalData.profileId.gender === 'female' ? 'Nữ' : 'Khác'}
+                      </Descriptions.Item>
+                    )}
+                    {appointment.originalData.profileId?.year && (
+                      <Descriptions.Item label="Năm sinh">
+                        {appointment.originalData.profileId.year}
+                      </Descriptions.Item>
+                    )}
+                  </>
                 )}
               </Descriptions>
             </Col>
@@ -539,8 +575,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                   {appointment.serviceName || 'Dịch vụ không xác định'}
                 </div>
                 <Space>
-                  <Tag color={getTypeColor(appointment.appointmentType)}>
-                    {getTypeText(appointment.appointmentType)}
+                  <Tag color={getTypeColor(appointment.appointmentType || 'other')}>
+                    {getTypeText(appointment.appointmentType || 'other')}
                   </Tag>
                 </Space>
                 {appointment.serviceType && appointment.serviceType !== 'other' && (
@@ -556,9 +592,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
               </div>
             </Descriptions.Item>
             <Descriptions.Item label="Loại lịch hẹn">
-              <Tag color={getLocationColor(appointment.typeLocation)}>
+              <Tag color={getLocationColor(appointment.typeLocation || 'clinic')}>
                 <EnvironmentOutlined style={{ marginRight: '4px' }} />
-                {getLocationText(appointment.typeLocation)}
+                {getLocationText(appointment.typeLocation || 'clinic')}
               </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="Ngày hẹn">
@@ -567,7 +603,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             </Descriptions.Item>
             <Descriptions.Item label="Giờ hẹn">
               <ClockCircleOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
-              {appointment.appointmentTime}
+              {appointment.appointmentTime || 'Chưa có thông tin'}
             </Descriptions.Item>
             {appointment.address && (
               <Descriptions.Item label="Địa chỉ cụ thể" span={2}>
@@ -575,17 +611,26 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 {appointment.address}
               </Descriptions.Item>
             )}
-            {detailData?.serviceId?.price && (
+            {/* ✅ FIX: Hiển thị giá từ originalData nếu có */}
+            {appointment.originalData && 'serviceId' in appointment.originalData && 
+             appointment.originalData.serviceId?.price && (
               <Descriptions.Item label="Giá dịch vụ">
                 <DollarOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
-                {detailData.serviceId.price.toLocaleString('vi-VN')} VNĐ
+                {appointment.originalData.serviceId.price.toLocaleString('vi-VN')} VNĐ
+              </Descriptions.Item>
+            )}
+            {appointment.originalData && 'packageId' in appointment.originalData && 
+             appointment.originalData.packageId?.price && (
+              <Descriptions.Item label="Giá gói dịch vụ">
+                <DollarOutlined style={{ marginRight: '4px', color: '#52c41a' }} />
+                {appointment.originalData.packageId.price.toLocaleString('vi-VN')} VNĐ
               </Descriptions.Item>
             )}
           </Descriptions>
         </Card>
 
         {/* Thông tin chi tiết */}
-        {(appointment.description || appointment.notes || detailData?.doctorNotes) && (
+        {(appointment.description || appointment.notes) && (
           <Card 
             title={
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -628,7 +673,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
               </div>
             )}
 
-            {detailData?.doctorNotes && (
+            {/* ✅ FIX: Hiển thị doctorNotes từ originalData */}
+            {appointment.originalData && 'doctorNotes' in appointment.originalData && 
+             appointment.originalData.doctorNotes && (
               <div style={{ 
                 padding: '12px', 
                 backgroundColor: '#e6f7ff', 
@@ -638,7 +685,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                 <div style={{ fontWeight: 500, marginBottom: '4px', color: '#1890ff' }}>
                   Ghi chú của bác sĩ:
                 </div>
-                <Text>{detailData.doctorNotes}</Text>
+                <Text>{appointment.originalData.doctorNotes}</Text>
               </div>
             )}
           </Card>

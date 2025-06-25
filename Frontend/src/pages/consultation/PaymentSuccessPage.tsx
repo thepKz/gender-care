@@ -28,6 +28,7 @@ interface ConsultationInfo {
   doctorId?: string;
   appointmentDate?: string;
   appointmentSlot?: string;
+  consultationFee?: number;
   createdAt: string;
 }
 
@@ -46,35 +47,7 @@ const PaymentSuccessPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(!consultation);
   const [paymentStatus, setPaymentStatus] = useState<'checking' | 'success' | 'failed'>('checking');
 
-  // Check URL parameters for PayOS success
-  useEffect(() => {
-    const code = searchParams.get('code');
-    const cancel = searchParams.get('cancel');
-    const status = searchParams.get('status');
-    const orderCode = searchParams.get('orderCode');
-    
-    console.log('🔍 Consultation Success - URL Parameters:', { code, cancel, status, orderCode, qaId });
-    
-    // Nếu có URL parameters từ PayOS thì process payment
-    if (code && status && orderCode && qaId) {
-      const isPaid = code === '00' && cancel === 'false' && status === 'PAID';
-      
-      if (isPaid) {
-        console.log('✅ Consultation Payment SUCCESS detected from URL');
-        handlePayOSSuccess(orderCode, status);
-      } else {
-        console.log('❌ Consultation Payment FAILED from URL');
-        setPaymentStatus('failed');
-      }
-    } else if (!consultation && qaId) {
-      // Nếu không có URL params, fetch consultation info và coi như success
-      fetchConsultationInfo();
-    } else {
-      // Nếu có consultation từ state, coi như success
-      setPaymentStatus('success');
-    }
-  }, [searchParams, qaId, consultation]);
-
+  // Move functions outside useEffect to avoid dependencies issues
   const handlePayOSSuccess = async (orderCode: string, status: string) => {
     if (!qaId) return;
     
@@ -103,13 +76,18 @@ const PaymentSuccessPage: React.FC = () => {
       
     } catch (error: unknown) {
       console.error('❌ Error confirming consultation payment:', error);
-      const errorMessage = (error as any)?.response?.data?.message || (error as Error)?.message || 'Lỗi xác nhận thanh toán';
+      interface ApiError {
+        response?: {
+          data?: {
+            message?: string;
+          };
+        };
+      }
+      const errorMessage = (error as ApiError)?.response?.data?.message || (error as Error)?.message || 'Lỗi xác nhận thanh toán';
       message.error(errorMessage);
       setPaymentStatus('failed');
     }
   };
-
-  // Note: Removed auto redirect countdown as per user request
 
   const fetchConsultationInfo = async () => {
     if (!qaId) return;
@@ -119,13 +97,61 @@ const PaymentSuccessPage: React.FC = () => {
       setConsultation(response.data.data);
       setPaymentStatus('success');
     } catch (error: unknown) {
-      const errorMessage = (error as any)?.response?.data?.message || (error as Error)?.message || 'Lỗi lấy thông tin tư vấn';
+      interface ApiError {
+        response?: {
+          data?: {
+            message?: string;
+          };
+        };
+      }
+      const errorMessage = (error as ApiError)?.response?.data?.message || (error as Error)?.message || 'Lỗi lấy thông tin tư vấn';
       message.error(errorMessage);
       setPaymentStatus('failed');
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Check URL parameters for PayOS success
+  useEffect(() => {
+    const code = searchParams.get('code');
+    const cancel = searchParams.get('cancel');
+    const status = searchParams.get('status');
+    const orderCode = searchParams.get('orderCode');
+    
+    console.log('🔍 Consultation Success - URL Parameters:', { 
+      code, 
+      cancel, 
+      status, 
+      orderCode, 
+      qaId,
+      pathQaId,
+      queryQaId: searchParams.get('qaId'),
+      fullURL: window.location.href 
+    });
+    
+    // Nếu có URL parameters từ PayOS thì process payment
+    if (code && status && orderCode && qaId) {
+      const isPaid = code === '00' && cancel === 'false' && status === 'PAID';
+      
+      if (isPaid) {
+        console.log('✅ Consultation Payment SUCCESS detected from URL');
+        handlePayOSSuccess(orderCode, status);
+      } else {
+        console.log('❌ Consultation Payment FAILED from URL');
+        setPaymentStatus('failed');
+      }
+    } else if (qaId) {
+      // Nếu có qaId nhưng không có payment params, fetch consultation info
+      console.log('📋 No payment params, fetching consultation info...');
+      fetchConsultationInfo();
+    } else {
+      // Nếu không có qaId, redirect về consultation page
+      console.log('❌ No qaId found, redirecting...');
+      message.error('Không tìm thấy thông tin tư vấn');
+      navigate('/online-consultation', { replace: true });
+    }
+  }, [searchParams, qaId, pathQaId, navigate]);
 
   const handleViewConsultations = () => {
     navigate('/booking-history', { replace: true });
@@ -134,8 +160,6 @@ const PaymentSuccessPage: React.FC = () => {
   const handleBackHome = () => {
     navigate('/');
   };
-
-  // Note: Removed handleSkipCountdown as countdown is no longer needed
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -449,7 +473,7 @@ const PaymentSuccessPage: React.FC = () => {
                     <div>
                       <Text className="text-gray-500 block mb-2">Giá dịch vụ:</Text>
                       <Text className="font-bold text-green-primary text-lg">
-                        200.000 VND
+                        {consultation.consultationFee?.toLocaleString('vi-VN')} VND
                       </Text>
                     </div>
                   </div>

@@ -29,14 +29,14 @@ router.put("/profile/me/avatar", verifyToken, updateUserAvatar);
 router.put("/profile/me/change-password", verifyToken, changePassword);
 router.post("/profile/me/avatar/upload", verifyToken, upload.single('avatar'), uploadAvatarImage);
 
-// ===== ADMIN, MANAGER & STAFF ROUTES =====
-// Quản lý người dùng (Admin, Manager & Staff)
-router.get("/", verifyToken, roleMiddleware(['admin', 'manager', 'staff']), getAllUsers);
-router.post("/", verifyToken, roleMiddleware(['admin', 'manager']), createUser);
-router.get("/statistics", verifyToken, roleMiddleware(['admin', 'manager', 'staff']), getSystemStatistics);
-router.get("/:userId", verifyToken, roleMiddleware(['admin', 'manager', 'staff']), getUserById);
-router.put("/:userId/role", verifyToken, roleMiddleware(['admin', 'manager']), updateUserRole);
-router.patch("/:userId/toggle-status", verifyToken, roleMiddleware(['admin', 'manager']), toggleUserStatus);
-router.delete("/:userId", verifyToken, roleMiddleware(['admin', 'manager']), deleteUser);
+// ===== ADMIN ONLY ROUTES =====
+// Quản lý người dùng (Admin only)
+router.get("/", verifyToken, roleMiddleware(['admin']), getAllUsers);
+router.post("/", verifyToken, roleMiddleware(['admin']), createUser);
+router.get("/statistics", verifyToken, roleMiddleware(['admin']), getSystemStatistics);
+router.get("/:userId", verifyToken, roleMiddleware(['admin']), getUserById);
+router.put("/:userId/role", verifyToken, roleMiddleware(['admin']), updateUserRole);
+router.patch("/:userId/toggle-status", verifyToken, roleMiddleware(['admin']), toggleUserStatus);
+router.delete("/:userId", verifyToken, roleMiddleware(['admin']), deleteUser);
 
 export default router;
