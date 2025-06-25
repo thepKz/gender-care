@@ -31,8 +31,9 @@ class UserProfileApi {
     try {
       const response = await axiosInstance.post<UserProfileResponse>(this.baseUrl, data);
       return response.data.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Lỗi khi tạo hồ sơ');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi khi tạo hồ sơ';
+      throw new Error(errorMessage);
     }
   }
 
@@ -41,8 +42,9 @@ class UserProfileApi {
     try {
       const response = await axiosInstance.get<UserProfileListResponse>(`${this.baseUrl}/my-profiles`);
       return response.data.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Lỗi khi tải danh sách hồ sơ');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi khi tải danh sách hồ sơ';
+      throw new Error(errorMessage);
     }
   }
 
@@ -51,8 +53,9 @@ class UserProfileApi {
     try {
       const response = await axiosInstance.get<UserProfileResponse>(`${this.baseUrl}/${id}`);
       return response.data.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Lỗi khi tải hồ sơ');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi khi tải hồ sơ';
+      throw new Error(errorMessage);
     }
   }
 
@@ -61,8 +64,9 @@ class UserProfileApi {
     try {
       const response = await axiosInstance.put<UserProfileResponse>(`${this.baseUrl}/${id}`, data);
       return response.data.data;
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Lỗi khi cập nhật hồ sơ');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi khi cập nhật hồ sơ';
+      throw new Error(errorMessage);
     }
   }
 
@@ -70,8 +74,9 @@ class UserProfileApi {
   async deleteProfile(id: string): Promise<void> {
     try {
       await axiosInstance.delete(`${this.baseUrl}/${id}`);
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Lỗi khi xóa hồ sơ');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi khi xóa hồ sơ';
+      throw new Error(errorMessage);
     }
   }
 
@@ -86,8 +91,9 @@ class UserProfileApi {
         profile.fullName.toLowerCase().includes(lowerQuery) ||
         profile.phone?.toLowerCase().includes(lowerQuery)
       );
-    } catch (error: any) {
-      throw new Error(error.response?.data?.message || 'Lỗi khi tìm kiếm hồ sơ');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Lỗi khi tìm kiếm hồ sơ';
+      throw new Error(errorMessage);
     }
   }
 }

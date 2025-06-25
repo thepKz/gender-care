@@ -52,6 +52,8 @@ const MenstrualTrackerPage: React.FC = () => {
       setLoading(true);
       setError(null);
       
+      // Gọi API để lấy profile data
+      const response = await userProfileApi.getProfileById(profileId);
 
       // Kiểm tra và xử lý nhiều cấu trúc dữ liệu có thể có
       let profileData;
