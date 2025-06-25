@@ -1,9 +1,11 @@
 import mongoose from 'mongoose';
 
 export interface IPaymentTracking extends mongoose.Document {
-  serviceType: 'appointment' | 'consultation';
+  serviceType: 'appointment' | 'consultation' | 'package';
   appointmentId?: mongoose.Types.ObjectId;
   doctorQAId?: mongoose.Types.ObjectId;
+  packageId?: mongoose.Types.ObjectId;
+  billId?: mongoose.Types.ObjectId;
   orderCode: number;
   paymentLinkId?: string;
   paymentGateway: 'payos' | 'vnpay' | 'momo';
@@ -33,7 +35,7 @@ export interface IPaymentTracking extends mongoose.Document {
 const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   serviceType: {
     type: String,
-    enum: ['appointment', 'consultation'],
+    enum: ['appointment', 'consultation', 'package'],
     required: true
   },
   appointmentId: {
@@ -44,6 +46,16 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   doctorQAId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'DoctorQA',
+    required: false
+  },
+  packageId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ServicePackages',
+    required: false
+  },
+  billId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Bills',
     required: false
   },
   orderCode: {
@@ -115,13 +127,21 @@ PaymentTrackingSchema.pre('save', function() {
   if (this.serviceType === 'consultation' && !this.doctorQAId) {
     throw new Error('doctorQAId is required for consultation service type');
   }
-  if (this.appointmentId && this.doctorQAId) {
-    throw new Error('Cannot have both appointmentId and doctorQAId');
+  if (this.serviceType === 'package' && (!this.packageId || !this.billId)) {
+    throw new Error('packageId and billId are required for package service type');
+  }
+  
+  // Ensure only one service type reference is set
+  const references = [this.appointmentId, this.doctorQAId, this.packageId].filter(Boolean);
+  if (references.length > 1) {
+    throw new Error('Cannot have multiple service type references');
   }
 });
 
 PaymentTrackingSchema.index({ appointmentId: 1 });
 PaymentTrackingSchema.index({ doctorQAId: 1 });
+PaymentTrackingSchema.index({ packageId: 1 });
+PaymentTrackingSchema.index({ billId: 1 });
 PaymentTrackingSchema.index({ orderCode: 1 });
 PaymentTrackingSchema.index({ status: 1 });
 PaymentTrackingSchema.index({ serviceType: 1 });
@@ -144,6 +164,10 @@ PaymentTrackingSchema.statics.findAppointmentByOrderCode = function(orderCode: n
 
 PaymentTrackingSchema.statics.findConsultationByOrderCode = function(orderCode: number) {
   return this.findOne({ orderCode, serviceType: 'consultation' }).populate('doctorQAId');
+};
+
+PaymentTrackingSchema.statics.findPackageByOrderCode = function(orderCode: number) {
+  return this.findOne({ orderCode, serviceType: 'package' }).populate('packageId').populate('billId');
 };
 
 PaymentTrackingSchema.methods.updatePaymentStatus = function(

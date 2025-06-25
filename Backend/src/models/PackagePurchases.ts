@@ -19,6 +19,7 @@ export interface IPackagePurchasesMethods {
 export interface IPackagePurchases {
   userId: mongoose.Types.ObjectId;
   packageId: mongoose.Types.ObjectId;
+  billId?: mongoose.Types.ObjectId;  // Reference đến Bills
   purchasePrice: number;           // Giá đã mua (có thể khác giá hiện tại)
   status: 'active' | 'expired' | 'used_up';
   purchaseDate: Date;
@@ -38,7 +39,7 @@ export type PackagePurchaseDocument = mongoose.Document<unknown, {}, IPackagePur
 const UsedServiceSchema = new mongoose.Schema({
   serviceId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Services',
+    ref: 'Service',
     required: true 
   },
   usedQuantity: {
@@ -53,7 +54,7 @@ const UsedServiceSchema = new mongoose.Schema({
   }
 });
 
-// 🔹 Schema đã đơn giản hóa
+// 🔹 Schema đã đơn giản hóa với unique constraint
 const PackagePurchasesSchema = new mongoose.Schema<IPackagePurchases, PackagePurchaseModel, IPackagePurchasesMethods>({
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -64,6 +65,10 @@ const PackagePurchasesSchema = new mongoose.Schema<IPackagePurchases, PackagePur
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'ServicePackages', 
     required: true 
+  },
+  billId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Bills' 
   },
   purchasePrice: {
     type: Number,
@@ -92,35 +97,19 @@ const PackagePurchasesSchema = new mongoose.Schema<IPackagePurchases, PackagePur
   }
 }, { timestamps: true });
 
-// 🔹 Pre-save hook để tính expiryDate và init usedServices
-PackagePurchasesSchema.pre('save', async function(next) {
-  // Nếu là document mới và chưa có expiryDate
-  if (this.isNew && !this.expiryDate) {
-    try {
-      // Lấy thông tin package để tính expiry date
-      const ServicePackages = mongoose.model('ServicePackages');
-      const packageInfo = await ServicePackages.findById(this.packageId);
-      
-      if (packageInfo) {
-        // Tính expiry date
-        const expiryDate = new Date(this.purchaseDate);
-        expiryDate.setDate(expiryDate.getDate() + packageInfo.durationInDays);
-        this.expiryDate = expiryDate;
-        
-        // Init usedServices từ package services
-        this.usedServices = packageInfo.services.map((service: any) => ({
-          serviceId: service.serviceId,
-          usedQuantity: 0,
-          maxQuantity: service.quantity
-        }));
-      }
-    } catch (error: any) {
-      return next(error as mongoose.CallbackError);
-    }
+// 🔒 DUPLICATE PREVENTION: Unique constraint để ngăn user mua cùng package nhiều lần khi còn active
+PackagePurchasesSchema.index(
+  { userId: 1, packageId: 1, status: 1 }, 
+  { 
+    unique: true, 
+    partialFilterExpression: { status: 'active' },
+    name: 'unique_active_user_package' 
   }
-  
-  next();
-});
+);
+
+// 🔒 Performance indexes
+PackagePurchasesSchema.index({ userId: 1, status: 1 });
+PackagePurchasesSchema.index({ expiryDate: 1, status: 1 });
 
 // 🔹 Method để check trạng thái hiện tại
 PackagePurchasesSchema.methods.checkAndUpdateStatus = function(this: PackagePurchaseDocument) {
@@ -192,18 +181,12 @@ PackagePurchasesSchema.methods.getRemainingQuantity = function(this: PackagePurc
   );
   
   if (!serviceUsage) {
-    return 0;
+    return 0; // Service không có trong package
   }
   
-  return serviceUsage.maxQuantity - serviceUsage.usedQuantity;
+  return Math.max(0, serviceUsage.maxQuantity - serviceUsage.usedQuantity);
 };
 
-// 🔹 Indexes cho performance
-PackagePurchasesSchema.index({ userId: 1, status: 1 });
-PackagePurchasesSchema.index({ packageId: 1 });
-PackagePurchasesSchema.index({ expiryDate: 1 });
-PackagePurchasesSchema.index({ 'usedServices.serviceId': 1 });
-
+// 🔹 Create và export model
 const PackagePurchases = mongoose.model<IPackagePurchases, PackagePurchaseModel>('PackagePurchases', PackagePurchasesSchema);
-
 export default PackagePurchases; 

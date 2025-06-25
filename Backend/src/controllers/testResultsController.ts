@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { TestResultsService } from '../services/testResultsService';
 import { AuthRequest } from '../types';
 import mongoose from 'mongoose';
-import { TestResults } from '../models';
 
 // Controller class để xử lý HTTP requests cho TestResults
 class TestResultsController {
@@ -13,14 +12,17 @@ class TestResultsController {
   }
 
   // GET /api/test-results - Lấy tất cả test results với pagination
-  getAllTestResults = async (req: AuthRequest, res: Response): Promise<void> => {
+  getAllTestResults = async (req: Request, res: Response): Promise<void> => {
     try {
+      // Parse query parameters với default values
       const page = parseInt(req.query.page as string) || 1;
       const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
       const search = req.query.search as string;
 
+      // Gọi service để lấy data
       const result = await this.testResultsService.getAllTestResults(page, limit, search);
 
+      // Trả về response với metadata
       res.status(200).json({
         success: true,
         message: 'Test results retrieved successfully',
@@ -47,6 +49,8 @@ class TestResultsController {
   getTestResultById = async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
+
+      // Gọi service để lấy data
       const testResult = await this.testResultsService.getTestResultById(id);
 
       res.status(200).json({
@@ -70,27 +74,47 @@ class TestResultsController {
     }
   };
 
-  // POST /api/test-results - Tạo test result mới (Doctor và Nursing Staff)
+  // POST /api/test-results - Tạo test result mới (Doctor/Nursing staff only)
   createTestResult = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { appointmentTestId, conclusion, recommendations } = req.body;
-      const userRole = req.user?.role || '';
+      // Validate input data
+      const { appointmentId, profileId, doctorId, conclusion, recommendations } = req.body;
 
-      if (!appointmentTestId) {
+      if (!appointmentId) {
         res.status(400).json({
           success: false,
-          message: 'Appointment test ID is required'
+          message: 'Appointment ID is required'
         });
         return;
       }
 
+      if (!profileId) {
+        res.status(400).json({
+          success: false,
+          message: 'Profile ID is required'
+        });
+        return;
+      }
+
+      if (!doctorId) {
+        res.status(400).json({
+          success: false,
+          message: 'Doctor ID is required'
+        });
+        return;
+      }
+
+      // Prepare data để pass vào service
       const data = {
-        appointmentTestId,
+        appointmentId: appointmentId.trim(),
+        profileId: profileId.trim(),
+        doctorId: doctorId.trim(),
         conclusion: conclusion?.trim(),
         recommendations: recommendations?.trim()
       };
 
-      const newTestResult = await this.testResultsService.createTestResult(data, userRole);
+      // Gọi service để tạo
+      const newTestResult = await this.testResultsService.createTestResult(data, req.user?.role || 'guest');
 
       res.status(201).json({
         success: true,
@@ -98,8 +122,8 @@ class TestResultsController {
         data: newTestResult
       });
     } catch (error: any) {
-      if (error.message.includes('Only') || error.message.includes('required') || 
-          error.message.includes('not found') || error.message.includes('already exists')) {
+      if (error.message.includes('not found') || error.message.includes('already exists') || 
+          error.message.includes('required') || error.message.includes('permission')) {
         res.status(400).json({
           success: false,
           message: error.message
@@ -119,14 +143,14 @@ class TestResultsController {
     try {
       const { id } = req.params;
       const { conclusion, recommendations } = req.body;
-      const userRole = req.user?.role || '';
 
-      const updateData = {
-        conclusion,
-        recommendations
-      };
+      // Prepare update data
+      const updateData: any = {};
+      if (conclusion !== undefined) updateData.conclusion = conclusion;
+      if (recommendations !== undefined) updateData.recommendations = recommendations;
 
-      const updatedTestResult = await this.testResultsService.updateTestResult(id, updateData, userRole);
+      // Gọi service để update
+      const updatedTestResult = await this.testResultsService.updateTestResult(id, updateData, req.user?.role || 'guest');
 
       res.status(200).json({
         success: true,
@@ -134,9 +158,13 @@ class TestResultsController {
         data: updatedTestResult
       });
     } catch (error: any) {
-      if (error.message.includes('Only') || error.message.includes('Invalid') || 
-          error.message.includes('not found')) {
+      if (error.message.includes('Invalid') || error.message.includes('not found')) {
         res.status(404).json({
+          success: false,
+          message: error.message
+        });
+      } else if (error.message.includes('permission')) {
+        res.status(403).json({
           success: false,
           message: error.message
         });
@@ -154,27 +182,22 @@ class TestResultsController {
   deleteTestResult = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const userRole = req.user?.role || '';
 
-      await this.testResultsService.deleteTestResult(id, userRole);
+      // Gọi service để xóa
+      await this.testResultsService.deleteTestResult(id, req.user?.role || 'guest');
 
       res.status(200).json({
         success: true,
         message: 'Test result deleted successfully'
       });
     } catch (error: any) {
-      if (error.message.includes('Only')) {
-        res.status(403).json({
-          success: false,
-          message: error.message
-        });
-      } else if (error.message.includes('Invalid') || error.message.includes('not found')) {
+      if (error.message.includes('Invalid') || error.message.includes('not found')) {
         res.status(404).json({
           success: false,
           message: error.message
         });
-      } else if (error.message.includes('Cannot delete') || error.message.includes('associated')) {
-        res.status(409).json({
+      } else if (error.message.includes('permission') || error.message.includes('Cannot delete')) {
+        res.status(403).json({
           success: false,
           message: error.message
         });
@@ -188,58 +211,11 @@ class TestResultsController {
     }
   };
 
-  // GET /api/test-results/customer/:customerId - Lấy test results theo customer ID
-  getTestResultsByCustomerId = async (req: AuthRequest, res: Response): Promise<void> => {
+  // GET /api/test-results/appointment/:appointmentId - Lấy test results theo appointment ID
+  getTestResultsByAppointmentId = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { customerId } = req.params;
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
-
-      // Kiểm tra quyền: customer chỉ được xem kết quả của mình
-      if (req.user?.role === 'customer' && req.user?._id !== customerId) {
-        res.status(403).json({
-          success: false,
-          message: 'You can only view your own test results'
-        });
-        return;
-      }
-
-      const result = await this.testResultsService.getTestResultsByCustomerId(customerId, page, limit);
-
-      res.status(200).json({
-        success: true,
-        message: 'Customer test results retrieved successfully',
-        data: result.testResults,
-        pagination: {
-          currentPage: result.currentPage,
-          totalPages: result.totalPages,
-          totalItems: result.total,
-          itemsPerPage: limit,
-          hasNextPage: result.currentPage < result.totalPages,
-          hasPrevPage: result.currentPage > 1
-        }
-      });
-    } catch (error: any) {
-      if (error.message.includes('Invalid')) {
-        res.status(400).json({
-          success: false,
-          message: error.message
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Failed to retrieve customer test results',
-          error: error.message
-        });
-      }
-    }
-  };
-
-  // GET /api/test-results/appointment-test/:appointmentTestId - Lấy test results theo appointment test ID
-  getTestResultsByAppointmentTestId = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { appointmentTestId } = req.params;
-      const testResults = await this.testResultsService.getTestResultsByAppointmentTestId(appointmentTestId);
+      const { appointmentId } = req.params;
+      const testResults = await this.testResultsService.getTestResultsByAppointmentId(appointmentId);
 
       res.status(200).json({
         success: true,
@@ -262,37 +238,70 @@ class TestResultsController {
     }
   };
 
-  // GET /api/test-results/stats/:year/:month - Thống kê test results theo tháng
+  // GET /api/test-results/profile/:profileId - Lấy test results theo profile ID
+  getTestResultsByProfileId = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { profileId } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
+
+      const result = await this.testResultsService.getTestResultsByProfileId(profileId, page, limit);
+
+      res.status(200).json({
+        success: true,
+        message: 'Test results retrieved successfully',
+        data: result.testResults,
+        pagination: {
+          currentPage: result.currentPage,
+          totalPages: result.totalPages,
+          totalItems: result.total,
+          itemsPerPage: limit,
+          hasNextPage: result.currentPage < result.totalPages,
+          hasPrevPage: result.currentPage > 1
+        }
+      });
+    } catch (error: any) {
+      if (error.message.includes('Invalid')) {
+        res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to retrieve test results',
+          error: error.message
+        });
+      }
+    }
+  };
+
+  // GET /api/test-results/stats/:year/:month - Lấy thống kê test results theo tháng
   getTestResultStatsByMonth = async (req: Request, res: Response): Promise<void> => {
     try {
       const year = parseInt(req.params.year);
       const month = parseInt(req.params.month);
-
-      if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
-        res.status(400).json({
-          success: false,
-          message: 'Valid year and month (1-12) are required'
-        });
-        return;
-      }
 
       const stats = await this.testResultsService.getTestResultStatsByMonth(year, month);
 
       res.status(200).json({
         success: true,
         message: 'Test result statistics retrieved successfully',
-        data: {
-          year,
-          month,
-          ...stats
-        }
+        data: stats
       });
     } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to retrieve test result statistics',
-        error: error.message
-      });
+      if (error.message.includes('Invalid')) {
+        res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to retrieve statistics',
+          error: error.message
+        });
+      }
     }
   };
 
@@ -312,27 +321,15 @@ class TestResultsController {
         });
       }
 
-      // First, find AppointmentTests for this appointment
-      const AppointmentTests = mongoose.model('AppointmentTests');
-      const appointmentTest = await AppointmentTests.findOne({ appointmentId });
-
-      if (!appointmentTest) {
-        return res.status(200).json({
-          success: true,
-          exists: false,
-          message: 'No appointment test found - can create new test record'
-        });
-      }
-
-      // Then check if TestResults exists for this AppointmentTest
-      const testResult = await TestResults.findOne({ appointmentTestId: appointmentTest._id });
+      // Check if TestResults exists for this appointment
+      const TestResults = mongoose.model('TestResults');
+      const testResult = await TestResults.findOne({ appointmentId });
 
       return res.status(200).json({
         success: true,
         exists: !!testResult,
-        appointmentTestId: appointmentTest._id,
         testResultId: testResult?._id || null,
-        message: testResult ? 'Test results exist' : 'Appointment test exists but no results yet'
+        message: testResult ? 'Test results exist' : 'No test results found for this appointment'
       });
 
     } catch (error) {
