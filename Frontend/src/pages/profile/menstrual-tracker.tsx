@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ArrowLeftOutlined, CalendarOutlined, ExportOutlined, SaveOutlined } from '@ant-design/icons';
 import { Breadcrumb, Button, DatePicker, message, Select, Spin, Tooltip, Typography, notification, Card } from 'antd';
+
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
@@ -52,9 +52,18 @@ const MenstrualTrackerPage: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // Lấy thông tin profile
-      const profileResponse = await userProfileApi.getProfileById(profileId);
-      const profileData = (profileResponse as any)?.data?.data || (profileResponse as any)?.data;
+
+      // Kiểm tra và xử lý nhiều cấu trúc dữ liệu có thể có
+      let profileData;
+      const responseWithData = response as { data?: { data?: UserProfile } | UserProfile };
+      if (responseWithData?.data && typeof responseWithData.data === 'object' && 'data' in responseWithData.data) {
+        profileData = responseWithData.data.data;
+      } else if (responseWithData?.data) {
+        profileData = responseWithData.data;
+      } else {
+        profileData = response as UserProfile;
+      }
+
       
       if (!profileData) {
         setError('Không tìm thấy thông tin hồ sơ');
@@ -122,6 +131,7 @@ const MenstrualTrackerPage: React.FC = () => {
       console.error('Error creating new cycle:', error);
     }
   };
+
 
   const fetchCycleDays = async (cycleId: string) => {
     try {

@@ -28,11 +28,11 @@ const MainLayout: React.FC = () => {
   }, []);
   
   return (
-    <div className="flex flex-col min-h-[600px]">
+    <div className="flex flex-col min-h-screen">
       <Header />
       {/* Placeholder cho header */}
       <div style={{ height: `${headerHeight}px` }}></div>
-      <main className="flex-grow">
+      <main className="flex-1">
         <Outlet />
       </main>
       <Footer />

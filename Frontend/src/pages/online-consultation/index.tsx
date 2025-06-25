@@ -74,19 +74,13 @@ const OnlineConsultationPage: React.FC = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Scroll to top on mount – UX
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Toast auto-hide
-  useEffect(() => {
-    if (!toast) return;
-    const id = setTimeout(() => setToast(null), 3000);
-    return () => clearTimeout(id);
-  }, [toast]);
+
 
   // Features data (icon + title + desc)
   const features = [
@@ -188,15 +182,12 @@ const OnlineConsultationPage: React.FC = () => {
 
     // Basic validation
     if (form.fullName.trim().length < 3) {
-      setToast({ type: 'error', message: 'Họ tên phải có ít nhất 3 ký tự.' });
       return;
     }
     if (!/^[0-9]{10,11}$/.test(form.phone.trim())) {
-      setToast({ type: 'error', message: 'Số điện thoại không hợp lệ.' });
       return;
     }
     if (form.question.trim().length < 10) {
-      setToast({ type: 'error', message: 'Câu hỏi phải có ít nhất 10 ký tự.' });
       return;
     }
 
@@ -214,10 +205,22 @@ const OnlineConsultationPage: React.FC = () => {
         notes: form.notes?.trim(),
         question: form.question.trim()
       });
-      setToast({ type: 'success', message: 'Tạo yêu cầu tư vấn thành công! Vui lòng thanh toán.' });
-      window.location.href = `/consultation/payment/${res.data.data._id}`;
+
+      const consultationData = res.data.data;
+      
+      // ✅ Enhanced response handling với auto-assignment info
+      console.log('🎉 [FRONTEND] QA Creation successful:', res.data);
+      
+      // Check nếu có auto-assignment info từ backend
+      console.log('Consultation created successfully:', consultationData);
+      
+      // Chuyển hướng đến trang thanh toán
+      setTimeout(() => {
+        window.location.href = `/consultation/payment/${consultationData._id}`;
+      }, 2000);
+      
     } catch (err: any) {
-      setToast({ type: 'error', message: err?.response?.data?.message || err.message || 'Có lỗi xảy ra.' });
+      console.error('Error creating consultation:', err?.response?.data?.message || err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -322,8 +325,6 @@ const OnlineConsultationPage: React.FC = () => {
           </BlurFade>
         </div>
       </section>
-
-
 
       {/* Features Section */}
       <section className="py-20 bg-white">
@@ -574,20 +575,6 @@ const OnlineConsultationPage: React.FC = () => {
           </div>
         </div>
       </section>
-
-      {/* Toast notification */}
-      {toast && (
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 50 }}
-          className={`fixed bottom-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg text-white ${
-            toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-          }`}
-        >
-          {toast.message}
-        </motion.div>
-      )}
 
       {/* Floating button */}
       <FloatingAppointmentButton onAppointmentClick={scrollToForm} />

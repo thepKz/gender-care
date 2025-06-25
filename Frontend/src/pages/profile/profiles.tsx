@@ -63,11 +63,6 @@ const ProfilesPage: React.FC = () => {
     }
   };
 
-  const handleCreateProfile = () => {
-    setSelectedProfile(null);
-    setIsModalVisible(true);
-  };
-
   const handleEditProfile = (profile: UserProfile) => {
     setSelectedProfile(profile);
     setIsModalVisible(true);

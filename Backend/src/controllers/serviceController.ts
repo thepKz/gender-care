@@ -156,7 +156,7 @@ export const searchServices = async (req: Request, res: Response) => {
 // POST /services - Create new service
 export const createService = async (req: AuthRequest, res: Response) => {
   try {
-    const { serviceName, price, description, duration, serviceType, availableAt } = req.body;
+    const { serviceName, price, description, duration, serviceType, availableAt, status } = req.body;
 
     // Validation
     if (!serviceName || !price || !description || !serviceType || !availableAt) {
@@ -195,6 +195,9 @@ export const createService = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Map status to isDeleted: 'inactive' -> 1, 'active' -> 0
+    const isDeleted = status === 'inactive' ? 1 : 0;
+
     const newService = new Service({
       serviceName: serviceName.trim(),
       price: Number(price),
@@ -202,7 +205,7 @@ export const createService = async (req: AuthRequest, res: Response) => {
       duration: Number(duration) || 30,
       serviceType,
       availableAt: Array.isArray(availableAt) ? availableAt : [availableAt],
-      isDeleted: 0
+      isDeleted
     });
 
     const savedService = await newService.save();

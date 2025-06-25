@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { notification } from 'antd';
+import dayjs from 'dayjs';
 import { UserProfile } from '../types';
 import userProfileApi, { CreateUserProfileRequest, UpdateUserProfileRequest } from '../api/endpoints/userProfileApi';
 import { useUserProfile } from '../context/UserProfileContext';
@@ -170,6 +171,11 @@ export const useUserProfiles = () => {
     dispatch({ type: 'SET_FILTER_GENDER', payload: gender });
   }, [dispatch]);
 
+  // Lọc theo khoảng thời gian
+  const filterByDateRange = useCallback((dateRange: [dayjs.Dayjs, dayjs.Dayjs] | null) => {
+    dispatch({ type: 'SET_FILTER_DATE_RANGE', payload: dateRange });
+  }, [dispatch]);
+
   // Chọn profile
   const selectProfile = useCallback((profile: UserProfile | null) => {
     dispatch({ type: 'SET_SELECTED_PROFILE', payload: profile });
@@ -195,6 +201,13 @@ export const useUserProfiles = () => {
     };
   }, [state.profiles]);
 
+  // Kiểm tra có filter đang hoạt động
+  const hasActiveFilters = useCallback(() => {
+    return state.searchQuery.trim() !== '' || 
+           state.filterGender !== 'all' || 
+           (state.filterDateRange && state.filterDateRange.length === 2);
+  }, [state.searchQuery, state.filterGender, state.filterDateRange]);
+
   return {
     // State
     profiles: state.profiles,
@@ -206,6 +219,7 @@ export const useUserProfiles = () => {
     sortBy: state.sortBy,
     sortOrder: state.sortOrder,
     filterGender: state.filterGender,
+    filterDateRange: state.filterDateRange,
     
     // Actions
     loadProfiles,
@@ -216,11 +230,17 @@ export const useUserProfiles = () => {
     searchProfiles,
     sortProfiles,
     filterByGender,
+    filterByDateRange,
     selectProfile,
     
     // Utilities
     clearError,
     resetFilters,
-    getStatistics
+    getStatistics,
+    hasActiveFilters,
+    getCurrentFilters: () => ({
+      gender: state.filterGender,
+      dateRange: state.filterDateRange
+    })
   };
 }; 

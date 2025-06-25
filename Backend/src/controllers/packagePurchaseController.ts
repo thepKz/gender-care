@@ -6,10 +6,21 @@ import Bills from '../models/Bills';
 import { UserProfile } from '../models/UserProfile';
 import { AuthRequest } from '../types/auth';
 import { ApiResponse } from '../types';
-import { PackagePricingService } from '../services/packagePricingService';
+import { PackagePurchaseService } from '../services/packagePurchaseService';
 
-// POST /package-purchases - Mua gói dịch vụ (mock thành công 100%)
+// POST /package-purchases - DISABLED: Chức năng mua gói đã bị vô hiệu hóa
+// Người dùng sẽ đặt lịch trực tiếp thay vì mua gói
 export const purchasePackage = async (req: AuthRequest, res: Response) => {
+  const response: ApiResponse<any> = {
+    success: false,
+    message: 'Chức năng mua gói dịch vụ đã được thay thế bằng đặt lịch trực tiếp. Vui lòng sử dụng tính năng đặt lịch.'
+  };
+  return res.status(410).json(response); // 410 Gone - Feature no longer available
+};
+
+/*
+// COMMENTED OUT - Original purchase functionality
+export const purchasePackageOriginal = async (req: AuthRequest, res: Response) => {
   try {
     const { profileId, packageId, promotionId } = req.body;
     const userId = req.user?._id;
@@ -132,6 +143,7 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
     res.status(500).json(response);
   }
 };
+*/
 
 // GET /package-purchases/user - Lấy danh sách gói đã mua của user (PRODUCTION VERSION)
 export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) => {
@@ -170,19 +182,25 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
 
     // Execute query with proper error handling
     let packagePurchases = [];
+    let transformedPurchases: any[] = [];
     let total = 0;
     
     try {
-      // Try populate with ServicePackage model 
+      // Try populate with ServicePackages model (correct model name)
       packagePurchases = await PackagePurchases.find(query)
         .populate({
           path: 'packageId',
-          model: 'ServicePackage',
-          select: 'name description price serviceIds durationInDays maxUsages isActive'
+          model: 'ServicePackages',
+          select: 'name description price services durationInDays maxUsages isActive',
+          populate: {
+            path: 'services.serviceId',
+            model: 'Service',
+            select: 'serviceName price description serviceType'
+          }
         })
         .populate({
           path: 'profileId',
-          model: 'UserProfile', 
+          model: 'UserProfiles', // Fix model name
           select: 'fullName phone year gender'
         })
         .populate({
@@ -198,9 +216,25 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
       // Filter out null packageId (deleted packages)
       packagePurchases = packagePurchases.filter(purchase => purchase.packageId);
 
+      // 🔹 Transform data to match frontend expectation
+      transformedPurchases = packagePurchases.map((purchase: any) => ({
+        ...purchase,
+        servicePackage: purchase.packageId, // Map packageId to servicePackage for frontend compatibility
+        totalAmount: purchase.purchasePrice || purchase.totalAmount || 0,
+        // Ensure required fields are present
+        status: purchase.status || 'active',
+        isActive: purchase.isActive !== false,
+        purchaseDate: purchase.purchaseDate || purchase.createdAt,
+        expiryDate: purchase.expiryDate || purchase.expiresAt,
+        expiresAt: purchase.expiryDate || purchase.expiresAt,
+        remainingUsages: purchase.remainingUsages || 0,
+        usedServices: purchase.usedServices || []
+      }));
+
       total = await PackagePurchases.countDocuments(query);
       
-      console.log('✅ [Backend] Successfully found purchases:', packagePurchases.length);
+      console.log('✅ [Backend] Successfully found purchases:', transformedPurchases.length);
+      console.log('✅ [Backend] Sample purchase structure:', transformedPurchases[0] ? Object.keys(transformedPurchases[0]) : 'No purchases');
       
     } catch (populateError) {
       console.error('❌ [Backend] Populate error:', populateError);
@@ -211,15 +245,29 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
         .skip(skip)
         .limit(limitNum)
         .lean();
+
+      // 🔹 Transform fallback data too
+      transformedPurchases = packagePurchases.map((purchase: any) => ({
+        ...purchase,
+        servicePackage: purchase.packageId,
+        totalAmount: purchase.purchasePrice || 0,
+        status: purchase.status || 'active',
+        isActive: purchase.isActive !== false,
+        purchaseDate: purchase.purchaseDate || purchase.createdAt,
+        expiryDate: purchase.expiryDate || purchase.expiresAt,
+        expiresAt: purchase.expiryDate || purchase.expiresAt,
+        remainingUsages: purchase.remainingUsages || 0,
+        usedServices: purchase.usedServices || []
+      }));
         
       total = await PackagePurchases.countDocuments(query);
-      console.log('✅ [Backend] Fallback query successful:', packagePurchases.length);
+      console.log('✅ [Backend] Fallback query successful:', transformedPurchases.length);
     }
 
     const response: ApiResponse<any> = {
       success: true,
       data: {
-        packagePurchases: packagePurchases,
+        packagePurchases: transformedPurchases,
         pagination: {
           current: pageNum,
           pageSize: limitNum,
@@ -468,8 +516,8 @@ export const purchaseServicePackage = async (req: AuthRequest, res: Response) =>
     const discountAmount = promotionId ? Math.round(basePrice * 0.1) : 0; // Mock 10% discount
     const finalAmount = basePrice - discountAmount;
 
-    // 🔹 Use PackagePricingService to handle purchase
-    const purchase = await PackagePricingService.purchasePackage(
+    // 🔹 Use PackagePurchaseService to handle purchase
+    const purchase = await PackagePurchaseService.purchasePackage(
       userId,
       packageId,
       finalAmount
@@ -698,8 +746,8 @@ export const usePackageService = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 🔹 Use PackagePricingService to handle service usage
-    const result = await PackagePricingService.usePackageService(userId, serviceId, quantity);
+    // 🔹 Use PackagePurchaseService to handle service usage
+    const result = await PackagePurchaseService.usePackageService(userId, serviceId, quantity);
 
     if (!result.success) {
       return res.status(400).json({
@@ -754,8 +802,8 @@ export const checkServiceAvailability = async (req: AuthRequest, res: Response) 
       });
     }
 
-    // 🔹 Use PackagePricingService to check availability
-    const result = await PackagePricingService.canUserUseService(
+    // 🔹 Use PackagePurchaseService to check availability
+    const result = await PackagePurchaseService.canUserUseService(
       userId, 
       serviceId, 
       Number(quantity)

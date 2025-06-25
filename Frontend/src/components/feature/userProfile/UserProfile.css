@@ -10,6 +10,9 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .user-profile-card:hover {
@@ -18,7 +21,10 @@
 }
 
 .user-profile-card .ant-card-body {
-  padding: 20px;
+  padding: 12px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .user-profile-card .profile-background {
@@ -200,11 +206,12 @@
 /* Responsive Design */
 @media (max-width: 768px) {
   .user-profile-card {
-    margin-bottom: 16px;
+    margin-bottom: 8px;
+    min-height: 150px;
   }
   
   .user-profile-filters {
-    padding: 16px;
+    padding: 10px;
   }
   
   .profile-stats-card .ant-statistic-content {
@@ -219,12 +226,16 @@
 }
 
 @media (max-width: 576px) {
+  .user-profile-card {
+    min-height: 140px;
+  }
+  
   .user-profile-card .ant-card-body {
-    padding: 16px;
+    padding: 8px;
   }
   
   .profile-empty-state {
-    padding: 40px 16px;
+    padding: 24px 8px;
   }
   
   .user-profile-modal {

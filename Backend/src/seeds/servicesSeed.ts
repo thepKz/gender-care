@@ -2,46 +2,39 @@ import Service from '../models/Service';
 
 const servicesData = [
     {
-        serviceName: 'Tư vấn sức khỏe sinh sản',
+        serviceName: 'Khám sức khỏe định kỳ nam khoa',
         price: 500000,
-        description: 'Tư vấn chuyên sâu với bác sĩ chuyên khoa về sức khỏe sinh sản và tình dục',
+        description: 'Khám nam khoa định kỳ, tầm soát ung thư tiền liệt tuyến và các bệnh lý nam khoa',
         serviceType: 'consultation',
-        availableAt: ['Online', 'Center', 'Athome']
+        availableAt: ['Center']
     },
     {
-        serviceName: 'Xét nghiệm STI/STD cơ bản',
+        serviceName: 'Khám sức khỏe định kỳ phụ khoa',
+        price: 450000,
+        description: 'Khám phụ khoa định kỳ, tầm soát ung thư cổ tử cung và các bệnh lý phụ khoa',
+        serviceType: 'consultation',
+        availableAt: ['Center']
+    },
+    {
+        serviceName: 'Xét nghiệm STIs',
         price: 800000,
-        description: 'Gói xét nghiệm cơ bản các bệnh lây truyền qua đường tình dục',
+        description: 'Xét nghiệm tầm soát các bệnh lây truyền qua đường tình dục (STIs) cơ bản',
         serviceType: 'test',
-        availableAt: ['Center', 'Athome']
+        availableAt: ['Center']
     },
     {
-        serviceName: 'Xét nghiệm STI/STD toàn diện',
+        serviceName: 'Xét nghiệm STDi',
         price: 1200000,
-        description: 'Gói xét nghiệm toàn diện các bệnh lây truyền qua đường tình dục',
+        description: 'Xét nghiệm tầm soát bệnh lây truyền qua đường tình dục nâng cao (STDi), bao gồm HIV, Hepatitis B, C',
         serviceType: 'test',
-        availableAt: ['Center', 'Athome']
+        availableAt: ['Center']
     },
     {
-        serviceName: 'Khám sức khỏe tổng quát',
-        price: 800000,
-        description: 'Khám sức khỏe định kỳ và tư vấn chăm sóc sức khỏe toàn diện',
-        serviceType: 'test',
-        availableAt: ['Center', 'Athome']
-    },
-    {
-        serviceName: 'Tư vấn tâm lý tình dục',
-        price: 400000,
-        description: 'Tư vấn và hỗ trợ tâm lý về các vấn đề liên quan đến tình dục',
-        serviceType: 'consultation',
-        availableAt: ['Online', 'Center']
-    },
-    {
-        serviceName: 'Theo dõi chu kỳ kinh nguyệt',
+        serviceName: 'Tư vấn online (Google Meet)',
         price: 300000,
-        description: 'Tư vấn và hướng dẫn theo dõi chu kỳ kinh nguyệt hiệu quả',
+        description: 'Tư vấn sức khỏe sinh sản và kế hoạch hóa gia đình qua Google Meet',
         serviceType: 'consultation',
-        availableAt: ['Online', 'Center', 'Athome']
+        availableAt: ['Online']
     }
 ];
 

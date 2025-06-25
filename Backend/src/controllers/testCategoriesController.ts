@@ -45,6 +45,30 @@ class TestCategoriesController {
     }
   };
 
+  // GET /api/test-categories/all - Lấy TẤT CẢ test categories mà không có pagination
+  getAllTestCategoriesWithoutPagination = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const search = req.query.search as string;
+
+      // Gọi service để lấy tất cả data
+      const testCategories = await this.testCategoriesService.getAllTestCategoriesWithoutPagination(search);
+
+      // Trả về response
+      res.status(200).json({
+        success: true,
+        message: 'All test categories retrieved successfully',
+        data: testCategories
+      });
+    } catch (error: any) {
+      // Error handling
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve all test categories',
+        error: error.message
+      });
+    }
+  };
+
   // GET /api/test-categories/:id - Lấy test category theo ID
   getTestCategoryById = async (req: Request, res: Response): Promise<void> => {
     try {

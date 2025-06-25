@@ -27,9 +27,14 @@ import NotificationDays from './NotificationDays';
 import MedicalRecords, { IMedicalRecords, IMedicalRecordMedicines } from './MedicalRecords';
 import Medicines, { IMedicines as IMedicinesData } from './Medicines';
 
+// Testing & Results
+import TestResults from './TestResults';
+import AppointmentTests from './AppointmentTests';
+
 // Doctor QA & Meeting
 import DoctorQA from './DoctorQA';
 import Meeting from './Meeting';
+import GoogleAuth from './GoogleAuth';
 
 // Content & Community
 import BlogCategories from './BlogCategories';
@@ -78,10 +83,15 @@ export {
   // Medical Records & Medicines
   MedicalRecords,
   Medicines,
-
+  
+  // Testing & Results
+  TestResults,
+  AppointmentTests,
+  
   // Doctor QA & Meeting
   DoctorQA,
   Meeting,
+  GoogleAuth,
 
   // Content & Community
   BlogCategories,

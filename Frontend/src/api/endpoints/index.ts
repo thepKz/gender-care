@@ -6,6 +6,8 @@ export { default as dashboardApi } from './dashboard';
 export { doctorApi } from './doctorApi';
 export { default as doctorScheduleApi } from './doctorSchedule';
 export { default as loginHistoryApi } from './loginHistory';
+export * from './doctorSchedule';
+export * from './doctorPerformanceApi';
 export { default as medicalApi } from './medical';
 export { default as menstrualCycleApi } from './menstrualCycle';
 export { default as packagePurchaseApi } from './packagePurchaseApi';
@@ -15,6 +17,7 @@ export { default as servicePackageApi } from './servicePackageApi';
 export { default as servicesApi } from './services';
 export { default as stiTestingApi } from './stiTesting';
 export { default as userApi } from './userApi';
+export * from './specialtyApi';
 export { default as userProfileApi } from './userProfileApi';
 export * from './systemLogApi';
 

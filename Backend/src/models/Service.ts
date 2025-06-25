@@ -44,7 +44,7 @@ const ServiceSchema: Schema = new Schema({
       },
       message: 'At least one location must be specified'
     },
-    enum: ['Athome', 'Online', 'Center']
+    enum: ['Online', 'Center']
   }
 }, {
   timestamps: true
