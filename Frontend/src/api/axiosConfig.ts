@@ -40,7 +40,8 @@ axiosInstance.interceptors.request.use(
       config.headers = config.headers || {} as AxiosRequestHeaders;
       config.headers['Authorization'] = `Bearer ${token}`;
 
-      if (import.meta.env.DEV) {
+      // Chỉ log cho các request quan trọng
+      if (import.meta.env.DEV && (config.url?.includes('/auth/') || config.url?.includes('/login'))) {
         console.log('[axiosConfig] Adding token to request:', config.url);
       }
     }

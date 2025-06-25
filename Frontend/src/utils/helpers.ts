@@ -11,13 +11,13 @@ export function debounce<T extends string>(
   wait: number
 ): (param: T) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
-  
-  return function(param: T) {
+
+  return function (param: T) {
     const later = () => {
       timeout = null;
       func(param);
     };
-    
+
     if (timeout) clearTimeout(timeout);
     timeout = setTimeout(later, wait);
   };
@@ -59,43 +59,44 @@ export const isValidJWTFormat = (token: string): boolean => {
     console.warn('[isValidJWTFormat] Token is not a string:', typeof token);
     return false;
   }
-  
+
   // Loại bỏ khoảng trắng và ký tự đặc biệt
   const cleanToken = token.trim();
-  
+
   // JWT phải có 3 phần ngăn cách bởi dấu chấm
   const parts = cleanToken.split('.');
   if (parts.length !== 3) {
     console.warn('[isValidJWTFormat] Token không có 3 phần:', parts.length);
     return false;
   }
-  
+
   // Kiểm tra từng phần có thể decode được không
   try {
     // Decode header
     const header = JSON.parse(atob(parts[0]));
     // Decode payload  
     const payload = JSON.parse(atob(parts[1]));
-    
+
     // Verify cơ bản JWT structure
     if (!header.alg || !payload.exp) {
       console.warn('[isValidJWTFormat] Missing required JWT fields');
       return false;
     }
-    
+
     // Check token chưa expire
     const now = Math.floor(Date.now() / 1000);
     if (payload.exp < now) {
       console.warn('[isValidJWTFormat] Token đã hết hạn');
       return false;
     }
-    
-    console.log('[isValidJWTFormat] Token valid:', { 
-      user: payload.email,
-      role: payload.role,
-      exp: new Date(payload.exp * 1000).toLocaleString()
-    });
-    
+
+    // Chỉ log token valid khi cần debug (có thể comment out trong production)
+    // console.log('[isValidJWTFormat] Token valid:', { 
+    //   user: payload.email,
+    //   role: payload.role,
+    //   exp: new Date(payload.exp * 1000).toLocaleString()
+    // });
+
     return true;
   } catch (error) {
     console.error('[isValidJWTFormat] Decode error:', error);
@@ -111,14 +112,14 @@ export const isValidJWTFormat = (token: string): boolean => {
 export const getValidTokenFromStorage = (tokenKey: string): string | null => {
   try {
     const token = localStorage.getItem(tokenKey);
-    
+
     if (!token) {
       return null;
     }
-    
+
     // Loại bỏ khoảng trắng thừa
     const cleanToken = token.trim();
-    
+
     // Kiểm tra format JWT
     if (!isValidJWTFormat(cleanToken)) {
       console.warn(`[getValidTokenFromStorage] Invalid JWT format for key: ${tokenKey}`);
@@ -126,7 +127,7 @@ export const getValidTokenFromStorage = (tokenKey: string): string | null => {
       localStorage.removeItem(tokenKey);
       return null;
     }
-    
+
     return cleanToken;
   } catch (error) {
     console.error(`[getValidTokenFromStorage] Error getting token for key: ${tokenKey}`, error);
@@ -140,7 +141,7 @@ export const getValidTokenFromStorage = (tokenKey: string): string | null => {
  */
 export const cleanupInvalidTokens = (): void => {
   const tokenKeys = ['access_token', 'refresh_token', 'token']; // Bao gồm cả key cũ 'token'
-  
+
   tokenKeys.forEach(key => {
     const token = localStorage.getItem(key);
     if (token && !isValidJWTFormat(token.trim())) {
@@ -148,7 +149,7 @@ export const cleanupInvalidTokens = (): void => {
       localStorage.removeItem(key);
     }
   });
-  
+
   // Nếu access_token không hợp lệ, cũng xóa user_info
   if (!getValidTokenFromStorage('access_token')) {
     localStorage.removeItem('user_info');
@@ -161,11 +162,11 @@ export const cleanupInvalidTokens = (): void => {
  */
 export const forceLogout = (): void => {
   console.log('[forceLogout] Cleaning up auth data...');
-  
+
   // Remove all auth-related data
   const authKeys = ['access_token', 'refresh_token', 'token', 'user_info'];
   authKeys.forEach(key => localStorage.removeItem(key));
-  
+
   // Redirect to login page
   window.location.href = '/auth/login';
 };
@@ -176,15 +177,15 @@ export const forceLogout = (): void => {
  */
 export const validateAndFixAuthToken = (): boolean => {
   console.log('[validateAndFixAuthToken] Checking auth token...');
-  
+
   const token = getValidTokenFromStorage('access_token');
-  
+
   if (!token) {
     console.warn('[validateAndFixAuthToken] No valid token found, force logout');
     forceLogout();
     return false;
   }
-  
+
   console.log('[validateAndFixAuthToken] Token is valid');
   return true;
 }; 
