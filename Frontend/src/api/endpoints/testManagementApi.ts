@@ -172,5 +172,27 @@ export const testCategoriesApi = {
   getById: async (id: string): Promise<any> => {
     const response = await axiosInstance.get(`/test-categories/${id}`);
     return response.data.data;
+  },
+
+  // Create test category
+  create: async (data: {
+    name: string;
+    description?: string;
+    unit?: string;
+    normalRange?: string;
+  }): Promise<any> => {
+    const response = await axiosInstance.post(`/test-categories`, data);
+    return response.data; // Return full response để có {success, message, data}
+  },
+
+  // Update test category
+  update: async (id: string, data: {
+    name?: string;
+    description?: string;
+    unit?: string;
+    normalRange?: string;
+  }): Promise<any> => {
+    const response = await axiosInstance.put(`/test-categories/${id}`, data);
+    return response.data;
   }
 }; 

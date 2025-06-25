@@ -74,10 +74,31 @@ const ServiceTestConfigurationInner: React.FC = () => {
   const [bulkForm] = Form.useForm();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<ServiceTestCategory | null>(null);
+  const [newTestCategoryName, setNewTestCategoryName] = useState('');
   const [form] = Form.useForm();
 
   useEffect(() => {
     loadInitialData();
+    
+    // Kiểm tra URL parameters để khôi phục service đã chọn
+    const urlParams = new URLSearchParams(window.location.search);
+    const serviceIdFromUrl = urlParams.get('serviceId');
+    const serviceNameFromUrl = urlParams.get('serviceName');
+    
+    if (serviceIdFromUrl && serviceNameFromUrl) {
+      // Tạo service object từ URL params
+      const serviceFromUrl = {
+        _id: serviceIdFromUrl,
+        serviceName: serviceNameFromUrl,
+        serviceType: '',
+        description: ''
+      };
+      
+      console.log('🔍 Restoring service from URL:', serviceFromUrl);
+      setSelectedService(serviceFromUrl);
+      setActiveTab('configurations');
+      loadServiceTestCategories(serviceIdFromUrl);
+    }
   }, []);
 
   useEffect(() => {
@@ -129,14 +150,10 @@ const ServiceTestConfigurationInner: React.FC = () => {
         allServices = [];
       }
 
-      // Chỉ lấy dịch vụ test
-      const testServices = allServices.filter(
-        (service: any) => service.serviceType === 'test'
-      );
-
-      console.log('Test services found:', testServices);
+      // Hiển thị tất cả dịch vụ (không lọc theo serviceType)
+      console.log('All services found:', allServices);
       
-      setServices(testServices);
+      setServices(allServices);
       setTestCategories(testCategoriesData);
     } catch (error) {
       console.error('Load initial data error:', error);
@@ -149,11 +166,14 @@ const ServiceTestConfigurationInner: React.FC = () => {
   const loadServiceTestCategories = async (serviceId: string) => {
     try {
       setLoading(true);
+      console.log('🔍 Loading service test categories for serviceId:', serviceId);
       const data = await serviceTestCategoriesApi.getByService(serviceId);
+      console.log('🔍 Service test categories data:', data);
+      console.log('🔍 First record structure:', data[0]);
       setServiceTestCategories(data);
     } catch (error) {
       message.error('Lỗi khi tải danh sách xét nghiệm của dịch vụ');
-      console.error(error);
+      console.error('❌ Error loading service test categories:', error);
     } finally {
       setLoading(false);
     }
@@ -163,6 +183,13 @@ const ServiceTestConfigurationInner: React.FC = () => {
     setSelectedService(service);
     setActiveTab('configurations');
     setBulkEditMode(false); // Reset bulk mode khi chọn service mới
+    loadServiceTestCategories(service._id); // Tải dữ liệu chỉ số cho service
+    
+    // Cập nhật URL để reflect service được chọn
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set('serviceId', service._id);
+    currentUrl.searchParams.set('serviceName', service.serviceName);
+    window.history.pushState({}, '', currentUrl.toString());
   };
 
   const handleBulkEdit = () => {
@@ -260,7 +287,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
     setEditingItem(item);
     const testCategory = getTestCategoryDetails(item.testCategoryId);
     form.setFieldsValue({
-      testCategoryName: testCategory?.name || '',
+      testCategoryId: item.testCategoryId, // Use ID for edit mode
       description: testCategory?.description || '',
       isRequired: item.isRequired,
       customNormalRange: item.customNormalRange,
@@ -287,6 +314,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
 
   const handleModalOk = async () => {
     try {
+      setLoading(true); // Prevent double submit
       const values = await form.validateFields();
       
       if (!selectedService) {
@@ -295,7 +323,8 @@ const ServiceTestConfigurationInner: React.FC = () => {
       }
 
       if (editingItem) {
-        // Chỉnh sửa service test category hiện có
+        // CHỈ cập nhật service test category configuration
+        // KHÔNG sửa test category gốc vì có thể được dùng bởi service khác
         const data: CreateServiceTestCategoryData = {
           serviceId: selectedService._id,
           testCategoryId: editingItem.testCategoryId,
@@ -309,35 +338,33 @@ const ServiceTestConfigurationInner: React.FC = () => {
         };
 
         await serviceTestCategoriesApi.update(editingItem._id, data);
-        message.success('Đã cập nhật cấu hình xét nghiệm thành công');
+        message.success('Đã cập nhật cấu hình chỉ số thành công');
       } else {
-        // Tạo mới: Tạo test category trước, sau đó tạo service test category
+        let testCategoryId = values.testCategoryId;
         
-        // 1. Tạo test category mới
-        const testCategoryResponse = await fetch('/api/test-categories', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-          },
-          body: JSON.stringify({
-            name: values.testCategoryName,
+        // Kiểm tra nếu user tạo test category mới
+        if (testCategoryId?.startsWith('new:')) {
+          const newName = testCategoryId.replace('new:', '');
+          
+          // Tạo test category mới
+          const newTestCategoryResponse = await testCategoriesApi.create({
+            name: newName,
             description: values.description,
             unit: values.customUnit,
             normalRange: values.customNormalRange
-          })
-        });
-
-        if (!testCategoryResponse.ok) {
-          throw new Error('Lỗi khi tạo loại xét nghiệm');
+          });
+          
+          if (!newTestCategoryResponse?.data?._id) {
+            throw new Error('Lỗi khi tạo test category mới');
+          }
+          
+          testCategoryId = newTestCategoryResponse.data._id;
         }
-
-        const newTestCategory = await testCategoryResponse.json();
         
-        // 2. Tạo service test category với test category vừa tạo
+        // Tạo service test category
         const data: CreateServiceTestCategoryData = {
           serviceId: selectedService._id,
-          testCategoryId: newTestCategory.data._id,
+          testCategoryId: testCategoryId,
           isRequired: values.isRequired || false,
           customNormalRange: values.customNormalRange,
           customUnit: values.customUnit,
@@ -348,22 +375,41 @@ const ServiceTestConfigurationInner: React.FC = () => {
         };
 
         await serviceTestCategoriesApi.create(data);
-        message.success('Đã tạo chỉ số xét nghiệm mới thành công');
+        message.success('Đã thêm chỉ số vào dịch vụ thành công');
         
-        // Reload test categories để cập nhật danh sách
+        // Reload để cập nhật danh sách
         loadInitialData();
       }
 
       setIsModalVisible(false);
       loadServiceTestCategories(selectedService._id);
     } catch (error: any) {
-      message.error(error.response?.data?.message || 'Có lỗi xảy ra');
+      // Xử lý các loại lỗi khác nhau
+      let errorMessage = 'Có lỗi xảy ra';
+      
+      if (error.response?.status === 400) {
+        // Lỗi 400 thường là duplicate name hoặc validation error
+        errorMessage = error.response?.data?.message || 'Tên chỉ số đã tồn tại hoặc dữ liệu không hợp lệ';
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Bạn không có quyền thực hiện hành động này';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Lỗi server, vui lòng thử lại sau';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      message.error(errorMessage);
       console.error('Modal error:', error);
+    } finally {
+      setLoading(false); // Always reset loading state
     }
   };
 
   const getTestCategoryName = (testCategoryId: string) => {
+    console.log('🔍 getTestCategoryName called with:', testCategoryId);
+    console.log('🔍 Available testCategories:', testCategories);
     const testCategory = testCategories.find(tc => tc._id === testCategoryId);
+    console.log('🔍 Found testCategory:', testCategory);
     return testCategory?.name || 'N/A';
   };
 
@@ -405,9 +451,31 @@ const ServiceTestConfigurationInner: React.FC = () => {
   // Service test categories table columns - CHỈ HIỂN THỊ
   const testCategoryColumns: ColumnsType<ServiceTestCategory> = [
     {
-      title: 'Tên xét nghiệm',
+      title: 'Tên chỉ số',
+      dataIndex: 'testCategoryId',
       key: 'testCategoryName',
-      render: (_, record) => getTestCategoryName(record.testCategoryId),
+      render: (testCategoryId, record) => {
+        console.log('🔍 Rendering name for record:', record);
+        console.log('🔍 testCategoryId:', testCategoryId);
+        console.log('🔍 record.testCategory:', record.testCategory);
+        console.log('🔍 typeof testCategoryId:', typeof testCategoryId);
+        
+        // Nếu testCategoryId đã là object (populated)
+        if (typeof testCategoryId === 'object' && testCategoryId?.name) {
+          console.log('🔍 Using populated name:', testCategoryId.name);
+          return testCategoryId.name;
+        }
+        
+        // Nếu có testCategory property
+        if (record.testCategory?.name) {
+          console.log('🔍 Using testCategory name:', record.testCategory.name);
+          return record.testCategory.name;
+        }
+        
+        // Fallback về hàm lookup
+        console.log('🔍 Using fallback lookup');
+        return getTestCategoryName(testCategoryId);
+      },
     },
     {
       title: 'Bắt buộc',
@@ -419,26 +487,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
         </Tag>
       ),
     },
-    {
-      title: 'Khoảng giá trị chuẩn',
-      dataIndex: 'customNormalRange',
-      key: 'customNormalRange',
-      render: (value, record) => {
-        const defaultRange = getTestCategoryDetails(record.testCategoryId)?.normalRange;
-        return (
-          <div>
-            {value ? (
-              <div>
-                <div><strong>Tùy chỉnh:</strong> {value}</div>
-                <div className="text-sm text-gray-500">Mặc định: {defaultRange}</div>
-              </div>
-            ) : (
-              <div className="text-gray-500">Sử dụng mặc định: {defaultRange}</div>
-            )}
-          </div>
-        );
-      },
-    },
+  
     {
       title: 'Đơn vị',
       dataIndex: 'customUnit',
@@ -462,10 +511,17 @@ const ServiceTestConfigurationInner: React.FC = () => {
       ),
     },
     {
-      title: 'Giá trị tối ưu',
+      title: 'Giá trị bình thường',
       dataIndex: 'targetValue',
       key: 'targetValue',
-      render: (value) => value || <span className="text-gray-500">Chưa thiết lập</span>,
+      render: (value, record) => {
+        // Tự động tính từ minValue và maxValue nếu có
+        if (record.minValue !== undefined && record.maxValue !== undefined) {
+          const calculatedValue = (record.minValue + record.maxValue) / 2;
+          return <span>{calculatedValue.toFixed(1)}</span>;
+        }
+        return value || <span className="text-gray-500">Chưa thiết lập</span>;
+      },
     },
     {
       title: 'Thao tác',
@@ -514,7 +570,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
               label: (
                 <span>
                   <ExperimentOutlined />
-                  Danh sách dịch vụ xét nghiệm
+                  Danh sách dịch vụ
                 </span>
               ),
               children: (
@@ -650,21 +706,9 @@ const ServiceTestConfigurationInner: React.FC = () => {
                               onFinish={async (values) => {
                                 try {
                                   // Gọi API tạo test category mới
-                                  const response = await fetch('/api/test-categories', {
-                                    method: 'POST',
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                      'Authorization': `Bearer ${localStorage.getItem('token')}`
-                                    },
-                                    body: JSON.stringify(values)
-                                  });
-                                  
-                                  if (response.ok) {
-                                    message.success('Đã tạo chỉ số xét nghiệm mới');
-                                    loadInitialData(); // Reload data
-                                  } else {
-                                    message.error('Lỗi khi tạo chỉ số xét nghiệm');
-                                  }
+                                  await testCategoriesApi.create(values);
+                                  message.success('Đã tạo chỉ số xét nghiệm mới');
+                                  loadInitialData(); // Reload data
                                 } catch (error) {
                                   message.error('Lỗi khi tạo chỉ số xét nghiệm');
                                 }
@@ -736,16 +780,16 @@ const ServiceTestConfigurationInner: React.FC = () => {
                                 </Col>
                               </Row>
                               
-                              <Form.Item
-                                name={`${tc._id}_targetValue`}
-                                label="Giá trị tối ưu"
-                                style={{ marginBottom: 12 }}
-                              >
-                                <Input 
-                                  placeholder="Ví dụ: 4.5, <5.0"
-                                  size="small"
-                                />
-                              </Form.Item>
+                                            <Form.Item
+                name={`${tc._id}_targetValue`}
+                label="Giá trị bình thường"
+                style={{ marginBottom: 12 }}
+              >
+                <Input 
+                  placeholder="Ví dụ: 4.5, <5.0"
+                  size="small"
+                />
+              </Form.Item>
                               
                               <Form.Item
                                 name={`${tc._id}_notes`}
@@ -781,6 +825,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
         width={800}
         okText={editingItem ? 'Cập nhật' : 'Tạo mới'}
         cancelText="Hủy"
+        confirmLoading={loading}
       >
         <Form form={form} layout="vertical">
           <Alert
@@ -790,25 +835,65 @@ const ServiceTestConfigurationInner: React.FC = () => {
             className="mb-4"
           />
           
-          <Form.Item
-            name="testCategoryName"
-            label="Tên chỉ số xét nghiệm"
-            rules={[{ required: true, message: 'Vui lòng nhập tên chỉ số' }]}
-          >
-            <Input 
-              placeholder="VD: Cholesterol, Glucose, HIV Test..."
-              disabled={!!editingItem}
-            />
-          </Form.Item>
+          {!editingItem ? (
+            // CHỈ hiển thị khi tạo mới
+            <>
+              <Form.Item
+                name="testCategoryId"
+                label="Chọn chỉ số xét nghiệm"
+                rules={[{ required: true, message: 'Vui lòng chọn chỉ số' }]}
+              >
+                <Select
+                  placeholder="Chọn chỉ số có sẵn hoặc nhập tên mới..."
+                  showSearch
+                  allowClear
+                  disabled={!!editingItem} // Disable khi edit
+                  dropdownRender={!editingItem ? (menu) => (
+                    <>
+                      {menu}
+                      <div style={{ padding: '8px 0', borderTop: '1px solid #d9d9d9' }}>
+                        <Input
+                          placeholder="Nhập tên chỉ số mới..."
+                          value={newTestCategoryName}
+                          onChange={(e) => setNewTestCategoryName(e.target.value)}
+                          onPressEnter={() => {
+                            if (newTestCategoryName.trim()) {
+                              form.setFieldValue('testCategoryId', `new:${newTestCategoryName.trim()}`);
+                              setNewTestCategoryName('');
+                            }
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : undefined}
+                >
+                  {testCategories.map(tc => (
+                    <Select.Option key={tc._id} value={tc._id}>
+                      {tc.name}
+                    </Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
 
-          <Form.Item
-            name="description"
-            label="Mô tả chỉ số"
-          >
-            <Input 
-              placeholder="VD: Đo lượng cholesterol trong máu..."
+              <Form.Item
+                name="description"
+                label="Mô tả chỉ số"
+              >
+                <Input 
+                  placeholder="VD: Đo lượng cholesterol trong máu..."
+                />
+              </Form.Item>
+            </>
+          ) : (
+            // Hiển thị thông tin test category khi edit (read-only)
+            <Alert
+              message={`Chỉnh sửa cấu hình cho chỉ số: ${getTestCategoryDetails(editingItem.testCategoryId)?.name || 'N/A'}`}
+              description="Bạn chỉ có thể thay đổi cấu hình riêng của chỉ số này cho dịch vụ hiện tại. Chỉ số gốc có thể được sử dụng bởi nhiều dịch vụ khác."
+              type="info"
+              showIcon
+              className="mb-4"
             />
-          </Form.Item>
+          )}
 
           <Row gutter={16}>
             <Col span={12}>
@@ -820,18 +905,27 @@ const ServiceTestConfigurationInner: React.FC = () => {
                 <Checkbox>Bắt buộc</Checkbox>
               </Form.Item>
             </Col>
-            <Col span={12}>
-              <Form.Item
-                name="customUnit"
-                label="Đơn vị tùy chỉnh"
-              >
-                <Input placeholder="Ví dụ: mg/dL, IU/mL..." />
-              </Form.Item>
-            </Col>
+            {!editingItem && (
+              <Col span={12}>
+                <Form.Item
+                  name="customUnit"
+                  label="Đơn vị tùy chỉnh"
+                >
+                  <Input placeholder="Ví dụ: mg/dL, IU/mL..." />
+                </Form.Item>
+              </Col>
+            )}
           </Row>
 
           <div className="bg-blue-50 p-4 rounded mb-4">
             <Title level={5}>Giá trị dao động cho dịch vụ này</Title>
+            <Alert
+              message="Giá trị bình thường sẽ được tự động tính"
+              description="Hệ thống sẽ tự động tính giá trị bình thường = (giá trị thấp nhất + giá trị cao nhất) / 2"
+              type="info"
+              showIcon
+              className="mb-4"
+            />
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item
@@ -862,31 +956,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
             </Row>
           </div>
 
-          <Form.Item
-            name="customNormalRange"
-            label="Khoảng giá trị bình thường (text)"
-            help="Khoảng giá trị bình thường dạng text. VD: 3.5-5.0, <10, >200"
-          >
-            <Input placeholder="Ví dụ: 3.5-5.0, <10, >200..." />
-          </Form.Item>
 
-          <Form.Item
-            name="targetValue"
-            label="Giá trị lý tưởng"
-            help="Giá trị tối ưu mà khách hàng nên đạt được"
-          >
-            <Input placeholder="Ví dụ: 4.5, <5.0, 80-120..." />
-          </Form.Item>
-
-          <Form.Item
-            name="notes"
-            label="Ghi chú"
-          >
-            <Input.TextArea 
-              rows={3} 
-              placeholder="Ghi chú thêm về chỉ số này cho dịch vụ..."
-            />
-          </Form.Item>
         </Form>
       </Modal>
 

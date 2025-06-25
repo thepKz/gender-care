@@ -31,7 +31,7 @@ export class ServiceTestCategoriesService {
   async getAllServiceTestCategories(page: number, limit: number, search?: string) {
     // Build search query
     let searchQuery = {};
-    
+
     if (search) {
       // Search trong service name hoặc test category name
       searchQuery = {
@@ -74,7 +74,7 @@ export class ServiceTestCategoriesService {
       throw new Error('Only doctors and staff can assign test categories to services');
     }
 
-    const { serviceId, testCategoryId, isRequired, customNormalRange, customUnit, targetValue, notes } = data;
+    const { serviceId, testCategoryId, isRequired, customNormalRange, customUnit, targetValue, notes, minValue, maxValue } = data;
 
     // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(serviceId)) {
@@ -107,6 +107,12 @@ export class ServiceTestCategoriesService {
       throw new Error('Test category already assigned to this service');
     }
 
+    // Tự động tính targetValue từ minValue và maxValue
+    let calculatedTargetValue = targetValue;
+    if (minValue !== undefined && maxValue !== undefined) {
+      calculatedTargetValue = ((minValue + maxValue) / 2).toString();
+    }
+
     // Tạo assignment mới
     const newAssignment = new ServiceTestCategories({
       serviceId,
@@ -114,8 +120,10 @@ export class ServiceTestCategoriesService {
       isRequired,
       customNormalRange,
       customUnit,
-      targetValue,
-      notes
+      targetValue: calculatedTargetValue,
+      notes,
+      minValue,
+      maxValue
     });
 
     const savedAssignment = await newAssignment.save();
@@ -207,6 +215,11 @@ export class ServiceTestCategoriesService {
     // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new Error('Invalid service test category ID');
+    }
+
+    // Tự động tính targetValue từ minValue và maxValue nếu có
+    if (updateData.minValue !== undefined && updateData.maxValue !== undefined) {
+      updateData.targetValue = ((updateData.minValue + updateData.maxValue) / 2).toString();
     }
 
     // Tìm và cập nhật

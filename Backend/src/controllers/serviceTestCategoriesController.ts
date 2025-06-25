@@ -71,7 +71,7 @@ class ServiceTestCategoriesController {
   // POST /api/service-test-categories - Gán test category cho service với custom range (Doctor, Staff)
   assignTestCategoryToService = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { serviceId, testCategoryId, isRequired, customNormalRange, customUnit, targetValue, notes } = req.body;
+      const { serviceId, testCategoryId, isRequired, customNormalRange, customUnit, targetValue, notes, minValue, maxValue } = req.body;
       const userRole = req.user?.role || '';
 
       if (!serviceId || !testCategoryId) {
@@ -89,7 +89,9 @@ class ServiceTestCategoriesController {
         customNormalRange: customNormalRange?.trim(),
         customUnit: customUnit?.trim(),
         targetValue: targetValue?.trim(),
-        notes: notes?.trim()
+        notes: notes?.trim(),
+        minValue: minValue !== undefined ? Number(minValue) : undefined,
+        maxValue: maxValue !== undefined ? Number(maxValue) : undefined
       };
 
       const result = await this.serviceTestCategoriesService.assignTestCategoryToService(data, userRole);
@@ -100,8 +102,8 @@ class ServiceTestCategoriesController {
         data: result
       });
     } catch (error: any) {
-      if (error.message.includes('Only') || error.message.includes('not found') || 
-          error.message.includes('already assigned')) {
+      if (error.message.includes('Only') || error.message.includes('not found') ||
+        error.message.includes('already assigned')) {
         res.status(400).json({
           success: false,
           message: error.message
@@ -163,15 +165,17 @@ class ServiceTestCategoriesController {
   updateServiceTestCategory = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const { isRequired, customNormalRange, customUnit, targetValue, notes } = req.body;
+      const { isRequired, customNormalRange, customUnit, targetValue, notes, minValue, maxValue } = req.body;
       const userRole = req.user?.role || '';
 
-      const updateData = { 
+      const updateData = {
         isRequired,
         customNormalRange: customNormalRange?.trim(),
         customUnit: customUnit?.trim(),
         targetValue: targetValue?.trim(),
-        notes: notes?.trim()
+        notes: notes?.trim(),
+        minValue: minValue !== undefined ? Number(minValue) : undefined,
+        maxValue: maxValue !== undefined ? Number(maxValue) : undefined
       };
       const result = await this.serviceTestCategoriesService.updateServiceTestCategory(id, updateData, userRole);
 
@@ -181,8 +185,8 @@ class ServiceTestCategoriesController {
         data: result
       });
     } catch (error: any) {
-      if (error.message.includes('Only') || error.message.includes('Invalid') || 
-          error.message.includes('not found')) {
+      if (error.message.includes('Only') || error.message.includes('Invalid') ||
+        error.message.includes('not found')) {
         res.status(404).json({
           success: false,
           message: error.message

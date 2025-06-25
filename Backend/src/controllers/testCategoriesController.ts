@@ -79,10 +79,15 @@ class TestCategoriesController {
   // POST /api/test-categories - Tạo test category mới
   createTestCategory = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      console.log('🔍 [TestCategoryController] createTestCategory called');
+      console.log('🔍 [TestCategoryController] Request body:', req.body);
+      console.log('🔍 [TestCategoryController] User:', req.user);
+
       // Validate input data
       const { name, description, unit, normalRange } = req.body;
 
       if (!name) {
+        console.log('❌ [TestCategoryController] Name is required');
         res.status(400).json({
           success: false,
           message: 'Test category name is required'
@@ -98,8 +103,12 @@ class TestCategoriesController {
         normalRange: normalRange?.trim()
       };
 
+      console.log('🔍 [TestCategoryController] Calling service with data:', data);
+
       // Gọi service để tạo
       const newTestCategory = await this.testCategoriesService.createTestCategory(data);
+
+      console.log('✅ [TestCategoryController] Test category created:', newTestCategory);
 
       // Trả về response
       res.status(201).json({
@@ -108,6 +117,9 @@ class TestCategoriesController {
         data: newTestCategory
       });
     } catch (error: any) {
+      console.error('❌ [TestCategoryController] Error creating test category:', error);
+      console.error('❌ [TestCategoryController] Error stack:', error.stack);
+
       // Handle specific errors
       if (error.message.includes('already exists') || error.message.includes('required')) {
         res.status(400).json({
