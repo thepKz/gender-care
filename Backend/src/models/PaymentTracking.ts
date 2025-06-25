@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 export interface IPaymentTracking extends mongoose.Document {
   serviceType: 'appointment' | 'consultation' | 'package';
+  recordId: mongoose.Types.ObjectId;
   appointmentId?: mongoose.Types.ObjectId;
   doctorQAId?: mongoose.Types.ObjectId;
   packageId?: mongoose.Types.ObjectId;
@@ -42,7 +43,7 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
     type: mongoose.Schema.Types.ObjectId,
     required: true,
     refPath: 'serviceType',
-    ref: function() {
+    ref: function(): string {
       return this.serviceType === 'appointment' ? 'Appointments' : 'DoctorQA';
     }
   },
