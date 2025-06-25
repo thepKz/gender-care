@@ -100,8 +100,8 @@ class TestResultsController {
         data: newTestResult
       });
     } catch (error: any) {
-      if (error.message.includes('Only') || error.message.includes('required') || 
-          error.message.includes('not found') || error.message.includes('already exists')) {
+      if (error.message.includes('Only') || error.message.includes('required') ||
+        error.message.includes('not found') || error.message.includes('already exists')) {
         res.status(400).json({
           success: false,
           message: error.message
@@ -136,8 +136,8 @@ class TestResultsController {
         data: updatedTestResult
       });
     } catch (error: any) {
-      if (error.message.includes('Only') || error.message.includes('Invalid') || 
-          error.message.includes('not found')) {
+      if (error.message.includes('Only') || error.message.includes('Invalid') ||
+        error.message.includes('not found')) {
         res.status(404).json({
           success: false,
           message: error.message
@@ -314,27 +314,14 @@ class TestResultsController {
         });
       }
 
-      // First, find AppointmentTests for this appointment
-      const AppointmentTests = mongoose.model('AppointmentTests');
-      const appointmentTest = await AppointmentTests.findOne({ appointmentId });
-
-      if (!appointmentTest) {
-        return res.status(200).json({
-          success: true,
-          exists: false,
-          message: 'No appointment test found - can create new test record'
-        });
-      }
-
-      // Then check if TestResults exists for this AppointmentTest
-      const testResult = await TestResults.findOne({ appointmentTestId: appointmentTest._id });
+      // Directly check if TestResults exists for this appointment
+      const testResult = await TestResults.findOne({ appointmentId });
 
       return res.status(200).json({
         success: true,
         exists: !!testResult,
-        appointmentTestId: appointmentTest._id,
         testResultId: testResult?._id || null,
-        message: testResult ? 'Test results exist' : 'Appointment test exists but no results yet'
+        message: testResult ? 'Test results exist' : 'No test results found for this appointment'
       });
 
     } catch (error) {

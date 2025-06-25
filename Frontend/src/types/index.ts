@@ -495,18 +495,7 @@ export interface NotificationDay {
   updatedAt: string;
 }
 
-// Test types
-export interface AppointmentTest {
-  _id: string;
-  appointmentId: string;
-  description: string;
-  name: string;
-  price: number;
-  preparationGuidelines: string;
-  resultWaitTime: string;
-  createdAt: string;
-  updatedAt: string;
-}
+
 
 export interface TestResult {
   _id: string;

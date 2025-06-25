@@ -210,18 +210,7 @@ export interface INotificationDay {
   updatedAt: Date;
 }
 
-// Test types
-export interface IAppointmentTest {
-  _id: string;
-  appointmentId: string;
-  description: string;
-  name: string;
-  price: number;
-  preparationGuidelines: string;
-  resultWaitTime: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
+
 
 export interface ITestResult {
   _id: string;

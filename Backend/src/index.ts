@@ -8,7 +8,7 @@ import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import {
   appointmentRoutes,
-  appointmentTestsRoutes,
+
   authRoutes,
   dashboardRoutes,
   doctorQARoutes,
@@ -200,7 +200,7 @@ apiRouter.use('/google-auth', googleAuthRoutes);
 
 // Thêm Test Management routes
 apiRouter.use('/test-categories', testCategoriesRoutes);
-apiRouter.use('/appointment-tests', appointmentTestsRoutes);
+
 apiRouter.use('/test-results', testResultsRoutes);
 apiRouter.use('/test-result-items', testResultItemsRoutes);
 
@@ -234,10 +234,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  
+
   // Start auto status transition service
   startAutoTransitionService();
-  
+
   console.log('Server started successfully with all services');
 });
 
