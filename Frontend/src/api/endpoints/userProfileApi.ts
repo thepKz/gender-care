@@ -9,7 +9,7 @@ export interface CreateUserProfileRequest {
 }
 
 export interface UpdateUserProfileRequest extends Partial<CreateUserProfileRequest> {
-  id: string;
+  id?: string;
 }
 
 export interface UserProfileResponse {
@@ -80,9 +80,9 @@ class UserProfileApi {
     try {
       const profiles = await this.getMyProfiles();
       if (!query.trim()) return profiles;
-      
+
       const lowerQuery = query.toLowerCase();
-      return profiles.filter(profile => 
+      return profiles.filter(profile =>
         profile.fullName.toLowerCase().includes(lowerQuery) ||
         profile.phone?.toLowerCase().includes(lowerQuery)
       );

@@ -11,13 +11,13 @@ export function debounce<T extends string>(
   wait: number
 ): (param: T) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
-  
-  return function(param: T) {
+
+  return function (param: T) {
     const later = () => {
       timeout = null;
       func(param);
     };
-    
+
     if (timeout) clearTimeout(timeout);
     timeout = setTimeout(later, wait);
   };
@@ -58,18 +58,22 @@ export const isValidJWTFormat = (token: string): boolean => {
   if (!token || typeof token !== 'string') {
     return false;
   }
+
   
   // Loại bỏ khoảng trắng
   const cleanToken = token.trim();
   
   // JWT phải có 3 phần ngăn cách bởi dấu chấm và không được rỗng
+
   const parts = cleanToken.split('.');
   if (parts.length !== 3) {
     return false;
   }
+
   
   // Kiểm tra từng phần không được rỗng
   return parts.every(part => part.length > 0);
+
 };
 
 /**
@@ -80,21 +84,21 @@ export const isValidJWTFormat = (token: string): boolean => {
 export const getValidTokenFromStorage = (tokenKey: string): string | null => {
   try {
     const token = localStorage.getItem(tokenKey);
-    
+
     if (!token) {
       return null;
     }
-    
+
     // Loại bỏ khoảng trắng thừa
     const cleanToken = token.trim();
-    
+
     // Kiểm tra format JWT
     if (!isValidJWTFormat(cleanToken)) {
       // Xóa token không hợp lệ
       localStorage.removeItem(tokenKey);
       return null;
     }
-    
+
     return cleanToken;
   } catch {
     localStorage.removeItem(tokenKey);
@@ -107,14 +111,14 @@ export const getValidTokenFromStorage = (tokenKey: string): string | null => {
  */
 export const cleanupInvalidTokens = (): void => {
   const tokenKeys = ['access_token', 'refresh_token', 'token']; // Bao gồm cả key cũ 'token'
-  
+
   tokenKeys.forEach(key => {
     const token = localStorage.getItem(key);
     if (token && !isValidJWTFormat(token.trim())) {
       localStorage.removeItem(key);
     }
   });
-  
+
   // Nếu access_token không hợp lệ, cũng xóa user_info
   if (!getValidTokenFromStorage('access_token')) {
     localStorage.removeItem('user_info');
@@ -128,7 +132,7 @@ export const forceLogout = (): void => {
   // Remove all auth-related data
   const authKeys = ['access_token', 'refresh_token', 'token', 'user_info'];
   authKeys.forEach(key => localStorage.removeItem(key));
-  
+
   // Redirect to login page
   window.location.href = '/auth/login';
 };
@@ -138,12 +142,15 @@ export const forceLogout = (): void => {
  * Nếu token invalid, sẽ force logout
  */
 export const validateAndFixAuthToken = (): boolean => {
+
   const token = getValidTokenFromStorage('access_token');
-  
+
   if (!token) {
     forceLogout();
     return false;
   }
-  
+
+
+  console.log('[validateAndFixAuthToken] Token is valid');
   return true;
 }; 
