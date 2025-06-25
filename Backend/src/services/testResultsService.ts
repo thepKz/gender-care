@@ -32,11 +32,7 @@ export class TestResultsService {
       TestResults.find(filter)
         .populate({
           path: 'appointmentId',
-          select: 'appointmentDate appointmentTime serviceId packageId status',
-          populate: {
-            path: 'serviceId',
-            select: 'serviceName serviceType price'
-          }
+          select: 'appointmentDate appointmentTime serviceId appointmentType'
         })
         .populate({
           path: 'profileId',
@@ -44,7 +40,7 @@ export class TestResultsService {
         })
         .populate({
           path: 'doctorId',
-          select: 'bio specialization',
+          select: 'specialization',
           populate: {
             path: 'userId',
             select: 'fullName email'
@@ -74,11 +70,7 @@ export class TestResultsService {
     const testResults = await TestResults.find({ appointmentId })
       .populate({
         path: 'appointmentId',
-        select: 'appointmentDate appointmentTime serviceId status',
-        populate: {
-          path: 'serviceId',
-          select: 'serviceName serviceType price'
-        }
+        select: 'appointmentDate appointmentTime serviceId appointmentType'
       })
       .populate({
         path: 'profileId',
@@ -86,7 +78,7 @@ export class TestResultsService {
       })
       .populate({
         path: 'doctorId',
-        select: 'bio specialization',
+        select: 'specialization',
         populate: {
           path: 'userId',
           select: 'fullName email'
@@ -107,11 +99,7 @@ export class TestResultsService {
     const testResult = await TestResults.findById(id)
       .populate({
         path: 'appointmentId',
-        select: 'appointmentDate appointmentTime serviceId packageId status description',
-        populate: {
-          path: 'serviceId',
-          select: 'serviceName serviceType price description'
-        }
+        select: 'appointmentDate appointmentTime serviceId appointmentType'
       })
       .populate({
         path: 'profileId',
@@ -119,7 +107,7 @@ export class TestResultsService {
       })
       .populate({
         path: 'doctorId',
-        select: 'bio experience specialization',
+        select: 'specialization',
         populate: {
           path: 'userId',
           select: 'fullName email'
@@ -157,28 +145,13 @@ export class TestResultsService {
       throw new Error('Valid doctor ID is required');
     }
 
-    // Kiểm tra appointment, profile, doctor có tồn tại không
-    const [appointment, profile, doctor] = await Promise.all([
-      Appointments.findById(data.appointmentId),
-      UserProfiles.findById(data.profileId),
-      Doctor.findById(data.doctorId)
-    ]);
-
+    // Kiểm tra appointment có tồn tại không
+    const Appointments = (await import('../models/Appointments')).default;
+    const appointment = await Appointments.findById(data.appointmentId);
+    
     if (!appointment) {
       throw new Error('Appointment not found');
     }
-    if (!profile) {
-      throw new Error('User profile not found');
-    }
-    if (!doctor) {
-      throw new Error('Doctor not found');
-    }
-
-    // Kiểm tra appointment và profile có khớp không
-    if (appointment.profileId.toString() !== data.profileId) {
-      throw new Error('Profile does not match appointment');
-    }
-
     // Kiểm tra đã có test result cho appointment này chưa
     const existingResult = await TestResults.findOne({
       appointmentId: data.appointmentId
@@ -291,7 +264,7 @@ export class TestResultsService {
     await TestResults.findByIdAndDelete(id);
   }
 
-  // Lấy test results theo profile ID (customer có thể xem kết quả của mình)
+  // Lấy test results theo profile ID (để customer xem kết quả của profile)
   async getTestResultsByProfileId(profileId: string, page: number = 1, limit: number = 10): Promise<{
     testResults: ITestResults[];
     total: number;
@@ -304,24 +277,22 @@ export class TestResultsService {
     }
 
     const skip = (page - 1) * limit;
-
-    // Thực hiện query
     const [testResults, total] = await Promise.all([
       TestResults.find({ profileId })
         .populate({
           path: 'appointmentId',
-          select: 'appointmentDate appointmentTime serviceId',
-          populate: {
-            path: 'serviceId',
-            select: 'serviceName serviceType'
-          }
+          select: 'appointmentDate appointmentTime serviceId appointmentType'
+        })
+        .populate({
+          path: 'profileId',
+          select: 'fullName gender phone year'
         })
         .populate({
           path: 'doctorId',
           select: 'specialization',
           populate: {
             path: 'userId',
-            select: 'fullName'
+            select: 'fullName email'
           }
         })
         .skip(skip)
@@ -329,7 +300,6 @@ export class TestResultsService {
         .sort({ createdAt: -1 }),
       TestResults.countDocuments({ profileId })
     ]);
-
     return {
       testResults,
       total,
@@ -338,61 +308,27 @@ export class TestResultsService {
     };
   }
 
-  // Lấy test results theo doctor ID
-  async getTestResultsByDoctorId(doctorId: string, page: number = 1, limit: number = 10): Promise<{
-    testResults: ITestResults[];
-    total: number;
-    totalPages: number;
-    currentPage: number;
-  }> {
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(doctorId)) {
-      throw new Error('Invalid doctor ID format');
-    }
-
-    const skip = (page - 1) * limit;
-
-    // Thực hiện query
-    const [testResults, total] = await Promise.all([
-      TestResults.find({ doctorId })
-        .populate({
-          path: 'appointmentId',
-          select: 'appointmentDate appointmentTime serviceId',
-          populate: {
-            path: 'serviceId',
-            select: 'serviceName serviceType'
-          }
-        })
-        .populate({
-          path: 'profileId',
-          select: 'fullName gender phone'
-        })
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 }),
-      TestResults.countDocuments({ doctorId })
-    ]);
-
-    return {
-      testResults,
-      total,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page
-    };
-  }
-
-  // Thống kê test results theo tháng
+  // Get test result statistics by month
   async getTestResultStatsByMonth(year: number, month: number): Promise<{
     totalResults: number;
     resultsWithConclusion: number;
     resultsWithRecommendations: number;
     completionRate: number;
   }> {
-    // Tạo range cho tháng
+
+    // Validate input
+    if (year < 2000 || year > 3000) {
+      throw new Error('Invalid year');
+    }
+    if (month < 1 || month > 12) {
+      throw new Error('Invalid month');
+    }
+
+    // Tạo date range cho tháng đó
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
-    // Aggregate để thống kê
+    // Aggregate để tính statistics
     const stats = await TestResults.aggregate([
       {
         $match: {
@@ -428,20 +364,27 @@ export class TestResultsService {
       }
     ]);
 
-    const result = stats[0] || {
-      totalResults: 0,
-      resultsWithConclusion: 0,
-      resultsWithRecommendations: 0
-    };
+    if (stats.length === 0) {
+      return {
+        totalResults: 0,
+        resultsWithConclusion: 0,
+        resultsWithRecommendations: 0,
+        completionRate: 0
+      };
+    }
 
-    // Tính completion rate
-    const completionRate = result.totalResults > 0
-      ? Math.round((result.resultsWithConclusion / result.totalResults) * 100)
+    const result = stats[0];
+    const completionRate = result.totalResults > 0 
+      ? ((result.resultsWithConclusion + result.resultsWithRecommendations) / (result.totalResults * 2)) * 100
       : 0;
 
     return {
-      ...result,
-      completionRate
+      totalResults: result.totalResults,
+      resultsWithConclusion: result.resultsWithConclusion,
+      resultsWithRecommendations: result.resultsWithRecommendations,
+      completionRate: Math.round(completionRate * 100) / 100
     };
   }
-} 
+}
+
+export default TestResultsService; 

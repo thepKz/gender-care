@@ -1,77 +1,71 @@
-import { Router } from 'express';
+import express from 'express';
 import testResultsController from '../controllers/testResultsController';
-import { authMiddleware } from '../middleware/authMiddleware';
+import { verifyToken } from '../middleware/auth';
 import { roleMiddleware } from '../middleware/roleMiddleware';
 
-const router = Router();
+const router = express.Router();
 
-// Routes cho TestResults
-
-// GET /api/test-results - Lấy tất cả test results (Admin, Doctor, Nursing Staff)
-router.get(
-  '/',
-  authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff']),
+// GET /api/test-results - Lấy tất cả test results (Admin/Manager/Staff có thể xem)
+router.get('/', 
+  verifyToken, 
+  roleMiddleware(['admin', 'manager', 'staff']), 
   testResultsController.getAllTestResults
 );
 
-// GET /api/test-results/stats/:year/:month - Thống kê theo tháng (Admin, Manager)
-router.get(
-  '/stats/:year/:month',
-  authMiddleware,
-  roleMiddleware(['admin', 'manager']),
-  testResultsController.getTestResultStatsByMonth
-);
-
-// GET /api/test-results/appointment-test/:appointmentTestId - Lấy test results theo appointment test ID
-router.get(
-  '/appointment-test/:appointmentTestId',
-  authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff']),
-  testResultsController.getTestResultsByAppointmentTestId
-);
-
-// GET /api/test-results/customer/:customerId - Lấy test results theo customer ID
-router.get(
-  '/customer/:customerId',
-  authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'customer']),
-  testResultsController.getTestResultsByCustomerId
-);
-
-// GET /api/test-results/:id - Lấy test result theo ID
-router.get(
-  '/:id',
-  authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'customer']),
+// GET /api/test-results/:id - Lấy test result theo ID (Doctor/Staff có thể xem)
+router.get('/:id', 
+  verifyToken, 
+  roleMiddleware(['doctor', 'nursing_staff', 'staff', 'admin', 'manager']), 
   testResultsController.getTestResultById
 );
 
-// POST /api/test-results - Tạo test result mới (Doctor, Nursing Staff)
-router.post(
-  '/',
-  authMiddleware,
-  roleMiddleware(['doctor', 'nursing_staff']),
+// POST /api/test-results - Tạo test result mới (Doctor/Nursing Staff/Staff)
+router.post('/', 
+  verifyToken, 
+  roleMiddleware(['doctor', 'nursing_staff', 'staff']), 
   testResultsController.createTestResult
 );
 
-// PUT /api/test-results/:id - Cập nhật test result (Doctor, Nursing Staff)
-router.put(
-  '/:id',
-  authMiddleware,
-  roleMiddleware(['doctor', 'nursing_staff']),
+// PUT /api/test-results/:id - Cập nhật test result (Doctor/Nursing Staff/Staff)
+router.put('/:id', 
+  verifyToken, 
+  roleMiddleware(['doctor', 'nursing_staff', 'staff']), 
   testResultsController.updateTestResult
 );
 
-// DELETE /api/test-results/:id - Xóa test result (Doctor, Admin)
-router.delete(
-  '/:id',
-  authMiddleware,
-  roleMiddleware(['doctor', 'admin']),
+// DELETE /api/test-results/:id - Xóa test result (Admin/Manager only)
+router.delete('/:id', 
+  verifyToken, 
+  roleMiddleware(['admin', 'manager']), 
   testResultsController.deleteTestResult
 );
 
-// ✅ Add new route for checking test results existence
-router.get('/check/:appointmentId', testResultsController.checkTestResultsByAppointment);
+// GET /api/test-results/appointment/:appointmentId - Lấy test results theo appointment
+router.get('/appointment/:appointmentId', 
+  verifyToken, 
+  roleMiddleware(['doctor', 'nursing_staff', 'staff', 'admin', 'manager', 'customer']), 
+  testResultsController.getTestResultsByAppointmentId
+);
+
+// GET /api/test-results/profile/:profileId - Lấy test results theo profile (Customer có thể xem của mình)
+router.get('/profile/:profileId', 
+  verifyToken, 
+  roleMiddleware(['doctor', 'nursing_staff', 'staff', 'admin', 'manager', 'customer']), 
+  testResultsController.getTestResultsByProfileId
+);
+
+// GET /api/test-results/stats/:year/:month - Lấy thống kê test results theo tháng (Admin/Manager/Staff)
+router.get('/stats/:year/:month', 
+  verifyToken, 
+  roleMiddleware(['admin', 'manager', 'staff']), 
+  testResultsController.getTestResultStatsByMonth
+);
+
+// GET /api/test-results/check/:appointmentId - Kiểm tra test result existence
+router.get('/check/:appointmentId', 
+  verifyToken, 
+  roleMiddleware(['doctor', 'nursing_staff', 'staff', 'admin', 'manager']), 
+  testResultsController.checkTestResultsByAppointment
+);
 
 export default router; 

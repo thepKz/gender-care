@@ -70,19 +70,25 @@ export class TestResultItemsService {
     const testResultItem = await TestResultItems.findById(id)
       .populate({
         path: 'testResultId',
-        select: 'conclusion recommendations appointmentTestId',
-        populate: {
-          path: 'appointmentTestId',
-          select: 'name appointmentId',
-          populate: {
+        select: 'conclusion recommendations appointmentId profileId doctorId',
+        populate: [
+          {
             path: 'appointmentId',
-            select: 'customerId appointmentDate',
+            select: 'appointmentDate appointmentTime serviceId'
+          },
+          {
+            path: 'profileId',
+            select: 'fullName gender'
+          },
+          {
+            path: 'doctorId',
+            select: 'specialization',
             populate: {
-              path: 'customerId',
-              select: 'fullName email'
+              path: 'userId',
+              select: 'fullName'
             }
           }
-        }
+        ]
       })
       .populate('itemNameId', 'name description unit normalRange');
     

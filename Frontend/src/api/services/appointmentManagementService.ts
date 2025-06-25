@@ -1,4 +1,4 @@
-import { appointmentApi } from '../endpoints/appointment';
+import appointmentApi from '../endpoints/appointment';
 import consultationApi from '../endpoints/consultation';
 import { 
   ApiAppointment, 
@@ -208,7 +208,8 @@ class AppointmentManagementService {
       patientPhone: appointment.profileId?.phone || 'Chưa có SĐT',
       serviceName: appointment.serviceId?.serviceName || appointment.packageId?.name || 'Dịch vụ không xác định',
       serviceType: appointment.serviceId?.serviceType || 'other',
-      doctorName: 'Bạn', // Current doctor
+      doctorName: this.extractDoctorName(appointment.doctorId) || 'Chưa phân công',
+      doctorSpecialization: this.extractDoctorSpecialization(appointment.doctorId) || 'Chưa xác định',
       appointmentDate: appointment.appointmentDate,
       appointmentTime: appointment.appointmentTime,
       appointmentType: appointment.appointmentType,
@@ -263,7 +264,8 @@ class AppointmentManagementService {
             serviceName: 'Tư vấn trực tuyến',
             serviceType: 'consultation',
             // Handle doctorId safely - could be ObjectId string or populated object
-            doctorName: this.extractDoctorName(consultation.doctorId) || 'Bạn',
+            doctorName: this.extractDoctorName(consultation.doctorId) || 'Chưa phân công',
+            doctorSpecialization: this.extractDoctorSpecialization(consultation.doctorId) || 'Chưa xác định',
             appointmentDate: consultation.appointmentDate!,
             appointmentTime: consultation.appointmentSlot!,
             appointmentType: 'online-consultation' as 'consultation',
@@ -331,16 +333,44 @@ class AppointmentManagementService {
   }
 
   /**
+   * ✅ NEW: Safely extract doctor specialization from doctorId field
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private extractDoctorSpecialization(doctorId: any): string {
+    if (!doctorId) return '';
+    
+    // If doctorId is populated object with specialization
+    if (typeof doctorId === 'object' && doctorId.specialization) {
+      return doctorId.specialization;
+    }
+    
+    // If doctorId is populated object with nested userId and then doctor info
+    if (typeof doctorId === 'object' && doctorId.userId?.specialization) {
+      return doctorId.userId.specialization;
+    }
+    
+    // If doctorId is just ObjectId string
+    if (typeof doctorId === 'string') {
+      return ''; // Can't get specialization from ObjectId string
+    }
+    
+    return '';
+  }
+
+  /**
    * Map backend appointment status to UI status
    */
-  private mapAppointmentStatus(status: string): 'pending_payment' | 'scheduled' | 'completed' | 'cancelled' {
+  private mapAppointmentStatus(status: string): 'pending_payment' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' {
     switch (status) {
       case 'pending_payment':
         return 'pending_payment';
       case 'paid':        // ✅ LEGACY: Map old 'paid' to 'scheduled'
-      case 'confirmed':   // ✅ LEGACY: Map old 'confirmed' to 'scheduled'  
       case 'scheduled':
         return 'scheduled';
+      case 'confirmed':   // ✅ FIX: Map 'confirmed' to 'confirmed' thay vì 'scheduled'  
+        return 'confirmed';
+      case 'consulting':  // ✅ ADDED: Map 'consulting' status correctly
+        return 'consulting';
       case 'completed':
         return 'completed';
       case 'cancelled':
@@ -357,14 +387,15 @@ class AppointmentManagementService {
   /**
    * Map backend consultation status to UI status
    */
-  private mapConsultationStatus(status: string): 'pending_payment' | 'scheduled' | 'consulting' | 'completed' | 'cancelled' {
+  private mapConsultationStatus(status: string): 'pending_payment' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' {
     switch (status) {
       case 'pending_payment':
         return 'pending_payment';
       case 'paid':        // ✅ LEGACY: Map old 'paid' to 'scheduled'
-      case 'confirmed':   // ✅ LEGACY: Map old 'confirmed' to 'scheduled'
       case 'scheduled':
         return 'scheduled';
+      case 'confirmed':   // ✅ FIX: Map 'confirmed' to 'confirmed' thay vì 'scheduled'
+        return 'confirmed';
       case 'consulting':
         return 'consulting';
       case 'completed':
@@ -400,17 +431,17 @@ class AppointmentManagementService {
 
   /**
    * Cập nhật trạng thái appointment
-   * ✅ SIMPLIFIED: Chỉ allow completed | cancelled (scheduled được set tự động sau payment)
+   * ✅ ENHANCED: Add consulting status support - Fixed type system
    */
   async updateAppointmentStatus(
     id: string, 
-    status: 'completed' | 'cancelled',
+    status: 'completed' | 'cancelled' | 'consulting',
     type: 'appointment' | 'consultation'
   ): Promise<boolean> {
     try {
       if (type === 'appointment') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await appointmentApi.updateAppointmentStatus(id, status as any);
+        // Use appointmentApi with proper type-safe consulting status
+        await appointmentApi.updateAppointmentStatus(id, status);
       } else {
         // For consultations, use direct status mapping
         await consultationApi.updateConsultationStatus(id, status);

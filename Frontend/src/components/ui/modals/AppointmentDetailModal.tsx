@@ -25,6 +25,10 @@ import {
   FileSearchOutlined
 } from '@ant-design/icons';
 import { UnifiedAppointment } from '../../../types/appointment';
+import appointmentManagementService from '../../../api/services/appointmentManagementService';
+import { appointmentApi } from '../../../api/endpoints/appointment';
+import MedicalRecordModal, { MedicalRecordFormData } from '../forms/MedicalRecordModal';
+import medicalApi from '../../../api/endpoints/medical';
 // import apiClient from '../../../api/axiosConfig'; // 🚫 COMMENTED FOR MOCK TESTING
 
 const { Text } = Typography;
@@ -61,6 +65,9 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     hasTestResults: false,
     loading: false
   });
+  const [detailData, setDetailData] = useState<DetailData | null>(null);
+  const [medicalRecordModalVisible, setMedicalRecordModalVisible] = useState(false);
+
 
   // Check record status when appointment changes
   useEffect(() => {
@@ -72,39 +79,66 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   const checkRecordStatus = async (appointmentId: string) => {
     setRecordStatus(prev => ({ ...prev, loading: true }));
     
-    // 🔍 DEBUG: Log appointmentId để kiểm tra
-    console.log('🔍 [DEBUG] Checking record status for appointmentId:', appointmentId);
-    
     try {
-      // ⚠️ TEMPORARY: Tạm thời tắt API call vì backend chưa có endpoint medical-records/check
-      // Sẽ bật lại khi backend đã implement đầy đủ
-      
-      // ✅ SIMPLE MOCK: Tạm thời dùng mock data để tránh lỗi
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Simple mock - không dựa vào appointmentId string methods để tránh lỗi
-      const mockMedicalExists = Math.random() > 0.7; // 30% chance có medical record
-      const mockTestExists = Math.random() > 0.8;    // 20% chance có test results
-      
+      // ✅ FIX: Gọi trực tiếp từ appointmentApi thay vì qua service layer
+      const [medicalResponse, testResponse] = await Promise.all([
+        medicalApi.checkMedicalRecordByAppointment(appointmentId),
+        appointmentApi.checkTestResultExists(appointmentId) // Fixed: checkTestResultExists instead of checkTestResultsExists
+      ]);
+
+      console.log('🏥 Medical record check:', medicalResponse.data);
+      console.log('🧪 Test result check:', testResponse.data);
+
+
       setRecordStatus({
-        hasMedicalRecord: mockMedicalExists,
-        hasTestResults: mockTestExists,
+        hasMedicalRecord: medicalResponse.data?.exists || false,
+        hasTestResults: testResponse.data?.exists || false,
         loading: false
       });
-      
-      console.log('🧪 [MOCK] Record status for', appointmentId, ':', {
-        hasMedicalRecord: mockMedicalExists,
-        hasTestResults: mockTestExists
-      });
-      
+
     } catch (error) {
-      console.error('❌ [ERROR] Failed to check record status:', error);
+      console.error('❌ Error checking record status:', error);
       setRecordStatus({
         hasMedicalRecord: false,
         hasTestResults: false,
         loading: false
       });
+    }
+  };
+
+  // Load detail data từ API thật
+  const loadDetailData = async () => {
+    try {
+      if (!appointment) return;
+      
+      // ✅ SỬ DỤNG REAL API để load chi tiết appointment
+      const data = await appointmentManagementService.getAppointmentDetail(
+        appointment._id, 
+        appointment.type
+      );
+      
+      if (data) {
+        // Transform API data to DetailData format
+        const detailData: DetailData = {
+          profileId: 'profileId' in data ? (data as any).profileId || undefined : undefined,
+          serviceId: 'serviceId' in data ? (data as any).serviceId || undefined : undefined,
+          packageId: 'packageId' in data ? (data as any).packageId || undefined : undefined,
+          doctorNotes: 'doctorNotes' in data ? (data as any).doctorNotes || (data as any).notes || undefined : undefined
+        };  
+        
+        setDetailData(detailData);
+        console.log('✅ [API] Loaded appointment detail data:', detailData);
+      } else {
+        setDetailData(null);
+        console.log('⚠️ [API] No detail data found for appointment:', appointment._id);
+      }
+      
+    } catch (error) {
+      console.error('❌ [API] Failed to load detail data:', error);
+      setDetailData(null);
+      
+      // Don't show error message to user as this is supplementary data
+      console.warn('Detail data unavailable, using basic appointment info only');
     }
   };
 
@@ -192,6 +226,16 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
   // Check if staff should see the action buttons
   const shouldShowActionButtons = () => {
+    console.log('🔍 [DEBUG] shouldShowActionButtons called with:', {
+      userRole,
+      appointment: appointment ? {
+        _id: appointment._id,
+        appointmentType: appointment.appointmentType,
+        status: appointment.status,
+        type: appointment.type
+      } : null
+    });
+
     if (userRole !== 'staff') {
       console.log('🚫 [UI] No buttons - User role is not staff:', userRole);
       return false;
@@ -201,17 +245,21 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       return false;
     }
     
-    // ✅ CORRECTED: Only show when status = 'consulting' (when doctor is examining)
-    const shouldShow = appointment.status === 'consulting';
+    // ✅ FIX: Staff có thể thấy nút cho tất cả appointment types, không chỉ consultation
+    // Chỉ giới hạn theo status để đảm bảo appointment đã confirmed/completed
+    const allowedStatuses = ['confirmed', 'consulting', 'completed'];
+    const isValidStatus = allowedStatuses.includes(appointment.status);
+    
     console.log('🎯 [UI] Button visibility check:', {
       appointmentId: appointment._id,
       appointmentType: appointment.appointmentType,
       status: appointment.status,
       userRole: userRole,
-      shouldShowButtons: shouldShow
+      isValidStatus,
+      shouldShowButtons: isValidStatus
     });
     
-    return shouldShow;
+    return isValidStatus;
   };
 
   // Check if test record button should be shown
@@ -228,8 +276,49 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
   const handleCreateMedicalRecord = () => {
     if (appointment) {
-      onCreateMedicalRecord(appointment);
+      setMedicalRecordModalVisible(true);
     }
+  };
+
+  const handleMedicalRecordSubmit = async (medicalRecordData: MedicalRecordFormData): Promise<boolean> => {
+    try {
+      console.log('🏥 [MEDICAL] Creating medical record:', medicalRecordData);
+      
+      // Call API to create medical record
+      const response = await medicalApi.createMedicalRecord({
+        profileId: medicalRecordData.profileId,
+        appointmentId: medicalRecordData.appointmentId,
+        diagnosis: medicalRecordData.diagnosis,
+        symptoms: medicalRecordData.symptoms || '',
+        treatment: medicalRecordData.treatment,
+        notes: medicalRecordData.notes || ''
+      });
+
+      if (response.status === 201 || response.status === 200) {
+        console.log('✅ [MEDICAL] Medical record created successfully');
+        
+        // Update record status to reflect the new medical record
+        setRecordStatus(prev => ({
+          ...prev,
+          hasMedicalRecord: true
+        }));
+        
+        // Close modal
+        setMedicalRecordModalVisible(false);
+        
+        return true;
+      } else {
+        console.error('❌ [MEDICAL] Failed to create medical record:', response);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ [MEDICAL] Error creating medical record:', error);
+      return false;
+    }
+  };
+
+  const handleMedicalRecordCancel = () => {
+    setMedicalRecordModalVisible(false);
   };
 
   const handleViewTestRecord = () => {
@@ -276,10 +365,26 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   };
 
   const renderActionButtons = () => {
-    if (!shouldShowActionButtons()) return null;
+    console.log('🔍 [DEBUG] renderActionButtons called');
+    
+    if (!shouldShowActionButtons()) {
+      console.log('🚫 [DEBUG] shouldShowActionButtons returned false, no buttons will render');
+      return null;
+    }
 
-    const showMedicalButton = appointment?.appointmentType === 'consultation';
+    // ✅ FIX: Staff luôn có thể tạo medical record cho bất kỳ appointment type nào
+    // Test record chỉ cho appointment type 'test'
+    const showMedicalButton = true; // Staff luôn có thể tạo bệnh án
     const showTestButton = appointment?.appointmentType === 'test';
+
+    console.log('🎯 [DEBUG] Button rendering logic:', {
+      appointmentType: appointment?.appointmentType,
+      showMedicalButton,
+      showTestButton,
+      hasMedicalRecord: recordStatus.hasMedicalRecord,
+      hasTestResults: recordStatus.hasTestResults,
+      loading: recordStatus.loading
+    });
 
     return (
       <div style={{ marginTop: 16, textAlign: 'center' }}>
@@ -467,14 +572,23 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             <Descriptions.Item label="Dịch vụ">
               <div>
                 <div style={{ fontWeight: 500, marginBottom: '4px' }}>
-                  {/* ✅ FIX: Dùng serviceName từ transformed data */}
-                  {appointment.serviceName || 'Chưa có thông tin dịch vụ'}
+                  {appointment.serviceName || 'Dịch vụ không xác định'}
                 </div>
                 <Space>
                   <Tag color={getTypeColor(appointment.appointmentType || 'other')}>
                     {getTypeText(appointment.appointmentType || 'other')}
                   </Tag>
                 </Space>
+                {appointment.serviceType && appointment.serviceType !== 'other' && (
+                  <div style={{ 
+                    fontSize: '12px', 
+                    color: '#666', 
+                    marginTop: '4px',
+                    fontStyle: 'italic'
+                  }}>
+                    Loại dịch vụ: {appointment.serviceType}
+                  </div>
+                )}
               </div>
             </Descriptions.Item>
             <Descriptions.Item label="Loại lịch hẹn">
@@ -529,9 +643,18 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             {appointment.description && (
               <div style={{ marginBottom: '12px' }}>
                 <Text strong>
-                  {appointment.type === 'consultation' ? 'Câu hỏi: ' : 'Mô tả: '}
+                  {appointment.type === 'consultation' ? 'Câu hỏi tư vấn: ' : 'Mô tả gói dịch vụ: '}
                 </Text>
-                <Text>{appointment.description}</Text>
+                <div style={{ 
+                  marginTop: '8px',
+                  padding: '12px',
+                  backgroundColor: '#f8fafc',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  lineHeight: '1.6'
+                }}>
+                  <Text>{appointment.description}</Text>
+                </div>
               </div>
             )}
             
@@ -626,6 +749,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
         {renderActionButtons()}
       </div>
+
+      {/* Medical Record Modal */}
+      <MedicalRecordModal
+        visible={medicalRecordModalVisible}
+        appointment={appointment}
+        onCancel={handleMedicalRecordCancel}
+        onSubmit={handleMedicalRecordSubmit}
+      />
     </Modal>
   );
 };

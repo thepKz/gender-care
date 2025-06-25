@@ -8,7 +8,6 @@ import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import {
   appointmentRoutes,
-  appointmentTestsRoutes,
   authRoutes,
   dashboardRoutes,
   doctorQARoutes,
@@ -200,7 +199,6 @@ apiRouter.use('/google-auth', googleAuthRoutes);
 
 // Thêm Test Management routes
 apiRouter.use('/test-categories', testCategoriesRoutes);
-apiRouter.use('/appointment-tests', appointmentTestsRoutes);
 apiRouter.use('/test-results', testResultsRoutes);
 apiRouter.use('/test-result-items', testResultItemsRoutes);
 

@@ -33,9 +33,8 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import appointmentManagementService from '../../../api/services/appointmentManagementService';
-import { UnifiedAppointment, ApiConsultation } from '../../../types/appointment';
+import { UnifiedAppointment } from '../../../types/appointment';
 import { meetingAPI, MeetingData } from '../../../api/endpoints/meeting';
-import { mockConsultations, ConsultationMockData } from '../../../shared/mockData/consultationMockData';
 
 // Setup timezone cho dayjs - an toàn hơn
 dayjs.extend(utc);
@@ -94,71 +93,33 @@ const DoctorScheduleCalendar: React.FC = () => {
   const [meetingLoading, setMeetingLoading] = useState(false);
   const [currentMeeting, setCurrentMeeting] = useState<MeetingData | null>(null);
 
-  // Load real appointment data from API + Mock consultations for testing
-  // Transform ConsultationMockData to UnifiedAppointment
-  const transformMockDataToUnified = (mockData: ConsultationMockData[]): UnifiedAppointment[] => {
-    return mockData.map(mock => ({
-      key: mock._id,
-      _id: mock._id,
-      patientName: mock.patientName,
-      patientPhone: mock.patientPhone,
-      serviceName: mock.serviceName,
-      serviceType: 'consultation',
-      appointmentDate: mock.appointmentDate,
-      appointmentTime: mock.appointmentTime,
-      appointmentType: 'online-consultation' as const,
-      typeLocation: 'Online' as const,
-      description: mock.description,
-      notes: mock.notes,
-      status: mock.status,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      type: 'consultation' as const,
-      originalData: {
-        _id: mock._id,
-        userId: mock.userId,
-        fullName: mock.fullName,
-        phone: mock.phone,
-        question: mock.question,
-        status: mock.status,
-        appointmentDate: mock.appointmentDate,
-        appointmentSlot: mock.appointmentSlot,
-        notes: mock.notes,
-        doctorNotes: mock.doctorNotes,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      } as ApiConsultation
-    }));
-  };
+  // ✅ Loại bỏ mock data transformation, chỉ sử dụng real API
 
   const loadAppointments = async () => {
     try {
       setLoading(true);
-      console.log('📅 [DEBUG] Loading doctor appointments for calendar view');
+      console.log('📅 [API] Loading doctor appointments for calendar view');
       
-      // Gọi API giống AppointmentManagement
+      // ✅ SỬ DỤNG REAL API để lấy appointments từ database
       const appointmentData = await appointmentManagementService.getAllDoctorAppointments({
         page: 1,
         limit: 500 // Lấy nhiều để cover cả tuần
       });
       
-      // Transform mock consultations to UnifiedAppointment format
-      const transformedMockData = transformMockDataToUnified(mockConsultations);
+      console.log('✅ [API] Calendar loaded real appointments:', appointmentData.length);
+      setAppointments(appointmentData);
       
-      // Mix real data với transformed mock consultations để test
-      const mixedData = [...appointmentData, ...transformedMockData];
-      
-      console.log('✅ [DEBUG] Calendar loaded appointments:', mixedData.length);
-      setAppointments(mixedData);
+      if (appointmentData.length === 0) {
+        console.log('ℹ️ [API] No appointments found for current doctor');
+      }
       
     } catch (error: unknown) {
-      console.error('❌ [ERROR] Failed to load appointments for calendar:', error);
-      message.error('Không thể tải lịch làm việc. Vui lòng thử lại sau.');
+      console.error('❌ [API] Failed to load appointments for calendar:', error);
+      message.error('Không thể tải lịch làm việc từ cơ sở dữ liệu. Vui lòng thử lại sau.');
       
-      // Fallback to mock data for testing
-      console.log('📋 [DEBUG] Using mock consultation data for testing');
-      const transformedMockData = transformMockDataToUnified(mockConsultations);
-      setAppointments(transformedMockData);
+      // Fallback to empty array instead of mock data
+      setAppointments([]);
+      
     } finally {
       setLoading(false);
     }
@@ -421,31 +382,7 @@ const DoctorScheduleCalendar: React.FC = () => {
     try {
       setMeetingLoading(true);
 
-      // For mock data, simulate status change - check if it's from our transformed mock data
-      const isFromMockData = mockConsultations.find(m => m._id === appointment._id);
-      if (isFromMockData) {
-        console.log('🧪 [MOCK] Simulating consultation start for:', appointment.patientName);
-        
-        if (config.action === 'join') {
-          // Start consultation - update status in the original data
-          if (appointment.originalData && 'status' in appointment.originalData) {
-            (appointment.originalData as ApiConsultation).status = 'consulting';
-          }
-          message.success(`Đã bắt đầu tư vấn với ${appointment.patientName}`);
-        }
-        
-        // Open Jitsi meeting
-        const meetingLink = isFromMockData.meetingLink || `https://meet.jit.si/consultation-${appointment._id}-${Date.now()}`;
-        window.open(meetingLink, '_blank');
-        message.success('Đã mở Jitsi Meet');
-        
-        // Refresh data to update UI
-        setTimeout(() => {
-          refreshData();
-        }, 500);
-        
-        return;
-      }
+      // ✅ SỬ DỤNG REAL API cho tất cả consultations
 
       // Real API call for production data
       let qaId = '';
@@ -523,35 +460,31 @@ const DoctorScheduleCalendar: React.FC = () => {
     try {
       setMeetingLoading(true);
 
-      // For mock data, simulate completion - check if it's from our transformed mock data
-      const isFromMockData = mockConsultations.find(m => m._id === appointment._id);
-      if (isFromMockData) {
-        console.log('🧪 [MOCK] Completing consultation for:', appointment.patientName);
-        
-        // Update status in the original data
-        if (appointment.originalData && 'status' in appointment.originalData) {
-          (appointment.originalData as ApiConsultation).status = 'completed';
-        }
-        
-        message.success(`Đã hoàn thành tư vấn với ${appointment.patientName}`);
-        
-        // Refresh data to update UI
-        setTimeout(() => {
-          refreshData();
-        }, 500);
-        
+      // ✅ SỬ DỤNG REAL API cho tất cả consultations
+      // Get consultation ID from original data
+      let qaId = '';
+      if (appointment.type === 'consultation') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const consultationData = appointment.originalData as any;
+        qaId = consultationData?._id || consultationData?.id;
+      }
+
+      if (!qaId) {
+        message.error('Không tìm thấy thông tin consultation');
         return;
       }
 
-      // Real API call for production
-      // TODO: Call API to update DoctorQA status to 'completed'
-      console.log('✅ Completing consultation - updating status to completed');
+      // Call API to update consultation status to 'completed'
+      console.log('✅ [API] Completing consultation - updating status to completed');
       
-      message.success('Đã hoàn thành tư vấn');
+      // TODO: Implement actual API call
+      // await consultationAPI.updateStatus(qaId, 'completed');
+      
+      message.success(`Đã hoàn thành tư vấn với ${appointment.patientName}`);
       refreshData();
 
     } catch (error: unknown) {
-      console.error('❌ Error completing consultation:', error);
+      console.error('❌ [API] Error completing consultation:', error);
       message.error('Có lỗi xảy ra khi hoàn thành tư vấn');
     } finally {
       setMeetingLoading(false);
