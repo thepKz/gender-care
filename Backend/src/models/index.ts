@@ -51,7 +51,6 @@ import PaymentTracking from './PaymentTracking';
 
 // Test Management  
 import TestCategories from './TestCategories';
-import TestResults from './TestResults';
 import TestResultItems from './TestResultItems';
 import ServiceTestCategories from './ServiceTestCategories';
 
@@ -89,11 +88,11 @@ export {
   // Medical Records & Medicines
   MedicalRecords,
   Medicines,
-  
+
   // Testing & Results
   TestResults,
   AppointmentTests,
-  
+
   // Doctor QA & Meeting
   DoctorQA,
   Meeting,
@@ -112,13 +111,12 @@ export {
   PackagePurchases,
   PaymentTracking,
 
-  
+
   // Test Management
   TestCategories,
-  TestResults,
   TestResultItems,
   ServiceTestCategories,
-  
+
   // System
   SystemConfigs,
   SystemLog

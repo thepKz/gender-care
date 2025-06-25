@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { message } from 'antd';
 import { 
   serviceTestCategoriesApi, 
   testCategoriesApi, 
@@ -32,6 +33,7 @@ export const ServiceTestCategoriesManager: React.FC<ServiceTestCategoriesManager
   const [allTestCategories, setAllTestCategories] = useState<TestCategory[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ServiceTestCategory | null>(null);
+  const [loading, setLoading] = useState(false);
 
   // API states
   const { loading: loadingCategories, execute: executeLoadCategories } = useApiState({
@@ -68,10 +70,7 @@ export const ServiceTestCategoriesManager: React.FC<ServiceTestCategoriesManager
       const data = await serviceTestCategoriesApi.getByService(serviceId);
       setServiceTestCategories(data);
     } catch (error) {
-      notification.error({
-        message: 'Lỗi',
-        description: 'Lỗi khi tải danh sách test categories'
-      });
+      message.error('Lỗi khi tải danh sách test categories');
       console.error(error);
     } finally {
       setLoading(false);
@@ -83,10 +82,7 @@ export const ServiceTestCategoriesManager: React.FC<ServiceTestCategoriesManager
       const data = await testCategoriesApi.getAll();
       setAllTestCategories(data);
     } catch (error) {
-      notification.error({
-        message: 'Lỗi',
-        description: 'Lỗi khi tải danh sách test categories'
-      });
+      message.error('Lỗi khi tải danh sách test categories');
       console.error(error);
     }
   };
@@ -96,26 +92,17 @@ export const ServiceTestCategoriesManager: React.FC<ServiceTestCategoriesManager
     try {
       if (editingItem) {
         await serviceTestCategoriesApi.update(editingItem._id, formData);
-        notification.success({
-          message: 'Thành công',
-          description: 'Cập nhật thành công!'
-        });
+        message.success('Cập nhật thành công!');
       } else {
         await serviceTestCategoriesApi.create(formData);
-        notification.success({
-          message: 'Thành công',
-          description: 'Thêm test category thành công!'
-        });
+        message.success('Thêm test category thành công!');
       }
       
       await loadServiceTestCategories();
       resetForm();
       onUpdate?.();
     } catch (error: any) {
-      notification.error({
-        message: 'Lỗi',
-        description: error.response?.data?.message || 'Có lỗi xảy ra'
-      });
+      message.error(error.response?.data?.message || 'Có lỗi xảy ra');
     }
   };
 
@@ -124,17 +111,11 @@ export const ServiceTestCategoriesManager: React.FC<ServiceTestCategoriesManager
     
     try {
       await serviceTestCategoriesApi.delete(id);
-      notification.success({
-        message: 'Thành công',
-        description: 'Xóa thành công!'
-      });
+      message.success('Xóa thành công!');
       await loadServiceTestCategories();
       onUpdate?.();
     } catch (error: any) {
-      notification.error({
-        message: 'Lỗi',
-        description: error.response?.data?.message || 'Có lỗi xảy ra'
-      });
+      message.error(error.response?.data?.message || 'Có lỗi xảy ra');
     }
   };
 
