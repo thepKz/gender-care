@@ -27,10 +27,6 @@ import NotificationDays from './NotificationDays';
 import MedicalRecords, { IMedicalRecords, IMedicalRecordMedicines } from './MedicalRecords';
 import Medicines, { IMedicines as IMedicinesData } from './Medicines';
 
-// Testing & Results
-import TestResults from './TestResults';
-
-
 // Doctor QA & Meeting
 import DoctorQA from './DoctorQA';
 import Meeting from './Meeting';
@@ -89,16 +85,7 @@ export {
   // Medical Records & Medicines
   MedicalRecords,
   Medicines,
-  
-  // Testing & Results
-  TestResults,
-<<<<<<< Updated upstream
-  AppointmentTests,
-  
-=======
 
-
->>>>>>> Stashed changes
   // Doctor QA & Meeting
   DoctorQA,
   Meeting,
@@ -117,13 +104,12 @@ export {
   PackagePurchases,
   PaymentTracking,
 
-  
   // Test Management
   TestCategories,
   TestResults,
   TestResultItems,
   ServiceTestCategories,
-  
+
   // System
   SystemConfigs,
   SystemLog
