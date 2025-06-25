@@ -560,33 +560,32 @@ const Booking: React.FC = () => {
           packageIds: packages.map(p => p._id),
           packageStructure: packages.length > 0 ? Object.keys(packages[0]) : []
         });
-        
-        // ✅ Enhanced filtering with detailed logging per package
+        // Sửa filter: chỉ cần isActive !== false, status === 'active', còn lượt, chưa hết hạn
+        const now = new Date();
         const activePackages = packages.filter((pkg, index) => {
           const isNotDisabled = pkg.isActive !== false;
+          const isStatusActive = pkg.status === 'active';
           const hasUsagesLeft = (pkg.remainingUsages || 0) > 0;
-          const notExpired = !pkg.expiredAt || new Date(pkg.expiredAt) > new Date();
-          
-          const isActive = isNotDisabled && hasUsagesLeft && notExpired;
-          
-          console.log(`🔍 [Filter] Package ${index + 1}/${packages.length} (${pkg._id}):`, {
+          const expiry = pkg.expiryDate || pkg.expiredAt;
+          const notExpired = !expiry || new Date(expiry) > now;
+          const isActive = isNotDisabled && isStatusActive && hasUsagesLeft && notExpired;
+          console.log(`[Filter] Package ${index + 1}/${packages.length} (${pkg._id}):`, {
             isActive,
             isNotDisabled,
-            hasUsagesLeft: `${pkg.remainingUsages || 0} > 0`,
-            notExpired: pkg.expiredAt ? `${pkg.expiredAt} > ${new Date().toISOString()}` : 'No expiry',
+            isStatusActive,
+            hasUsagesLeft,
+            notExpired,
+            expiry,
             packageName: pkg.packageId?.name || 'No name',
             packageData: pkg.packageId ? 'Has packageId' : 'Missing packageId'
           });
-          
           return isActive;
         });
-        
         console.log('✅ [Frontend] Final filtered packages:', {
           activeCount: activePackages.length,
           totalCount: packages.length,
           filteredOut: packages.length - activePackages.length
         });
-        
         setPurchasedPackages(activePackages);
         
         // ✅ Success notification for debugging
@@ -1628,6 +1627,56 @@ const Booking: React.FC = () => {
                   </div>
                 )}
 
+                {/* --- SECTION: GÓI DỊCH VỤ ĐÃ MUA (HIỆU LỰC) --- */}
+                {!loadingPurchasedPackages && isAuthenticated && purchasedPackages.length > 0 && (
+                  <div className="mb-8">
+                    <h3 className="text-xl font-bold mb-4 text-green-700">Gói dịch vụ đã mua ({purchasedPackages.length})</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {purchasedPackages.map(packagePurchase => {
+                        const pkg = packagePurchase.packageId;
+                        if (!pkg) return null;
+                        return (
+                          <div
+                            key={packagePurchase._id}
+                            onClick={() => {
+                              setSelectedPurchasedPackage(packagePurchase._id);
+                              setSelectedPackage(""); // Clear active package selection
+                              setUsingPurchasedPackage(true); // Đảm bảo flow đúng
+                              handleNext();
+                            }}
+                            className={`border rounded-lg p-4 cursor-pointer transition ${
+                              selectedPurchasedPackage === packagePurchase._id
+                                ? 'border-green-500 bg-green-50'
+                                : 'border-gray-200 hover:border-green-300 hover:shadow-md'
+                            }`}
+                          >
+                            <div className="flex items-center mb-2">
+                              <div className="p-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white mr-3">✓</div>
+                              <div className="flex-1">
+                                <h3 className="text-lg font-semibold">{pkg.name || 'Gói dịch vụ'}</h3>
+                                <p className="text-sm text-green-600 font-medium">Đã mua</p>
+                              </div>
+                            </div>
+                            <div className="flex justify-between items-center mb-2">
+                              <div className="text-sm font-medium text-green-600">
+                                {packagePurchase.remainingUsages || 1}/{packagePurchase.totalAllowedUses || 1} lượt
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {packagePurchase.expiryDate ? `Hạn: ${new Date(packagePurchase.expiryDate).toLocaleDateString('vi-VN')}` : 'Không giới hạn'}
+                              </div>
+                            </div>
+                            <p className="text-gray-600 text-sm mb-3 line-clamp-2">{pkg.description || 'Gói dịch vụ y tế'}</p>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm text-gray-500">Đã thanh toán</span>
+                              <span className="font-bold text-green-600">✓ Sẵn sàng sử dụng</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {/* --- END SECTION: GÓI ĐÃ MUA --- */}
 
               </div>
             )}
