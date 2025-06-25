@@ -12,10 +12,7 @@ import {
   Tooltip,
   DatePicker,
   message,
-  Avatar,
-  Descriptions,
-  Row,
-  Col
+  Avatar
 } from 'antd';
 import {
   SearchOutlined,
@@ -25,7 +22,6 @@ import {
   ClockCircleOutlined,
   EnvironmentOutlined,
   DeleteOutlined,
-  DollarOutlined,
   PhoneOutlined,
   ClearOutlined,
   FilterOutlined
@@ -36,6 +32,12 @@ import appointmentManagementService from '../../../api/services/appointmentManag
 import { useAuth } from '../../../hooks/useAuth';
 import { doctorApi } from '../../../api/endpoints/doctorApi';
 import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
+
+// Configure dayjs with timezone support
+dayjs.extend(utc);
+dayjs.extend(timezone);
 import ConsultationTransferButton from '../../../components/ui/buttons/ConsultationTransferButton';
 import AppointmentCancelButton from '../../../components/ui/buttons/AppointmentCancelButton';
 import TestRecordModal from '../../../components/ui/forms/TestRecordModal';
@@ -50,30 +52,26 @@ const { TextArea } = Input;
 // Use UnifiedAppointment interface from API types
 type Appointment = UnifiedAppointment;
 
-interface DetailData {
-  profileId?: { gender?: 'male' | 'female' | 'other'; year?: number | string };
-  serviceId?: { price?: number };
-  packageId?: { price?: number };
-  doctorNotes?: string;
-}
+
 
 const AppointmentManagement: React.FC = () => {
   const { user } = useAuth(); // Get current user to determine role
   const userRole = user?.role || 'staff'; // Default to staff if no role found
   
-  // 🔍 DEBUG: Log để kiểm tra role detection
+  // 🔍 DEBUG: Log để kiểm tra user role
   console.log('🔍 [DEBUG] User info:', { 
     user: user, 
     role: user?.role, 
     userRole: userRole,
-    email: user?.email 
+    email: user?.email,
+    dataSource: 'REAL_API'
   });
   
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState(''); // Client-side search since API doesn't support search
   const [selectedType, setSelectedType] = useState<string>('all');
-  const [selectedLocation, setSelectedLocation] = useState<string>('all');
+
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>('all');
   
@@ -92,7 +90,7 @@ const AppointmentManagement: React.FC = () => {
   const [medicalRecordModalVisible, setMedicalRecordModalVisible] = useState(false);
   const [selectedAppointmentForRecord, setSelectedAppointmentForRecord] = useState<Appointment | null>(null);
 
-  // ✅ NEW: Load doctors list for filter (Staff only)
+  // ✅ Load doctors list for filter (Staff only)
   const loadDoctors = async () => {
     if (userRole !== 'staff') return; // Only staff needs doctor filter
     
@@ -115,6 +113,36 @@ const AppointmentManagement: React.FC = () => {
       loadDoctors();
     }
   }, [userRole]);
+
+  // ✅ 72H RULE: Check if appointment can be cancelled (more than 72h before appointment time)
+  const canCancelAppointment = (appointment: UnifiedAppointment): boolean => {
+    try {
+      // Parse appointment date and time with Vietnam timezone
+      const appointmentDateTime = dayjs.tz(
+        `${appointment.appointmentDate} ${appointment.appointmentTime}`, 
+        'YYYY-MM-DD HH:mm',
+        'Asia/Ho_Chi_Minh'
+      );
+      
+      const now = dayjs.tz(new Date(), 'Asia/Ho_Chi_Minh');
+      const hoursDiff = appointmentDateTime.diff(now, 'hours');
+      
+      console.log('🕐 [72H CHECK]:', {
+        appointmentId: appointment._id,
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        appointmentDateTime: appointmentDateTime.format('YYYY-MM-DD HH:mm'),
+        now: now.format('YYYY-MM-DD HH:mm'),
+        hoursDiff,
+        canCancel: hoursDiff > 72
+      });
+      
+      return hoursDiff > 72;
+    } catch (error) {
+      console.error('❌ [ERROR] Failed to parse appointment time:', error);
+      return false; // If can't parse, don't allow cancel for safety
+    }
+  };
 
   // ✅ ENHANCED: Render cancel/transfer actions theo đúng flow chart - CHỈ CHO DOCTOR
   const renderCancelActions = (record: UnifiedAppointment) => {
@@ -154,13 +182,32 @@ const AppointmentManagement: React.FC = () => {
       // ✅ APPOINTMENT FLOW: Show cancel button with 72h rule for paid/scheduled/consulting
       console.log('🎯 [DEBUG] Rendering AppointmentCancelButton for:', record._id, 'Type:', record.type);
       
+      // ✅ CHECK 72H RULE for appointments only
+      const canCancel = canCancelAppointment(record);
+      
+      if (!canCancel) {
+        // ⏰ Không đủ 72h - chỉ hiển thị thông báo
+        return (
+          <Tooltip title="Chỉ có thể hủy lịch hẹn trước 72 giờ (3 ngày)">
+            <Button 
+              type="text" 
+              size="small"
+              disabled
+              icon={<ClockCircleOutlined />}
+            >
+              Quá hạn hủy
+            </Button>
+          </Tooltip>
+        );
+      }
+      
       return (
         <Space>
         <AppointmentCancelButton 
           appointment={record} 
           onCancelClick={(appointment) => showCancelModal(appointment)} 
         />
-          {/* ✅ FALLBACK: Always visible cancel button */}
+          {/* ✅ FALLBACK: Always visible cancel button when within 72h rule */}
           <Button 
             type="text" 
             size="small"
@@ -175,222 +222,16 @@ const AppointmentManagement: React.FC = () => {
     }
   };
 
-  // Load real data from API
+  // Load data based on user role - API for doctors, mock for staff testing
   const loadAppointments = async () => {
     try {
       setLoading(true);
       
-      // 🚫 COMMENTED API CALLS FOR UI TESTING - USING MOCK DATA
-      console.log('🧪 [MOCK] Loading mock appointments for UI testing...');
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-             // ✅ MOCK DATA FOR UI TESTING - NHIỀU APPOINTMENTS CHO TEST ĐẦY ĐỦ
-       const mockAppointments: Appointment[] = [
-         // 🟢 GROUP 1: CHƯA TẠO GÌ CẢ - ĐỂ TEST TẠO MỚI
-         {
-           key: 'mock-1',
-           _id: 'mock-consultation-1',
-           patientName: '🆕 Nguyễn Thị Lan Anh',
-           patientPhone: '0912345678',
-           serviceName: 'Tư vấn sức khỏe phụ nữ',
-           serviceType: 'consultation',
-           doctorName: 'BS. Trần Văn Nam',
-           doctorSpecialization: 'Sản phụ khoa',
-           appointmentDate: new Date().toISOString(),
-           appointmentTime: '09:00',
-           appointmentType: 'consultation',
-           typeLocation: 'clinic',
-           address: 'Phòng khám số 1',
-           description: 'Tư vấn về chu kỳ kinh nguyệt không đều, đau bụng kinh',
-           notes: 'Bệnh nhân có tiền sử rối loạn nội tiết',
-           status: 'consulting', // ✅ Buttons hiện - CHƯA CÓ BỆNH ÁN
-           createdAt: new Date().toISOString(),
-           updatedAt: new Date().toISOString(),
-           type: 'appointment',
-           originalData: {} as any
-         },
-         {
-           key: 'mock-2',
-           _id: 'mock-test-2',
-           patientName: '🆕 Lê Thị Mai Hương',
-           patientPhone: '0987654321',
-           serviceName: 'Xét nghiệm hormone nữ tổng quát',
-           serviceType: 'test',
-           doctorName: 'BS. Phạm Thị Hoa',
-           doctorSpecialization: 'Xét nghiệm',
-           appointmentDate: new Date().toISOString(),
-           appointmentTime: '10:30',
-           appointmentType: 'test',
-           typeLocation: 'clinic',
-           address: 'Phòng xét nghiệm tầng 2',
-           description: 'Xét nghiệm FSH, LH, Estradiol, Progesterone để đánh giá tình trạng hormone',
-           notes: 'Cần nhịn ăn 8 tiếng trước khi lấy máu',
-           status: 'consulting', // ✅ Buttons hiện - CHƯA CÓ XÉT NGHIỆM
-           createdAt: new Date().toISOString(),
-           updatedAt: new Date().toISOString(),
-           type: 'appointment',
-           originalData: {} as any
-         },
-         {
-           key: 'mock-6',
-           _id: 'mock-consultation-6',
-           patientName: '🆕 Trần Thị Kim Oanh',
-           patientPhone: '0911222333',
-           serviceName: 'Tư vấn tiền mãn kinh',
-           serviceType: 'consultation',
-           doctorName: 'BS. Lê Thị Minh',
-           doctorSpecialization: 'Nội tiết',
-           appointmentDate: new Date().toISOString(),
-           appointmentTime: '11:00',
-           appointmentType: 'consultation',
-           typeLocation: 'clinic',
-           address: 'Phòng tư vấn số 2',
-           description: 'Tư vấn về các triệu chứng tiền mãn kinh và liệu pháp hormone',
-           notes: 'Tuổi 45, bắt đầu có triệu chứng bốc hỏa',
-           status: 'consulting', // ✅ Buttons hiện - CHƯA CÓ BỆNH ÁN
-           createdAt: new Date().toISOString(),
-           updatedAt: new Date().toISOString(),
-           type: 'appointment',
-           originalData: {} as any
-         },
-         {
-           key: 'mock-7',
-           _id: 'mock-test-7',
-           patientName: '🆕 Võ Thị Hồng Nhung',
-           patientPhone: '0933444555',
-           serviceName: 'Xét nghiệm tầm soát ung thư',
-           serviceType: 'test',
-           doctorName: 'BS. Nguyễn Văn Tâm',
-           doctorSpecialization: 'Ung bướu',
-           appointmentDate: new Date().toISOString(),
-           appointmentTime: '13:30',
-           appointmentType: 'test',
-           typeLocation: 'clinic',
-           address: 'Phòng xét nghiệm đặc biệt',
-           description: 'Xét nghiệm CA-125, CA 19-9, CEA để tầm soát ung thư phụ khoa',
-           notes: 'Có tiền sử gia đình bị ung thư buồng trứng',
-           status: 'consulting', // ✅ Buttons hiện - CHƯA CÓ XÉT NGHIỆM
-           createdAt: new Date().toISOString(),
-           updatedAt: new Date().toISOString(),
-           type: 'appointment',
-           originalData: {} as any
-         },
-         
-         // 🔴 GROUP 2: ĐÃ CÓ HỒ SƠ - ĐỂ TEST BUTTON DISABLED
-         {
-           key: 'mock-3',
-           _id: 'mock-consultation-3',
-           patientName: '✅ Hoàng Thị Phương (Đã có bệnh án)',
-           patientPhone: '0345678901',
-           serviceName: 'Tư vấn kế hoạch hóa gia đình',
-           serviceType: 'consultation',
-           doctorName: 'BS. Nguyễn Văn Đức',
-           doctorSpecialization: 'Sản phụ khoa',
-           appointmentDate: new Date().toISOString(),
-           appointmentTime: '14:00',
-           appointmentType: 'consultation',
-           typeLocation: 'clinic',
-           address: 'Phòng tư vấn số 3',
-           description: 'Tư vấn về các phương pháp tránh thai phù hợp',
-           notes: 'Đã có 2 con, muốn tránh thai lâu dài',
-           status: 'consulting', // ✅ Buttons hiện - ĐÃ CÓ BỆNH ÁN
-           createdAt: new Date().toISOString(),
-           updatedAt: new Date().toISOString(),
-           type: 'appointment',
-           originalData: {} as any
-         },
-         {
-           key: 'mock-4',
-           _id: 'mock-test-4',
-           patientName: '✅ Vũ Thị Thanh Tâm (Đã có xét nghiệm)',
-           patientPhone: '0123456789',
-           serviceName: 'Xét nghiệm phát hiện HPV',
-           serviceType: 'test',
-           doctorName: 'BS. Lê Thị Nga',
-           doctorSpecialization: 'Xét nghiệm vi sinh',
-           appointmentDate: new Date().toISOString(),
-           appointmentTime: '15:30',
-           appointmentType: 'test',
-           typeLocation: 'clinic',
-           address: 'Phòng lấy mẫu tầng 1',
-           description: 'Xét nghiệm HPV DNA để sàng lọc ung thư cổ tử cung',
-           notes: 'Cần tránh quan hệ tình dục 24h trước khi lấy mẫu',
-           status: 'consulting', // ✅ Buttons hiện - ĐÃ CÓ XÉT NGHIỆM
-           createdAt: new Date().toISOString(),
-           updatedAt: new Date().toISOString(),
-           type: 'appointment',
-           originalData: {} as any
-         },
-         
-         // 🟡 GROUP 3: CÁC TRẠNG THÁI KHÁC
-         {
-           key: 'mock-5',
-           _id: 'mock-completed-5',
-           patientName: '⚫ Đỗ Thị Hạnh (Đã hoàn thành)',
-           patientPhone: '0556677889',
-           serviceName: 'Khám tổng quát phụ khoa',
-           serviceType: 'consultation',
-           doctorName: 'BS. Trần Thị Linh',
-           doctorSpecialization: 'Phụ khoa',
-           appointmentDate: new Date(Date.now() - 86400000).toISOString(),
-           appointmentTime: '08:30',
-           appointmentType: 'consultation',
-           typeLocation: 'clinic',
-           address: 'Phòng khám tổng quát',
-           description: 'Khám tổng quát, siêu âm phụ khoa định kỳ',
-           notes: 'Khám sức khỏe định kỳ hàng năm',
-           status: 'completed', // ⚫ KHÔNG hiện buttons
-           createdAt: new Date().toISOString(),
-           updatedAt: new Date().toISOString(),
-           type: 'appointment',
-           originalData: {} as any
-         },
-         {
-           key: 'mock-8',
-           _id: 'mock-confirmed-8',
-           patientName: '⏰ Bùi Thị Thúy Hằng (Chờ khám)',
-           patientPhone: '0977888999',
-           serviceName: 'Siêu âm phụ khoa',
-           serviceType: 'test',
-           doctorName: 'BS. Đào Văn Hùng',
-           doctorSpecialization: 'Siêu âm',
-           appointmentDate: new Date(Date.now() + 3600000).toISOString(), // 1 hour later
-           appointmentTime: '16:00',
-           appointmentType: 'test',
-           typeLocation: 'clinic',
-           address: 'Phòng siêu âm',
-           description: 'Siêu âm kiểm tra tử cung, buồng trứng định kỳ',
-           notes: 'Cần uống nước trước khi siêu âm',
-           status: 'confirmed', // ⏰ CHƯA đến giờ - KHÔNG hiện buttons
-           createdAt: new Date().toISOString(),
-           updatedAt: new Date().toISOString(),
-           type: 'appointment',
-           originalData: {} as any
-         }
-       ];
-      
-      console.log('✅ [MOCK] Loaded mock appointments:', mockAppointments.length);
-      console.log('🎯 [MOCK] Appointments with status "consulting":', 
-        mockAppointments.filter(apt => apt.status === 'consulting').length);
-      console.log('🔬 [MOCK] Test appointments with "consulting" status:', 
-        mockAppointments.filter(apt => apt.appointmentType === 'test' && apt.status === 'consulting').length);
-      console.log('👩‍⚕️ [MOCK] Consultation appointments with "consulting" status:', 
-        mockAppointments.filter(apt => apt.appointmentType === 'consultation' && apt.status === 'consulting').length);
-      
-      setAppointments(mockAppointments);
-      
-      message.success(`Đã tải ${mockAppointments.length} lịch hẹn mock để test UI`);
-      
-      // 🚫 ORIGINAL API CALLS - COMMENTED FOR TESTING
-      /*
-      console.log('🔄 [DEBUG] Loading appointments with filters:', {
+      // ✅ REAL API LOADING: Load appointments from backend
+      console.log('🔄 [API] Loading appointments with filters:', {
         userRole,
         searchText,
         selectedType,
-        selectedLocation,
-        selectedStatus,
         selectedDate
       });
       
@@ -403,24 +244,11 @@ const AppointmentManagement: React.FC = () => {
         // Use date range if available, otherwise fall back to single date
         startDate: dateRange?.[0] ? dateRange[0].format('YYYY-MM-DD') : (selectedDate !== 'all' ? selectedDate : undefined),
         endDate: dateRange?.[1] ? dateRange[1].format('YYYY-MM-DD') : (selectedDate !== 'all' ? selectedDate : undefined),
-        // Staff can filter by doctor, doctor sees only their own
-        doctorId: userRole === 'staff' && selectedDoctor !== 'all' ? selectedDoctor : undefined
       };
       
-      let appointments: Appointment[];
-      
-      // ✅ FIX: Use correct API endpoints for each role
-      if (userRole === 'staff') {
-        // ✅ STAFF: Use /appointments/staff endpoint - lấy tất cả appointments
-        appointments = await appointmentManagementService.getStaffAppointments(filters);
-        console.log('👥 [DEBUG] Staff appointments loaded (via /staff):', appointments.length);
-      } else {
-        // ✅ DOCTOR: Get own appointments and consultations
-        appointments = await appointmentManagementService.getAllDoctorAppointments(filters);
-        console.log('👨‍⚕️ [DEBUG] Doctor appointments loaded:', appointments.length);
-      }
-      
-      console.log('✅ [DEBUG] Appointments data:', appointments);
+      // ✅ Get appointments and consultations from API
+      const appointments = await appointmentManagementService.getAllDoctorAppointments(filters);
+      console.log('✅ [API] Appointments loaded:', appointments.length);
       
       // Debug: check types
       const appointmentTypes = appointments.map(apt => apt.type);
@@ -436,16 +264,14 @@ const AppointmentManagement: React.FC = () => {
       setAppointments(appointments);
       
       if (appointments.length === 0) {
-        const roleMessage = userRole === 'staff' 
-          ? 'Chưa có cuộc hẹn nào trong hệ thống.' 
-          : 'Chưa có cuộc hẹn nào. Hệ thống sẽ hiển thị khi có dữ liệu mới.';
-        message.info(roleMessage);
+        message.info('Chưa có lịch hẹn nào trong hệ thống');
+      } else {
+        message.success(`Đã tải thành công ${appointments.length} lịch hẹn`);
       }
-      */
       
     } catch (error: unknown) {
       console.error('❌ [ERROR] Failed to load appointments:', error);
-      message.error('Không thể tải danh sách cuộc hẹn. Vui lòng thử lại sau.');
+      message.error('Không thể tải danh sách lịch hẹn. Vui lòng thử lại.');
       setAppointments([]);
     } finally {
       setLoading(false);
@@ -455,7 +281,7 @@ const AppointmentManagement: React.FC = () => {
   useEffect(() => {
     loadAppointments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStatus, selectedType, selectedLocation, selectedDate, selectedDoctor, dateRange]);
+  }, [selectedStatus, selectedType, selectedDate, selectedDoctor, dateRange]);
 
   // Reload when search text changes (debounced)
   useEffect(() => {
@@ -471,15 +297,6 @@ const AppointmentManagement: React.FC = () => {
 
   // Filter appointments based on search (other filters are applied at API level)
   const filteredAppointments = appointments.filter(appointment => {
-    // ✅ STAFF ROLE: Loại bỏ consultations, chỉ giữ appointment thường (theo backend logic)
-    if (userRole === 'staff') {
-      // Backend đã filter appointmentType: 'appointment' rồi nên không cần filter thêm ở đây
-      // Nhưng vẫn loại bỏ consultation type để chắc chắn
-      if (appointment.type === 'consultation') {
-        return false;
-      }
-    }
-    
     if (searchText === '') return true;
     
     const matchesSearch = appointment.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -519,41 +336,53 @@ const AppointmentManagement: React.FC = () => {
     return texts[status] || status;
   };
 
-  const getTypeColor = (type: Appointment['appointmentType']) => {
+  // ✅ Determine service type based on service name and backend data
+  const getServiceType = (record: Appointment): 'appointment' | 'consultation' => {
+    // Check service name first for more accurate detection
+    const serviceName = record.serviceName?.toLowerCase() || '';
+    
+    // If service name contains consultation/advisory keywords -> consultation 
+    if (serviceName.includes('tư vấn') || 
+        serviceName.includes('tu van') ||
+        serviceName.includes('consultation') ||
+        serviceName.includes('online') ||
+        serviceName.includes('trực tuyến')) {
+      return 'consultation';
+    }
+    
+    // If service name contains physical exam keywords -> appointment
+    if (serviceName.includes('khám') || 
+        serviceName.includes('xét nghiệm') ||
+        serviceName.includes('test') ||
+        serviceName.includes('siêu âm') ||
+        serviceName.includes('chẩn đoán')) {
+      return 'appointment';
+    }
+    
+    // Fallback to backend fields
+    if (record.type === 'consultation') return 'consultation';
+    if (record.appointmentType === 'consultation') return 'consultation';
+    
+    // Default to appointment for medical services
+    return 'appointment';
+  };
+
+  const getTypeColor = (record: Appointment) => {
+    const serviceType = getServiceType(record);
     const colors = {
-      consultation: 'blue',
-      test: 'green',
-      'online-consultation': 'cyan',
-      other: 'purple'
+      appointment: 'volcano',    // Phòng khám - màu đỏ cam
+      consultation: 'geekblue'   // Trực tuyến - màu xanh dương
     };
-    return colors[type] || 'purple';
+    return colors[serviceType];
   };
 
-  const getTypeText = (type: Appointment['appointmentType']) => {
+  const getTypeText = (record: Appointment) => {
+    const serviceType = getServiceType(record);
     const texts = {
-      consultation: 'Tư vấn',
-      test: 'Xét nghiệm',
-      'online-consultation': 'Tư vấn online',
-      other: 'Khác'
+      appointment: 'Phòng khám',   // Appointment = Phòng khám
+      consultation: 'Trực tuyến'   // Consultation = Trực tuyến
     };
-    return texts[type] || 'Khác';
-  };
-
-  const getLocationColor = (location: Appointment['typeLocation']) => {
-    const colors = {
-      clinic: 'volcano',
-      home: 'cyan',
-      Online: 'geekblue'
-    };
-    return colors[location];
-  };
-
-  const getLocationText = (location: Appointment['typeLocation']) => {
-    const texts = {
-      clinic: 'Phòng khám',
-      Online: 'Trực tuyến'
-    };
-    return texts[location];
+    return texts[serviceType];
   };
 
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
@@ -592,7 +421,7 @@ const AppointmentManagement: React.FC = () => {
         );
         
         if (success) {
-          message.success('Hủy lịch hẹn thành công. Slot đã được đánh dấu Absent.');
+          message.success('Hủy lịch hẹn thành công');
         }
       } else if (cancelAppointmentData.type === 'consultation') {
         // ✅ CONSULTATION: This should use transfer logic, not direct cancel
@@ -603,7 +432,7 @@ const AppointmentManagement: React.FC = () => {
       );
         
         if (success) {
-          message.success('Hủy tư vấn thành công. Hệ thống sẽ tự động tìm bác sĩ thay thế.');
+          message.success('Hủy lịch tư vấn thành công');
         }
       }
 
@@ -618,20 +447,44 @@ const AppointmentManagement: React.FC = () => {
         setCancelAppointmentData(null);
         setCancelReason('');
       } else {
-        message.error('Hủy lịch hẹn thất bại');
+        message.error('Không thể hủy lịch hẹn');
       }
     } catch (error: unknown) {
       console.error('❌ [ERROR] Failed to cancel appointment by doctor:', error);
       const errorMessage = error instanceof Error && 'response' in error 
-        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Hủy lịch hẹn thất bại'
-        : 'Hủy lịch hẹn thất bại';
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Có lỗi xảy ra khi hủy lịch hẹn'
+        : 'Có lỗi xảy ra khi hủy lịch hẹn';
       message.error(errorMessage);
     }
   };
 
-  const showAppointmentDetails = (appointment: Appointment) => {
-    setSelectedAppointmentForDetail(appointment);
-    setDetailModalVisible(true);
+  const showAppointmentDetails = async (appointment: Appointment) => {
+    try {
+      // 🔍 DEBUG: Log toàn bộ thông tin appointment để kiểm tra
+      console.log('🔍 [DEBUG] Showing appointment details:', {
+        id: appointment._id,
+        type: appointment.type,
+        patientName: appointment.patientName,
+        serviceName: appointment.serviceName,
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        status: appointment.status,
+        fullObject: appointment
+      });
+      
+      // ✅ SIMPLIFIED LOGIC: Theo user yêu cầu - không cần gọi API detail nữa
+      // Data đã đầy đủ từ list, chỉ cần hiển thị modal
+      console.log('✅ [SIMPLIFIED] Using existing data from list');
+      setSelectedAppointmentForDetail(appointment);
+      setDetailModalVisible(true);
+      
+    } catch (error: unknown) {
+      console.error('❌ [ERROR] Failed to show appointment details:', error);
+      
+      // 🔄 FALLBACK: Nếu có lỗi, vẫn hiển thị modal với data có sẵn
+      setSelectedAppointmentForDetail(appointment);
+      setDetailModalVisible(true);
+    }
   };
 
   const columns: ColumnsType<Appointment> = [
@@ -680,11 +533,8 @@ const AppointmentManagement: React.FC = () => {
             {record.serviceName}
           </div>
           <Space size="small" wrap>
-            <Tag color={getTypeColor(record.appointmentType)}>
-              {getTypeText(record.appointmentType)}
-            </Tag>
-            <Tag color={getLocationColor(record.typeLocation)}>
-              {getLocationText(record.typeLocation)}
+            <Tag color={getTypeColor(record)}>
+              {getTypeText(record)}
             </Tag>
           </Space>
           {record.description && (
@@ -761,6 +611,7 @@ const AppointmentManagement: React.FC = () => {
       width: userRole === 'staff' ? 80 : 160, // Narrower for staff (only view button)
       render: (_, record) => (
         <Space>
+          {/* ✅ ENHANCED: Gọi API thực để lấy chi tiết đầy đủ từ backend */}
           <Tooltip title="Xem chi tiết">
             <Button 
               type="primary" 
@@ -771,6 +622,7 @@ const AppointmentManagement: React.FC = () => {
                 backgroundColor: '#1890ff',
                 borderColor: '#1890ff'
               }}
+              loading={loading}
             >
               {userRole === 'staff' ? 'Chi tiết' : ''}
             </Button>
@@ -841,42 +693,21 @@ const AppointmentManagement: React.FC = () => {
             <Select
               value={selectedType}
               onChange={setSelectedType}
-              style={{ width: 130 }}
+              style={{ width: 150 }}
+              placeholder="Loại dịch vụ"
             >
               <Option value="all">Tất cả loại</Option>
-              {/* ✅ STAFF ROLE: Hiển thị tất cả types để debug */}
-              {userRole === 'staff' ? (
-                <>
-                  <Option value="consultation">Tư vấn</Option>
-                  <Option value="test">Xét nghiệm</Option>
-                  <Option value="online-consultation">Tư vấn online</Option>
-                  <Option value="other">Khác</Option>
-                </>
-              ) : (
-                <>
-              <Option value="consultation">Tư vấn</Option>
-              <Option value="test">Xét nghiệm</Option>
-              <Option value="online-consultation">Tư vấn online</Option>
-              <Option value="other">Khác</Option>
-                </>
-              )}
-            </Select>
-            <Select
-              value={selectedLocation}
-              onChange={setSelectedLocation}
-              style={{ width: 130 }}
-            >
-              <Option value="all">Tất cả địa điểm</Option>
-              <Option value="clinic">Phòng khám</Option>
-              <Option value="Online">Trực tuyến</Option>
+              {/* ✅ CHỈ 2 LOẠI DỊCH VỤ: appointment và consultation (dựa vào backend data) */}
+              <Option value="appointment">Phòng khám</Option>
+              <Option value="consultation">Trực tuyến</Option>
             </Select>
             <Select
               value={selectedStatus}
               onChange={setSelectedStatus}
-              style={{ width: 150 }}
+              style={{ width: 170 }}
+              placeholder="Trạng thái"
             >
               <Option value="all">Tất cả trạng thái</Option>
-              {/* ✅ UPDATED STATUS OPTIONS with new consulting status */}
               <Option value="pending_payment">Chờ thanh toán</Option>
               <Option value="pending">Chờ xác nhận</Option>
               <Option value="scheduled">Đã lên lịch</Option>
@@ -886,36 +717,36 @@ const AppointmentManagement: React.FC = () => {
               <Option value="cancelled">Đã hủy</Option>
             </Select>
             
-            {/* ✅ ENHANCED: Date filtering - Range picker for staff, single date for doctor */}
+            {/* ✅ Date filtering - Range picker for staff, single date for doctor */}
             {userRole === 'staff' ? (
               <DatePicker.RangePicker
                 placeholder={['Từ ngày', 'Đến ngày']}
                 value={dateRange}
                 onChange={setDateRange}
-                style={{ width: 240 }}
+                style={{ width: 260 }}
                 format="DD/MM/YYYY"
               />
             ) : (
               <DatePicker
                 placeholder="Chọn ngày"
                 onChange={(date) => setSelectedDate(date ? date.format('YYYY-MM-DD') : 'all')}
-                style={{ width: 130 }}
+                style={{ width: 150 }}
                 format="DD/MM/YYYY"
               />
             )}
           </Space>
           
-          {/* ✅ NEW: Clear Filters Button - Only for Staff */}
-          {userRole === 'staff' && (
+          {/* ✅ Clear Filters Button - Cho cả Staff và Doctor */}
             <Space>
               <Button
                 icon={<ClearOutlined />}
                 onClick={() => {
+                if (userRole === 'staff') {
                   setSelectedDoctor('all');
-                  setSelectedType('all');
-                  setSelectedLocation('all');
-                  setSelectedStatus('all');
                   setDateRange(null);
+                }
+                  setSelectedType('all');
+                  setSelectedStatus('all');
                   setSelectedDate('all');
                   setSearchText('');
                 }}
@@ -928,10 +759,9 @@ const AppointmentManagement: React.FC = () => {
                 icon={<FilterOutlined />}
                 style={{ borderRadius: '6px' }}
               >
-                Áp dụng bộ lọc ({filteredAppointments.length})
+              Hiển thị ({filteredAppointments.length})
               </Button>
             </Space>
-          )}
         </div>
 
         {/* Table */}
@@ -1150,12 +980,12 @@ const AppointmentManagement: React.FC = () => {
         onViewTestRecord={(appointment) => {
           // TODO: Open ViewTestRecordModal
           console.log('View test record for:', appointment.patientName);
-          message.info(`Xem kết quả xét nghiệm cho ${appointment.patientName} (Chức năng đang phát triển)`);
+          message.info(`Xem kết quả xét nghiệm cho ${appointment.patientName}`);
         }}
         onViewMedicalRecord={(appointment) => {
           // TODO: Open ViewMedicalRecordModal  
           console.log('View medical record for:', appointment.patientName);
-          message.info(`Xem bệnh án cho ${appointment.patientName} (Chức năng đang phát triển)`);
+                      message.info(`Xem bệnh án cho ${appointment.patientName}`);
         }}
       />
 

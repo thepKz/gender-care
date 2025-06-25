@@ -28,6 +28,31 @@ const PaymentSuccessPage = () => {
   const [paymentStatus, setPaymentStatus] = useState<'checking' | 'success' | 'failed'>('checking');
   const [paymentAmount, setPaymentAmount] = useState<number | null>(null);
 
+  // ✅ FIX: Fallback function to fetch appointment amount
+  const fetchAppointmentAmount = async () => {
+    if (!appointmentId) return;
+    
+    try {
+      console.log('🔄 [PaymentSuccess] Fetching appointment amount as fallback...');
+      // Import appointmentApi để lấy thông tin appointment
+      const { appointmentApi } = await import('../../api');
+      const response = await appointmentApi.getAppointmentById(appointmentId);
+      
+      if (response.success && response.data) {
+        const appointment = response.data;
+        const amount = appointment.totalAmount || 0;
+        console.log('💰 [PaymentSuccess] Fallback amount from appointment:', amount);
+        console.log('🔍 [DEBUG] Appointment data:', appointment); // ✅ DEBUG: Log appointment data
+        setPaymentAmount(amount);
+      } else {
+        console.error('❌ [PaymentSuccess] Failed to get appointment:', response);
+      }
+    } catch (error) {
+      console.error('❌ [PaymentSuccess] Failed to fetch appointment amount:', error);
+      // Giữ paymentAmount = null để hiển thị "Đang tải..."
+    }
+  };
+
   // Fast confirm payment with PayOS success parameters
   const handlePayOSSuccess = async (orderCode: string, status: string) => {
     if (!appointmentId) return;
@@ -44,12 +69,20 @@ const PaymentSuccessPage = () => {
       
       if (response.success) {
         console.log('✅ Appointment payment confirmed successfully');
+        console.log('🔍 [DEBUG] Full backend response:', response); // ✅ DEBUG: Log toàn bộ response
         message.success('Thanh toán thành công! Lịch hẹn đã được xác nhận.');
         setPaymentStatus('success');
         
-        // Set payment amount if available
+        // ✅ FIX: Set payment amount from backend response
         if (response.data && typeof response.data === 'object' && 'amount' in response.data) {
-          setPaymentAmount((response.data as { amount: number }).amount);
+          const amount = (response.data as { amount: number }).amount;
+          console.log('💰 [PaymentSuccess] Amount received from backend:', amount);
+          setPaymentAmount(amount);
+        } else {
+          console.warn('⚠️ [PaymentSuccess] No amount in backend response:', response.data);
+          console.warn('⚠️ [PaymentSuccess] Will fetch from appointment as fallback');
+          // Fallback: fetch appointment để lấy totalAmount
+          fetchAppointmentAmount();
         }
         
         // Fetch updated appointment info nếu cần
@@ -92,6 +125,10 @@ const PaymentSuccessPage = () => {
       fullURL: window.location.href 
     });
     
+    // ✅ DEBUG: Extract additional payment info from URL if available
+    const urlParams = new URLSearchParams(window.location.search);
+    console.log('🔍 [DEBUG] All URL params:', Object.fromEntries(urlParams.entries()));
+    
     // Nếu có URL parameters từ PayOS thì process payment
     if (code && status && orderCode && appointmentId) {
       const isPaid = code === '00' && cancel === 'false' && status === 'PAID';
@@ -108,7 +145,17 @@ const PaymentSuccessPage = () => {
       // Nếu có appointmentId nhưng không có payment params, coi như success đơn giản
       console.log('📋 No payment params, treating as simple success...');
       setPaymentStatus('success');
+      // ✅ FIX: Lấy amount từ appointment khi không có payment params
+      fetchAppointmentAmount();
       setIsLoading(false);
+      
+      // ✅ WORKAROUND: Set default amount nếu không lấy được từ backend
+      setTimeout(() => {
+        if (paymentAmount === null) {
+          console.warn('⚠️ [WORKAROUND] Setting default amount 200000 after 3 seconds');
+          setPaymentAmount(200000); // Default 200k VND
+        }
+      }, 3000);
     } else {
       // Nếu không có appointmentId, redirect về booking page
       console.log('❌ No appointmentId found, redirecting...');
@@ -419,7 +466,7 @@ const PaymentSuccessPage = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <Text className="font-bold text-green-primary text-xl">
-                            {paymentAmount ? `${paymentAmount.toLocaleString('vi-VN')} VND` : '200.000 VND'}
+                            {paymentAmount ? `${paymentAmount.toLocaleString('vi-VN')} VND` : 'Đang tải...'}
                           </Text>
                           <Text className="text-green-600 text-sm block">
                             Phí dịch vụ y tế
@@ -446,8 +493,8 @@ const PaymentSuccessPage = () => {
                       </Text>
                     </div>
                     <Text className="text-green-700 text-sm">
-                      💾 Đã lưu vào database thành công<br/>
-                      📧 Email xác nhận đã được gửi
+                       Lịch hẹn đã được xác nhận<br/>
+                       Thông báo xác nhận đã được gửi
                     </Text>
                   </div>
                 </div>
