@@ -163,6 +163,32 @@ const DoctorSchedulePage: React.FC = () => {
   const [createMode, setCreateMode] = useState<CreateMode>('dates');
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [form] = Form.useForm();
+
+  // Add unique calendar styles to prevent conflicts
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .schedule-creation-calendar .ant-picker-calendar {
+        background: white !important;
+        border: none !important;
+      }
+      .schedule-creation-calendar .ant-picker-cell-inner {
+        position: relative;
+        z-index: 1;
+      }
+      .schedule-creation-calendar .ant-picker-cell:hover .ant-picker-cell-inner {
+        background: #e6f7ff !important;
+      }
+      .main-schedule-calendar {
+        isolation: isolate;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   
   // Calendar view state
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
@@ -289,7 +315,8 @@ const DoctorSchedulePage: React.FC = () => {
       if (createMode === 'dates') {
         // Tạo lịch theo ngày cụ thể
         if (selectedDates.length === 0) {
-          message.error('Vui lòng chọn ít nhất một ngày!');
+          message.warning('⚠️ Vui lòng chọn ít nhất một ngày để tạo lịch làm việc!');
+          setLoading(false);
           return;
         }
 
@@ -300,7 +327,7 @@ const DoctorSchedulePage: React.FC = () => {
         };
 
         await doctorScheduleApi.createScheduleByDates(createData);
-        message.success(`Tạo lịch thành công cho ${selectedDates.length} ngày!`);
+        message.success(`🎉 Tạo lịch thành công cho ${selectedDates.length} ngày được chọn! Hệ thống sẽ tự động cập nhật.`);
         
       } else {
         // Tạo lịch theo tháng
@@ -315,7 +342,7 @@ const DoctorSchedulePage: React.FC = () => {
         };
 
         await doctorScheduleApi.createScheduleByMonth(createData);
-        message.success(`Tạo lịch thành công cho tháng ${month}/${year}!`);
+        message.success(`📅 Tạo lịch thành công cho tháng ${month}/${year}! Hệ thống sẽ tự động cập nhật.`);
       }
 
       setIsCreateModalVisible(false);
@@ -397,9 +424,22 @@ const DoctorSchedulePage: React.FC = () => {
     const dayOfWeek = current.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Thứ 7 hoặc Chủ nhật
     
+    // Prevent rendering if not in create mode
+    if (!isCreateModalVisible) {
+      return null;
+    }
+    
     if (isSelected) {
       return (
-        <div className="ant-picker-cell-inner" style={{ backgroundColor: '#1890ff', color: 'white', borderRadius: '4px' }}>
+        <div 
+          className="ant-picker-cell-inner" 
+          style={{ 
+            backgroundColor: '#1890ff', 
+            color: 'white', 
+            borderRadius: '4px',
+            fontWeight: '600'
+          }}
+        >
           {current.date()}
         </div>
       );
@@ -407,7 +447,14 @@ const DoctorSchedulePage: React.FC = () => {
     
     if (isPast) {
       return (
-        <div className="ant-picker-cell-inner" style={{ color: '#d9d9d9' }}>
+        <div 
+          className="ant-picker-cell-inner" 
+          style={{ 
+            color: '#d9d9d9',
+            cursor: 'not-allowed',
+            textDecoration: 'line-through'
+          }}
+        >
           {current.date()}
         </div>
       );
@@ -415,19 +462,36 @@ const DoctorSchedulePage: React.FC = () => {
     
     if (isWeekend) {
       return (
-        <div className="ant-picker-cell-inner" style={{ 
-          color: '#ff4d4f', 
-          backgroundColor: '#fff2f0',
-          borderRadius: '4px',
-          cursor: 'not-allowed'
-        }}>
+        <div 
+          className="ant-picker-cell-inner" 
+          style={{ 
+            color: '#ff4d4f', 
+            backgroundColor: '#fff2f0',
+            borderRadius: '4px',
+            cursor: 'not-allowed',
+            border: '1px dashed #ff4d4f'
+          }}
+        >
           {current.date()}
         </div>
       );
     }
     
     return (
-      <div className="ant-picker-cell-inner" style={{ cursor: 'pointer' }}>
+      <div 
+        className="ant-picker-cell-inner" 
+        style={{ 
+          cursor: 'pointer',
+          borderRadius: '4px',
+          transition: 'all 0.2s ease'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#e6f7ff';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+        }}
+      >
         {current.date()}
       </div>
     );
@@ -760,7 +824,10 @@ const DoctorSchedulePage: React.FC = () => {
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              onClick={loadDoctorsForCreate}
+              onClick={() => {
+                setSelectedDates([]); // Clear any previous selections
+                loadDoctorsForCreate();
+              }}
               loading={loading}
             >
               Tạo lịch bác sĩ
@@ -771,7 +838,7 @@ const DoctorSchedulePage: React.FC = () => {
 
       {/* Calendar View */}
       {viewMode === 'calendar' ? (
-        <div style={{ height: '700px' }}>
+        <div className="main-schedule-calendar" style={{ height: '700px' }}>
           {/* Performance Stats for Large Datasets */}
           {virtualStats.isVirtualized && (
             <div style={{ 
@@ -788,6 +855,7 @@ const DoctorSchedulePage: React.FC = () => {
           )}
           
           <AdvancedCalendar
+            key="doctor-schedule-main-calendar"
             events={visibleEvents}
             onSelectEvent={handleSelectEvent}
             onNavigate={(date, view) => {
@@ -926,15 +994,27 @@ const DoctorSchedulePage: React.FC = () => {
                   Các ngày cuối tuần (thứ 7, chủ nhật) sẽ được đánh dấu màu đỏ và không thể chọn.
                 </Text>
               </div>
-              <div style={{ border: '1px solid #d9d9d9', borderRadius: '6px', padding: '8px' }}>
+              <div style={{ 
+                border: '1px solid #d9d9d9', 
+                borderRadius: '6px', 
+                padding: '8px',
+                backgroundColor: '#fafafa'
+              }}>
                 <div style={{ 
-                  maxHeight: '220px', 
-                  overflowY: 'auto'
+                  maxHeight: '280px', 
+                  overflowY: 'auto',
+                  backgroundColor: 'white',
+                  borderRadius: '4px'
                 }}>
                   <Calendar
+                    key="schedule-creation-calendar"
+                    className="schedule-creation-calendar"
                     fullscreen={false}
                     onSelect={onCalendarSelect}
                     dateCellRender={dateRender}
+                    style={{
+                      backgroundColor: 'white'
+                    }}
                   />
                 </div>
                 {selectedDates.length > 0 && (
@@ -1071,11 +1151,23 @@ const DoctorSchedulePage: React.FC = () => {
 
           <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
             <Space>
-              <Button onClick={() => setIsCreateModalVisible(false)}>
+              <Button 
+                onClick={() => {
+                  setIsCreateModalVisible(false);
+                  setSelectedDates([]);
+                  form.resetFields();
+                }}
+                disabled={loading}
+              >
                 Hủy
               </Button>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                Tạo lịch
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={loading}
+                disabled={createMode === 'dates' && selectedDates.length === 0}
+              >
+                {loading ? 'Đang tạo...' : 'Tạo lịch'}
               </Button>
             </Space>
           </Form.Item>

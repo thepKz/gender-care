@@ -5,6 +5,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 // Layouts
 import MainLayout from '../components/layouts/MainLayout';
 import AuthLayout from '../layouts/AuthLayout';
+import BookingLayout from '../layouts/BookingLayout';
 import ProfileLayout from '../layouts/ProfileLayout';
 
 // Pages
@@ -28,8 +29,8 @@ import PublicServicesPage from '../pages/services/PublicServicesPage';
 import DoctorDetail from '../pages/doctors/DoctorDetail';
 
 // Booking Pages
-import BookingPage from '../pages/booking';
-import BookingHistoryPage from '../pages/booking-history';
+import BookingHistoryOptimized from '../pages/booking-history/BookingHistoryOptimized';
+import BookingPageNew from '../pages/booking/BookingPageNew';
 import FeedbackPage from '../pages/feedback';
 
 
@@ -39,9 +40,9 @@ import ConsultationPaymentSuccessPage from '../pages/consultation/PaymentSuccess
 import ServicesPage from '../pages/services';
 
 // Payment Pages
+import PaymentCancelPage from '../pages/payment/PaymentCancelPage';
 import PaymentProcessPage from '../pages/payment/PaymentProcessPage';
 import PaymentSuccessPage from '../pages/payment/PaymentSuccessPage';
-import PaymentCancelPage from '../pages/payment/PaymentCancelPage';
 
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
@@ -146,9 +147,8 @@ const AppRoutes: React.FC = () => {
         {/* Cycle Tracking Page */}
         <Route path="/cycle" element={isAuthenticated ? <CyclePage /> : <Navigate to="/login" replace />} />
         
-        {/* Booking Pages */}
-        <Route path="/booking" element={<BookingPage />} />
-        <Route path="/booking-history" element={<BookingHistoryPage />} />
+        {/* Booking History */}
+        <Route path="/booking-history" element={<BookingHistoryOptimized />} />
 
         <Route path="/feedback" element={<FeedbackPage />} />
         
@@ -168,6 +168,11 @@ const AppRoutes: React.FC = () => {
         
         {/* Các route khác */}
         <Route path="*" element={<NotFoundPage />} />
+      </Route>
+      
+      {/* Booking route - no header/footer */}
+      <Route element={<BookingLayout />}>
+        <Route path="/booking" element={<BookingPageNew />} />
       </Route>
       
       {/* Legacy Dashboard Redirects (tạm giữ để không 404, chuyển sang cấu trúc mới) */}
