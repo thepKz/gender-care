@@ -14,11 +14,22 @@ router.get(
   testCategoriesController.getAllTestCategories
 );
 
+
+// GET /api/test-categories/all - Lấy TẤT CẢ test categories mà không có pagination (Admin, Manager và Nursing Staff)
+router.get(
+  '/all',
+  authMiddleware,
+  roleMiddleware(['admin', 'manager', 'nursing_staff']),
+  testCategoriesController.getAllTestCategoriesWithoutPagination
+);
+
+
 // GET /api/test-categories/dropdown - Lấy test categories cho dropdown (Doctor, Staff, Nursing Staff, Admin)
 router.get(
   '/dropdown',
   authMiddleware,
   roleMiddleware(['doctor', 'staff', 'nursing_staff', 'admin']),
+
   testCategoriesController.getTestCategoriesForDropdown
 );
 
@@ -28,6 +39,7 @@ router.get(
   authMiddleware,
   testCategoriesController.getTestCategoryById
 );
+
 
 // POST /api/test-categories - Tạo test category mới (Admin, Nursing Staff, Doctor, Staff)
 router.post(
@@ -42,6 +54,7 @@ router.put(
   '/:id',
   authMiddleware,
   roleMiddleware(['admin', 'nursing_staff', 'doctor', 'staff']),
+
   testCategoriesController.updateTestCategory
 );
 

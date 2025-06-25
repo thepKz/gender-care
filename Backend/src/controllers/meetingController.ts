@@ -28,10 +28,9 @@ export const createMeetLink = async (req: Request, res: Response): Promise<void>
     }
 
     // Parse scheduled time
-    const scheduledStartTime = new Date(scheduledTime);
-    const scheduledEndTime = new Date(scheduledStartTime.getTime() + duration * 60 * 1000); // duration in minutes
+    const scheduledDateTime = new Date(scheduledTime);
 
-    if (isNaN(scheduledStartTime.getTime())) {
+    if (isNaN(scheduledDateTime.getTime())) {
       res.status(400).json({ 
         message: 'Thời gian lên lịch không hợp lệ' 
       });
@@ -53,8 +52,9 @@ export const createMeetLink = async (req: Request, res: Response): Promise<void>
       qaId,
       doctorId,
       userId: userId._id || userId,
-      scheduledStartTime,
-      scheduledEndTime
+      scheduledTime: scheduledDateTime,
+      duration,
+      preferredProvider: 'google'
     });
 
     res.status(201).json({
@@ -62,9 +62,8 @@ export const createMeetLink = async (req: Request, res: Response): Promise<void>
       data: {
         meetingId: meeting._id,
         meetLink: meeting.meetingLink,
-        meetId: meeting.meetingId,
-        scheduledStartTime: meeting.scheduledStartTime,
-        scheduledEndTime: meeting.scheduledEndTime,
+        provider: meeting.provider,
+        scheduledTime: meeting.scheduledTime,
         status: meeting.status
       }
     });
@@ -96,13 +95,12 @@ export const getMeetingByQaId = async (req: Request, res: Response): Promise<voi
       data: {
         meetingId: meeting._id,
         meetLink: meeting.meetingLink,
-        meetId: meeting.meetingId,
-        scheduledStartTime: meeting.scheduledStartTime,
-        scheduledEndTime: meeting.scheduledEndTime,
+        provider: meeting.provider,
+        scheduledTime: meeting.scheduledTime,
         actualStartTime: meeting.actualStartTime,
-        actualEndTime: meeting.actualEndTime,
         status: meeting.status,
-        participants: meeting.participants,
+        participantCount: meeting.participantCount,
+        maxParticipants: meeting.maxParticipants,
         notes: meeting.notes,
         doctor: meeting.doctorId,
         user: meeting.userId,
@@ -189,7 +187,7 @@ export const joinMeetingNotification = async (req: Request, res: Response): Prom
         meetingId: updatedMeeting._id,
         status: updatedMeeting.status,
         actualStartTime: updatedMeeting.actualStartTime,
-        participants: updatedMeeting.participants
+        participantCount: updatedMeeting.participantCount
       }
     });
 
@@ -221,11 +219,8 @@ export const completeMeeting = async (req: Request, res: Response): Promise<void
       data: {
         meetingId: completedMeeting._id,
         status: completedMeeting.status,
-        actualEndTime: completedMeeting.actualEndTime,
         notes: completedMeeting.notes,
-        duration: completedMeeting.actualStartTime && completedMeeting.actualEndTime
-          ? Math.round((completedMeeting.actualEndTime.getTime() - completedMeeting.actualStartTime.getTime()) / 60000)
-          : null
+        participantCount: completedMeeting.participantCount
       }
     });
 

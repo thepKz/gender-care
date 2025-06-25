@@ -8,7 +8,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ServicePackage } from '../../../types';
 import ServicePackageDetailModal from '../../ui/modals/ServicePackageDetailModal';
-import PurchasePackageModal from '../../ui/modals/PurchasePackageModal';
 
 interface ServicePackageDisplayCardProps {
   servicePackage: ServicePackage;
@@ -27,7 +26,6 @@ const ServicePackageDisplayCard: React.FC<ServicePackageDisplayCardProps> = ({
 }) => {
   const navigate = useNavigate();
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
   // Format price - Định dạng giá tiền
   const formatPrice = (price: number) => {
@@ -39,12 +37,13 @@ const ServicePackageDisplayCard: React.FC<ServicePackageDisplayCardProps> = ({
     ((servicePackage.priceBeforeDiscount - servicePackage.price) / servicePackage.priceBeforeDiscount) * 100
   );
 
-  // Handle booking - Xử lý đặt lịch
+  // Handle booking - Xử lý đặt lịch (điều hướng sang booking page)
   const handleBooking = () => {
     if (onBookingClick) {
       onBookingClick(servicePackage);
     } else {
-      setShowPurchaseModal(true);
+      // Điều hướng sang booking page với packageId param
+      navigate(`/booking?packageId=${servicePackage._id}&type=package`);
     }
   };
 
@@ -212,16 +211,6 @@ const ServicePackageDisplayCard: React.FC<ServicePackageDisplayCardProps> = ({
       visible={showDetailModal}
       onClose={() => setShowDetailModal(false)}
       servicePackage={servicePackage}
-    />
-
-    {/* Purchase Package Modal */}
-    <PurchasePackageModal
-      visible={showPurchaseModal}
-      onClose={() => setShowPurchaseModal(false)}
-      servicePackage={servicePackage}
-      onSuccess={() => {
-        // Có thể thêm logic refresh data hoặc navigation
-      }}
     />
     </>
   );

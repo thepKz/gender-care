@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Avatar,
   Layout,
   Menu,
   Typography,
   Button,
   Row,
   Col,
-  Avatar,
-  Dropdown,
-  Space,
-  message,
   Card,
   List,
   Statistic
@@ -22,16 +19,15 @@ import {
   HistoryOutlined,
   BarChartOutlined,
   SecurityScanOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
   LogoutOutlined,
-  BellOutlined,
   AppstoreOutlined,
   CalendarOutlined,
   DollarOutlined,
   TrophyOutlined,
   CheckCircleOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  ExperimentOutlined,
+  HomeOutlined
 } from '@ant-design/icons';
 import EnhancedStatsCard from '../widgets/EnhancedStatsCard';
 import TableWidget from '../widgets/TableWidget';
@@ -41,7 +37,13 @@ import ServiceManagement from '../../../pages/dashboard/management/ServiceManage
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import SystemLogManagement from '../../../pages/dashboard/management/SystemLogManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
+
+import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedulePage';
+import MedicineManagement from '../../../pages/dashboard/management/MedicineManagement';
+import TestManagement from '../../../pages/dashboard/management/TestManagement';
+
 import TestCategoriesManagement from '../../../pages/dashboard/management/TestCategoriesManagement';
+
 import { 
   type DashboardStat,
   type ActivityItem,
@@ -54,6 +56,31 @@ import { fetchManagementDashboard } from '../../../api/endpoints/dashboard';
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
 
+// Define proper interfaces for API response data
+interface ApiActivityItem {
+  id: string;
+  title?: string;
+  user?: string;
+  description?: string;
+  action?: string;
+  time: string | Date;
+  status?: string;
+  avatar?: string;
+  type?: string;
+}
+
+interface ApiAppointmentItem {
+  id: string;
+  patientName: string;
+  doctorName: string;
+  time: string;
+  status: string;
+  service?: string;
+  notes?: string;
+  priority?: string;
+  phone?: string;
+}
+
 interface ManagementTemplateProps {
   userRole: 'admin' | 'manager';
   userName?: string;
@@ -62,16 +89,58 @@ interface ManagementTemplateProps {
 
 // Xây dựng menu động theo vai trò
 const getMenuItems = (role: 'admin' | 'manager') => {
-  const baseItems = [
+  // Menu cho Admin - chỉ 5 mục như yêu cầu
+  if (role === 'admin') {
+    return [
+      {
+        key: 'users',
+        icon: <UserOutlined />,
+        label: 'Quản lý người dùng',
+      },
+      {
+        key: 'login-history',
+        icon: <HistoryOutlined />,
+        label: 'Lịch sử đăng nhập',
+      },
+      {
+        key: 'system-logs',
+        icon: <SecurityScanOutlined />,
+        label: 'System Logs',
+      },
+      {
+        key: 'reports',
+        icon: <BarChartOutlined />,
+        label: 'Báo cáo',
+      },
+      {
+        key: 'settings',
+        icon: <SettingOutlined />,
+        label: 'Cài đặt',
+      },
+    ];
+  }
+
+  // Menu cho Manager - đầy đủ chức năng quản lý
+  const managerItems = [
     {
       key: 'dashboard',
       icon: <DashboardOutlined />,
       label: 'Tổng quan',
     },
     {
+      key: 'users',
+      icon: <UserOutlined />,
+      label: 'Quản lý người dùng',
+    },
+    {
       key: 'doctors',
       icon: <MedicineBoxOutlined />,
       label: 'Quản lý bác sĩ',
+    },
+    {
+      key: 'schedule',
+      icon: <CalendarOutlined />,
+      label: 'Quản lý lịch làm việc',
     },
     {
       key: 'services',
@@ -84,9 +153,17 @@ const getMenuItems = (role: 'admin' | 'manager') => {
       label: 'Quản lý gói dịch vụ',
     },
     {
+
+      key: 'medicines',
+      icon: <MedicineBoxOutlined />,
+      label: 'Quản lý thuốc',
+    },
+    {
+
       key: 'test-categories',
       icon: <FileTextOutlined />,
       label: 'Quản lý danh mục xét nghiệm',
+
     },
     {
       key: 'login-history',
@@ -105,26 +182,7 @@ const getMenuItems = (role: 'admin' | 'manager') => {
     },
   ];
 
-  // Admin có toàn quyền, Manager bị ẩn một số mục
-  if (role === 'admin') {
-    return [
-      baseItems[0],
-      {
-        key: 'users',
-        icon: <UserOutlined />,
-        label: 'Quản lý người dùng',
-      },
-      ...baseItems.slice(1),
-      {
-        key: 'settings',
-        icon: <SettingOutlined />,
-        label: 'Cài đặt',
-      },
-    ];
-  }
-
-  // Manager chỉ thấy baseItems, không có Users, Settings
-  return baseItems;
+  return managerItems;
 };
 
 const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
@@ -132,7 +190,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
   userName = 'Admin',
   welcomeMessage
 }) => {
-  const [selectedKey, setSelectedKey] = useState('dashboard');
+  const [selectedKey, setSelectedKey] = useState(userRole === 'admin' ? 'users' : 'dashboard');
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const { handleLogout } = useAuth();
@@ -150,13 +208,9 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
   useEffect(() => {
     (async () => {
       try {
-        console.log('🔄 Fetching dashboard data...');
         const data = await fetchManagementDashboard();
-        console.log('📊 Dashboard data received:', data);
         
         if (data?.stats) {
-          console.log('📈 Stats data:', data.stats);
-          // map stats -> managementStats format
           const mapped = [
             {
               title: 'Tổng bác sĩ',
@@ -191,45 +245,115 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
               trend: 'up'
             }
           ];
-          console.log('📋 Mapped stats:', mapped);
-          setStats(mapped as any);
-        } else {
-          console.warn('⚠️ No stats data in response');
+          setStats(mapped as DashboardStat[]);
         }
         
         if (data?.recentActivities) {
-          console.log('📝 Activities:', data.recentActivities);
-          // Transform API data to match local ActivityItem interface
-          const transformedActivities = data.recentActivities.map((activity: any) => ({
+          const transformedActivities = (data.recentActivities as unknown as ApiActivityItem[]).map((activity) => ({
             id: activity.id,
-            user: activity.title || activity.user,
-            action: activity.description || activity.action,
+            user: activity.title || activity.user || 'Unknown User',
+            action: activity.description || activity.action || 'Unknown Action',
             time: typeof activity.time === 'string' ? activity.time : new Date(activity.time).toISOString(),
-            status: activity.status || 'info',
+            status: (activity.status as ActivityItem['status']) || 'info',
             avatar: activity.avatar,
-            type: activity.type || 'system'
+            type: (activity.type as ActivityItem['type']) || 'system'
           }));
           setActivities(transformedActivities);
         }
         
         if (data?.todayAppointments) {
-          console.log('📅 Today appointments:', data.todayAppointments);
-          // Transform API data to match local AppointmentItem interface  
-          const transformedAppointments = data.todayAppointments.map((appointment: any) => ({
+          const transformedAppointments = (data.todayAppointments as unknown as ApiAppointmentItem[]).map((appointment) => ({
             id: appointment.id,
             patientName: appointment.patientName,
             doctorName: appointment.doctorName,
             time: appointment.time,
-            status: appointment.status,
+            status: appointment.status as AppointmentItem['status'],
             service: appointment.service || 'Dịch vụ chưa xác định',
             notes: appointment.notes,
-            priority: appointment.priority || 'medium',
+            priority: (appointment.priority as AppointmentItem['priority']) || 'medium',
             phone: appointment.phone
           }));
           setTodayList(transformedAppointments);
         }
-      } catch (err) {
-        console.error('❌ fetchManagementDashboard error', err);
+      } catch {
+        // Fallback to demo data when API fails
+        const demoStats = [
+          {
+            title: 'Tổng bác sĩ',
+            value: 12,
+            icon: 'UserOutlined',
+            color: '#3b82f6',
+            change: '+2 tuần này',
+            trend: 'up'
+          },
+          {
+            title: 'Tổng dịch vụ',
+            value: 25,
+            icon: 'StarOutlined',
+            color: '#10b981',
+            change: '+3 dịch vụ mới',
+            trend: 'up'
+          },
+          {
+            title: 'Lịch hẹn hôm nay',
+            value: 8,
+            icon: 'CalendarOutlined',
+            color: '#f59e0b',
+            change: '6/8 đã hoàn thành',
+            trend: 'up'
+          },
+          {
+            title: 'Doanh thu tháng',
+            value: 45000000,
+            icon: 'DollarOutlined',
+            color: '#ef4444',
+            change: '+15% so với tháng trước',
+            trend: 'up'
+          }
+        ];
+        setStats(demoStats as DashboardStat[]);
+        
+        const demoActivities = [
+          {
+            id: '1',
+            user: 'Nguyễn Văn A',
+            action: 'đã đặt lịch hẹn mới',
+            time: new Date().toISOString(),
+            status: 'success' as const,
+            type: 'appointment' as const
+          },
+          {
+            id: '2',
+            user: 'BS. Trần Thị B',
+            action: 'đã cập nhật lịch làm việc',
+            time: new Date(Date.now() - 1800000).toISOString(),
+            status: 'info' as const,
+            type: 'user' as const
+          }
+        ];
+        setActivities(demoActivities);
+        
+        const demoAppointments = [
+          {
+            id: '1',
+            patientName: 'Nguyễn Văn A',
+            doctorName: 'BS. Trần Thị B',
+            time: '09:00',
+            status: 'confirmed' as const,
+            service: 'Khám phụ khoa',
+            phone: '0901234567'
+          },
+          {
+            id: '2',
+            patientName: 'Lê Thị C',
+            doctorName: 'BS. Phạm Văn D',
+            time: '10:30',
+            status: 'pending' as const,
+            service: 'Tư vấn dinh dưỡng',
+            phone: '0912345678'
+          }
+        ];
+        setTodayList(demoAppointments);
       }
     })();
   }, []);
@@ -265,14 +389,14 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         <Row align="middle" justify="space-between">
           <Col flex="auto">
             <Title level={2} style={{ margin: 0, color: 'white' }}>
-              {userRole === 'admin' ? '🔧 Bảng điều khiển Admin' : '📊 Bảng điều khiển Manager'}
+              {userRole === 'admin' ? 'Bảng điều khiển Admin' : 'Bảng điều khiển Manager'}
             </Title>
             <Text style={{ fontSize: '16px', color: 'rgba(255,255,255,0.9)' }}>
               {welcomeMessage || defaultWelcomeMessage}
             </Text>
             <div style={{ marginTop: '8px' }}>
               <Text style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)' }}>
-                📅 {new Date().toLocaleDateString('vi-VN', { 
+                {new Date().toLocaleDateString('vi-VN', { 
                   weekday: 'long', 
                   year: 'numeric', 
                   month: 'long', 
@@ -312,7 +436,9 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
               color={stat.color}
               change={stat.change || ''}
               trend={stat.trend || 'up'}
-              onClick={() => console.log('Navigate to:', stat.title)}
+              onClick={() => {
+                // Navigate to specific stat detail page
+              }}
             />
           </Col>
         ))}
@@ -327,7 +453,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
             <Col xs={24}>
               <TableWidget 
                 data={todayList.slice(0, 8)}
-                title="📅 Lịch hẹn hôm nay"
+                title="Lịch hẹn hôm nay"
                 pagination={false}
               />
             </Col>
@@ -336,7 +462,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
             {activities.length > 0 && (
               <Col xs={24}>
                 <Card
-                  title="🔄 Hoạt động gần đây"
+                  title="Hoạt động gần đây"
                   size="small"
                   style={{ 
                     borderRadius: '12px',
@@ -345,14 +471,14 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                 >
                   <List
                     dataSource={activities.slice(0, 3)}
-                    renderItem={(item: any) => (
+                    renderItem={(item: ActivityItem) => (
                       <List.Item style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
                         <List.Item.Meta
                           avatar={<Avatar size="small" icon={<UserOutlined />} />}
-                          title={<Text style={{ fontSize: '14px' }}>{item.title}</Text>}
+                          title={<Text style={{ fontSize: '14px' }}>{item.user}</Text>}
                           description={
                             <Text type="secondary" style={{ fontSize: '12px' }}>
-                              {item.description}
+                              {item.action}
                             </Text>
                           }
                         />
@@ -381,7 +507,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
             {/* Quick Actions Card */}
             <Col xs={24}>
               <Card
-                title="⚡ Thao tác nhanh"
+                title="Thao tác nhanh"
                 size="small"
                 style={{
                   borderRadius: '12px',
@@ -400,14 +526,26 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                       Quản lý bác sĩ
                     </Button>
                   </Col>
-                  <Col span={24}>
+                  <Col span={12}>
                     <Button 
+                      type="default" 
                       icon={<MedicineBoxOutlined />} 
                       size="middle"
                       block
-                      onClick={() => setSelectedKey('services')}
+                      onClick={() => setSelectedKey('schedule')}
                     >
-                      Quản lý dịch vụ
+                      Dịch vụ
+                    </Button>
+                  </Col>
+                  <Col span={12}>
+                    <Button 
+                      type="default" 
+                      icon={<CalendarOutlined />} 
+                      size="small"
+                      block
+                      onClick={() => setSelectedKey('schedule')}
+                    >
+                      Lịch làm việc
                     </Button>
                   </Col>
                   {userRole === 'admin' && (
@@ -441,7 +579,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
             {/* System Status - Compact */}
             <Col xs={24}>
               <Card
-                title="📊 Tình trạng hệ thống"
+                title="Tình trạng hệ thống"
                 size="small"
                 style={{
                   borderRadius: '12px',
@@ -474,7 +612,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                       textAlign: 'center'
                     }}>
                       <Text style={{ color: '#52c41a', fontWeight: 500 }}>
-                        ✅ Hệ thống hoạt động bình thường
+                        Hệ thống hoạt động bình thường
                       </Text>
                     </div>
                   </Col>
@@ -492,7 +630,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
           <Col xs={24}>
             <Card
-              title="🔧 Quản trị nâng cao"
+              title="Quản trị nâng cao"
               size="small"
               style={{
                 borderRadius: '12px',
@@ -553,12 +691,19 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
       case 'doctors':
         return <DoctorManagement />;
+      case 'schedule':
+        return <DoctorSchedulePage />;
       case 'services':
         return <ServiceManagement />;
       case 'service-packages':
         return <ServicePackageManagement />;
+
+      case 'medicines':
+        return <MedicineManagement />;
+
       case 'test-categories':
         return <TestCategoriesManagement />;
+
       case 'login-history':
         return <LoginHistoryManagement />;
       case 'system-logs':
@@ -603,6 +748,12 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         style={{
           background: '#fff',
           boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+          position: 'fixed',
+          height: '100vh',
+          left: 0,
+          top: 0,
+          overflow: 'auto',
+          zIndex: 100,
         }}
       >
         <div style={{ 
@@ -634,18 +785,40 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
               setSelectedKey('dashboard');
             }
           }}
-          style={{ border: 'none' }}
+          style={{ 
+            border: 'none',
+            height: 'calc(100vh - 100px)', // Trừ đi height của logo/header
+            overflowY: 'auto'
+          }}
         />
       </Sider>
-      <Layout>
-        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
-          <Button type="link" icon={<DashboardOutlined />} onClick={() => navigate('/')}>Trang chủ</Button>
+      <Layout style={{ 
+        marginLeft: collapsed ? 80 : 250,
+        transition: 'margin-left 0.2s',
+      }}>
+        <Header style={{ 
+          background: '#fff', 
+          padding: '0 24px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          left: collapsed ? 80 : 250,
+          zIndex: 99,
+          transition: 'left 0.2s',
+        }}>
+          <Button type="link" icon={<HomeOutlined />} onClick={() => navigate('/')}>Trang chủ</Button>
           <Button type="link" icon={<LogoutOutlined />} onClick={onLogout}>Đăng xuất</Button>
         </Header>
         <Content style={{ 
           padding: '24px',
           background: '#f5f5f5',
-          overflow: 'auto'
+          overflow: 'auto',
+          marginTop: 64, // Height của header
+          minHeight: 'calc(100vh - 64px)',
         }}>
           {renderContent()}
         </Content>

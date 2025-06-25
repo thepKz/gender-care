@@ -1,0 +1,398 @@
+/* Modal Styles - Clean & Readable Design */
+
+/* Base Modal Styling */
+.help-modal .ant-modal-mask,
+.onboarding-modal .ant-modal-mask {
+  background-color: rgba(0, 0, 0, 0.15) !important;
+  backdrop-filter: blur(2px);
+}
+
+.help-modal .ant-modal-content,
+.onboarding-modal .ant-modal-content {
+  background: #fff;
+  color: #232326;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px 0 rgba(0,0,0,0.12);
+  border: 1.5px solid #e5e7eb;
+}
+
+/* Header Styling */
+.help-modal .ant-modal-header,
+.onboarding-modal .ant-modal-header {
+  background: transparent;
+  border-bottom: 1.5px solid #e5e7eb;
+  padding: 32px 32px 0 32px;
+}
+
+.help-modal .ant-modal-title,
+.onboarding-modal .ant-modal-title {
+  font-family: 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 600;
+  color: #1f2937;
+  font-size: 24px;
+}
+
+/* Body Styling */
+.help-modal .ant-modal-body,
+.onboarding-modal .ant-modal-body {
+  background: #ffffff;
+  padding: 0 24px 24px 24px;
+  color: #374151;
+}
+
+/* Footer Styling */
+.help-modal .ant-modal-footer,
+.onboarding-modal .ant-modal-footer {
+  background: #ffffff;
+  border-top: 1px solid #f1f5f9;
+  padding: 16px 24px;
+}
+
+/* Tab Styling */
+.help-modal .ant-tabs-nav,
+.onboarding-modal .ant-tabs-nav {
+  background: #f3f4f6;
+  border-radius: 10px;
+  border: 1.5px solid #e5e7eb;
+}
+
+.help-modal .ant-tabs-tab,
+.onboarding-modal .ant-tabs-tab {
+  color: #888;
+  background: none;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.help-modal .ant-tabs-tab:hover,
+.onboarding-modal .ant-tabs-tab:hover {
+  color: #374151;
+  background: #e2e8f0 !important;
+}
+
+.help-modal .ant-tabs-tab-active,
+.onboarding-modal .ant-tabs-tab-active {
+  background: #222 !important;
+  color: #fff !important;
+  font-weight: 700;
+}
+
+.help-modal .ant-tabs-ink-bar,
+.onboarding-modal .ant-tabs-ink-bar {
+  display: none;
+}
+
+.help-modal .ant-tabs-content-holder,
+.onboarding-modal .ant-tabs-content-holder {
+  background: #ffffff;
+  padding: 0;
+}
+
+.help-modal .ant-tabs-tabpane,
+.onboarding-modal .ant-tabs-tabpane {
+  padding: 0;
+}
+
+/* Button Styling */
+.help-modal .ant-btn,
+.onboarding-modal .ant-btn {
+  background: #232326;
+  color: #fff;
+  border: 1.5px solid #333;
+  border-radius: 10px;
+  font-family: 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-weight: 600;
+  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.10);
+  padding: 14px 32px;
+  font-size: 1.1rem;
+}
+
+.help-modal .ant-btn:hover,
+.onboarding-modal .ant-btn:hover {
+  background: #333;
+  color: #fff;
+  border-color: #444;
+  box-shadow: 0 4px 16px 0 rgba(0,0,0,0.18);
+}
+
+.help-modal .ant-btn-primary,
+.onboarding-modal .ant-btn-primary {
+  background: #111112;
+  border-color: #111112;
+  color: #fff;
+}
+
+.help-modal .ant-btn-primary:hover,
+.onboarding-modal .ant-btn-primary:hover {
+  background: #232326;
+  border-color: #232326;
+}
+
+.help-modal .ant-btn-default,
+.onboarding-modal .ant-btn-default {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #232326;
+}
+
+.help-modal .ant-btn-default:hover,
+.onboarding-modal .ant-btn-default:hover {
+  background: #e5e7eb;
+  border-color: #bdbdbd;
+  color: #111112;
+}
+
+/* Steps Styling for Onboarding */
+.onboarding-modal .ant-steps-item-icon {
+  border-color: #bdbdbd;
+  background: #f3f4f6;
+}
+
+.onboarding-modal .ant-steps-item-process .ant-steps-item-icon {
+  background: #111112;
+  border-color: #111112;
+}
+
+.onboarding-modal .ant-steps-item-finish .ant-steps-item-icon {
+  background: #444;
+  border-color: #444;
+}
+
+.onboarding-modal .ant-steps-item-finish .ant-steps-item-icon .ant-steps-icon {
+  color: #fff;
+}
+
+.onboarding-modal .ant-steps-item-wait .ant-steps-item-icon .ant-steps-icon {
+  color: #bdbdbd;
+}
+
+.onboarding-modal .ant-steps-item-title {
+  color: #888;
+  font-weight: 500;
+}
+
+.onboarding-modal .ant-steps-item-process .ant-steps-item-title,
+.onboarding-modal .ant-steps-item-finish .ant-steps-item-title {
+  color: #232326;
+  font-weight: 700;
+}
+
+/* Custom Scrollbar */
+.help-modal .ant-modal-body::-webkit-scrollbar,
+.onboarding-modal .ant-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.help-modal .ant-modal-body::-webkit-scrollbar-track,
+.onboarding-modal .ant-modal-body::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 3px;
+}
+
+.help-modal .ant-modal-body::-webkit-scrollbar-thumb,
+.onboarding-modal .ant-modal-body::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.help-modal .ant-modal-body::-webkit-scrollbar-thumb:hover,
+.onboarding-modal .ant-modal-body::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .help-modal .ant-modal,
+  .onboarding-modal .ant-modal {
+    margin: 16px;
+    max-width: calc(100vw - 32px);
+  }
+  
+  .help-modal .ant-modal-content,
+  .onboarding-modal .ant-modal-content {
+    border-radius: 8px;
+  }
+  
+  .help-modal .ant-modal-header,
+  .onboarding-modal .ant-modal-header,
+  .help-modal .ant-modal-body,
+  .onboarding-modal .ant-modal-body,
+  .help-modal .ant-modal-footer,
+  .onboarding-modal .ant-modal-footer {
+    padding: 16px;
+  }
+  
+  .help-modal .ant-tabs-tab,
+  .onboarding-modal .ant-tabs-tab {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+  
+  .help-modal .ant-btn,
+  .onboarding-modal .ant-btn {
+    padding: 10px 20px;
+  }
+}
+
+/* Accessibility */
+.help-modal .ant-btn:focus,
+.onboarding-modal .ant-btn:focus {
+  outline: 2px solid #444 !important;
+  outline-offset: 2px;
+}
+
+/* Tag Styling */
+.help-modal .ant-tag,
+.onboarding-modal .ant-tag {
+  background: #232326;
+  color: #fff;
+  border: 1.5px solid #444;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* Clean animations */
+.help-modal .ant-modal-zoom-enter,
+.onboarding-modal .ant-modal-zoom-enter {
+  transform: scale(0.9);
+  opacity: 0;
+}
+
+.help-modal .ant-modal-zoom-enter-active,
+.onboarding-modal .ant-modal-zoom-enter-active {
+  transform: scale(1);
+  opacity: 1;
+  transition: all 0.2s ease-out;
+}
+
+/* Medical theme colors */
+:root {
+  --medical-primary: #0c3c54;
+  --medical-secondary: #0F7EA9;
+  --medical-accent: #006478;
+  --medical-success: #10b981;
+  --medical-warning: #f59e0b;
+  --medical-error: #ef4444;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .help-modal .ant-modal-content,
+  .onboarding-modal .ant-modal-content {
+    background: #18181b !important;
+    color: #f3f4f6 !important;
+    border: 1.5px solid #333 !important;
+    box-shadow: 0 8px 32px 0 rgba(0,0,0,0.45);
+  }
+  .help-modal .ant-modal-header,
+  .onboarding-modal .ant-modal-header {
+    border-bottom: 1.5px solid #333;
+  }
+  .help-modal .ant-tabs-nav,
+  .onboarding-modal .ant-tabs-nav {
+    background: #232326;
+    border: 1.5px solid #333;
+  }
+  .help-modal .ant-tabs-tab,
+  .onboarding-modal .ant-tabs-tab {
+    color: #bdbdbd;
+  }
+  .help-modal .ant-tabs-tab-active,
+  .onboarding-modal .ant-tabs-tab-active {
+    background: #111112 !important;
+    color: #fff !important;
+  }
+  .help-modal .ant-btn,
+  .onboarding-modal .ant-btn {
+    background: #232326;
+    color: #f3f4f6;
+    border: 1.5px solid #444;
+  }
+  .help-modal .ant-btn:hover,
+  .onboarding-modal .ant-btn:hover {
+    background: #333;
+    color: #fff;
+    border-color: #666;
+  }
+  .help-modal .ant-btn:focus,
+  .onboarding-modal .ant-btn:focus {
+    outline: 2px solid #666 !important;
+    outline-offset: 2px;
+  }
+  .help-modal .ant-btn-primary,
+  .onboarding-modal .ant-btn-primary {
+    background: #111112;
+    border-color: #111112;
+    color: #fff;
+  }
+  .help-modal .ant-btn-primary:hover,
+  .onboarding-modal .ant-btn-primary:hover {
+    background: #232326;
+    border-color: #232326;
+  }
+  .help-modal .ant-btn-default,
+  .onboarding-modal .ant-btn-default {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+    color: #232326;
+  }
+  .help-modal .ant-btn-default:hover,
+  .onboarding-modal .ant-btn-default:hover {
+    background: #e5e7eb;
+    border-color: #bdbdbd;
+    color: #111112;
+  }
+  .onboarding-modal .ant-steps-item-icon {
+    background: #232326;
+    border-color: #333;
+  }
+  .onboarding-modal .ant-steps-item-process .ant-steps-item-icon {
+    background: #fff;
+    color: #232326;
+    border-color: #fff;
+  }
+  .onboarding-modal .ant-steps-item-finish .ant-steps-item-icon {
+    background: #444;
+    border-color: #444;
+  }
+  .onboarding-modal .ant-steps-item-title {
+    color: #bdbdbd;
+  }
+  .onboarding-modal .ant-steps-item-process .ant-steps-item-title,
+  .onboarding-modal .ant-steps-item-finish .ant-steps-item-title {
+    color: #f3f4f6;
+  }
+  .help-modal .ant-tag,
+  .onboarding-modal .ant-tag {
+    background: #333;
+    color: #f3f4f6;
+    border: 1.5px solid #666;
+  }
+  .help-modal .card,
+  .onboarding-modal .card {
+    background: #232326;
+    border: 1.5px solid #333;
+    color: #f3f4f6;
+    box-shadow: 0 4px 24px 0 rgba(0,0,0,0.25);
+  }
+}
+
+/* Card override */
+.help-modal .card,
+.onboarding-modal .card {
+  background: #fff;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.10);
+  padding: 32px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .help-modal .card,
+  .onboarding-modal .card {
+    background: #232326;
+    border: 1.5px solid #333;
+    color: #f3f4f6;
+    box-shadow: 0 4px 24px 0 rgba(0,0,0,0.25);
+  }
+} 

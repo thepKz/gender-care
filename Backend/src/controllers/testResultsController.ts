@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { TestResultsService } from '../services/testResultsService';
 import { AuthRequest } from '../types';
+import mongoose from 'mongoose';
+import { TestResults } from '../models';
 
 // Controller class để xử lý HTTP requests cho TestResults
 class TestResultsController {
@@ -292,6 +294,55 @@ class TestResultsController {
         success: false,
         message: 'Failed to retrieve test result statistics',
         error: error.message
+      });
+    }
+  };
+
+  /**
+   * Check if appointment already has test results
+   * GET /api/test-results/check/:appointmentId
+   */
+  checkTestResultsByAppointment = async (req: Request, res: Response) => {
+    try {
+      const { appointmentId } = req.params;
+
+      // Validate appointmentId
+      if (!appointmentId) {
+        return res.status(400).json({
+          success: false,
+          message: 'appointmentId is required'
+        });
+      }
+
+      // First, find AppointmentTests for this appointment
+      const AppointmentTests = mongoose.model('AppointmentTests');
+      const appointmentTest = await AppointmentTests.findOne({ appointmentId });
+
+      if (!appointmentTest) {
+        return res.status(200).json({
+          success: true,
+          exists: false,
+          message: 'No appointment test found - can create new test record'
+        });
+      }
+
+      // Then check if TestResults exists for this AppointmentTest
+      const testResult = await TestResults.findOne({ appointmentTestId: appointmentTest._id });
+
+      return res.status(200).json({
+        success: true,
+        exists: !!testResult,
+        appointmentTestId: appointmentTest._id,
+        testResultId: testResult?._id || null,
+        message: testResult ? 'Test results exist' : 'Appointment test exists but no results yet'
+      });
+
+    } catch (error) {
+      console.error('Error in checkTestResultsByAppointment:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
   };

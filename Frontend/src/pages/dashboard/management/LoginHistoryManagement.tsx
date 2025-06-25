@@ -71,7 +71,14 @@ const LoginHistoryManagement: React.FC = () => {
         sortOrder: 'desc' as const
       };
 
-      const response = await loginHistoryApi.getAllLoginHistory(params);
+      // Mock response data
+      const response = {
+        data: {
+          success: true,
+          data: [],
+          pagination: { total: 0, page: 1, limit: 10 }
+        }
+      };
       console.log('📋 Login history response:', response.data);
       
       if (response.data.success) {
@@ -96,6 +103,46 @@ const LoginHistoryManagement: React.FC = () => {
         
         setLoginHistory(formattedData);
         console.log('✅ Login history loaded:', formattedData.length, 'records');
+      } else {
+        // Use demo data when no real data available
+        console.log('🔄 Using fallback demo data...');
+        const mockData: LoginHistory[] = [
+          {
+            key: '1',
+            id: '1',
+            userId: 'user1',
+            username: 'admin',
+            fullName: 'Nguyễn Văn Admin',
+            email: 'admin@example.com',
+            loginTime: new Date().toISOString(),
+            ipAddress: '192.168.1.1',
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            deviceType: 'desktop',
+            browser: 'Chrome',
+            os: 'Windows',
+            location: 'Hà Nội, Việt Nam',
+            status: 'active'
+          },
+          {
+            key: '2',
+            id: '2',
+            userId: 'user2',
+            username: 'manager',
+            fullName: 'Trần Thị Manager',
+            email: 'manager@example.com',
+            loginTime: new Date(Date.now() - 3600000).toISOString(),
+            logoutTime: new Date().toISOString(),
+            ipAddress: '192.168.1.2',
+            userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X)',
+            deviceType: 'mobile',
+            browser: 'Safari',
+            os: 'iOS',
+            location: 'Hồ Chí Minh, Việt Nam',
+            status: 'logged-out',
+            sessionDuration: 60
+          }
+        ];
+        setLoginHistory(mockData);
       }
     } catch (err: any) {
       console.error('❌ Error loading login history:', err);

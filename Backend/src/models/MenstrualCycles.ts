@@ -1,58 +1,82 @@
 import mongoose from 'mongoose';
 
 export interface IMenstrualCycles {
+  _id?: string;
   createdByUserId: mongoose.Types.ObjectId;
-  profileId: mongoose.Types.ObjectId;
+  profileId?: mongoose.Types.ObjectId; // Optional để tương thích
   startDate: Date;
   endDate?: Date;
-  stamp?: string;
-  symbol?: string;
-  mood?: string;
-  observation?: string;
-  notes?: string;
+  isCompleted: boolean;
+  cycleNumber: number; // Thứ tự chu kỳ: 1, 2, 3...
+  result?: number; // X+1 - Y
+  resultType?: string; // "normal", "short", "long"
+  peakDay?: Date; // ngày X (ngày đỉnh)
+  status: string; // "tracking", "completed", "analysis"
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 const MenstrualCyclesSchema = new mongoose.Schema<IMenstrualCycles>({
-  createdByUserId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+  createdByUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
-  profileId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'UserProfiles', 
-    required: true 
+  profileId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UserProfiles'
   },
-  startDate: { 
-    type: Date, 
-    required: true 
+  startDate: {
+    type: Date,
+    required: true
   },
-  endDate: { 
-    type: Date 
+  endDate: {
+    type: Date
   },
-  stamp: { 
-    type: String 
+  isCompleted: {
+    type: Boolean,
+    default: false
   },
-  symbol: { 
-    type: String 
+  cycleNumber: {
+    type: Number,
+    required: true,
+    min: 1
   },
-  mood: { 
-    type: String 
+  result: {
+    type: Number,
+    min: -50,
+    max: 50
   },
-  observation: { 
-    type: String 
+  resultType: {
+    type: String,
+    enum: ['normal', 'short', 'long'],
+    default: null
   },
-  notes: { 
-    type: String 
+  peakDay: {
+    type: Date
+  },
+  status: {
+    type: String,
+    enum: ['tracking', 'completed', 'analysis'],
+    default: 'tracking'
   }
-}, { timestamps: true });
+}, {
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
 
-// Tạo index để tối ưu hóa truy vấn
-MenstrualCyclesSchema.index({ createdByUserId: 1 });
-MenstrualCyclesSchema.index({ profileId: 1 });
-MenstrualCyclesSchema.index({ startDate: 1 });
+// Indexes để tối ưu hóa truy vấn
+MenstrualCyclesSchema.index({ createdByUserId: 1, cycleNumber: 1 });
+MenstrualCyclesSchema.index({ createdByUserId: 1, startDate: 1 });
+MenstrualCyclesSchema.index({ createdByUserId: 1, status: 1 });
+
+// Virtual để lấy cycle days
+MenstrualCyclesSchema.virtual('cycleDays', {
+  ref: 'CycleDays',
+  localField: '_id',
+  foreignField: 'cycleId'
+});
 
 const MenstrualCycles = mongoose.model<IMenstrualCycles>('MenstrualCycles', MenstrualCyclesSchema);
 

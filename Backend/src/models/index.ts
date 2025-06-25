@@ -17,7 +17,9 @@ import Appointments from './Appointments';
 
 // Health Tracking
 import MenstrualCycles from './MenstrualCycles';
-import CycleSymptoms from './CycleSymptoms';
+import CycleDays from './CycleSymptoms'; // Renamed from CycleSymptoms to CycleDays
+import MenstrualCycleReminders from './MenstrualCycleReminders';
+import MenstrualCycleReports from './MenstrualCycleReports';
 import MedicationReminders, { IMedicationReminders, IMedicines } from './MedicationReminders';
 import NotificationDays from './NotificationDays';
 
@@ -25,9 +27,14 @@ import NotificationDays from './NotificationDays';
 import MedicalRecords, { IMedicalRecords, IMedicalRecordMedicines } from './MedicalRecords';
 import Medicines, { IMedicines as IMedicinesData } from './Medicines';
 
+// Testing & Results
+import TestResults from './TestResults';
+import AppointmentTests from './AppointmentTests';
+
 // Doctor QA & Meeting
 import DoctorQA from './DoctorQA';
 import Meeting from './Meeting';
+import GoogleAuth from './GoogleAuth';
 
 // Content & Community
 import BlogCategories from './BlogCategories';
@@ -60,43 +67,51 @@ export {
   LoginHistory,
   OtpCode,
   UserProfiles,
-  
+
   // Doctor & Staff Management
   Doctor,
   StaffDetails,
   DoctorSchedules,
-  
+
   // Services & Appointments
   Service,
   ServicePackages,
   Appointments,
-  
+
   // Health Tracking
   MenstrualCycles,
-  CycleSymptoms,
+  CycleDays,
+  MenstrualCycleReminders,
+  MenstrualCycleReports,
   MedicationReminders,
   NotificationDays,
-  
+
   // Medical Records & Medicines
   MedicalRecords,
   Medicines,
   
+  // Testing & Results
+  TestResults,
+  AppointmentTests,
+  
   // Doctor QA & Meeting
   DoctorQA,
   Meeting,
-  
+  GoogleAuth,
+
   // Content & Community
   BlogCategories,
   BlogPosts,
   PostCategories,
   Feedbacks,
-  
+
   // Business & Billing
   Promotions,
   Bills,
   Payments,
   PackagePurchases,
   PaymentTracking,
+
   
   // Test Management
   TestCategories,

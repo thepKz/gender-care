@@ -34,12 +34,13 @@ import FeedbackPage from '../pages/feedback';
 
 
 // Consultation Pages
-import PaymentSuccessPage from '../pages/consultation/PaymentSuccessPage';
+import PaymentPage from '../pages/consultation/PaymentPage';
+import ConsultationPaymentSuccessPage from '../pages/consultation/PaymentSuccessPage';
 import ServicesPage from '../pages/services';
 
 // Payment Pages
 import PaymentProcessPage from '../pages/payment/PaymentProcessPage';
-import PaymentSuccessPageNew from '../pages/payment/PaymentSuccessPage';
+import PaymentSuccessPage from '../pages/payment/PaymentSuccessPage';
 import PaymentCancelPage from '../pages/payment/PaymentCancelPage';
 
 // Demo Pages
@@ -154,28 +155,12 @@ const AppRoutes: React.FC = () => {
         
         {/* Payment Processing Pages */}
         <Route path="/payment/process" element={<PaymentProcessPage />} />
-        <Route path="/payment/success" element={
-          // IMMEDIATE redirect for PAID status
-          (() => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const status = urlParams.get('status');
-            const code = urlParams.get('code');
-            const cancel = urlParams.get('cancel');
-            
-            if (code === '00' && cancel === 'false' && status === 'PAID') {
-              console.log('🚨 [RouteLevel] PAID detected - immediate redirect');
-              // Force immediate redirect at route level
-              window.location.replace('/booking-history');
-              return <div>Redirecting...</div>;
-            }
-            
-            return <PaymentSuccessPageNew />;
-          })()
-        } />
+        <Route path="/payment/success" element={<PaymentSuccessPage />} />
         <Route path="/payment/cancel" element={<PaymentCancelPage />} />
         
         {/* Consultation Pages */}
-        <Route path="/consultation/success/:qaId" element={<PaymentSuccessPage />} />
+        <Route path="/consultation/payment/:qaId" element={<PaymentPage />} />
+        <Route path="/consultation/success/:qaId?" element={<ConsultationPaymentSuccessPage />} />
         
         {/* Demo Pages */}
         <Route path="/demo" element={<DemoIndexPage />} />

@@ -176,6 +176,26 @@ export class TestCategoriesService {
     }
   }
 
+  // Lấy TẤT CẢ test categories mà không có pagination (cho frontend management)
+  async getAllTestCategoriesWithoutPagination(search?: string): Promise<ITestCategories[]> {
+    // Tạo filter query nếu có search
+    let filter = {};
+    if (search) {
+      filter = {
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } }
+        ]
+      };
+    }
+
+    // Lấy tất cả test categories mà không có limit
+    const testCategories = await TestCategories.find(filter)
+      .sort({ createdAt: -1 });
+
+    return testCategories;
+  }
+
   // Lấy test categories để sử dụng trong dropdown/select
   async getTestCategoriesForDropdown(): Promise<Array<{
     id: string;

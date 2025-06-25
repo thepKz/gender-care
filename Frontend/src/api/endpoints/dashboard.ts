@@ -1,16 +1,7 @@
 import api from '../axiosConfig';
+import { DashboardStats } from '../../types/dashboard';
 
 // ✅ Dashboard API endpoints - Thay thế hoàn toàn mockdata
-
-export interface DashboardStats {
-    totalDoctors?: number;
-    totalServices?: number;
-    todayAppointments?: number;
-    monthlyRevenue?: number;
-    pendingAppointments?: number;
-    completedToday?: number;
-    efficiency?: number;
-}
 
 export interface ActivityItem {
     id: string;

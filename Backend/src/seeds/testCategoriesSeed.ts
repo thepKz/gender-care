@@ -1,6 +1,8 @@
+
 import TestCategories from '../models/TestCategories';
 
 const testCategoriesData = [
+
   {
     name: 'Cholesterol toàn phần',
     description: 'Đo tổng lượng cholesterol trong máu',
@@ -9,18 +11,23 @@ const testCategoriesData = [
   },
   {
     name: 'HDL Cholesterol',
+
     description: 'Cholesterol lipoprotein mật độ cao (cholesterol tốt)',
+
     unit: 'mg/dL',
     normalRange: '>40 (nam), >50 (nữ)'
   },
   {
     name: 'LDL Cholesterol',
+
     description: 'Cholesterol lipoprotein mật độ thấp (cholesterol xấu)',
+
     unit: 'mg/dL',
     normalRange: '<100'
   },
   {
     name: 'Triglycerides',
+
     description: 'Triglycerides trong máu',
     unit: 'mg/dL',
     normalRange: '<150'
@@ -142,3 +149,4 @@ const seedTestCategories = async () => {
 };
 
 export default seedTestCategories; 
+

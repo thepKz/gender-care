@@ -1,3 +1,8 @@
+/* Import custom CSS files first */
+@import './animations.css';
+@import './calendar.css';
+@import './modals.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

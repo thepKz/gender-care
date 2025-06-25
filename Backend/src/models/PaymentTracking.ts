@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 
 export interface IPaymentTracking extends mongoose.Document {
-  appointmentId: mongoose.Types.ObjectId;
+  serviceType: 'appointment' | 'consultation';
+  recordId: mongoose.Types.ObjectId;
   orderCode: number;
   paymentLinkId?: string;
   paymentGateway: 'payos' | 'vnpay' | 'momo';
@@ -29,11 +30,18 @@ export interface IPaymentTracking extends mongoose.Document {
 }
 
 const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
-  appointmentId: {
+  serviceType: {
+    type: String,
+    enum: ['appointment', 'consultation'],
+    required: true
+  },
+  recordId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Appointments',
     required: true,
-    unique: true
+    refPath: 'serviceType',
+    ref: function() {
+      return this.serviceType === 'appointment' ? 'Appointments' : 'DoctorQA';
+    }
   },
   orderCode: {
     type: Number,
@@ -92,18 +100,47 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   expiresAt: {
     type: Date,
     default: () => new Date(Date.now() + 15 * 60 * 1000),
-    index: { expireAfterSeconds: 0 }
   }
 }, { 
   timestamps: true 
 });
 
-PaymentTrackingSchema.index({ appointmentId: 1 });
-PaymentTrackingSchema.index({ orderCode: 1 });
+PaymentTrackingSchema.pre('save', function() {
+  if (!this.recordId) {
+    throw new Error('recordId is required');
+  }
+  if (!this.serviceType) {
+    throw new Error('serviceType is required');
+  }
+});
+
+PaymentTrackingSchema.index({ serviceType: 1, recordId: 1 }, { unique: true });
+PaymentTrackingSchema.index({ orderCode: 1 }, { unique: true });
 PaymentTrackingSchema.index({ status: 1 });
 
+PaymentTrackingSchema.index(
+  { "expiresAt": 1 }, 
+  { 
+    expireAfterSeconds: 0,
+    partialFilterExpression: { 
+      status: "pending",
+      expiresAt: { $ne: null }
+    }
+  }
+);
+
 PaymentTrackingSchema.statics.findAppointmentByOrderCode = function(orderCode: number) {
-  return this.findOne({ orderCode }).populate('appointmentId');
+  return this.findOne({ 
+    orderCode, 
+    serviceType: 'appointment' 
+  }).populate('recordId');
+};
+
+PaymentTrackingSchema.statics.findConsultationByOrderCode = function(orderCode: number) {
+  return this.findOne({ 
+    orderCode, 
+    serviceType: 'consultation' 
+  }).populate('recordId');
 };
 
 PaymentTrackingSchema.methods.updatePaymentStatus = function(
@@ -119,6 +156,11 @@ PaymentTrackingSchema.methods.updatePaymentStatus = function(
     this.webhookReceived = true;
     this.webhookProcessedAt = new Date();
   }
+  
+  if (status === 'success' || status === 'failed' || status === 'cancelled') {
+    this.expiresAt = null;
+  }
+  
   return this.save();
 };
 

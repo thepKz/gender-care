@@ -447,4 +447,40 @@ export const searchAllMedicalRecords = async (req: AuthRequest, res: Response) =
       message: 'Lỗi server khi tìm kiếm hồ sơ khám bệnh'
     });
   }
+};
+
+/**
+ * Check if appointment already has medical record
+ * GET /api/medical-records/check/:appointmentId
+ */
+export const checkMedicalRecordByAppointment = async (req: Request, res: Response) => {
+  try {
+    const { appointmentId } = req.params;
+
+    // Validate appointmentId
+    if (!appointmentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'appointmentId is required'
+      });
+    }
+
+    // Check if medical record exists for this appointment
+    const medicalRecord = await MedicalRecords.findOne({ appointmentId });
+
+    return res.status(200).json({
+      success: true,
+      exists: !!medicalRecord,
+      recordId: medicalRecord?._id || null,
+      message: medicalRecord ? 'Medical record exists' : 'No medical record found'
+    });
+
+  } catch (error) {
+    console.error('Error in checkMedicalRecordByAppointment:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
 }; 

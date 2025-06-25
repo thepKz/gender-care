@@ -13,6 +13,7 @@ export const runAllSeeds = async () => {
     console.log('🌱 Bắt đầu chạy tất cả seed data...');
 
     // Chạy seeds theo thứ tự dependency
+
     await seedTestCategories(); // Test Categories trước (independent)
     await seedServices();     // Services trước (independent)
     await seedMedicines();    // Medicines trước (independent)
@@ -22,6 +23,7 @@ export const runAllSeeds = async () => {
     await seedDoctorSchedules(); // Doctor Schedules (cần doctors)
     await seedServicePackages(); // Service Packages (cần services)
     await seedPosts();
+
     console.log('✅ Hoàn thành việc chạy tất cả seed data!');
   } catch (error) {
     console.error('❌ Lỗi khi chạy seeds:', error);

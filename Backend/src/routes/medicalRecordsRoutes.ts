@@ -60,4 +60,7 @@ router.get('/staff/search',
   medicalRecordsController.searchAllMedicalRecords
 );
 
+// ✅ Add new route for checking medical record existence
+router.get('/check/:appointmentId', medicalRecordsController.checkMedicalRecordByAppointment);
+
 export default router; 

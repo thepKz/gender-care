@@ -3,9 +3,11 @@ import { Request, Response } from "express";
 import fs from 'fs';
 import { OtpCode, User } from "../models";
 import {
-    sendResetPasswordEmail
+    sendResetPasswordEmail,
+    sendNewAccountEmail
 } from "../services/emails";
 import { uploadToCloudinary } from '../services/uploadService';
+import { generateRandomPassword } from "../utils";
 import { AuthRequest } from "../types";
 import mongoose from 'mongoose';
 
@@ -444,18 +446,18 @@ export const createUser = async (req: Request, res: Response) => {
     const { email, password, fullName, phone, avatar, gender, address, year, role } = req.body;
     const currentUserRole = (req as any).user?.role; // Get current user's role
     
-    if (!email || !password || !fullName) {
+    if (!email || !fullName) {
       return res.status(400).json({ 
         success: false,
-        message: "Thiếu thông tin bắt buộc" 
+        message: "Thiếu thông tin bắt buộc (email, họ tên)" 
       });
     }
     
-    // Manager restrictions: cannot create admin users
-    if (currentUserRole === 'manager' && role === 'admin') {
+    // Manager và Admin không thể tạo tài khoản Admin
+    if (role === 'admin') {
       return res.status(403).json({
         success: false,
-        message: 'Manager không thể tạo tài khoản Admin'
+        message: 'Không thể tạo tài khoản Admin'
       });
     }
     
@@ -467,18 +469,29 @@ export const createUser = async (req: Request, res: Response) => {
       });
     }
     
-    const hash = await bcrypt.hash(password, 10);
+    // Generate random password if not provided
+    const finalPassword = password && password.trim() !== '' ? password : generateRandomPassword(10);
+    
+    const hash = await bcrypt.hash(finalPassword, 10);
     const user = await User.create({
       email,
       password: hash,
       fullName,
-      phone,
+      phone: phone || '',
       avatar,
-      gender,
-      address,
+      gender: gender || 'other',
+      address: address || '',
       year,
       role: role || "customer",
     });
+    
+    // Send account information via email
+    try {
+      await sendNewAccountEmail(email, fullName, email, finalPassword, user.role);
+    } catch (emailError) {
+      console.error('Failed to send account email:', emailError);
+      // Continue without failing the user creation
+    }
     
     // Remove password from response
     const userResponse = user.toObject();
@@ -490,7 +503,7 @@ export const createUser = async (req: Request, res: Response) => {
     
     return res.status(201).json({ 
       success: true,
-      message: "Tạo người dùng thành công",
+      message: "Tạo người dùng thành công. Thông tin đăng nhập đã được gửi qua email.",
       data: userWithoutPassword 
     });
   } catch (error: any) {

@@ -1,29 +1,33 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-// Interface for Meeting document
+// Interface for Meeting document - SIMPLIFIED VERSION
 export interface IMeeting extends Document {
-  qaId: mongoose.Types.ObjectId;           // Reference to DoctorQA
-  doctorId: mongoose.Types.ObjectId;       // Reference to Doctor
-  userId: mongoose.Types.ObjectId;         // Reference to User
-  meetingLink: string;                     // Google Meet URL
-  meetingId?: string;                      // Google Calendar event ID
-  scheduledStartTime: Date;                // Thời gian bắt đầu đã lên lịch
-  scheduledEndTime: Date;                  // Thời gian kết thúc đã lên lịch
-  actualStartTime?: Date;                  // Thời gian thực tế bắt đầu (khi doctor join)
-  actualEndTime?: Date;                    // Thời gian thực tế kết thúc
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-  participants: [{
-    userId: mongoose.Types.ObjectId;
-    userType: 'doctor' | 'user';
-    joinedAt?: Date;
-    leftAt?: Date;
-  }];
-  notes?: string;                          // Ghi chú từ doctor
-  createdAt: Date;
-  updatedAt: Date;
+  qaId: mongoose.Types.ObjectId;           // 🤖 AUTO: Reference to DoctorQA
+  doctorId: mongoose.Types.ObjectId;       // 🤖 AUTO: Reference to Doctor  
+  userId: mongoose.Types.ObjectId;         // 🤖 AUTO: Reference to Customer/User
+  meetingLink: string;                     // 🤖 AUTO: Jitsi URL (auto-generated)
+  provider: 'google' | 'jitsi';            // 🤖 AUTO: Meeting provider (default: jitsi)
+  
+  // Thời gian
+  scheduledTime: Date;                     // 🤖 AUTO: Thời gian dự kiến (from appointmentDate + slot)
+  actualStartTime?: Date;                  // ✏️ DOCTOR: Khi meeting thực sự bắt đầu
+  
+  // Trạng thái và thông tin
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'; // ✏️ DOCTOR: Meeting status
+  participantCount: number;                // 🤖 AUTO: Số người tham gia hiện tại (from Jitsi API)
+  maxParticipants: number;                 // ✏️ DOCTOR: Giới hạn số người (default: 2)
+  
+  // Ghi chú
+  notes?: string;                          // ✏️ DOCTOR: Ghi chú từ doctor
+  
+  // Google Meet specific (optional - legacy)
+  googleEventId?: string;                  // 🤖 AUTO: Chỉ khi dùng Google
+  
+  createdAt: Date;                        // 🤖 AUTO: MongoDB timestamp
+  updatedAt: Date;                        // 🤖 AUTO: MongoDB timestamp
 }
 
-// Meeting Schema
+// Meeting Schema - SIMPLIFIED
 const MeetingSchema: Schema = new Schema({
   qaId: {
     type: Schema.Types.ObjectId,
@@ -46,22 +50,16 @@ const MeetingSchema: Schema = new Schema({
     required: true,
     trim: true
   },
-  meetingId: {
+  provider: {
     type: String,
-    trim: true
+    enum: ['google', 'jitsi'],
+    default: 'jitsi'                      // ✅ CHANGED: Default to Jitsi instead of Google
   },
-  scheduledStartTime: {
-    type: Date,
-    required: true
-  },
-  scheduledEndTime: {
+  scheduledTime: {
     type: Date,
     required: true
   },
   actualStartTime: {
-    type: Date
-  },
-  actualEndTime: {
     type: Date
   },
   status: {
@@ -69,25 +67,22 @@ const MeetingSchema: Schema = new Schema({
     enum: ['scheduled', 'in_progress', 'completed', 'cancelled'],
     default: 'scheduled'
   },
-  participants: [{
-    userId: {
-      type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
-    userType: {
-      type: String,
-      enum: ['doctor', 'user'],
-      required: true
-    },
-    joinedAt: {
-      type: Date
-    },
-    leftAt: {
-      type: Date
-    }
-  }],
+  participantCount: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  maxParticipants: {
+    type: Number,
+    default: 2,
+    min: 2,
+    max: 10
+  },
   notes: {
+    type: String,
+    trim: true
+  },
+  googleEventId: {
     type: String,
     trim: true
   }
@@ -99,7 +94,7 @@ const MeetingSchema: Schema = new Schema({
 MeetingSchema.index({ qaId: 1 });
 MeetingSchema.index({ doctorId: 1 });
 MeetingSchema.index({ userId: 1 });
-MeetingSchema.index({ scheduledStartTime: 1 });
+MeetingSchema.index({ scheduledTime: 1 });
 MeetingSchema.index({ status: 1 });
 
 // Export model
