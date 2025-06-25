@@ -2,6 +2,7 @@ import DoctorQA from '../models/DoctorQA';
 import Doctor from '../models/Doctor';
 import mongoose from 'mongoose';
 import { getDoctorStatistics } from './doctorService';
+import { generateMeetingPassword } from '../utils/passwordGenerator'; // ➕ IMPORT password generator
 
 // Validate ObjectId helper
 const isValidObjectId = (id: string): boolean => {
@@ -1015,10 +1016,14 @@ export const createMeetingRecord = async (qaId: string): Promise<{
       throw new Error('Meeting record đã tồn tại cho consultation này');
     }
 
-    // 4. Tạo meeting link (Jitsi)
+    // 4. Generate secure password
+    const meetingPassword = generateMeetingPassword();
+    console.log(`🔐 [CREATE-MEETING] Generated password: ${meetingPassword} for QA: ${qaId}`);
+    
+    // 5. Tạo meeting link (Jitsi)
     const meetingLink = `https://meet.jit.si/consultation-${qaId}-${Date.now()}`;
     
-    // 5. Parse scheduled time từ appointmentDate + appointmentSlot
+    // 6. Parse scheduled time từ appointmentDate + appointmentSlot
     const appointmentDate = new Date(qa.appointmentDate);
     const [startTime] = qa.appointmentSlot.split('-'); // Lấy "14:00" từ "14:00-15:00"
     const [hours, minutes] = startTime.split(':').map(Number);
@@ -1026,12 +1031,13 @@ export const createMeetingRecord = async (qaId: string): Promise<{
     const scheduledTime = new Date(appointmentDate);
     scheduledTime.setHours(hours, minutes, 0, 0);
 
-    // 6. Tạo Meeting record
+    // 7. Tạo Meeting record
     const newMeeting = await Meeting.create({
       qaId: qa._id,
       doctorId: qa.doctorId,
       userId: qa.userId,
       meetingLink,
+      meetingPassword,           // ➕ ADD password field
       provider: 'jitsi',
       scheduledTime,
       status: 'scheduled',
@@ -1042,7 +1048,7 @@ export const createMeetingRecord = async (qaId: string): Promise<{
 
     console.log('✅ [CREATE-MEETING] Meeting record created:', newMeeting._id);
 
-    // 7. Update DoctorQA status to 'consulting'
+    // 8. Update DoctorQA status to 'consulting'
     const updatedQA = await DoctorQA.findByIdAndUpdate(
       qaId,
       { 
@@ -1067,6 +1073,56 @@ export const createMeetingRecord = async (qaId: string): Promise<{
 
   } catch (error) {
     console.error('❌ [ERROR] Create meeting record failed:', error);
+    throw error;
+  }
+};
+
+/**
+ * 🔄 Cập nhật participant count và status
+ * @param meetingId - ID của Meeting
+ * @param participantCount - Số người tham gia hiện tại
+ */
+export const updateMeetingParticipants = async (
+  meetingId: string, 
+  participantCount: number
+): Promise<any> => {
+  try {
+    console.log(`🔄 [UPDATE-PARTICIPANTS] Meeting ${meetingId}: ${participantCount} participants`);
+    
+    if (!isValidObjectId(meetingId)) {
+      throw new Error('Meeting ID không hợp lệ');
+    }
+
+    const Meeting = require('../models/Meeting').default;
+    const meeting = await Meeting.findById(meetingId);
+    if (!meeting) {
+      throw new Error('Meeting không tồn tại');
+    }
+
+    let newStatus = meeting.status;
+    
+    // Logic tự động chuyển status
+    if (participantCount === 1 && meeting.status === 'scheduled') {
+      newStatus = 'waiting_customer';
+      console.log(`🔄 [STATUS-CHANGE] Doctor joined first → waiting_customer`);
+    } else if (participantCount >= 2 && meeting.status === 'waiting_customer') {
+      newStatus = 'in_progress';
+      console.log(`🔄 [STATUS-CHANGE] Customer joined → in_progress`);
+    }
+
+    const updatedMeeting = await Meeting.findByIdAndUpdate(
+      meetingId,
+      { 
+        participantCount,
+        status: newStatus,
+        ...(participantCount === 1 && { actualStartTime: new Date() })
+      },
+      { new: true }
+    );
+
+    return updatedMeeting;
+  } catch (error) {
+    console.error('❌ [ERROR] Update participants failed:', error);
     throw error;
   }
 };

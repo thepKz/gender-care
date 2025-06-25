@@ -204,7 +204,7 @@ apiRouter.use('/test-result-items', testResultItemsRoutes);
 
 // Thêm DoctorQA & Meeting routes
 apiRouter.use('/', doctorQARoutes);
-apiRouter.use('/', meetingRoutes);
+apiRouter.use('/meetings', meetingRoutes);
 apiRouter.use('/medical-records', medicalRecordsRoutes);
 apiRouter.use('/medicines', medicinesRoutes);
 apiRouter.use('/medication-reminders', medicationRemindersRoutes);

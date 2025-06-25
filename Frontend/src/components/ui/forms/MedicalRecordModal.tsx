@@ -510,16 +510,7 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
                           </Space>
                         </Col>
                       </Row>
-                      <div style={{ marginTop: '12px' }}>
-                        <Text strong>Hướng dẫn sử dụng:</Text>
-                        <TextArea
-                          value={medicine.instructions}
-                          onChange={(e) => updateMedicine(medicine.id, 'instructions', e.target.value)}
-                          placeholder="Hướng dẫn chi tiết cách sử dụng thuốc..."
-                          rows={2}
-                          style={{ marginTop: '4px' }}
-                        />
-                      </div>
+                      
                     </Card>
                   )}
                 />
