@@ -108,9 +108,9 @@ export class TestResultItemsService {
     currentRange?: string;
     flag?: "high" | "low" | "normal";
   }, createdByRole: string): Promise<ITestResultItems> {
-    // Kiểm tra quyền hạn - chỉ doctor và nursing staff
-    if (!['doctor', 'nursing_staff'].includes(createdByRole)) {
-      throw new Error('Only doctors and nursing staff can create test result items');
+    // Kiểm tra quyền hạn - cho phép doctor, nursing staff, staff
+    if (!['doctor', 'nursing_staff', 'staff'].includes(createdByRole)) {
+      throw new Error('Only doctors, nursing staff, and staff can create test result items');
     }
 
     // Validate input data
@@ -182,9 +182,9 @@ export class TestResultItemsService {
       flag?: "high" | "low" | "normal";
     }>;
   }, createdByRole: string): Promise<ITestResultItems[]> {
-    // Kiểm tra quyền hạn - chỉ doctor và nursing staff
-    if (!['doctor', 'nursing_staff'].includes(createdByRole)) {
-      throw new Error('Only doctors and nursing staff can create test result items');
+    // Kiểm tra quyền hạn - cho phép doctor, nursing staff, staff
+    if (!['doctor', 'nursing_staff', 'staff'].includes(createdByRole)) {
+      throw new Error('Only doctors, nursing staff, and staff can create test result items');
     }
 
     // Validate input data

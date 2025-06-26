@@ -32,8 +32,8 @@ import AppointmentManagement from '../../../pages/dashboard/operational/Appointm
 import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
 import ConsultationManagement from '../../../pages/dashboard/operational/ConsultationManagement';
 import DoctorAppointmentSchedule from '../../../pages/dashboard/operational/DoctorAppointmentSchedule';
-import TestResultsEntry from '../../../pages/dashboard/operational/TestResultsEntry';
 import ServiceTestConfiguration from '../../../pages/dashboard/operational/ServiceTestConfiguration';
+import TestResultsEntryStaff from '../../../pages/dashboard/operational/TestResultsEntryStaff';
 
 import { 
   type DashboardStat,
@@ -466,7 +466,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         
       // Nhập kết quả xét nghiệm - cho cả doctor và staff
       case 'test-results':
-        return <TestResultsEntry />;
+        return <TestResultsEntryStaff />;
         
       // Cấu hình xét nghiệm - cho cả doctor và staff
       case 'test-config':

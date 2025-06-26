@@ -371,7 +371,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
             </Popconfirm>
           )}
 
-          {(record.status === 'completed' && record.serviceId.serviceType === 'test') && (
+          {(record.status === 'completed' && record.serviceId.serviceType === 'test' && false) && (
             <Tooltip title="Nhập kết quả xét nghiệm">
               <Button
                 type="text"
@@ -520,7 +520,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
             return [
               <Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>,
               // TODO: kiểm tra đã có testResult chưa, nếu chưa thì cho nhập, nếu có thì cho xem
-              <Button key="test" type="primary" onClick={() => { setShowTestForm(true); setIsDetailModalVisible(false); }}>
+              false && <Button key="test" type="primary" onClick={() => { setShowTestForm(true); setIsDetailModalVisible(false); }}>
                 Nhập kết quả xét nghiệm
               </Button>
             ];

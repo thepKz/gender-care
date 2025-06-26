@@ -66,13 +66,15 @@ export interface TestResultTemplate {
 
 export interface TestResultItemData {
   testResultId: string;
-  testCategoryId: string;
+  testCategoryId?: string;
+  itemNameId?: string;
   value: string;
   unit?: string;
   isHigh?: boolean;
   isLow?: boolean;
   isNormal?: boolean;
-  notes?: string;
+  currentRange?: string;
+  flag?: string;
 }
 
 export interface AutoEvaluateData {
@@ -138,6 +140,12 @@ export const testResultItemsApi = {
   // Get template for service
   getTemplate: async (serviceId: string): Promise<TestResultTemplate> => {
     const response = await axiosInstance.get(`/test-result-items/template/${serviceId}`);
+    return response.data.data;
+  },
+
+  // Create testResultItem thủ công
+  create: async (data: TestResultItemData): Promise<any> => {
+    const response = await axiosInstance.post(`/test-result-items`, data);
     return response.data.data;
   },
 

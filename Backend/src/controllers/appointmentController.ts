@@ -61,8 +61,8 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
 
         // Lấy dữ liệu với populate các trường liên quan
         const appointments = await Appointments.find(query)
-            .populate('profileId', 'fullName gender phone year')
-            .populate('serviceId', 'serviceName price serviceType')
+            .populate('profileId', 'fullName gender phone year email address dateOfBirth')
+            .populate('serviceId', 'serviceName price serviceType description')
             .populate('packageId', 'name price')
             .populate({
                 path: 'doctorId',
@@ -1555,8 +1555,8 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
 
             // Lấy dữ liệu với populate các trường liên quan
             const appointments = await Appointments.find(matchStage)
-                .populate('profileId', 'fullName gender phone year')
-                .populate('serviceId', 'serviceName price serviceType')
+                .populate('profileId', 'fullName gender phone year email address dateOfBirth')
+                .populate('serviceId', 'serviceName price serviceType description')
                 .populate('packageId', 'name price')
                 .populate({
                     path: 'doctorId',
@@ -1841,12 +1841,12 @@ export const getStaffAppointments = async (req: AuthRequest, res: Response) => {
 
         // Lấy dữ liệu với populate các trường liên quan
         const appointments = await Appointments.find(matchStage)
-            .populate('profileId', 'fullName gender phone year')
-            .populate('serviceId', 'serviceName price serviceType')
+            .populate('profileId', 'fullName gender phone year email address dateOfBirth')
+            .populate('serviceId', 'serviceName price serviceType description')
             .populate('packageId', 'name price')
             .populate({
                 path: 'doctorId',
-                match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
+                match: { isDeleted: { $ne: true } },
                 populate: {
                     path: 'userId',
                     select: 'fullName email avatar'

@@ -139,18 +139,6 @@ const BookingPageNew: React.FC = () => {
     }
   }, []);
 
-  // Fetch user profiles
-  const fetchUserProfiles = useCallback(async () => {
-    if (!isAuthenticated || !user) return;
-    
-    try {
-      const profiles = await userProfileApiInstance.getUserProfiles();
-      setUserProfiles(profiles || []);
-    } catch (error) {
-      console.error('Error fetching profiles:', error);
-    }
-  }, [isAuthenticated, user]);
-
   // Fetch time slots based on selected date
   const fetchTimeSlots = useCallback(async (date: Dayjs) => {
     if (!date) return;
@@ -261,41 +249,18 @@ const BookingPageNew: React.FC = () => {
       await Promise.all([
         fetchServices(),
         fetchDoctors(),
-        fetchUserProfiles(),
         fetchAvailableDates()
       ]);
     };
     
     initializeData();
-  }, [fetchServices, fetchDoctors, fetchUserProfiles, fetchAvailableDates]);
+  }, [fetchServices, fetchDoctors, fetchAvailableDates]);
 
   // Handle date selection
   const handleDateSelect = (date: Dayjs) => {
     setSelectedDate(date);
     setSelectedTimeSlot('');
     fetchTimeSlots(date);
-  };
-
-  // Handle profile creation
-  const handleCreateProfile = async (values: any) => {
-    try {
-      const newProfile = await userProfileApiInstance.createUserProfile({
-        ...values,
-        relationship: 'self',
-        isDefault: userProfiles.length === 0
-      });
-      
-      if (newProfile) {
-        await fetchUserProfiles();
-        setSelectedProfile(newProfile.id);
-        setShowCreateProfileModal(false);
-        createProfileForm.resetFields();
-        message.success('Tạo hồ sơ thành công!');
-      }
-    } catch (error) {
-      console.error('Error creating profile:', error);
-      message.error('Không thể tạo hồ sơ');
-    }
   };
 
   // Handle form submission

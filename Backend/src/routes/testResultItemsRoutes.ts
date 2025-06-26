@@ -51,7 +51,7 @@ router.post(
 router.post(
   '/',
   authMiddleware,
-  roleMiddleware(['doctor', 'nursing_staff']),
+  roleMiddleware(['doctor', 'nursing_staff', 'staff']),
   testResultItemsController.createTestResultItem
 );
 

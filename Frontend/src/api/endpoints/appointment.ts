@@ -189,7 +189,7 @@ export const appointmentApi = {
     },
 
     // Kiểm tra xem appointment đã có test result chưa
-    checkTestResultExists: async (appointmentId: string) => {
+    checkTestResultsByAppointment: async (appointmentId: string) => {
         const response = await axiosInstance.get(`/test-results/check/${appointmentId}`);
         return response.data;
     },

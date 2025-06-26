@@ -29,6 +29,7 @@ import appointmentManagementService from '../../../api/services/appointmentManag
 import { appointmentApi } from '../../../api/endpoints/appointment';
 import MedicalRecordModal, { MedicalRecordFormData } from '../forms/MedicalRecordModal';
 import medicalApi from '../../../api/endpoints/medical';
+import dayjs from 'dayjs';
 // import apiClient from '../../../api/axiosConfig'; // 🚫 COMMENTED FOR MOCK TESTING
 
 const { Text } = Typography;
@@ -90,7 +91,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       // ✅ FIX: Gọi trực tiếp từ appointmentApi thay vì qua service layer
       const [medicalResponse, testResponse] = await Promise.all([
         medicalApi.checkMedicalRecordByAppointment(appointmentId),
-        appointmentApi.checkTestResultExists(appointmentId) // Fixed: checkTestResultExists instead of checkTestResultsExists
+        appointmentApi.checkTestResultsByAppointment(appointmentId) // Fixed: checkTestResultsByAppointment instead of checkTestResultExists
       ]);
 
       console.log('🏥 Medical record check:', medicalResponse.data);

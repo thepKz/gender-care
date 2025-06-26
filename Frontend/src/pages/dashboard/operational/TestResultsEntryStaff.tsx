@@ -1,0 +1,442 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Card,
+  Table,
+  Button,
+  Space,
+  Tag,
+  Input,
+  DatePicker,
+  message,
+  Typography,
+  Tooltip,
+  Modal,
+  Form,
+  Select,
+  Spin
+} from 'antd';
+import { SearchOutlined, ExperimentOutlined, PlusCircleOutlined, EditOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import { appointmentApi, testResultItemsApi, serviceTestCategoriesApi } from '../../../api/endpoints';
+import { useAuth } from '../../../hooks/useAuth';
+import { TestResultsForm } from '../../../components/feature/medical/TestResultsForm';
+
+const { Title } = Typography;
+const { Search } = Input;
+
+interface Appointment {
+  _id: string;
+  profileId: {
+    _id: string;
+    fullName: string;
+    phoneNumber: string;
+  };
+  serviceId: {
+    _id: string;
+    serviceName: string;
+    serviceType: string;
+  };
+  appointmentDate: string;
+  appointmentTime: string;
+  status: string;
+}
+
+const TestResultsEntryStaff: React.FC = () => {
+  const { user } = useAuth();
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(dayjs());
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [showTestForm, setShowTestForm] = useState(false);
+  const [testResultStatus, setTestResultStatus] = useState<{ [appointmentId: string]: boolean }>({});
+  const [creatingTestResultId, setCreatingTestResultId] = useState<string | null>(null);
+  const [editTestResultId, setEditTestResultId] = useState<string | null>(null);
+  const [testItemModalVisible, setTestItemModalVisible] = useState(false);
+  const [testItemLoading, setTestItemLoading] = useState(false);
+  const [testCategories, setTestCategories] = useState<any[]>([]);
+  const [testItemValues, setTestItemValues] = useState<any>({});
+  const [currentTestResultId, setCurrentTestResultId] = useState<string | null>(null);
+  const [currentServiceId, setCurrentServiceId] = useState<string | null>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editForm] = Form.useForm();
+  const [editTestResultData, setEditTestResultData] = useState<any>(null);
+  const [testItemForm] = Form.useForm();
+
+  useEffect(() => {
+    if (user?.role === 'staff') {
+      loadAppointments();
+    }
+  }, [selectedDate, user]);
+
+  // Kiểm tra trạng thái testResult cho từng appointment
+  useEffect(() => {
+    if (appointments.length > 0) {
+      const checkAll = async () => {
+        const statusObj: { [appointmentId: string]: boolean } = {};
+        await Promise.all(
+          appointments.map(async (apt) => {
+            try {
+              const res = await appointmentApi.checkTestResultsByAppointment(apt._id);
+              console.log('[DEBUG] checkTestResultsByAppointment FULL RESPONSE', res);
+              statusObj[apt._id] = res.exists || false;
+            } catch (e) {
+              console.log('[DEBUG] checkTestResultsByAppointment ERROR', apt._id, e);
+              statusObj[apt._id] = false;
+            }
+          })
+        );
+        console.log('[DEBUG] setTestResultStatus', statusObj);
+        setTestResultStatus(statusObj);
+      };
+      checkAll();
+    }
+  }, [appointments]);
+
+  const loadAppointments = async () => {
+    try {
+      setLoading(true);
+      const targetDate = selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : undefined;
+      const response = await appointmentApi.getAllAppointments({
+        page: 1,
+        limit: 100,
+        status: 'completed',
+        startDate: targetDate,
+        endDate: targetDate
+      });
+      // Chỉ lấy các lịch có serviceType là 'test' (xét nghiệm)
+      const filtered = response.data.appointments.filter((apt: any) => apt.serviceId?.serviceType === 'test');
+      setAppointments(filtered);
+    } catch (err) {
+      message.error('Không thể tải danh sách lịch hẹn');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const columns = [
+    {
+      title: 'Bệnh nhân',
+      key: 'patient',
+      render: (_: any, record: Appointment) => (
+        <div>
+          <div style={{ fontWeight: 500 }}>{record.profileId.fullName}</div>
+          <div style={{ color: '#888', fontSize: 12 }}>{record.profileId.phoneNumber}</div>
+        </div>
+      ),
+    },
+    {
+      title: 'Dịch vụ',
+      dataIndex: ['serviceId', 'serviceName'],
+      key: 'service',
+      render: (_: any, record: Appointment) => record.serviceId.serviceName,
+    },
+    {
+      title: 'Ngày',
+      dataIndex: 'appointmentDate',
+      key: 'date',
+      render: (date: string) => dayjs(date).format('DD/MM/YYYY'),
+    },
+    {
+      title: 'Giờ',
+      dataIndex: 'appointmentTime',
+      key: 'time',
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => (
+        <Tag color={status === 'completed' ? 'green' : 'default'}>Hoàn thành</Tag>
+      ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_: any, record: Appointment) => (
+        <Space>
+          <Tooltip title={testResultStatus[record._id] ? 'Đã có hồ sơ xét nghiệm' : 'Tạo hồ sơ xét nghiệm'}>
+            <Button
+              icon={<PlusCircleOutlined />}
+              disabled={testResultStatus[record._id] || creatingTestResultId === record._id}
+              loading={creatingTestResultId === record._id}
+              onClick={async () => {
+                setCreatingTestResultId(record._id);
+                try {
+                  await appointmentApi.createTestResult({
+                    appointmentId: record._id,
+                    profileId: record.profileId._id,
+                    doctorId: user?._id || '',
+                    conclusion: '',
+                    recommendations: ''
+                  });
+                  message.success('Tạo hồ sơ xét nghiệm thành công!');
+                  setTestResultStatus((prev) => ({ ...prev, [record._id]: true }));
+                } catch (e) {
+                  message.error('Tạo hồ sơ xét nghiệm thất bại!');
+                } finally {
+                  setCreatingTestResultId(null);
+                }
+              }}
+              type="default"
+              shape="circle"
+            />
+          </Tooltip>
+          <Tooltip title={testResultStatus[record._id] ? 'Chỉnh sửa hồ sơ xét nghiệm' : 'Chưa có hồ sơ để chỉnh sửa'}>
+            <Button
+              icon={<EditOutlined />}
+              disabled={!testResultStatus[record._id]}
+              onClick={async () => {
+                try {
+                  const res = await appointmentApi.checkTestResultsByAppointment(record._id);
+                  if (res && res.testResultId) {
+                    // Lấy chi tiết testResult
+                    const detail = await appointmentApi.getTestResultsByAppointment(record._id);
+                    const testResult = Array.isArray(detail.data) ? detail.data.find(tr => tr._id === res.testResultId) : detail.data;
+                    setEditTestResultData(testResult);
+                    editForm.setFieldsValue({
+                      conclusion: testResult?.conclusion || '',
+                      recommendations: testResult?.recommendations || ''
+                    });
+                    setEditTestResultId(res.testResultId);
+                    setEditModalVisible(true);
+                  } else {
+                    message.error('Không tìm thấy hồ sơ xét nghiệm!');
+                  }
+                } catch (e) {
+                  message.error('Không thể lấy thông tin hồ sơ xét nghiệm!');
+                }
+              }}
+              type="default"
+              shape="circle"
+            />
+          </Tooltip>
+          <Tooltip title={testResultStatus[record._id] ? 'Nhập kết quả xét nghiệm' : 'Chưa có hồ sơ để nhập kết quả'}>
+            <Button
+              icon={<ExperimentOutlined />}
+              disabled={!testResultStatus[record._id]}
+              onClick={async () => {
+                setTestItemModalVisible(true);
+                setTestItemLoading(true);
+                try {
+                  // Lấy testResultId thực tế từ API
+                  const res = await appointmentApi.checkTestResultsByAppointment(record._id);
+                  if (!res || !res.testResultId) {
+                    message.error('Chưa có hồ sơ xét nghiệm, vui lòng tạo trước!');
+                    setTestItemModalVisible(false);
+                    setTestItemLoading(false);
+                    return;
+                  }
+                  setCurrentTestResultId(res.testResultId);
+                  setCurrentServiceId(record.serviceId._id);
+                  const cats = await serviceTestCategoriesApi.getByService(record.serviceId._id);
+                  setTestCategories(cats || []);
+                  // Khởi tạo giá trị form
+                  const initial: any = {};
+                  (cats || []).forEach(cat => {
+                    initial[cat._id] = { value: '', flag: 'normal' };
+                  });
+                  testItemForm.setFieldsValue({ testItemValues: initial });
+                } catch (e) {
+                  message.error('Không thể tải danh sách chỉ số xét nghiệm');
+                  setTestItemModalVisible(false);
+                } finally {
+                  setTestItemLoading(false);
+                }
+              }}
+              type="default"
+              shape="circle"
+            />
+          </Tooltip>
+        </Space>
+      ),
+    },
+  ];
+
+  const filteredAppointments = appointments.filter(apt =>
+    apt.profileId.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
+    apt.profileId.phoneNumber.includes(searchText) ||
+    apt.serviceId.serviceName.toLowerCase().includes(searchText.toLowerCase())
+  );
+
+  return (
+    <div style={{ padding: 24 }}>
+      <Title level={3} style={{ marginBottom: 24 }}>Nhập kết quả xét nghiệm (Staff)</Title>
+      <Card style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <DatePicker
+            value={selectedDate}
+            onChange={setSelectedDate}
+            style={{ width: 180 }}
+            format="DD/MM/YYYY"
+            placeholder="Chọn ngày"
+          />
+          <Search
+            placeholder="Tìm kiếm bệnh nhân, dịch vụ..."
+            allowClear
+            style={{ width: 300 }}
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            prefix={<SearchOutlined />}
+          />
+        </div>
+      </Card>
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={filteredAppointments}
+          rowKey="_id"
+          loading={loading}
+          pagination={{
+            total: filteredAppointments.length,
+            pageSize: 10,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} lịch hẹn`,
+          }}
+        />
+      </Card>
+      <Modal
+        open={showTestForm}
+        onCancel={() => setShowTestForm(false)}
+        footer={null}
+        width={900}
+        destroyOnClose
+        title="Nhập kết quả xét nghiệm"
+      >
+        {selectedAppointment && (
+          <TestResultsForm
+            serviceId={selectedAppointment.serviceId._id}
+            testResultId={selectedAppointment._id}
+            patientName={selectedAppointment.profileId.fullName}
+            onSuccess={() => {
+              setShowTestForm(false);
+              loadAppointments();
+            }}
+            onCancel={() => setShowTestForm(false)}
+          />
+        )}
+      </Modal>
+      <Modal
+        open={editModalVisible}
+        onCancel={() => setEditModalVisible(false)}
+        onOk={async () => {
+          try {
+            setEditLoading(true);
+            const values = await editForm.validateFields();
+            if (editTestResultId) {
+              await appointmentApi.updateTestResult(editTestResultId, {
+                conclusion: values.conclusion,
+                recommendations: values.recommendations
+              });
+              message.success('Cập nhật hồ sơ xét nghiệm thành công!');
+              setEditModalVisible(false);
+              loadAppointments();
+            }
+          } catch (e) {
+            message.error('Cập nhật hồ sơ xét nghiệm thất bại!');
+          } finally {
+            setEditLoading(false);
+          }
+        }}
+        confirmLoading={editLoading}
+        title="Chỉnh sửa hồ sơ xét nghiệm"
+        destroyOnClose
+      >
+        <Form form={editForm} layout="vertical">
+          <Form.Item name="conclusion" label="Kết luận" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập kết luận" />
+          </Form.Item>
+          <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập khuyến nghị" />
+          </Form.Item>
+        </Form>
+      </Modal>
+      <Modal
+        open={testItemModalVisible}
+        onCancel={() => setTestItemModalVisible(false)}
+        onOk={async () => {
+          try {
+            const values = await testItemForm.validateFields(); // validate toàn bộ form
+            const testItemValues = values.testItemValues || {};
+            // Đảm bảo tất cả chỉ số đều có giá trị
+            const allFilled = testCategories.every(cat => !!testItemValues[cat._id]?.value);
+            if (!allFilled) {
+              // Nếu còn thiếu, không gọi API, không đóng modal
+              return;
+            }
+            console.log('DEBUG testResultId', currentTestResultId);
+            setTestItemLoading(true);
+            for (const cat of testCategories) {
+              const v = testItemValues[cat._id]?.value;
+              const flag = testItemValues[cat._id]?.flag;
+              await testResultItemsApi.create({
+                testResultId: currentTestResultId,
+                itemNameId: cat.testCategoryId?._id || cat.testCategoryId || cat._id,
+                value: v,
+                unit: cat.customUnit || cat.unit,
+                currentRange: cat.customNormalRange || cat.normalRange || '',
+                flag: flag
+              });
+            }
+            message.success('Lưu kết quả xét nghiệm thành công!');
+            setTestItemModalVisible(false);
+            loadAppointments();
+          } catch (e) {
+            // Nếu validate lỗi, không làm gì cả
+            if (e && e.errorFields) return;
+            message.error('Lưu kết quả xét nghiệm thất bại!');
+          } finally {
+            setTestItemLoading(false);
+          }
+        }}
+        confirmLoading={testItemLoading}
+        title="Nhập kết quả xét nghiệm"
+        width={800}
+        destroyOnClose
+      >
+        <Form form={testItemForm} layout="vertical">
+          {testCategories.map(cat => {
+            const testName = cat.testCategoryId?.name || cat.testCategory?.name || cat.name || cat.testCategoryName || cat.label || cat.title || '';
+            const unit = cat.customUnit || cat.unit || '';
+            const normal = cat.targetValue || cat.customNormalRange || cat.normalRange || '';
+            const label = `${testName}${unit ? ` (${unit})` : ''}${normal ? `, Bình thường: ${normal}` : ''}`;
+            return (
+              <Form.Item
+                key={cat._id}
+                label={label}
+                required
+                style={{ marginBottom: 16 }}
+              >
+                <Form.Item
+                  name={['testItemValues', cat._id, 'value']}
+                  rules={[{ required: true, message: 'Vui lòng nhập giá trị!' }]}
+                  noStyle
+                >
+                  <Input
+                    style={{ width: 120, marginRight: 8 }}
+                    placeholder="Giá trị"
+                  />
+                </Form.Item>
+                <Form.Item
+                  name={['testItemValues', cat._id, 'flag']}
+                  initialValue="normal"
+                  noStyle
+                >
+                  <Select style={{ width: 120 }}>
+                    <Select.Option value="low">Thấp</Select.Option>
+                    <Select.Option value="normal">Bình thường</Select.Option>
+                    <Select.Option value="high">Cao</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Form.Item>
+            );
+          })}
+        </Form>
+      </Modal>
+    </div>
+  );
+};
+
+export default TestResultsEntryStaff; 
