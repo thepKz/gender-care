@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { TestResultsService } from '../services/testResultsService';
 import { AuthRequest } from '../types';
-import mongoose from 'mongoose';
 
 // Controller class để xử lý HTTP requests cho TestResults
 class TestResultsController {
@@ -212,7 +212,7 @@ class TestResultsController {
   };
 
   // GET /api/test-results/appointment/:appointmentId - Lấy test results theo appointment ID
-  getTestResultsByAppointmentId = async (req: Request, res: Response): Promise<void> => {
+  getTestResultsByAppointmentId = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { appointmentId } = req.params;
       const testResults = await this.testResultsService.getTestResultsByAppointmentId(appointmentId);
@@ -239,7 +239,7 @@ class TestResultsController {
   };
 
   // GET /api/test-results/profile/:profileId - Lấy test results theo profile ID
-  getTestResultsByProfileId = async (req: Request, res: Response): Promise<void> => {
+  getTestResultsByProfileId = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { profileId } = req.params;
       const page = parseInt(req.query.page as string) || 1;
@@ -277,7 +277,7 @@ class TestResultsController {
   };
 
   // GET /api/test-results/stats/:year/:month - Lấy thống kê test results theo tháng
-  getTestResultStatsByMonth = async (req: Request, res: Response): Promise<void> => {
+  getTestResultStatsByMonth = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const year = parseInt(req.params.year);
       const month = parseInt(req.params.month);
@@ -309,7 +309,7 @@ class TestResultsController {
    * Check if appointment already has test results
    * GET /api/test-results/check/:appointmentId
    */
-  checkTestResultsByAppointment = async (req: Request, res: Response) => {
+  checkTestResultsByAppointment = async (req: AuthRequest, res: Response) => {
     try {
       const { appointmentId } = req.params;
 

@@ -43,7 +43,7 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
     type: mongoose.Schema.Types.ObjectId,
     required: true,
     refPath: 'serviceType',
-    ref: function() {
+    ref: function(): string {
       return this.serviceType === 'appointment' ? 'Appointments' : 'DoctorQA';
     }
   },
