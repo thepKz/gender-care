@@ -49,6 +49,7 @@ import {
 } from '../../../utils/permissions';
 import type { Doctor } from '../../../types'; // ✅ Use global type
 import { validateAndFixAuthToken, cleanupInvalidTokens, getValidTokenFromStorage } from '../../../utils/helpers';
+import { userApi } from '../../../api/endpoints/userApi';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -101,8 +102,15 @@ const mapApiDoctorToDisplay = (apiDoctor: any): DisplayDoctor => {
     bio: doctorData.bio || apiDoctor.bio || '',
     status: (userData.isActive === false || doctorData.isDeleted) ? 'inactive' : 'active' as DisplayDoctor['status'],
     createdAt: apiDoctor.createdAt || new Date().toISOString(),
-    avatar: userData.avatar || doctorData.image || apiDoctor.image || undefined
+    avatar: doctorData.image || apiDoctor.image || userData.avatar || undefined
   };
+  
+  console.log('🖼️ [AVATAR DEBUG] Avatar sources:', {
+    'doctorData.image': doctorData.image,
+    'apiDoctor.image': apiDoctor.image, 
+    'userData.avatar': userData.avatar,
+    'final_avatar': doctorData.image || apiDoctor.image || userData.avatar || undefined
+  });
   
   console.log('✅ Mapped to DisplayDoctor:', mappedDoctor);
   return mappedDoctor;
@@ -227,10 +235,12 @@ const DoctorManagement: React.FC = () => {
       education: doctor.education || '',
       certificate: doctor.certificate || '',
       bio: doctor.bio || '',
+      status: doctor.status || 'active', // Thêm status để tránh lỗi validation
       avatar: doctor.avatar || undefined
     };
     
     console.log('🔄 [EDIT] Setting form fields:', formData);
+    console.log('🖼️ [EDIT] Avatar value:', doctor.avatar);
     console.log('📊 [EDIT] Original doctor data:', doctor);
     
     form.setFieldsValue(formData);
@@ -250,21 +260,78 @@ const DoctorManagement: React.FC = () => {
   const handleModalOk = async () => {
     try {
       setSubmitting(true);
+      console.log('🔍 [FORM DEBUG] Starting form validation...');
       const values = await form.validateFields();
+      console.log('✅ [FORM DEBUG] Validation passed, values:', values);
       
       // Ensure experience is number
       if (values.experience) {
         values.experience = Number(values.experience);
       }
       
+      // Lấy status từ form và chuẩn hóa sang isActive
+      const status = values.status;
+      let isActive: boolean | undefined = undefined;
+      if (status === 'active') isActive = true;
+      if (status === 'inactive' || status === 'suspended') isActive = false;
+      
+      // Debug log để kiểm tra trạng thái
+      console.log(`🔍 [STATUS DEBUG] Form status: ${status}, isActive: ${isActive}, editingDoctor.status: ${editingDoctor?.status}`);
+      
+      // Xóa status khỏi values để không gửi lên API updateDoctor
+      delete values.status;
+      
       if (editingDoctor) {
         console.log(`🔄 [FRONTEND] Updating doctor with ID: ${editingDoctor.id}`);
         console.log(`📝 [FRONTEND] Update data:`, values);
         
-        const result = await doctorApi.updateDoctor(editingDoctor.id, values);
+        // Nếu đổi tên, gọi update user trước
+        if (values.fullName && values.fullName !== editingDoctor.fullName && editingDoctor.id) {
+          try {
+            // Cần lấy userId từ doctor record, không phải doctorId
+            const doctorDetail = await doctorApi.getById(editingDoctor.id);
+            const userId = doctorDetail.userId._id;
+            await userApi.updateUser(userId, { fullName: values.fullName });
+            console.log(`✅ [FRONTEND] Updated user fullName to: ${values.fullName}`);
+          } catch (err) {
+            console.error('❌ [FRONTEND] Update user fullName failed:', err);
+            message.error('Cập nhật tên người dùng thất bại!');
+          }
+        }
         
+        // Nếu có avatar, đồng bộ cả user và doctor
+        if (values.avatar && values.avatar !== editingDoctor.avatar && editingDoctor.id) {
+          try {
+            const doctorDetail = await doctorApi.getById(editingDoctor.id);
+            const userId = doctorDetail.userId._id;
+            // Đồng bộ avatar sang user.avatar
+            await userApi.updateUser(userId, { avatar: values.avatar });
+            console.log(`✅ [FRONTEND] Synced avatar to user: ${values.avatar}`);
+          } catch (err) {
+            console.error('❌ [FRONTEND] Sync avatar to user failed:', err);
+          }
+        }
+        
+        // Xóa fullName khỏi values để không gửi lên updateDoctor (nếu backend Doctor không lưu)
+        delete values.fullName;
+        // Gọi updateDoctor cho các trường thông tin chuyên môn
+        // Note: values vẫn chứa avatar, sẽ được lưu vào doctor.image
+        const result = await doctorApi.updateDoctor(editingDoctor.id, values);
         console.log(`✅ [FRONTEND] Update API response:`, result);
-        message.success(`Cập nhật bác sĩ "${values.fullName}" thành công!`);
+        
+        // Nếu có status từ form thì luôn cập nhật trạng thái
+        if (typeof isActive === 'boolean') {
+          console.log(`🔄 [STATUS UPDATE] Calling updateStatus with isActive=${isActive}`);
+          try {
+            await doctorApi.updateStatus(editingDoctor.id, isActive);
+            console.log(`✅ [FRONTEND] Updated doctor status to isActive=${isActive}`);
+          } catch (statusErr) {
+            console.error('❌ [FRONTEND] Update status failed:', statusErr);
+            message.error('Cập nhật trạng thái thất bại!');
+          }
+        }
+        
+        message.success(`Cập nhật bác sĩ "${values.fullName || editingDoctor.fullName}" thành công!`);
       } else {
         const result = await doctorApi.createDoctor(values);
         message.success(`Tạo bác sĩ "${values.fullName}" thành công!`);
@@ -282,6 +349,15 @@ const DoctorManagement: React.FC = () => {
       console.error(`❌❌❌ [FRONTEND ERROR] ❌❌❌`);
       console.error(`🔴 [ERROR TYPE]:`, typeof err);
       console.error(`🔴 [ERROR OBJECT]:`, err);
+      
+      // ✅ Special handling for form validation errors
+      if (err?.errorFields && Array.isArray(err.errorFields)) {
+        console.error(`🔴 [FORM VALIDATION ERROR] Failed fields:`, err.errorFields);
+        const failedFieldNames = err.errorFields.map((field: any) => field.name?.join('.') || 'unknown').join(', ');
+        message.error(`Lỗi validation: ${failedFieldNames}`);
+        return;
+      }
+      
       console.error(`🔴 [ERROR MESSAGE]:`, err?.message);
       console.error(`🔴 [RESPONSE STATUS]:`, err?.response?.status);
       console.error(`🔴 [RESPONSE DATA]:`, err?.response?.data);
@@ -340,6 +416,7 @@ const DoctorManagement: React.FC = () => {
   // ✅ File upload handling functions
   const handleFileChange = (info: any) => {
     if (info.file.status === 'uploading') {
+      console.log('🔄 [AVATAR] Uploading...', info.file.name);
       return;
     }
     
@@ -348,12 +425,15 @@ const DoctorManagement: React.FC = () => {
       if (info.file.response && info.file.response.success) {
         const imageUrl = info.file.response.data.imageUrl;
         
+        console.log('✅ [AVATAR] Upload successful, imageUrl:', imageUrl);
         // ✅ Set avatar URL vào form để submit cùng doctor data
         form.setFieldsValue({ avatar: imageUrl });
+        console.log('✅ [AVATAR] Set to form field:', imageUrl);
         
         message.success(`Upload ảnh "${info.file.name}" thành công!`);
       } else {
         const errorMsg = info.file.response?.message || 'Upload response không hợp lệ';
+        console.error('❌ [AVATAR] Upload failed:', errorMsg);
         message.error(`Upload thất bại: ${errorMsg}`);
       }
     } else if (info.file.status === 'error') {

@@ -59,12 +59,12 @@ const PackagePurchaseModal: React.FC<PackagePurchaseModalProps> = ({
   const loadUserProfiles = async () => {
     setProfilesLoading(true);
     try {
-      const response = await userProfileApiInstance.getUserProfiles();
-      if (response.success && response.data) {
-        setUserProfiles(response.data);
+      const profiles = await userProfileApiInstance.getMyProfiles();
+      if (profiles && Array.isArray(profiles)) {
+        setUserProfiles(profiles);
         
         // Auto-select default profile if exists
-        const defaultProfile = response.data.find(p => p.isDefault);
+        const defaultProfile = profiles.find(p => p.isDefault);
         if (defaultProfile) {
           form.setFieldsValue({ userProfileId: defaultProfile._id });
         }

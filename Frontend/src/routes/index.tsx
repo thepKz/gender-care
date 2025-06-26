@@ -40,9 +40,9 @@ import ConsultationPaymentSuccessPage from '../pages/consultation/PaymentSuccess
 import ServicesPage from '../pages/services';
 
 // Payment Pages
-import PaymentCancelPage from '../pages/payment/PaymentCancelPage';
+import PaymentCancelPage from '../pages/payment/PaymentCancel';
 import PaymentProcessPage from '../pages/payment/PaymentProcessPage';
-import PaymentSuccessPage from '../pages/payment/PaymentSuccessPage';
+import PaymentSuccessPage from '../pages/payment/PaymentSuccess';
 
 // Demo Pages
 import DemoIndexPage from '../pages/demo';

@@ -2,7 +2,6 @@ import axiosInstance from '../axiosConfig';
 import { PackageAnalyticsResponse, AllPackagesAnalyticsResponse } from '../../types';
 
 export interface PurchasePackageRequest {
-  profileId: string;
   packageId: string;
   promotionId?: string;
 }
@@ -11,8 +10,13 @@ export interface PackagePurchaseResponse {
   success: boolean;
   message?: string;
   data?: {
-    packagePurchase: any;
-    bill: any;
+    bill: {
+      _id: string;
+      paymentUrl: string; // PayOS checkout URL
+      billNumber: string;
+      totalAmount: number;
+    };
+    packagePurchase: any; // null cho đến khi thanh toán thành công
   };
 }
 
@@ -34,7 +38,15 @@ const packagePurchaseApi = {
   // Mua gói dịch vụ
   purchasePackage: (data: PurchasePackageRequest): Promise<PackagePurchaseResponse> => {
     console.log('🔍 [API] purchasePackage called with:', data);
-    return axiosInstance.post('/package-purchases', data);
+    return axiosInstance.post('/package-purchases', data)
+      .then(response => {
+        console.log('✅ [API] purchasePackage response received');
+        return response.data; // Return data từ backend, không phải raw axios response
+      })
+      .catch(error => {
+        console.error('❌ [API] purchasePackage error:', error);
+        throw error;
+      });
   },
 
   // Lấy danh sách gói đã mua của user

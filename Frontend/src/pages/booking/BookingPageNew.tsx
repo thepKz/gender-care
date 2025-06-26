@@ -284,27 +284,27 @@ const BookingPageNew: React.FC = () => {
   const fetchAvailableDoctors = useCallback(async (date?: Dayjs, timeSlot?: string) => {
     if (!date || !timeSlot) {
       // If no date/time selected, fetch all doctors
-      try {
-        setNetworkError(false);
-        const apiDoctors = await doctorApi.getAll();
-        
-        const mappedDoctors: Doctor[] = apiDoctors.map((doctor: any) => ({
-          id: doctor._id,
+    try {
+      setNetworkError(false);
+      const apiDoctors = await doctorApi.getAll();
+      
+      const mappedDoctors: Doctor[] = apiDoctors.map((doctor: any) => ({
+        id: doctor._id,
           name: doctor.userId?.fullName || doctor.name || 'Chưa có tên',
-          specialization: doctor.specialization || 'Chưa xác định',
-          experience: doctor.experience || 0,
-          rating: doctor.rating || 4.5,
-          reviewCount: 0,
+        specialization: doctor.specialization || 'Chưa xác định',
+        experience: doctor.experience || 0,
+        rating: doctor.rating || 4.5,
+        reviewCount: 0,
           avatar: doctor.userId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-          isAvailable: doctor.userId?.isActive !== false,
-          bio: doctor.bio || 'Bác sĩ chuyên nghiệp với nhiều năm kinh nghiệm'
-        }));
-        
-        setDoctors(mappedDoctors);
+        isAvailable: doctor.userId?.isActive !== false,
+        bio: doctor.bio || 'Bác sĩ chuyên nghiệp với nhiều năm kinh nghiệm'
+      }));
+      
+      setDoctors(mappedDoctors);
         return;
-      } catch (error) {
+    } catch (error) {
         console.error('Error fetching all doctors:', error);
-        setNetworkError(true);
+      setNetworkError(true);
         return;
       }
     }
@@ -401,11 +401,11 @@ const BookingPageNew: React.FC = () => {
         .filter(([time, count]) => count > 0) // Only show slots with available doctors
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([time, count]) => ({
-          id: time,
-          time: time,
+        id: time,
+        time: time,
           isAvailable: count > 0,
           availableDoctors: count
-        }));
+      }));
       
       setTimeSlots(slotsArray);
     } catch (error) {
@@ -662,7 +662,7 @@ const BookingPageNew: React.FC = () => {
       if (newProfile) {
         // Wait a bit then refresh profiles list
         setTimeout(async () => {
-          await fetchUserProfiles();
+        await fetchUserProfiles();
           
           // Set the new profile as selected
           const profileId = (newProfile as any).id || (newProfile as any)._id;
@@ -670,8 +670,8 @@ const BookingPageNew: React.FC = () => {
             setSelectedProfile(profileId);
           }
           
-          setShowCreateProfileModal(false);
-          createProfileForm.resetFields();
+        setShowCreateProfileModal(false);
+        createProfileForm.resetFields();
         }, 800);
         
         notification.success({
@@ -749,7 +749,7 @@ const BookingPageNew: React.FC = () => {
         assignedDoctorName = selectedDoctorObj?.name || '';
         console.log('✅ Using selected doctor:', assignedDoctorName, 'ID:', assignedDoctorId);
       }
-
+      
       const bookingData = {
         ...(bookingType === 'service' ? 
           { serviceId: selectedService } : 
@@ -858,7 +858,7 @@ const BookingPageNew: React.FC = () => {
   // 🆕 Get available services from purchased package with remaining quantities
   const getAvailableServicesFromPackage = () => {
     const purchasedPackage = getSelectedPurchasedPackage();
-    if (!purchasedPackage) return [];
+    if (!purchasedPackage || !purchasedPackage.servicePackage || !Array.isArray(purchasedPackage.servicePackage.services)) return [];
     
     return purchasedPackage.servicePackage.services.map(service => {
       const usedService = purchasedPackage.usedServices.find(used => used.serviceId === service.serviceId);
@@ -883,8 +883,8 @@ const BookingPageNew: React.FC = () => {
 
   const getCurrentPrice = () => {
     if (bookingType === 'service' && selectedService) {
-      const service = getSelectedService();
-      return service?.price || 0;
+    const service = getSelectedService();
+    return service?.price || 0;
     } else if (bookingType === 'package' && selectedServicePackage) {
       const servicePackage = getSelectedServicePackage();
       return servicePackage?.price || 0;
@@ -1018,70 +1018,51 @@ const BookingPageNew: React.FC = () => {
                 Chọn dịch vụ hoặc gói dịch vụ
               </h3>
 
-              {/* Booking Type Tabs */}
+              {/* Booking Type Tabs - Chỉ hiển thị 2 tabs */}
               <div style={{ 
                 display: 'flex', 
                 marginBottom: '20px',
                 gap: '4px',
-                backgroundColor: '#f3f4f6',
+                backgroundColor: '#f1f5f9',
                 padding: '4px',
-                borderRadius: '8px'
+                borderRadius: '10px'
               }}>
                 <button
                   type="button"
                   onClick={() => handleBookingTypeChange('service')}
                   style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    fontSize: '13px',
+          flex: 1,
+                    padding: '12px 16px',
+                    fontSize: '14px',
                     fontWeight: '600',
                     border: 'none',
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
-                    transition: 'all 0.2s ease',
+                    transition: 'all 0.3s ease',
                     backgroundColor: bookingType === 'service' ? 'white' : 'transparent',
-                    color: bookingType === 'service' ? '#3b82f6' : '#6b7280',
-                    boxShadow: bookingType === 'service' ? '0 1px 3px rgba(0, 0, 0, 0.1)' : 'none'
+                    color: bookingType === 'service' ? '#3b82f6' : '#64748b',
+                    boxShadow: bookingType === 'service' ? '0 2px 8px rgba(59, 130, 246, 0.15)' : 'none'
                   }}
                 >
                   Dịch vụ đơn lẻ
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleBookingTypeChange('package')}
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    backgroundColor: bookingType === 'package' ? 'white' : 'transparent',
-                    color: bookingType === 'package' ? '#3b82f6' : '#6b7280',
-                    boxShadow: bookingType === 'package' ? '0 1px 3px rgba(0, 0, 0, 0.1)' : 'none'
-                  }}
-                >
-                  Gói dịch vụ
-                </button>
-                {/* 🆕 Purchased Package Tab */}
+                {/* Chỉ hiển thị tab "Gói đã mua" cho user đã login */}
                 {isAuthenticated && (
                   <button
                     type="button"
                     onClick={() => handleBookingTypeChange('purchased_package')}
                     style={{
                       flex: 1,
-                      padding: '8px 12px',
-                      fontSize: '13px',
+                      padding: '12px 16px',
+                      fontSize: '14px',
                       fontWeight: '600',
                       border: 'none',
-                      borderRadius: '6px',
+                      borderRadius: '8px',
                       cursor: 'pointer',
-                      transition: 'all 0.2s ease',
+                      transition: 'all 0.3s ease',
                       backgroundColor: bookingType === 'purchased_package' ? 'white' : 'transparent',
-                      color: bookingType === 'purchased_package' ? '#3b82f6' : '#6b7280',
-                      boxShadow: bookingType === 'purchased_package' ? '0 1px 3px rgba(0, 0, 0, 0.1)' : 'none'
+                      color: bookingType === 'purchased_package' ? '#059669' : '#64748b',
+                      boxShadow: bookingType === 'purchased_package' ? '0 2px 8px rgba(5, 150, 105, 0.15)' : 'none'
                     }}
                   >
                     Gói đã mua
@@ -1140,207 +1121,348 @@ const BookingPageNew: React.FC = () => {
                 </>
               )}
 
-              {/* 🆕 Purchased Package Selection */}
+              {/* 🎨 Purchased Package Selection - Enhanced UI */}
               {bookingType === 'purchased_package' && (
                 <>
-                  {purchasedPackages.length === 0 ? (
+                  {!Array.isArray(purchasedPackages) || purchasedPackages.length === 0 ? (
                     <div style={{
                       textAlign: 'center',
-                      padding: '40px 20px',
-                      backgroundColor: '#fef3cd',
-                      borderRadius: '8px',
-                      border: '1px solid #fbbf24'
+                      padding: '50px 24px',
+                      background: 'linear-gradient(135deg, #fef3cd 0%, #fde68a 100%)',
+                      borderRadius: '16px',
+                      border: '2px dashed #f59e0b',
+                      boxShadow: '0 4px 15px rgba(245, 158, 11, 0.1)'
                     }}>
-                      <p style={{ 
-                        fontSize: '16px', 
+                      <div style={{ marginBottom: '20px' }}>
+                        <div style={{
+                          width: '80px',
+                          height: '80px',
+                          backgroundColor: '#f59e0b',
+                          borderRadius: '50%',
+                          margin: '0 auto 16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '32px',
+                          color: 'white'
+                        }}>
+                          📦
+                        </div>
+                      </div>
+                      <h3 style={{ 
+                        fontSize: '20px', 
                         color: '#92400e', 
-                        margin: '0 0 12px 0',
-                        fontWeight: '600'
+                        margin: '0 0 8px 0',
+                        fontWeight: '700'
                       }}>
-                        Bạn chưa có gói dịch vụ nào
-                      </p>
+                        Chưa có gói dịch vụ nào
+                      </h3>
                       <p style={{ 
-                        fontSize: '14px', 
+                        fontSize: '15px', 
                         color: '#b45309', 
-                        margin: '0 0 16px 0'
+                        margin: '0 0 24px 0',
+                        lineHeight: '1.5'
                       }}>
-                        Hãy mua gói dịch vụ để sử dụng tính năng này
+                        Hãy khám phá và mua gói dịch vụ để trải nghiệm<br />
+                        những dịch vụ chăm sóc sức khỏe tuyệt vời
                       </p>
                       <button
                         type="button"
-                        onClick={() => window.location.href = '/service-packages'}
+                        onClick={() => window.location.href = '/services'}
                         style={{
                           backgroundColor: '#f59e0b',
                           color: 'white',
                           border: 'none',
-                          padding: '8px 16px',
-                          borderRadius: '6px',
-                          fontSize: '14px',
+                          padding: '12px 24px',
+                          borderRadius: '10px',
+                          fontSize: '15px',
                           fontWeight: '600',
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
+                          transition: 'all 0.3s ease'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 6px 20px rgba(245, 158, 11, 0.4)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)';
                         }}
                       >
-                        Xem gói dịch vụ
+                        🔍 Khám phá gói dịch vụ
                       </button>
                     </div>
                   ) : (
-                    <>
-                      <Form.Item
-                        label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Gói dịch vụ đã mua</span>}
-                        required
-                        style={{ marginBottom: '16px' }}
-                      >
-                        <Select
-                          value={selectedPurchasedPackage}
-                          onChange={handlePurchasedPackageChange}
-                          placeholder="Chọn gói dịch vụ đã mua"
-                          style={{ fontSize: '14px' }}
-                          size="large"
-                        >
-                          {purchasedPackages.map(purchase => (
-                            <Option key={purchase._id} value={purchase._id}>
-                              <div style={{ padding: '4px 0' }}>
-                                <div style={{ 
-                                  display: 'flex', 
-                                  justifyContent: 'space-between', 
-                                  alignItems: 'center' 
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ 
+                        fontSize: '16px', 
+                        fontWeight: '600', 
+                        color: '#065f46',
+                        marginBottom: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                        🎁 Gói dịch vụ đã mua ({Array.isArray(purchasedPackages) ? purchasedPackages.length : 0})
+                      </h4>
+                      
+                      {/* Cards Grid for Purchased Packages */}
+                      <div style={{
+          display: 'grid',
+          gap: '16px',
+                        marginBottom: '24px'
+                      }}>
+                        {(Array.isArray(purchasedPackages) ? purchasedPackages : []).map(purchase => {
+                          const isSelected = selectedPurchasedPackage === purchase._id;
+                          const daysUntilExpiry = dayjs(purchase.expiresAt).diff(dayjs(), 'days');
+                          const isExpiringSoon = daysUntilExpiry <= 30;
+                          
+                          return (
+                            <div
+                              key={purchase._id}
+                              onClick={() => handlePurchasedPackageChange(purchase._id)}
+                              style={{
+                                padding: '20px',
+                                borderRadius: '12px',
+                                border: isSelected ? '2px solid #059669' : '1px solid #d1d5db',
+                                backgroundColor: isSelected ? '#ecfdf5' : 'white',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                boxShadow: isSelected ? '0 4px 15px rgba(5, 150, 105, 0.15)' : '0 2px 8px rgba(0, 0, 0, 0.05)',
+                                position: 'relative',
+                                overflow: 'hidden'
+                              }}
+                              onMouseOver={(e) => {
+                                if (!isSelected) {
+                                  e.currentTarget.style.borderColor = '#6b7280';
+                                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                                }
+                              }}
+                              onMouseOut={(e) => {
+                                if (!isSelected) {
+                                  e.currentTarget.style.borderColor = '#d1d5db';
+                                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.05)';
+                                }
+                              }}
+                            >
+                              {/* Selected Indicator */}
+                              {isSelected && (
+          <div style={{
+                                  position: 'absolute',
+                                  top: '0',
+                                  right: '0',
+                                  backgroundColor: '#059669',
+                                  color: 'white',
+                                  padding: '6px 12px',
+                                  borderBottomLeftRadius: '8px',
+                                  fontSize: '12px',
+                                  fontWeight: '600'
                                 }}>
-                                  <div>
-                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
-                                      {purchase.servicePackage.name}
-                                    </div>
-                                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                      {purchase.servicePackage.services.length} dịch vụ • 
-                                      Hết hạn: {dayjs(purchase.expiresAt).format('DD/MM/YYYY')}
-                                    </div>
-                                  </div>
-                                  <div style={{ 
-                                    fontSize: '10px', 
-                                    backgroundColor: '#10b981', 
-                                    color: 'white', 
-                                    padding: '2px 6px', 
-                                    borderRadius: '4px',
-                                    fontWeight: '600'
+                                  ✓ Đã chọn
+                                </div>
+                              )}
+                              
+                              {/* Package Header */}
+                              <div style={{ marginBottom: '12px' }}>
+                                <h5 style={{
+                                  fontSize: '18px',
+                                  fontWeight: '700',
+                                  color: '#1f2937',
+                                  margin: '0 0 8px 0',
+                                  lineHeight: '1.3'
+                                }}>
+                                  {purchase.servicePackage.name}
+                                </h5>
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '16px',
+                                  flexWrap: 'wrap'
+                                }}>
+                                  <span style={{
+                                    fontSize: '13px',
+                                    color: '#6b7280',
+                                    backgroundColor: '#f3f4f6',
+                                    padding: '4px 8px',
+            borderRadius: '6px',
+                                    fontWeight: '500'
                                   }}>
-                                    ĐÃ MUA
-                                  </div>
+                                    {(purchase.servicePackage && Array.isArray(purchase.servicePackage.services) ? purchase.servicePackage.services.length : 0)} dịch vụ
+                                  </span>
+                                  <span style={{
+                                    fontSize: '13px',
+                                    color: isExpiringSoon ? '#dc2626' : '#6b7280',
+                                    backgroundColor: isExpiringSoon ? '#fee2e2' : '#f3f4f6',
+                                    padding: '4px 8px',
+                                    borderRadius: '6px',
+                                    fontWeight: '500'
+                                  }}>
+                                    {isExpiringSoon ? '⚠️ ' : '📅 '}
+                                    Hết hạn: {dayjs(purchase.expiresAt).format('DD/MM/YYYY')}
+                                  </span>
                                 </div>
                               </div>
-                            </Option>
-                          ))}
-                        </Select>
-                      </Form.Item>
+                              
+                              {/* Package Info */}
+                              <div style={{
+                                fontSize: '14px',
+                                color: '#4b5563',
+                                lineHeight: '1.5'
+                              }}>
+                                {purchase.servicePackage.description || 'Gói dịch vụ chăm sóc sức khỏe toàn diện'}
+                              </div>
+                              
+                              {/* Status Badge */}
+                              <div style={{
+                                marginTop: '12px',
+                                display: 'inline-block'
+                              }}>
+                                <span style={{
+                                  fontSize: '12px',
+                                  backgroundColor: '#10b981',
+                                  color: 'white',
+                                  padding: '4px 12px',
+                                  borderRadius: '20px',
+                                  fontWeight: '600'
+                                }}>
+                                  ✨ ĐANG SỬ DỤNG
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
 
                       {/* Service selection from purchased package */}
                       {selectedPurchasedPackage && (
-                        <Form.Item
-                          label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Dịch vụ muốn sử dụng</span>}
-                          required
-                          style={{ marginBottom: '16px' }}
-                        >
-                          <Select
-                            value={selectedServiceFromPackage}
-                            onChange={handleServiceFromPackageChange}
-                            placeholder="Chọn dịch vụ muốn sử dụng"
-                            style={{ fontSize: '14px' }}
-                            size="large"
-                          >
-                            {getAvailableServicesFromPackage().map(service => (
-                              <Option key={service.serviceId} value={service.serviceId}>
-                                <div style={{ padding: '4px 0' }}>
-                                  <div style={{ 
-                                    display: 'flex', 
-                                    justifyContent: 'space-between', 
-                                    alignItems: 'center' 
+                        <div style={{
+                          backgroundColor: '#f8fafc',
+                          padding: '20px',
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          <h5 style={{
+                            fontSize: '15px',
+                            fontWeight: '600',
+                            color: '#1e293b',
+                            marginBottom: '16px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}>
+                            🎯 Chọn dịch vụ muốn sử dụng
+                          </h5>
+                          
+                          <div style={{
+                            display: 'grid',
+                            gap: '12px'
+                          }}>
+                            {getAvailableServicesFromPackage().map(service => {
+                              const isServiceSelected = selectedServiceFromPackage === service.serviceId;
+                              const usagePercent = (service.usedCount / service.quantity) * 100;
+                              
+                              return (
+                                <div
+                                  key={service.serviceId}
+                                  onClick={() => handleServiceFromPackageChange(service.serviceId)}
+                                  style={{
+                                    padding: '16px',
+                                    borderRadius: '8px',
+                                    border: isServiceSelected ? '2px solid #059669' : '1px solid #e2e8f0',
+                                    backgroundColor: isServiceSelected ? '#ecfdf5' : 'white',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease'
+                                  }}
+                                >
+                                  <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'flex-start',
+                                    marginBottom: '8px'
                                   }}>
-                                    <div>
-                                      <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
-                                        {service.serviceName}
-                                      </div>
-                                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                        Đã dùng: {service.usedCount}/{service.quantity} lần
-                                      </div>
-                                    </div>
-                                    <div style={{ 
-                                      fontSize: '11px', 
-                                      backgroundColor: service.remainingQuantity > service.quantity / 2 ? '#10b981' : '#f59e0b', 
-                                      color: 'white', 
-                                      padding: '2px 6px', 
-                                      borderRadius: '4px',
-                                      fontWeight: '600'
+                                    <h6 style={{
+                                      fontSize: '15px',
+                                      fontWeight: '600',
+                                      color: '#1f2937',
+                                      margin: '0',
+                                      flex: 1
+                                    }}>
+                                      {service.serviceName}
+                                    </h6>
+                                    <span style={{
+                                      fontSize: '12px',
+                                      backgroundColor: service.remainingQuantity > service.quantity / 2 ? '#10b981' : '#f59e0b',
+                                      color: 'white',
+                                      padding: '4px 8px',
+                                      borderRadius: '12px',
+                                      fontWeight: '600',
+                                      whiteSpace: 'nowrap',
+                                      marginLeft: '12px'
                                     }}>
                                       Còn {service.remainingQuantity}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Usage Progress */}
+                                  <div style={{ marginBottom: '8px' }}>
+                                    <div style={{
+                                      display: 'flex',
+                                      justifyContent: 'space-between',
+                                      fontSize: '12px',
+                                      color: '#6b7280',
+                                      marginBottom: '4px'
+                                    }}>
+                                      <span>Đã sử dụng: {service.usedCount}/{service.quantity}</span>
+                                      <span>{usagePercent.toFixed(0)}%</span>
+                                    </div>
+                                    <div style={{
+                                      width: '100%',
+                                      height: '6px',
+                                      backgroundColor: '#e5e7eb',
+                                      borderRadius: '3px',
+                                      overflow: 'hidden'
+                                    }}>
+                                      <div style={{
+                                        width: `${usagePercent}%`,
+                                        height: '100%',
+                                        backgroundColor: usagePercent > 80 ? '#ef4444' : usagePercent > 50 ? '#f59e0b' : '#10b981',
+                                        transition: 'width 0.3s ease'
+                                      }} />
                                     </div>
                                   </div>
+                                  
+                                  {isServiceSelected && (
+                                    <div style={{
+                                      fontSize: '12px',
+                                      color: '#059669',
+                                      fontWeight: '600',
+                                      marginTop: '8px'
+                                    }}>
+                                      ✓ Đã chọn dịch vụ này
+                                    </div>
+                                  )}
                                 </div>
-                              </Option>
-                            ))}
-                          </Select>
-                        </Form.Item>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
-                    </>
+                    </div>
                   )}
                 </>
               )}
 
-              {/* Service Package Selection */}
-              {bookingType === 'package' && (
-                <Form.Item
-                  label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Gói dịch vụ</span>}
-                  required
-                  style={{ marginBottom: '16px' }}
-                >
-                  <Select
-                    value={selectedServicePackage}
-                    onChange={handleServicePackageChange}
-                    placeholder="Chọn gói dịch vụ"
-                    style={{ fontSize: '14px' }}
-                    size="large"
-                  >
-                    {servicePackages.filter(pkg => pkg.isActive).map(servicePackage => (
-                      <Option key={servicePackage._id} value={servicePackage._id}>
-                        <div style={{ padding: '4px 0' }}>
-                          <div style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center' 
-                          }}>
-                            <div>
-                              <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
-                                {servicePackage.name}
-                              </div>
-                              <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                {servicePackage.services.length} dịch vụ • {servicePackage.durationInDays} ngày
-                              </div>
-                            </div>
-                            {servicePackage.priceBeforeDiscount > servicePackage.price && (
-                              <div style={{ 
-                                fontSize: '10px', 
-                                backgroundColor: '#ef4444', 
-                                color: 'white', 
-                                padding: '2px 6px', 
-                                borderRadius: '4px',
-                                fontWeight: '600'
-                              }}>
-                                -{Math.round(((servicePackage.priceBeforeDiscount - servicePackage.price) / servicePackage.priceBeforeDiscount) * 100)}%
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              )}
+
 
               {/* Selected Item Info */}
-              {(selectedService || selectedServicePackage || (selectedPurchasedPackage && selectedServiceFromPackage)) && (
+              {(selectedService || (selectedPurchasedPackage && selectedServiceFromPackage)) && (
                 <div style={{ 
                   marginTop: '16px', 
-                  padding: '12px', 
-                  backgroundColor: bookingType === 'package' ? '#fef3c7' : bookingType === 'purchased_package' ? '#e0f2fe' : '#f0fdf4', 
+            padding: '12px',
+                  backgroundColor: bookingType === 'purchased_package' ? '#e0f2fe' : '#f0fdf4', 
                   borderRadius: '6px',
-                  border: `1px solid ${bookingType === 'package' ? '#f59e0b' : bookingType === 'purchased_package' ? '#0284c7' : '#10b981'}`
+                  border: `1px solid ${bookingType === 'purchased_package' ? '#0284c7' : '#10b981'}`
                 }}>
                   {bookingType === 'service' ? (
                     <>
@@ -1421,12 +1543,12 @@ const BookingPageNew: React.FC = () => {
               padding: '24px',
               backgroundColor: (selectedService || selectedServicePackage) ? '#f9fafb' : '#f3f4f6',
               borderRadius: '8px',
-              border: '1px solid #e5e7eb',
+            border: '1px solid #e5e7eb',
               opacity: (selectedService || selectedServicePackage || (selectedPurchasedPackage && selectedServiceFromPackage)) ? 1 : 0.6
-            }}>
-              <h3 style={{ 
+          }}>
+            <h3 style={{ 
                 fontSize: '18px', 
-                fontWeight: '600', 
+              fontWeight: '600', 
                 color: '#1f2937', 
                 margin: '0 0 20px 0',
                 display: 'flex',
@@ -1468,29 +1590,29 @@ const BookingPageNew: React.FC = () => {
                       height: '300px',
                       overflow: 'hidden'
                     }}>
-                      <Calendar
-                        fullscreen={false}
-                        value={selectedDate}
+              <Calendar
+                fullscreen={false}
+                value={selectedDate}
                         defaultValue={dayjs()}
                         onSelect={handleDateChange}
-                        cellRender={dateCellRender}
-                        disabledDate={disabledDate}
-                        className="compact-calendar"
-                      />
+                cellRender={dateCellRender}
+                disabledDate={disabledDate}
+                className="compact-calendar"
+              />
                     </div>
-                  </div>
+            </div>
 
-                  {/* Time Slots */}
+            {/* Time Slots */}
                   <div>
-                    <h4 style={{ 
+                <h4 style={{ 
                       fontSize: '14px', 
-                      fontWeight: '600', 
+                  fontWeight: '600', 
                       color: '#1f2937', 
                       margin: '0 0 12px 0'
                     }}>Chọn giờ</h4>
                     
                     {!selectedDate ? (
-                      <div style={{ 
+                    <div style={{ 
                         textAlign: 'center', 
                         color: '#6b7280', 
                         fontSize: '13px',
@@ -1506,14 +1628,14 @@ const BookingPageNew: React.FC = () => {
                         <div style={{ 
                           width: '20px', 
                           height: '20px', 
-                          border: '2px solid #e5e7eb',
-                          borderTop: '2px solid #3b82f6',
-                          borderRadius: '50%',
-                          animation: 'spin 0.8s linear infinite',
-                          margin: '0 auto'
-                        }}></div>
-                      </div>
-                    ) : timeSlots.length === 0 ? (
+                      border: '2px solid #e5e7eb',
+                      borderTop: '2px solid #3b82f6',
+                      borderRadius: '50%',
+                      animation: 'spin 0.8s linear infinite',
+                      margin: '0 auto'
+                    }}></div>
+                  </div>
+                ) : timeSlots.length === 0 ? (
                       <div style={{ 
                         textAlign: 'center', 
                         color: '#ef4444', 
@@ -1523,22 +1645,22 @@ const BookingPageNew: React.FC = () => {
                         borderRadius: '6px',
                         border: '1px solid #fecaca'
                       }}>
-                        Không có lịch trống
+                    Không có lịch trống
                       </div>
-                    ) : (
-                      <div style={{ 
-                        display: 'grid', 
+                ) : (
+                  <div style={{ 
+                    display: 'grid', 
                         gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', 
                         gap: 'clamp(4px, 1vw, 8px)',
                         maxHeight: '300px',
                         overflowY: 'auto'
-                      }}>
-                        {timeSlots.map((slot) => (
-                          <button
-                            key={slot.id}
+                  }}>
+                    {timeSlots.map((slot) => (
+                      <button
+                        key={slot.id}
                             onClick={() => handleTimeSlotSelect(slot.time)}
                             disabled={!slot.isAvailable}
-                            style={{
+                        style={{
                               padding: '12px 8px',
                               fontSize: '13px',
                               borderRadius: '6px',
@@ -1566,18 +1688,18 @@ const BookingPageNew: React.FC = () => {
                                 {slot.availableDoctors} bác sĩ
                               </span>
                             )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                      </button>
+                    ))}
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+                  </div>
+              </div>
+            )}
+          </div>
 
             {/* Step 3: Profile Selection */}
             {(selectedDate && selectedTimeSlot) && (
-              <div style={{
+          <div style={{
                 marginBottom: '32px',
                 padding: '24px',
                 backgroundColor: '#f9fafb',
@@ -1613,43 +1735,43 @@ const BookingPageNew: React.FC = () => {
                   gap: 'clamp(12px, 3vw, 24px)' 
                 }}>
                   {/* Profile Selection */}
-                  <div>
-                    <Form.Item
+                      <div>
+              <Form.Item
                       label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Hồ sơ bệnh nhân</span>}
-                      required
+                required
                       style={{ marginBottom: '16px' }}
-                    >
-                      <Select
-                        value={selectedProfile}
-                        onChange={setSelectedProfile}
+              >
+                <Select
+                  value={selectedProfile}
+                  onChange={setSelectedProfile}
                         placeholder="Chọn hoặc tạo hồ sơ"
                         style={{ fontSize: '14px' }}
                         size="large"
                         optionLabelProp="label"
-                        dropdownRender={(menu) => (
-                          <div>
-                            {menu}
+                  dropdownRender={(menu) => (
+                    <div>
+                      {menu}
                             <div style={{ padding: '8px', borderTop: '1px solid #e5e7eb' }}>
-                              <button
-                                type="button"
-                                onClick={() => setShowCreateProfileModal(true)}
-                                style={{
-                                  width: '100%',
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateProfileModal(true)}
+                          style={{
+                            width: '100%',
                                   padding: '8px',
                                   fontSize: '13px',
                                   border: '1px dashed #3b82f6',
-                                  backgroundColor: 'transparent',
+                            backgroundColor: 'transparent',
                                   color: '#3b82f6',
-                                  cursor: 'pointer',
+                            cursor: 'pointer',
                                   borderRadius: '6px'
-                                }}
-                              >
-                                + Tạo hồ sơ mới
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      >
+                          }}
+                        >
+                          + Tạo hồ sơ mới
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                >
                         {userProfiles.filter(profile => profile.id || (profile as any)._id).map(profile => (
                           <Option 
                             key={profile.id || (profile as any)._id} 
@@ -1658,24 +1780,24 @@ const BookingPageNew: React.FC = () => {
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
                               <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
-                                {profile.fullName}
-                              </div>
+                          {profile.fullName}
+                        </div>
                               <div style={{ fontSize: '11px', color: '#6b7280', opacity: 0.8 }}>
                                 {profile.gender === 'male' ? 'Nam' : profile.gender === 'female' ? 'Nữ' : 'Khác'} • {profile.phone}
-                              </div>
-                            </div>
-                          </Option>
-                        ))}
-                      </Select>
-                    </Form.Item>
+                        </div>
+                      </div>
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
 
                     {/* Doctor Selection - Only show after date/time selected */}
                     {selectedDate && selectedTimeSlot && (
-                      <Form.Item
+              <Form.Item
                         label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Bác sĩ (tùy chọn)</span>}
                         style={{ marginBottom: '16px' }}
-                      >
-                        <Select
+              >
+                <Select
                           value={selectedDoctor}
                           onChange={setSelectedDoctor}
                           placeholder={doctors.length === 0 ? "Không có bác sĩ rảnh" : "Hệ thống tự chọn"}
@@ -1700,7 +1822,7 @@ const BookingPageNew: React.FC = () => {
                               </div>
                             </Option>
                           ))}
-                        </Select>
+                </Select>
                         {doctors.length > 0 && (
                           <div style={{ marginTop: '8px' }}>
                             <div style={{ fontSize: '12px', color: '#10b981', marginBottom: '4px', fontWeight: '500' }}>
@@ -1722,29 +1844,29 @@ const BookingPageNew: React.FC = () => {
                             )}
                           </div>
                         )}
-                      </Form.Item>
+              </Form.Item>
                     )}
                   </div>
 
                   {/* Additional Info */}
                   <div>
-                    <Form.Item
+              <Form.Item
                       label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Triệu chứng</span>}
-                      name="description"
+                name="description"
                       style={{ marginBottom: '16px' }}
                     >
                       <Input.TextArea
                         placeholder="Mô tả triệu chứng hoặc lý do khám (tùy chọn)"
-                        rows={3}
-                        maxLength={200}
+                  rows={3}
+                  maxLength={200}
                         showCount
                         size="large"
-                      />
-                    </Form.Item>
+                />
+              </Form.Item>
 
-                    <Form.Item
+              <Form.Item
                       label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Ghi chú</span>}
-                      name="notes"
+                name="notes"
                       style={{ marginBottom: '0' }}
                     >
                       <Input.TextArea
@@ -1753,8 +1875,8 @@ const BookingPageNew: React.FC = () => {
                         maxLength={200}
                         showCount
                         size="large"
-                      />
-                    </Form.Item>
+                />
+              </Form.Item>
                   </div>
                 </div>
               </div>
@@ -1762,7 +1884,7 @@ const BookingPageNew: React.FC = () => {
 
             {/* Home Address for home visits */}
             {typeLocation === 'home' && (
-              <div style={{
+                <div style={{
                 marginBottom: '32px',
                 padding: '24px',
                 backgroundColor: '#fef7f0',
@@ -1791,7 +1913,7 @@ const BookingPageNew: React.FC = () => {
             )}
 
             {/* Step 4: Summary & Submit */}
-            <div style={{
+                  <div style={{ 
               padding: '24px',
               backgroundColor: ((selectedService || selectedServicePackage || (selectedPurchasedPackage && selectedServiceFromPackage)) && selectedDate && selectedTimeSlot && selectedProfile) ? '#f0fdf4' : '#f3f4f6',
               borderRadius: '8px',
@@ -1803,7 +1925,7 @@ const BookingPageNew: React.FC = () => {
                 fontWeight: '600', 
                 color: '#1f2937', 
                 margin: '0 0 16px 0',
-                display: 'flex',
+                    display: 'flex', 
                 alignItems: 'center',
                 gap: '8px'
               }}>
@@ -1825,7 +1947,7 @@ const BookingPageNew: React.FC = () => {
               {!((selectedService || selectedServicePackage || (selectedPurchasedPackage && selectedServiceFromPackage)) && selectedDate && selectedTimeSlot && selectedProfile) ? (
                 <div style={{ textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
                   Vui lòng hoàn tất các bước trên
-                </div>
+                  </div>
               ) : (
                 <div>
                   {/* Summary */}
@@ -1838,7 +1960,7 @@ const BookingPageNew: React.FC = () => {
                   }}>
                     <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>
                       Thông tin đặt lịch:
-                    </div>
+                </div>
                     <div style={{ fontSize: '13px', color: '#6b7280', lineHeight: '1.5' }}>
                       • Dịch vụ: {
                         bookingType === 'service' ? getSelectedService()?.serviceName :
@@ -1872,18 +1994,18 @@ const BookingPageNew: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Submit Button */}
+              {/* Submit Button */}
                   <div style={{ textAlign: 'center' }}>
                     <Button
                       type="primary"
                       htmlType="submit"
                       loading={isSubmitting}
                       disabled={!(selectedService || selectedServicePackage) || !selectedDate || !selectedTimeSlot || !selectedProfile}
-                      style={{
+                  style={{
                         backgroundColor: '#10b981',
                         borderColor: '#10b981',
                         fontSize: '16px',
-                        fontWeight: '600',
+                    fontWeight: '600',
                         height: '48px',
                         padding: '0 40px',
                         borderRadius: '8px'
@@ -1895,12 +2017,12 @@ const BookingPageNew: React.FC = () => {
                 </div>
               )}
             </div>
-          </Form>
+            </Form>
+          </div>
         </div>
-      </div>
 
-      {/* Create Profile Modal */}
-      <Modal
+        {/* Create Profile Modal */}
+        <Modal
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ 
@@ -1918,7 +2040,7 @@ const BookingPageNew: React.FC = () => {
             <span style={{ fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>Tạo hồ sơ mới</span>
           </div>
         }
-        open={showCreateProfileModal}
+          open={showCreateProfileModal}
         onCancel={() => {
           setShowCreateProfileModal(false);
           createProfileForm.resetFields();
@@ -2085,7 +2207,7 @@ const BookingPageNew: React.FC = () => {
               </Select>
             </Form.Item>
           </Form>
-        </div>
+      </div>
       </Modal>
 
       <style>{`
@@ -2108,7 +2230,7 @@ const BookingPageNew: React.FC = () => {
               height: 25px !important;
             }
             
-            .compact-calendar .ant-picker-calendar-header {
+        .compact-calendar .ant-picker-calendar-header {
               padding: 2px 6px !important;
               font-size: 12px !important;
             }

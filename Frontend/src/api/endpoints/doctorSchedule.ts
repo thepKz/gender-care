@@ -87,14 +87,40 @@ const doctorScheduleApi = {
 
   // Lấy lịch làm việc theo tháng - CUSTOM IMPLEMENTATION
   getSchedulesByMonth: async (month: number, year: number): Promise<IDoctorSchedule[]> => {
-    // Backend không có endpoint này, chúng ta sẽ lấy tất cả rồi filter
-    const allSchedules = await doctorScheduleApi.getAll();
-    return allSchedules.filter(schedule => {
-      return schedule.weekSchedule.some(week => {
-        const weekDate = new Date(week.dayOfWeek);
-        return weekDate.getMonth() + 1 === month && weekDate.getFullYear() === year;
+    try {
+      console.log('🔍 [API] Getting schedules for month:', { month, year });
+      
+      // Backend không có endpoint này, chúng ta sẽ lấy tất cả rồi filter
+      const allSchedules = await doctorScheduleApi.getAll();
+      
+      console.log('📊 [API] Total schedules received:', allSchedules.length);
+      
+      // Filter schedules by month/year
+      const filteredSchedules = allSchedules.filter(schedule => {
+        return schedule.weekSchedule.some(week => {
+          const weekDate = new Date(week.dayOfWeek);
+          const scheduleMonth = weekDate.getMonth() + 1;
+          const scheduleYear = weekDate.getFullYear();
+          
+          return scheduleMonth === month && scheduleYear === year;
+        });
       });
-    });
+      
+      console.log('✅ [API] Filtered schedules for target month:', filteredSchedules.length);
+      return filteredSchedules;
+      
+    } catch (error: unknown) {
+      console.error('❌ [API] Error in getSchedulesByMonth:', error);
+      
+      // Return empty array instead of throwing to prevent UI crashes
+      if (error instanceof Error) {
+        console.error('❌ [API] Error details:', error.message);
+        // Still throw the error so UI can handle it properly
+        throw new Error(`Không thể tải lịch làm việc tháng ${month}/${year}: ${error.message}`);
+      } else {
+        throw new Error(`Không thể tải lịch làm việc tháng ${month}/${year}. Vui lòng thử lại sau.`);
+      }
+    }
   },
 
   // Lấy lịch làm việc theo ID (không có trong backend routes - sẽ implement sau)

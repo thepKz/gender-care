@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 
 export interface IBills {
   userId: mongoose.Types.ObjectId;
-  profileId: mongoose.Types.ObjectId;
+  profileId?: mongoose.Types.ObjectId;
   billNumber: string;
   packageId?: mongoose.Types.ObjectId;
   appointmentId?: mongoose.Types.ObjectId;
@@ -24,7 +24,7 @@ const BillsSchema = new mongoose.Schema<IBills>({
   profileId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'UserProfile', 
-    required: true 
+    required: false
   },
   billNumber: { 
     type: String, 
