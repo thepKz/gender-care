@@ -7,6 +7,9 @@ import { UserProfile } from '../models/UserProfile';
 import { AuthRequest } from '../types/auth';
 import { ApiResponse } from '../types';
 import { PackagePurchaseService } from '../services/packagePurchaseService';
+import { PackageAnalyticsService } from '../services/packageAnalyticsService';
+import systemLogService from '../services/systemLogService';
+import { LogAction, LogLevel } from '../models/SystemLogs';
 
 // POST /package-purchases - DISABLED: Chức năng mua gói đã bị vô hiệu hóa
 // Người dùng sẽ đặt lịch trực tiếp thay vì mua gói
@@ -756,6 +759,21 @@ export const usePackageService = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Log system activity
+    await systemLogService.logFromRequest(req as any, LogAction.PACKAGE_USE, 
+      `Package service used: User consumed ${quantity} usage(s) of service ${serviceId}`, {
+        level: LogLevel.PUBLIC,
+        targetId: result.purchaseId || serviceId,
+        targetType: 'package_purchase',
+        metadata: {
+          serviceId,
+          quantityUsed: quantity,
+          packagePurchaseId: result.purchaseId,
+          action: 'package_service_usage'
+        }
+      }
+    );
+
     res.json({
       success: true,
       message: result.message,
@@ -881,5 +899,77 @@ export const getUserPackageStats = async (req: AuthRequest, res: Response) => {
       message: 'Error fetching package statistics',
       errors: { general: error.message }
     });
+  }
+};
+
+// 🆕 GET /package-purchases/analytics/:packageId - Lấy usage analytics cho một gói dịch vụ
+export const getPackageUsageAnalytics = async (req: AuthRequest, res: Response) => {
+  try {
+    const { packageId } = req.params;
+
+    if (!packageId || !mongoose.Types.ObjectId.isValid(packageId)) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: 'Package ID không hợp lệ'
+      };
+      return res.status(400).json(response);
+    }
+
+    console.log('🔍 [Analytics] Getting usage analytics for package:', packageId);
+
+    const analytics = await PackageAnalyticsService.getPackageUsageAnalytics(packageId);
+
+    const response: ApiResponse<any> = {
+      success: true,
+      message: 'Lấy analytics thành công',
+      data: {
+        analytics
+      }
+    };
+
+    res.json(response);
+
+  } catch (error: any) {
+    console.error('❌ Error in getPackageUsageAnalytics:', error);
+    const response: ApiResponse<any> = {
+      success: false,
+      message: error.message || 'Lỗi khi lấy analytics gói dịch vụ'
+    };
+    res.status(500).json(response);
+  }
+};
+
+// 🆕 GET /package-purchases/analytics - Lấy overview analytics cho tất cả gói dịch vụ  
+export const getAllPackagesAnalytics = async (req: AuthRequest, res: Response) => {
+  try {
+    console.log('🔍 [Analytics] Getting analytics for all packages');
+
+    const analytics = await PackageAnalyticsService.getAllPackagesAnalytics();
+
+    const response: ApiResponse<any> = {
+      success: true,
+      message: 'Lấy overview analytics thành công',
+      data: {
+        analytics,
+        summary: {
+          totalPackages: analytics.length,
+          totalRevenue: analytics.reduce((sum, pkg) => sum + pkg.totalRevenue, 0),
+          totalPurchases: analytics.reduce((sum, pkg) => sum + pkg.totalPurchases, 0),
+          averageUsage: analytics.length > 0 
+            ? Math.round(analytics.reduce((sum, pkg) => sum + pkg.averageUsagePercentage, 0) / analytics.length)
+            : 0
+        }
+      }
+    };
+
+    res.json(response);
+
+  } catch (error: any) {
+    console.error('❌ Error in getAllPackagesAnalytics:', error);
+    const response: ApiResponse<any> = {
+      success: false,
+      message: error.message || 'Lỗi khi lấy overview analytics'
+    };
+    res.status(500).json(response);
   }
 }; 

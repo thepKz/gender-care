@@ -1,4 +1,5 @@
 import axiosInstance from '../axiosConfig';
+import { PackageAnalyticsResponse, AllPackagesAnalyticsResponse } from '../../types';
 
 export interface PurchasePackageRequest {
   profileId: string;
@@ -88,6 +89,34 @@ const packagePurchaseApi = {
   }) => {
     console.log('🔍 [API] getPackagePurchasesByProfile called with:', { profileId, params });
     return axiosInstance.get(`/package-purchases/profile/${profileId}`, { params });
+  },
+
+  // 🆕 Lấy usage analytics cho một gói dịch vụ cụ thể
+  getPackageUsageAnalytics: (packageId: string): Promise<PackageAnalyticsResponse> => {
+    console.log('🔍 [API] getPackageUsageAnalytics called with packageId:', packageId);
+    return axiosInstance.get(`/package-purchases/analytics/${packageId}`)
+      .then(response => {
+        console.log('✅ [API] getPackageUsageAnalytics response received');
+        return response.data;
+      })
+      .catch(error => {
+        console.error('❌ [API] getPackageUsageAnalytics error:', error);
+        throw error;
+      });
+  },
+
+  // 🆕 Lấy overview analytics cho tất cả gói dịch vụ
+  getAllPackagesAnalytics: (): Promise<AllPackagesAnalyticsResponse> => {
+    console.log('🔍 [API] getAllPackagesAnalytics called');
+    return axiosInstance.get('/package-purchases/analytics')
+      .then(response => {
+        console.log('✅ [API] getAllPackagesAnalytics response received');
+        return response.data;
+      })
+      .catch(error => {
+        console.error('❌ [API] getAllPackagesAnalytics error:', error);
+        throw error;
+      });
   }
 };
 

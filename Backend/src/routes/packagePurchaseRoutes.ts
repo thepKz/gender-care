@@ -4,7 +4,9 @@ import {
   getUserPurchasedPackages,
   getPackagePurchaseDetail,
   getPackagePurchasesByProfile,
-  testPackagePurchases
+  testPackagePurchases,
+  getPackageUsageAnalytics,
+  getAllPackagesAnalytics
 } from '../controllers/packagePurchaseController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
@@ -18,6 +20,12 @@ router.post('/', purchasePackage);
 
 // GET /package-purchases/test - Test endpoint để kiểm tra data
 router.get('/test', testPackagePurchases);
+
+// 🆕 GET /package-purchases/analytics - Lấy overview analytics cho tất cả gói dịch vụ
+router.get('/analytics', getAllPackagesAnalytics);
+
+// 🆕 GET /package-purchases/analytics/:packageId - Lấy usage analytics cho một gói dịch vụ
+router.get('/analytics/:packageId', getPackageUsageAnalytics);
 
 // GET /package-purchases/user - Lấy danh sách gói đã mua của user
 router.get('/user', getUserPurchasedPackages);

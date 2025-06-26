@@ -172,9 +172,9 @@ const AppRoutes: React.FC = () => {
         <Route path="*" element={<NotFoundPage />} />
       </Route>
       
-      {/* Booking route - no header/footer */}
+      {/* Booking route - no header/footer, requires authentication */}
       <Route element={<BookingLayout />}>
-        <Route path="/booking" element={<BookingPageNew />} />
+        <Route path="/booking" element={isAuthenticated ? <BookingPageNew /> : <Navigate to="/login?returnUrl=/booking" replace />} />
       </Route>
       
       {/* Legacy Dashboard Redirects (tạm giữ để không 404, chuyển sang cấu trúc mới) */}

@@ -121,7 +121,10 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
   // Reset form when modal closes
   useEffect(() => {
     if (!visible) {
-      form.resetFields();
+      // Use setTimeout to ensure form is properly mounted before reset
+      setTimeout(() => {
+        form.resetFields();
+      }, 0);
     }
   }, [visible, form]);
 
@@ -326,9 +329,9 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                               return service.serviceName.toLowerCase().includes(input.toLowerCase());
                             }}
                             onChange={() => {
-                              // Set quantity to 1 if multiple services
-                              if (isMultipleServices) {
-                                const currentServices = form.getFieldValue('services');
+                              // Set default quantity to 1 for new service selection
+                              const currentServices = form.getFieldValue('services');
+                              if (currentServices[name] && !currentServices[name].quantity) {
                                 currentServices[name].quantity = 1;
                                 form.setFieldsValue({ services: currentServices });
                               }
@@ -363,22 +366,19 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                             { required: true, message: 'Nhập số lượng' },
                             { type: 'number', min: 1, message: 'Số lượng phải >= 1' }
                           ]}
-                          initialValue={isMultipleServices ? 1 : undefined}
+                          initialValue={1}
                         >
                           <InputNumber
                             placeholder="Số lượng"
                             min={1}
+                            max={99}
                             className="w-full"
-                            disabled={isMultipleServices}
-                            value={isMultipleServices ? 1 : undefined}
                             onChange={() => {
-                              // Only trigger price recalculation if not disabled
-                              if (!isMultipleServices) {
-                                setTimeout(() => {
-                                  const currentServices = form.getFieldValue('services');
-                                  handleServicesChange(currentServices);
-                                }, 100);
-                              }
+                              // Trigger price recalculation when quantity changes
+                              setTimeout(() => {
+                                const currentServices = form.getFieldValue('services');
+                                handleServicesChange(currentServices);
+                              }, 100);
                             }}
                           />
                         </Form.Item>
@@ -413,19 +413,12 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                 <Button
                   type="dashed"
                   onClick={() => {
-                    add();
+                    add({ quantity: 1 }); // Add with default quantity
                     
-                    // If this will be the second service, set all quantities to 1
+                    // Recalculate prices after adding new service
                     setTimeout(() => {
                       const currentServices = form.getFieldValue('services');
-                      if (currentServices && currentServices.length >= 2) {
-                        const updatedServices = currentServices.map((service: any) => ({
-                          ...service,
-                          quantity: 1
-                        }));
-                        form.setFieldsValue({ services: updatedServices });
-                        handleServicesChange(updatedServices);
-                      }
+                      handleServicesChange(currentServices);
                     }, 0);
                   }}
                   style={{ width: '100%' }}

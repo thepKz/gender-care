@@ -24,11 +24,32 @@ export enum LogAction {
   // Appointments
   APPOINTMENT_CREATE = 'appointment_create',
   APPOINTMENT_UPDATE = 'appointment_update',
+  APPOINTMENT_DELETE = 'appointment_delete',
   APPOINTMENT_CANCEL = 'appointment_cancel',
+  
+  // Services Management
+  SERVICE_CREATE = 'service_create',
+  SERVICE_UPDATE = 'service_update',
+  SERVICE_DELETE = 'service_delete',
+  
+  // Packages Management  
+  PACKAGE_CREATE = 'package_create',
+  PACKAGE_UPDATE = 'package_update',
+  PACKAGE_DELETE = 'package_delete',
+  PACKAGE_PURCHASE = 'package_purchase',
+  PACKAGE_USE = 'package_use',
+  
+  // Doctor Schedules
+  SCHEDULE_CREATE = 'schedule_create',
+  SCHEDULE_UPDATE = 'schedule_update', 
+  SCHEDULE_DELETE = 'schedule_delete',
   
   // Medical
   MEDICAL_RECORD_CREATE = 'medical_record_create',
+  MEDICAL_RECORD_UPDATE = 'medical_record_update',
+  MEDICAL_RECORD_DELETE = 'medical_record_delete',
   PRESCRIPTION_CREATE = 'prescription_create',
+  PRESCRIPTION_UPDATE = 'prescription_update',
   
   // System
   SYSTEM_CONFIG_CHANGE = 'system_config_change',

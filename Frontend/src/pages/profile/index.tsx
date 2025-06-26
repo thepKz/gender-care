@@ -89,7 +89,7 @@ const ProfilePage: React.FC = () => {
         fullName: values.fullName,
         phone: values.phone,
         gender: values.gender,
-        year: values.year ? values.year.toISOString() : null,
+        year: values.year ? values.year.format('YYYY-MM-DD') : null,
       };
 
       await userApi.updateUserProfile(updateData);
@@ -101,6 +101,16 @@ const ProfilePage: React.FC = () => {
       
       await fetchProfile();
       setEditMode(false);
+      
+      // Set lại form values sau khi update thành công
+      setTimeout(() => {
+        form.setFieldsValue({
+          fullName: updateData.fullName,
+          phone: updateData.phone,
+          gender: updateData.gender,
+          year: updateData.year ? moment(updateData.year) : null,
+        });
+      }, 100);
     } catch (error: unknown) {
       console.error('Lỗi cập nhật thông tin:', error);
               notification.error({
@@ -229,7 +239,16 @@ const ProfilePage: React.FC = () => {
                 <Button
                   type="primary"
                   icon={<SaveOutlined />}
-                  onClick={() => setEditMode(true)}
+                  onClick={() => {
+                    setEditMode(true);
+                    // Set lại form values khi vào edit mode
+                    form.setFieldsValue({
+                      fullName: user.fullName,
+                      phone: user.phone,
+                      gender: user.gender,
+                      year: user.year ? moment(user.year) : null,
+                    });
+                  }}
                   className="bg-[#0C3C54] hover:bg-[#0C3C54]/90 border-0"
                 >
                   Chỉnh sửa
@@ -332,7 +351,13 @@ const ProfilePage: React.FC = () => {
                   <Button
                     onClick={() => {
                       setEditMode(false);
-                      form.resetFields();
+                      // Reset về values gốc thay vì clear hoàn toàn
+                      form.setFieldsValue({
+                        fullName: user.fullName,
+                        phone: user.phone,
+                        gender: user.gender,
+                        year: user.year ? moment(user.year) : null,
+                      });
                     }}
                     className="px-6"
                   >
