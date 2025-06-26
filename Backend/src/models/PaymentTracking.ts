@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 
 export interface IPaymentTracking extends mongoose.Document {
   serviceType: 'appointment' | 'consultation' | 'package';
+  recordId: mongoose.Types.ObjectId;
   appointmentId?: mongoose.Types.ObjectId;
   doctorQAId?: mongoose.Types.ObjectId;
   packageId?: mongoose.Types.ObjectId;

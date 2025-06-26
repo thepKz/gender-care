@@ -33,6 +33,13 @@ import medicalApi from '../../../api/endpoints/medical';
 
 const { Text } = Typography;
 
+interface DetailData {
+  profileId?: string;
+  serviceId?: string;
+  packageId?: string;
+  doctorNotes?: string;
+}
+
 interface AppointmentDetailModalProps {
   visible: boolean;
   appointment: UnifiedAppointment | null;

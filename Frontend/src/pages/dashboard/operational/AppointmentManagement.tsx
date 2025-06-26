@@ -70,7 +70,7 @@ const AppointmentManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState(''); // Client-side search since API doesn't support search
   const [selectedType, setSelectedType] = useState<string>('all');
-
+  const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>('all');
   

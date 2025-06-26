@@ -8,6 +8,7 @@ import seedPosts from './blogPostsSeed';
 import seedDoctorSchedules from './doctorScheduleSeeds';
 import seedServicePackages from './servicePackageSeeds';
 import seedTestCategories from './testCategoriesSeed';
+
 export const runAllSeeds = async () => {
   try {
     console.log('🌱 Bắt đầu chạy tất cả seed data...');
