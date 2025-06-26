@@ -26,7 +26,8 @@ import {
     Statistic,
     Tag,
     Tooltip,
-    Alert
+    Alert,
+    Tabs
 } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
@@ -59,12 +60,15 @@ const CyclePage: React.FC = () => {
   const [currentCycle, setCurrentCycle] = useState<MenstrualCycle | null>(null);
   const [calendarData, setCalendarData] = useState<CalendarDayData[]>([]);
   const [reminderSettings, setReminderSettings] = useState<MenstrualCycleReminder | null>(null);
+  const [cycleAnalysis, setCycleAnalysis] = useState<any>(null);
   const [logModalVisible, setLogModalVisible] = useState(false);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [createCycleModalVisible, setCreateCycleModalVisible] = useState(false);
+  const [updateStartDateModalVisible, setUpdateStartDateModalVisible] = useState(false);
   const [form] = Form.useForm();
   const [settingsForm] = Form.useForm();
   const [createCycleForm] = Form.useForm();
+  const [updateStartDateForm] = Form.useForm();
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
 
   // New states for onboarding and help
@@ -76,6 +80,7 @@ const CyclePage: React.FC = () => {
   const [allowedFeelings, setAllowedFeelings] = useState<string[]>([]);
   const [validationWarning, setValidationWarning] = useState<string>('');
   const [calendarCache, setCalendarCache] = useState<Map<string, any[]>>(new Map());
+  const [activeTab, setActiveTab] = useState<'calendar' | 'reports'>('calendar');
 
   // Debounced calendar change to avoid too many API calls
   const debouncedCalendarChange = useCallback(
@@ -106,6 +111,9 @@ const CyclePage: React.FC = () => {
         loadCalendarData(selectedDate.month() + 1, selectedDate.year()),
         loadReminderSettings()
       ]);
+      
+      // Load cycle analysis sau khi có currentCycle
+      await loadCycleAnalysis();
       
       // Check if this is first time user
       const hasSeenOnboarding = localStorage.getItem('menstrual_cycle_onboarding_seen');
@@ -200,6 +208,20 @@ const CyclePage: React.FC = () => {
     }
   };
 
+  const loadCycleAnalysis = async () => {
+    if (!currentCycle) return;
+    
+    try {
+      const response = await menstrualCycleApi.getCycleAnalysis(currentCycle._id);
+      const responseData = (response as any)?.data;
+      if (responseData?.success) {
+        setCycleAnalysis(responseData.data);
+      }
+    } catch (error) {
+      console.error('Error loading cycle analysis:', error);
+    }
+  };
+
   const createNewCycleIfNeeded = async () => {
     try {
       const response = await menstrualCycleApi.createCycle({
@@ -216,6 +238,8 @@ const CyclePage: React.FC = () => {
           description: 'Đã tạo chu kỳ mới để bắt đầu theo dõi'
         });
         await loadCycleData();
+        await loadCalendarData(selectedDate.month() + 1, selectedDate.year());
+        await loadCycleAnalysis();
       } else {
         console.error('Failed to create cycle:', responseData);
         notification.error({
@@ -257,6 +281,7 @@ const CyclePage: React.FC = () => {
         createCycleForm.resetFields();
         await loadCycleData();
         await loadCalendarData(selectedDate.month() + 1, selectedDate.year());
+        await loadCycleAnalysis();
       } else {
         notification.error({
           message: 'Lỗi',
@@ -265,6 +290,50 @@ const CyclePage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error creating cycle with date:', error);
+      notification.error({
+        message: 'Lỗi',
+        description: 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối.'
+      });
+    }
+  };
+
+  const handleUpdateStartDate = async (values: { newStartDate: Dayjs }) => {
+    if (!currentCycle) {
+      notification.error({
+        message: 'Lỗi',
+        description: 'Không tìm thấy chu kỳ hiện tại'
+      });
+      return;
+    }
+
+    try {
+      const response = await menstrualCycleApi.updateCycle(currentCycle._id, {
+        startDate: values.newStartDate.format('YYYY-MM-DD')
+      });
+      
+      const responseData = (response as any)?.data;
+      
+      if (responseData?.success) {
+        notification.success({
+          message: 'Thành công',
+          description: `Đã cập nhật ngày bắt đầu chu kỳ thành ${values.newStartDate.format('DD/MM/YYYY')}. Hệ thống đã tự động tính lại thứ tự ngày cho tất cả dữ liệu đã ghi nhận.`
+        });
+        
+        setUpdateStartDateModalVisible(false);
+        updateStartDateForm.resetFields();
+        
+        // Reload tất cả dữ liệu
+        await loadCycleData();
+        await loadCalendarData(selectedDate.month() + 1, selectedDate.year());
+        await loadCycleAnalysis();
+      } else {
+        notification.error({
+          message: 'Lỗi',
+          description: 'Không thể cập nhật ngày bắt đầu chu kỳ. Vui lòng thử lại.'
+        });
+      }
+    } catch (error) {
+      console.error('Error updating cycle start date:', error);
       notification.error({
         message: 'Lỗi',
         description: 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối.'
@@ -345,6 +414,7 @@ const CyclePage: React.FC = () => {
         // Reload data
         await loadCalendarData(selectedDate.month() + 1, selectedDate.year());
         await loadCycleData();
+        await loadCycleAnalysis();
       }
     } catch (error) {
       console.error('Error logging cycle:', error);
@@ -364,24 +434,13 @@ const CyclePage: React.FC = () => {
       return;
     }
 
-    // Kiểm tra ngày được chọn có hợp lệ không (không quá xa trong quá khứ hoặc tương lai)
-    const cycleStartDate = dayjs(currentCycle.startDate);
-    const daysDiff = date.diff(cycleStartDate, 'days');
-    
-    if (daysDiff < -7) {
+    // Loại bỏ giới hạn ngày - cho phép nhập dữ liệu cho bất kỳ ngày nào
+    // Chỉ giữ lại cảnh báo cho ngày quá xa trong tương lai (sau 7 ngày)
+    if (date.isAfter(dayjs().add(7, 'day'))) {
       notification.warning({
-        message: 'Ngày không hợp lệ',
-        description: 'Chỉ có thể nhập dữ liệu từ 7 ngày trước ngày bắt đầu chu kỳ'
+        message: 'Lưu ý',
+        description: 'Bạn đang nhập dữ liệu cho ngày quá xa trong tương lai. Hãy chắc chắn về ngày bạn chọn.'
       });
-      return;
-    }
-    
-    if (date.isAfter(dayjs().add(1, 'day'))) {
-      notification.warning({
-        message: 'Ngày không hợp lệ', 
-        description: 'Không thể nhập dữ liệu cho ngày trong tương lai'
-      });
-      return;
     }
 
     setSelectedDate(date);
@@ -434,12 +493,8 @@ const CyclePage: React.FC = () => {
     const dateStr = date.format('YYYY-MM-DD');
     const dayData = calendarData.find(d => d.date === dateStr);
 
-    // Kiểm tra xem ngày này có thể nhập dữ liệu không
-    const canInputData = currentCycle && (() => {
-      const cycleStartDate = dayjs(currentCycle.startDate);
-      const daysDiff = date.diff(cycleStartDate, 'days');
-      return daysDiff >= -7 && date.isBefore(dayjs().add(2, 'day'));
-    })();
+    // Cho phép nhập dữ liệu cho mọi ngày khi có chu kỳ
+    const canInputData = !!currentCycle;
 
     // Nếu có dữ liệu chu kỳ, hiển thị symbol
     if (dayData?.symbol) {
@@ -647,6 +702,17 @@ const CyclePage: React.FC = () => {
                   Ghi nhận ngày
                 </Button>
               </Tooltip>
+              <Tooltip title={!currentCycle ? "Vui lòng tạo chu kỳ mới trước" : "Chỉnh sửa ngày bắt đầu chu kỳ hiện tại"}>
+                <Button 
+                  icon={<CalendarOutlined />} 
+                  size="large"
+                  onClick={() => setUpdateStartDateModalVisible(true)}
+                  disabled={!currentCycle}
+                  className="text-gray-700 border-gray-300 hover:text-orange-600 hover:border-orange-300"
+                >
+                  Đổi ngày bắt đầu
+                </Button>
+              </Tooltip>
               <Button 
                 icon={<SettingOutlined />} 
                 size="large"
@@ -758,120 +824,327 @@ const CyclePage: React.FC = () => {
 
         {/* Main Content */}
         {currentCycle ? (
-          <Row gutter={[16, 16]}>
-            {/* Calendar */}
-            <Col xs={24} lg={16}>
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <Card 
-                  title={<span className="text-gray-800">Lịch chu kỳ kinh nguyệt</span>}
-                  className="cycle-calendar-card bg-white/90 backdrop-blur-sm"
-                  extra={
-                    <div className="flex gap-2 flex-wrap">
-                      <Tag color="red">M: Kinh nguyệt</Tag>
-                      <Tag color="orange">X: Ngày đỉnh</Tag>
-                      <Tag color="yellow">1,2,3: Sau đỉnh</Tag>
-                      <Tag color="purple">C: Có thể thụ thai</Tag>
-                      <Tag color="cyan">S: An toàn</Tag>
-                      <Tag color="default">D: Khô</Tag>
-                    </div>
-                  }
-                >
-                  <Calendar
-                    value={selectedDate}
-                    onSelect={handleDateSelect}
-                    cellRender={getCellRender}
-                    className="cycle-calendar"
-                    onChange={debouncedCalendarChange}
-                  />
-                </Card>
-              </motion.div>
-            </Col>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="bg-white/90 backdrop-blur-sm">
+              <Tabs
+                activeKey={activeTab}
+                onChange={(key) => setActiveTab(key as 'calendar' | 'reports')}
+                items={[
+                  {
+                    key: 'calendar',
+                    label: (
+                      <span className="flex items-center gap-2">
+                        <CalendarOutlined />
+                        Lịch theo dõi
+                      </span>
+                    ),
+                    children: (
+                      <Row gutter={[16, 16]}>
+                        {/* Calendar */}
+                        <Col xs={24} lg={16}>
+                          <Card 
+                            title={<span className="text-gray-800">Lịch chu kỳ kinh nguyệt</span>}
+                            className="cycle-calendar-card"
+                            extra={
+                              <div className="flex gap-2 flex-wrap">
+                                <Tag color="red">M: Kinh nguyệt</Tag>
+                                <Tag color="orange">X: Ngày đỉnh</Tag>
+                                <Tag color="yellow">1,2,3: Sau đỉnh</Tag>
+                                <Tag color="purple">C: Có thể thụ thai</Tag>
+                                <Tag color="cyan">S: An toàn</Tag>
+                                <Tag color="default">D: Khô</Tag>
+                              </div>
+                            }
+                          >
+                            <Calendar
+                              value={selectedDate}
+                              onSelect={handleDateSelect}
+                              cellRender={getCellRender}
+                              className="cycle-calendar"
+                              onChange={debouncedCalendarChange}
+                            />
+                          </Card>
+                        </Col>
 
-            {/* Side Panel */}
-            <Col xs={24} lg={8}>
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}
-                className="space-y-4"
-              >
-                {/* Today's Info */}
-                <Card 
-                  title="Hôm nay" 
-                  className="bg-white/90 backdrop-blur-sm"
-                  extra={<span className="text-gray-600">{dayjs().format('DD/MM/YYYY')}</span>}
-                >
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-700">Chu kỳ hiện tại:</span>
-                      <Tag color="blue">Chu kỳ {currentCycle.cycleNumber}</Tag>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-700">Ngày bắt đầu:</span>
-                      <span className="text-gray-800 font-medium">{dayjs(currentCycle.startDate).format('DD/MM/YYYY')}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-700">Số ngày đã theo dõi:</span>
-                      <Tag color="green">{dayjs().diff(dayjs(currentCycle.startDate), 'days') + 1} ngày</Tag>
-                    </div>
-                  </div>
-                </Card>
+                        {/* Side Panel */}
+                        <Col xs={24} lg={8}>
+                          <div className="space-y-4">
+                            {/* Today's Info */}
+                            <Card 
+                              title="Hôm nay" 
+                              extra={<span className="text-gray-600">{dayjs().format('DD/MM/YYYY')}</span>}
+                            >
+                              <div className="space-y-3">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-gray-700">Chu kỳ hiện tại:</span>
+                                  <Tag color="blue">Chu kỳ {currentCycle.cycleNumber}</Tag>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-gray-700">Ngày bắt đầu:</span>
+                                  <span className="text-gray-800 font-medium">{dayjs(currentCycle.startDate).format('DD/MM/YYYY')}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span className="text-gray-700">Số ngày đã theo dõi:</span>
+                                  <Tag color="green">{dayjs().diff(dayjs(currentCycle.startDate), 'days') + 1} ngày</Tag>
+                                </div>
+                              </div>
+                            </Card>
 
-                {/* Legend */}
-                <Card title={<span className="text-gray-800">Chú thích phương pháp Billings</span>} className="bg-white/90 backdrop-blur-sm">
-                  <div className="space-y-2 text-sm">
-                    <div className="text-gray-800"><strong>Quan sát chất nhờn:</strong></div>
-                    <div className="text-gray-700">• Có máu, lấm tấm máu → Ướt</div>
-                    <div className="text-gray-700">• Đục → Dính, ẩm</div>
-                    <div className="text-gray-700">• Đục/trong nhiều sợi → Ướt, trơn</div>
-                    <div className="text-gray-800"><strong>• Trong và âm hộ căng → Trơn (Ngày X)</strong></div>
-                    <div className="text-gray-700">• Ít chất tiết → Ẩm, ướt</div>
-                    
-                    <div className="border-t pt-2 mt-3">
-                      <div className="text-gray-800"><strong>Ghi nhận dữ liệu:</strong></div>
-                      <div className="text-gray-700">• Có thể nhập từ 7 ngày trước ngày bắt đầu chu kỳ</div>
-                      <div className="text-gray-700">• Dấu chấm xanh nhạt: ngày có thể nhập dữ liệu</div>
-                      <div className="text-gray-700">• Nhấp vào ngày để ghi nhận thông tin</div>
-                    </div>
-                  </div>
-                </Card>
+                            {/* Legend */}
+                            <Card title={<span className="text-gray-800">📋 Chú thích</span>}>
+                              {/* Ký hiệu trên lịch */}
+                              <div className="mb-4">
+                                <div className="text-gray-800 font-medium mb-2">🗓️ Ký hiệu trên lịch:</div>
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold">M</div>
+                                    <span className="text-gray-700">Kinh nguyệt</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold">X</div>
+                                    <span className="text-gray-700">Ngày đỉnh</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center text-white text-xs font-bold">1</div>
+                                    <span className="text-gray-700">Sau đỉnh 1</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold">C</div>
+                                    <span className="text-gray-700">Có thể thụ thai</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-cyan-500 rounded-full flex items-center justify-center text-white text-xs font-bold">S</div>
+                                    <span className="text-gray-700">An toàn</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-gray-500 rounded-full flex items-center justify-center text-white text-xs font-bold">D</div>
+                                    <span className="text-gray-700">Khô</span>
+                                  </div>
+                                </div>
+                              </div>
 
-                {/* Quick Actions */}
-                <Card title={<span className="text-gray-800">Thao tác nhanh</span>} className="bg-white/90 backdrop-blur-sm">
-                  <div className="space-y-2">
-                    <Button 
-                      block 
-                      icon={<PlusOutlined />}
-                      onClick={() => setLogModalVisible(true)}
-                      className="text-gray-700 border-gray-300 hover:text-blue-600 hover:border-blue-300"
-                    >
-                      Ghi nhận ngày mới
-                    </Button>
-                    <Button 
-                      block 
-                      icon={<SettingOutlined />}
-                      onClick={() => setSettingsModalVisible(true)}
-                      className="text-gray-700 border-gray-300 hover:text-blue-600 hover:border-blue-300"
-                    >
-                      Cài đặt nhắc nhở
-                    </Button>
-                    <Button 
-                      block 
-                      icon={<LineChartOutlined />}
-                      onClick={() => navigate('/profile/menstrual-tracker')}
-                      className="text-gray-700 border-gray-300 hover:text-blue-600 hover:border-blue-300"
-                    >
-                      Xem bảng chi tiết
-                    </Button>
-                  </div>
-                </Card>
-              </motion.div>
-            </Col>
-          </Row>
+                              {/* Quy tắc Billings */}
+                              <div className="border-t pt-3">
+                                <div className="text-gray-800 font-medium mb-2">🔬 Phương pháp Billings:</div>
+                                <div className="space-y-1 text-xs">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-red-400 rounded-full"></span>
+                                    <span className="text-gray-700">Có máu, lấm tấm máu → Ướt</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+                                    <span className="text-gray-700">Đục → Dính, ẩm</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                                    <span className="text-gray-700">Trong nhiều sợi → Ướt, trơn</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 p-1 bg-orange-50 rounded">
+                                    <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                                    <span className="text-orange-800 font-medium">Trong & âm hộ căng → Trơn (Ngày X)</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                                    <span className="text-gray-700">Ít chất tiết → Ẩm, ướt</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Hướng dẫn sử dụng */}
+                              <div className="border-t pt-3 mt-3">
+                                <div className="text-gray-800 font-medium mb-2">💡 Hướng dẫn:</div>
+                                <div className="space-y-1 text-xs text-gray-600">
+                                  <div>• Nhấp vào ngày để ghi nhận dữ liệu</div>
+                                  <div>• Có thể nhập từ 7 ngày trước chu kỳ</div>
+                                  <div>• Dấu chấm xanh: ngày có thể nhập</div>
+                                </div>
+                              </div>
+                            </Card>
+
+                            {/* Quick Actions */}
+                            <Card title={<span className="text-gray-800">Thao tác nhanh</span>}>
+                              <div className="space-y-2">
+                                <Button 
+                                  block 
+                                  icon={<PlusOutlined />}
+                                  onClick={() => setLogModalVisible(true)}
+                                  className="text-gray-700 border-gray-300 hover:text-blue-600 hover:border-blue-300"
+                                >
+                                  Ghi nhận ngày mới
+                                </Button>
+                                <Button 
+                                  block 
+                                  icon={<SettingOutlined />}
+                                  onClick={() => setSettingsModalVisible(true)}
+                                  className="text-gray-700 border-gray-300 hover:text-blue-600 hover:border-blue-300"
+                                >
+                                  Cài đặt nhắc nhở
+                                </Button>
+                                <Button 
+                                  block 
+                                  icon={<LineChartOutlined />}
+                                  onClick={() => navigate('/profile/menstrual-tracker')}
+                                  className="text-gray-700 border-gray-300 hover:text-blue-600 hover:border-blue-300"
+                                >
+                                  Xem bảng chi tiết
+                                </Button>
+                              </div>
+                            </Card>
+                          </div>
+                        </Col>
+                      </Row>
+                    ),
+                  },
+                  {
+                    key: 'reports',
+                    label: (
+                      <span className="flex items-center gap-2">
+                        <LineChartOutlined />
+                        Báo cáo & Phân tích
+                      </span>
+                    ),
+                    children: (
+                      <div className="space-y-6">
+                        {/* Cycle Analysis Report */}
+                        {cycleAnalysis && (
+                          <Card 
+                            title={<span className="text-gray-800">📊 Báo cáo chu kỳ hiện tại</span>}
+                          >
+                            <div className="space-y-4">
+                              {/* Trạng thái chu kỳ */}
+                              <div className="p-4 bg-blue-50 rounded-lg">
+                                <div className="text-blue-800 font-medium mb-2 text-lg">
+                                  {cycleAnalysis.analysis?.pattern?.name || 'Đang phân tích...'}
+                                </div>
+                                <div className="text-blue-600">
+                                  {cycleAnalysis.analysis?.analysis || 'Chưa có đủ dữ liệu'}
+                                </div>
+                              </div>
+
+                              <Row gutter={[16, 16]}>
+                                {/* Thông tin chu kỳ */}
+                                <Col xs={24} md={12}>
+                                  <Card size="small" title="Thông tin chu kỳ" className="h-full">
+                                    <div className="space-y-2">
+                                      <div className="flex justify-between">
+                                        <span>Chu kỳ số:</span>
+                                        <Tag color="blue">{currentCycle.cycleNumber}</Tag>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>Ngày bắt đầu:</span>
+                                        <span>{dayjs(currentCycle.startDate).format('DD/MM/YYYY')}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>Số ngày theo dõi:</span>
+                                        <Tag color="green">{dayjs().diff(dayjs(currentCycle.startDate), 'days') + 1} ngày</Tag>
+                                      </div>
+                                      {cycleAnalysis.analysis?.peakDay && (
+                                        <div className="flex justify-between">
+                                          <span>Ngày đỉnh:</span>
+                                          <Tag color="red">
+                                            Ngày {cycleAnalysis.analysis.peakDay.cycleDayNumber} ({dayjs(cycleAnalysis.analysis.peakDay.date).format('DD/MM')})
+                                          </Tag>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </Card>
+                                </Col>
+
+                                {/* Dự đoán */}
+                                <Col xs={24} md={12}>
+                                  <Card size="small" title="Dự đoán chu kỳ tiếp theo" className="h-full">
+                                    {cycleAnalysis.analysis?.nextPeakPrediction?.prediction ? (
+                                      <div className="space-y-2">
+                                        <div className="p-3 bg-green-50 rounded-lg">
+                                          <div className="text-green-800 font-medium mb-1">
+                                            🔮 Ngày đỉnh dự kiến
+                                          </div>
+                                          <div className="text-green-600">
+                                            {dayjs(cycleAnalysis.analysis.nextPeakPrediction.prediction.date).format('DD/MM/YYYY')} (±2 ngày)
+                                          </div>
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          Độ tin cậy: {cycleAnalysis.analysis.nextPeakPrediction.confidence === 'medium' ? 'Trung bình' : 'Thấp'}
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div className="text-gray-500 text-center py-4">
+                                        Chưa đủ dữ liệu để dự đoán
+                                      </div>
+                                    )}
+                                  </Card>
+                                </Col>
+                              </Row>
+
+                              {/* Khuyến nghị */}
+                              {cycleAnalysis.analysis?.recommendations && cycleAnalysis.analysis.recommendations.length > 0 && (
+                                <Card size="small" title="💡 Khuyến nghị">
+                                  <div className="space-y-2">
+                                    {cycleAnalysis.analysis.recommendations.map((rec: string, index: number) => (
+                                      <div key={index} className="text-sm text-gray-700 bg-gray-50 p-3 rounded">
+                                        {rec}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </Card>
+                              )}
+
+                              {/* Auto complete button */}
+                              {cycleAnalysis.analysis?.isComplete && !currentCycle?.isCompleted && (
+                                <div className="flex justify-center pt-4">
+                                  <Button 
+                                    type="primary"
+                                    size="large"
+                                    className="bg-green-500 hover:bg-green-600 border-green-500"
+                                    onClick={async () => {
+                                      try {
+                                        await menstrualCycleApi.autoCompleteCycle(currentCycle._id);
+                                        notification.success({
+                                          message: 'Thành công',
+                                          description: 'Chu kỳ đã được đánh dấu hoàn thành'
+                                        });
+                                        await loadCycleData();
+                                        await loadCycleAnalysis();
+                                      } catch (error) {
+                                        notification.error({
+                                          message: 'Lỗi',
+                                          description: 'Không thể hoàn thành chu kỳ'
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    ✅ Hoàn thành chu kỳ này
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </Card>
+                        )}
+
+                        {/* Placeholder for more reports */}
+                        <Card 
+                          title={<span className="text-gray-800">📈 Báo cáo tổng hợp</span>}
+                          className="text-center"
+                        >
+                          <div className="py-8 text-gray-500">
+                            <LineChartOutlined className="text-4xl mb-4" />
+                            <div className="text-lg font-medium mb-2">Sắp có thêm báo cáo</div>
+                            <div className="text-sm">
+                              Báo cáo so sánh nhiều chu kỳ, thống kê, và phân tích xu hướng sẽ được bổ sung trong tương lai
+                            </div>
+                          </div>
+                        </Card>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
+            </Card>
+          </motion.div>
         ) : (
           // Hiển thị thông báo khi chưa có chu kỳ
           <Card className="text-center p-8 bg-gray-50">
@@ -1034,6 +1307,76 @@ const CyclePage: React.FC = () => {
           </Form>
         </Modal>
 
+        {/* Update Start Date Modal */}
+        <Modal
+          title={<span className="text-gray-800">Cập nhật ngày bắt đầu chu kỳ</span>}
+          open={updateStartDateModalVisible}
+          onCancel={() => {
+            setUpdateStartDateModalVisible(false);
+            updateStartDateForm.resetFields();
+          }}
+          footer={null}
+          width={600}
+        >
+          <div className="mb-4">
+            <Alert
+              message="Thay đổi ngày bắt đầu chu kỳ"
+              description={`Chu kỳ hiện tại bắt đầu từ ngày ${currentCycle ? dayjs(currentCycle.startDate).format('DD/MM/YYYY') : 'N/A'}. Khi bạn thay đổi ngày bắt đầu, hệ thống sẽ tự động tính lại thứ tự ngày (cycleDayNumber) cho tất cả dữ liệu đã ghi nhận trong chu kỳ này.`}
+              type="warning"
+              showIcon
+              className="mb-4"
+            />
+          </div>
+          
+          <Form
+            form={updateStartDateForm}
+            layout="vertical"
+            onFinish={handleUpdateStartDate}
+            initialValues={{
+              newStartDate: currentCycle ? dayjs(currentCycle.startDate) : dayjs()
+            }}
+          >
+            <Form.Item
+              name="newStartDate"
+              label={<span className="text-gray-700 font-medium">Ngày bắt đầu mới</span>}
+              rules={[
+                { required: true, message: 'Vui lòng chọn ngày bắt đầu mới' }
+              ]}
+            >
+              <DatePicker 
+                className="w-full" 
+                format="DD/MM/YYYY"
+                placeholder="Chọn ngày bắt đầu chu kỳ mới"
+              />
+            </Form.Item>
+
+            <div className="bg-orange-50 p-4 rounded-lg mb-4">
+              <h4 className="text-orange-800 font-medium mb-2">⚠️ Lưu ý quan trọng:</h4>
+              <ul className="text-orange-700 text-sm space-y-1">
+                <li>• Việc thay đổi ngày bắt đầu sẽ ảnh hưởng đến tất cả dữ liệu đã ghi nhận</li>
+                <li>• Hệ thống sẽ tự động tính lại thứ tự ngày cho các ngày đã có dữ liệu</li>
+                <li>• Điều này hữu ích khi bạn phát hiện ngày bắt đầu thực tế khác với ban đầu</li>
+                <li>• Ví dụ: Đã đặt ngày 15/1 nhưng thực tế ngày 12/1 mới là ngày đầu kinh nguyệt</li>
+              </ul>
+            </div>
+
+            <Form.Item className="mb-0 text-right">
+              <Button 
+                onClick={() => {
+                  setUpdateStartDateModalVisible(false);
+                  updateStartDateForm.resetFields();
+                }}
+                className="mr-2 text-gray-700 border-gray-300"
+              >
+                Hủy
+              </Button>
+              <Button type="primary" htmlType="submit" className="bg-orange-500 hover:bg-orange-600 border-orange-500">
+                Cập nhật ngày bắt đầu
+              </Button>
+            </Form.Item>
+          </Form>
+        </Modal>
+
         {/* Create Cycle Modal */}
         <Modal
           title={<span className="text-gray-800">Tạo chu kỳ mới</span>}
@@ -1048,7 +1391,7 @@ const CyclePage: React.FC = () => {
           <div className="mb-4">
             <Alert
               message="Chọn ngày bắt đầu chu kỳ"
-              description="Thông thường chu kỳ kinh nguyệt bắt đầu từ ngày đầu tiên có kinh nguyệt. Bạn có thể chọn ngày trong quá khứ để nhập dữ liệu đã theo dõi trước đó."
+              description="Thông thường chu kỳ kinh nguyệt bắt đầu từ ngày đầu tiên có kinh nguyệt. Bạn có thể tự do chọn bất kỳ ngày nào - trong quá khứ, hiện tại, hoặc tương lai."
               type="info"
               showIcon
               className="mb-4"
@@ -1067,37 +1410,13 @@ const CyclePage: React.FC = () => {
               name="startDate"
               label={<span className="text-gray-700 font-medium">Ngày bắt đầu chu kỳ</span>}
               rules={[
-                { required: true, message: 'Vui lòng chọn ngày bắt đầu chu kỳ' },
-                {
-                  validator: (_, value) => {
-                    if (!value) return Promise.resolve();
-                    
-                    // Không cho phép chọn ngày trong tương lai quá 1 ngày
-                    if (value.isAfter(dayjs().add(1, 'day'))) {
-                      return Promise.reject(new Error('Không thể chọn ngày trong tương lai'));
-                    }
-                    
-                    // Không cho phép chọn ngày quá 60 ngày trong quá khứ
-                    if (value.isBefore(dayjs().subtract(60, 'days'))) {
-                      return Promise.reject(new Error('Không thể chọn ngày quá 60 ngày trong quá khứ'));
-                    }
-                    
-                    return Promise.resolve();
-                  }
-                }
+                { required: true, message: 'Vui lòng chọn ngày bắt đầu chu kỳ' }
               ]}
             >
               <DatePicker 
                 className="w-full" 
                 format="DD/MM/YYYY"
                 placeholder="Chọn ngày bắt đầu chu kỳ"
-                disabledDate={(current) => {
-                  // Disable dates after tomorrow and before 60 days ago
-                  return current && (
-                    current.isAfter(dayjs().add(1, 'day')) || 
-                    current.isBefore(dayjs().subtract(60, 'days'))
-                  );
-                }}
               />
             </Form.Item>
 
@@ -1105,8 +1424,9 @@ const CyclePage: React.FC = () => {
               <h4 className="text-blue-800 font-medium mb-2">💡 Gợi ý:</h4>
               <ul className="text-blue-700 text-sm space-y-1">
                 <li>• Chọn ngày đầu tiên có kinh nguyệt của chu kỳ này</li>
-                <li>• Bạn có thể nhập dữ liệu cho những ngày đã qua sau khi tạo chu kỳ</li>
+                <li>• Bạn có thể nhập dữ liệu cho bất kỳ ngày nào sau khi tạo chu kỳ</li>
                 <li>• Chu kỳ kinh nguyệt thường kéo dài 21-35 ngày</li>
+                <li>• Không có giới hạn thời gian - bạn có thể chọn ngày trong quá khứ hoặc tương lai</li>
               </ul>
             </div>
 
@@ -1169,10 +1489,7 @@ const CyclePage: React.FC = () => {
         {/* Onboarding Tour */}
         <OnboardingTour
           visible={showOnboarding}
-          currentStep={onboardingStep}
-          onNext={nextOnboardingStep}
-          onPrev={prevOnboardingStep}
-          onComplete={completeOnboarding}
+          onClose={completeOnboarding}
         />
       </div>
     </div>

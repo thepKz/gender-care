@@ -528,7 +528,7 @@ export const getReminderStats = async (req: AuthRequest, res: Response) => {
 export const updateCycle = async (req: AuthRequest, res: Response) => {
     try {
         const { id } = req.params;
-        const { endDate, isCompleted, status } = req.body;
+        const { startDate, endDate, isCompleted, status } = req.body;
         const userId = req.user!._id;
 
         const cycle = await MenstrualCycles.findOne({
@@ -540,11 +540,34 @@ export const updateCycle = async (req: AuthRequest, res: Response) => {
             throw new NotFoundError('Không tìm thấy chu kỳ hoặc bạn không có quyền truy cập');
         }
 
+        // Lưu ngày bắt đầu cũ để so sánh
+        const oldStartDate = cycle.startDate;
+        let needRecalculateCycleDays = false;
+
+        // Cập nhật các trường
+        if (startDate) {
+            const newStartDate = new Date(startDate);
+            if (isNaN(newStartDate.getTime())) {
+                throw new ValidationError({ startDate: 'Định dạng ngày không hợp lệ' });
+            }
+
+            // Kiểm tra nếu ngày bắt đầu thay đổi
+            if (oldStartDate.getTime() !== newStartDate.getTime()) {
+                cycle.startDate = newStartDate;
+                needRecalculateCycleDays = true;
+            }
+        }
+
         if (endDate) cycle.endDate = new Date(endDate);
         if (isCompleted !== undefined) cycle.isCompleted = isCompleted;
         if (status) cycle.status = status;
 
         await cycle.save();
+
+        // Nếu ngày bắt đầu thay đổi, cần tính toán lại cycleDayNumber cho tất cả cycle days
+        if (needRecalculateCycleDays) {
+            await recalculateCycleDayNumbers(id, cycle.startDate);
+        }
 
         return res.json({
             success: true,
@@ -558,11 +581,53 @@ export const updateCycle = async (req: AuthRequest, res: Response) => {
                 message: error.message
             });
         }
+        if (error instanceof ValidationError) {
+            return res.status(400).json({
+                success: false,
+                errors: error.errors
+            });
+        }
         console.error('Update cycle error:', error);
         return res.status(500).json({
             success: false,
             message: 'Đã xảy ra lỗi server'
         });
+    }
+};
+
+/**
+ * Tính toán lại cycleDayNumber cho tất cả ngày trong chu kỳ
+ * @param cycleId ID của chu kỳ
+ * @param newStartDate Ngày bắt đầu mới
+ */
+const recalculateCycleDayNumbers = async (cycleId: string, newStartDate: Date) => {
+    try {
+        // Lấy tất cả cycle days của chu kỳ này
+        const cycleDays = await CycleDays.find({ cycleId });
+
+        // Cập nhật từng ngày
+        const bulkOps = cycleDays.map(day => {
+            const diffTime = day.date.getTime() - newStartDate.getTime();
+            const newCycleDayNumber = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+            return {
+                updateOne: {
+                    filter: { _id: day._id },
+                    update: {
+                        cycleDayNumber: newCycleDayNumber >= 1 ? newCycleDayNumber : 1
+                    }
+                }
+            };
+        });
+
+        if (bulkOps.length > 0) {
+            await CycleDays.bulkWrite(bulkOps);
+        }
+
+        console.log(`✅ Recalculated cycleDayNumber for ${bulkOps.length} days in cycle ${cycleId}`);
+    } catch (error) {
+        console.error('Error recalculating cycle day numbers:', error);
+        throw error;
     }
 };
 
@@ -974,6 +1039,121 @@ export const getGenderPrediction = async (req: AuthRequest, res: Response) => {
             });
         }
         console.error('Get gender prediction error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi server'
+        });
+    }
+};
+
+/**
+ * Lấy báo cáo phân tích chu kỳ hoàn chỉnh
+ * GET /api/menstrual-cycles/:id/analysis
+ */
+export const getCycleAnalysis = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user!._id;
+
+        // Kiểm tra cycle thuộc về user
+        const cycle = await MenstrualCycles.findOne({
+            _id: id,
+            createdByUserId: userId
+        });
+
+        if (!cycle) {
+            throw new NotFoundError('Không tìm thấy chu kỳ hoặc bạn không có quyền truy cập');
+        }
+
+        // Phân tích chu kỳ
+        const analysis = await menstrualCycleService.analyzeCycleCompletion(id);
+
+        return res.json({
+            success: true,
+            message: 'Lấy báo cáo phân tích chu kỳ thành công',
+            data: {
+                cycleId: id,
+                cycleNumber: cycle.cycleNumber,
+                startDate: cycle.startDate,
+                endDate: cycle.endDate,
+                isCompleted: cycle.isCompleted,
+                analysis: analysis
+            }
+        });
+    } catch (error: any) {
+        if (error instanceof NotFoundError) {
+            return res.status(404).json({
+                success: false,
+                message: error.message
+            });
+        }
+        console.error('Get cycle analysis error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi server'
+        });
+    }
+};
+
+/**
+ * Tự động đánh dấu chu kỳ hoàn thành khi đủ điều kiện
+ * POST /api/menstrual-cycles/:id/auto-complete
+ */
+export const autoCompleteCycle = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user!._id;
+
+        // Kiểm tra cycle thuộc về user
+        const cycle = await MenstrualCycles.findOne({
+            _id: id,
+            createdByUserId: userId
+        });
+
+        if (!cycle) {
+            throw new NotFoundError('Không tìm thấy chu kỳ hoặc bạn không có quyền truy cập');
+        }
+
+        // Phân tích chu kỳ
+        const analysis = await menstrualCycleService.analyzeCycleCompletion(id);
+
+        if (analysis.isComplete) {
+            // Đánh dấu chu kỳ hoàn thành
+            cycle.isCompleted = true;
+            cycle.status = 'completed';
+
+            // Lưu ngày đỉnh nếu có
+            if (analysis.peakDay) {
+                cycle.peakDay = analysis.peakDay.date;
+            }
+
+            await cycle.save();
+
+            return res.json({
+                success: true,
+                message: 'Chu kỳ đã được đánh dấu hoàn thành',
+                data: {
+                    cycle: cycle,
+                    analysis: analysis
+                }
+            });
+        } else {
+            return res.json({
+                success: false,
+                message: 'Chu kỳ chưa đủ điều kiện để hoàn thành',
+                data: {
+                    analysis: analysis
+                }
+            });
+        }
+    } catch (error: any) {
+        if (error instanceof NotFoundError) {
+            return res.status(404).json({
+                success: false,
+                message: error.message
+            });
+        }
+        console.error('Auto complete cycle error:', error);
         return res.status(500).json({
             success: false,
             message: 'Đã xảy ra lỗi server'

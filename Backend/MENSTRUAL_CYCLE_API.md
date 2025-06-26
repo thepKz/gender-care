@@ -96,6 +96,41 @@ Authorization: Bearer <token>
 }
 ```
 
+#### Cập nhật chu kỳ
+```http
+PUT /api/menstrual-cycles/:id
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "startDate": "2024-01-05",  // Cập nhật ngày bắt đầu chu kỳ (tùy chọn)
+  "endDate": "2024-01-28",    // Ngày kết thúc chu kỳ (tùy chọn)
+  "isCompleted": true,        // Đánh dấu chu kỳ hoàn thành (tùy chọn)
+  "status": "completed"       // Trạng thái: "tracking", "completed", "analysis" (tùy chọn)
+}
+```
+
+**Lưu ý quan trọng về startDate:**
+- Khi cập nhật `startDate`, hệ thống sẽ tự động tính toán lại `cycleDayNumber` cho tất cả ngày đã ghi nhận trong chu kỳ
+- Điều này hữu ích khi phát hiện ngày đầu kinh nguyệt thực tế khác với ngày đã đặt ban đầu
+- Ví dụ: Nếu bạn đặt ngày bắt đầu là 15/1 nhưng sau đó nhận ra ngày 12/1 mới là ngày đầu thật sự
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Cập nhật chu kỳ thành công",
+  "data": {
+    "_id": "cycle_id",
+    "createdByUserId": "user_id",
+    "startDate": "2024-01-05T00:00:00.000Z",
+    "endDate": "2024-01-28T00:00:00.000Z",
+    "isCompleted": true,
+    "status": "completed"
+  }
+}
+```
+
 ### 2. Quản lý Ngày trong Chu kỳ (Cycle Days)
 
 #### Thêm/cập nhật dữ liệu ngày
@@ -202,205 +237,136 @@ GET /api/reports/comparison
 Authorization: Bearer <token>
 ```
 
+### 4. Phân tích Chu kỳ Hoàn chỉnh (Cycle Analysis)
+
+#### Lấy báo cáo phân tích chu kỳ
+```http
+GET /api/menstrual-cycles/:id/analysis
+Authorization: Bearer <token>
+```
+
 **Response:**
 ```json
 {
   "success": true,
+  "message": "Lấy báo cáo phân tích chu kỳ thành công",
   "data": {
-    "cycles": [...],
-    "reports": [...],
+    "cycleId": "cycle_id",
+    "cycleNumber": 1,
+    "startDate": "2024-01-01T00:00:00.000Z",
+    "endDate": null,
+    "isCompleted": false,
     "analysis": {
-      "cycleConsistency": "Chu kỳ ổn định",
-      "averageResult": -13.5,
-      "recommendation": "Chu kỳ trong giới hạn bình thường. Tiếp tục theo dõi đều đặn."
+      "isComplete": false,
+      "analysis": "Đã có kinh nguyệt, đang chờ ngày đỉnh (trong và âm hộ căng).",
+      "phase": "pre_peak_tracking",
+      "peakDay": null,
+      "pattern": {
+        "type": "unknown_pattern",
+        "name": "Mẫu chưa rõ ràng",
+        "description": "Cần thêm dữ liệu để phân tích",
+        "confidence": "unknown"
+      },
+      "nextPeakPrediction": {
+        "prediction": null,
+        "confidence": "none",
+        "message": "Chưa xác định được ngày đỉnh của chu kỳ hiện tại"
+      },
+      "recommendations": [
+        "📈 Cần thêm dữ liệu để phân tích chu kỳ",
+        "🎯 Hãy ghi nhận đầy đủ thông tin mỗi ngày"
+      ]
     }
   }
 }
 ```
 
-### 4. Nhắc nhở (Reminders)
+**Các loại mẫu chu kỳ (Pattern Types):**
+- `normal_pattern`: Chu kỳ bình thường (Máu → Lấm tấm máu → Khô → Đục → Trong âm hộ căng)
+- `irregular_pattern`: Chu kỳ cần theo dõi (Lấm tấm máu → Ít chất tiết)
+- `unknown_pattern`: Mẫu chưa rõ ràng
 
-#### Lấy cài đặt nhắc nhở
+**Các giai đoạn chu kỳ (Phases):**
+- `no_data`: Chưa có dữ liệu
+- `initial_tracking`: Đang theo dõi ban đầu
+- `pre_peak_tracking`: Đã có kinh nguyệt, chờ ngày đỉnh
+- `post_peak_tracking`: Đã qua ngày đỉnh, chờ ngày khô
+- `completed`: Chu kỳ hoàn chỉnh
+- `needs_observation`: Cần theo dõi thêm
+
+#### Tự động hoàn thành chu kỳ
 ```http
-GET /api/reminders
+POST /api/menstrual-cycles/:id/auto-complete
 Authorization: Bearer <token>
 ```
 
-**Response:**
+**Response khi chu kỳ đủ điều kiện:**
 ```json
 {
   "success": true,
+  "message": "Chu kỳ đã được đánh dấu hoàn thành",
   "data": {
-    "_id": "reminder_id",
-    "userId": "user_id",
-    "reminderEnabled": true,
-    "reminderTime": "20:00",
-    "lastNotifiedAt": "2024-01-14T20:00:00.000Z"
+    "cycle": {
+      "_id": "cycle_id",
+      "isCompleted": true,
+      "status": "completed",
+      "peakDay": "2024-01-15T00:00:00.000Z"
+    },
+    "analysis": {
+      "isComplete": true,
+      "analysis": "Chu kỳ hoàn chỉnh. Ngày đỉnh: 15. Thời gian khô sau đỉnh: 3 ngày."
+    }
   }
 }
 ```
 
-#### Cập nhật cài đặt nhắc nhở
-```http
-PUT /api/reminders
-Content-Type: application/json
-Authorization: Bearer <token>
-
-{
-  "reminderEnabled": true,
-  "reminderTime": "21:00"
-}
-```
-
-#### Trigger nhắc nhở thủ công (cho cronjob)
-```http
-POST /api/reminders/notify
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Đã gửi nhắc nhở thành công",
-  "data": {
-    "notified": 15,
-    "skipped": 8,
-    "errors": 0
-  }
-}
-```
-
-#### Thống kê reminder (Admin)
-```http
-GET /api/reminders/stats
-Authorization: Bearer <token>
-```
-
-## Validation Rules
-
-### Mucus/Feeling Combinations
-Theo phương pháp Billings, các combination hợp lệ:
-
-- `có máu` → `ướt`
-- `lấm tấm máu` → `ướt`
-- `đục` → `dính`, `ẩm`
-- `đục nhiều sợi` → `ướt`, `trơn`
-- `trong nhiều sợi` → `ướt`, `trơn`
-- `trong và âm hộ căng` → `trơn` (ngày X)
-- `ít chất tiết` → `ẩm`, `ướt`
-
-### Automatic Processing
-
-#### Khi detect ngày X (`trong và âm hộ căng` + `trơn`):
-1. Đánh dấu là ngày đỉnh (peak day)
-2. Tự động tạo 3 ngày sau:
-   - Ngày 1: 75% khả năng có thai, gợi ý bé trai
-   - Ngày 2: 50% khả năng có thai, gợi ý bé trai  
-   - Ngày 3: 20% khả năng có thai
-3. Phân tích 7 ngày trước ngày X:
-   - 2 ngày trước: 50-70% khả năng có thai, gợi ý bé gái
-
-### Cycle Analysis
-
-#### Result Calculation:
-- `result = (X+1) - Y`
-- X: ngày đỉnh
-- Y: ngày trước khi có máu chu kỳ tiếp theo
-
-#### Result Types:
-- `normal`: result trong khoảng [-16, -11] hoặc [11, 16]
-- `short`: result < 11 và > -11
-- `long`: result > 16 hoặc < -16
-
-## Calendar Symbols
-
-- `M`: Có máu
-- `m`: Lấm tấm máu
-- `X`: Ngày đỉnh
-- `1,2,3`: Ngày sau đỉnh
-- `C`: Đục
-- `S`: Trong nhiều sợi
-- `D`: Khô
-- `•`: Mặc định
-
-## Error Handling
-
-Tất cả API đều trả về format nhất quán:
-
-**Success:**
-```json
-{
-  "success": true,
-  "message": "...",
-  "data": {...}
-}
-```
-
-**Error:**
+**Response khi chu kỳ chưa đủ điều kiện:**
 ```json
 {
   "success": false,
-  "message": "Error message",
-  "errors": {...} // Validation errors
+  "message": "Chu kỳ chưa đủ điều kiện để hoàn thành",
+  "data": {
+    "analysis": {
+      "isComplete": false,
+      "phase": "post_peak_tracking",
+      "analysis": "Đã qua ngày đỉnh (ngày 15). Cần theo dõi thêm 1 ngày khô để hoàn thành chu kỳ."
+    }
+  }
 }
 ```
 
-**HTTP Status Codes:**
-- `200`: Success
-- `201`: Created
-- `400`: Bad Request / Validation Error
-- `401`: Unauthorized
-- `404`: Not Found
-- `500`: Server Error
+## Logic Phân tích Chu kỳ theo Phương pháp Billings
 
-## Cronjob Setup
+### Chu kỳ Hoàn chỉnh
+Một chu kỳ được coi là hoàn chỉnh khi có đầy đủ các giai đoạn:
 
-Để setup reminder tự động, tạo cronjob:
+1. **Máu kinh nguyệt** (`có máu`)
+2. **Lấm tấm máu** (tùy chọn)
+3. **Ngày đỉnh** (`trong và âm hộ căng` + `trơn`)
+4. **Ít nhất 3 ngày khô** sau ngày đỉnh
 
-```bash
-# Chạy mỗi tối 8h để gửi nhắc nhở
-0 20 * * * curl -X POST http://your-api-domain/api/reminders/notify
-```
+### Trường hợp 1: Chu kỳ Bình thường
+**Mẫu:** Máu → Lấm tấm máu → Khô → Đục → Trơn, trong âm hộ căng
 
-## Testing Examples
+**Phân tích:**
+- Xác định được ngày đỉnh rõ ràng
+- Thời gian khô giữa "lấm tấm máu" và "đục" là chu kỳ khô bình thường
+- Có thể dự đoán chu kỳ tiếp theo với độ tin cậy cao
 
-### Workflow hoàn chỉnh:
+### Trường hợp 2: Chu kỳ Cần Theo dõi
+**Mẫu:** Lấm tấm máu → Ít chất tiết
 
-1. **Tạo chu kỳ mới:**
-```bash
-curl -X POST http://localhost:5000/api/menstrual-cycles \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{"startDate": "2024-01-01"}'
-```
+**Phân tích:**
+- Mẫu chưa rõ ràng, cần theo dõi thêm 2 chu kỳ
+- Nếu chu kỳ thứ 2 giống Trường hợp 1 → chuyển sang phân tích bình thường
+- Khuyến nghị ghi nhận đầy đủ mỗi ngày
 
-2. **Thêm dữ liệu hàng ngày:**
-```bash
-curl -X POST http://localhost:5000/api/cycle-days \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cycleId": "cycle_id",
-    "date": "2024-01-15",
-    "mucusObservation": "trong và âm hộ căng",
-    "feeling": "trơn"
-  }'
-```
+### Dự đoán Chu kỳ Tiếp theo
+- Dựa trên ngày đỉnh của chu kỳ hiện tại
+- Sử dụng chu kỳ trung bình 28 ngày (có thể điều chỉnh theo lịch sử)
+- Cung cấp khoảng dự đoán ±2 ngày
 
-3. **Xem calendar:**
-```bash
-curl "http://localhost:5000/api/menstrual-cycles/calendar?month=1&year=2024" \
-  -H "Authorization: Bearer <token>"
-```
-
-4. **Tạo báo cáo:**
-```bash
-curl -X POST http://localhost:5000/api/reports/generate/cycle_id \
-  -H "Authorization: Bearer <token>"
-```
-
-5. **So sánh 3 chu kỳ:**
-```bash
-curl http://localhost:5000/api/reports/comparison \
-  -H "Authorization: Bearer <token>"
-``` 
+### Khuyến nghị Tự động
+- **Chu kỳ bình thường**: Tiếp tục theo dõi đều đặn
+- **Chu kỳ cần theo dõi**: Theo dõi thêm 2 chu kỳ
+- **Chưa đủ dữ liệu**: Ghi nhận đầy đủ mỗi ngày

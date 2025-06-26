@@ -20,7 +20,9 @@ import {
     getReminderStats,
     generatePostPeakDays,
     validateDayInput,
-    getGenderPrediction
+    getGenderPrediction,
+    getCycleAnalysis,
+    autoCompleteCycle
 } from '../controllers/menstrualCycleController';
 import { verifyToken as authenticate } from '../middleware/auth';
 
@@ -56,5 +58,9 @@ router.get('/reminders/stats', authenticate, getReminderStats);
 router.post('/logic/generate-post-peak', authenticate, generatePostPeakDays);
 router.post('/logic/validate-day', authenticate, validateDayInput);
 router.get('/logic/gender-prediction/:cycleId', authenticate, getGenderPrediction);
+
+// Routes cho Cycle Analysis (Báo cáo phân tích)
+router.get('/menstrual-cycles/:id/analysis', authenticate, getCycleAnalysis);
+router.post('/menstrual-cycles/:id/auto-complete', authenticate, autoCompleteCycle);
 
 export default router; 

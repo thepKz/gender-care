@@ -121,9 +121,7 @@ const CycleDaysSchema = new mongoose.Schema<ICycleDays>({
   },
   year: {
     type: Number,
-    required: true,
-    min: 2020,
-    max: 2050
+    required: true
   }
 }, {
   timestamps: true,

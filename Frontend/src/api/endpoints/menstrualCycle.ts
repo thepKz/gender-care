@@ -205,7 +205,19 @@ const menstrualCycleApi = {
     C: { symbol: 'C', color: '#ab47bc', description: 'Có thể thụ thai' },
     S: { symbol: 'S', color: '#26c6da', description: 'An toàn' },
     D: { symbol: 'D', color: '#78909c', description: 'Khô' }
-  } as const
+  } as const,
+
+  // ==================== CYCLE ANALYSIS ====================
+
+  // Lấy báo cáo phân tích chu kỳ hoàn chỉnh
+  getCycleAnalysis: (cycleId: string): Promise<ApiResponse<any>> => {
+    return axiosInstance.get(`/menstrual-cycles/${cycleId}/analysis`);
+  },
+
+  // Tự động đánh dấu chu kỳ hoàn thành
+  autoCompleteCycle: (cycleId: string): Promise<ApiResponse<any>> => {
+    return axiosInstance.post(`/menstrual-cycles/${cycleId}/auto-complete`);
+  }
 };
 
 export default menstrualCycleApi; 
