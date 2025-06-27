@@ -1,12 +1,12 @@
 import { Button, Card, Col, Divider, Row, Steps, Tag, Typography, message } from 'antd';
 import { motion } from 'framer-motion';
 import {
-    Call,
-    TickSquare as CheckSquare,
-    CloseSquare,
-    Profile,
-    Shield,
-    VideoPlay
+  Call,
+  TickSquare as CheckSquare,
+  CloseSquare,
+  Profile,
+  Shield,
+  VideoPlay
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -75,17 +75,32 @@ const PaymentPage: React.FC = () => {
       // Gọi API tạo PayOS payment link
       const response = await consultationApi.createConsultationPaymentLink(qaId);
       
-      if (response.data && response.data.success && response.data.data) {
-        const { paymentUrl, orderCode, amount } = response.data.data;
-        
-        message.success('Đang chuyển đến trang thanh toán PayOS...');
-        
-        // Redirect to PayOS payment page
-        window.location.href = paymentUrl;
-        
-      } else {
-        throw new Error(response.data?.message || 'Không thể tạo link thanh toán');
+      // Validate response structure
+      if (!response?.data?.success || !response?.data?.data) {
+        throw new Error(response?.data?.message || 'Không thể tạo link thanh toán');
       }
+      
+      const { paymentUrl, orderCode, amount } = response.data.data;
+      
+      // Validate paymentUrl
+      if (!paymentUrl || typeof paymentUrl !== 'string') {
+        throw new Error('Link thanh toán không hợp lệ');
+      }
+      
+      // Validate URL format for security
+      try {
+        new URL(paymentUrl);
+      } catch {
+        throw new Error('Link thanh toán có định dạng không hợp lệ');
+      }
+      
+      // Log payment details for debugging (optional)
+      console.log('Payment details:', { orderCode, amount: formatCurrency(amount) });
+      
+      message.success('Đang chuyển đến trang thanh toán PayOS...');
+      
+      // Redirect to PayOS payment page
+      window.location.href = paymentUrl;
       
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || error.message || 'Lỗi tạo link thanh toán';

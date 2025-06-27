@@ -217,6 +217,11 @@ const OnlineConsultationPage: React.FC = () => {
 
       const consultationData = res.data.data;
       
+      // Validate consultation data before navigation
+      if (!consultationData || !consultationData._id) {
+        throw new Error('Dữ liệu tư vấn không hợp lệ');
+      }
+      
       // Chuyển hướng đến trang thanh toán
       navigate(`/consultation/payment/${consultationData._id}`);
       
