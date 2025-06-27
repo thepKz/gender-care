@@ -153,6 +153,13 @@ export class TestResultItemsService {
 
     const savedItem = await testResultItem.save();
 
+    // Map vào testResult nếu có
+    const TestResults = (await import('../models/TestResults')).default;
+    await TestResults.updateOne(
+      { appointmentId: data.appointmentId },
+      { $addToSet: { testResultItemsId: savedItem._id } }
+    );
+
     // Populate và return
     return await TestResultItems.findById(savedItem._id)
       .populate('itemNameId', 'name description unit normalRange') as ITestResultItems;
@@ -296,6 +303,13 @@ export class TestResultItemsService {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       throw new Error('Invalid test result item ID format');
     }
+
+    // Xóa khỏi testResultItemsId trong TestResults
+    const TestResults = (await import('../models/TestResults')).default;
+    await TestResults.updateMany(
+      { testResultItemsId: id },
+      { $pull: { testResultItemsId: id } }
+    );
 
     const result = await TestResultItems.findByIdAndDelete(id);
     if (!result) {

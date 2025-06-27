@@ -159,6 +159,7 @@ export interface TestResultData {
   conclusion?: string;
   recommendations?: string;
   createdAt: string;
+  testResultItemsId: string[];
 }
 
 export interface TestResultResponse {

@@ -37,6 +37,7 @@ interface TestResultData {
     doctorId: string;
     conclusion?: string;
     recommendations?: string;
+    testResultItemsId: string[];
 }
 
 export const appointmentApi = {

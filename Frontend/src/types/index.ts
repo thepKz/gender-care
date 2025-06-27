@@ -514,6 +514,7 @@ export interface TestResult {
   conclusion: string;
   recommendations: string;
   createdAt: string;
+  testResultItemsId: string[];
 }
 
 export interface TestCategory {

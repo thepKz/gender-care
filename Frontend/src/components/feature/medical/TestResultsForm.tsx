@@ -29,12 +29,7 @@ import {
   CloseCircleOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { 
-  testResultItemsApi, 
-  TestResultTemplate, 
-  AutoEvaluateData, 
-  EvaluationResult 
-} from '../../../api/endpoints/testManagementApi';
+import { testResultItemsApi, TestResultTemplate } from '../../../api/endpoints/testManagementApi';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -53,8 +48,6 @@ interface TestItemInput {
   testCategoryId: string;
   value: string;
   unit?: string;
-  notes?: string;
-  evaluation?: EvaluationResult;
 }
 
 export const TestResultsForm: React.FC<TestResultsFormProps> = ({
@@ -69,7 +62,6 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
   const [testItems, setTestItems] = useState<TestItemInput[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [evaluating, setEvaluating] = useState<string | null>(null);
   const [form] = Form.useForm();
 
   // Load template
@@ -90,7 +82,6 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
         testCategoryId: cat._id,
         value: '',
         unit: cat.customUnit || cat.unit,
-        notes: ''
       }));
       setTestItems(items);
       
@@ -108,62 +99,24 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
     }
   };
 
-  const updateTestItem = (testCategoryId: string, field: keyof TestItemInput, value: string) => {
-    setTestItems(prev => prev.map(item => 
-      item.testCategoryId === testCategoryId 
-        ? { ...item, [field]: value }
-        : item
-    ));
-  };
-
-  const evaluateValue = async (testCategoryId: string, value: string) => {
-    if (!value.trim()) return;
-
-    try {
-      setEvaluating(testCategoryId);
-      const evaluation = await testResultItemsApi.evaluateValue({
-        serviceId,
-        testCategoryId,
-        value: value.trim()
-      });
-
-      setTestItems(prev => prev.map(item => 
-        item.testCategoryId === testCategoryId 
-          ? { ...item, evaluation }
-          : item
-      ));
-    } catch (error) {
-      message.error('Lỗi khi đánh giá giá trị');
-      console.error(error);
-    } finally {
-      setEvaluating(null);
-    }
-  };
-
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      
       const validItems = testItems.filter(item => item.value.trim());
       if (validItems.length === 0) {
         message.error('Vui lòng nhập ít nhất một kết quả xét nghiệm');
         return;
       }
-
       setSubmitting(true);
-      
-      const data: AutoEvaluateData = {
-        testResultId,
-        serviceId,
-        testItems: validItems.map(item => ({
-          testCategoryId: item.testCategoryId,
+      await testResultItemsApi.bulkCreate({
+        appointmentId: testResultId,
+        items: validItems.map(item => ({
+          itemNameId: item.testCategoryId,
           value: item.value.trim(),
           unit: item.unit,
-          notes: item.notes
+          flag: form.getFieldValue(['flag', item.testCategoryId]) || 'normal'
         }))
-      };
-
-      await testResultItemsApi.bulkCreateWithAutoEvaluation(data);
+      });
       message.success('Lưu kết quả xét nghiệm thành công!');
       onSuccess?.();
     } catch (error: any) {
@@ -181,19 +134,6 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
     form.resetFields();
     setTestItems([]);
     onCancel?.();
-  };
-
-  const getEvaluationBadge = (evaluation: EvaluationResult) => {
-    if (evaluation.isNormal) {
-      return <Tag color="success" icon={<CheckCircleOutlined />}>Bình thường</Tag>;
-    }
-    if (evaluation.isHigh) {
-      return <Tag color="error" icon={<ExclamationCircleOutlined />}>Cao</Tag>;
-    }
-    if (evaluation.isLow) {
-      return <Tag color="warning" icon={<CloseCircleOutlined />}>Thấp</Tag>;
-    }
-    return null;
   };
 
   if (loading) {
@@ -379,15 +319,7 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
                             </Text>
                           </div>
                         )}
-                        {category.notes && (
-                          <div style={{ marginTop: 2 }}>
-                            <Text type="secondary" style={{ fontSize: '12px', color: '#1890ff' }}>
-                              {category.notes}
-                            </Text>
-                          </div>
-                        )}
                       </div>
-                      {testItem.evaluation && getEvaluationBadge(testItem.evaluation)}
                     </div>
                   </div>
 
@@ -400,14 +332,12 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
                         <div style={{ display: 'flex', gap: 8 }}>
                           <Input
                             value={testItem.value}
-                            onChange={(e) => updateTestItem(category._id, 'value', e.target.value)}
-                            onBlur={(e) => {
-                              if (e.target.value.trim()) {
-                                evaluateValue(category._id, e.target.value);
-                              }
-                            }}
+                            onChange={(e) => setTestItems(prev => prev.map(item => 
+                              item.testCategoryId === category._id 
+                                ? { ...item, value: e.target.value }
+                                : item
+                            ))}
                             placeholder="Nhập kết quả"
-                            suffix={evaluating === category._id ? <Spin size="small" /> : null}
                           />
                         </div>
                       </Form.Item>
@@ -416,40 +346,16 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
                       <Form.Item label="Đơn vị">
                         <Input
                           value={testItem.unit || ''}
-                          onChange={(e) => updateTestItem(category._id, 'unit', e.target.value)}
+                          onChange={(e) => setTestItems(prev => prev.map(item => 
+                            item.testCategoryId === category._id 
+                              ? { ...item, unit: e.target.value }
+                              : item
+                          ))}
                           placeholder="Đơn vị"
                         />
                       </Form.Item>
                     </Col>
-                    <Col span={8}>
-                      <Form.Item label="Ghi chú">
-                        <Input
-                          value={testItem.notes || ''}
-                          onChange={(e) => updateTestItem(category._id, 'notes', e.target.value)}
-                          placeholder="Ghi chú thêm"
-                        />
-                      </Form.Item>
-                    </Col>
                   </Row>
-
-                  {/* Evaluation Result */}
-                  {testItem.evaluation && (
-                    <Alert
-                      message="Đánh giá kết quả"
-                      description={
-                        <div>
-                          <Text>{testItem.evaluation.evaluation}</Text>
-                          <br />
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
-                            Khoảng hiệu lực: {testItem.evaluation.effectiveRange} {testItem.evaluation.effectiveUnit}
-                          </Text>
-                        </div>
-                      }
-                      type={testItem.evaluation.isNormal ? 'success' : testItem.evaluation.isHigh ? 'error' : 'warning'}
-                      showIcon
-                      style={{ marginTop: 8 }}
-                    />
-                  )}
                 </Card>
               );
             })}
@@ -472,6 +378,15 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
             </div>
           </div>
         </Card>
+
+        <Form layout="vertical" style={{ marginTop: 24 }}>
+          <Form.Item label="Kết luận (conclusion)" name="conclusion">
+            <TextArea rows={2} placeholder="Nhập kết luận cho xét nghiệm (nếu có)" />
+          </Form.Item>
+          <Form.Item label="Khuyến nghị (recommendations)" name="recommendations">
+            <TextArea rows={2} placeholder="Nhập khuyến nghị cho bệnh nhân (nếu có)" />
+          </Form.Item>
+        </Form>
       </Form>
     </Modal>
   );

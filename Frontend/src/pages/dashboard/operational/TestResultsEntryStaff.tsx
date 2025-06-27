@@ -63,6 +63,10 @@ const TestResultsEntryStaff: React.FC = () => {
   const [editForm] = Form.useForm();
   const [editTestResultData, setEditTestResultData] = useState<any>(null);
   const [testItemForm] = Form.useForm();
+  const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [createForm] = Form.useForm();
+  const [createTargetAppointment, setCreateTargetAppointment] = useState<Appointment | null>(null);
+  const [testResultItemsMap, setTestResultItemsMap] = useState<{ [appointmentId: string]: string[] }>({});
 
   useEffect(() => {
     if (user?.role === 'staff') {
@@ -91,6 +95,26 @@ const TestResultsEntryStaff: React.FC = () => {
         setTestResultStatus(statusObj);
       };
       checkAll();
+    }
+  }, [appointments]);
+
+  useEffect(() => {
+    if (appointments.length > 0) {
+      const fetchTestResultItems = async () => {
+        const map: { [appointmentId: string]: string[] } = {};
+        await Promise.all(
+          appointments.map(async (apt) => {
+            try {
+              const items = await testResultItemsApi.getByAppointment(apt._id);
+              map[apt._id] = (items || []).map((item: any) => item._id);
+            } catch (e) {
+              map[apt._id] = [];
+            }
+          })
+        );
+        setTestResultItemsMap(map);
+      };
+      fetchTestResultItems();
     }
   }, [appointments]);
 
@@ -159,24 +183,10 @@ const TestResultsEntryStaff: React.FC = () => {
           <Tooltip title={"Tạo hồ sơ xét nghiệm"}>
             <Button
               icon={<PlusCircleOutlined />}
-              disabled={false}
-              onClick={async () => {
-                setCreatingTestResultId(record._id);
-                try {
-                  await appointmentApi.createTestResult({
-                    appointmentId: record._id,
-                    profileId: record.profileId._id,
-                    doctorId: user?._id || '',
-                    conclusion: '',
-                    recommendations: ''
-                  });
-                  message.success('Tạo hồ sơ xét nghiệm thành công!');
-                  setTestResultStatus((prev) => ({ ...prev, [record._id]: true }));
-                } catch (e) {
-                  message.error('Tạo hồ sơ xét nghiệm thất bại!');
-                } finally {
-                  setCreatingTestResultId(null);
-                }
+              disabled={!(!!testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0)}
+              onClick={() => {
+                setCreateTargetAppointment(record);
+                setCreateModalVisible(true);
               }}
               type="default"
               shape="circle"
@@ -185,7 +195,7 @@ const TestResultsEntryStaff: React.FC = () => {
           <Tooltip title={record.status === 'completed' ? 'Nhập kết quả xét nghiệm' : 'Chỉ nhập khi lịch đã hoàn thành'}>
             <Button
               icon={<ExperimentOutlined />}
-              disabled={record.status !== 'completed'}
+              disabled={record.status !== 'completed' || (!!testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0)}
               onClick={async () => {
                 setTestItemModalVisible(true);
                 setTestItemLoading(true);
@@ -394,6 +404,45 @@ const TestResultsEntryStaff: React.FC = () => {
               </Form.Item>
             );
           })}
+        </Form>
+      </Modal>
+      <Modal
+        open={createModalVisible}
+        onCancel={() => setCreateModalVisible(false)}
+        onOk={async () => {
+          try {
+            const values = await createForm.validateFields();
+            if (!createTargetAppointment) return;
+            setCreatingTestResultId(createTargetAppointment._id);
+            await appointmentApi.createTestResult({
+              appointmentId: createTargetAppointment._id,
+              profileId: createTargetAppointment.profileId._id,
+              doctorId: user?._id || '',
+              conclusion: values.conclusion,
+              recommendations: values.recommendations,
+              testResultItemsId: []
+            });
+            message.success('Tạo hồ sơ xét nghiệm thành công!');
+            setTestResultStatus((prev) => ({ ...prev, [createTargetAppointment._id]: true }));
+            setCreateModalVisible(false);
+            createForm.resetFields();
+          } catch (e) {
+            message.error('Tạo hồ sơ xét nghiệm thất bại!');
+          } finally {
+            setCreatingTestResultId(null);
+          }
+        }}
+        confirmLoading={!!creatingTestResultId}
+        title="Tạo hồ sơ xét nghiệm"
+        destroyOnClose
+      >
+        <Form form={createForm} layout="vertical">
+          <Form.Item name="conclusion" label="Kết luận" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập kết luận" />
+          </Form.Item>
+          <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập khuyến nghị" />
+          </Form.Item>
         </Form>
       </Modal>
     </div>
