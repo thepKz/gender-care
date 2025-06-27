@@ -1,34 +1,31 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { notification } from 'antd';
 import { motion, useInView } from 'framer-motion';
 import {
-  VideoPlay,
+  Award,
   Clock,
-  Shield,
-  Verify,
-  Heart,
-  Profile,
-  Star1,
-  Call,
   InfoCircle,
   MessageQuestion,
-  Send,
-  MonitorMobbile,
+  Profile,
   Profile2User,
-  Award
+  Send,
+  Shield,
+  Star1,
+  Verify,
+  VideoPlay
 } from 'iconsax-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { consultationApi } from '../../api';
+import FloatingAppointmentButton from '../../components/ui/common/FloatingAppointmentButton';
+import Accordion, { AccordionItem } from '../../components/ui/primitives/Accordion';
+import ModalDialog from '../../components/ui/primitives/ModalDialog';
 import PrimaryButton from '../../components/ui/primitives/PrimaryButton';
 import TagChip from '../../components/ui/primitives/TagChip';
-import CardBox from '../../components/ui/primitives/CardBox';
-import FloatingAppointmentButton from '../../components/ui/common/FloatingAppointmentButton';
-import ModalDialog from '../../components/ui/primitives/ModalDialog';
-import Accordion, { AccordionItem } from '../../components/ui/primitives/Accordion';
-import { consultationApi } from '../../api';
-import { useNavigate } from 'react-router-dom';
 
 // MagicUI Components
 import { BlurFade } from '../../components/ui/blur-fade';
-import { WarpBackground } from '../../components/ui/warp-background';
 import { BoxReveal } from '../../components/ui/box-reveal';
+import { WarpBackground } from '../../components/ui/warp-background';
 
 interface OnlineConsultationFormData {
   fullName: string;
@@ -182,12 +179,24 @@ const OnlineConsultationPage: React.FC = () => {
 
     // Basic validation
     if (form.fullName.trim().length < 3) {
+      notification.error({
+        message: 'Thông báo',
+        description: 'Họ tên phải có ít nhất 3 ký tự'
+      });
       return;
     }
     if (!/^[0-9]{10,11}$/.test(form.phone.trim())) {
+      notification.error({
+        message: 'Thông báo',
+        description: 'Số điện thoại phải có 10-11 chữ số'
+      });
       return;
     }
     if (form.question.trim().length < 10) {
+      notification.error({
+        message: 'Thông báo',
+        description: 'Câu hỏi phải có ít nhất 10 ký tự'
+      });
       return;
     }
 
@@ -208,19 +217,14 @@ const OnlineConsultationPage: React.FC = () => {
 
       const consultationData = res.data.data;
       
-      // ✅ Enhanced response handling với auto-assignment info
-      console.log('🎉 [FRONTEND] QA Creation successful:', res.data);
-      
-      // Check nếu có auto-assignment info từ backend
-      console.log('Consultation created successfully:', consultationData);
-      
       // Chuyển hướng đến trang thanh toán
-      setTimeout(() => {
-        window.location.href = `/consultation/payment/${consultationData._id}`;
-      }, 2000);
+      navigate(`/consultation/payment/${consultationData._id}`);
       
     } catch (err: any) {
-      console.error('Error creating consultation:', err?.response?.data?.message || err.message);
+      notification.error({
+        message: 'Thông báo',
+        description: err?.response?.data?.message || err.message
+      });
     } finally {
       setIsSubmitting(false);
     }

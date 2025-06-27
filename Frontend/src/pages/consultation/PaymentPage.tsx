@@ -1,15 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Button, Row, Col, Typography, message, Divider, Tag, Steps } from 'antd';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Button, Card, Col, Divider, Row, Steps, Tag, Typography, message } from 'antd';
 import { motion } from 'framer-motion';
-import { 
-  TickSquare as CheckSquare, 
-  CloseSquare,
-  Profile,
-  Call,
-  VideoPlay,
-  Shield
+import {
+    Call,
+    TickSquare as CheckSquare,
+    CloseSquare,
+    Profile,
+    Shield,
+    VideoPlay
 } from 'iconsax-react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { consultationApi } from '../../api';
 
 const { Title, Text } = Typography;
@@ -72,34 +72,22 @@ const PaymentPage: React.FC = () => {
     
     setIsProcessingPayment(true);
     try {
-      console.log('🚀 Creating consultation payment link...', { qaId });
-      
       // Gọi API tạo PayOS payment link
       const response = await consultationApi.createConsultationPaymentLink(qaId);
       
-      if (response.data && response.data.success) {
+      if (response.data && response.data.success && response.data.data) {
         const { paymentUrl, orderCode, amount } = response.data.data;
-        
-        console.log('✅ Payment link created successfully:', {
-          paymentUrl,
-          orderCode,
-          amount
-        });
         
         message.success('Đang chuyển đến trang thanh toán PayOS...');
         
-        // Auto redirect to PayOS after 2 seconds  
-        setTimeout(() => {
-          console.log('🔄 Redirecting to PayOS:', paymentUrl);
-          window.location.href = paymentUrl;
-        }, 2000);
+        // Redirect to PayOS payment page
+        window.location.href = paymentUrl;
         
       } else {
         throw new Error(response.data?.message || 'Không thể tạo link thanh toán');
       }
       
     } catch (error: any) {
-      console.error('❌ Error creating payment link:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Lỗi tạo link thanh toán';
       message.error(errorMessage);
     } finally {
