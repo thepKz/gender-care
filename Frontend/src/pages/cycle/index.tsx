@@ -137,119 +137,120 @@ const CurrentCycleOverview: React.FC<{ currentCycle: MenstrualCycle }> = ({ curr
   }
 
   return (
-    <Card 
-      title={
-        <div className="flex items-center gap-2">
-          <span>🔍 Chu kỳ hiện tại - Chu kỳ {currentCycle.cycleNumber}</span>
-          <Tag color={phaseInfo.color}>{phaseInfo.name}</Tag>
-        </div>
-      }
-      className="mb-4"
-    >
-      <div className="space-y-4">
-        {/* Progress và thông tin cơ bản */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-blue-50 rounded-lg text-center">
-            <div className="text-2xl font-bold text-blue-700 mb-1">{daysSinceStart}</div>
-            <div className="text-sm text-blue-600">Ngày thứ {daysSinceStart}</div>
-            <div className="text-xs text-gray-500 mt-1">
-              Từ {dayjs(currentCycle.startDate).format('DD/MM/YYYY')}
-            </div>
-          </div>
+    // <Card 
+    //   title={
+    //     <div className="flex items-center gap-2">
+    //       <span>🔍 Chu kỳ hiện tại - Chu kỳ {currentCycle.cycleNumber}</span>
+    //       <Tag color={phaseInfo.color}>{phaseInfo.name}</Tag>
+    //     </div>
+    //   }
+    //   className="mb-4"
+    // >
+    //   <div className="space-y-4">
+    //     {/* Progress và thông tin cơ bản */}
+    //     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    //       <div className="p-4 bg-blue-50 rounded-lg text-center">
+    //         <div className="text-2xl font-bold text-blue-700 mb-1">{daysSinceStart}</div>
+    //         <div className="text-sm text-blue-600">Ngày thứ {daysSinceStart}</div>
+    //         <div className="text-xs text-gray-500 mt-1">
+    //           Từ {dayjs(currentCycle.startDate).format('DD/MM/YYYY')}
+    //         </div>
+    //       </div>
           
-          {peakDay && (
-            <div className="p-4 bg-orange-50 rounded-lg text-center">
-              <div className="text-2xl font-bold text-orange-700 mb-1">
-                Ngày {peakDay.cycleDayNumber}
-              </div>
-              <div className="text-sm text-orange-600">Ngày đỉnh (X)</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {dayjs(peakDay.date).format('DD/MM/YYYY')}
-              </div>
-            </div>
-          )}
+    //       {peakDay && (
+    //         <div className="p-4 bg-orange-50 rounded-lg text-center">
+    //           <div className="text-2xl font-bold text-orange-700 mb-1">
+    //             Ngày {peakDay.cycleDayNumber}
+    //           </div>
+    //           <div className="text-sm text-orange-600">Ngày đỉnh (X)</div>
+    //           <div className="text-xs text-gray-500 mt-1">
+    //             {dayjs(peakDay.date).format('DD/MM/YYYY')}
+    //           </div>
+    //         </div>
+    //       )}
           
-          <div className="p-4 bg-green-50 rounded-lg text-center">
-            <div className="text-2xl font-bold text-green-700 mb-1">
-              {currentCycle.isCompleted ? '✓' : '...'}
-            </div>
-            <div className="text-sm text-green-600">
-              {currentCycle.isCompleted ? 'Hoàn thành' : 'Đang theo dõi'}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {phaseInfo.description}
-            </div>
-          </div>
-        </div>
+    //       <div className="p-4 bg-green-50 rounded-lg text-center">
+    //         <div className="text-2xl font-bold text-green-700 mb-1">
+    //           {currentCycle.isCompleted ? '✓' : '...'}
+    //         </div>
+    //         <div className="text-sm text-green-600">
+    //           {currentCycle.isCompleted ? 'Hoàn thành' : 'Đang theo dõi'}
+    //         </div>
+    //         <div className="text-xs text-gray-500 mt-1">
+    //           {phaseInfo.description}
+    //         </div>
+    //       </div>
+    //     </div>
 
-        {/* Progress bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Tiến độ chu kỳ</span>
-            <span className="text-gray-500">{Math.round(progress)}%</span>
-          </div>
-          <Progress 
-            percent={progress} 
-            strokeColor={{
-              '0%': '#108ee9',
-              '50%': '#87d068',
-              '100%': '#87d068'
-            }}
-            showInfo={false}
-          />
-          <div className="text-xs text-gray-500">
-            Chu kỳ bình thường: 21-35 ngày • Hiện tại: {daysSinceStart} ngày
-          </div>
-        </div>
+    //     {/* Progress bar */}
+    //     <div className="space-y-2">
+    //       <div className="flex justify-between text-sm">
+    //         <span className="text-gray-600">Tiến độ chu kỳ</span>
+    //         <span className="text-gray-500">{Math.round(progress)}%</span>
+    //       </div>
+    //       <Progress 
+    //         percent={progress} 
+    //         strokeColor={{
+    //           '0%': '#108ee9',
+    //           '50%': '#87d068',
+    //           '100%': '#87d068'
+    //         }}
+    //         showInfo={false}
+    //       />
+    //       <div className="text-xs text-gray-500">
+    //         Chu kỳ bình thường: 21-35 ngày • Hiện tại: {daysSinceStart} ngày
+    //       </div>
+    //     </div>
 
-        {/* 7 ngày gần nhất */}
-        {recentCycleDays.length > 0 && (
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-gray-700">📅 7 ngày gần nhất:</div>
-            <div className="flex gap-1 overflow-x-auto pb-2">
-              {recentCycleDays.reverse().map((day: any, dayIndex: number) => {
-                const symbol = getSymbolForDay(day);
-                const symbolColor = getSymbolColor(symbol);
+    //     {/* 7 ngày gần nhất */}
+    //     {recentCycleDays.length > 0 && (
+    //       <div className="space-y-2">
+    //         <div className="text-sm font-medium text-gray-700">📅 7 ngày gần nhất:</div>
+    //         <div className="flex gap-1 overflow-x-auto pb-2">
+    //           {recentCycleDays.reverse().map((day: any, dayIndex: number) => {
+    //             const symbol = getSymbolForDay(day);
+    //             const symbolColor = getSymbolColor(symbol);
                 
-                return (
-                  <Tooltip 
-                    key={dayIndex}
-                    title={
-                      <div>
-                        <div><strong>Ngày {day.cycleDayNumber || 'N/A'}</strong></div>
-                        <div>{dayjs(day.date).format('DD/MM/YYYY')}</div>
-                        {day.mucusObservation && <div>Quan sát: {day.mucusObservation}</div>}
-                        {day.feeling && <div>Cảm giác: {day.feeling}</div>}
-                        {day.notes && <div>Ghi chú: {day.notes}</div>}
-                      </div>
-                    }
-                  >
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold cursor-pointer transition-transform hover:scale-110 flex-shrink-0"
-                      style={{ backgroundColor: symbolColor }}
-                    >
-                      {symbol}
-                    </div>
-                  </Tooltip>
-                );
-              })}
-            </div>
-            <div className="text-xs text-gray-500">
-              Hover vào các ký hiệu để xem chi tiết • M: Máu, X: Đỉnh, C: Có thể thụ thai, D: Khô, S: An toàn
-            </div>
-          </div>
-        )}
+    //             return (
+    //               <Tooltip 
+    //                 key={dayIndex}
+    //                 title={
+    //                   <div>
+    //                     <div><strong>Ngày {day.cycleDayNumber || 'N/A'}</strong></div>
+    //                     <div>{dayjs(day.date).format('DD/MM/YYYY')}</div>
+    //                     {day.mucusObservation && <div>Quan sát: {day.mucusObservation}</div>}
+    //                     {day.feeling && <div>Cảm giác: {day.feeling}</div>}
+    //                     {day.notes && <div>Ghi chú: {day.notes}</div>}
+    //                   </div>
+    //                 }
+    //               >
+    //                 <div
+    //                   className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold cursor-pointer transition-transform hover:scale-110 flex-shrink-0"
+    //                   style={{ backgroundColor: symbolColor }}
+    //                 >
+    //                   {symbol}
+    //                 </div>
+    //               </Tooltip>
+    //             );
+    //           })}
+    //         </div>
+    //         <div className="text-xs text-gray-500">
+    //           Hover vào các ký hiệu để xem chi tiết • M: Máu, X: Đỉnh, C: Có thể thụ thai, D: Khô, S: An toàn
+    //         </div>
+    //       </div>
+    //     )}
 
-        {/* Hướng dẫn tiếp theo */}
-        <Alert
-          message={`Hướng dẫn tiếp theo`}
-          description={cycleAnalysis?.analysis?.analysis || phaseInfo.description}
-          type="info"
-          showIcon
-          className="mt-4"
-        />
-      </div>
-    </Card>
+    //     {/* Hướng dẫn tiếp theo */}
+    //     <Alert
+    //       message={`Hướng dẫn tiếp theo`}
+    //       description={cycleAnalysis?.analysis?.analysis || phaseInfo.description}
+    //       type="info"
+    //       showIcon
+    //       className="mt-4"
+    //     />
+    //   </div>
+    // </Card>
+    <div> </div>
   );
 };
 
@@ -1819,113 +1820,6 @@ const CyclePage: React.FC = () => {
                         {currentCycle && (
                           <CycleReportSection currentCycle={currentCycle} />
                         )}
-
-                        {/* Cycle Analysis Report */}
-                        {cycleAnalysis && (
-                          <Card 
-                            title={<span className="text-gray-800">📊 Báo cáo chu kỳ hiện tại</span>}
-                          >
-                            <div className="space-y-4">
-                              {/* Trạng thái chu kỳ */}
-                              <div className="p-4 bg-blue-50 rounded-lg">
-                                <div className="text-blue-800 font-medium mb-2 text-lg">
-                                  {cycleAnalysis.analysis?.pattern?.name || 'Đang phân tích...'}
-                                </div>
-                                <div className="text-blue-600">
-                                  {cycleAnalysis.analysis?.analysis || 'Chưa có đủ dữ liệu'}
-                                </div>
-                              </div>
-
-                              <Row gutter={[16, 16]}>
-                                {/* Thông tin chu kỳ */}
-                                <Col xs={24} md={12}>
-                                  <Card size="small" title="Thông tin chu kỳ" className="h-full">
-                                    <div className="space-y-2">
-                                      <div className="flex justify-between">
-                                        <span>Chu kỳ số:</span>
-                                        <Tag color="blue">{currentCycle.cycleNumber}</Tag>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span>Ngày bắt đầu:</span>
-                                        <span>{dayjs(currentCycle.startDate).format('DD/MM/YYYY')}</span>
-                                      </div>
-                                      <div className="flex justify-between">
-                                        <span>Số ngày theo dõi:</span>
-                                        <Tag color="green">{dayjs().diff(dayjs(currentCycle.startDate), 'days') + 1} ngày</Tag>
-                                      </div>
-                                      {cycleAnalysis.analysis?.peakDay && (
-                                        <div className="flex justify-between">
-                                          <span>Ngày đỉnh:</span>
-                                          <Tag color="red">
-                                            Ngày {cycleAnalysis.analysis.peakDay.cycleDayNumber} ({dayjs(cycleAnalysis.analysis.peakDay.date).format('DD/MM')})
-                                          </Tag>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </Card>
-                                </Col>
-
-                                {/* Dự đoán */}
-                                <Col xs={24} md={12}>
-                                  <Card size="small" title="Dự đoán chu kỳ tiếp theo" className="h-full">
-                                    {cycleAnalysis.analysis?.nextPeakPrediction?.prediction ? (
-                                      <div className="space-y-2">
-                                        <div className="p-3 bg-green-50 rounded-lg">
-                                          <div className="text-green-800 font-medium mb-1">
-                                            🔮 Ngày đỉnh dự kiến
-                                          </div>
-                                          <div className="text-green-600">
-                                            {dayjs(cycleAnalysis.analysis.nextPeakPrediction.prediction.date).format('DD/MM/YYYY')} (±2 ngày)
-                                          </div>
-                                        </div>
-                                        <div className="text-xs text-gray-500">
-                                          Độ tin cậy: {cycleAnalysis.analysis.nextPeakPrediction.confidence === 'medium' ? 'Trung bình' : 'Thấp'}
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <div className="text-gray-500 text-center py-4">
-                                        Chưa đủ dữ liệu để dự đoán
-                                      </div>
-                                    )}
-                                  </Card>
-                                </Col>
-                              </Row>
-
-                             
-
-                              {/* Auto complete button */}
-                              {cycleAnalysis.analysis?.isComplete && !currentCycle?.isCompleted && (
-                                <div className="flex justify-center pt-4">
-                                  <Button 
-                                    type="primary"
-                                    size="large"
-                                    className="bg-green-500 hover:bg-green-600 border-green-500"
-                                    onClick={async () => {
-                                      try {
-                                        await menstrualCycleApi.autoCompleteCycle(currentCycle._id);
-                                        notification.success({
-                                          message: 'Thành công',
-                                          description: 'Chu kỳ đã được đánh dấu hoàn thành'
-                                        });
-                                        await loadCycleData();
-                                        await loadCycleAnalysis();
-                                      } catch (_error) {
-                                        notification.error({
-                                          message: 'Lỗi',
-                                          description: 'Không thể hoàn thành chu kỳ'
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    ✅ Hoàn thành chu kỳ này
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          </Card>
-                        )}
-
-
                       </div>
                     ),
                   },
