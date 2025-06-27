@@ -1,4 +1,6 @@
 import { MenstrualCycleReminders, CycleDays, MenstrualCycles } from '../models';
+import { User } from '../models';
+import { sendMenstrualCycleReminderEmail } from './emails';
 import cron from 'node-cron';
 
 class MenstrualCycleReminderService {
@@ -27,14 +29,26 @@ class MenstrualCycleReminderService {
             const reminders = await MenstrualCycleReminders.find({
                 reminderEnabled: true,
                 reminderTime: currentTime
-            }).populate('userId');
+            }).populate({
+                path: 'userId',
+                select: 'gender email fullName',
+                match: { gender: 'female' } // Chỉ lấy user nữ
+            });
 
             for (const reminder of reminders) {
+                // Skip nếu user không phải nữ hoặc không tồn tại (do match filter)
+                if (!reminder.userId || (reminder.userId as any).gender !== 'female') {
+                    continue;
+                }
+
+                // Lấy userId - từ populated object  
+                const userId = (reminder.userId as any)._id ? (reminder.userId as any)._id.toString() : reminder.userId.toString();
+
                 // Kiểm tra xem user đã cập nhật dữ liệu hôm nay chưa
-                const hasUpdatedToday = await this.hasUpdatedToday(reminder.userId.toString());
+                const hasUpdatedToday = await this.hasUpdatedToday(userId);
 
                 if (!hasUpdatedToday) {
-                    await this.sendReminderNotification(reminder.userId.toString());
+                    await this.sendReminderNotification(userId);
 
                     // Cập nhật lastNotifiedAt
                     reminder.lastNotifiedAt = now;
@@ -80,12 +94,26 @@ class MenstrualCycleReminderService {
      * Gửi notification nhắc nhở (có thể tích hợp với email, push notification, etc.)
      */
     private async sendReminderNotification(userId: string) {
-        // Tạm thời log, có thể tích hợp với email service hoặc push notification
-        console.log(`📱 Sending reminder to user ${userId}: "Bạn quên chưa cập nhật trạng thái chu kỳ kinh nguyệt ạ"`);
+        try {
+            // Lấy thông tin user để có email và tên
+            const user = await User.findById(userId).select('email fullName');
 
-        // TODO: Tích hợp với email service hoặc push notification service
-        // await emailService.sendReminderEmail(user.email, 'Nhắc nhở cập nhật chu kỳ kinh nguyệt');
-        // await pushNotificationService.send(userId, { title: 'Nhắc nhở', body: 'Bạn quên chưa cập nhật trạng thái ạ' });
+            if (!user) {
+                console.error(`User not found: ${userId}`);
+                return;
+            }
+
+            // Gửi email nhắc nhở
+            await sendMenstrualCycleReminderEmail(user.email, user.fullName);
+
+            console.log(`📧 Email reminder sent to ${user.email} (${user.fullName}): "Nhắc nhở cập nhật chu kỳ kinh nguyệt"`);
+
+        } catch (error) {
+            console.error(`Error sending reminder notification to user ${userId}:`, error);
+
+            // Fallback: chỉ log nếu gửi email thất bại
+            console.log(`📱 Fallback reminder log for user ${userId}: "Bạn quên chưa cập nhật trạng thái chu kỳ kinh nguyệt ạ"`);
+        }
     }
 
     /**
@@ -93,6 +121,22 @@ class MenstrualCycleReminderService {
      */
     async sendManualReminder(userId: string): Promise<{ success: boolean; message: string }> {
         try {
+            // Kiểm tra user có phải nữ không
+            const user = await User.findById(userId).select('gender');
+            if (!user) {
+                return {
+                    success: false,
+                    message: 'Không tìm thấy user'
+                };
+            }
+
+            if (user.gender !== 'female') {
+                return {
+                    success: false,
+                    message: 'Tính năng nhắc nhở chu kỳ kinh nguyệt chỉ dành cho phụ nữ'
+                };
+            }
+
             const hasUpdated = await this.hasUpdatedToday(userId);
 
             if (hasUpdated) {
@@ -129,16 +173,30 @@ class MenstrualCycleReminderService {
         const stats = { notified: 0, skipped: 0, errors: 0 };
 
         try {
+            // Chỉ lấy reminders của user nữ có chu kỳ kinh nguyệt
             const allReminders = await MenstrualCycleReminders.find({
                 reminderEnabled: true
+            }).populate({
+                path: 'userId',
+                select: 'gender email fullName',
+                match: { gender: 'female' } // Chỉ lấy user nữ
             });
 
             for (const reminder of allReminders) {
                 try {
-                    const hasUpdated = await this.hasUpdatedToday(reminder.userId.toString());
+                    // Skip nếu user không phải nữ hoặc không tồn tại (do match filter)
+                    if (!reminder.userId || (reminder.userId as any).gender !== 'female') {
+                        stats.skipped++;
+                        continue;
+                    }
+
+                    // Lấy userId - từ populated object
+                    const userId = (reminder.userId as any)._id ? (reminder.userId as any)._id.toString() : reminder.userId.toString();
+
+                    const hasUpdated = await this.hasUpdatedToday(userId);
 
                     if (!hasUpdated) {
-                        await this.sendReminderNotification(reminder.userId.toString());
+                        await this.sendReminderNotification(userId);
                         stats.notified++;
 
                         // Cập nhật lastNotifiedAt
@@ -163,12 +221,39 @@ class MenstrualCycleReminderService {
      * Lấy thống kê reminder
      */
     async getReminderStats(): Promise<any> {
-        const totalUsers = await MenstrualCycleReminders.countDocuments();
-        const enabledUsers = await MenstrualCycleReminders.countDocuments({ reminderEnabled: true });
+        // Chỉ thống kê user nữ có chu kỳ kinh nguyệt
+        const femaleReminders = await MenstrualCycleReminders.find({}).populate({
+            path: 'userId',
+            select: 'gender',
+            match: { gender: 'female' }
+        });
+
+        // Filter ra những reminder thuộc về user nữ
+        const validReminders = femaleReminders.filter(reminder => reminder.userId);
+
+        const totalUsers = validReminders.length;
+        const enabledUsers = validReminders.filter(reminder => reminder.reminderEnabled).length;
         const disabledUsers = totalUsers - enabledUsers;
 
-        // Thống kê theo giờ nhắc nhở phổ biến
+        // Thống kê theo giờ nhắc nhở phổ biến (chỉ user nữ có reminder enabled)
         const timeStats = await MenstrualCycleReminders.aggregate([
+            // Lookup user information
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'userId',
+                    foreignField: '_id',
+                    as: 'user'
+                }
+            },
+            // Match chỉ user nữ có reminder enabled
+            {
+                $match: {
+                    'user.gender': 'female',
+                    reminderEnabled: true
+                }
+            },
+            // Group theo reminderTime
             {
                 $group: {
                     _id: '$reminderTime',
@@ -184,7 +269,8 @@ class MenstrualCycleReminderService {
             totalUsers,
             enabledUsers,
             disabledUsers,
-            popularReminderTimes: timeStats
+            popularReminderTimes: timeStats,
+            note: 'Thống kê chỉ bao gồm user nữ có chu kỳ kinh nguyệt'
         };
     }
 }
