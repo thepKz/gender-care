@@ -11,18 +11,55 @@ export const convertSchedulesToCalendarEvents = (schedules: IDoctorSchedule[]): 
 
   console.log('🔄 Converting schedules to calendar events:', schedules);
 
+  if (!schedules || schedules.length === 0) {
+    console.log('❌ [CalendarUtils] No schedules provided');
+    return events;
+  }
+
   schedules.forEach(schedule => {
+    console.log('📋 [CalendarUtils] Processing schedule:', {
+      scheduleId: schedule._id,
+      doctorName: schedule.doctorId?.userId?.fullName,
+      weekScheduleCount: schedule.weekSchedule?.length
+    });
+
+    if (!schedule.weekSchedule || schedule.weekSchedule.length === 0) {
+      console.log('❌ [CalendarUtils] No weekSchedule found for schedule:', schedule._id);
+      return;
+    }
+
     schedule.weekSchedule.forEach(weekSchedule => {
       console.log('📅 Processing weekSchedule:', {
         dayOfWeek: weekSchedule.dayOfWeek,
         slotsCount: weekSchedule.slots.length
       });
       
+      if (!weekSchedule.slots || weekSchedule.slots.length === 0) {
+        console.log('❌ [CalendarUtils] No slots found for weekSchedule:', weekSchedule._id);
+        return;
+      }
+
       const dayDate = dayjs(weekSchedule.dayOfWeek);
+      console.log('📅 [CalendarUtils] DayDate parsed:', {
+        original: weekSchedule.dayOfWeek,
+        parsed: dayDate.format('YYYY-MM-DD'),
+        isValid: dayDate.isValid()
+      });
       
       weekSchedule.slots.forEach(slot => {
+        console.log('⏰ [CalendarUtils] Processing slot:', {
+          slotTime: slot.slotTime,
+          status: slot.status,
+          slotId: slot._id
+        });
+
         // Parse time slot (e.g., "07:00-08:00")
         const [startTime, endTime] = slot.slotTime.split('-');
+        if (!startTime || !endTime) {
+          console.log('❌ [CalendarUtils] Invalid slot time format:', slot.slotTime);
+          return;
+        }
+
         const [startHour, startMinute] = startTime.split(':').map(Number);
         const [endHour, endMinute] = endTime.split(':').map(Number);
         
@@ -57,26 +94,47 @@ export const convertSchedulesToCalendarEvents = (schedules: IDoctorSchedule[]): 
             title = `${schedule.doctorId.userId.fullName} - ${slot.status}`;
         }
 
-                 const event: DoctorScheduleEvent = {
-           id: `${schedule._id}-${weekSchedule._id}-${slot._id}`,
-           title,
-           start: startDate,
-           end: endDate,
-           resource: {
-             doctorId: schedule.doctorId._id,
-             doctorName: schedule.doctorId.userId.fullName,
-             specialization: schedule.doctorId.specialization || 'Chưa xác định',
-             status: slot.status,
-             slotTime: slot.slotTime,
-             appointmentId: undefined, // Will be updated when backend supports it
-             patientName: undefined, // Will be updated when backend supports it
-             scheduleId: schedule._id,
-             weekScheduleId: weekSchedule._id
-           },
-           allDay: false
-         };
+        const doctorInfo = {
+          id: schedule.doctorId._id,
+          name: schedule.doctorId.userId.fullName,
+          specialization: schedule.doctorId.specialization || 'Chưa xác định',
+        };
 
-        events.push(event);
+        const event: DoctorScheduleEvent = {
+          id: `${schedule._id}-${weekSchedule._id}-${slot._id}`,
+          title,
+          start: startDate,
+          end: endDate,
+          resource: {
+            doctorId: schedule.doctorId._id,
+            doctorName: schedule.doctorId.userId.fullName,
+            specialization: schedule.doctorId.specialization || 'Chưa xác định',
+            status: slot.status,
+            slotTime: slot.slotTime,
+            appointmentId: undefined, // Will be updated when backend supports it
+            patientName: undefined, // Will be updated when backend supports it
+            scheduleId: schedule._id,
+            weekScheduleId: weekSchedule._id,
+            doctors: [doctorInfo]
+          },
+          allDay: false
+        };
+
+        console.log('✅ [CalendarUtils] Created event:', {
+          id: event.id,
+          title: event.title,
+          start: event.start,
+          end: event.end,
+          status: event.resource.status
+        });
+
+        const existing = events.find(e => e.start.getTime() === startDate.getTime() && e.end.getTime() === endDate.getTime());
+        if (existing) {
+          existing.resource.doctors.push(doctorInfo);
+        } else {
+          events.push(event);
+        }
+        console.log('📊 [CalendarUtils] Total events so far:', events.length);
       });
     });
   });

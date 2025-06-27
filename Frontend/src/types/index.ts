@@ -710,3 +710,69 @@ export interface PaginatedResponse<T> {
     totalPages: number;
   };
 }
+
+// 🆕 Package Analytics Types
+export interface ServiceUsage {
+  serviceId: string;
+  serviceName: string;
+  usedQuantity: number;
+  maxQuantity: number;
+  remainingQuantity: number;
+  usagePercentage: number;
+}
+
+export interface UserPackageUsage {
+  userId: string;
+  userInfo: {
+    fullName: string;
+    email: string;
+    phone?: string;
+  };
+  profileInfo: {
+    profileId: string;
+    fullName: string;
+    phone?: string;
+  };
+  purchaseId: string;
+  purchaseDate: string;
+  expiryDate: string;
+  status: 'active' | 'expired' | 'used_up';
+  purchasePrice: number;
+  serviceUsages: ServiceUsage[];
+  totalUsagePercentage: number;
+  daysRemaining: number;
+}
+
+export interface PackageAnalytics {
+  packageId: string;
+  packageName: string;
+  totalPurchases: number;
+  activePurchases: number;
+  expiredPurchases: number;
+  usedUpPurchases: number;
+  totalRevenue: number;
+  averageUsagePercentage: number;
+  userUsages: UserPackageUsage[];
+}
+
+export interface PackageAnalyticsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    analytics: PackageAnalytics;
+  };
+}
+
+export interface AllPackagesAnalyticsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    analytics: PackageAnalytics[];
+    summary: {
+      totalPackages: number;
+      totalRevenue: number;
+      totalPurchases: number;
+      averageUsage: number;
+    };
+  };
+}

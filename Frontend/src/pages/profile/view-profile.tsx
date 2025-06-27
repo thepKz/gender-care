@@ -2,19 +2,13 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Button, Modal, Form, Input, Select, DatePicker, notification } from 'antd';
-import { EditOutlined } from '@ant-design/icons';
+import { Button, Modal, Form, Input, Select, DatePicker, notification, Spin, Card } from 'antd';
+import { EditOutlined, CalendarOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import userProfileApi from '../../api/endpoints/userProfileApi';
+import medicalApi from '../../api/endpoints/medical';
 import { useAuth } from '../../hooks/useAuth';
-import { UserProfile } from '../../types';
-
-interface MedicalRecord {
-  date: string;
-  diagnosis: string;
-  treatment: string;
-  doctor: string;
-}
+import { UserProfile, MedicalRecord } from '../../types';
 
 interface TestResult {
   date: string;
@@ -22,42 +16,14 @@ interface TestResult {
   result: string;
 }
 
-// Dữ liệu mẫu cho bệnh án
-const sampleMedicalRecords: MedicalRecord[] = [
-  {
-    date: '2023-10-15',
-    diagnosis: 'Viêm họng cấp',
-    treatment: 'Kháng sinh, nghỉ ngơi, uống nhiều nước',
-    doctor: 'BS. Nguyễn Văn A'
-  },
-  {
-    date: '2023-08-20',
-    diagnosis: 'Cảm cúm mùa',
-    treatment: 'Paracetamol, vitamin C',
-    doctor: 'BS. Trần Thị B'
-  }
-];
-
-// Dữ liệu mẫu cho kết quả xét nghiệm
-const sampleTestResults: TestResult[] = [
-  {
-    date: '2023-10-14',
-    testType: 'Xét nghiệm máu',
-    result: 'Bạch cầu tăng nhẹ'
-  },
-  {
-    date: '2023-08-19',
-    testType: 'Chụp X-quang phổi',
-    result: 'Bình thường, không phát hiện bất thường'
-  }
-];
-
 const ViewProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { profileId } = useParams<{ profileId: string }>();
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
+  const [medicalLoading, setMedicalLoading] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -122,10 +88,38 @@ const ViewProfilePage: React.FC = () => {
     }
   };
 
+  // Fetch medical records cho profile
+  const fetchMedicalRecords = async () => {
+    if (!profileId) return;
+
+    try {
+      setMedicalLoading(true);
+      const response = await medicalApi.getMedicalRecordsByProfile(profileId, 1, 50);
+      
+      if (response.data?.success) {
+        setMedicalRecords(response.data.data || []);
+      } else {
+        setMedicalRecords([]);
+      }
+    } catch (error: unknown) {
+      console.error('Error fetching medical records:', error);
+      setMedicalRecords([]);
+    } finally {
+      setMedicalLoading(false);
+    }
+  };
+
   // Lấy thông tin hồ sơ
   useEffect(() => {
     fetchProfileData();
   }, [profileId]); // Removed navigate dependency to prevent duplicate calls
+
+  // Fetch medical records khi profile được load
+  useEffect(() => {
+    if (profile) {
+      fetchMedicalRecords();
+    }
+  }, [profile]);
 
   // Hiển thị biểu tượng giới tính
   const renderGenderIcon = (gender: string) => {
@@ -318,41 +312,143 @@ const ViewProfilePage: React.FC = () => {
               </div>
               {/* Thông tin bệnh án */}
               <div>
-                <h2 className="text-xl font-bold text-[#0C3C54] mb-4 mt-8">Thông tin bệnh án</h2>
-                {sampleMedicalRecords.length > 0 ? (
+                <div className="flex items-center justify-between mb-4 mt-8">
+                  <h2 className="text-xl font-bold text-[#0C3C54]">Thông tin bệnh án</h2>
+                  {medicalLoading && <Spin size="small" />}
+                </div>
+                
+                {medicalLoading ? (
+                  <div className="text-center py-8">
+                    <Spin size="large" />
+                    <p className="text-gray-500 mt-2">Đang tải hồ sơ bệnh án...</p>
+                  </div>
+                ) : medicalRecords.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {sampleMedicalRecords.map((record, index) => (
-                      <div key={index} className="bg-[#f8fafc] rounded-xl shadow p-4 flex flex-col gap-2">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-[#0C3C54] text-lg font-bold">{new Date(record.date).toLocaleDateString('vi-VN')}</span>
-                        </div>
-                        <div><span className="font-semibold text-[#0C3C54]">Chẩn đoán:</span> {record.diagnosis}</div>
-                        <div><span className="font-semibold text-[#0C3C54]">Điều trị:</span> {record.treatment}</div>
-                        <div><span className="font-semibold text-[#0C3C54]">Bác sĩ:</span> {record.doctor}</div>
-                      </div>
+                    {medicalRecords.map((record) => (
+                      <motion.div
+                        key={record._id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <Card 
+                          className="bg-[#f8fafc] border-l-4 border-l-[#0C3C54] hover:shadow-md transition-shadow"
+                          bodyStyle={{ padding: '16px' }}
+                        >
+                          <div className="flex items-center gap-2 mb-3">
+                            <CalendarOutlined className="text-[#0C3C54]" />
+                            <span className="text-[#0C3C54] text-lg font-bold">
+                              {new Date(record.createdAt).toLocaleDateString('vi-VN')}
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-2">
+                              <FileTextOutlined className="text-red-500 mt-1 flex-shrink-0" />
+                              <div>
+                                <span className="font-semibold text-[#0C3C54]">Chẩn đoán:</span>
+                                <p className="text-gray-700 mt-1">{record.diagnosis || 'Chưa có thông tin'}</p>
+                              </div>
+                            </div>
+                            
+                            {record.symptoms && (
+                              <div className="flex items-start gap-2">
+                                <span className="text-orange-500">🩺</span>
+                                <div>
+                                  <span className="font-semibold text-[#0C3C54]">Triệu chứng:</span>
+                                  <p className="text-gray-700 mt-1">{record.symptoms}</p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="flex items-start gap-2">
+                              <span className="text-green-500">💊</span>
+                              <div>
+                                <span className="font-semibold text-[#0C3C54]">Điều trị:</span>
+                                <p className="text-gray-700 mt-1">{record.treatment || 'Chưa có thông tin'}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <UserOutlined className="text-blue-500" />
+                              <span className="font-semibold text-[#0C3C54]">Bác sĩ:</span>
+                              <span className="text-gray-700">
+                                {record.doctorId?.fullName || 'Chưa có thông tin'}
+                              </span>
+                            </div>
+
+                            {record.medicines && record.medicines.length > 0 && (
+                              <div className="mt-3 pt-2 border-t border-gray-200">
+                                <span className="font-semibold text-[#0C3C54] text-sm">Thuốc kê đơn:</span>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {record.medicines.slice(0, 3).map((medicine: any, idx: number) => (
+                                    <span key={idx} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                      {medicine.name}
+                                    </span>
+                                  ))}
+                                  {record.medicines.length > 3 && (
+                                    <span className="text-xs text-gray-500">+{record.medicines.length - 3} khác</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </Card>
+                      </motion.div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500">Chưa có thông tin bệnh án</p>
+                  <Card className="text-center py-8">
+                    <div className="text-gray-400 text-6xl mb-4">📋</div>
+                    <h3 className="text-lg font-medium text-gray-700 mb-2">Chưa có hồ sơ bệnh án</h3>
+                    <p className="text-gray-500">
+                      Hồ sơ bệnh án sẽ được tạo sau khi bạn thực hiện khám bệnh và bác sĩ hoàn thành chẩn đoán.
+                    </p>
+                  </Card>
                 )}
               </div>
-              {/* Kết quả xét nghiệm */}
-              <div>
-                <h2 className="text-xl font-bold text-[#0C3C54] mb-4 mt-8">Kết quả xét nghiệm</h2>
-                {sampleTestResults.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {sampleTestResults.map((test, index) => (
-                      <div key={index} className="bg-[#f8fafc] rounded-xl shadow p-4 flex flex-col gap-2">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-green-600 text-lg font-bold">{new Date(test.date).toLocaleDateString('vi-VN')}</span>
-                        </div>
-                        <div><span className="font-semibold text-[#0C3C54]">Loại xét nghiệm:</span> {test.testType}</div>
-                        <div><span className="font-semibold text-[#0C3C54]">Kết quả:</span> {test.result}</div>
+              {/* Tóm tắt thống kê */}
+              <div className="mt-8">
+                <h2 className="text-xl font-bold text-[#0C3C54] mb-4">Tổng quan sức khỏe</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card className="text-center">
+                    <div className="text-2xl text-blue-500 mb-2">📋</div>
+                    <div className="text-2xl font-bold text-[#0C3C54]">{medicalRecords.length}</div>
+                    <div className="text-gray-600">Lần khám bệnh</div>
+                  </Card>
+                  
+                  <Card className="text-center">
+                    <div className="text-2xl text-green-500 mb-2">👨‍⚕️</div>
+                    <div className="text-2xl font-bold text-[#0C3C54]">
+                      {new Set(medicalRecords.map(r => r.doctorId?._id).filter(Boolean)).size}
+                    </div>
+                    <div className="text-gray-600">Bác sĩ đã thăm khám</div>
+                  </Card>
+                  
+                  <Card className="text-center">
+                    <div className="text-2xl text-orange-500 mb-2">💊</div>
+                    <div className="text-2xl font-bold text-[#0C3C54]">
+                      {medicalRecords.reduce((total, record) => 
+                        total + (record.medicines?.length || 0), 0
+                      )}
+                    </div>
+                    <div className="text-gray-600">Loại thuốc đã kê</div>
+                  </Card>
+                </div>
+                
+                {medicalRecords.length > 0 && (
+                  <Card className="mt-4">
+                    <div className="text-center">
+                      <div className="text-2xl text-blue-500 mb-2">📅</div>
+                      <div className="text-sm text-gray-600">Lần khám gần nhất</div>
+                      <div className="text-lg font-bold text-[#0C3C54]">
+                        {new Date(medicalRecords[0]?.createdAt).toLocaleDateString('vi-VN')}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500">Chưa có kết quả xét nghiệm</p>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {medicalRecords[0]?.diagnosis || 'Không có thông tin chẩn đoán'}
+                      </div>
+                    </div>
+                  </Card>
                 )}
               </div>
             </div>

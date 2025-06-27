@@ -42,13 +42,43 @@ const VIEW_CONFIGS: Record<CalendarView, {
 
 const CalendarToolbar: React.FC<CalendarToolbarProps> = ({
   onNavigate,
-  onView,
+  onViewChange,
   onToday,
-  label,
-  view,
-  views,
-
+  currentDate,
+  currentView,
+  views = ['month', 'week', 'day', 'agenda']
 }) => {
+  
+  // Generate label based on current date and view
+  const getLabel = () => {
+    const date = new Date(currentDate);
+    
+    switch (currentView) {
+      case 'month':
+        return date.toLocaleDateString('vi-VN', { 
+          month: 'long', 
+          year: 'numeric' 
+        });
+      case 'week':
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - date.getDay());
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        
+        return `${weekStart.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' })} - ${weekEnd.toLocaleDateString('vi-VN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      case 'day':
+        return date.toLocaleDateString('vi-VN', { 
+          weekday: 'long',
+          day: 'numeric', 
+          month: 'long', 
+          year: 'numeric' 
+        });
+      case 'agenda':
+        return `Lịch trình - ${date.toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })}`;
+      default:
+        return date.toLocaleDateString('vi-VN');
+    }
+  };
   
   // Handle navigation
   const handlePrevious = () => onNavigate('prev');
@@ -57,7 +87,7 @@ const CalendarToolbar: React.FC<CalendarToolbarProps> = ({
   
   // Handle view change
   const handleViewChange = (newView: CalendarView) => {
-    onView(newView);
+    onViewChange(newView);
   };
 
   return (
@@ -95,7 +125,7 @@ const CalendarToolbar: React.FC<CalendarToolbarProps> = ({
       <div className="calendar-toolbar-center">
         {/* Calendar Label */}
         <Text className="calendar-label">
-          {label}
+          {getLabel()}
         </Text>
       </div>
 
@@ -104,7 +134,7 @@ const CalendarToolbar: React.FC<CalendarToolbarProps> = ({
         <Space className="calendar-view-switcher">
           {views.map((viewType: CalendarView) => {
             const config = VIEW_CONFIGS[viewType];
-            const isActive = view === viewType;
+            const isActive = currentView === viewType;
             
             return (
               <Tooltip key={viewType} title={config.tooltip}>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
-import Image1 from '../assets/images/image1.jpg';
+import Image1 from '../assets/images/celeb.png';
 
 const AuthLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   return (

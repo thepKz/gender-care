@@ -79,6 +79,12 @@ export class PackagePurchaseService {
     try {
       session.startTransaction();
 
+      // Check duplicate active package
+      const existing = await PackagePurchases.findOne({ userId, packageId, status: 'active' }).session(session);
+      if (existing) {
+        throw new Error('Bạn đã sở hữu gói này và vẫn còn hiệu lực. Vui lòng sử dụng hết hoặc chờ hết hạn trước khi mua lại.');
+      }
+
       // Validate package
       const packageDoc = await ServicePackages.findOne({ 
         _id: packageId, 
@@ -94,13 +100,23 @@ export class PackagePurchaseService {
         throw new Error(`Insufficient payment. Required: ${packageDoc.price}, Paid: ${paymentAmount}`);
       }
 
+      // Tính expiryDate
+      const duration = packageDoc.durationInDays || 30;
+      const now = new Date();
+      const expiryDate = new Date(now.getTime() + duration * 24 * 60 * 60 * 1000);
+
       // Tạo purchase record
       const purchase = new PackagePurchases({
         userId: new mongoose.Types.ObjectId(userId),
         packageId: new mongoose.Types.ObjectId(packageId),
         purchasePrice: paymentAmount,
-        purchaseDate: new Date()
-        // expiryDate và usedServices sẽ được tính trong pre-save hook
+        purchaseDate: now,
+        expiryDate: expiryDate,
+        usedServices: (packageDoc.services || []).map((s: any) => ({
+          serviceId: s.serviceId,
+          usedQuantity: 0,
+          maxQuantity: s.quantity || 1
+        }))
       });
 
       await purchase.save({ session });

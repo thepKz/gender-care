@@ -164,12 +164,32 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
 
           {/* Footer */}
           <div className="mt-2 pt-1.5 border-t border-gray-100">
-            <div className="flex items-center justify-between text-xs text-gray-500">
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
               <span>Tạo lúc: {formatDate(profile.createdAt)}</span>
               {profile.updatedAt !== profile.createdAt && (
                 <span>Cập nhật: {formatDate(profile.updatedAt)}</span>
               )}
             </div>
+            
+            {/* Button Xem chi tiết bệnh án */}
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full"
+            >
+              <Button
+                type="primary"
+                block
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onView();
+                }}
+                className="bg-[#0C3C54] hover:bg-[#0C3C54]/90 border-0 text-white font-medium card-action-btn"
+              >
+                📋 Xem chi tiết bệnh án
+              </Button>
+            </motion.div>
           </div>
         </div>
 

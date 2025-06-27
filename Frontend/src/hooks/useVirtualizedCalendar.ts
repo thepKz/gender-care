@@ -15,9 +15,16 @@ export const useVirtualizedCalendar = ({
   const [currentViewRange, setCurrentViewRange] = useState<{
     start: Date;
     end: Date;
-  }>({
-    start: new Date(),
-    end: new Date()
+  }>(() => {
+    // Initialize with current month range to show events by default
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1); // First day of month
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0); // Last day of month
+    console.log('🗓️ [VirtualizedCalendar] Initial view range:', {
+      start: start.toDateString(), 
+      end: end.toDateString()
+    });
+    return { start, end };
   });
 
   // Group events by date for efficient filtering
@@ -37,11 +44,21 @@ export const useVirtualizedCalendar = ({
 
   // Get visible events based on current view range
   const visibleEvents = useMemo(() => {
+    console.log('🔍 [VirtualizedCalendar] Filtering events:', {
+      totalEvents: events.length,
+      enableVirtualization,
+      viewRange: {
+        start: currentViewRange.start.toDateString(),
+        end: currentViewRange.end.toDateString()
+      }
+    });
+
     if (!enableVirtualization) return events;
 
     const visible: DoctorScheduleEvent[] = [];
     const start = currentViewRange.start.getTime();
     const end = currentViewRange.end.getTime();
+    let filteredCount = 0;
 
     for (const [dateStr, dayEvents] of eventsByDate) {
       const eventDate = new Date(dateStr).getTime();
@@ -53,8 +70,16 @@ export const useVirtualizedCalendar = ({
         } else {
           visible.push(...dayEvents);
         }
+      } else {
+        filteredCount += dayEvents.length;
       }
     }
+
+    console.log('📊 [VirtualizedCalendar] Filtering result:', {
+      visibleEvents: visible.length,
+      filteredOutEvents: filteredCount,
+      byDateCount: eventsByDate.size
+    });
 
     return visible;
   }, [eventsByDate, currentViewRange, maxEventsPerDay, enableVirtualization, events]);

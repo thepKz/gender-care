@@ -1,5 +1,6 @@
 import SystemLog, { ISystemLog, LogAction, LogLevel } from '../models/SystemLogs';
 import { AuthRequest } from '../types';
+import { getRealClientIP, formatUserAgent } from '../utils/ipUtils';
 
 interface CreateLogOptions {
   action: LogAction;
@@ -137,6 +138,14 @@ class SystemLogService {
       const total = await SystemLog.countDocuments(query);
       const totalPages = Math.ceil(total / limit);
 
+      console.log(`[SystemLogService] getLogs result:`, {
+        logsCount: logs.length,
+        total,
+        page,
+        totalPages,
+        query: JSON.stringify(query)
+      });
+
       return {
         logs,
         total,
@@ -161,6 +170,8 @@ class SystemLogService {
     levelStats: Array<{ level: string; count: number }>;
   }> {
     try {
+      console.log(`[SystemLogService] Getting stats for role: ${userRole}`);
+      
       // Build query với phân quyền
       const baseQuery: any = {};
       
@@ -169,8 +180,11 @@ class SystemLogService {
       }
       // Admin không có restrict
 
+      console.log('[SystemLogService] Base query:', JSON.stringify(baseQuery));
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+      console.log('[SystemLogService] Today date:', today);
 
       const [
         totalLogs,
@@ -212,6 +226,15 @@ class SystemLogService {
         ])
       ]);
 
+      console.log(`[SystemLogService] Stats result:`, {
+        totalLogs,
+        todayLogs,
+        loginCount,
+        errorCount,
+        actionStats: actionStats.length,
+        levelStats: levelStats.length
+      });
+
       return {
         totalLogs,
         todayLogs,
@@ -241,6 +264,11 @@ class SystemLogService {
       metadata?: any;
     } = {}
   ): Promise<ISystemLog> {
+    // Lấy IP thật từ headers và user agent information
+    const realIP = getRealClientIP(req);
+    const userAgentString = req.get('User-Agent');
+    const { browser, os, device } = formatUserAgent(userAgentString);
+
     return this.createLog({
       action,
       level: options.level || LogLevel.PUBLIC,
@@ -251,11 +279,19 @@ class SystemLogService {
       targetId: options.targetId,
       targetType: options.targetType,
       targetData: options.targetData,
-      ipAddress: req.ip,
-      userAgent: req.get('User-Agent'),
+      ipAddress: realIP, // Sử dụng IP thật thay vì req.ip
+      userAgent: userAgentString,
       endpoint: req.path,
       method: req.method as any,
-      metadata: options.metadata
+      metadata: {
+        ...options.metadata,
+        // Thêm thông tin parsed user agent để dễ hiển thị
+        browserInfo: {
+          browser,
+          os,
+          device
+        }
+      }
     });
   }
 

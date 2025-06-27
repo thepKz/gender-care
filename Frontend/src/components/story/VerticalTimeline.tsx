@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
 import React from "react";
 
-import Image1 from "../../assets/images/image1.jpg";
-import Image2 from "../../assets/images/image2.jpg";
-import Image3 from "../../assets/images/image3.jpg";
-import Image4 from "../../assets/images/image4.jpg";
-import Image5 from "../../assets/images/image5.jpg";
+import Image1 from "../../assets/images/f1.png";
+import Image2 from "../../assets/images/f2.png";
+import Image3 from "../../assets/images/f3.png";
+import Image4 from "../../assets/images/f4.png";
+import Image5 from "../../assets/images/f5.png";
 
 interface Step {
   title: string;
