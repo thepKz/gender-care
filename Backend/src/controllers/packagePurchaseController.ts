@@ -18,6 +18,8 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
     const { packageId, promotionId } = req.body;
     const userId = req.user?._id;
 
+    console.log('🔍 [Backend] Purchase request:', { packageId, promotionId, userId });
+
     // Validation
     if (!userId) {
       return res.status(401).json({
@@ -53,7 +55,38 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Get user info for payment
+    console.log('🔍 [Backend] Package found:', { 
+      name: servicePackage.name, 
+      price: servicePackage.price,
+      isFree: servicePackage.price === 0 
+    });
+
+    // 🆕 Check if user already has an active package of this type
+    const existingPurchase = await PackagePurchases.findOne({
+      userId: userId,
+      packageId: packageId,
+      status: 'active',
+      expiryDate: { $gt: new Date() } // Chưa hết hạn
+    }).populate('packageId', 'name');
+
+    if (existingPurchase) {
+      const packageName = (existingPurchase.packageId as any)?.name || 'Gói dịch vụ';
+      console.log('❌ [Backend] User already owns this package:', packageName);
+      return res.status(400).json({
+        success: false,
+        message: 'Bạn đã sở hữu gói dịch vụ này',
+        errors: { 
+          general: `Bạn đã sở hữu gói này: "${packageName}" và vẫn còn hiệu lực. Vui lòng sử dụng hết các dịch vụ hoặc chờ gói hết hạn trước khi mua lại.`
+        },
+        data: {
+          existingPackage: existingPurchase,
+          expiryDate: existingPurchase.expiryDate,
+          status: existingPurchase.status
+        }
+      });
+    }
+
+    // Get user info
     const user = await User.findById(userId).select('fullName email phone');
     if (!user) {
       return res.status(404).json({
@@ -66,6 +99,65 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
     const basePrice = servicePackage.price;
     const discountAmount = promotionId ? Math.round(basePrice * 0.1) : 0;
     const finalAmount = basePrice - discountAmount;
+
+    console.log('🔍 [Backend] Pricing calculated:', { basePrice, discountAmount, finalAmount });
+
+    // 🆕 Handle free packages differently
+    if (finalAmount === 0) {
+      console.log('✅ [Backend] Free package detected, creating purchase directly');
+      
+      // Create package purchase directly for free packages
+      const packagePurchaseData = {
+        userId: userId,
+        packageId: packageId,
+        purchaseDate: new Date(),
+        expiryDate: new Date(Date.now() + servicePackage.durationInDays * 24 * 60 * 60 * 1000),
+        status: 'active',
+        pricing: {
+          basePrice: basePrice,
+          discountAmount: discountAmount,
+          finalAmount: finalAmount
+        },
+        remainingServices: servicePackage.services.map((service: any) => ({
+          serviceId: service.serviceId._id,
+          serviceName: service.serviceId.serviceName,
+          limit: service.quantity,
+          used: 0,
+          remaining: service.quantity
+        }))
+      };
+
+      const packagePurchase = await PackagePurchases.create(packagePurchaseData);
+      const populatedPurchase = await PackagePurchases.findById(packagePurchase._id)
+        .populate('packageId', 'name description price validityPeriod')
+        .populate('remainingServices.serviceId', 'serviceName price');
+
+      console.log('✅ [Backend] Free package purchase created successfully');
+
+      return res.status(201).json({
+        success: true,
+        message: 'Gói miễn phí đã được kích hoạt thành công',
+        data: {
+          packagePurchase: populatedPurchase,
+          purchaseId: packagePurchase._id,
+          packageId: packageId,
+          packageName: servicePackage.name,
+          pricing: {
+            basePrice,
+            discountAmount,
+            finalAmount
+          },
+          purchaseDate: packagePurchase.purchaseDate,
+          expiryDate: packagePurchase.expiryDate,
+          status: packagePurchase.status,
+          bill: null, // No bill needed for free packages
+          paymentUrl: null // No payment needed
+        }
+      });
+    }
+
+    // For paid packages, create bill and payment link
+    console.log('💳 [Backend] Paid package detected, creating payment link');
 
     // Create bill first
     const billNumber = `PKG-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -84,6 +176,28 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
     // Tạo description ngắn gọn cho PayOS (<=25 ký tự)
     const shortPackageName = servicePackage.name.substring(0, 15); // Lấy 15 ký tự đầu
     const description = `Goi: ${shortPackageName}`.substring(0, 25); // Đảm bảo <= 25 ký tự
+
+    // 🆕 Validate PayOS environment variables
+    if (!process.env.PAYOS_CLIENT_ID || !process.env.PAYOS_API_KEY || !process.env.PAYOS_CHECKSUM_KEY) {
+      console.error('❌ [Backend] Missing PayOS environment variables:', {
+        clientId: !!process.env.PAYOS_CLIENT_ID,
+        apiKey: !!process.env.PAYOS_API_KEY,
+        checksumKey: !!process.env.PAYOS_CHECKSUM_KEY
+      });
+      
+      return res.status(503).json({
+        success: false,
+        message: 'Payment service is temporarily unavailable',
+        errors: { 
+          general: 'Hệ thống thanh toán đang được bảo trì. Vui lòng thử lại sau hoặc liên hệ quản trị viên.',
+          technical: 'PayOS configuration is missing. Please contact administrator.'
+        },
+        data: {
+          isPaymentServiceAvailable: false,
+          canPurchaseFreePackages: true
+        }
+      });
+    }
 
     // Tích hợp PayOS thật
     const PayOS = require('@payos/node');
@@ -114,6 +228,17 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
 
     const paymentLinkResponse = await payos.createPaymentLink(paymentData);
     console.log('🔍 [Backend] PayOS response:', paymentLinkResponse);
+    
+    // 🆕 Validate PayOS response
+    if (!paymentLinkResponse || !paymentLinkResponse.checkoutUrl) {
+      console.error('❌ [Backend] PayOS returned empty or invalid response:', paymentLinkResponse);
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create payment link',
+        errors: { general: 'Payment service returned invalid response. Please try again.' }
+      });
+    }
 
     // Update bill với payment info
     await Bills.findByIdAndUpdate(bill._id, {
@@ -129,18 +254,48 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
           ...bill.toObject(),
           paymentUrl: paymentLinkResponse.checkoutUrl
         },
-        packagePurchase: null // Sẽ tạo sau khi thanh toán thành công
+        packagePurchase: null, // Sẽ tạo sau khi thanh toán thành công
+        paymentUrl: paymentLinkResponse.checkoutUrl, // For easier frontend access
+        billId: bill._id,
+        packageId: packageId,
+        packageName: servicePackage.name,
+        pricing: {
+          basePrice,
+          discountAmount,
+          finalAmount
+        }
       }
     };
 
     console.log('🔍 [Backend] Final response:', JSON.stringify(response, null, 2));
     res.status(201).json(response);
   } catch (error: any) {
-    console.error('Error creating payment link:', error);
+    console.error('❌ [Backend] Error in purchasePackage:', error);
+    console.error('❌ [Backend] Error details:', {
+      message: error.message,
+      code: error.code,
+      response: error.response?.data
+    });
+    
+    // Provide more specific error messages
+    let errorMessage = 'Error purchasing service package';
+    
+    if (error.message?.includes('PAYOS')) {
+      errorMessage = 'PayOS service error: ' + error.message;
+    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+      errorMessage = 'Cannot connect to payment service';
+    } else if (error.response?.data?.message) {
+      errorMessage = 'PayOS API error: ' + error.response.data.message;
+    } else if (error.code === 11000) {
+      errorMessage = 'Duplicate purchase detected';
+    } else {
+      errorMessage = error.message || 'Unknown error occurred';
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Error creating payment link',
-      errors: { general: error.message }
+      message: 'Error purchasing service package',
+      errors: { general: errorMessage }
     });
   }
 };

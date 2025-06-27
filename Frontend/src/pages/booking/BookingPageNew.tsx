@@ -113,7 +113,7 @@ const BookingPageNew: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState('');
   const [selectedProfile, setSelectedProfile] = useState('');
-  const [typeLocation, setTypeLocation] = useState<'online' | 'clinic' | 'home'>('clinic');
+  const [typeLocation, setTypeLocation] = useState<'Online' | 'clinic' | 'home'>('clinic');
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
 
   // Data states
@@ -549,20 +549,21 @@ const BookingPageNew: React.FC = () => {
     // Update available locations based on service availableAt
     const service = services.find(s => s.id === serviceId);
     if (service) {
-      const locations = service.availableAt.map(location => {
-        switch (location.toLowerCase()) {
-          case 'online': return 'online';
-          case 'center': return 'clinic';
-          case 'athome': return 'home';
+      // Map backend availableAt values to frontend typeLocation enum
+      const locations: ('Online' | 'clinic' | 'home')[] = service.availableAt.map(location => {
+        switch (location) {
+          case 'Online': return 'Online';
+          case 'Center': return 'clinic';
+          case 'Athome': return 'home';
           default: return 'clinic';
         }
-      });
+      }).filter((loc, index, arr) => arr.indexOf(loc) === index); // Remove duplicates
       
       setAvailableLocations(locations);
       
       // Reset location if current selection is not available
       if (!locations.includes(typeLocation)) {
-        setTypeLocation(locations[0] as 'online' | 'clinic' | 'home');
+        setTypeLocation(locations[0]);
       }
     }
     
@@ -626,7 +627,13 @@ const BookingPageNew: React.FC = () => {
 
   // 🆕 Handle service from package change
   const handleServiceFromPackageChange = (serviceId: string) => {
-    setSelectedServiceFromPackage(serviceId);
+    // Check if the service is already selected, if so, deselect it
+    if (selectedServiceFromPackage === serviceId) {
+      setSelectedServiceFromPackage('');
+    } else {
+      // Only allow single selection - clear previous and set new
+      setSelectedServiceFromPackage(serviceId);
+    }
     
     // Reset form state for new service selection
     setSelectedDate(null);
@@ -634,6 +641,11 @@ const BookingPageNew: React.FC = () => {
     setSelectedDoctor('');
     setTimeSlots([]);
     setDoctors([]);
+    
+    console.log('🔄 Service selection changed:', {
+      previousSelection: selectedServiceFromPackage,
+      newSelection: selectedServiceFromPackage === serviceId ? '' : serviceId
+    });
   };
 
   // Handle date change - refresh time slots and doctors
@@ -802,43 +814,44 @@ const BookingPageNew: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      const result = await appointmentApi.createAppointment(appointmentData);
+      // Directly call the creation API
+      const response = await appointmentApi.createAppointment(appointmentData);
 
-      console.log('✅ [Booking Success] Appointment created:', result);
+      console.log('✅ [Booking Success] API Response:', response);
 
-      // Handle different booking types
-      if (backendBookingType === 'purchased_package') {
-        // Purchased package - no payment needed
-        message.success('Đặt lịch thành công! Cuộc hẹn đã được xác nhận.');
-        navigate('/booking-history');
+      if (response.success && response.data) {
+          // Case 1: Payment is required - redirect to payment URL
+          if (response.data.paymentUrl) {
+              console.log('🚀 [Redirecting] Found payment URL. Preparing to redirect...');
+              message.success('Đặt lịch thành công! Đang chuyển hướng đến trang thanh toán...', 2);
+              
+              // Use setTimeout to ensure the redirect happens in a new execution context
+              setTimeout(() => {
+                  console.log(`🚀 [Redirecting] Executing redirect to: ${response.data.paymentUrl}`);
+                  window.location.href = response.data.paymentUrl;
+              }, 500); // 0.5-second delay to allow messages to show
+
+          } 
+          // Case 2: No payment required (Free service or completed)
+          else {
+              Modal.success({
+                  title: 'Đặt lịch thành công!',
+                  content: 'Lịch hẹn của bạn đã được xác nhận. Vui lòng kiểm tra email hoặc trang Lịch sử đặt lịch.',
+                  onOk: () => {
+                      navigate('/booking-history');
+                      // Reset state manually if needed, e.g., form.resetFields();
+                      // Or call a state reset function if you have one defined elsewhere.
+                  },
+              });
+          }
       } else {
-        // Service or new package - need payment
-        const paymentUrl = result.paymentUrl;
-        if (paymentUrl) {
-          // Store pending booking info
-          localStorage.setItem('pendingBooking', JSON.stringify({
-            appointmentId: result.appointmentId,
-            amount: result.totalAmount,
-            bookingType: backendBookingType
-          }));
-
-          // Redirect to payment
-          window.location.href = paymentUrl;
-        } else {
-          message.error('Không thể tạo link thanh toán');
-        }
+          // Handle API errors that are returned with success: false
+          message.error(response.message || 'Có lỗi xảy ra khi đặt lịch.');
       }
     } catch (error: any) {
-      console.error('❌ [Booking Error]:', error);
-      
-      // Show specific error message
-      if (error.message.includes('validation')) {
-        message.error(`Lỗi validation: ${error.message}`);
-      } else if (error.message.includes('slot')) {
-        message.error('Slot thời gian đã được đặt. Vui lòng chọn thời gian khác.');
-      } else {
-        message.error('Có lỗi xảy ra khi đặt lịch. Vui lòng thử lại.');
-      }
+      console.error('❌ [Booking Error]', error);
+      const errorMessage = error.response?.data?.message || 'Lỗi hệ thống, vui lòng thử lại sau.';
+      message.error(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -960,6 +973,7 @@ const BookingPageNew: React.FC = () => {
   // Get location label for display
   const getLocationLabel = (location: string) => {
     switch (location) {
+      case 'Online': return 'Tư vấn online';
       case 'online': return 'Tư vấn online';
       case 'clinic': return 'Tại phòng khám';
       case 'home': return 'Tại nhà';
@@ -1421,13 +1435,15 @@ const BookingPageNew: React.FC = () => {
                             display: 'grid',
                             gap: '12px'
                           }}>
-                            {getAvailableServicesFromPackage().map(service => {
+                            {getAvailableServicesFromPackage().map((service, index) => {
                               const isServiceSelected = selectedServiceFromPackage === service.serviceId;
                               const usagePercent = (service.usedCount / service.quantity) * 100;
+                              // Ensure unique key for each service
+                              const uniqueKey = service.serviceId || `service-${index}`;
                               
                               return (
                                 <div
-                                  key={service.serviceId}
+                                  key={uniqueKey}
                                   onClick={() => handleServiceFromPackageChange(service.serviceId)}
                                   style={{
                                     padding: '16px',
@@ -1435,7 +1451,8 @@ const BookingPageNew: React.FC = () => {
                                     border: isServiceSelected ? '2px solid #059669' : '1px solid #e2e8f0',
                                     backgroundColor: isServiceSelected ? '#ecfdf5' : 'white',
                                     cursor: 'pointer',
-                                    transition: 'all 0.3s ease'
+                                    transition: 'all 0.3s ease',
+                                    position: 'relative'
                                   }}
                                 >
                                   <div style={{
@@ -1835,22 +1852,25 @@ const BookingPageNew: React.FC = () => {
                     </div>
                   )}
                 >
-                        {userProfiles.filter(profile => profile.id || (profile as any)._id).map(profile => (
-                          <Option 
-                            key={profile.id || (profile as any)._id} 
-                            value={profile.id || (profile as any)._id}
-                            label={profile.fullName}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
-                              <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
-                          {profile.fullName}
-                        </div>
-                              <div style={{ fontSize: '11px', color: '#6b7280', opacity: 0.8 }}>
-                                {profile.gender === 'male' ? 'Nam' : profile.gender === 'female' ? 'Nữ' : 'Khác'} • {profile.phone}
-                        </div>
-                      </div>
-                    </Option>
-                  ))}
+                        {userProfiles.filter(profile => profile.id || (profile as any)._id).map((profile, index) => {
+                          const profileKey = profile.id || (profile as any)._id || `profile-${index}`;
+                          return (
+                            <Option 
+                              key={profileKey} 
+                              value={profile.id || (profile as any)._id}
+                              label={profile.fullName}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
+                                <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                                  {profile.fullName}
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#6b7280', opacity: 0.8 }}>
+                                  {profile.gender === 'male' ? 'Nam' : profile.gender === 'female' ? 'Nữ' : 'Khác'} • {profile.phone}
+                                </div>
+                              </div>
+                            </Option>
+                          );
+                        })}
                 </Select>
               </Form.Item>
 
@@ -1869,22 +1889,25 @@ const BookingPageNew: React.FC = () => {
                           size="large"
                           disabled={doctors.length === 0}
                         >
-                          {doctors.filter(d => d.isAvailable && d.id).map(doctor => (
-                            <Option key={doctor.id} value={doctor.id}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
-                                <img
-                                  src={doctor.avatar}
-                                  alt={doctor.name}
-                                  style={{ width: '24px', height: '24px', borderRadius: '50%' }}
-                                />
-                                <div>
-                                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
-                                    {doctor.name}
+                          {doctors.filter(d => d.isAvailable && d.id).map((doctor, index) => {
+                            const doctorKey = doctor.id || `doctor-${index}`;
+                            return (
+                              <Option key={doctorKey} value={doctor.id}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+                                  <img
+                                    src={doctor.avatar}
+                                    alt={doctor.name}
+                                    style={{ width: '24px', height: '24px', borderRadius: '50%' }}
+                                  />
+                                  <div>
+                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                                      {doctor.name}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </Option>
-                          ))}
+                              </Option>
+                            );
+                          })}
                 </Select>
                         {doctors.length > 0 && (
                           <div style={{ marginTop: '8px' }}>
@@ -1922,23 +1945,23 @@ const BookingPageNew: React.FC = () => {
 
                   {/* Additional Info */}
                   <div>
-              <Form.Item
+                    <Form.Item
                       label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Triệu chứng</span>}
-                name="description"
+                      name="description"
                       style={{ marginBottom: '16px' }}
                     >
                       <Input.TextArea
                         placeholder="Mô tả triệu chứng hoặc lý do khám (tùy chọn)"
-                  rows={3}
-                  maxLength={200}
+                        rows={3}
+                        maxLength={200}
                         showCount
                         size="large"
-                />
-              </Form.Item>
+                      />
+                    </Form.Item>
 
-              <Form.Item
+                    <Form.Item
                       label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Ghi chú</span>}
-                name="notes"
+                      name="notes"
                       style={{ marginBottom: '0' }}
                     >
                       <Input.TextArea
@@ -1947,8 +1970,8 @@ const BookingPageNew: React.FC = () => {
                         maxLength={200}
                         showCount
                         size="large"
-                />
-              </Form.Item>
+                      />
+                    </Form.Item>
                   </div>
                 </div>
               </div>

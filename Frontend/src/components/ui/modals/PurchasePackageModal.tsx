@@ -3,6 +3,7 @@ import { Button, Card, message, Modal, Typography } from 'antd';
 import React, { useState } from 'react';
 import packagePurchaseApi from '../../../api/endpoints/packagePurchaseApi';
 import { ServicePackage } from '../../../types';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 
@@ -20,6 +21,7 @@ const PurchasePackageModal: React.FC<PurchasePackageModalProps> = ({
   onSuccess
 }) => {
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -42,64 +44,114 @@ const PurchasePackageModal: React.FC<PurchasePackageModalProps> = ({
       console.log('🔍 [Frontend] API Response:', response);
       console.log('🔍 [Frontend] Response success:', response.success);
       console.log('🔍 [Frontend] Response data:', response.data);
-      console.log('🔍 [Frontend] Payment URL:', response.data?.bill?.paymentUrl);
-
-      if (response.success && response.data?.bill?.paymentUrl) {
-        console.log('✅ [Frontend] Redirecting to PayOS:', response.data.bill.paymentUrl);
-        // Redirect đến PayOS payment page
-        window.location.href = response.data.bill.paymentUrl;
-      } else {
-        console.error('❌ [Frontend] No payment URL in response:', response);
-        message.error('Không thể tạo link thanh toán. Vui lòng thử lại.');
+      
+      if (response.success && response.data) {
+        // 🆕 Handle different response types based on backend structure
+        const data = response.data as any; // Type assertion for dynamic response structure
+        
+        console.log('🔍 [Frontend] Analyzing response structure:', {
+          hasPackagePurchase: !!data.packagePurchase,
+          hasPaymentUrl: !!data.paymentUrl,
+          hasBill: !!data.bill,
+          packageName: data.packageName,
+          pricing: data.pricing
+        });
+        
+        // Case 1: Paid package with payment URL (most common)
+        if (data.paymentUrl || (data.bill && data.bill.paymentUrl)) {
+          const paymentUrl = data.paymentUrl || data.bill.paymentUrl;
+          const packageName = data.packageName || servicePackage.name;
+          console.log('💳 [Frontend] Redirecting to payment URL:', paymentUrl);
+          message.success({ 
+            content: `Đang chuyển hướng đến trang thanh toán cho ${packageName}...`,
+            duration: 2,
+          });
+          
+          // Redirect to payment
+          window.location.href = paymentUrl;
+          return;
+        }
+        
+        // Case 2: Free package - already purchased and activated immediately
+        if (data.packagePurchase && data.packagePurchase.status === 'active') {
+          const packageName = data.packageName || servicePackage.name;
+          console.log('✅ [Frontend] Free package activated successfully');
+          message.success({
+            content: `🎉 ${packageName} đã được kích hoạt thành công!`,
+            duration: 3,
+          });
+          
+          // Close modal and navigate to purchased packages
+          onClose();
+          if (navigate) {
+            navigate('/purchased-packages');
+          }
+          return;
+        }
+        
+        // Case 3: Purchase created but waiting for payment (has bill but no package yet)
+        if (data.bill && !data.packagePurchase) {
+          const packageName = data.packageName || servicePackage.name;
+          console.log('⏳ [Frontend] Purchase pending - payment required');
+          message.info({
+            content: `Đơn hàng ${packageName} đã được tạo. Cần thanh toán để kích hoạt.`,
+            duration: 3,
+          });
+          
+          // Close modal and navigate to purchased packages or billing
+          onClose();
+          return;
+        }
+        
+        // Case 4: Unexpected response structure
+        console.error('❌ [Frontend] Unexpected response structure:', {
+          hasPackagePurchase: !!data.packagePurchase,
+          hasPaymentUrl: !!data.paymentUrl,
+          hasBill: !!data.bill,
+          dataKeys: Object.keys(data)
+        });
+        
+        message.error({
+          content: 'Cấu trúc response không như mong đợi. Vui lòng thử lại.',
+          duration: 3,
+        });
       }
     } catch (error: any) {
       console.error('❌ [Frontend] Error purchasing package:', error);
       console.error('❌ [Frontend] Error response:', error.response);
-      console.error('❌ [Frontend] Error data:', error.response?.data);
       
-      // Enhanced error handling với user-friendly messages
-      let errorMessage = 'Có lỗi xảy ra khi mua gói dịch vụ';
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi mua gói dịch vụ';
+      console.error('❌ [Frontend] Error message:', errorMessage);
       
-      if (error.response?.data?.errors?.general) {
-        const originalError = error.response.data.errors.general;
-        
-        // Handle specific duplicate package error
-        if (originalError.includes('Bạn đã sở hữu gói này')) {
-          errorMessage = 'Bạn đã sở hữu gói dịch vụ này và vẫn còn hiệu lực. Vui lòng sử dụng hết các dịch vụ hoặc chờ gói hết hạn trước khi mua lại.';
-          
-          // Show additional info modal
-          Modal.info({
-            title: '🎁 Gói dịch vụ đã có sẵn',
-            content: (
-              <div>
-                <p>Bạn đã sở hữu gói dịch vụ này với:</p>
-                <ul style={{ marginTop: '12px', paddingLeft: '20px' }}>
-                  <li>✅ Các dịch vụ chưa sử dụng hết</li>
-                  <li>📅 Thời hạn còn hiệu lực</li>
-                </ul>
-                <p style={{ marginTop: '12px', fontWeight: '500' }}>
-                  💡 <strong>Gợi ý:</strong> Hãy vào trang <em>"Gói đã mua"</em> để đặt lịch sử dụng các dịch vụ có sẵn.
-                </p>
-              </div>
-            ),
-            okText: 'Đã hiểu',
-            centered: true
-          });
-          
-        } else if (originalError.includes('Package not found')) {
-          errorMessage = 'Không tìm thấy gói dịch vụ hoặc gói đã ngừng hoạt động';
-        } else if (originalError.includes('Insufficient payment')) {
-          errorMessage = 'Số tiền thanh toán không đủ cho gói dịch vụ này';
-        } else {
-          errorMessage = originalError;
-        }
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
+      // 🆕 Better error handling with specific messages
+      if (error.response?.status === 400) {
+        message.error({
+          content: `❌ ${errorMessage}`,
+          duration: 4,
+        });
+      } else if (error.response?.status === 409) {
+        // Conflict - likely duplicate purchase
+        Modal.info({
+          title: '📋 Thông báo',
+          content: 'Bạn đã mua gói này rồi. Vui lòng kiểm tra danh sách gói đã mua.',
+          onOk: () => {
+            onClose();
+            if (navigate) {
+              navigate('/purchased-packages');
+            }
+          },
+        });
+      } else if (error.response?.status === 500) {
+        message.error({
+          content: `❌ Lỗi hệ thống: ${errorMessage}. Vui lòng thử lại sau.`,
+          duration: 5,
+        });
+      } else {
+        message.error({
+          content: `❌ ${errorMessage}`,
+          duration: 4,
+        });
       }
-      
-      message.error(errorMessage);
     } finally {
       setLoading(false);
     }
