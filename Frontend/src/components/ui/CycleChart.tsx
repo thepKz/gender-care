@@ -1,6 +1,6 @@
 import React from 'react';
-import { Card, Tag, Tooltip, Progress, Alert } from 'antd';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
+import { Card, Tag, Tooltip, Alert } from 'antd';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Tooltip as RechartsTooltip } from 'recharts';
 
 interface CycleChartProps {
   chartData: Array<{
@@ -97,8 +97,10 @@ const CycleChart: React.FC<CycleChartProps> = ({ chartData, resultCalculation, s
   }
 
   // Custom dot cho line chart
-  const CustomDot = (props: any) => {
+  const CustomDot = (props: { cx?: number; cy?: number; payload?: any }) => {
     const { cx, cy, payload } = props;
+    if (!cx || !cy || !payload) return null;
+    
     const color = symbolColors[payload.symbol] || '#999';
     const size = payload.isPeakDay ? 8 : 6;
     
@@ -225,19 +227,7 @@ const CycleChart: React.FC<CycleChartProps> = ({ chartData, resultCalculation, s
               label={{ value: 'Khả năng thụ thai (%)', angle: -90, position: 'insideLeft' }}
               domain={[0, 100]}
             />
-            <Tooltip 
-              formatter={(value: any, name: any, props: any) => [
-                `${value}%`,
-                'Khả năng thụ thai'
-              ]}
-              labelFormatter={(label: any, payload: any) => {
-                if (payload && payload[0]) {
-                  const data = payload[0].payload;
-                  return `Ngày ${data.dayNumber} (${data.date}) - ${getSymbolDescription(data.symbol)}`;
-                }
-                return label;
-              }}
-            />
+            <RechartsTooltip />
             <Legend />
             <Line 
               type="monotone" 
@@ -285,16 +275,7 @@ const CycleChart: React.FC<CycleChartProps> = ({ chartData, resultCalculation, s
                 label={{ value: 'Khả năng thụ thai (%)', angle: -90, position: 'insideLeft' }}
                 domain={[0, 100]}
               />
-              <Tooltip 
-                formatter={(value: any, name: any, props: any) => [`${value}%`, 'Khả năng thụ thai']}
-                labelFormatter={(label: any, payload: any) => {
-                  if (payload && payload[0]) {
-                    const data = payload[0].payload;
-                    return `Ngày ${label} - ${getSymbolDescription(data.symbol)}`;
-                  }
-                  return `Ngày ${label}`;
-                }}
-              />
+              <RechartsTooltip />
               <Bar dataKey="fertilityProbability" name="Khả năng thụ thai (%)">
                 {fertilityChartData.slice(0, 20).map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={symbolColors[entry.symbol]} />
