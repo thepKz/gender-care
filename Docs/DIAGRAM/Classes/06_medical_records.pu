@@ -1,0 +1,107 @@
+@startuml 06_medical_records
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Medical Records Management - Class Diagram
+
+package "Medical Records System" {
+    class MedicalRecord {
+        - id : ObjectId
+        - doctorId : ObjectId
+        - profileId : ObjectId
+        - appointmentId : ObjectId
+        - diagnosis : string
+        - symptoms : string
+        - treatment : string
+        - medicines : MedicalRecordMedicines[]
+        - notes : string
+        - pictures : string[]
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createRecord() : boolean
+        + updateRecord(data) : boolean
+        + addDiagnosis(diagnosis) : boolean
+        + addMedicine(medicine) : boolean
+        + removeMedicine(medicineId) : boolean
+        + updateSymptoms(symptoms) : boolean
+        + updateTreatment(treatment) : boolean
+        + addPicture(pictureUrl) : boolean
+        + removePicture(pictureUrl) : boolean
+        + addNotes(notes) : string
+        + getRecordHistory() : MedicalRecord[]
+        + exportRecord(format) : string
+        - validateRecordData() : boolean
+        - updateTimestamp() : boolean
+    }
+
+    class MedicalRecordMedicines {
+        - id : ObjectId
+        - name : string
+        - type : MedicineType
+        - dosage : string
+        - frequency : number
+        - timingInstructions : string
+        - duration : string
+        - instructions : string
+        --
+        + createMedicine() : boolean
+        + updateMedicine(data) : boolean
+        + validateDosage() : boolean
+        + getFrequencyDescription() : string
+        + isValidType() : boolean
+        - formatInstructions() : string
+        - validateFrequency() : boolean
+    }
+
+
+
+
+
+
+
+    enum MedicineType {
+        CONTRACEPTIVE
+        VITAMIN
+        OTHER
+        ANTIBIOTIC
+        PAINKILLER
+    }
+}
+
+' External references
+class User {
+    - id : ObjectId
+    - fullName : string
+    - role : string
+}
+
+class UserProfiles {
+    - id : ObjectId
+    - userId : ObjectId
+    - fullName : string
+}
+
+class Doctor {
+    - id : ObjectId
+    - userId : ObjectId
+}
+
+class Appointment {
+    - id : ObjectId
+    - patientId : ObjectId
+    - doctorId : ObjectId
+    - dateTime : Date
+}
+
+' Relationships
+MedicalRecord }o--|| UserProfiles : "for patient"
+MedicalRecord }o--|| Doctor : "by doctor"
+MedicalRecord }o--|| Appointment : "created from"
+MedicalRecord ||--o{ MedicalRecordMedicines : "contains"
+
+MedicalRecordMedicines }o--|| MedicalRecord : "belongs to"
+MedicalRecordMedicines ||--|| MedicineType : "of type"
+
+@enduml 

@@ -45,6 +45,30 @@ class TestCategoriesController {
     }
   };
 
+  // GET /api/test-categories/all - Lấy TẤT CẢ test categories mà không có pagination
+  getAllTestCategoriesWithoutPagination = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const search = req.query.search as string;
+
+      // Gọi service để lấy tất cả data
+      const testCategories = await this.testCategoriesService.getAllTestCategoriesWithoutPagination(search);
+
+      // Trả về response
+      res.status(200).json({
+        success: true,
+        message: 'All test categories retrieved successfully',
+        data: testCategories
+      });
+    } catch (error: any) {
+      // Error handling
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve all test categories',
+        error: error.message
+      });
+    }
+  };
+
   // GET /api/test-categories/:id - Lấy test category theo ID
   getTestCategoryById = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -79,10 +103,15 @@ class TestCategoriesController {
   // POST /api/test-categories - Tạo test category mới
   createTestCategory = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      console.log('🔍 [TestCategoryController] createTestCategory called');
+      console.log('🔍 [TestCategoryController] Request body:', req.body);
+      console.log('🔍 [TestCategoryController] User:', req.user);
+
       // Validate input data
       const { name, description, unit, normalRange } = req.body;
 
       if (!name) {
+        console.log('❌ [TestCategoryController] Name is required');
         res.status(400).json({
           success: false,
           message: 'Test category name is required'
@@ -98,8 +127,12 @@ class TestCategoriesController {
         normalRange: normalRange?.trim()
       };
 
+      console.log('🔍 [TestCategoryController] Calling service with data:', data);
+
       // Gọi service để tạo
       const newTestCategory = await this.testCategoriesService.createTestCategory(data);
+
+      console.log('✅ [TestCategoryController] Test category created:', newTestCategory);
 
       // Trả về response
       res.status(201).json({
@@ -108,6 +141,9 @@ class TestCategoriesController {
         data: newTestCategory
       });
     } catch (error: any) {
+      console.error('❌ [TestCategoryController] Error creating test category:', error);
+      console.error('❌ [TestCategoryController] Error stack:', error.stack);
+
       // Handle specific errors
       if (error.message.includes('already exists') || error.message.includes('required')) {
         res.status(400).json({

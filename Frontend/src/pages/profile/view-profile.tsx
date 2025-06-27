@@ -1,17 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { CalendarOutlined, EditOutlined, FileTextOutlined, UserOutlined } from '@ant-design/icons';
+import { Button, Card, DatePicker, Form, Input, Modal, notification, Select, Spin } from 'antd';
 import axios from 'axios';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import medicalApi from '../../api/endpoints/medical';
 import userProfileApi from '../../api/endpoints/userProfileApi';
 import { useAuth } from '../../hooks/useAuth';
-import { UserProfile } from '../../types';
-
-interface MedicalRecord {
-  date: string;
-  diagnosis: string;
-  treatment: string;
-  doctor: string;
-}
+import { MedicalRecord, UserProfile } from '../../types';
 
 interface TestResult {
   date: string;
@@ -19,44 +16,19 @@ interface TestResult {
   result: string;
 }
 
-// Dữ liệu mẫu cho bệnh án
-const sampleMedicalRecords: MedicalRecord[] = [
-  {
-    date: '2023-10-15',
-    diagnosis: 'Viêm họng cấp',
-    treatment: 'Kháng sinh, nghỉ ngơi, uống nhiều nước',
-    doctor: 'BS. Nguyễn Văn A'
-  },
-  {
-    date: '2023-08-20',
-    diagnosis: 'Cảm cúm mùa',
-    treatment: 'Paracetamol, vitamin C',
-    doctor: 'BS. Trần Thị B'
-  }
-];
-
-// Dữ liệu mẫu cho kết quả xét nghiệm
-const sampleTestResults: TestResult[] = [
-  {
-    date: '2023-10-14',
-    testType: 'Xét nghiệm máu',
-    result: 'Bạch cầu tăng nhẹ'
-  },
-  {
-    date: '2023-08-19',
-    testType: 'Chụp X-quang phổi',
-    result: 'Bình thường, không phát hiện bất thường'
-  }
-];
-
 const ViewProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { profileId } = useParams<{ profileId: string }>();
   const { isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState('1');
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
+  const [medicalLoading, setMedicalLoading] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [form] = Form.useForm();
 
   // Kiểm tra đăng nhập
   useEffect(() => {
@@ -116,10 +88,38 @@ const ViewProfilePage: React.FC = () => {
     }
   };
 
+  // Fetch medical records cho profile
+  const fetchMedicalRecords = async () => {
+    if (!profileId) return;
+
+    try {
+      setMedicalLoading(true);
+      const response = await medicalApi.getMedicalRecordsByProfile(profileId, 1, 50);
+      
+      if (response.data?.success) {
+        setMedicalRecords(response.data.data || []);
+      } else {
+        setMedicalRecords([]);
+      }
+    } catch (error: unknown) {
+      console.error('Error fetching medical records:', error);
+      setMedicalRecords([]);
+    } finally {
+      setMedicalLoading(false);
+    }
+  };
+
   // Lấy thông tin hồ sơ
   useEffect(() => {
     fetchProfileData();
   }, [profileId]); // Removed navigate dependency to prevent duplicate calls
+
+  // Fetch medical records khi profile được load
+  useEffect(() => {
+    if (profile) {
+      fetchMedicalRecords();
+    }
+  }, [profile]);
 
   // Hiển thị biểu tượng giới tính
   const renderGenderIcon = (gender: string) => {
@@ -145,9 +145,59 @@ const ViewProfilePage: React.FC = () => {
     }
   };
 
-  const breadcrumbRoutes = [
-    { path: '/user-profiles', breadcrumbName: 'Hồ sơ bệnh án' }
-  ];
+
+
+  // Hàm mở modal chỉnh sửa
+  const handleEditClick = () => {
+    if (profile) {
+      form.setFieldsValue({
+        fullName: profile.fullName,
+        gender: profile.gender,
+        phone: profile.phone,
+        year: profile.year ? dayjs(profile.year) : null
+      });
+      setEditModalVisible(true);
+    }
+  };
+
+  // Hàm lưu thông tin chỉnh sửa
+  const handleEditSave = async (values: {
+    fullName: string;
+    gender: 'male' | 'female' | 'other';
+    phone?: string;
+    year?: dayjs.Dayjs;
+  }) => {
+    if (!profile) return;
+    
+    try {
+      setEditLoading(true);
+      
+      const updateData = {
+        id: profile._id,
+        fullName: values.fullName,
+        gender: values.gender,
+        phone: values.phone,
+        year: values.year ? values.year.format('YYYY-MM-DD') : null
+      };
+
+      const updatedProfile = await userProfileApi.updateProfile(profile._id, updateData);
+      setProfile(updatedProfile);
+      setEditModalVisible(false);
+      
+      notification.success({
+        message: 'Cập nhật thành công',
+        description: 'Thông tin hồ sơ đã được cập nhật'
+      });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật thông tin';
+      notification.error({
+        message: 'Cập nhật thất bại',
+        description: errorMessage
+      });
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -209,101 +259,264 @@ const ViewProfilePage: React.FC = () => {
   }
 
   return (
-    <div className="container mx-auto px-2 py-8 md:px-0">
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <nav className="mb-6 flex items-center text-sm text-[#0C3C54]/80 gap-2">
-          {breadcrumbRoutes.map((route, idx) => (
-            <span key={route.path || route.breadcrumbName} className="flex items-center gap-1">
-              {idx > 0 && <span className="mx-1">/</span>}
-              {route.path ? (
-                <Link to={route.path} className="hover:underline hover:text-[#0C3C54]">{route.breadcrumbName}</Link>
-              ) : (
-                <span>{route.breadcrumbName}</span>
-              )}
-            </span>
-          ))}
-          <span className="mx-1">/</span>
-          <span className="font-semibold text-[#0C3C54]">Chi tiết hồ sơ</span>
-        </nav>
+    <div className="pt-24 pb-8"> {/* Thêm padding-top để tránh header che khuất */}
+      <div className="container mx-auto px-2 md:px-0">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Cột trái: Avatar, tên, badge, ngày tạo */}
-          <div className="rounded-2xl shadow-lg p-8 bg-white flex flex-col items-center justify-start gap-4">
-            <div className={`w-28 h-28 rounded-full flex items-center justify-center border-4 ${profile.gender === 'male' ? 'border-[#0C3C54]' : profile.gender === 'female' ? 'border-[#a78bfa]' : 'border-[#fde68a]'} bg-[#f8fafc] shadow-lg`}>
-              <span className="text-5xl">{renderGenderIcon(profile.gender)}</span>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Cột trái: Avatar, tên, badge, ngày tạo */}
+            <div className="rounded-2xl shadow-lg p-8 bg-white flex flex-col items-center justify-start gap-4">
+              <div className={`w-28 h-28 rounded-full flex items-center justify-center border-4 ${profile.gender === 'male' ? 'border-[#0C3C54]' : profile.gender === 'female' ? 'border-[#a78bfa]' : 'border-[#fde68a]'} bg-[#f8fafc] shadow-lg`}>
+                <span className="text-5xl">{renderGenderIcon(profile.gender)}</span>
+              </div>
+              <div className="text-2xl font-bold text-[#0C3C54] mt-2">{profile.fullName}</div>
+              <span className={`px-4 py-1 rounded-lg text-white text-base font-semibold mb-2 ${profile.gender === 'male' ? 'bg-[#0C3C54]' : profile.gender === 'female' ? 'bg-[#a78bfa]' : 'bg-[#fde68a] text-[#0C3C54]'}`}>{renderGenderLabel(profile.gender)}</span>
+              <div className="text-sm text-gray-500 mt-2">Ngày tạo: <span className="font-semibold text-[#0C3C54]">{profile.createdAt ? new Date(profile.createdAt).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}</span></div>
             </div>
-            <div className="text-2xl font-bold text-[#0C3C54] mt-2">{profile.fullName}</div>
-            <span className={`px-4 py-1 rounded-lg text-white text-base font-semibold mb-2 ${profile.gender === 'male' ? 'bg-[#0C3C54]' : profile.gender === 'female' ? 'bg-[#a78bfa]' : 'bg-[#fde68a] text-[#0C3C54]'}`}>{renderGenderLabel(profile.gender)}</span>
-            <div className="text-sm text-gray-500 mt-2">Ngày tạo: <span className="font-semibold text-[#0C3C54]">{profile.createdAt ? new Date(profile.createdAt).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}</span></div>
-          </div>
-          {/* Cột phải: Thông tin chung, bệnh án, xét nghiệm */}
-          <div className="md:col-span-2 flex flex-col gap-8">
-            {/* Thông tin chung */}
-            <div className="bg-white rounded-2xl shadow p-6">
-              <h2 className="text-xl font-bold text-[#0C3C54] mb-4">Thông tin chung</h2>
-              <table className="w-full text-left border-separate border-spacing-y-2">
-                <tbody>
-                  <tr className="bg-[#f8fafc]">
-                    <td className="py-2 px-4 font-semibold text-[#0C3C54]">Họ và tên</td>
-                    <td className="py-2 px-4">{profile.fullName}</td>
-                    <td className="py-2 px-4 font-semibold text-[#0C3C54]">Giới tính</td>
-                    <td className="py-2 px-4">{renderGenderLabel(profile.gender)}</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2 px-4 font-semibold text-[#0C3C54]">Số điện thoại</td>
-                    <td className="py-2 px-4">{profile.phone || 'Chưa cập nhật'}</td>
-                    <td className="py-2 px-4 font-semibold text-[#0C3C54]">Ngày sinh</td>
-                    <td className="py-2 px-4">{profile.year ? new Date(profile.year).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            {/* Thông tin bệnh án */}
-            <div>
-              <h2 className="text-xl font-bold text-[#0C3C54] mb-4 mt-8">Thông tin bệnh án</h2>
-              {sampleMedicalRecords.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sampleMedicalRecords.map((record, index) => (
-                    <div key={index} className="bg-[#f8fafc] rounded-xl shadow p-4 flex flex-col gap-2">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-[#0C3C54] text-lg font-bold">{new Date(record.date).toLocaleDateString('vi-VN')}</span>
-                      </div>
-                      <div><span className="font-semibold text-[#0C3C54]">Chẩn đoán:</span> {record.diagnosis}</div>
-                      <div><span className="font-semibold text-[#0C3C54]">Điều trị:</span> {record.treatment}</div>
-                      <div><span className="font-semibold text-[#0C3C54]">Bác sĩ:</span> {record.doctor}</div>
-                    </div>
-                  ))}
+            {/* Cột phải: Thông tin chung, bệnh án, xét nghiệm */}
+            <div className="md:col-span-2 flex flex-col gap-8">
+              {/* Thông tin chung */}
+              <div className="bg-white rounded-2xl shadow p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold text-[#0C3C54]">Thông tin chung</h2>
+                  <Button 
+                    type="primary" 
+                    icon={<EditOutlined />}
+                    onClick={handleEditClick}
+                    className="bg-[#0C3C54] hover:bg-[#0C3C54]/90"
+                  >
+                    Chỉnh sửa
+                  </Button>
                 </div>
-              ) : (
-                <p className="text-gray-500">Chưa có thông tin bệnh án</p>
-              )}
-            </div>
-            {/* Kết quả xét nghiệm */}
-            <div>
-              <h2 className="text-xl font-bold text-[#0C3C54] mb-4 mt-8">Kết quả xét nghiệm</h2>
-              {sampleTestResults.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {sampleTestResults.map((test, index) => (
-                    <div key={index} className="bg-[#f8fafc] rounded-xl shadow p-4 flex flex-col gap-2">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-green-600 text-lg font-bold">{new Date(test.date).toLocaleDateString('vi-VN')}</span>
-                      </div>
-                      <div><span className="font-semibold text-[#0C3C54]">Loại xét nghiệm:</span> {test.testType}</div>
-                      <div><span className="font-semibold text-[#0C3C54]">Kết quả:</span> {test.result}</div>
-                    </div>
-                  ))}
+                <table className="w-full text-left border-separate border-spacing-y-2">
+                  <tbody>
+                    <tr className="bg-[#f8fafc]">
+                      <td className="py-2 px-4 font-semibold text-[#0C3C54]">Họ và tên</td>
+                      <td className="py-2 px-4">{profile.fullName}</td>
+                      <td className="py-2 px-4 font-semibold text-[#0C3C54]">Giới tính</td>
+                      <td className="py-2 px-4">{renderGenderLabel(profile.gender)}</td>
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-4 font-semibold text-[#0C3C54]">Số điện thoại</td>
+                      <td className="py-2 px-4">{profile.phone || 'Chưa cập nhật'}</td>
+                      <td className="py-2 px-4 font-semibold text-[#0C3C54]">Ngày sinh</td>
+                      <td className="py-2 px-4">{profile.year ? new Date(profile.year).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              {/* Thông tin bệnh án */}
+              <div>
+                <div className="flex items-center justify-between mb-4 mt-8">
+                  <h2 className="text-xl font-bold text-[#0C3C54]">Thông tin bệnh án</h2>
+                  {medicalLoading && <Spin size="small" />}
                 </div>
-              ) : (
-                <p className="text-gray-500">Chưa có kết quả xét nghiệm</p>
-              )}
+                
+                {medicalLoading ? (
+                  <div className="text-center py-8">
+                    <Spin size="large" />
+                    <p className="text-gray-500 mt-2">Đang tải hồ sơ bệnh án...</p>
+                  </div>
+                ) : medicalRecords.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {medicalRecords.map((record) => (
+                      <motion.div
+                        key={record._id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <Card 
+                          className="bg-[#f8fafc] border-l-4 border-l-[#0C3C54] hover:shadow-md transition-shadow"
+                          bodyStyle={{ padding: '16px' }}
+                        >
+                          <div className="flex items-center gap-2 mb-3">
+                            <CalendarOutlined className="text-[#0C3C54]" />
+                            <span className="text-[#0C3C54] text-lg font-bold">
+                              {new Date(record.createdAt).toLocaleDateString('vi-VN')}
+                            </span>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-2">
+                              <FileTextOutlined className="text-red-500 mt-1 flex-shrink-0" />
+                              <div>
+                                <span className="font-semibold text-[#0C3C54]">Chẩn đoán:</span>
+                                <p className="text-gray-700 mt-1">{record.diagnosis || 'Chưa có thông tin'}</p>
+                              </div>
+                            </div>
+                            
+                            {record.symptoms && (
+                              <div className="flex items-start gap-2">
+                                <span className="text-orange-500">🩺</span>
+                                <div>
+                                  <span className="font-semibold text-[#0C3C54]">Triệu chứng:</span>
+                                  <p className="text-gray-700 mt-1">{record.symptoms}</p>
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="flex items-start gap-2">
+                              <span className="text-green-500">💊</span>
+                              <div>
+                                <span className="font-semibold text-[#0C3C54]">Điều trị:</span>
+                                <p className="text-gray-700 mt-1">{record.treatment || 'Chưa có thông tin'}</p>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2">
+                              <UserOutlined className="text-blue-500" />
+                              <span className="font-semibold text-[#0C3C54]">Bác sĩ:</span>
+                              <span className="text-gray-700">
+                                {record.doctorId || 'Chưa có thông tin'}
+                              </span>
+                            </div>
+                          </div>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="text-center py-8">
+                    <div className="text-gray-400 text-6xl mb-4">📋</div>
+                    <h3 className="text-lg font-medium text-gray-700 mb-2">Chưa có hồ sơ bệnh án</h3>
+                    <p className="text-gray-500">
+                      Hồ sơ bệnh án sẽ được tạo sau khi bạn thực hiện khám bệnh và bác sĩ hoàn thành chẩn đoán.
+                    </p>
+                  </Card>
+                )}
+              </div>
+              {/* Tóm tắt thống kê */}
+              <div className="mt-8">
+                <h2 className="text-xl font-bold text-[#0C3C54] mb-4">Tổng quan sức khỏe</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card className="text-center">
+                    <div className="text-2xl text-blue-500 mb-2">📋</div>
+                    <div className="text-2xl font-bold text-[#0C3C54]">{medicalRecords.length}</div>
+                    <div className="text-gray-600">Lần khám bệnh</div>
+                  </Card>
+                  
+                  <Card className="text-center">
+                    <div className="text-2xl text-green-500 mb-2">👨‍⚕️</div>
+                    <div className="text-2xl font-bold text-[#0C3C54]">
+                      {new Set(medicalRecords.map(r => r.doctorId).filter(Boolean)).size}
+                    </div>
+                    <div className="text-gray-600">Bác sĩ đã thăm khám</div>
+                  </Card>
+                  
+                  <Card className="text-center">
+                    <div className="text-2xl text-orange-500 mb-2">💊</div>
+                    <div className="text-2xl font-bold text-[#0C3C54]">0</div>
+                    <div className="text-gray-600">Loại thuốc đã kê</div>
+                  </Card>
+                </div>
+                
+                {medicalRecords.length > 0 && (
+                  <Card className="mt-4">
+                    <div className="text-center">
+                      <div className="text-2xl text-blue-500 mb-2">📅</div>
+                      <div className="text-sm text-gray-600">Lần khám gần nhất</div>
+                      <div className="text-lg font-bold text-[#0C3C54]">
+                        {new Date(medicalRecords[0]?.createdAt).toLocaleDateString('vi-VN')}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {medicalRecords[0]?.diagnosis || 'Không có thông tin chẩn đoán'}
+                      </div>
+                    </div>
+                  </Card>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+
+        {/* Modal chỉnh sửa thông tin */}
+        <Modal
+          title="Chỉnh sửa thông tin cơ bản"
+          open={editModalVisible}
+          onCancel={() => setEditModalVisible(false)}
+          footer={null}
+          width={600}
+        >
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleEditSave}
+            className="mt-4"
+          >
+            <Form.Item
+              label="Họ và tên"
+              name="fullName"
+              rules={[
+                { required: true, message: 'Vui lòng nhập họ và tên' },
+                { min: 2, message: 'Họ tên phải có ít nhất 2 ký tự' },
+                { max: 50, message: 'Họ tên không được quá 50 ký tự' }
+              ]}
+            >
+              <Input placeholder="Nhập họ và tên" />
+            </Form.Item>
+
+            <Form.Item
+              label="Giới tính"
+              name="gender"
+              rules={[{ required: true, message: 'Vui lòng chọn giới tính' }]}
+            >
+              <Select placeholder="Chọn giới tính">
+                <Select.Option value="male">Nam</Select.Option>
+                <Select.Option value="female">Nữ</Select.Option>
+                <Select.Option value="other">Khác</Select.Option>
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              label="Số điện thoại"
+              name="phone"
+              rules={[
+                { required: true, message: 'Vui lòng nhập số điện thoại' },
+                { pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải có đúng 10 chữ số' }
+              ]}
+            >
+              <Input placeholder="Nhập số điện thoại" maxLength={10} />
+            </Form.Item>
+
+            <Form.Item
+              label="Ngày sinh"
+              name="year"
+              rules={[
+                { required: true, message: 'Vui lòng chọn ngày sinh' }
+              ]}
+            >
+              <DatePicker
+                placeholder="Chọn ngày sinh"
+                format="DD/MM/YYYY"
+                className="w-full"
+                disabledDate={(current) => {
+                  return current && current > dayjs().endOf('day');
+                }}
+              />
+            </Form.Item>
+
+            <div className="flex gap-3 justify-end mt-6">
+              <Button onClick={() => setEditModalVisible(false)}>
+                Hủy
+              </Button>
+              <Button 
+                type="primary" 
+                htmlType="submit" 
+                loading={editLoading}
+                className="bg-[#0C3C54] hover:bg-[#0C3C54]/90"
+              >
+                Lưu thay đổi
+              </Button>
+            </div>
+          </Form>
+        </Modal>
+      </div>
     </div>
   );
 };

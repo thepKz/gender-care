@@ -24,6 +24,31 @@
   color: white !important;
 }
 
+/* Fix DatePicker jumping issue - disable animations for form components */
+.ant-picker,
+.ant-picker-focused,
+.ant-picker:hover,
+.ant-picker-dropdown,
+.ant-picker-panel-container {
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Disable hover transform for form inputs to prevent jumping */
+.ant-form-item .ant-picker,
+.ant-form-item .ant-input,
+.ant-form-item .ant-select {
+  transform: none !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.ant-form-item .ant-picker:hover,
+.ant-form-item .ant-input:hover,
+.ant-form-item .ant-select:hover {
+  transform: none !important;
+}
+
 /* Card hover effects */
 .ant-card {
   transition: all 0.3s ease;

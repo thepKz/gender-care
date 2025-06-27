@@ -1,0 +1,58 @@
+@startuml
+
+package "Presentation Layer" {
+  [uicomponents]
+  [statemgmt] 
+  [routemgmt]
+}
+
+package "Application Layer" {
+  [apimgmt]
+  [authenticationmgmt]
+  [appointmentmgmt]
+  [billingmgmt]
+}
+
+package "Domain Layer" {
+  [usermgmt]
+  [healthcaremgmt] 
+  [reportmgmt]
+}
+
+package "Infrastructure Layer" {
+  [datamgmt]
+  [integrationservice]
+  [securitymgmt]
+  [utilservice]
+}
+
+' Presentation to Application
+[uicomponents] ..> [apimgmt] : <<access>>
+[statemgmt] ..> [apimgmt] : <<access>>
+[routemgmt] ..> [authenticationmgmt] : <<import>>
+
+' Application to Domain  
+[apimgmt] ..> [usermgmt] : <<import>>
+[apimgmt] ..> [healthcaremgmt] : <<import>>
+[apimgmt] ..> [reportmgmt] : <<import>>
+[authenticationmgmt] ..> [usermgmt] : <<import>>
+[appointmentmgmt] ..> [healthcaremgmt] : <<import>>
+[billingmgmt] ..> [usermgmt] : <<import>>
+
+' Domain to Infrastructure
+[usermgmt] ..> [datamgmt] : <<access>>
+[healthcaremgmt] ..> [datamgmt] : <<access>>
+[healthcaremgmt] ..> [integrationservice] : <<access>>
+[reportmgmt] ..> [datamgmt] : <<access>>
+
+' Application to Infrastructure (direct access for technical concerns)
+[apimgmt] ..> [securitymgmt] : <<import>>
+[authenticationmgmt] ..> [datamgmt] : <<access>>
+[appointmentmgmt] ..> [datamgmt] : <<access>>
+[billingmgmt] ..> [datamgmt] : <<access>>
+[billingmgmt] ..> [integrationservice] : <<access>>
+
+' Infrastructure internal dependencies
+[datamgmt] ..> [utilservice] : <<import>>
+
+@enduml

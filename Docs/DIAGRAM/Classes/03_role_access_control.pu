@@ -1,0 +1,147 @@
+@startuml 03_role_access_control
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Role-Based Access Control - Class Diagram (Real Implementation)
+
+package "Simple Access Control System" {
+    class User {
+        - id : ObjectId
+        - email : string
+        - fullName : string
+        - role : UserRole
+        - isActive : boolean
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + hasRole(role) : boolean
+        + isActive() : boolean
+        + updateRole(newRole) : boolean
+        + getPermissions() : string[]
+        - validateRoleChange() : boolean
+    }
+
+    class AuthToken {
+        - userId : ObjectId
+        - token : string
+        - tokenType : TokenType
+        - expiresAt : Date
+        - isRevoked : boolean
+        - deviceInfo : string
+        - ipAddress : string
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + generateToken() : string
+        + validateToken() : boolean
+        + revokeToken() : boolean
+        + isExpired() : boolean
+        + refreshToken() : AuthToken
+        - encryptToken() : string
+        - updateLastUsed() : boolean
+    }
+
+    class LoginHistory {
+        - userId : ObjectId
+        - loginTime : Date
+        - logoutTime : Date
+        - ipAddress : string
+        - userAgent : string
+        - deviceType : string
+        - location : string
+        - status : LoginStatus
+        - failureReason : string
+        - createdAt : Date
+        --
+        + recordLogin() : boolean
+        + recordLogout() : boolean
+        + recordFailedAttempt(reason) : boolean
+        + getSessionDuration() : number
+        + getLocationFromIP() : string
+        - detectSuspiciousActivity() : boolean
+        - anonymizeData() : LoginHistory
+    }
+
+    class SystemLogs {
+        - userId : ObjectId
+        - userRole : string
+        - action : LogAction
+        - resource : string
+        - details : object
+        - ipAddress : string
+        - userAgent : string
+        - timestamp : Date
+        - severity : LogSeverity
+        - module : string
+        --
+        + logAction() : boolean
+        + getLogsByUser(userId) : SystemLogs[]
+        + getLogsByAction(action) : SystemLogs[]
+        + getSecurityLogs() : SystemLogs[]
+        + searchLogs(criteria) : SystemLogs[]
+        - categorizeAction() : LogAction
+        - determineSeverity() : LogSeverity
+    }
+
+    enum UserRole {
+        customer
+        doctor
+        staff
+        manager
+        admin
+    }
+
+    enum TokenType {
+        ACCESS_TOKEN
+        REFRESH_TOKEN
+        PASSWORD_RESET
+        EMAIL_VERIFICATION
+    }
+
+    enum LoginStatus {
+        SUCCESS
+        FAILED
+        BLOCKED
+        EXPIRED_SESSION
+    }
+
+    enum LogAction {
+        LOGIN
+        LOGOUT
+        CREATE
+        UPDATE
+        DELETE
+        VIEW
+        EXPORT
+        IMPORT
+        PERMISSION_CHANGE
+        ROLE_CHANGE
+    }
+
+    enum LogSeverity {
+        INFO
+        WARNING
+        ERROR
+        CRITICAL
+        SECURITY
+    }
+}
+
+' Relationships based on actual implementation
+User ||--|| UserRole : "has"
+User ||--o{ AuthToken : "generates"
+User ||--o{ LoginHistory : "tracks sessions"
+User ||--o{ SystemLogs : "generates logs"
+
+AuthToken }o--|| User : "belongs to"
+AuthToken ||--|| TokenType : "of type"
+
+LoginHistory }o--|| User : "for user"
+LoginHistory ||--|| LoginStatus : "has status"
+
+SystemLogs }o--|| User : "by user"
+SystemLogs ||--|| LogAction : "records action"
+SystemLogs ||--|| LogSeverity : "with severity"
+
+@enduml 

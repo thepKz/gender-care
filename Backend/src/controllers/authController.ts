@@ -4,7 +4,10 @@ import { OAuth2Client } from "google-auth-library";
 import { ValidationError } from "../errors/validationError";
 import { AuthToken, LoginHistory, OtpCode, User } from "../models";
 import { sendVerificationEmail } from "../services/emails";
+import systemLogService from "../services/systemLogService";
+import { LogAction, LogLevel } from "../models/SystemLogs";
 import { signRefreshToken, signToken, verifyRefreshToken } from "../utils";
+import { getRealIP, getLocationFromIP } from "../utils";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "203228075747-cnn4bmrbnkeqmbiouptng2kajeur2fjp.apps.googleusercontent.com";
 const client = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -347,14 +350,31 @@ export const login = async (req: Request, res: Response) => {
       isRevoked: false
     });
 
-    // Lưu lịch sử đăng nhập
+    // Lưu lịch sử đăng nhập với location
+    const realIP = getRealIP(req);
+    const locationData = await getLocationFromIP(realIP);
+
     await LoginHistory.create({
       userId: user._id,
-      ipAddress: req.ip || 'unknown',
+      ipAddress: realIP,
       userAgent: req.headers['user-agent'] || 'unknown',
       loginAt: new Date(),
+      location: locationData.location || 'Unknown Location',
       status: 'success'
     });
+
+    // Log system activity
+    await systemLogService.logFromRequest(req as any, LogAction.LOGIN, 
+      `User ${user.fullName} (${user.email}) logged in successfully`, {
+        level: LogLevel.PUBLIC,
+        targetId: user._id.toString(),
+        targetType: 'user',
+        metadata: {
+          userRole: user.role,
+          location: locationData.location || 'Unknown Location'
+        }
+      }
+    );
 
     return res.status(200).json({
       message: "Đăng nhập thành công!",
@@ -493,12 +513,16 @@ export const loginWithGoogle = async (req: Request, res: Response) => {
       isRevoked: false
     });
 
-    // Lưu lịch sử đăng nhập
+    // Lưu lịch sử đăng nhập với location cho Google login
+    const realIP = getRealIP(req);
+    const locationData = await getLocationFromIP(realIP);
+
     await LoginHistory.create({
       userId: user._id,
-      ipAddress: req.ip || 'unknown',
+      ipAddress: realIP,
       userAgent: req.headers['user-agent'] || 'unknown',
       loginAt: new Date(),
+      location: locationData.location || 'Unknown Location',
       status: 'success'
     });
 
@@ -709,7 +733,47 @@ export const logout = async (req: Request, res: Response) => {
     
     if (refreshToken) {
       // Tìm và vô hiệu hóa refresh token trong database
-      await AuthToken.updateOne({ refreshToken }, { isRevoked: true });
+      const tokenDoc = await AuthToken.findOne({ refreshToken, isRevoked: false });
+      
+      if (tokenDoc) {
+        // Update logout time trong LoginHistory cho user
+        // Tìm session login gần nhất chưa có logoutAt
+        await LoginHistory.findOneAndUpdate(
+          { 
+            userId: tokenDoc.userId,
+            logoutAt: null,
+            status: 'success' 
+          },
+          { 
+            logoutAt: new Date() 
+          },
+          { 
+            sort: { loginAt: -1 } // Lấy session login gần nhất
+          }
+        );
+        
+        // Log system activity
+        const user = await User.findById(tokenDoc.userId);
+        if (user) {
+          await systemLogService.createLog({
+            action: LogAction.LOGOUT,
+            level: LogLevel.PUBLIC,
+            message: `User ${user.fullName} (${user.email}) logged out`,
+            userId: user._id.toString(),
+            userEmail: user.email,
+            userRole: user.role,
+            ipAddress: req.ip || 'unknown',
+            userAgent: req.get('User-Agent') || 'unknown',
+            endpoint: req.path,
+            method: req.method as any,
+            targetId: user._id.toString(),
+            targetType: 'user'
+          });
+        }
+        
+        // Vô hiệu hóa refresh token
+        await AuthToken.updateOne({ refreshToken }, { isRevoked: true });
+      }
     }
     
     // Xóa cookie

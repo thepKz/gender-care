@@ -3,7 +3,8 @@ import { debounce } from 'lodash';
 import type { SearchFilterOptions, DoctorOption } from '../components/ui/AdvancedSearchFilter';
 import type { IDoctorSchedule } from '../api/endpoints/doctorSchedule';
 import type { DoctorScheduleEvent } from '../types/calendar';
-import doctorApi, { type IDoctor } from '../api/endpoints/doctor';
+import { doctorApi, type IDoctor } from '../api/endpoints/doctorApi';
+import type { Doctor } from '../api/endpoints/doctorApi';
 import dayjs from 'dayjs';
 
 interface UseAdvancedSearchProps {

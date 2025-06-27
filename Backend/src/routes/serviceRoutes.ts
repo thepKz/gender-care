@@ -5,7 +5,8 @@ import {
   updateService, 
   deleteService,
   recoverService,
-  searchServices
+  searchServices,
+  toggleServiceStatus
 } from '../controllers/serviceController';
 import { authMiddleware } from '../middleware/authMiddleware';
 import { optionalAuthMiddleware } from '../middleware/optionalAuthMiddleware';
@@ -26,6 +27,7 @@ router.use(authorizeManager);
 // Service routes
 router.post('/', createService);          // POST /services
 router.put('/:id', updateService);        // PUT /services/:id
+router.put('/:id/toggle-status', toggleServiceStatus); // PUT /services/:id/toggle-status
 router.delete('/:id', deleteService);     // DELETE /services/:id
 router.post('/:id/recover', recoverService); // POST /services/:id/recover
 

@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import Service from '../models/Service';
 import ServicePackages from '../models/ServicePackages';
 import { AuthRequest, ApiResponse, PaginationQuery } from '../types';
+import systemLogService from '../services/systemLogService';
+import { LogAction, LogLevel } from '../models/SystemLogs';
 
 // GET /services - Get all services (removed search functionality)
 export const getAllServices = async (req: Request, res: Response) => {
@@ -156,7 +159,7 @@ export const searchServices = async (req: Request, res: Response) => {
 // POST /services - Create new service
 export const createService = async (req: AuthRequest, res: Response) => {
   try {
-    const { serviceName, price, description, duration, serviceType, availableAt } = req.body;
+    const { serviceName, price, description, duration, serviceType, availableAt, status } = req.body;
 
     // Validation
     if (!serviceName || !price || !description || !serviceType || !availableAt) {
@@ -195,6 +198,9 @@ export const createService = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Map status to isDeleted: 'inactive' -> 1, 'active' -> 0
+    const isDeleted = status === 'inactive' ? 1 : 0;
+
     const newService = new Service({
       serviceName: serviceName.trim(),
       price: Number(price),
@@ -202,10 +208,26 @@ export const createService = async (req: AuthRequest, res: Response) => {
       duration: Number(duration) || 30,
       serviceType,
       availableAt: Array.isArray(availableAt) ? availableAt : [availableAt],
-      isDeleted: 0
+      isDeleted
     });
 
     const savedService = await newService.save();
+
+    // Log system activity
+    await systemLogService.logFromRequest(req as any, LogAction.SERVICE_CREATE, 
+      `Service created: ${savedService.serviceName} - ${savedService.serviceType} (${savedService.price.toLocaleString()}đ)`, {
+        level: LogLevel.MANAGER,
+        targetId: (savedService._id as mongoose.Types.ObjectId).toString(),
+        targetType: 'service',
+        metadata: {
+          serviceName: savedService.serviceName,
+          serviceType: savedService.serviceType,
+          price: savedService.price,
+          availableAt: savedService.availableAt,
+          isDeleted: savedService.isDeleted
+        }
+      }
+    );
 
     const response: ApiResponse<any> = {
       success: true,
@@ -272,6 +294,23 @@ export const updateService = async (req: AuthRequest, res: Response) => {
       { new: true, runValidators: true }
     );
 
+    // Log system activity
+    const changedFields = Object.keys(updateData);
+    await systemLogService.logFromRequest(req as any, LogAction.SERVICE_UPDATE, 
+      `Service updated: ${updatedService?.serviceName} - Fields changed: ${changedFields.join(', ')}`, {
+        level: LogLevel.MANAGER,
+        targetId: id,
+        targetType: 'service',
+        metadata: {
+          serviceName: updatedService?.serviceName,
+          serviceType: updatedService?.serviceType,
+          changedFields,
+          updateData,
+          originalName: service.serviceName
+        }
+      }
+    );
+
     const response: ApiResponse<any> = {
       success: true,
       data: updatedService,
@@ -322,6 +361,22 @@ export const deleteService = async (req: AuthRequest, res: Response) => {
     await Service.findByIdAndUpdate(id, { 
       isDeleted: 1
     });
+
+    // Log system activity
+    await systemLogService.logFromRequest(req as any, LogAction.SERVICE_DELETE, 
+      `Service deleted: ${service.serviceName} - ${service.serviceType} (${service.price.toLocaleString()}đ)`, {
+        level: LogLevel.MANAGER,
+        targetId: id,
+        targetType: 'service',
+        metadata: {
+          serviceName: service.serviceName,
+          serviceType: service.serviceType,
+          price: service.price,
+          availableAt: service.availableAt,
+          deletedAt: new Date()
+        }
+      }
+    );
 
     const response: ApiResponse<any> = {
       success: true,
@@ -389,6 +444,49 @@ export const recoverService = async (req: AuthRequest, res: Response) => {
     const response: ApiResponse<any> = {
       success: false,
       message: 'Error recovering service',
+      errors: { general: error.message }
+    };
+    res.status(500).json(response);
+  }
+};
+
+// PUT /services/:id/toggle-status - Toggle service active/inactive status
+export const toggleServiceStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Check if service exists (both active and deleted services can be toggled)
+    const service = await Service.findById(id);
+    if (!service) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: 'Service not found'
+      };
+      return res.status(404).json(response);
+    }
+
+    // Toggle the isDeleted status (0 = active, 1 = inactive)
+    const newStatus = service.isDeleted === 0 ? 1 : 0;
+    
+    const updatedService = await Service.findByIdAndUpdate(
+      id,
+      { isDeleted: newStatus },
+      { new: true, runValidators: true }
+    );
+
+    const statusText = newStatus === 0 ? 'activated' : 'deactivated';
+    
+    const response: ApiResponse<any> = {
+      success: true,
+      data: updatedService,
+      message: `Service ${statusText} successfully`
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    const response: ApiResponse<any> = {
+      success: false,
+      message: 'Error toggling service status',
       errors: { general: error.message }
     };
     res.status(500).json(response);

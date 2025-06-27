@@ -1,0 +1,48 @@
+@startuml 04_login_history
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Login History - Class Diagram
+
+package "Login History System" {
+    class LoginHistory {
+        - id : ObjectId
+        - userId : ObjectId
+        - ipAddress : string
+        - userAgent : string
+        - loginAt : Date
+        - logoutAt : Date
+        - location : string
+        - status : LoginStatus
+        - failReason : string
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + recordLogin() : boolean
+        + recordLogout() : boolean
+        + getLoginHistory(userId) : LoginHistory[]
+        + getActiveSessions(userId) : LoginHistory[]
+        + analyzeLoginPattern() : object
+        - validateLoginData() : boolean
+        - updateSessionDuration() : boolean
+    }
+
+    enum LoginStatus {
+        SUCCESS
+        FAILED
+    }
+}
+
+' External references
+class User {
+    - id : ObjectId
+    - email : string
+    - fullName : string
+}
+
+' Relationships
+LoginHistory }o--|| User : "belongs to"
+LoginHistory ||--|| LoginStatus : "has status"
+
+@enduml 

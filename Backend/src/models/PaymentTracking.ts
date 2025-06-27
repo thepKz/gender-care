@@ -1,7 +1,12 @@
 import mongoose from 'mongoose';
 
 export interface IPaymentTracking extends mongoose.Document {
-  appointmentId: mongoose.Types.ObjectId;
+  serviceType: 'appointment' | 'consultation' | 'package';
+  recordId: mongoose.Types.ObjectId;
+  appointmentId?: mongoose.Types.ObjectId;
+  doctorQAId?: mongoose.Types.ObjectId;
+  packageId?: mongoose.Types.ObjectId;
+  billId?: mongoose.Types.ObjectId;
   orderCode: number;
   paymentLinkId?: string;
   paymentGateway: 'payos' | 'vnpay' | 'momo';
@@ -29,11 +34,28 @@ export interface IPaymentTracking extends mongoose.Document {
 }
 
 const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
-  appointmentId: {
+  serviceType: {
+    type: String,
+    enum: ['appointment', 'consultation', 'package'],
+    required: true
+  },
+  recordId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Appointments',
     required: true,
-    unique: true
+    refPath: 'serviceType',
+    ref: function(): string {
+      return this.serviceType === 'appointment' ? 'Appointments' : 'DoctorQA';
+    }
+  },
+  packageId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ServicePackages',
+    required: false
+  },
+  billId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Bills',
+    required: false
   },
   orderCode: {
     type: Number,
@@ -92,18 +114,60 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   expiresAt: {
     type: Date,
     default: () => new Date(Date.now() + 15 * 60 * 1000),
-    index: { expireAfterSeconds: 0 }
   }
 }, { 
   timestamps: true 
 });
 
+PaymentTrackingSchema.pre('save', function() {
+  if (!this.recordId) {
+    throw new Error('recordId is required');
+  }
+  if (this.serviceType === 'package' && (!this.packageId || !this.billId)) {
+    throw new Error('packageId and billId are required for package service type');
+  }
+  
+  // Ensure only one service type reference is set
+  const references = [this.appointmentId, this.doctorQAId, this.packageId].filter(Boolean);
+  if (references.length > 1) {
+    throw new Error('Cannot have multiple service type references');
+  }
+});
+
 PaymentTrackingSchema.index({ appointmentId: 1 });
+PaymentTrackingSchema.index({ doctorQAId: 1 });
+PaymentTrackingSchema.index({ packageId: 1 });
+PaymentTrackingSchema.index({ billId: 1 });
 PaymentTrackingSchema.index({ orderCode: 1 });
 PaymentTrackingSchema.index({ status: 1 });
 
+PaymentTrackingSchema.index(
+  { "expiresAt": 1 }, 
+  { 
+    expireAfterSeconds: 0,
+    partialFilterExpression: { 
+      status: "pending",
+      expiresAt: { $ne: null }
+    }
+  }
+);
+
 PaymentTrackingSchema.statics.findAppointmentByOrderCode = function(orderCode: number) {
-  return this.findOne({ orderCode }).populate('appointmentId');
+  return this.findOne({ 
+    orderCode, 
+    serviceType: 'appointment' 
+  }).populate('recordId');
+};
+
+PaymentTrackingSchema.statics.findConsultationByOrderCode = function(orderCode: number) {
+  return this.findOne({ 
+    orderCode, 
+    serviceType: 'consultation' 
+  }).populate('recordId');
+};
+
+PaymentTrackingSchema.statics.findPackageByOrderCode = function(orderCode: number) {
+  return this.findOne({ orderCode, serviceType: 'package' }).populate('packageId').populate('billId');
 };
 
 PaymentTrackingSchema.methods.updatePaymentStatus = function(
@@ -119,6 +183,11 @@ PaymentTrackingSchema.methods.updatePaymentStatus = function(
     this.webhookReceived = true;
     this.webhookProcessedAt = new Date();
   }
+  
+  if (status === 'success' || status === 'failed' || status === 'cancelled') {
+    this.expiresAt = null;
+  }
+  
   return this.save();
 };
 

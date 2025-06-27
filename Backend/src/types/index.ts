@@ -50,6 +50,8 @@ export interface ILoginHistory {
   ipAddress: string;
   userAgent: string;
   loginAt: Date;
+  logoutAt?: Date;
+  location?: string;
   status: 'success' | 'failed';
   failReason?: string;
 }
@@ -209,24 +211,27 @@ export interface INotificationDay {
 }
 
 // Test types
-export interface IAppointmentTest {
-  _id: string;
-  appointmentId: string;
-  description: string;
-  name: string;
-  price: number;
-  preparationGuidelines: string;
-  resultWaitTime: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 export interface ITestResult {
   _id: string;
-  appointmentTestId: string;
+  appointmentId: string;
+  profileId: string;
+  doctorId: string;
   conclusion: string;
   recommendations: string;
   createdAt: Date;
+}
+
+export interface IServiceTestCategories {
+  _id: string;
+  serviceId: string;
+  testCategoryId: string;
+  isRequired: boolean;
+  customNormalRange?: string;
+  customUnit?: string;
+  targetValue?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ITestCategory {
@@ -313,7 +318,7 @@ export interface IDoctorQA {
   phone: string;
   notes: string;
   question: string;
-  status: 'pending' | 'contacted' | 'resolved' | 'cancelled';
+  status: 'pending_payment' | 'contacted' | 'resolved' | 'cancelled';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -416,4 +421,13 @@ export interface PaginatedResponse<T> {
     limit: number;
     totalPages: number;
   };
+}
+
+// Extend Express Request interface để include realIP
+declare global {
+  namespace Express {
+    interface Request {
+      realIP?: string;
+    }
+  }
 }

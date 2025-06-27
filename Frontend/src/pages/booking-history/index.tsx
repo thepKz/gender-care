@@ -1,6 +1,6 @@
 import { DatePicker, Empty, Input, message, Modal, Rate, Select, Timeline } from 'antd';
-import type { Dayjs } from 'dayjs';
 import axios from 'axios';
+import type { Dayjs } from 'dayjs';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     Activity,
@@ -10,7 +10,6 @@ import {
     DocumentText,
     Eye,
     Heart,
-    Home,
     Location,
     MonitorMobbile,
     People,
@@ -23,13 +22,14 @@ import {
     User
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { appointmentApi } from '../../api/endpoints';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { consultationApi } from '../../api';
 import axiosInstance from '../../api/axiosConfig';
-import { useAuth } from '../../hooks/useAuth';
+import { appointmentApi } from '../../api/endpoints';
 import ModernButton from '../../components/ui/ModernButton';
 import ModernCard from '../../components/ui/ModernCard';
+import { useAuth } from '../../hooks/useAuth';
+import paymentApi from '../../api/endpoints/payment';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -237,7 +237,7 @@ const BookingHistory: React.FC = () => {
           for (const appointment of pendingPayments) {
             try {
               // Check payment status qua PayOS API
-              const paymentStatusResponse = await axiosInstance.get(`/payments/appointments/${appointment.id}/payment/status`);
+              const paymentStatusResponse = await axiosInstance.get(`/payments/appointments/${appointment.id}/status`);
               
               if (paymentStatusResponse.data?.success && paymentStatusResponse.data?.data) {
                 const paymentData = paymentStatusResponse.data.data;
@@ -268,6 +268,55 @@ const BookingHistory: React.FC = () => {
       clearInterval(pollInterval);
     };
   }, [appointments]); // Separate useEffect cho auto-polling
+
+  // ✅ NEW: Force check payment and assign doctor for stuck appointments
+  const handleForceCheck = async (appointment: Appointment) => {
+    try {
+      console.log('🔧 [ForceCheck] Force checking appointment:', appointment.id);
+      
+      const loadingMessage = message.loading('Đang kiểm tra thanh toán và chỉ định bác sĩ...', 0);
+      
+      const response = await paymentApi.forceCheckPaymentAndAssignDoctor(appointment.id);
+      
+      loadingMessage();
+      
+      if (response.success && response.data) {
+        const { paymentUpdated, doctorAssigned, doctorName, status, paymentStatus } = response.data;
+        
+        let successMessage = 'Kiểm tra hoàn tất! ';
+        if (paymentUpdated) successMessage += 'Thanh toán đã được cập nhật. ';
+        if (doctorAssigned) successMessage += `Đã chỉ định bác sĩ: ${doctorName}. `;
+        
+        message.success({
+          content: successMessage,
+          icon: <TickCircle size={20} className="text-green-500" />,
+          duration: 5
+        });
+        
+        // Update local appointment data
+        const updatedAppointments = appointments.map(apt => 
+          apt.id === appointment.id ? { 
+            ...apt, 
+            status: status,
+            doctorName: doctorName || apt.doctorName
+          } : apt
+        );
+        setAppointments(updatedAppointments);
+        
+        // Refresh full data to get latest state
+        setTimeout(() => {
+          fetchAppointments(true);
+        }, 1000);
+        
+      } else {
+        message.info(response.message || 'Kiểm tra hoàn tất, không có thay đổi.');
+      }
+      
+    } catch (error: any) {
+      console.error('❌ [ForceCheck] Error:', error);
+      message.error(`Lỗi kiểm tra: ${error.response?.data?.message || error.message}`);
+    }
+  };
 
   // Separate useEffect for window focus handler
   useEffect(() => {
@@ -345,9 +394,11 @@ const BookingHistory: React.FC = () => {
 
   const statusConfig = {
     pending: { color: '#faad14', text: 'Chờ xác nhận', icon: <Timer size={16} /> },
+    pending_payment: { color: '#ff7f00', text: 'Chờ thanh toán', icon: <Clock size={16} /> },
     confirmed: { color: '#52c41a', text: 'Đã xác nhận', icon: <TickCircle size={16} /> },
     completed: { color: '#722ed1', text: 'Hoàn thành', icon: <TickCircle size={16} /> },
-    cancelled: { color: '#f5222d', text: 'Đã hủy', icon: <Trash size={16} /> }
+    cancelled: { color: '#f5222d', text: 'Đã hủy lịch', icon: <CloseCircle size={16} /> },
+    payment_cancelled: { color: '#ff4d4f', text: 'Đã hủy thanh toán', icon: <Trash size={16} /> }
   };
 
   const locationConfig = {
@@ -558,6 +609,29 @@ const BookingHistory: React.FC = () => {
   const handlePayment = (appointment: Appointment) => {
     // Redirect đến trang PaymentProcessPage để tạo PayOS link
     navigate(`/payment/process?appointmentId=${appointment.id}`);
+  };
+
+  const handleCancelPayment = async (appointment: Appointment) => {
+    try {
+      console.log('🔄 [CancelPayment] Cancelling payment for appointment:', appointment.id);
+      
+              const response = await axiosInstance.post(`/payments/appointments/${appointment.id}/cancel`);
+      
+      if (response.data?.success) {
+        message.success('Hủy thanh toán thành công!');
+        // Refresh appointments để cập nhật status mới
+        fetchAppointments();
+      } else {
+        message.error(response.data?.message || 'Không thể hủy thanh toán');
+      }
+    } catch (error) {
+      console.error('❌ [CancelPayment] Error:', error);
+      if (axios.isAxiosError(error)) {
+        message.error(error.response?.data?.message || 'Lỗi khi hủy thanh toán');
+      } else {
+        message.error('Có lỗi xảy ra khi hủy thanh toán');
+      }
+    }
   };
 
   if (loading) {
@@ -1098,6 +1172,46 @@ const BookingHistory: React.FC = () => {
                                   </button>
                                 )}
 
+                                {appointment.status === 'pending_payment' && (
+                                  <>
+                                    <button
+                                      onClick={() => handlePayment(appointment)}
+                                      className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                      title="Thanh toán"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                      </svg>
+                                    </button>
+                                    {/* ✅ NEW: Force check button for stuck payments */}
+                                    <button
+                                      onClick={() => handleForceCheck(appointment)}
+                                      className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                      title="Kiểm tra thanh toán và chỉ định bác sĩ"
+                                    >
+                                      <Refresh size={16} />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        Modal.confirm({
+                                          title: 'Xác nhận hủy thanh toán',
+                                          content: 'Bạn có chắc chắn muốn hủy thanh toán? Lịch hẹn sẽ bị hủy.',
+                                          okText: 'Đồng ý hủy',
+                                          okButtonProps: { danger: true },
+                                          cancelText: 'Không',
+                                          onOk: () => handleCancelPayment(appointment)
+                                        });
+                                      }}
+                                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                      title="Hủy thanh toán"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </>
+                                )}
+
                                 {appointment.status === 'completed' && !appointment.rating && (
                                   <button
                                     onClick={() => handleFeedback(appointment)}
@@ -1233,6 +1347,47 @@ const BookingHistory: React.FC = () => {
                           </button>
                         )}
 
+                        {appointment.status === 'pending_payment' && (
+                          <>
+                            <button
+                              onClick={() => handlePayment(appointment)}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-100 text-green-700 hover:bg-green-200 rounded-lg transition-colors"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                              </svg>
+                              <span>Thanh toán</span>
+                            </button>
+                            {/* ✅ NEW: Force check button for stuck payments */}
+                            <button
+                              onClick={() => handleForceCheck(appointment)}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg transition-colors"
+                              title="Kiểm tra thanh toán và chỉ định bác sĩ"
+                            >
+                              <Refresh size={12} />
+                              <span>Kiểm tra</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                Modal.confirm({
+                                  title: 'Xác nhận hủy thanh toán',
+                                  content: 'Bạn có chắc chắn muốn hủy thanh toán? Lịch hẹn sẽ bị hủy.',
+                                  okText: 'Đồng ý hủy',
+                                  okButtonProps: { danger: true },
+                                  cancelText: 'Không',
+                                  onOk: () => handleCancelPayment(appointment)
+                                });
+                              }}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              <span>Hủy thanh toán</span>
+                            </button>
+                          </>
+                        )}
+
                         {appointment.status === 'completed' && !appointment.rating && (
                           <button
                             onClick={() => handleFeedback(appointment)}
@@ -1366,6 +1521,45 @@ const BookingHistory: React.FC = () => {
                             >
                               Hủy lịch
                             </ModernButton>
+                          )}
+
+                          {appointment.status === 'pending_payment' && (
+                            <>
+                              <ModernButton
+                                variant="primary"
+                                className="text-sm bg-green-600 hover:bg-green-700"
+                                icon={
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                  </svg>
+                                }
+                                onClick={() => handlePayment(appointment)}
+                              >
+                                Thanh toán
+                              </ModernButton>
+                              
+                              <ModernButton
+                                variant="danger"
+                                className="text-sm"
+                                icon={
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                }
+                                onClick={() => {
+                                  Modal.confirm({
+                                    title: 'Xác nhận hủy thanh toán',
+                                    content: 'Bạn có chắc chắn muốn hủy thanh toán? Lịch hẹn sẽ bị hủy.',
+                                    okText: 'Đồng ý hủy',
+                                    okButtonProps: { danger: true },
+                                    cancelText: 'Không',
+                                    onOk: () => handleCancelPayment(appointment)
+                                  });
+                                }}
+                              >
+                                Hủy thanh toán
+                              </ModernButton>
+                            </>
                           )}
 
                           {appointment.status === 'completed' && !appointment.rating && (

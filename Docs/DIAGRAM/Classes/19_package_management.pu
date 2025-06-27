@@ -1,0 +1,113 @@
+@startuml 19_package_management
+
+skinparam classAttributeIconSize 0
+skinparam backgroundColor LightYellow
+skinparam classBackgroundColor LightBlue
+skinparam classBorderColor DarkBlue
+
+title Package Management System - Class Diagram (Actual Implementation)
+
+package "Simple Package Management System" {
+    class ServicePackages {
+        - _id : ObjectId
+        - name : string
+        - description : string
+        - priceBeforeDiscount : number
+        - price : number
+        - services : IServiceItem[]
+        - durationInDays : number
+        - isActive : boolean
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + getTotalServiceQuantity() : number
+        + hasService(serviceId) : boolean
+        + getServiceQuantity(serviceId) : number
+        + createPackage() : boolean
+        + updatePackage(data) : boolean
+        + activatePackage() : boolean
+        + deactivatePackage() : boolean
+    }
+
+    class IServiceItem {
+        - serviceId : ObjectId
+        - quantity : number
+        --
+        + validateQuantity() : boolean
+    }
+
+    class PackagePurchases {
+        - _id : ObjectId
+        - userId : ObjectId
+        - packageId : ObjectId
+        - purchasePrice : number
+        - status : string
+        - purchaseDate : DateTime
+        - expiryDate : DateTime
+        - usedServices : IUsedService[]
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + checkAndUpdateStatus() : string
+        + useService(serviceId, quantity) : boolean
+        + canUseService(serviceId, quantity) : boolean
+        + getRemainingQuantity(serviceId) : number
+        + createPurchase() : boolean
+        + updateStatus() : boolean
+    }
+
+    class IUsedService {
+        - serviceId : ObjectId
+        - usedQuantity : number
+        - maxQuantity : number
+        --
+        + incrementUsage(quantity) : boolean
+        + getRemainingQuantity() : number
+    }
+
+    enum PackageStatus {
+        active
+        expired
+        used_up
+    }
+}
+
+package "External References" {
+    class Users {
+        - _id : ObjectId
+        - fullName : string
+        - email : string
+    }
+
+    class Services {
+        - _id : ObjectId
+        - serviceName : string
+        - price : number
+    }
+}
+
+' Relationships
+ServicePackages ||--o{ IServiceItem : "contains"
+PackagePurchases ||--o{ IUsedService : "tracks usage"
+PackagePurchases }o--|| ServicePackages : "references"
+PackagePurchases }o--|| Users : "purchased by"
+IServiceItem }o--|| Services : "references"
+IUsedService }o--|| Services : "references"
+PackagePurchases ||--|| PackageStatus : "has status"
+
+' Notes
+note right of ServicePackages
+  Đơn giản hóa từ ERD thực tế:
+  - Chỉ chứa thông tin cơ bản
+  - services array với quantity
+  - duration theo ngày
+end note
+
+note right of PackagePurchases
+  Theo ERD và code thực tế:
+  - Track usage của từng service
+  - Auto-calculate expiry date
+  - Simple status management
+end note
+
+@enduml 

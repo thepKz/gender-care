@@ -1,31 +1,31 @@
-import express from 'express';
+import { Router } from 'express';
 import { 
-  purchasePackage,
+  purchaseServicePackage,
   getUserPurchasedPackages,
   getPackagePurchaseDetail,
   getPackagePurchasesByProfile,
-  testPackagePurchases
+  getAllPackagesAnalytics,
+  getPackageUsageAnalytics,
+  handlePayOSWebhook,
+  testPayOSWebhook
 } from '../controllers/packagePurchaseController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
-const router = express.Router();
+const router = Router();
 
-// Tất cả routes cần authentication
+// Public route for PayOS webhook
+router.post('/webhook/payos', handlePayOSWebhook);
+
+// Test route for simulating PayOS webhook
+router.post('/webhook/test', testPayOSWebhook);
+
+// Protected routes
 router.use(authMiddleware);
-
-// POST /package-purchases - Mua gói dịch vụ
-router.post('/', purchasePackage);
-
-// GET /package-purchases/test - Test endpoint để kiểm tra data
-router.get('/test', testPackagePurchases);
-
-// GET /package-purchases/user - Lấy danh sách gói đã mua của user
+router.post('/', purchaseServicePackage);
 router.get('/user', getUserPurchasedPackages);
-
-// GET /package-purchases/profile/:profileId - Lấy gói đã mua cho một profile cụ thể  
-router.get('/profile/:profileId', getPackagePurchasesByProfile);
-
-// GET /package-purchases/:id - Lấy chi tiết gói đã mua
 router.get('/:id', getPackagePurchaseDetail);
+router.get('/profile/:profileId', getPackagePurchasesByProfile);
+router.get('/analytics', getAllPackagesAnalytics);
+router.get('/analytics/:packageId', getPackageUsageAnalytics);
 
 export default router; 

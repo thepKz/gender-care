@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 
 // Service class để xử lý business logic cho TestCategories
 export class TestCategoriesService {
-  
+
   // Lấy tất cả test categories với pagination và filtering
   async getAllTestCategories(page: number = 1, limit: number = 10, search?: string): Promise<{
     testCategories: ITestCategories[];
@@ -12,7 +12,7 @@ export class TestCategoriesService {
     currentPage: number;
   }> {
     const skip = (page - 1) * limit;
-    
+
     // Tạo filter query nếu có search
     let filter = {};
     if (search) {
@@ -63,19 +63,30 @@ export class TestCategoriesService {
     unit?: string;
     normalRange?: string;
   }): Promise<ITestCategories> {
+    console.log('🔍 [TestCategoriesService] createTestCategory called with data:', data);
+
     // Validate input data
     if (!data.name || data.name.trim().length === 0) {
+      console.log('❌ [TestCategoriesService] Name is required');
       throw new Error('Test category name is required');
     }
 
-    // Kiểm tra duplicate name
-    const existingCategory = await TestCategories.findOne({ 
-      name: { $regex: new RegExp(`^${data.name.trim()}$`, 'i') }
+    console.log('🔍 [TestCategoriesService] Checking for duplicate name...');
+
+    // Kiểm tra duplicate name - escape special regex characters
+    const escapedName = data.name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const existingCategory = await TestCategories.findOne({
+      name: { $regex: new RegExp(`^${escapedName}$`, 'i') }
     });
-    
+
+    console.log('🔍 [TestCategoriesService] Existing category found:', existingCategory);
+
     if (existingCategory) {
+      console.log('❌ [TestCategoriesService] Duplicate name found');
       throw new Error('Test category with this name already exists');
     }
+
+    console.log('🔍 [TestCategoriesService] Creating new test category...');
 
     // Tạo test category mới
     const testCategory = new TestCategories({
@@ -85,7 +96,11 @@ export class TestCategoriesService {
       normalRange: data.normalRange?.trim()
     });
 
-    return await testCategory.save();
+    console.log('🔍 [TestCategoriesService] Saving test category...');
+    const savedCategory = await testCategory.save();
+    console.log('✅ [TestCategoriesService] Test category saved:', savedCategory);
+
+    return savedCategory;
   }
 
   // Cập nhật test category
@@ -149,7 +164,7 @@ export class TestCategoriesService {
     // Kiểm tra có đang được sử dụng trong TestResultItems không
     const TestResultItems = (await import('../models/TestResultItems')).default;
     const usageCount = await TestResultItems.countDocuments({ itemNameId: id });
-    
+
     if (usageCount > 0) {
       throw new Error('Cannot delete test category as it is being used in test results');
     }
@@ -159,6 +174,26 @@ export class TestCategoriesService {
     if (!deletedCategory) {
       throw new Error('Test category not found or already deleted');
     }
+  }
+
+  // Lấy TẤT CẢ test categories mà không có pagination (cho frontend management)
+  async getAllTestCategoriesWithoutPagination(search?: string): Promise<ITestCategories[]> {
+    // Tạo filter query nếu có search
+    let filter = {};
+    if (search) {
+      filter = {
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { description: { $regex: search, $options: 'i' } }
+        ]
+      };
+    }
+
+    // Lấy tất cả test categories mà không có limit
+    const testCategories = await TestCategories.find(filter)
+      .sort({ createdAt: -1 });
+
+    return testCategories;
   }
 
   // Lấy test categories để sử dụng trong dropdown/select

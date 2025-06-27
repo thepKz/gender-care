@@ -1,509 +1,662 @@
-import React, { useState, useEffect } from 'react';
 import {
-  Table,
-  Button,
-  Modal,
-  Form,
-  Input,
-  InputNumber,
-  Space,
-  Popconfirm,
-  message,
-  Tag,
-  Card,
-  Row,
-  Col,
-  Statistic,
-  Typography,
-  Select,
-  Switch,
-  Tooltip,
-  Descriptions,
-  Badge
-} from 'antd';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  SearchOutlined,
-  ReloadOutlined,
-  EyeOutlined,
-  UndoOutlined,
-  AppstoreOutlined,
-  DollarOutlined,
-  ClockCircleOutlined,
-  ThunderboltOutlined,
-  CalendarOutlined,
-  LoadingOutlined
+    AppstoreOutlined,
+    BarChartOutlined,
+    DeleteOutlined,
+    EditOutlined,
+    ExclamationCircleOutlined,
+    LoadingOutlined,
+    PlusOutlined,
+    ReloadOutlined,
+    UndoOutlined
 } from '@ant-design/icons';
-import { 
-  getServicePackages, 
-  createServicePackage, 
-  updateServicePackage, 
-  deleteServicePackage,
-  recoverServicePackage,
-  GetServicePackagesParams,
-  getPackagePricing,
-  getUsageProjection,
-  calculateAutoPrice
-} from '../../../api/endpoints/servicePackageApi';
+import {
+    Alert,
+    Button,
+    Card,
+    Col,
+    Input,
+    message,
+    Popconfirm,
+    Row,
+    Select,
+    Space,
+    Statistic,
+    Table,
+    Tag,
+    Tooltip,
+    Typography
+} from 'antd';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { servicePackageApi } from '../../../api';
 import { getServices } from '../../../api/endpoints/serviceApi';
-import { Form as AntForm } from 'antd';
+import { recoverServicePackage } from '../../../api/endpoints/servicePackageApi';
+import ServicePackageModal from '../../../components/ui/forms/ServicePackageModal';
+import PackageUsageModal from '../../../components/ui/modals/PackageUsageModal';
+import { useStandardManagement } from '../../../hooks/useStandardManagement';
+import { CreateServicePackageRequest, Service, ServiceItem, ServicePackage, UpdateServicePackageRequest } from '../../../types';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-const { TextArea } = Input;
 
-interface ServicePackage {
-  _id: string;
-  name: string;
-  description: string;
-  priceBeforeDiscount: number;                // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
-  price: number;        // Giá đã giảm (nếu có) – không dùng mã
-  serviceIds: string[];
-  isActive: boolean;
-  durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
-  maxUsages: number;           // 🔹 Số lượt được dùng tối đa cho toàn gói
-  maxProfiles: number[];       // 🔹 [1, 2, 4] - Số người tối đa có thể sử dụng gói
-  isMultiProfile: boolean;     // 🔹 Gói này có hỗ trợ nhiều hồ sơ không
-  pricingInfo?: {
-    packageId: string;
-    packageName: string;
-    baseServicePrice: number;       // Tổng giá của các dịch vụ trong gói
-    originalPrice: number;          // Giá gốc được tính tự động
-    price: number;          // Giá đã giảm (nếu có)
-    discountPercentage: number;     // % giảm giá
-    durationInDays: number;         // Thời hạn sử dụng
-    maxUsages: number;             // Số lượt được dùng tối đa
-    maxProfiles: number[];         // Tùy chọn số profile
-    isMultiProfile: boolean;       // Hỗ trợ nhiều hồ sơ
-    pricePerUsage: number;         // Giá mỗi lượt sử dụng
-    pricePerDay: number;           // Giá mỗi ngày sử dụng
-    pricePerProfile: number;       // Giá trung bình mỗi profile (cho multi-profile)
+// ✅ IMPROVED: Error Boundary Component với better error handling
+class ServicePackageErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error?: Error; errorInfo?: React.ErrorInfo }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    console.error('🔥 ServicePackageManagement Error Boundary triggered:', error);
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('🔥 ServicePackageManagement Error Details:', {
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack
+    });
+    
+    this.setState({ error, errorInfo });
+    
+    // Report error to monitoring service if available
+    if (typeof window !== 'undefined' && (window as any).reportError) {
+      (window as any).reportError(error, {
+        context: 'ServicePackageManagement',
+        componentStack: errorInfo.componentStack
+      });
+    }
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false, error: undefined, errorInfo: undefined });
   };
-  valueMetrics?: {
-    savingsAmount: number;
-    savingsPercentage: number;
-    valueRating: 'excellent' | 'good' | 'fair' | 'poor';
-  };
-  autoCalculation?: {
-    totalServicePrice: number;     // Tổng giá các dịch vụ
-    calculatedPrice: number;       // Giá được tính tự động
-    formula: string;               // Công thức tính giá
-  };
-  pricingSummary?: string;
-  createdAt: string;
-  updatedAt: string;
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card style={{ margin: '20px', textAlign: 'center' }}>
+          <ExclamationCircleOutlined style={{ fontSize: '48px', color: '#ff4d4f', marginBottom: '16px' }} />
+          <Title level={4} style={{ color: '#ff4d4f' }}>Có lỗi xảy ra trong quản lý gói dịch vụ</Title>
+          <Text type="secondary" style={{ display: 'block', marginBottom: '20px' }}>
+            {this.state.error?.message || 'Lỗi không xác định'}
+          </Text>
+          
+          {process.env.NODE_ENV === 'development' && this.state.error && (
+            <details style={{ textAlign: 'left', marginBottom: '20px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>Chi tiết lỗi (Development mode)</summary>
+              <pre style={{ marginTop: '10px', fontSize: '12px', overflow: 'auto' }}>
+                {this.state.error.stack}
+              </pre>
+            </details>
+          )}
+          
+          <Space>
+            <Button 
+              type="primary" 
+              icon={<ReloadOutlined />}
+              onClick={this.handleRetry}
+            >
+              Thử lại
+            </Button>
+            <Button 
+              onClick={() => window.location.reload()}
+            >
+              Tải lại trang
+            </Button>
+            <Button 
+              onClick={() => window.history.back()}
+            >
+              Quay lại
+            </Button>
+          </Space>
+        </Card>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
-interface Service {
-  _id: string;
-  serviceName: string;
-  price: number;
-  description: string;
-  isDeleted: number;
-}
-
-const ServicePackageManagement: React.FC = () => {
-  const [packages, setPackages] = useState<ServicePackage[]>([]);
+// ✅ FIX: Main component với stabilized hooks
+const ServicePackageManagementCore: React.FC = () => {
+  // ✅ FIX: Stable state declarations
+  const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<Service[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingPackage, setEditingPackage] = useState<ServicePackage | null>(null);
-  const [form] = Form.useForm();
-  const [searchText, setSearchText] = useState('');
-  const [showDeleted, setShowDeleted] = useState(false);
+  const [loadingServices, setLoadingServices] = useState(false);
   const [serviceSearchId, setServiceSearchId] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [calculatingPrice, setCalculatingPrice] = useState(false);
-  const [autoCalculatedPrice, setAutoCalculatedPrice] = useState<number | null>(null);
+  
+  // ✅ NEW: Add new state variables for enhanced filtering and sorting
+  const [serviceSearchText, setServiceSearchText] = useState<string>('');
+  const [sortOption, setSortOption] = useState<string>('default');
+  
+  // 🆕 Analytics Modal State
+  const [analyticsModalVisible, setAnalyticsModalVisible] = useState(false);
+  const [selectedPackageForAnalytics, setSelectedPackageForAnalytics] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
-  // Theo dõi realtime các trường để tính giá tự động
-  const watchedServiceIds = AntForm.useWatch('serviceIds', form);
-  const watchedMaxUsages = AntForm.useWatch('maxUsages', form);
-  const watchedMaxProfiles = AntForm.useWatch('maxProfiles', form);
+  
+  // ✅ FIX: Track initialization properly
+  const hasInitialized = useRef(false);
 
-  useEffect(() => {
-    loadData();
-    loadServices();
-  }, [showDeleted, serviceSearchId, selectedStatus]);
-
-  useEffect(() => {
-    if (watchedServiceIds?.length > 0 && watchedMaxUsages > 0) {
-      // Lấy giá từng dịch vụ đã chọn
-      const selectedServices = services.filter(s => watchedServiceIds.includes(s._id));
-      const totalServicePrice = selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
-      const calculatedPrice = totalServicePrice * watchedMaxUsages;
-      form.setFieldsValue({ priceBeforeDiscount: calculatedPrice });
-    } else {
-      form.setFieldsValue({ priceBeforeDiscount: 0 });
-    }
-  }, [watchedServiceIds, watchedMaxUsages, services]);
-
-  const loadData = async () => {
+  // ✅ FIX: Memoize fetchServices with stable dependencies
+  const fetchServices = useCallback(async () => {
     try {
-      setLoading(true);
-      const params: GetServicePackagesParams = {
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
-        includeDeleted: showDeleted // Khi showDeleted=true, backend sẽ trả về cả active + deleted
-      };
+      setLoadingServices(true);
+      setError(null);
+      const response = await getServices();
+      const data = response?.data?.services || [];
+      setServices(data);
+    } catch (error: any) {
+      console.error('❌ Error fetching services:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'Không thể tải danh sách dịch vụ';
+      setError(errorMessage);
       
-      if (searchText) {
-        params.search = searchText;
+      if (error.code === 'ERR_NETWORK' || error.message === 'Network Error' || error.code === 'ECONNABORTED') {
+        message.error('Không thể kết nối tới server. Vui lòng kiểm tra kết nối hoặc liên hệ quản trị viên.');
+        setServices([]);
+      } else {
+        message.error(errorMessage);
       }
+    } finally {
+      setLoadingServices(false);
+    }
+  }, []); // Stable - no dependencies needed
 
-      if (serviceSearchId) {
-        params.serviceId = serviceSearchId;
-      }
-
-      const response = await getServicePackages(params);
+  // ✅ FIX: Use custom hook with stable config và improved error handling
+  const managementConfig = useCallback(() => ({
+    fetchData: async () => {
+      let retryCount = 0;
+      const maxRetries = 3;
       
-      if (response.success && response.data?.packages) {
-        // Map backend format to frontend format với hybrid subscription + multi-profile schema
-        const mappedPackages = response.data.packages.map((pkg: any) => {
-          // Chuẩn hóa isActive về boolean, xử lý cả trường hợp 0/1 và true/false
-          let isActiveValue = true;
-          if (pkg.isActive === 0 || pkg.isActive === false) {
-            isActiveValue = false;
+      while (retryCount < maxRetries) {
+        try {
+          setError(null);
+          console.log(`🔄 Fetching service packages (attempt ${retryCount + 1}/${maxRetries})`);
+          
+          const response = await servicePackageApi.getServicePackages({
+            includeDeleted: true // Always include inactive packages for management view
+          });
+          
+          if (response?.success && response?.data?.packages) {
+            console.log('✅ Service packages loaded successfully:', response.data.packages.length);
+            return response.data.packages;
           }
           
-          return {
-            _id: pkg._id,
-            name: pkg.name,
-            description: pkg.description,
-            priceBeforeDiscount: pkg.priceBeforeDiscount || 0,                      // Giá gốc được tính tự động
-            price: pkg.price || 0,        // Giá đã giảm
-            serviceIds: pkg.serviceIds || [],
-            isActive: isActiveValue,
-            durationInDays: pkg.durationInDays || 30,   // Thời hạn sử dụng
-            maxUsages: pkg.maxUsages || 1,              // Số lượt tối đa
-            maxProfiles: pkg.maxProfiles || [1],        // 🔹 Số lượng profiles
-            isMultiProfile: Boolean(pkg.isMultiProfile), // 🔹 Hỗ trợ multi-profile
-            pricingInfo: pkg.pricingInfo,
-            valueMetrics: pkg.valueMetrics,
-            autoCalculation: pkg.autoCalculation,
-            pricingSummary: pkg.pricingSummary,
-            createdAt: pkg.createdAt,
-            updatedAt: pkg.updatedAt
-          };
-        });
-        
-        console.log('📦 Loaded packages:', mappedPackages.length, 'Active:', mappedPackages.filter(p => p.isActive).length);
-        setPackages(mappedPackages);
-      } else {
-        setPackages([]);
-      }
-    } catch (err: any) {
-      message.error(err?.message || 'Không thể tải danh sách gói dịch vụ');
-      setPackages([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadServices = async () => {
-    try {
-      const response = await getServices({
-        sortBy: 'serviceName',
-        sortOrder: 'asc'
-      });
-      
-      if (response.success && response.data?.services) {
-        // Map backend service format to frontend format
-        const mappedServices = response.data.services
-          .filter((s: any) => !s.isDeleted)
-          .map((s: any) => ({
-            _id: s._id,
-            serviceName: s.serviceName,
-            price: s.price,
-            description: s.description,
-            isDeleted: s.isDeleted || 0
-          }));
-        setServices(mappedServices);
-      } else {
-        setServices([]);
-      }
-    } catch (err: any) {
-      console.error('Không thể tải danh sách dịch vụ:', err);
-      setServices([]);
-    }
-  };
-
-  // Filter packages based on search and filters
-  const filteredPackages = packages.filter(pkg => {
-    // Filter by showDeleted state first
-    if (showDeleted) {
-      // When showDeleted=true, show all packages (active + deleted)
-      // But still apply status filter if not 'all'
-      if (selectedStatus !== 'all') {
-        return selectedStatus === 'active' ? pkg.isActive === true : pkg.isActive === false;
-      }
-      return true;
-    } else {
-      // When showDeleted=false, only show active packages
-      return pkg.isActive === true;
-    }
-  }).filter(pkg => {
-    // Apply search text filter
-    if (searchText) {
-      return pkg.name.toLowerCase().includes(searchText.toLowerCase()) ||
-             pkg.description.toLowerCase().includes(searchText.toLowerCase());
-    }
-    return true;
-  });
-
-  const handleEdit = (pkg: ServicePackage) => {
-    setEditingPackage(pkg);
-    // Chuẩn hóa serviceIds về array id string
-    let normalizedServiceIds: string[] = [];
-    if (Array.isArray(pkg.serviceIds)) {
-      if (typeof pkg.serviceIds[0] === 'object' && pkg.serviceIds[0] !== null) {
-        normalizedServiceIds = (pkg.serviceIds as any[]).map(s => s._id || s.id || s);
-      } else {
-        normalizedServiceIds = pkg.serviceIds as string[];
-      }
-    }
-    // Thêm các dịch vụ chưa có trong danh sách services vào option tạm thời
-    const missingServiceIds = normalizedServiceIds.filter(id => !services.some(s => s._id == id));
-    if (missingServiceIds.length > 0) {
-      const missingOptions = missingServiceIds.map(id => ({ _id: id, serviceName: `Dịch vụ đã xóa (${id})`, price: 0, description: '', isDeleted: 1 }));
-      setServices(prev => [...prev, ...missingOptions]);
-    }
-    if (services.length === 0) {
-      loadServices().then(() => {
-        form.setFieldsValue({
-          name: pkg.name,
-          description: pkg.description,
-          serviceIds: normalizedServiceIds,
-          priceBeforeDiscount: pkg.priceBeforeDiscount,
-          price: pkg.price,
-          durationInDays: pkg.durationInDays,
-          maxUsages: pkg.maxUsages,
-          isActive: pkg.isActive,
-          maxProfiles: pkg.maxProfiles || []
-        });
-      });
-    } else {
-      form.setFieldsValue({
-        name: pkg.name,
-        description: pkg.description,
-        serviceIds: normalizedServiceIds,
-        priceBeforeDiscount: pkg.priceBeforeDiscount,
-        price: pkg.price,
-        durationInDays: pkg.durationInDays,
-        maxUsages: pkg.maxUsages,
-        isActive: pkg.isActive,
-        maxProfiles: pkg.maxProfiles || []
-      });
-    }
-    setTimeout(() => {
-      const serviceIds = form.getFieldValue('serviceIds');
-      const maxUsages = form.getFieldValue('maxUsages');
-      if (serviceIds?.length > 0 && maxUsages > 0) {
-        const selectedServices = services.filter(s => serviceIds.includes(s._id));
-        const totalServicePrice = selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
-        const calculatedPrice = totalServicePrice * maxUsages;
-        form.setFieldsValue({ priceBeforeDiscount: calculatedPrice });
-      }
-    }, 100);
-    setIsModalVisible(true);
-  };
-
-  const handleDelete = async (packageId: string) => {
-    Modal.confirm({
-      title: 'Xóa gói dịch vụ',
-      content: 'Bạn có chắc chắn muốn xóa gói dịch vụ này không?',
-      okText: 'Xóa',
-      okType: 'danger',
-      cancelText: 'Hủy',
-      onOk: async () => {
-        try {
-          await deleteServicePackage(packageId);
-              message.success('Xóa gói dịch vụ thành công');
-              loadData();
-            } catch (err: any) {
-              message.error(err?.message || 'Không thể xóa gói dịch vụ');
-            }
-      }
-    });
-  };
-
-  const handleRecover = async (packageId: string) => {
-    try {
-      await updateServicePackage(packageId, { isActive: true });
-      message.success('Khôi phục gói dịch vụ thành công');
-      loadData();
-    } catch (err: any) {
-      message.error(err?.message || 'Không thể khôi phục gói dịch vụ');
-    }
-  };
-
-  const handleModalOk = async () => {
-    try {
-      const values = await form.validateFields();
-      
-      // Kiểm tra giá khuyến mãi không được lớn hơn giá gốc
-      if (values.price > values.priceBeforeDiscount) {
-        message.error('Giá khuyến mãi không được lớn hơn giá gốc');
-        return;
-      }
-      
-      // Kiểm tra giá không được âm
-      if (values.price < 0 || values.priceBeforeDiscount < 0) {
-        message.error('Giá không được âm');
-        return;
-      }
-
-      if (editingPackage) {
-        // Update existing package
-        await updateServicePackage(editingPackage._id, values);
-        message.success('Cập nhật gói dịch vụ thành công');
-      } else {
-        // Create new package - thêm các trường bắt buộc còn thiếu
-        try {
-          const submitData = {
-            name: values.name,
-            description: values.description,
-            price: values.price,
-            priceBeforeDiscount: values.priceBeforeDiscount, // Thêm trường bắt buộc
-            serviceIds: values.serviceIds,
-            durationInDays: values.durationInDays,
-            maxUsages: values.maxUsages,
-            maxProfiles: values.maxProfiles,
-            isMultiProfile: values.isMultiProfile || false // Thêm trường bắt buộc với giá trị mặc định
-          };
+          // Fallback cho response không có success flag
+          return response?.data?.packages || [];
           
-          console.log('Submitting data:', submitData);
-          await createServicePackage(submitData);
-          message.success('Tạo gói dịch vụ thành công');
-        } catch (err: any) {
-          console.error('Error creating service package:', err.response?.data || err);
-          message.error(err.response?.data?.message || err.message || 'Có lỗi xảy ra khi tạo gói dịch vụ');
-          return;
+        } catch (error: any) {
+          retryCount++;
+          console.error(`❌ Error fetching service packages (attempt ${retryCount}):`, error);
+          
+          // Xử lý các loại lỗi khác nhau
+          if (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error') {
+            if (retryCount >= maxRetries) {
+              setError('Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.');
+              message.error('Mất kết nối tới server. Vui lòng thử lại sau.');
+              return [];
+            }
+            // Retry với delay
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+            continue;
+          }
+          
+          if (error?.response?.status === 500) {
+            if (retryCount >= maxRetries) {
+              setError('Server đang gặp sự cố. Vui lòng thử lại sau hoặc liên hệ quản trị viên.');
+              message.error('Server error. Vui lòng thử lại sau.');
+              return [];
+            }
+            await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+            continue;
+          }
+          
+          if (error?.response?.status === 401) {
+            setError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+            message.error('Phiên đăng nhập đã hết hạn');
+            // TODO: Redirect to login
+            return [];
+          }
+          
+          if (error?.response?.status === 403) {
+            setError('Bạn không có quyền truy cập tính năng này.');
+            message.error('Không có quyền truy cập');
+            return [];
+          }
+          
+          // Lỗi khác - không retry
+          const errorMessage = error?.response?.data?.message || error?.message || 'Không thể tải danh sách gói dịch vụ';
+          setError(errorMessage);
+          message.error(errorMessage);
+          return [];
         }
       }
       
-      setIsModalVisible(false);
-      form.resetFields();
-      setEditingPackage(null);
-      loadData();
-    } catch (err: any) {
-      console.error('Form validation error:', err);
-      message.error(err?.message || 'Có lỗi xảy ra');
+      // Nếu retry hết lần thử
+      setError('Không thể tải dữ liệu sau nhiều lần thử. Vui lòng tải lại trang.');
+      return [];
+    },
+    createItem: async (data: any) => {
+      try {
+        const response = await servicePackageApi.createServicePackage(data as CreateServicePackageRequest);
+        setError(null);
+        return response.data;
+      } catch (error: any) {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Không thể tạo gói dịch vụ';
+        setError(errorMessage);
+        throw error;
+      }
+    },
+    updateItem: async (id: string, data: any) => {
+      try {
+        const response = await servicePackageApi.updateServicePackage(id, data as UpdateServicePackageRequest);
+        setError(null);
+        return response.data;
+      } catch (error: any) {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Không thể cập nhật gói dịch vụ';
+        setError(errorMessage);
+        throw error;
+      }
+    },
+    deleteItem: async (id: string) => {
+      try {
+        await servicePackageApi.deleteServicePackage(id);
+        setError(null);
+      } catch (error: any) {
+        const errorMessage = error?.response?.data?.message || error?.message || 'Không thể xóa gói dịch vụ';
+        setError(errorMessage);
+        throw error;
+      }
+    },
+    searchFields: ['name', 'description'] as (keyof ServicePackage)[],
+    messages: {
+      fetchError: 'Không thể tải danh sách gói dịch vụ',
+      createSuccess: 'Tạo gói dịch vụ thành công',
+      createError: 'Không thể tạo gói dịch vụ',
+      updateSuccess: 'Cập nhật gói dịch vụ thành công',
+      updateError: 'Không thể cập nhật gói dịch vụ',
+      deleteSuccess: 'Xóa gói dịch vụ thành công',
+      deleteError: 'Không thể xóa gói dịch vụ'
     }
-  };
+  }), []); // No dependency on showDeleted since we always include all packages
 
-  const handleModalCancel = () => {
-    setIsModalVisible(false);
-    form.resetFields();
-    setEditingPackage(null);
-  };
+  const {
+    items: packages,
+    loading,
+    modalVisible,
+    editingItem: editingPackage,
+    filteredItems: baseFilteredItems,
+    refresh,
+    handleCreate: originalHandleCreate,
+    handleEdit: originalHandleEdit,
+    handleDelete,
+    handleModalCancel,
+    handleModalSubmit: originalHandleModalSubmit,
+    handleSearch,
+    setFilter
+  } = useStandardManagement<ServicePackage>(managementConfig());
 
-  const showPackageDetails = (pkg: ServicePackage) => {
-    Modal.info({
-      title: 'Chi tiết gói dịch vụ',
-      width: 800,
-      content: (
-        <div style={{ marginTop: 16 }}>
-          <Descriptions column={2} bordered>
-            <Descriptions.Item label="Tên gói">{pkg.name}</Descriptions.Item>
-            <Descriptions.Item label="Trạng thái">
-              <Tag color={pkg.isActive ? 'green' : 'red'}>
-                {pkg.isActive ? 'Hoạt động' : 'Đã xóa'}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Mô tả" span={2}>{pkg.description}</Descriptions.Item>
-            <Descriptions.Item label="Giá gốc">
-              {pkg.priceBeforeDiscount.toLocaleString('vi-VN')}đ
-            </Descriptions.Item>
-            <Descriptions.Item label="Giá khuyến mãi">
-              {pkg.price.toLocaleString('vi-VN')}đ
-            </Descriptions.Item>
-            <Descriptions.Item label="Thời hạn sử dụng">
-              {pkg.durationInDays} ngày
-            </Descriptions.Item>
-            <Descriptions.Item label="Số lượt tối đa">
-              {pkg.maxUsages} lượt
-            </Descriptions.Item>
-            {pkg.pricingInfo && (
-              <>
-                <Descriptions.Item label="Giá mỗi lượt">
-                  {pkg.pricingInfo.pricePerUsage.toLocaleString('vi-VN')}đ
-                </Descriptions.Item>
-                <Descriptions.Item label="Giá mỗi ngày">
-                  {pkg.pricingInfo.pricePerDay.toLocaleString('vi-VN')}đ
-                </Descriptions.Item>
-                <Descriptions.Item label="% Tiết kiệm">
-                  <Tag color="green">{pkg.pricingInfo.discountPercentage}%</Tag>
-            </Descriptions.Item>
-              </>
-            )}
-            {pkg.valueMetrics && (
-              <Descriptions.Item label="Đánh giá giá trị">
-                <Badge 
-                  status={
-                    pkg.valueMetrics.valueRating === 'excellent' ? 'success' :
-                    pkg.valueMetrics.valueRating === 'good' ? 'processing' :
-                    pkg.valueMetrics.valueRating === 'fair' ? 'warning' : 'error'
-                  }
-                  text={
-                    pkg.valueMetrics.valueRating === 'excellent' ? 'Xuất sắc' :
-                    pkg.valueMetrics.valueRating === 'good' ? 'Tốt' :
-                    pkg.valueMetrics.valueRating === 'fair' ? 'Khá' : 'Thấp'
-                  }
-                />
-              </Descriptions.Item>
-            )}
-            <Descriptions.Item label="Ngày tạo">
-              {new Date(pkg.createdAt).toLocaleDateString('vi-VN')}
-            </Descriptions.Item>
-            <Descriptions.Item label="Cập nhật">
-              {new Date(pkg.updatedAt).toLocaleDateString('vi-VN')}
-            </Descriptions.Item>
-          </Descriptions>
+  // ✅ NEW: Enhanced filteredItems with service search and sorting
+  const filteredItems = React.useMemo(() => {
+    let result = baseFilteredItems;
+
+    // ✅ NEW: Filter by service name if serviceSearchText is provided
+    if (serviceSearchText.trim()) {
+      result = result.filter(pkg => {
+        return pkg.services?.some(serviceItem => {
+          const service = typeof serviceItem.serviceId === 'object' 
+            ? serviceItem.serviceId 
+            : services.find(s => s._id === serviceItem.serviceId);
           
-          {pkg.pricingSummary && (
-            <div style={{ marginTop: 16 }}>
-              <Text strong>Tóm tắt giá: </Text>
-              <Text>{pkg.pricingSummary}</Text>
+          return service?.serviceName?.toLowerCase().includes(serviceSearchText.toLowerCase());
+        });
+      });
+    }
+
+    // ✅ NEW: Apply sorting based on sortOption
+    switch (sortOption) {
+      case 'name-asc':
+        result = [...result].sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'price-desc':
+        result = [...result].sort((a, b) => b.price - a.price);
+        break;
+      case 'price-asc':
+        result = [...result].sort((a, b) => a.price - b.price);
+        break;
+      case 'duration-desc':
+        result = [...result].sort((a, b) => b.durationInDays - a.durationInDays);
+        break;
+      case 'duration-asc':
+        result = [...result].sort((a, b) => a.durationInDays - b.durationInDays);
+        break;
+      case 'default':
+      default:
+        // Keep original order (usually by creation date)
+        break;
+    }
+
+    return result;
+  }, [baseFilteredItems, serviceSearchText, sortOption, services]);
+
+
+
+  // ✅ FIX: One-time initialization with error handling
+  useEffect(() => {
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      console.log('🚀 ServicePackageManagement: Initial load started');
+      
+      // Initialize filter to show all packages
+      setFilter('isActive', null);
+      
+      Promise.allSettled([
+        refresh(),
+        fetchServices()
+      ]).then(results => {
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            console.error(`Failed to load ${index === 0 ? 'packages' : 'services'}:`, result.reason);
+          }
+        });
+      });
+    }
+  }, [setFilter, refresh, fetchServices]); // Added dependencies
+
+  // Calculate stats - Match ServiceManagement format
+  const stats = React.useMemo(() => ({
+    total: Array.isArray(packages) ? packages.length : 0,
+    active: Array.isArray(packages) ? packages.filter(pkg => pkg?.isActive !== false).length : 0,
+    deleted: Array.isArray(packages) ? packages.filter(pkg => pkg?.isActive === false).length : 0
+  }), [packages]);
+
+  // Status change handler - Fixed to show all by default
+  const handleStatusChange = useCallback((value: string) => {
+    setSelectedStatus(value);
+    // Default to showing all packages, filter only when specific status selected
+    if (value === 'all') {
+      setFilter('isActive', null); // Show all packages
+    } else if (value === 'active') {
+      setFilter('isActive', true); // Show only active packages
+    } else if (value === 'inactive') {
+      setFilter('isActive', false); // Show only inactive packages
+    }
+  }, [setFilter]);
+
+  // ✅ NEW: Handle service search
+  const handleServiceSearch = useCallback((value: string) => {
+    setServiceSearchText(value);
+  }, []);
+
+  // ✅ NEW: Handle sort option change
+  const handleSortChange = useCallback((value: string) => {
+    setSortOption(value);
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    // ✅ NEW: Reset all filters and search when refresh
+    setSelectedStatus('all');
+    setServiceSearchText('');
+    setSortOption('default');
+    handleSearch(''); // Reset main search
+    setFilter('isActive', null); // Reset status filter
+    
+    Promise.allSettled([
+      refresh(),
+      fetchServices()
+    ]);
+  }, [refresh, fetchServices, handleSearch, setFilter]);
+
+  // Handle recover package
+  const handleRecover = useCallback(async (id: string) => {
+    try {
+      await recoverServicePackage(id);
+      message.success('Khôi phục gói dịch vụ thành công');
+      await refresh();
+    } catch (error: any) {
+      console.error('Error recovering package:', error);
+      message.error(error?.response?.data?.message || 'Không thể khôi phục gói dịch vụ');
+    }
+  }, [refresh]);
+
+
+
+  // Render services column
+  const renderServicesColumn = (services: ServiceItem[]) => {
+    if (!services || services.length === 0) {
+      return <Tag color="default">Không có dịch vụ</Tag>;
+    }
+    
+    return (
+      <Space direction="vertical" size="small">
+        {services.map((serviceItem, index) => {
+          // Handle both populated Service object and string serviceId
+          let serviceName = 'Đang tải...';
+          let serviceId = '';
+          
+          if (typeof serviceItem.serviceId === 'object' && serviceItem.serviceId !== null) {
+            // Populated Service object
+            serviceName = serviceItem.serviceId.serviceName || 'Không có tên';
+            serviceId = serviceItem.serviceId._id || '';
+          } else if (typeof serviceItem.serviceId === 'string') {
+            // String serviceId (not populated)
+            serviceName = 'Đang tải...';
+            serviceId = serviceItem.serviceId;
+          } else {
+            // Null or undefined serviceId
+            serviceName = 'Dịch vụ không xác định';
+            serviceId = 'unknown';
+          }
+          
+          return (
+            <Tag key={`${serviceId}-${index}`} color="blue">
+              {serviceName} x{serviceItem.quantity}
+            </Tag>
+          );
+        })}
+      </Space>
+    );
+  };
+
+  // Add helper functions for status rendering like ServiceManagement
+  const getStatusColor = (pkg: ServicePackage) => {
+    if (pkg.isActive === false) return 'error';
+    return 'success';
+  };
+
+  const getStatusText = (pkg: ServicePackage) => {
+    return pkg.isActive !== false ? 'Hoạt động' : 'Ngưng hoạt động';
+  };
+
+  // Table columns
+  const columns = [
+    {
+      title: 'Mã gói',
+      dataIndex: '_id',
+      key: '_id',
+      width: 120,
+      render: (id: string) => (
+        <div>
+          <Text code style={{ fontSize: '11px' }}>
+            {id.substring(0, 8)}...
+          </Text>
+          <br />
+          <Button
+            type="link"
+            size="small"
+            onClick={() => {
+              navigator.clipboard.writeText(id);
+              message.success('Đã sao chép mã gói');
+            }}
+            style={{ padding: 0, fontSize: '10px' }}
+          >
+            Copy full ID
+          </Button>
+        </div>
+      ),
+    },
+    {
+      title: 'Tên gói',
+      dataIndex: 'name',
+      key: 'name',
+      render: (text: string, record: ServicePackage) => (
+        <div>
+          <Text strong>{text}</Text>
+          {record.description && (
+            <>
+              <br />
+              <Text type="secondary" style={{ fontSize: '12px' }}>
+                {record.description.length > 50 
+                  ? `${record.description.substring(0, 50)}...` 
+                  : record.description}
+              </Text>
+            </>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: 'Giá',
+      key: 'pricing',
+      render: (record: ServicePackage) => (
+        <div>
+          {/* ✅ NEW: Display price before discount */}
+          {record.priceBeforeDiscount && record.priceBeforeDiscount > 0 && (
+            <div>
+              <Text type="secondary" style={{ fontSize: '12px', textDecoration: 'line-through' }}>
+                Giá gốc: {record.priceBeforeDiscount.toLocaleString('vi-VN')} VNĐ
+              </Text>
+            </div>
+          )}
+          <Text strong style={{ color: '#1890ff' }}>
+            Giá gói: {record.price.toLocaleString('vi-VN')} VNĐ
+          </Text>
+          {/* ✅ NEW: Show discount percentage if applicable */}
+          {record.priceBeforeDiscount && record.priceBeforeDiscount > record.price && (
+            <div>
+              <Text type="success" style={{ fontSize: '11px' }}>
+                Giảm {Math.round(((record.priceBeforeDiscount - record.price) / record.priceBeforeDiscount) * 100)}%
+              </Text>
             </div>
           )}
         </div>
       ),
+      sorter: (a: ServicePackage, b: ServicePackage) => a.price - b.price,
+    },
+    {
+      title: 'Dịch vụ',
+      dataIndex: 'services',
+      key: 'services',
+      render: renderServicesColumn,
+      width: 250,
+    },
+    {
+      title: 'Thời hạn',
+      dataIndex: 'durationInDays',
+      key: 'durationInDays',
+      render: (days: number) => `${days} ngày`,
+      sorter: (a: ServicePackage, b: ServicePackage) => a.durationInDays - b.durationInDays,
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'isActive',
+      key: 'isActive',
+      render: (_, record: ServicePackage) => (
+        <Tag color={getStatusColor(record)}>
+          {getStatusText(record)}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (record: ServicePackage) => (
+        <Space>
+          <Tooltip title="Xem Usage Analytics">
+            <Button
+              type="link"
+              icon={<BarChartOutlined />}
+              onClick={() => handleShowAnalytics(record)}
+              style={{ color: '#1890ff' }}
+            />
+          </Tooltip>
+          <Tooltip title="Chỉnh sửa">
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => handleEditClick(record)}
+            />
+          </Tooltip>
+          {record.isActive !== false ? (
+            // Active package - show delete button
+            <Popconfirm
+              title="Bạn có chắc chắn muốn xóa gói dịch vụ này?"
+              onConfirm={() => handleDelete(record._id!)}
+              okText="Có"
+              cancelText="Không"
+            >
+              <Tooltip title="Xóa">
+                <Button
+                  type="link"
+                  danger
+                  icon={<DeleteOutlined />}
+                />
+              </Tooltip>
+            </Popconfirm>
+          ) : (
+            // Inactive package - show recover button
+            <Popconfirm
+              title="Bạn có chắc chắn muốn khôi phục gói dịch vụ này?"
+              onConfirm={() => handleRecover(record._id!)}
+              okText="Có"
+              cancelText="Không"
+            >
+              <Tooltip title="Khôi phục">
+                <Button
+                  type="link"
+                  icon={<UndoOutlined />}
+                  style={{ color: '#52c41a' }}
+                />
+              </Tooltip>
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
+  ];
+
+  // Custom handlers that use ServicePackageModal
+  const handleCreateClick = () => {
+    originalHandleCreate();
+  };
+
+  const handleEditClick = (pkg: ServicePackage) => {
+    originalHandleEdit(pkg);
+  };
+
+  const handleModalSubmitCustom = async (data: CreateServicePackageRequest | UpdateServicePackageRequest) => {
+    return originalHandleModalSubmit(data);
+  };
+
+  // 🆕 Analytics handlers
+  const handleShowAnalytics = (pkg: ServicePackage) => {
+    setSelectedPackageForAnalytics({
+      id: pkg._id,
+      name: pkg.name
     });
+    setAnalyticsModalVisible(true);
   };
 
-  const handleSearch = (value: string) => {
-    setSearchText(value);
-    // Không cần gọi loadData vì đã filter client-side
-  };
-
-  const handleResetFilters = () => {
-    setSearchText('');
-    setServiceSearchId('');
-    setSelectedStatus('all');
-    loadData();
-  };
-
-  const handleCalculateAutoPrice = async (serviceIds: string[], maxUsages: number) => {
-    if (!serviceIds?.length || !maxUsages) return;
-    try {
-      setCalculatingPrice(true);
-      const response = await calculateAutoPrice({
-        serviceIds,
-        maxUsages
-      });
-      if (response.success && response.data) {
-        const calculatedPrice = response.data.calculatedPrice;
-        setAutoCalculatedPrice(calculatedPrice);
-        form.setFieldsValue({ priceBeforeDiscount: calculatedPrice });
-      }
-    } catch (err: any) {
-      console.error('Lỗi khi tính giá tự động:', err);
-    } finally {
-      setCalculatingPrice(false);
-    }
+  const handleCloseAnalytics = () => {
+    setAnalyticsModalVisible(false);
+    setSelectedPackageForAnalytics(null);
   };
 
   return (
@@ -515,15 +668,14 @@ const ServicePackageManagement: React.FC = () => {
         </Title>
       </div>
 
-      {/* Statistics - Updated to show 3 cards in row */}
+      {/* Statistics - Match ServiceManagement format */}
       <Row gutter={16} style={{ marginBottom: '24px' }}>
         <Col span={8}>
           <Card>
             <Statistic
               title="Tổng gói dịch vụ"
-              value={packages.length}
+              value={stats.total}
               valueStyle={{ color: '#1890ff' }}
-              prefix={<AppstoreOutlined />}
             />
           </Card>
         </Col>
@@ -531,455 +683,201 @@ const ServicePackageManagement: React.FC = () => {
           <Card>
             <Statistic
               title="Đang hoạt động"
-              value={packages.filter(p => p.isActive === true).length}
+              value={stats.active}
               valueStyle={{ color: '#52c41a' }}
-              prefix={<ThunderboltOutlined />}
             />
           </Card>
         </Col>
         <Col span={8}>
           <Card>
             <Statistic
-              title="Đã xóa"
-              value={packages.filter(p => p.isActive === false).length}
+              title="Ngưng hoạt động"
+              value={stats.deleted}
               valueStyle={{ color: '#ff4d4f' }}
-              prefix={<DeleteOutlined />}
             />
           </Card>
         </Col>
       </Row>
+
+      {/* Error display */}
+      {error && (
+        <Alert
+          message="Lỗi tải dữ liệu"
+          description={error}
+          type="error"
+          showIcon
+          closable
+          onClose={() => setError(null)}
+          style={{ marginBottom: 16 }}
+          action={
+            <Button 
+              size="small" 
+              type="primary" 
+              onClick={() => {
+                setError(null);
+                refresh();
+                fetchServices();
+              }}
+            >
+              Thử lại
+            </Button>
+          }
+        />
+      )}
 
       <Card>
         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Title level={4} style={{ margin: 0 }}>
             Danh sách gói dịch vụ
           </Title>
-            <Space>
-              <Switch
-                checked={showDeleted}
-                onChange={setShowDeleted}
-                checkedChildren="Hiện tất cả"
-                unCheckedChildren="Chỉ hoạt động"
-              />
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => setIsModalVisible(true)}
-              >
+          <Space>
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              onClick={handleCreateClick}
+            >
               Thêm gói dịch vụ mới
-              </Button>
-              <Tooltip title="Làm mới dữ liệu từ server">
-                <Button
-                  icon={<ReloadOutlined />}
-                  onClick={() => {
-                    // Giữ nguyên bộ lọc nhưng tải lại dữ liệu từ server
-                    loadData();
-                  }}
-                >
-                  Làm mới
-                </Button>
-              </Tooltip>
-            </Space>
+            </Button>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={handleRefresh}
+            >
+              Làm mới
+            </Button>
+          </Space>
         </div>
 
         <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <Input.Search
-            placeholder="Tìm kiếm gói dịch vụ..."
+            placeholder="Tìm kiếm theo tên gói, mô tả..."
             allowClear
-            style={{ width: 300 }}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
+            style={{ width: 250 }}
+            className="search-blue-button"
             onSearch={handleSearch}
           />
           
-          <Select
-            placeholder="Tìm dịch vụ có chứa trong gói"
-            style={{ width: 300 }}
-            value={serviceSearchId || undefined}
-            onChange={setServiceSearchId}
+          <Input.Search
+            placeholder="Tìm kiếm theo tên dịch vụ..."
             allowClear
-            showSearch
-            optionFilterProp="children"
+            style={{ width: 250 }}
+            className="search-blue-button"
+            onSearch={handleServiceSearch}
+            value={serviceSearchText}
+          />
+          
+          <Select
+            placeholder="Trạng thái"
+            style={{ width: 150 }}
+            value={selectedStatus}
+            onChange={handleStatusChange}
           >
-            {services.map(service => (
-              <Option key={service._id} value={service._id}>
-                {service.serviceName} - {service.price.toLocaleString('vi-VN')}đ
-              </Option>
-            ))}
+            <Option value="all">Tất cả trạng thái</Option>
+            <Option value="active">Hoạt động</Option>
+            <Option value="inactive">Ngưng hoạt động</Option>
           </Select>
 
-          {showDeleted && (
-            <Select
-              placeholder="Trạng thái"
-              style={{ width: 150 }}
-              value={selectedStatus}
-              onChange={setSelectedStatus}
-            >
-              <Option value="all">Tất cả trạng thái</Option>
-              <Option value="active">Hoạt động</Option>
-              <Option value="deleted">Đã xóa</Option>
-            </Select>
-          )}
+          <Select
+            placeholder="Sắp xếp"
+            style={{ width: 200 }}
+            value={sortOption}
+            onChange={handleSortChange}
+          >
+            <Option value="default">Mặc định</Option>
+            <Option value="name-asc">Tên gói (A-Z)</Option>
+            <Option value="price-desc">Giá (Cao đến thấp)</Option>
+            <Option value="price-asc">Giá (Thấp đến cao)</Option>
+            <Option value="duration-desc">Thời hạn (Nhiều đến ít)</Option>
+            <Option value="duration-asc">Thời hạn (Ít đến nhiều)</Option>
+          </Select>
         </div>
 
-        <Table
-          columns={[
-            {
-              title: 'Mã gói',
-              dataIndex: '_id',
-              key: '_id',
-              width: 120,
-              render: (text: string) => <Text code>{text}</Text>
-            },
-            {
-              title: 'Tên gói dịch vụ',
-              dataIndex: 'name',
-              key: 'name',
-              width: 200,
-              render: (text: string, record: ServicePackage) => (
-                <div>
-                  <Text strong>{text}</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: '12px' }}>
-                    {record.description.length > 50 
-                      ? `${record.description.substring(0, 50)}...` 
-                      : record.description}
-                  </Text>
+        {/* Table with improved empty states */}
+        {error && !loading && filteredItems.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <ExclamationCircleOutlined style={{ fontSize: '48px', color: '#ff4d4f', marginBottom: '16px' }} />
+            <Title level={4} style={{ color: '#ff4d4f' }}>Không thể tải dữ liệu</Title>
+            <Text type="secondary" style={{ display: 'block', marginBottom: '20px' }}>
+              {error}
+            </Text>
+            <Space>
+              <Button 
+                type="primary" 
+                icon={<ReloadOutlined />}
+                onClick={() => {
+                  setError(null);
+                  refresh();
+                  fetchServices();
+                }}
+              >
+                Thử lại
+              </Button>
+              <Button 
+                onClick={() => window.location.reload()}
+              >
+                Tải lại trang
+              </Button>
+            </Space>
+          </div>
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={filteredItems}
+            rowKey="_id"
+            loading={loading}
+            locale={{
+              emptyText: loading ? (
+                <div style={{ padding: '40px', textAlign: 'center' }}>
+                  <LoadingOutlined style={{ fontSize: '24px', marginBottom: '16px' }} />
+                  <div>Đang tải dữ liệu...</div>
+                </div>
+              ) : (
+                <div style={{ padding: '40px', textAlign: 'center' }}>
+                  <AppstoreOutlined style={{ fontSize: '48px', color: '#d9d9d9', marginBottom: '16px' }} />
+                  <div style={{ fontSize: '16px', marginBottom: '8px' }}>Chưa có gói dịch vụ nào</div>
+                  <Text type="secondary">Hãy tạo gói dịch vụ đầu tiên</Text>
                 </div>
               )
-            },
-            {
-              title: 'Số người dùng',
-              dataIndex: 'maxProfiles',
-              key: 'maxProfiles',
-              width: 120,
-              render: (maxProfiles: number[] = []) => (
-                <Tag color="blue">{maxProfiles.join(', ') || '1'}</Tag>
-              )
-            },
-            {
-              title: 'Giá',
-              key: 'pricing',
-              width: 150,
-              render: (_, record: ServicePackage) => (
-                <div>
-                  <Text delete style={{ color: '#999' }}>
-                    {record.priceBeforeDiscount.toLocaleString('vi-VN')}đ
-                  </Text>
-                  <br />
-                  <Text strong style={{ color: '#1890ff' }}>
-                    {record.price.toLocaleString('vi-VN')}đ
-                  </Text>
-                  {record.pricingInfo && record.pricingInfo.discountPercentage > 0 && (
-                    <Tag color="red" style={{ marginLeft: 4, fontSize: '12px' }}>
-                      -{record.pricingInfo.discountPercentage}%
-                    </Tag>
-                  )}
-                </div>
-              )
-            },
-            {
-              title: 'Cấu hình',
-              key: 'configuration',
-              width: 120,
-              render: (_, record: ServicePackage) => (
-                <div>
-                  <div>
-                    <CalendarOutlined style={{ marginRight: 4 }} />
-                    <Text>{record.durationInDays} ngày</Text>
-                  </div>
-                  <div>
-                    <ThunderboltOutlined style={{ marginRight: 4 }} />
-                    <Text>{record.maxUsages} lượt</Text>
-                  </div>
-                </div>
-              )
-            },
-            {
-              title: 'Dịch vụ',
-              dataIndex: 'serviceIds',
-              key: 'serviceIds',
-              width: 100,
-              render: (serviceIds: string[]) => (
-                <Tag color="blue">
-                  {serviceIds.length} dịch vụ
-                </Tag>
-              )
-            },
-            {
-              title: 'Trạng thái',
-              dataIndex: 'isActive',
-              key: 'isActive',
-              width: 100,
-              render: (isActive: boolean) => (
-                <Tag color={isActive ? 'green' : 'red'}>
-                  {isActive ? 'Hoạt động' : 'Đã xóa'}
-                </Tag>
-              )
-            },
-            {
-              title: 'Thao tác',
-              key: 'action',
-              width: 150,
-              render: (_, record: ServicePackage) => (
-                <Space size="small">
-                  <Tooltip title="Xem chi tiết">
-                    <Button 
-                      type="text" 
-                      icon={<EyeOutlined />} 
-                      onClick={() => showPackageDetails(record)}
-                    />
-                  </Tooltip>
-                  <Tooltip title="Chỉnh sửa">
-                    <Button 
-                      type="text" 
-                      icon={<EditOutlined />} 
-                      onClick={() => handleEdit(record)}
-                      disabled={!record.isActive}
-                    />
-                  </Tooltip>
-                  {record.isActive ? (
-                    <Tooltip title="Xóa">
-                      <Popconfirm
-                        title="Bạn có chắc chắn muốn xóa gói dịch vụ này?"
-                        onConfirm={() => handleDelete(record._id)}
-                        okText="Có"
-                        cancelText="Không"
-                      >
-                        <Button 
-                          type="text" 
-                          danger 
-                          icon={<DeleteOutlined />}
-                        />
-                      </Popconfirm>
-                    </Tooltip>
-                  ) : (
-                    <Tooltip title="Khôi phục">
-                      <Button 
-                        type="text" 
-                        icon={<UndoOutlined />} 
-                        onClick={() => handleRecover(record._id)}
-                        style={{ color: '#52c41a' }}
-                      />
-                    </Tooltip>
-                  )}
-                </Space>
-              )
-            }
-          ]}
-          dataSource={filteredPackages}
-          loading={loading}
-          rowKey="_id"
-          pagination={{
-            total: filteredPackages.length,
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) =>
-              `${range[0]}-${range[1]} của ${total} gói dịch vụ`
-          }}
-          scroll={{ x: 1000 }}
-          locale={{
-            emptyText: (
-              <div style={{ padding: '24px 0' }}>
-                <div style={{ fontSize: 24, marginBottom: 16, textAlign: 'center' }}>
-                  <AppstoreOutlined style={{ fontSize: 48, color: '#ccc', marginBottom: 16, display: 'block' }} />
-                  Không có gói dịch vụ nào
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  {searchText || serviceSearchId || (showDeleted && selectedStatus !== 'all') ? 
-                    'Không tìm thấy kết quả phù hợp với bộ lọc. Thử thay đổi tiêu chí tìm kiếm.' : 
-                    'Chưa có gói dịch vụ nào được tạo. Nhấn "Thêm gói dịch vụ mới" để bắt đầu.'}
-                </div>
-              </div>
-            )
-          }}
-        />
+            }}
+            pagination={{
+              total: filteredItems.length,
+              pageSize: 10,
+              showSizeChanger: true,
+              showQuickJumper: true,
+              showTotal: (total, range) =>
+                `${range[0]}-${range[1]} của ${total} gói dịch vụ`,
+            }}
+            scroll={{ x: 1200 }}
+          />
+        )}
       </Card>
 
-      <Modal
-        title={editingPackage ? 'Chỉnh sửa gói dịch vụ' : 'Thêm gói dịch vụ mới'}
-        open={isModalVisible}
-        onOk={handleModalOk}
+      <ServicePackageModal
+        visible={modalVisible}
         onCancel={handleModalCancel}
-        width={800}
-        okText={editingPackage ? 'Cập nhật' : 'Tạo mới'}
-        cancelText="Hủy"
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          style={{ marginTop: 16 }}
-        >
-          <Form.Item
-            name="name"
-            label="Tên gói dịch vụ"
-            rules={[{ required: true, message: 'Vui lòng nhập tên gói dịch vụ!' }]}
-          >
-            <Input placeholder="Nhập tên gói dịch vụ" />
-          </Form.Item>
+        onSubmit={handleModalSubmitCustom}
+        servicePackage={editingPackage}
+        loading={loading}
+      />
 
-          <Form.Item
-            name="description"
-            label="Mô tả"
-            rules={[{ required: true, message: 'Vui lòng nhập mô tả!' }]}
-          >
-            <TextArea rows={3} placeholder="Nhập mô tả chi tiết về gói dịch vụ" />
-          </Form.Item>
-
-          <Form.Item
-            name="serviceIds"
-            label="Dịch vụ trong gói"
-            rules={[{ required: true, message: 'Vui lòng chọn ít nhất một dịch vụ!' }]}
-          >
-            <Select
-              mode="multiple"
-              placeholder="Chọn các dịch vụ"
-              showSearch
-              optionFilterProp="children"
-              onChange={(values) => {
-                const maxUsages = form.getFieldValue('maxUsages');
-                if (values.length > 0 && maxUsages > 0) {
-                  // Tính giá gốc lại
-                  const selectedServices = services.filter(s => values.includes(s._id));
-                  const totalServicePrice = selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
-                  const calculatedPrice = totalServicePrice * maxUsages;
-                  form.setFieldsValue({ priceBeforeDiscount: calculatedPrice });
-                }
-              }}
-            >
-              {services.map(service => (
-                <Option key={service._id} value={service._id}>
-                  {service.serviceName} - {service.price.toLocaleString('vi-VN')}đ
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="priceBeforeDiscount"
-                label="Giá gốc (VNĐ)"
-                tooltip="Giá gốc được tính tự động dựa trên các dịch vụ đã chọn và số lượt sử dụng"
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={0}
-                  disabled={true}
-                  formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value: any) => (value || '').replace(/\$\s?|(,*)/g, '')}
-                  placeholder="Được tính tự động"
-                  prefix={calculatingPrice ? <LoadingOutlined /> : null}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="price"
-                label="Giá khuyến mãi (VNĐ)"
-                rules={[
-                  { required: true, message: 'Vui lòng nhập giá khuyến mãi!' },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      const priceBeforeDiscount = getFieldValue('priceBeforeDiscount');
-                      if (value === undefined || value === null || value === '') {
-                        return Promise.reject(new Error('Vui lòng nhập giá khuyến mãi!'));
-                      }
-                      if (priceBeforeDiscount === 0) {
-                        return Promise.reject(new Error('Giá gốc phải lớn hơn 0!'));
-                      }
-                      if (value > priceBeforeDiscount) {
-                        return Promise.reject(new Error('Giá khuyến mãi phải nhỏ hơn hoặc bằng giá gốc!'));
-                      }
-                      if (value < 0) {
-                        return Promise.reject(new Error('Giá khuyến mãi không được âm!'));
-                      }
-                      return Promise.resolve();
-                    },
-                  }),
-                ]}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={0}
-                  max={form.getFieldValue('priceBeforeDiscount') || 0}
-                  formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value: any) => (value || '').replace(/\$\s?|(,*)/g, '')}
-                  placeholder="Nhập giá khuyến mãi"
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="durationInDays"
-                label="Thời hạn sử dụng (ngày)"
-                rules={[{ required: true, message: 'Vui lòng nhập thời hạn sử dụng!' }]}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={1}
-                  max={365}
-                  placeholder="Nhập số ngày (1-365)"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="maxUsages"
-                label="Số lượt tối đa"
-                rules={[{ required: true, message: 'Vui lòng nhập số lượt tối đa!' }]}
-              >
-                <InputNumber
-                  style={{ width: '100%' }}
-                  min={1}
-                  max={1000}
-                  placeholder="Nhập số lượt (1-1000)"
-                  onChange={(value) => {
-                    if (value && value > 0) {
-                      const serviceIds = form.getFieldValue('serviceIds');
-                      if (serviceIds?.length > 0) {
-                        handleCalculateAutoPrice(serviceIds, value);
-                      }
-                    }
-                  }}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item
-            name="maxProfiles"
-            label="Số lượng người dùng tối đa"
-            rules={[{ required: true, message: 'Vui lòng chọn ít nhất một số lượng người dùng!' }]}
-          >
-            <Select
-              mode="multiple"
-              placeholder="Chọn số lượng người dùng tối đa cho gói (ví dụ: 1, 2, 4)"
-              style={{ width: '100%' }}
-              allowClear
-            >
-              <Option value={1}>1 người</Option>
-              <Option value={2}>2 người</Option>
-              <Option value={4}>4 người</Option>
-            </Select>
-          </Form.Item>
-
-          {editingPackage && (
-          <Form.Item
-            name="isActive"
-              label="Trạng thái"
-            valuePropName="checked"
-          >
-            <Switch checkedChildren="Hoạt động" unCheckedChildren="Tạm dừng" />
-          </Form.Item>
-          )}
-        </Form>
-      </Modal>
+      {/* 🆕 Analytics Modal */}
+      {selectedPackageForAnalytics && (
+        <PackageUsageModal
+          visible={analyticsModalVisible}
+          onClose={handleCloseAnalytics}
+          packageId={selectedPackageForAnalytics.id}
+          packageName={selectedPackageForAnalytics.name}
+        />
+      )}
     </div>
+  );
+};
+
+// ✅ FIX: Wrapper component with Error Boundary
+const ServicePackageManagement: React.FC = () => {
+  return (
+    <ServicePackageErrorBoundary>
+      <ServicePackageManagementCore />
+    </ServicePackageErrorBoundary>
   );
 };
 

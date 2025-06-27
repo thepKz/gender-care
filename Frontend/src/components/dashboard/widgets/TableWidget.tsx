@@ -169,6 +169,7 @@ const TableWidget: React.FC<TableWidgetProps> = ({
       <Table
         columns={columns}
         dataSource={data}
+        rowKey="id"
         pagination={pagination === false ? false : {
           pageSize: 10,
           showSizeChanger: true,

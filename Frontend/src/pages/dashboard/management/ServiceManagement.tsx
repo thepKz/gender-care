@@ -16,8 +16,7 @@ import {
   message,
   Row,
   Col,
-  Statistic,
-  Switch
+  Statistic
 } from 'antd';
 import {
   SearchOutlined,
@@ -29,7 +28,9 @@ import {
   DollarOutlined,
   ClockCircleOutlined,
   ReloadOutlined,
-  UndoOutlined
+  UndoOutlined,
+  CheckOutlined,
+  StopOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { servicesApi } from '../../../api/endpoints';
@@ -40,21 +41,20 @@ import {
   getCurrentUserRole 
 } from '../../../utils/permissions';
 import { getServices, deleteService, GetServicesParams } from '../../../api/endpoints/serviceApi';
-import { recoverService, updateService, createService } from '../../../api/endpoints/serviceApi';
+import { recoverService, updateService, createService, toggleServiceStatus } from '../../../api/endpoints/serviceApi';
 
 const { Title, Text } = Typography;
-const { Search } = Input;
 const { Option } = Select;
-const { TextArea } = Input;
+const { TextArea, Search } = Input;
 
 interface Service {
   key: string;
   id: string;
   serviceName: string;
-  serviceType: 'consultation' | 'test' | 'treatment' | 'other';
+  serviceType: 'consultation' | 'test' | 'treatment';
   description: string;
   price: number;
-  availableAt: 'Athome' | 'Online' | 'Center';
+  availableAt: ('Athome' | 'Online' | 'Center')[];
   status: 'active' | 'inactive' | 'suspended';
   isDeleted: boolean;
   createdAt: string;
@@ -68,10 +68,10 @@ const ServiceManagement: React.FC = () => {
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [sortOption, setSortOption] = useState<string>('default');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [form] = Form.useForm();
-  const [showDeleted, setShowDeleted] = useState(false);
   
   // Get current user role for permissions
   const userRole = getCurrentUserRole();
@@ -83,7 +83,7 @@ const ServiceManagement: React.FC = () => {
       const response = await getServices({
         sortBy: 'createdAt',
         sortOrder: 'desc',
-        includeDeleted: showDeleted
+        includeDeleted: true
       });
       
       console.log('🔍 API Response:', response);
@@ -106,15 +106,19 @@ const ServiceManagement: React.FC = () => {
       if (rawServices.length > 0) {
         // Map to component format
         const convertedServices = rawServices.map((service: any, index: number) => {
-          // Handle availableAt field
-          let availableAt: Service['availableAt'] = 'Center';
-          if (Array.isArray(service.availableAt) && service.availableAt.length > 0) {
-            const firstLocation = service.availableAt[0];
-            if (['Athome', 'Online', 'Center'].includes(firstLocation)) {
-              availableAt = firstLocation as Service['availableAt'];
-            }
+          // Handle availableAt field - now supports multiple selections
+          let availableAt: Service['availableAt'] = ['Center'];
+          if (Array.isArray(service.availableAt)) {
+            availableAt = service.availableAt.filter(location => 
+              ['Athome', 'Online', 'Center'].includes(location)
+            );
           } else if (typeof service.availableAt === 'string' && ['Athome', 'Online', 'Center'].includes(service.availableAt)) {
-            availableAt = service.availableAt as Service['availableAt'];
+            availableAt = [service.availableAt as any];
+          }
+          
+          // Ensure at least one location is selected
+          if (availableAt.length === 0) {
+            availableAt = ['Center'];
           }
           return {
             key: service._id || service.id || index.toString(),
@@ -122,9 +126,9 @@ const ServiceManagement: React.FC = () => {
             serviceName: service.serviceName || service.name || 'N/A',
             description: service.description || '',
             price: service.price || 0,
-            serviceType: service.serviceType || 'other',
+            serviceType: service.serviceType || 'consultation',
             availableAt,
-            status: (service.isDeleted === 0 ? 'active' : 'inactive') as Service['status'],
+            status: service.isDeleted === 1 ? 'inactive' : 'active' as Service['status'],
             isDeleted: service.isDeleted === 1,
             createdAt: service.createdAt || new Date().toISOString(),
             updatedAt: service.updatedAt || new Date().toISOString()
@@ -143,7 +147,7 @@ const ServiceManagement: React.FC = () => {
             serviceType: 'consultation',
             description: 'Tư vấn về sức khỏe sinh sản và kế hoạch hóa gia đình',
             price: 500000,
-            availableAt: 'Center',
+            availableAt: ['Center'],
             status: 'active',
             isDeleted: false,
             createdAt: new Date().toISOString(),
@@ -156,7 +160,7 @@ const ServiceManagement: React.FC = () => {
             serviceType: 'test',
             description: 'Xét nghiệm các bệnh lây truyền qua đường tình dục',
             price: 800000,
-            availableAt: 'Center',
+            availableAt: ['Center'],
             status: 'active',
             isDeleted: false,
             createdAt: new Date().toISOString(),
@@ -174,34 +178,48 @@ const ServiceManagement: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, [showDeleted]);
+  }, []);
 
   // Filter services based on search and filters
-  const filteredServices = services.filter(service => {
-    // Filter by showDeleted state first
-    if (showDeleted) {
-      // When showDeleted=true, show all (active + deleted)
-      // No filtering by isDeleted needed
-    } else {
-      // When showDeleted=false, only show active services
-      if (service.isDeleted) return false;
-    }
-    
+  const filteredServices = services.filter(service => {    
     const matchesSearch = service.serviceName.toLowerCase().includes(searchText.toLowerCase()) ||
                          service.description.toLowerCase().includes(searchText.toLowerCase());
     const matchesType = selectedType === 'all' || service.serviceType === selectedType;
-    const matchesLocation = selectedLocation === 'all' || service.availableAt === selectedLocation;
-    const matchesStatus = selectedStatus === 'all' || service.status === selectedStatus;
+    const matchesLocation = selectedLocation === 'all' || service.availableAt.includes(selectedLocation as any);
+    
+    // Handle status filtering including deleted services
+    let matchesStatus = true;
+    if (selectedStatus === 'active') {
+      matchesStatus = service.status === 'active' && !service.isDeleted;
+    } else if (selectedStatus === 'deleted') {
+      matchesStatus = service.isDeleted;
+    } else {
+      // selectedStatus === 'all' - show all services
+      matchesStatus = true;
+    }
     
     return matchesSearch && matchesType && matchesLocation && matchesStatus;
+  }).sort((a, b) => {
+    // ✅ NEW: Apply sorting logic
+    switch (sortOption) {
+      case 'name-asc':
+        return a.serviceName.localeCompare(b.serviceName, 'vi', { sensitivity: 'base' });
+      case 'name-desc':
+        return b.serviceName.localeCompare(a.serviceName, 'vi', { sensitivity: 'base' });
+      case 'price-high':
+        return b.price - a.price;
+      case 'price-low':
+        return a.price - b.price;
+      default:
+        return 0; // No sorting for 'default'
+    }
   });
 
   const getServiceTypeColor = (type: Service['serviceType']) => {
     const colors = {
       consultation: 'blue',
       test: 'green',
-      treatment: 'orange',
-      other: 'purple'
+      treatment: 'orange'
     };
     return colors[type];
   };
@@ -210,27 +228,27 @@ const ServiceManagement: React.FC = () => {
     const texts = {
       consultation: 'Tư vấn',
       test: 'Xét nghiệm',
-      treatment: 'Điều trị',
-      other: 'Khác'
+      treatment: 'Điều trị'
     };
     return texts[type];
   };
 
-  const getLocationColor = (location: Service['availableAt']) => {
-    const colors = {
+  const getLocationColor = (location: string) => {
+    const colors: Record<string, string> = {
       Athome: 'cyan',
       Online: 'geekblue',
       Center: 'volcano'
     };
-    return colors[location];
+    return colors[location] || 'default';
   };
 
-  const getLocationText = (location: Service['availableAt']) => {
-    const texts = {
+  const getLocationText = (location: string) => {
+    const texts: Record<string, string> = {
       Online: 'Trực tuyến',
-      Center: 'Tại trung tâm'
+      Center: 'Tại trung tâm',
+      Athome: 'Tại nhà'
     };
-    return texts[location];
+    return texts[location] || location;
   };
 
   const getStatusColor = (service: Service) => {
@@ -239,7 +257,7 @@ const ServiceManagement: React.FC = () => {
   }
 
   const getStatusText = (service: Service) => {
-    if (service.isDeleted) return 'Đã xóa'
+    if (service.isDeleted) return 'Ngưng hoạt động'
     return service.status === 'active' ? 'Hoạt động' : 'Không hoạt động'
   }
 
@@ -250,6 +268,16 @@ const ServiceManagement: React.FC = () => {
     }).format(price);
   };
 
+  // Reset all filters to initial state
+  const handleResetFilters = () => {
+    setSearchText('');
+    setSelectedType('all');
+    setSelectedLocation('all');
+    setSelectedStatus('all');
+    setSortOption('default');
+    loadData();
+  };
+
   const handleEdit = (service: Service) => {
     setEditingService(service);
     form.setFieldsValue({
@@ -257,8 +285,7 @@ const ServiceManagement: React.FC = () => {
       serviceType: service.serviceType,
       description: service.description,
       price: service.price,
-      availableAt: service.availableAt,
-      status: service.status
+      availableAt: service.availableAt
     });
     setIsModalVisible(true);
   };
@@ -283,11 +310,15 @@ const ServiceManagement: React.FC = () => {
     }
   };
 
-  const handleStatusToggle = (serviceId: string) => {
-    const service = services.find(s => s.id === serviceId);
-    if (service) {
-      const newStatus = service.status === 'active' ? 'inactive' : 'active';
-      // Update status logic here
+  const handleStatusToggle = async (serviceId: string) => {
+    try {
+      await toggleServiceStatus(serviceId);
+      const service = services.find(s => s.id === serviceId);
+      const newStatus = service?.status === 'active' ? 'vô hiệu hóa' : 'kích hoạt';
+      message.success(`Đã ${newStatus} dịch vụ thành công`);
+      loadData();
+    } catch (err: any) {
+      message.error(err?.message || 'Không thể thay đổi trạng thái dịch vụ');
     }
   };
 
@@ -329,7 +360,7 @@ const ServiceManagement: React.FC = () => {
           <p><strong>Loại dịch vụ:</strong> {getServiceTypeText(service.serviceType)}</p>
           <p><strong>Mô tả:</strong> {service.description}</p>
           <p><strong>Giá:</strong> {formatPrice(service.price)}</p>
-          <p><strong>Hình thức:</strong> {getLocationText(service.availableAt)}</p>
+          <p><strong>Hình thức:</strong> {service.availableAt.map(loc => getLocationText(loc)).join(', ')}</p>
           <p><strong>Trạng thái:</strong> {getStatusText(service)}</p>
           <p><strong>Ngày tạo:</strong> {new Date(service.createdAt).toLocaleDateString('vi-VN')}</p>
           <p><strong>Cập nhật:</strong> {new Date(service.updatedAt).toLocaleDateString('vi-VN')}</p>
@@ -391,10 +422,14 @@ const ServiceManagement: React.FC = () => {
       dataIndex: 'availableAt',
       key: 'availableAt',
       width: 120,
-      render: (location: Service['availableAt']) => (
-        <Tag color={getLocationColor(location)}>
-          {getLocationText(location)}
-        </Tag>
+      render: (locations: Service['availableAt']) => (
+        <div>
+          {locations.map(location => (
+            <Tag key={location} color={getLocationColor(location)} style={{ marginBottom: '4px' }}>
+              {getLocationText(location)}
+            </Tag>
+          ))}
+        </div>
       )
     },
     {
@@ -430,6 +465,22 @@ const ServiceManagement: React.FC = () => {
               />
             </Tooltip>
           )}
+          {canUpdateService(userRole) && (
+            <Tooltip title={record.isDeleted ? "Kích hoạt dịch vụ" : "Vô hiệu hóa dịch vụ"}>
+              <Popconfirm
+                title={`Bạn có chắc chắn muốn ${record.isDeleted ? 'kích hoạt' : 'vô hiệu hóa'} dịch vụ này?`}
+                onConfirm={() => handleStatusToggle(record.id)}
+                okText="Có"
+                cancelText="Không"
+              >
+                <Button 
+                  type="text" 
+                  icon={record.isDeleted ? <CheckOutlined /> : <StopOutlined />}
+                  style={{ color: record.isDeleted ? '#52c41a' : '#ff7a00' }}
+                />
+              </Popconfirm>
+            </Tooltip>
+          )}
           {canDeleteService(userRole) && !record.isDeleted && (
             <Tooltip title="Xóa">
               <Popconfirm
@@ -448,12 +499,18 @@ const ServiceManagement: React.FC = () => {
           )}
           {canDeleteService(userRole) && record.isDeleted && (
             <Tooltip title="Khôi phục">
-              <Button 
-                type="text" 
-                icon={<UndoOutlined />} 
-                onClick={() => handleRecover(record.id)}
-                style={{ color: '#52c41a' }}
-              />
+              <Popconfirm
+                title="Bạn có chắc chắn muốn khôi phục dịch vụ này?"
+                onConfirm={() => handleRecover(record.id)}
+                okText="Có"
+                cancelText="Không"
+              >
+                <Button 
+                  type="text" 
+                  icon={<UndoOutlined />} 
+                  style={{ color: '#52c41a' }}
+                />
+              </Popconfirm>
             </Tooltip>
           )}
         </Space>
@@ -500,7 +557,7 @@ const ServiceManagement: React.FC = () => {
         <Col span={8}>
           <Card>
             <Statistic
-              title="Đã xóa"
+              title="Ngưng hoạt động"
               value={stats.deleted}
               valueStyle={{ color: '#ff4d4f' }}
             />
@@ -509,17 +566,11 @@ const ServiceManagement: React.FC = () => {
       </Row>
 
       <Card>
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Title level={4} style={{ margin: 0 }}>
             Danh sách dịch vụ
           </Title>
           <Space>
-            <Switch
-              checked={showDeleted}
-              onChange={setShowDeleted}
-              checkedChildren="Hiện tất cả"
-              unCheckedChildren="Chỉ hoạt động"
-            />
             {canCreateService(userRole) && (
               <Button 
                 type="primary" 
@@ -531,7 +582,7 @@ const ServiceManagement: React.FC = () => {
             )}
             <Button
               icon={<ReloadOutlined />}
-              onClick={loadData}
+              onClick={handleResetFilters}
             >
               Làm mới
             </Button>
@@ -542,10 +593,11 @@ const ServiceManagement: React.FC = () => {
           <Search
             placeholder="Tìm kiếm theo tên hoặc mô tả dịch vụ..."
             allowClear
-            style={{ width: 300 }}
+            style={{ width: 250 }}
+            className="search-blue-button"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            prefix={<SearchOutlined />}
+            onSearch={(value) => setSearchText(value)}
           />
           
           <Select
@@ -558,7 +610,6 @@ const ServiceManagement: React.FC = () => {
             <Option value="consultation">Tư vấn</Option>
             <Option value="test">Xét nghiệm</Option>
             <Option value="treatment">Điều trị</Option>
-            <Option value="other">Khác</Option>
           </Select>
 
           <Select
@@ -570,6 +621,7 @@ const ServiceManagement: React.FC = () => {
             <Option value="all">Tất cả hình thức</Option>
             <Option value="Online">Trực tuyến</Option>
             <Option value="Center">Tại trung tâm</Option>
+            <Option value="Athome">Tại nhà</Option>
           </Select>
 
           <Select
@@ -580,6 +632,21 @@ const ServiceManagement: React.FC = () => {
           >
             <Option value="all">Tất cả trạng thái</Option>
             <Option value="active">Hoạt động</Option>
+            <Option value="deleted">Ngưng hoạt động</Option>
+          </Select>
+
+          {/* ✅ NEW: Sort dropdown */}
+          <Select
+            placeholder="Sắp xếp"
+            style={{ width: 200 }}
+            value={sortOption}
+            onChange={setSortOption}
+          >
+            <Option value="default">Mặc định</Option>
+            <Option value="name-asc">Tên: A → Z</Option>
+            <Option value="name-desc">Tên: Z → A</Option>
+            <Option value="price-high">Giá: Cao → Thấp</Option>
+            <Option value="price-low">Giá: Thấp → Cao</Option>
           </Select>
         </div>
 
@@ -630,7 +697,6 @@ const ServiceManagement: React.FC = () => {
               <Option value="consultation">Tư vấn</Option>
               <Option value="test">Xét nghiệm</Option>
               <Option value="treatment">Điều trị</Option>
-              <Option value="other">Khác</Option>
             </Select>
           </Form.Item>
 
@@ -659,23 +725,20 @@ const ServiceManagement: React.FC = () => {
           <Form.Item
             name="availableAt"
             label="Hình thức cung cấp"
-            rules={[{ required: true, message: 'Vui lòng chọn hình thức!' }]}
+            rules={[{ required: true, message: 'Vui lòng chọn ít nhất một hình thức!' }]}
           >
-            <Select placeholder="Chọn hình thức cung cấp">
+            <Select 
+              mode="multiple"
+              placeholder="Chọn hình thức cung cấp (có thể chọn nhiều)"
+              style={{ minHeight: '40px' }}
+            >
               <Option value="Online">Trực tuyến</Option>
               <Option value="Center">Tại trung tâm</Option>
+              <Option value="Athome">Tại nhà</Option>
             </Select>
           </Form.Item>
 
-          <Form.Item
-            name="status"
-            label="Trạng thái"
-            rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
-          >
-            <Select placeholder="Chọn trạng thái">
-              <Option value="active">Hoạt động</Option>
-            </Select>
-          </Form.Item>
+
         </Form>
       </Modal>
     </div>

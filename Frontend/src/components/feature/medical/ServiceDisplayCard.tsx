@@ -1,12 +1,6 @@
-import {
-    ClockCircleOutlined,
-    EnvironmentOutlined,
-    StarOutlined
-} from '@ant-design/icons';
-import { Button, Card } from 'antd';
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import { Service } from '../../../types';
+import ServiceDetailModal from '../../ui/modals/ServiceDetailModal';
 
 interface ServiceDisplayCardProps {
   service: Service;
@@ -21,208 +15,182 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
   showBookingButton = true,
   onBookingClick
 }) => {
-  const navigate = useNavigate();
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   // Format price - Định dạng giá tiền
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN').format(price);
   };
 
-  // Get service type icon - Lấy icon theo loại dịch vụ
-  const getServiceTypeIcon = (type: string) => {
+  // Get service type info for styling
+  const getServiceTypeInfo = (type: string) => {
     switch (type?.toLowerCase()) {
       case 'consultation':
-        return '👩‍⚕️';
+        return {
+          label: 'Tư vấn',
+          gradient: 'from-blue-500 to-blue-600',
+          bg: 'bg-blue-50',
+          text: 'text-blue-600',
+          border: 'border-blue-200',
+          pattern: 'bg-blue-100'
+        };
       case 'test':
-        return '🔬';
+        return {
+          label: 'Xét nghiệm',
+          gradient: 'from-emerald-500 to-emerald-600',
+          bg: 'bg-emerald-50',
+          text: 'text-emerald-600',
+          border: 'border-emerald-200',
+          pattern: 'bg-emerald-100'
+        };
       case 'treatment':
-        return '💉';
+        return {
+          label: 'Điều trị',
+          gradient: 'from-purple-500 to-purple-600',
+          bg: 'bg-purple-50',
+          text: 'text-purple-600',
+          border: 'border-purple-200',
+          pattern: 'bg-purple-100'
+        };
       case 'checkup':
-        return '🩺';
+        return {
+          label: 'Khám sức khỏe',
+          gradient: 'from-orange-500 to-orange-600',
+          bg: 'bg-orange-50',
+          text: 'text-orange-600',
+          border: 'border-orange-200',
+          pattern: 'bg-orange-100'
+        };
       default:
-        return '🏥';
+        return {
+          label: 'Dịch vụ y tế',
+          gradient: 'from-gray-500 to-gray-600',
+          bg: 'bg-gray-50',
+          text: 'text-gray-600',
+          border: 'border-gray-200',
+          pattern: 'bg-gray-100'
+        };
     }
   };
 
-  // Get service type label - Lấy nhãn theo loại dịch vụ
-  const getServiceTypeLabel = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case 'consultation':
-        return 'Tư vấn';
-      case 'test':
-        return 'Xét nghiệm';
-      case 'treatment':
-        return 'Điều trị';
-      case 'checkup':
-        return 'Khám sức khỏe';
-      default:
-        return 'Khác';
-    }
-  };
-
-  // Get available location icon - Lấy icon theo địa điểm
-  const getLocationIcon = (location: string | undefined) => {
-    if (!location) return '📍';
+  // Get location labels
+  const getLocationLabels = (locations: string[] | string | undefined) => {
+    if (!locations) return [];
     
-    switch (location.toLowerCase()) {
-      case 'athome':
-        return '🏠';
-      case 'online':
-        return '💻';
-      case 'center':
-        return '🏥';
-      default:
-        return '📍';
-    }
-  };
-
-  // Get available location label - Lấy nhãn theo địa điểm
-  const getLocationLabel = (location: string | undefined) => {
-    if (!location) return 'Chưa xác định';
+    const locationArray = Array.isArray(locations) ? locations : [locations];
     
-    switch (location.toLowerCase()) {
-      case 'center':
-        return 'Tại trung tâm';
-      default:
-        return location;
-    }
+    return locationArray.map(location => {
+      switch (location?.toLowerCase()) {
+        case 'athome':
+          return 'Tại nhà';
+        case 'online':
+          return 'Trực tuyến';
+        case 'center':
+          return 'Tại trung tâm';
+        default:
+          return location || 'Khác';
+      }
+    });
   };
 
-  // Handle booking - Xử lý đặt lịch
-  const handleBooking = () => {
-    if (onBookingClick) {
-      onBookingClick(service);
-    } else {
-      navigate('/booking', { 
-        state: { 
-          selectedService: service,
-          serviceType: service.serviceType 
-        } 
-      });
-    }
+  const typeInfo = getServiceTypeInfo(service.serviceType);
+  const locationLabels = getLocationLabels(service.availableAt);
+
+  const handleCardClick = () => {
+    setIsModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
   };
 
   return (
-    <Card
-      hoverable
-      className={`medical-service-display-card h-full rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-0 overflow-hidden group ${className}`}
-      cover={
-        <div className="relative h-40 bg-gradient-to-br from-cyan-50 to-blue-50 flex items-center justify-center overflow-hidden">
-          {/* Background Pattern - Họa tiết nền */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23006478' fill-opacity='0.1'%3E%3Ccircle cx='20' cy='20' r='2'/%3E%3C/g%3E%3C/svg%3E")`,
-            }} />
+    <>
+      <div
+        className={`
+          relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-500 
+          cursor-pointer transform hover:scale-105 overflow-hidden group h-full
+          ${typeInfo.border} border-2 hover:border-opacity-50
+          ${className}
+        `}
+        onClick={handleCardClick}
+      >
+        {/* Header với service type */}
+        <div className={`${typeInfo.bg} p-6 relative overflow-hidden`}>
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-20">
+            <div className={`absolute top-0 right-0 w-24 h-24 rounded-full ${typeInfo.pattern} transform translate-x-8 -translate-y-8`} />
+            <div className={`absolute bottom-0 left-0 w-16 h-16 rounded-full ${typeInfo.pattern} transform -translate-x-6 translate-y-6`} />
           </div>
-
-          {/* Service Icon (luôn hiển thị, không dùng ảnh) */}
-          <div className="text-center">
-            <div className="text-7xl text-[#2A7F9E]/30 group-hover:scale-110 transition-transform duration-300">
-              {getServiceTypeIcon(service.serviceType)}
-            </div>
-          </div>
-
-          {/* Service Type Badge - Nhãn loại dịch vụ */}
-          <div className="absolute top-3 left-3">
-            <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm">
-              <span className="text-xs font-medium text-[#2A7F9E] flex items-center gap-1">
-                <span>{getServiceTypeIcon(service.serviceType)}</span>
-                {getServiceTypeLabel(service.serviceType)}
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <span className={`inline-block px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide ${typeInfo.bg} ${typeInfo.text} border ${typeInfo.border}`}>
+                {typeInfo.label}
               </span>
             </div>
+            
+            <h3 className={`text-xl font-bold ${typeInfo.text} mb-2 group-hover:scale-105 transition-transform duration-300`}>
+              {service.serviceName}
+            </h3>
+            
+            {/* Location badges */}
+            {locationLabels.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {locationLabels.map((location, index) => (
+                  <span
+                    key={index}
+                    className="text-xs bg-white/70 backdrop-blur-sm text-gray-700 px-3 py-1 rounded-full font-medium"
+                  >
+                    {location}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
+        </div>
 
-          {/* Status Badge - Nhãn trạng thái */}
-          {service.isDeleted === 0 && (
-            <div className="absolute top-3 right-3">
-              <div className="bg-green-500/90 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm">
-                <span className="text-xs font-medium text-white flex items-center gap-1">
-                  <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                  Đang phục vụ
+        {/* Content */}
+        <div className="p-6 flex-1 flex flex-col">
+          {/* Description */}
+
+
+          {/* Price Section */}
+          <div className={`${typeInfo.bg} border-l-4 border-l-${typeInfo.text.replace('text-', '')} p-4 rounded-r-xl`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm text-gray-500 font-medium uppercase tracking-wide">
+                  Chi phí
                 </span>
+                <div className={`text-2xl font-black ${typeInfo.text}`}>
+                  {service.price ? `${formatPrice(service.price)} VNĐ` : 'Liên hệ'}
+                </div>
+              </div>
+              
+              <div className="text-right">
+                <div className="text-xs text-gray-500 mb-1">Đánh giá</div>
+                <div className="text-yellow-600 font-bold">4.8 ⭐</div>
               </div>
             </div>
-          )}
-        </div>
-      }
-    >
-      <div className="p-5">
-        {/* Service Name - Tên dịch vụ */}
-        <h3 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2 min-h-[3.5rem]">
-          {service.serviceName}
-        </h3>
-
-        {/* Service Description - Mô tả dịch vụ */}
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2 min-h-[2.5rem] leading-relaxed">
-          {service.description || 'Dịch vụ chăm sóc sức khỏe chuyên nghiệp với đội ngũ y bác sĩ giàu kinh nghiệm.'}
-        </p>
-
-        {/* Service Details - Chi tiết dịch vụ */}
-        <div className="space-y-3 mb-4">
-          {/* Available Location - Địa điểm có sẵn */}
-          <div className="flex items-center gap-2 text-sm">
-            <EnvironmentOutlined className="text-[#2A7F9E]" />
-            <span className="text-gray-600">
-              {service.availableAt && service.availableAt.length > 0 ? (
-                <>
-                  {getLocationIcon(service.availableAt[0])} {getLocationLabel(service.availableAt[0])}
-                  {service.availableAt.length > 1 && (
-                    <span className="text-xs text-gray-400 ml-1">
-                      +{service.availableAt.length - 1} khác
-                    </span>
-                  )}
-                </>
-              ) : (
-                <>📍 Chưa xác định</>
-              )}
-            </span>
           </div>
 
-          {/* Duration - Thời gian */}
-          <div className="flex items-center gap-2 text-sm">
-            <ClockCircleOutlined className="text-[#2A7F9E]" />
-            <span className="text-gray-600">
-              Thời gian linh hoạt
+          {/* Hover Effect Indicator */}
+          <div className="mt-4 text-center">
+            <span className="text-sm text-gray-500 group-hover:text-blue-600 transition-colors duration-300">
+              Nhấp để xem chi tiết →
             </span>
           </div>
         </div>
-
-        {/* Price - Giá tiền */}
-        <div className="bg-gradient-to-br from-cyan-50 to-blue-50 p-4 rounded-xl border border-cyan-200/50 mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-2xl font-bold text-[#2A7F9E]">
-                {service.price ? formatPrice(service.price) : 'Liên hệ'}
-              </span>
-              {service.price && <span className="text-gray-500 ml-1">VNĐ</span>}
-            </div>
-            <div className="flex items-center gap-1">
-              <StarOutlined className="text-yellow-500 text-sm" />
-              <span className="text-sm text-gray-600 font-medium">4.8</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action Buttons - Nút hành động */}
-        {showBookingButton && (
-          <div className="flex gap-3">
-            <Button
-              type="primary"
-              className="flex-1 bg-[#2A7F9E] hover:bg-[#0C3C54] border-[#2A7F9E] hover:border-[#0C3C54] rounded-xl h-11 font-medium"
-              onClick={handleBooking}
-            >
-              Đặt lịch ngay
-            </Button>
-            <Button
-              className="border-[#2A7F9E] text-[#2A7F9E] hover:bg-[#2A7F9E] hover:text-white rounded-xl h-11 font-medium px-4"
-              onClick={() => navigate(`/services/${service._id}`)}
-            >
-              Chi tiết
-            </Button>
-          </div>
-        )}
       </div>
-    </Card>
+
+      {/* Service Detail Modal */}
+      <ServiceDetailModal
+        visible={isModalVisible}
+        onClose={handleCloseModal}
+        service={service}
+        onBookingClick={onBookingClick}
+      />
+    </>
   );
 };
 

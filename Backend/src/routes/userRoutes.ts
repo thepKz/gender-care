@@ -2,18 +2,19 @@ import express from "express";
 import multer from 'multer';
 import {
     changePassword,
-    getCurrentUserProfile,
-    updateUserAvatar,
-    updateUserProfile,
-    uploadAvatarImage,
+    createUser,
+    deleteUser,
     // Admin functions
     getAllUsers,
+    getCurrentUserProfile,
+    getSystemStatistics,
     getUserById,
-    createUser,
-    updateUserRole,
     toggleUserStatus,
-    deleteUser,
-    getSystemStatistics
+    updateUserAvatar,
+    updateUserProfile,
+    updateUserRole,
+    uploadAvatarImage,
+    updateUserById
 } from "../controllers/userController";
 import { verifyToken } from "../middleware/auth";
 import { roleMiddleware } from "../middleware/roleMiddleware";
@@ -32,11 +33,12 @@ router.post("/profile/me/avatar/upload", verifyToken, upload.single('avatar'), u
 // ===== ADMIN & MANAGER ROUTES =====
 // Quản lý người dùng (Admin & Manager)
 router.get("/", verifyToken, roleMiddleware(['admin', 'manager']), getAllUsers);
-router.post("/", verifyToken, roleMiddleware(['admin', 'manager']), createUser);
+router.post("/", verifyToken, roleMiddleware(['admin']), createUser);
 router.get("/statistics", verifyToken, roleMiddleware(['admin', 'manager']), getSystemStatistics);
 router.get("/:userId", verifyToken, roleMiddleware(['admin', 'manager']), getUserById);
-router.put("/:userId/role", verifyToken, roleMiddleware(['admin', 'manager']), updateUserRole);
+router.put("/:userId", verifyToken, roleMiddleware(['admin', 'manager']), updateUserById);
+router.put("/:userId/role", verifyToken, roleMiddleware(['admin']), updateUserRole);
 router.patch("/:userId/toggle-status", verifyToken, roleMiddleware(['admin', 'manager']), toggleUserStatus);
-router.delete("/:userId", verifyToken, roleMiddleware(['admin', 'manager']), deleteUser);
+router.delete("/:userId", verifyToken, roleMiddleware(['admin']), deleteUser);
 
 export default router;

@@ -127,39 +127,41 @@ const BrowserUsageChart: React.FC<BrowserUsageChartProps> = ({
             </Text>
           </div>
 
-          {/* Details List */}
-          {showDetails && (
-            <div style={{ marginTop: '16px' }}>
-              <List
-                size="small"
-                dataSource={browserData}
-                renderItem={(item) => (
-                  <List.Item style={{ 
-                    padding: '8px 0',
-                    border: 'none'
+      {/* Details List */}
+      {showDetails && (
+        <div style={{ marginTop: '16px' }}>
+          <List
+            size="small"
+            dataSource={browserData}
+            renderItem={(item) => (
+              <List.Item 
+                key={item.name}
+                style={{ 
+                  padding: '8px 0',
+                  border: 'none'
+                }}>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  width: '100%'
+                }}>
+                  {/* Browser info */}
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '8px' 
                   }}>
                     <div style={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
-                      alignItems: 'center',
-                      width: '100%'
+                      color: item.color,
+                      fontSize: '16px'
                     }}>
-                      {/* Browser info */}
-                      <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: '8px' 
-                      }}>
-                        <div style={{ 
-                          color: item.color,
-                          fontSize: '16px'
-                        }}>
-                          {item.icon}
-                        </div>
-                        <Text style={{ fontSize: '13px', fontWeight: 500 }}>
-                          {item.name}
-                        </Text>
-                      </div>
+                      {item.icon}
+                    </div>
+                    <Text style={{ fontSize: '13px', fontWeight: 500 }}>
+                      {item.name}
+                    </Text>
+                  </div>
 
                       {/* Stats */}
                       <div style={{ 

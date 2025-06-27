@@ -1,0 +1,285 @@
+import React, { useState } from 'react';
+import {
+  Modal,
+  Form,
+  Input,
+  DatePicker,
+  Button,
+  message,
+  Row,
+  Col,
+  Card,
+  Space,
+  Typography
+} from 'antd';
+import {
+  MedicineBoxOutlined,
+  UserOutlined,
+  CalendarOutlined,
+  FileTextOutlined
+} from '@ant-design/icons';
+import { UnifiedAppointment } from '../../../types/appointment';
+import moment from 'moment';
+import dayjs from 'dayjs';
+
+const { TextArea } = Input;
+const { Text } = Typography;
+
+interface MedicalRecordModalProps {
+  visible: boolean;
+  appointment: UnifiedAppointment | null;
+  onCancel: () => void;
+  onSubmit: (medicalRecordData: MedicalRecordFormData) => Promise<boolean>;
+}
+
+export interface MedicalRecordFormData {
+  profileId: string;
+  doctorId: string;
+  appointmentId: string;
+  diagnosis: string;
+  symptoms?: string;
+  treatment: string;
+  medications?: string;
+  notes?: string;
+  followUpDate?: string;
+}
+
+const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
+  visible,
+  appointment,
+  onCancel,
+  onSubmit
+}) => {
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      const values = await form.validateFields();
+      
+      if (!appointment) {
+        message.error('Không tìm thấy thông tin lịch hẹn');
+        return;
+      }
+
+      const medicalRecordData: MedicalRecordFormData = {
+        profileId: (appointment.originalData as any)?.profileId?._id || '',
+        doctorId: (appointment.originalData as any)?.doctorId?._id || '',
+        appointmentId: appointment._id,
+        diagnosis: values.diagnosis,
+        symptoms: values.symptoms,
+        treatment: values.treatment,
+        medications: values.medications,
+        notes: values.notes,
+        followUpDate: values.followUpDate ? values.followUpDate.format('YYYY-MM-DD') : undefined
+      };
+
+      const success = await onSubmit(medicalRecordData);
+      
+      if (success) {
+        message.success('Tạo hồ sơ bệnh án thành công');
+        form.resetFields();
+        onCancel();
+      } else {
+        message.error('Tạo hồ sơ bệnh án thất bại');
+      }
+    } catch (error) {
+      console.error('❌ [ERROR] Failed to create medical record:', error);
+      message.error('Có lỗi xảy ra khi tạo hồ sơ bệnh án');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancel = () => {
+    form.resetFields();
+    onCancel();
+  };
+
+  return (
+    <Modal
+      title={
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            backgroundColor: '#f6ffed',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <MedicineBoxOutlined style={{ color: '#52c41a', fontSize: '18px' }} />
+          </div>
+          <div>
+            <div style={{ fontSize: '18px', fontWeight: 600, color: '#1f2937' }}>
+              Tạo hồ sơ bệnh án
+            </div>
+            <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '2px' }}>
+              Ghi lại thông tin khám bệnh và điều trị
+            </div>
+          </div>
+        </div>
+      }
+      open={visible}
+      onCancel={handleCancel}
+      width={800}
+      footer={[
+        <Button key="cancel" size="large" onClick={handleCancel}>
+          Hủy
+        </Button>,
+        <Button
+          key="submit"
+          type="primary"
+          size="large"
+          loading={loading}
+          onClick={handleSubmit}
+          icon={<MedicineBoxOutlined />}
+        >
+          Tạo hồ sơ bệnh án
+        </Button>
+      ]}
+      destroyOnClose
+    >
+      {appointment && (
+        <div style={{ marginBottom: '20px' }}>
+          {/* Patient Info Card */}
+          <Card size="small" style={{ marginBottom: '16px' }}>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Space>
+                  <UserOutlined style={{ color: '#1890ff' }} />
+                  <div>
+                    <Text strong>{appointment.patientName}</Text>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      {appointment.patientPhone}
+                    </div>
+                  </div>
+                </Space>
+              </Col>
+              <Col span={12}>
+                <Space>
+                  <CalendarOutlined style={{ color: '#52c41a' }} />
+                  <div>
+                    <Text strong>{appointment.serviceName}</Text>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      {moment(appointment.appointmentDate).format('DD/MM/YYYY')} - {appointment.appointmentTime}
+                    </div>
+                  </div>
+                </Space>
+              </Col>
+            </Row>
+          </Card>
+
+          {/* Medical Record Form */}
+          <Form
+            form={form}
+            layout="vertical"
+            requiredMark={false}
+          >
+            <Row gutter={16}>
+              <Col span={24}>
+                <Form.Item
+                  label="Chẩn đoán"
+                  name="diagnosis"
+                  rules={[
+                    { required: true, message: 'Vui lòng nhập chẩn đoán' },
+                    { min: 5, message: 'Chẩn đoán phải có ít nhất 5 ký tự' }
+                  ]}
+                >
+                  <Input.TextArea
+                    placeholder="Nhập chẩn đoán của bác sĩ..."
+                    rows={3}
+                    showCount
+                    maxLength={500}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  label="Triệu chứng"
+                  name="symptoms"
+                >
+                  <Input.TextArea
+                    placeholder="Mô tả triệu chứng của bệnh nhân..."
+                    rows={2}
+                    showCount
+                    maxLength={300}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  label="Phương pháp điều trị"
+                  name="treatment"
+                  rules={[
+                    { required: true, message: 'Vui lòng nhập phương pháp điều trị' },
+                    { min: 5, message: 'Phương pháp điều trị phải có ít nhất 5 ký tự' }
+                  ]}
+                >
+                  <Input.TextArea
+                    placeholder="Nhập phương pháp điều trị..."
+                    rows={2}
+                    showCount
+                    maxLength={300}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  label="Thuốc được kê đơn"
+                  name="medications"
+                >
+                  <Input.TextArea
+                    placeholder="Danh sách thuốc và liều dùng..."
+                    rows={2}
+                    showCount
+                    maxLength={400}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  label="Ngày tái khám"
+                  name="followUpDate"
+                >
+                  <DatePicker
+                    style={{ width: '100%' }}
+                    placeholder="Chọn ngày tái khám"
+                    format="DD/MM/YYYY"
+                    disabledDate={(current) => current && current < dayjs().endOf('day')}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Row gutter={16}>
+              <Col span={24}>
+                <Form.Item
+                  label="Ghi chú bổ sung"
+                  name="notes"
+                >
+                  <Input.TextArea
+                    placeholder="Ghi chú thêm của bác sĩ về tình trạng bệnh nhân..."
+                    rows={3}
+                    showCount
+                    maxLength={500}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Form>
+        </div>
+      )}
+    </Modal>
+  );
+};
+
+export default MedicalRecordModal;

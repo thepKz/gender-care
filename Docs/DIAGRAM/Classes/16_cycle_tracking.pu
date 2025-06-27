@@ -1,0 +1,84 @@
+@startuml 16_cycle_tracking
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Menstrual Cycle Tracking System - Class Diagram (Real Implementation)
+
+package "Cycle Tracking System" {
+    class MenstrualCycles {
+        - createdByUserId : ObjectId
+        - profileId : ObjectId
+        - startDate : Date
+        - endDate : Date
+        - stamp : string
+        - symbol : string
+        - mood : string
+        - observation : string
+        - notes : string
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createCycle() : boolean
+        + updateCycle(data) : boolean
+        + deleteCycle() : boolean
+        + getCyclesByUser(userId) : MenstrualCycles[]
+        + getCyclesByProfile(profileId) : MenstrualCycles[]
+        + getCurrentCycle() : MenstrualCycles
+        + calculateCycleLength() : number
+        + isActiveCycle() : boolean
+        - validateCycleDates() : boolean
+        - calculateAverageCycleLength() : number
+    }
+
+    class CycleSymptoms {
+        - cycleId : ObjectId
+        - symptom : string
+        --
+        + addSymptom() : boolean
+        + removeSymptom() : boolean
+        + getSymptomsByCycle(cycleId) : CycleSymptoms[]
+        + getUniqueSymptoms() : string[]
+        - validateSymptom() : boolean
+    }
+
+    class User {
+        - id : ObjectId
+        - email : string
+        - fullName : string
+        - role : UserRole
+        --
+        + trackCycle() : boolean
+        + getMyCycles() : MenstrualCycles[]
+        + addCycleSymptom(cycleId, symptom) : boolean
+        + canTrackCycle() : boolean
+    }
+
+    class UserProfiles {
+        - userId : ObjectId
+        - fullName : string
+        - phoneNumber : string
+        - dateOfBirth : Date
+        - gender : string
+        - address : string
+        --
+        + getCycleHistory() : MenstrualCycles[]
+        + getProfileForCycleTracking() : object
+        + isEligibleForCycleTracking() : boolean
+    }
+
+    enum UserRole {
+        customer
+        doctor
+        staff
+        manager
+        admin
+    }
+}
+
+' Relationships
+MenstrualCycles }|--|| User : "tracked by"
+MenstrualCycles }|--|| UserProfiles : "for profile"
+CycleSymptoms }|--|| MenstrualCycles : "symptoms of"
+
+@enduml 

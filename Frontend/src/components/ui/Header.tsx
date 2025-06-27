@@ -196,7 +196,7 @@ const Header: React.FC = () => {
                 <motion.img
                   whileHover={{ rotate: [0, -5, 5, -5, 0] }}
                   transition={{ duration: 0.5 }}
-                  src="/images/logo.jpg"
+                  src="/images/logo.png"
                   alt="Logo"
                   className={`${getLogoSize()} w-auto mr-2`}
                 />

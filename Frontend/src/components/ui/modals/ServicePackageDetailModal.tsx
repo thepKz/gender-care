@@ -1,27 +1,32 @@
-import {
-    CheckCircleOutlined,
-    ClockCircleOutlined,
-    CloseOutlined,
-    DollarOutlined,
-    EnvironmentOutlined
-} from '@ant-design/icons';
-import { Divider, Modal, Tag, Typography } from 'antd';
-import React from 'react';
-import { Service, ServicePackage } from '../../../types';
-
-const { Title, Text } = Typography;
+import { Modal } from 'antd';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ServicePackage } from '../../../types';
+import PurchasePackageModal from './PurchasePackageModal';
 
 interface ServicePackageDetailModalProps {
   visible: boolean;
   onClose: () => void;
-  servicePackage: ServicePackage | null;
+  servicePackage: ServicePackage;
+  onBookingClick?: (servicePackage: ServicePackage) => void;
 }
 
 const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
   visible,
   onClose,
-  servicePackage
+  servicePackage,
+  onBookingClick
 }) => {
+  const navigate = useNavigate();
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+
+  const handlePurchaseClick = () => {
+    setShowPurchaseModal(true);
+  };
+  const handleClosePurchaseModal = () => {
+    setShowPurchaseModal(false);
+  };
+
   if (!servicePackage) return null;
 
   // Format price - Định dạng giá tiền
@@ -29,248 +34,104 @@ const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
     return new Intl.NumberFormat('vi-VN').format(price);
   };
 
+  // Calculate total price of individual services
+  const calculateOriginalPrice = () => {
+    if (!servicePackage.services) return 0;
+    return servicePackage.services.reduce((total, service) => total + ((service as any).price || 0), 0);
+  };
+
+  // Calculate savings
+  const calculateSavings = () => {
+    const originalPrice = calculateOriginalPrice();
+    const packagePrice = servicePackage.price || 0;
+    return originalPrice - packagePrice;
+  };
+
   // Calculate discount percentage
-  const discountPercentage = Math.round(
-    ((servicePackage.priceBeforeDiscount - servicePackage.price) / servicePackage.priceBeforeDiscount) * 100
-  );
+  const calculateDiscountPercentage = () => {
+    const originalPrice = calculateOriginalPrice();
+    const savings = calculateSavings();
+    if (originalPrice === 0) return 0;
+    return Math.round((savings / originalPrice) * 100);
+  };
 
-  // Get service type icon - Lấy icon theo loại dịch vụ
-  const getServiceTypeIcon = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case 'consultation':
-        return '👩‍⚕️';
-      case 'test':
-        return '🔬';
-      case 'treatment':
-        return '💉';
-      default:
-        return '🏥';
+  // Handle booking
+  const handleBooking = () => {
+    if (onBookingClick) {
+      onBookingClick(servicePackage);
+    } else {
+      navigate('/booking', { 
+        state: { 
+          selectedPackage: servicePackage,
+          bookingType: 'package'
+        } 
+      });
     }
+    onClose();
   };
 
-  // Get service type label - Lấy nhãn theo loại dịch vụ
-  const getServiceTypeLabel = (type: string) => {
-    switch (type?.toLowerCase()) {
-      case 'consultation':
-        return 'Tư vấn';
-      case 'test':
-        return 'Xét nghiệm';
-      case 'treatment':
-        return 'Điều trị';
-      default:
-        return 'Khác';
-    }
-  };
-
-  // Get available location icon - Lấy icon theo địa điểm
-  const getLocationIcon = (location: string | undefined) => {
-    if (!location) return '📍';
-    
-    switch (location.toLowerCase()) {
-      case 'athome':
-        return '🏠';
-      case 'online':
-        return '💻';
-      case 'center':
-        return '🏥';
-      default:
-        return '📍';
-    }
-  };
-
-  // Get available location label - Lấy nhãn theo địa điểm
-  const getLocationLabel = (location: string | undefined) => {
-    if (!location) return 'Chưa xác định';
-    
-    switch (location.toLowerCase()) {
-      case 'center':
-        return 'Tại trung tâm';
-      default:
-        return location;
-    }
-  };
-
-  // Get services from serviceIds (handle both string and Service object)
-  const getServices = (): Service[] => {
-    return servicePackage.serviceIds.filter(service => 
-      typeof service === 'object' && service !== null
-    ) as Service[];
-  };
-
-  const services = getServices();
+  const originalPrice = calculateOriginalPrice();
+  const savings = calculateSavings();
+  const discountPercentage = calculateDiscountPercentage();
 
   return (
     <Modal
-      title={null}
       open={visible}
       onCancel={onClose}
       footer={null}
-      width={800}
-      className="service-package-detail-modal"
-      closeIcon={<CloseOutlined className="text-gray-400 hover:text-gray-600" />}
+      width={600}
+      title={<span className="font-bold text-lg">Chi tiết gói dịch vụ</span>}
     >
-      <div className="p-6">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-start gap-4">
-            <div className="flex-1">
-              <Title level={3} className="mb-2 text-gray-900">
-                {servicePackage.name}
-              </Title>
-              <Text className="text-gray-600 leading-relaxed">
-                {servicePackage.description}
-              </Text>
+      <div className="space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">{servicePackage.name}</h2>
+          <div className="text-gray-600 mb-2">{servicePackage.description || 'Gói dịch vụ chăm sóc sức khỏe toàn diện'}</div>
+          <div className="flex justify-center gap-6 mb-4">
+            <div className="text-center">
+              <div className="text-lg font-bold text-blue-600">{servicePackage.services?.length || 0}</div>
+              <div className="text-xs text-gray-500">Dịch vụ</div>
             </div>
-            <div className="flex-shrink-0">
-              {discountPercentage > 0 && (
-                <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
-                  -{discountPercentage}%
-                </div>
-              )}
+            <div className="text-center">
+              <div className="text-lg font-bold text-green-600">{servicePackage.durationInDays}</div>
+              <div className="text-xs text-gray-500">Ngày</div>
             </div>
           </div>
+          <div className="text-xl font-bold text-blue-700 mb-2">{servicePackage.price ? `${servicePackage.price.toLocaleString()} VNĐ` : 'Liên hệ'}</div>
         </div>
-
-        {/* Price Section */}
-        <div className="bg-gradient-to-br from-green-50 to-blue-50 p-4 rounded-xl border border-green-200/50 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <DollarOutlined className="text-green-primary" />
-            <Text strong className="text-green-primary font-semibold">
-              Giá ưu đãi đặc biệt
-            </Text>
-          </div>
-          
-          <div className="space-y-2">
-            {discountPercentage > 0 && (
-              <div className="flex items-center gap-2">
-                <Text delete type="secondary" className="text-sm font-medium">
-                  {formatPrice(servicePackage.priceBeforeDiscount)} VNĐ
-                </Text>
-                <div className="bg-red-500 text-white px-2 py-0.5 rounded-full text-xs font-bold">
-                  -{discountPercentage}%
-                </div>
-              </div>
-            )}
-            
-            <div className="flex items-center justify-between">
-              <Text strong className="text-2xl text-green-primary font-bold">
-                {formatPrice(servicePackage.price)} VNĐ
-              </Text>
-              
-              {discountPercentage > 0 && (
-                <div className="text-right">
-                  <div className="text-xs text-green-600 font-medium">Tiết kiệm</div>
-                  <div className="text-sm font-bold text-red-500">
-                    {formatPrice(servicePackage.priceBeforeDiscount - servicePackage.price)} VNĐ
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <Divider orientation="left">
-          <span className="text-gray-700 font-semibold">
-            Bao gồm {services.length} dịch vụ
-          </span>
-        </Divider>
-
         {/* Services List */}
-        <div className="space-y-4 max-h-96 overflow-y-auto">
-          {services.map((service, index) => (
-            <div
-              key={service._id || index}
-              className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow duration-200"
-            >
-              <div className="flex items-start gap-4">
-                {/* Service Icon */}
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-50 to-green-50 rounded-xl flex items-center justify-center">
-                    <span className="text-2xl">
-                      {getServiceTypeIcon(service.serviceType)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Service Details */}
-                <div className="flex-1">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <Title level={5} className="mb-1 text-gray-900">
-                        {service.serviceName}
-                      </Title>
-                      <Text className="text-gray-600 text-sm">
-                        {service.description}
-                      </Text>
-                    </div>
-                    <div className="text-right">
-                      <Text strong className="text-blue-primary">
-                        {formatPrice(service.price)} VNĐ
-                      </Text>
-                    </div>
-                  </div>
-
-                  {/* Service Meta */}
-                  <div className="flex items-center gap-4 text-sm">
-                    {/* Service Type */}
-                    <Tag
-                      color="blue"
-                      className="rounded-md border-0"
-                    >
-                      {getServiceTypeIcon(service.serviceType)} {getServiceTypeLabel(service.serviceType)}
-                    </Tag>
-
-                    {/* Available Location */}
-                    {service.availableAt && service.availableAt.length > 0 && (
-                      <div className="flex items-center gap-1 text-gray-600">
-                        <EnvironmentOutlined className="text-blue-primary" />
-                        <span>
-                          {getLocationIcon(service.availableAt[0])} {getLocationLabel(service.availableAt[0])}
-                          {service.availableAt.length > 1 && (
-                            <span className="text-xs text-gray-400 ml-1">
-                              +{service.availableAt.length - 1}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Package Benefits */}
-        <div className="mt-6 bg-blue-50 p-4 rounded-xl">
-          <div className="flex items-center gap-2 mb-3">
-            <CheckCircleOutlined className="text-blue-primary" />
-            <Text strong className="text-blue-primary">
-              Ưu điểm của gói dịch vụ
-            </Text>
+        {servicePackage.services && servicePackage.services.length > 0 && (
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+            <div className="font-semibold mb-2 text-gray-700">Danh sách dịch vụ:</div>
+            <ul className="space-y-1 text-sm">
+              {servicePackage.services.map((item, idx) => {
+                const service = typeof item.serviceId === 'object' ? item.serviceId : null;
+                return (
+                  <li key={idx} className="flex justify-between items-center py-1 border-b last:border-b-0">
+                    <span>{service?.serviceName || 'Dịch vụ'}</span>
+                    <span className="text-gray-500">{item.quantity} lượt</span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-green-500">✓</span>
-              <span className="text-gray-700">Tiết kiệm chi phí</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-green-500">✓</span>
-              <span className="text-gray-700">Chăm sóc toàn diện</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-green-500">✓</span>
-              <span className="text-gray-700">Ưu tiên đặt lịch</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-green-500">✓</span>
-              <span className="text-gray-700">Hỗ trợ tư vấn 24/7</span>
-            </div>
-          </div>
+        )}
+        {/* Nút Mua ngay */}
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-8 rounded-full transition-all duration-200 text-base"
+            onClick={handlePurchaseClick}
+          >
+            Mua ngay
+          </button>
         </div>
       </div>
+      {/* Modal thanh toán */}
+      <PurchasePackageModal
+        visible={showPurchaseModal}
+        onClose={handleClosePurchaseModal}
+        servicePackage={servicePackage}
+      />
     </Modal>
   );
 };

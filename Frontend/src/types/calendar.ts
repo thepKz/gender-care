@@ -1,4 +1,3 @@
-
 // Calendar Event Types
 export interface CalendarEvent {
   id: string;
@@ -53,12 +52,11 @@ export interface AdvancedCalendarProps {
 // Calendar Toolbar Props
 export interface CalendarToolbarProps {
   onNavigate: (action: 'prev' | 'next' | 'today') => void;
-  onView: (view: CalendarView) => void;
+  onViewChange: (view: CalendarView) => void;
   onToday: () => void;
-  label: string;
-  view: CalendarView;
+  currentDate: Date;
+  currentView: CalendarView;
   views: CalendarView[];
-  date?: Date;
 }
 
 // Event Style Getter

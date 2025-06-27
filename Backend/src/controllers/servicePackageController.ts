@@ -2,10 +2,12 @@ import { Request, Response } from 'express';
 import ServicePackages from '../models/ServicePackages';
 import Service from '../models/Service';
 import { AuthRequest, ApiResponse, PaginationQuery } from '../types';
-import { PackagePricingService } from '../services/packagePricingService';
+import { PackagePurchaseService } from '../services/packagePurchaseService';
+import systemLogService from '../services/systemLogService';
+import { LogAction, LogLevel } from '../models/SystemLogs';
 import mongoose from 'mongoose';
 
-// GET /service-packages - Get all service packages (removed search functionality)
+// GET /service-packages - Get all service packages (updated for new schema)
 export const getAllServicePackages = async (req: Request, res: Response) => {
   try {
     const { 
@@ -39,9 +41,9 @@ export const getAllServicePackages = async (req: Request, res: Response) => {
       }
     }
 
-    // Search by service - find packages that contain specific service
+    // 🔹 Updated: Search by service in new schema
     if (serviceId && typeof serviceId === 'string') {
-      filter.serviceIds = { $in: [serviceId] };
+      filter['services.serviceId'] = serviceId;
     }
 
     // Execute query with pagination
@@ -52,7 +54,7 @@ export const getAllServicePackages = async (req: Request, res: Response) => {
     const [packages, total] = await Promise.all([
       ServicePackages.find(filter)
         .populate({
-          path: 'serviceIds',
+          path: 'services.serviceId',
           select: 'serviceName price description serviceType availableAt isDeleted',
           match: { isDeleted: 0 } // Only populate active services
         })
@@ -63,33 +65,17 @@ export const getAllServicePackages = async (req: Request, res: Response) => {
       ServicePackages.countDocuments(filter)
     ]);
 
-    // Add pricing information for each package
-    const packagesWithPricing = await Promise.all(
-      packages.map(async (pkg) => {
-        try {
-          // Package đã là plain object từ .lean() nên không cần toObject()
-          const pricingResult = await PackagePricingService.calculatePackagePricing(pkg);
-          const valueMetrics = PackagePricingService.calculateValueMetrics(
-            pricingResult.baseServicePrice,
-            pricingResult.price,
-            pricingResult.originalPrice
-          );
-          return {
+    // 🔹 Simplified response - no complex pricing calculations
+    const packagesWithInfo = packages.map(pkg => ({
             ...pkg,
-            pricingInfo: pricingResult,
-            valueMetrics
-          };
-        } catch (error: unknown) {
-          console.error(`Error calculating pricing for package ${pkg._id}:`, error);
-          return pkg;
-        }
-      })
-    );
+      totalServiceQuantity: pkg.services.reduce((sum: number, service: any) => sum + service.quantity, 0),
+      serviceCount: pkg.services.length
+    }));
 
     const response: ApiResponse<any> = {
       success: true,
       data: {
-        packages: packagesWithPricing,
+        packages: packagesWithInfo,
         pagination: {
           total,
           page: Number(page),
@@ -110,7 +96,7 @@ export const getAllServicePackages = async (req: Request, res: Response) => {
   }
 };
 
-// POST /service-packages/search - Search service packages (new endpoint)
+// POST /service-packages/search - Search service packages (updated)
 export const searchServicePackages = async (req: Request, res: Response) => {
   try {
     const { 
@@ -133,9 +119,9 @@ export const searchServicePackages = async (req: Request, res: Response) => {
       ];
     }
 
-    // Search by service - find packages that contain specific service
+    // 🔹 Updated: Search by service in new schema
     if (serviceId && typeof serviceId === 'string') {
-      filter.serviceIds = { $in: [serviceId] };
+      filter['services.serviceId'] = serviceId;
     }
 
     // Execute query with pagination
@@ -146,7 +132,7 @@ export const searchServicePackages = async (req: Request, res: Response) => {
     const [packages, total] = await Promise.all([
       ServicePackages.find(filter)
         .populate({
-          path: 'serviceIds',
+          path: 'services.serviceId',
           select: 'serviceName price description serviceType availableAt isDeleted',
           match: { isDeleted: 0 } // Only populate active services
         })
@@ -157,33 +143,17 @@ export const searchServicePackages = async (req: Request, res: Response) => {
       ServicePackages.countDocuments(filter)
     ]);
 
-    // Add pricing information for each package
-    const packagesWithPricing = await Promise.all(
-      packages.map(async (pkg) => {
-        try {
-          // Package đã là plain object từ .lean() nên không cần toObject()
-          const pricingResult = await PackagePricingService.calculatePackagePricing(pkg);
-          const valueMetrics = PackagePricingService.calculateValueMetrics(
-            pricingResult.baseServicePrice,
-            pricingResult.price,
-            pricingResult.originalPrice
-          );
-          return {
+    // 🔹 Simplified response
+    const packagesWithInfo = packages.map(pkg => ({
             ...pkg,
-            pricingInfo: pricingResult,
-            valueMetrics
-          };
-        } catch (error: unknown) {
-          console.error(`Error calculating pricing for package ${pkg._id}:`, error);
-          return pkg;
-        }
-      })
-    );
+      totalServiceQuantity: pkg.services.reduce((sum: number, service: any) => sum + service.quantity, 0),
+      serviceCount: pkg.services.length
+    }));
 
     const response: ApiResponse<any> = {
       success: true,
       data: {
-        packages: packagesWithPricing,
+        packages: packagesWithInfo,
         pagination: {
           total,
           page: Number(page),
@@ -205,299 +175,203 @@ export const searchServicePackages = async (req: Request, res: Response) => {
   }
 };
 
-// POST /service-packages - Create new service package with auto-calculated price
+// POST /service-packages - Create new service package (updated)
 export const createServicePackage = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, description, price, serviceIds, durationInDays, maxUsages, maxProfiles } = req.body;
+    const {
+      name,
+      description,
+      priceBeforeDiscount,
+      price,
+      services, // 🔹 Changed from serviceIds to services
+      durationInDays = 30
+    } = req.body;
 
     // Validation
-    if (!name || !description || !price || !serviceIds || !Array.isArray(serviceIds) || serviceIds.length === 0 || !durationInDays || !maxUsages || !maxProfiles || !Array.isArray(maxProfiles)) {
-      const response: ApiResponse<any> = {
+    if (!name || !price || !services || !Array.isArray(services) || services.length === 0) {
+      return res.status(400).json({
         success: false,
-        message: 'All fields are required',
+        message: 'Missing required fields',
         errors: {
-          name: !name ? 'Package name is required' : '',
-          description: !description ? 'Description is required' : '',
-          price: !price ? 'Price is required' : '',
-          serviceIds: (!serviceIds || !Array.isArray(serviceIds) || serviceIds.length === 0) ? 'At least one service must be selected' : '',
-          durationInDays: !durationInDays ? 'Duration in days is required' : '',
-          maxUsages: !maxUsages ? 'Max usages is required' : '',
-          maxProfiles: (!maxProfiles || !Array.isArray(maxProfiles) || maxProfiles.length === 0) ? 'Profile options are required' : ''
+          name: !name ? 'Package name is required' : undefined,
+          price: !price ? 'Price is required' : undefined,
+          services: (!services || !Array.isArray(services) || services.length === 0) 
+            ? 'At least one service is required' : undefined
         }
-      };
-      return res.status(400).json(response);
-    }
-
-    // Auto-calculate price from services and maxUsages
-    const autoPrice = await PackagePricingService.calculateAutoPrice(serviceIds, maxUsages);
-
-    // Validate package data using pricing service
-    try {
-      PackagePricingService.validatePackageData({ 
-        price: Number(price),
-        serviceIds, 
-        durationInDays: Number(durationInDays), 
-        maxUsages: Number(maxUsages),
-        maxProfiles
       });
-    } catch (error: any) {
-      const response: ApiResponse<any> = {
-        success: false,
-        message: error.message,
-        errors: { validation: error.message }
-      };
-      return res.status(400).json(response);
     }
 
-    // Validate that all serviceIds exist and are not deleted
-    const services = await Service.find({ 
-      _id: { $in: serviceIds },
-      isDeleted: 0 
-    });
-    
-    if (services.length !== serviceIds.length) {
-      const response: ApiResponse<any> = {
+    // 🔹 Validate services format: [{serviceId, quantity}]
+    for (const service of services) {
+      if (!service.serviceId || !service.quantity || service.quantity < 1) {
+        return res.status(400).json({
         success: false,
-        message: 'One or more services not found or have been deleted'
-      };
-      return res.status(400).json(response);
-    }
-
-    // Validate price not higher than calculated price
-    if (Number(price) > autoPrice.calculatedPrice) {
-      const response: ApiResponse<any> = {
-        success: false,
-        message: `Price (${Number(price).toLocaleString()}đ) cannot be higher than calculated price (${autoPrice.calculatedPrice.toLocaleString()}đ)`
-      };
-      return res.status(400).json(response);
-    }
-
-    // Check if package with same name already exists (including deleted ones)
-    const existingPackage = await ServicePackages.findOne({ 
-      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
-    });
-    
-    if (existingPackage) {
-      if (existingPackage.isActive === false) {
-        const response: ApiResponse<any> = {
-          success: false,
-          message: 'Service package with this name exists but is deleted. Please recover it instead of creating new one.'
-        };
-        return res.status(409).json(response);
-      } else {
-        const response: ApiResponse<any> = {
-          success: false,
-          message: 'Service package with this name already exists'
-        };
-        return res.status(409).json(response);
+          message: 'Invalid service format',
+          errors: { services: 'Each service must have serviceId and quantity >= 1' }
+        });
       }
     }
 
+    // 🔹 Validate all service IDs exist
+    const serviceIds = services.map(s => s.serviceId);
+    const existingServices = await Service.find({ 
+      _id: { $in: serviceIds },
+      isDeleted: 0 
+    }).select('_id');
+    
+    if (existingServices.length !== serviceIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Some services not found or inactive',
+        errors: { services: 'Invalid service IDs provided' }
+      });
+    }
+
+    // Create package
     const newPackage = new ServicePackages({
       name: name.trim(),
-      description: description.trim(),
-      priceBeforeDiscount: autoPrice.calculatedPrice,
-      price: Number(price),
-      serviceIds,
-      durationInDays: Number(durationInDays),
-      maxUsages: Number(maxUsages),
-      maxProfiles,                             // Multi-profile support
+      description: description?.trim(),
+      priceBeforeDiscount: priceBeforeDiscount || price,
+      price,
+      services,
+      durationInDays,
       isActive: true
     });
 
-    const savedPackage = await newPackage.save();
+    await newPackage.save();
     
-    // Populate the saved package to return complete data with pricing
-    const populatedPackage = await ServicePackages.findById(savedPackage._id)
-      .populate({
-        path: 'serviceIds',
-        select: 'serviceName price description serviceType availableAt duration',
-        match: { isDeleted: 0 }
-      });
+    // Return with populated services
+    const savedPackage = await ServicePackages.findById(newPackage._id)
+      .populate('services.serviceId', 'serviceName price description');
 
-    // Calculate and add pricing information
-    const pricingInfo = await PackagePricingService.calculatePackagePricing(savedPackage);
-    
-    // Calculate value metrics
-    const valueMetrics = PackagePricingService.calculateValueMetrics(
-      pricingInfo.baseServicePrice,
-      pricingInfo.price,
-      pricingInfo.originalPrice
+    // Log system activity
+    await systemLogService.logFromRequest(req as any, LogAction.PACKAGE_CREATE, 
+      `Service package created: ${savedPackage?.name} - ${savedPackage?.services.length} services (${savedPackage?.price.toLocaleString()}đ)`, {
+        level: LogLevel.MANAGER,
+        targetId: (savedPackage?._id as mongoose.Types.ObjectId).toString(),
+        targetType: 'service_package',
+        metadata: {
+          packageName: savedPackage?.name,
+          price: savedPackage?.price,
+          priceBeforeDiscount: savedPackage?.priceBeforeDiscount,
+          servicesCount: savedPackage?.services.length,
+          durationInDays: savedPackage?.durationInDays
+        }
+      }
     );
 
     const response: ApiResponse<any> = {
       success: true,
-      data: {
-        package: populatedPackage,
-        pricingInfo,
-        valueMetrics,
-        autoCalculation: {
-          totalServicePrice: autoPrice.totalServicePrice,
-          calculatedPrice: autoPrice.calculatedPrice,
-          formula: `${autoPrice.totalServicePrice.toLocaleString()}đ × ${maxUsages} lượt = ${autoPrice.calculatedPrice.toLocaleString()}đ`
-        }
-      },
-      message: 'Service package created successfully'
+      message: 'Service package created successfully',
+      data: savedPackage
     };
 
     res.status(201).json(response);
   } catch (error: any) {
-    console.error('Error creating service package:', error);
     const response: ApiResponse<any> = {
       success: false,
-      message: 'Internal server error'
+      message: 'Error creating service package',
+      errors: { general: error.message }
     };
     res.status(500).json(response);
   }
 };
 
-// PUT /service-packages/:id - Update service package with auto-calculated price
+// PUT /service-packages/:id - Update service package (updated)
 export const updateServicePackage = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, description, price, serviceIds, durationInDays, maxUsages, maxProfiles, isActive } = req.body;
+    const updateData = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      const response: ApiResponse<any> = {
+      return res.status(400).json({
         success: false,
-        message: 'Invalid package ID'
-      };
-      return res.status(400).json(response);
+        message: 'Invalid package ID',
+        errors: { id: 'Invalid package ID format' }
+      });
     }
 
     const existingPackage = await ServicePackages.findById(id);
     if (!existingPackage) {
-      const response: ApiResponse<any> = {
+      return res.status(404).json({
         success: false,
-        message: 'Service package not found'
-      };
-      return res.status(404).json(response);
+        message: 'Service package not found',
+        errors: { package: 'Package does not exist' }
+      });
     }
 
-    // Auto-calculate price if services or maxUsages changed
-    let autoPrice: any = null;
-    let calculatedPrice = existingPackage.priceBeforeDiscount; // Keep existing if not changed
-    
-    if (serviceIds || maxUsages) {
-      const finalServiceIds = serviceIds || existingPackage.serviceIds;
-      const finalMaxUsages = maxUsages || existingPackage.maxUsages;
-      
-      autoPrice = await PackagePricingService.calculateAutoPrice(
-        finalServiceIds.map((id: any) => id.toString()), 
-        finalMaxUsages
-      );
-      calculatedPrice = autoPrice.calculatedPrice;
-    }
-
-    // Validate pricing if both prices are provided
-    if (price && Number(price) > calculatedPrice) {
-      const response: ApiResponse<any> = {
+    // 🔹 If updating services, validate format
+    if (updateData.services) {
+      if (!Array.isArray(updateData.services) || updateData.services.length === 0) {
+        return res.status(400).json({
         success: false,
-        message: `Price (${Number(price).toLocaleString()}đ) cannot be higher than calculated price (${calculatedPrice.toLocaleString()}đ)`
-      };
-      return res.status(400).json(response);
+          message: 'Services must be a non-empty array',
+          errors: { services: 'Invalid services format' }
+        });
     }
 
-    // Validate subscription fields if provided
-    if (durationInDays && (durationInDays < 1 || durationInDays > 365)) {
-      const response: ApiResponse<any> = {
+      // Validate each service
+      for (const service of updateData.services) {
+        if (!service.serviceId || !service.quantity || service.quantity < 1) {
+          return res.status(400).json({
         success: false,
-        message: 'Duration must be between 1 and 365 days'
-      };
-      return res.status(400).json(response);
+            message: 'Invalid service format',
+            errors: { services: 'Each service must have serviceId and quantity >= 1' }
+          });
+        }
     }
 
-    if (maxUsages && (maxUsages < 1 || maxUsages > 1000)) {
-      const response: ApiResponse<any> = {
-        success: false,
-        message: 'Max usages must be between 1 and 1000'
-      };
-      return res.status(400).json(response);
-    }
+      // Validate service IDs exist
+      const serviceIds = updateData.services.map((s: any) => s.serviceId);
+      const existingServices = await Service.find({ 
+        _id: { $in: serviceIds }, 
+        isDeleted: 0 
+      }).select('_id');
 
-    // Validate multi-profile fields if provided
-    if (maxProfiles) {
-      if (!Array.isArray(maxProfiles) || maxProfiles.length === 0) {
-        const response: ApiResponse<any> = {
+      if (existingServices.length !== serviceIds.length) {
+        return res.status(400).json({
           success: false,
-          message: 'maxProfiles must be a non-empty array'
-        };
-        return res.status(400).json(response);
-      }
-      
-      const validProfileCounts = maxProfiles.every((p: number) => Number.isInteger(p) && p >= 1 && p <= 4);
-      if (!validProfileCounts) {
-        const response: ApiResponse<any> = {
-          success: false,
-          message: 'maxProfiles must contain valid profile counts (1-4)'
-        };
-        return res.status(400).json(response);
+          message: 'Some services not found or inactive',
+          errors: { services: 'Invalid service IDs provided' }
+        });
       }
     }
 
-    // Update fields
-    const updateData: any = {};
-    if (name) updateData.name = name.trim();
-    if (description) updateData.description = description.trim();
-    if (serviceIds || maxUsages) updateData.priceBeforeDiscount = calculatedPrice;
-    if (price) updateData.price = Number(price);
-    if (serviceIds) updateData.serviceIds = serviceIds;
-    if (durationInDays) updateData.durationInDays = Number(durationInDays);
-    if (maxUsages) updateData.maxUsages = Number(maxUsages);
-    if (maxProfiles) updateData.maxProfiles = maxProfiles;
-    if (typeof isActive === 'boolean') updateData.isActive = isActive;
-
+    // Update package
     const updatedPackage = await ServicePackages.findByIdAndUpdate(
       id,
-      updateData,
+      { ...updateData, updatedAt: new Date() },
       { new: true, runValidators: true }
-    ).populate({
-      path: 'serviceIds',
-      select: 'serviceName price description serviceType availableAt duration',
-      match: { isDeleted: 0 }
-    });
+    ).populate('services.serviceId', 'serviceName price description');
 
-    if (!updatedPackage) {
-      const response: ApiResponse<any> = {
-        success: false,
-        message: 'Failed to update service package'
-      };
-      return res.status(500).json(response);
-    }
-
-    // Calculate and add pricing information
-    const pricingInfo = await PackagePricingService.calculatePackagePricing(updatedPackage);
-    
-    // Calculate value metrics
-    const valueMetrics = PackagePricingService.calculateValueMetrics(
-      pricingInfo.baseServicePrice,
-      pricingInfo.price,
-      pricingInfo.originalPrice
+    // Log system activity
+    const changedFields = Object.keys(updateData);
+    await systemLogService.logFromRequest(req as any, LogAction.PACKAGE_UPDATE, 
+      `Service package updated: ${updatedPackage?.name} - Fields changed: ${changedFields.join(', ')}`, {
+        level: LogLevel.MANAGER,
+        targetId: id,
+        targetType: 'service_package',
+        metadata: {
+          packageName: updatedPackage?.name,
+          changedFields,
+          updateData,
+          originalName: existingPackage.name
+        }
+      }
     );
 
     const response: ApiResponse<any> = {
       success: true,
-      data: {
-        package: updatedPackage,
-        pricingInfo,
-        valueMetrics,
-        ...(autoPrice && {
-          autoCalculation: {
-            totalServicePrice: autoPrice.totalServicePrice,
-            calculatedPrice: autoPrice.calculatedPrice,
-            formula: `${autoPrice.totalServicePrice.toLocaleString()}đ × ${updatedPackage.maxUsages} lượt = ${autoPrice.calculatedPrice.toLocaleString()}đ`
-          }
-        })
-      },
-      message: 'Service package updated successfully'
+      message: 'Service package updated successfully',
+      data: updatedPackage
     };
 
     res.json(response);
   } catch (error: any) {
-    console.error('Error updating service package:', error);
     const response: ApiResponse<any> = {
       success: false,
-      message: 'Internal server error'
+      message: 'Error updating service package',
+      errors: { general: error.message }
     };
     res.status(500).json(response);
   }
@@ -509,39 +383,56 @@ export const deleteServicePackage = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      const response: ApiResponse<any> = {
+      return res.status(400).json({
         success: false,
-        message: 'Invalid package ID'
-      };
-      return res.status(400).json(response);
+        message: 'Invalid package ID',
+        errors: { id: 'Invalid package ID format' }
+      });
     }
 
-    // Check if package exists and is not already deleted
-    const existingPackage = await ServicePackages.findOne({ _id: id, isActive: true });
-    if (!existingPackage) {
-      const response: ApiResponse<any> = {
+    const packageToDelete = await ServicePackages.findById(id);
+    
+    const updatedPackage = await ServicePackages.findByIdAndUpdate(
+      id,
+      { isActive: false, updatedAt: new Date() },
+      { new: true }
+    );
+
+    if (!updatedPackage) {
+      return res.status(404).json({
         success: false,
-        message: 'Service package not found or already deleted'
-      };
-      return res.status(404).json(response);
+        message: 'Service package not found',
+        errors: { package: 'Package does not exist' }
+      });
     }
 
-    // Soft delete the package
-    await ServicePackages.findByIdAndUpdate(id, { 
-      isActive: false
-    });
+    // Log system activity
+    await systemLogService.logFromRequest(req as any, LogAction.PACKAGE_DELETE, 
+      `Service package deleted: ${packageToDelete?.name} - ${packageToDelete?.services.length} services (${packageToDelete?.price.toLocaleString()}đ)`, {
+        level: LogLevel.MANAGER,
+        targetId: id,
+        targetType: 'service_package',
+        metadata: {
+          packageName: packageToDelete?.name,
+          price: packageToDelete?.price,
+          servicesCount: packageToDelete?.services.length,
+          deletedAt: new Date()
+        }
+      }
+    );
 
     const response: ApiResponse<any> = {
       success: true,
-      message: 'Service package deleted successfully'
+      message: 'Service package deleted successfully',
+      data: updatedPackage
     };
 
     res.json(response);
   } catch (error: any) {
-    console.error('Error deleting service package:', error);
     const response: ApiResponse<any> = {
       success: false,
-      message: 'Error deleting service package'
+      message: 'Error deleting service package',
+      errors: { general: error.message }
     };
     res.status(500).json(response);
   }
@@ -552,69 +443,32 @@ export const recoverServicePackage = async (req: AuthRequest, res: Response) => 
   try {
     const { id } = req.params;
 
-    // Check if package exists and is deleted
-    const packageToRecover = await ServicePackages.findOne({ _id: id, isActive: false });
-    if (!packageToRecover) {
-      const response: ApiResponse<any> = {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
         success: false,
-        message: 'Service package not found or is not deleted'
-      };
-      return res.status(404).json(response);
+        message: 'Invalid package ID',
+        errors: { id: 'Invalid package ID format' }
+      });
     }
 
-    // Check if there's already an active package with the same name
-    const existingActivePackage = await ServicePackages.findOne({
-      name: { $regex: new RegExp(`^${packageToRecover.name}$`, 'i') },
-      _id: { $ne: id },
-      isActive: true
-    });
-
-    if (existingActivePackage) {
-      const response: ApiResponse<any> = {
-        success: false,
-        message: `Cannot recover service package. An active package with name "${packageToRecover.name}" already exists.`
-      };
-      return res.status(409).json(response);
-    }
-
-    // Check if all services in the package are still available
-    const services = await Service.find({ 
-      _id: { $in: packageToRecover.serviceIds },
-      isDeleted: 0 
-    });
-
-    if (services.length !== packageToRecover.serviceIds.length) {
-      const deletedServiceIds = packageToRecover.serviceIds.filter(serviceId => 
-        !services.some(service => (service as any)._id.toString() === serviceId.toString())
-      );
-
-      const response: ApiResponse<any> = {
-        success: false,
-        message: `Cannot recover service package. Some services in this package have been deleted. Please update the package services first.`,
-        errors: {
-          deletedServices: `Deleted service IDs: ${deletedServiceIds.join(', ')}`
-        }
-      };
-      return res.status(400).json(response);
-    }
-
-    // Recover the package
     const recoveredPackage = await ServicePackages.findByIdAndUpdate(
       id,
-      { 
-        isActive: true
-      },
+      { isActive: true, updatedAt: new Date() },
       { new: true }
-    ).populate({
-      path: 'serviceIds',
-      select: 'serviceName price description serviceType availableAt duration',
-      match: { isDeleted: 0 }
+    ).populate('services.serviceId', 'serviceName price description');
+
+    if (!recoveredPackage) {
+      return res.status(404).json({
+        success: false,
+        message: 'Service package not found',
+        errors: { package: 'Package does not exist' }
     });
+    }
 
     const response: ApiResponse<any> = {
       success: true,
-      data: recoveredPackage,
-      message: 'Service package recovered successfully'
+      message: 'Service package recovered successfully',
+      data: recoveredPackage
     };
 
     res.json(response);
@@ -628,70 +482,72 @@ export const recoverServicePackage = async (req: AuthRequest, res: Response) => 
   }
 };
 
-// GET /service-packages/:id/pricing - Get pricing info for a package
-export const getPackagePricing = async (req: Request, res: Response) => {
+// GET /service-packages/:id - Get single service package
+export const getServicePackageById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      const response: ApiResponse<any> = {
+      return res.status(400).json({
         success: false,
-        message: 'Invalid package ID'
-      };
-      return res.status(400).json(response);
-    }
-
-    const packageData = await ServicePackages.findById(id)
-      .populate({
-        path: 'serviceIds',
-        select: 'serviceName price description serviceType availableAt',
-        match: { isDeleted: 0 }
+        message: 'Invalid package ID',
+        errors: { id: 'Invalid package ID format' }
       });
-
-    if (!packageData) {
-      const response: ApiResponse<any> = {
-        success: false,
-        message: 'Service package not found'
-      };
-      return res.status(404).json(response);
     }
 
-    // Calculate pricing information
-    const pricingInfo = await PackagePricingService.calculatePackagePricing(packageData);
-    
-    // Calculate value metrics
-    const valueMetrics = PackagePricingService.calculateValueMetrics(
-      pricingInfo.baseServicePrice,
-      pricingInfo.price,
-      pricingInfo.originalPrice
-    );
+    const servicePackage = await ServicePackages.findOne({ _id: id, isActive: true })
+      .populate('services.serviceId', 'serviceName price description serviceType');
 
-    // Auto-calculate price from services and maxUsages
-    const autoPrice = await PackagePricingService.calculateAutoPrice(
-      packageData.serviceIds.map((id: any) => id.toString()),
-      packageData.maxUsages
-    );
+    if (!servicePackage) {
+      return res.status(404).json({
+        success: false,
+        message: 'Service package not found',
+        errors: { package: 'Package does not exist or is inactive' }
+      });
+    }
 
     const response: ApiResponse<any> = {
       success: true,
-      data: {
-        package: packageData,
-        pricingInfo,
-        valueMetrics,
-        autoCalculation: {
-          totalServicePrice: autoPrice.totalServicePrice,
-          calculatedPrice: autoPrice.calculatedPrice,
-          formula: `${autoPrice.totalServicePrice.toLocaleString()}đ × ${packageData.maxUsages} lượt = ${autoPrice.calculatedPrice.toLocaleString()}đ`
-        }
-      }
+      data: servicePackage
     };
 
     res.json(response);
   } catch (error: any) {
-    console.error('Error getting package pricing:', error);
     const response: ApiResponse<any> = {
       success: false,
-      message: 'Internal server error'
+      message: 'Error fetching service package',
+      errors: { general: error.message }
+    };
+    res.status(500).json(response);
+  }
+};
+
+// GET /service-packages/:id/pricing - Get package pricing info (simplified)
+export const getPackagePurchase = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid package ID',
+        errors: { id: 'Invalid package ID format' }
+      });
+    }
+
+    const pricingInfo = await PackagePurchaseService.calculatePackageValue(id);
+
+    const response: ApiResponse<any> = {
+      success: true,
+      data: pricingInfo
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    const response: ApiResponse<any> = {
+      success: false,
+      message: 'Error calculating package pricing',
+      errors: { general: error.message }
     };
     res.status(500).json(response);
   }
@@ -720,7 +576,7 @@ export const calculateAutoPrice = async (req: Request, res: Response) => {
     }
 
     // Auto-calculate price
-    const autoPrice = await PackagePricingService.calculateAutoPrice(serviceIds, maxUsages);
+    const autoPrice = await PackagePurchaseService.calculateAutoPrice(serviceIds, maxUsages);
 
     const response: ApiResponse<any> = {
       success: true,
@@ -774,9 +630,14 @@ export const getUsageProjection = async (req: Request, res: Response) => {
     }
 
     // Calculate usage projection
-    const projection = PackagePricingService.calculateUsageProjection(
+    // Calculate total services in package
+    const totalServicesInPackage = packageData.services?.reduce(
+      (sum, service) => sum + service.quantity, 0
+    ) || 0;
+
+    const projection = PackagePurchaseService.calculateUsageProjection(
       packageData.durationInDays,
-      packageData.maxUsages,
+      totalServicesInPackage, // Use total service quantity instead of maxUsages
       Number(expectedUsagePerWeek)
     );
 
@@ -796,7 +657,7 @@ export const getUsageProjection = async (req: Request, res: Response) => {
         packageId: packageData._id,
         packageName: packageData.name,
         durationInDays: packageData.durationInDays,
-        maxUsages: packageData.maxUsages,
+        totalServicesInPackage: totalServicesInPackage,
         expectedUsagePerWeek,
         projection,
         recommendation

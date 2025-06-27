@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { DividerComponent } from "../../shared";
 import VerticalTimeline from "../../components/story/VerticalTimeline";
 import ServicesGrid from "../../components/story/ServicesGrid";
-import MasonryGallery from "../../components/story/MasonryGallery";
 import TestimonialsSpotlight from "../../components/story/TestimonialsSpotlight";
 import CommitmentParallax from "../../components/story/CommitmentParallax";
 import HeroSection from "../../components/story/HeroSection";

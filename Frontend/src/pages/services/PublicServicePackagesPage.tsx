@@ -211,7 +211,6 @@ const PublicServicePackagesPage: React.FC = () => {
                     <ServicePackageDisplayCard
                       servicePackage={servicePackage}
                       className="h-full"
-                      showBookingButton={true}
                     />
                   </Col>
                 ))}

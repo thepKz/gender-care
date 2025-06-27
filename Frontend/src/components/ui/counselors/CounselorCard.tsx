@@ -11,7 +11,7 @@ interface Props {
 const fallbackAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=doctor&backgroundColor=ffffff';
 
 const CounselorCard: React.FC<Props> = ({ doctor, onBook, onView }) => {
-  const avatar = doctor.image || doctor.userId.avatar || fallbackAvatar;
+  const avatar = doctor.image || doctor.userId?.avatar || fallbackAvatar;
   const rating = doctor.rating || 0;
   const experience = doctor.experience || 0;
   const workplace = doctor.workplace || 'Bệnh viện Đa khoa';
@@ -39,6 +39,7 @@ const CounselorCard: React.FC<Props> = ({ doctor, onBook, onView }) => {
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = fallbackAvatar;
             }}
+            loading="lazy"
           />
           <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-2 border-white rounded-full flex items-center justify-center">
             <div className="w-2 h-2 bg-white rounded-full"></div>
@@ -51,7 +52,7 @@ const CounselorCard: React.FC<Props> = ({ doctor, onBook, onView }) => {
         {/* Doctor Name & Title */}
         <div className="text-center mb-4">
           <h3 className="text-xl font-bold text-[#0C3C54] mb-1 leading-tight">
-            {title} {doctor.userId.fullName}
+            {title} {doctor.userId?.fullName || 'Bác sĩ'}
           </h3>
           <p className="text-[#2A7F9E] font-semibold text-base">
             {doctor.specialization || 'Bác sĩ chuyên khoa'}

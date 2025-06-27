@@ -1,0 +1,127 @@
+@startuml 13_test_management
+
+skinparam classAttributeIconSize 0
+skinparam backgroundColor LightYellow
+skinparam classBackgroundColor LightBlue
+skinparam classBorderColor DarkBlue
+
+title Test Management System - Class Diagram (Actual Implementation)
+
+package "Test Management System" {
+    class AppointmentTests {
+        - _id : ObjectId
+        - appointmentId : string
+        - description : string
+        - name : string
+        - price : number
+        - preparationGuidelines : string
+        - resultWaitTime : string
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + createTest() : boolean
+        + updateTest(data) : boolean
+        + deleteTest() : boolean
+        + getTestsByAppointment(appointmentId) : AppointmentTests[]
+        + calculateTotalCost() : number
+        + updatePrice(newPrice) : boolean
+        + addGuidelines(guidelines) : boolean
+        - validateTestData() : boolean
+        - formatTestInfo() : object
+    }
+
+    class TestCategories {
+        - _id : ObjectId
+        - name : string [unique]
+        - description : string
+        - unit : string
+        - normalRange : string
+        - createdAt : DateTime
+        - updatedAt : DateTime
+        --
+        + createCategory() : boolean
+        + updateCategory(data) : boolean
+        + deleteCategory() : boolean
+        + getAllCategories() : TestCategories[]
+        + searchByName(name) : TestCategories[]
+        + setNormalRange(range) : boolean
+        + updateUnit(unit) : boolean
+        - validateCategoryData() : boolean
+        - checkUniqueName() : boolean
+    }
+
+    class TestResults {
+        - _id : ObjectId
+        - appointmentTestId : ObjectId
+        - conclusion : string
+        - recommendations : string
+        - createdAt : DateTime
+        --
+        + createResult() : boolean
+        + updateResult(data) : boolean
+        + deleteResult() : boolean
+        + getResultsByTest(testId) : TestResults[]
+        + addConclusion(conclusion) : boolean
+        + addRecommendations(recommendations) : boolean
+        + getResultItems() : TestResultItems[]
+        - validateResultData() : boolean
+        - formatResultOutput() : object
+    }
+
+    class TestResultItems {
+        - _id : ObjectId
+        - testResultId : ObjectId
+        - itemNameId : ObjectId
+        - value : string
+        - unit : string
+        - currentRange : string
+        - flag : string
+        --
+        + createResultItem() : boolean
+        + updateResultItem(data) : boolean
+        + deleteResultItem() : boolean
+        + getItemsByResult(resultId) : TestResultItems[]
+        + setFlag(flag) : boolean
+        + compareToNormalRange() : string
+        + calculateDeviation() : number
+        - validateItemData() : boolean
+        - determineFlag() : string
+    }
+
+    enum TestFlag {
+        HIGH
+        LOW
+        NORMAL
+    }
+
+    note right of AppointmentTests
+        Simple test management:
+        - Basic test information
+        - Linked to appointments
+        - Price and guidelines
+        - No complex workflow
+    end note
+
+    note right of TestResults
+        Simple results system:
+        - Basic conclusion and recommendations
+        - Linked to specific tests
+        - No complex reporting features
+    end note
+}
+
+' External references
+class Appointments {
+    - _id : ObjectId
+    - profileId : ObjectId
+    - appointmentDate : DateTime
+}
+
+' Relationships
+AppointmentTests }o--|| Appointments : "belongs to"
+TestResults }o--|| AppointmentTests : "for test"
+TestResultItems }o--|| TestResults : "part of"
+TestResultItems }o--|| TestCategories : "references"
+TestResultItems ||--|| TestFlag : "has flag"
+
+@enduml 

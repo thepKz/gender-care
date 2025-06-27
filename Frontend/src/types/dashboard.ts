@@ -10,6 +10,18 @@ export interface DashboardStat {
   description?: string;
 }
 
+// Interface for API response data from backend
+export interface DashboardStats {
+  totalDoctors?: number;
+  totalServices?: number;
+  todayAppointments?: number;
+  monthlyRevenue?: number;
+  pendingAppointments?: number;
+  completedToday?: number;
+  efficiency?: number;
+  weeklyAppointments?: number;
+}
+
 export interface ActivityItem {
   id: string;
   user?: string;

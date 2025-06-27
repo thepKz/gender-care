@@ -28,3 +28,6 @@ coverage/*
 jest-results.xml    
 jest-results.json
 .cursor/
+.roo/
+.taskmaster/
+.tasks/

@@ -6,7 +6,7 @@ import {
   deleteServicePackage,
   recoverServicePackage,
   searchServicePackages,
-  getPackagePricing,
+  getPackagePurchase,
   getUsageProjection
 } from '../controllers/servicePackageController';
 import { authMiddleware } from '../middleware/authMiddleware';
@@ -22,7 +22,7 @@ router.get('/', optionalAuthMiddleware, getAllServicePackages);   // GET /servic
 router.post('/search', searchServicePackages);                   // POST /service-packages/search - Public search
 
 // Public pricing and usage projection endpoints - không cần authentication vì là thông tin công khai
-router.get('/:id/pricing', getPackagePricing);                   // GET /service-packages/:id/pricing - Get pricing info with value metrics
+router.get('/:id/purchase', getPackagePurchase);                   // GET /service-packages/:id/purchase - Get purchase info with value metrics
 router.post('/:id/usage-projection', getUsageProjection);        // POST /service-packages/:id/usage-projection - Calculate usage projection for planning
 
 // Protected routes - cần authentication và manager authorization

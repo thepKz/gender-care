@@ -2,7 +2,7 @@ import { CalendarOutlined, DeleteOutlined, EditOutlined, PhoneOutlined, UserOutl
 import { Button, Popconfirm, Tooltip } from 'antd';
 import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
-import { Man, Profile, Profile2User, Woman } from 'iconsax-react';
+import { Profile2User } from 'iconsax-react';
 import React from 'react';
 import { UserProfile } from '../../../types';
 import './UserProfile.css';
@@ -21,7 +21,6 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
   onEdit,
   onDelete,
   onView,
-  loading = false,
   className = ''
 }) => {
   const getGenderColor = (gender: string) => {
@@ -35,16 +34,7 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
     }
   };
 
-  const getGenderIcon = (gender: string) => {
-    switch (gender) {
-      case 'male':
-        return <Man size={18} color={getGenderColor(gender)} variant="Bold" />;
-      case 'female':
-        return <Woman size={18} color={getGenderColor(gender)} variant="Bold" />;
-      default:
-        return <Profile size={18} color={getGenderColor(gender)} variant="Bold" />;
-    }
-  };
+
 
   const getGenderText = (gender: string) => {
     switch (gender) {
@@ -77,39 +67,39 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
       className={className}
     >
       <div
-        className="relative p-5 overflow-hidden border border-[#0C3C54] hover:border-blue-400 transition-all duration-300 hover:shadow-lg group cursor-pointer"
+        className="relative p-3 overflow-hidden border border-[#0C3C54] hover:border-blue-400 transition-all duration-300 hover:shadow-lg group cursor-pointer rounded-lg h-full min-h-[190px] flex flex-col"
         onClick={(e) => {
           if ((e.target as HTMLElement).closest('.card-action-btn')) return;
           onView();
         }}
       >
         {/* Background Pattern */}
-        <div className="absolute top-0 right-0 w-20 h-20 opacity-5 group-hover:opacity-10 transition-opacity">
-          <Profile2User size={80} color={getGenderColor(profile.gender)} />
+        <div className="absolute top-0 right-0 w-12 h-12 opacity-5 group-hover:opacity-10 transition-opacity">
+          <Profile2User size={48} color={getGenderColor(profile.gender)} />
         </div>
 
         {/* Main Content */}
-        <div className="relative z-10">
+        <div className="relative z-10 flex-1 flex flex-col">
           {/* Header with Avatar and Actions */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center space-x-3">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex items-center space-x-1.5">
               <motion.div
                 whileHover={{ scale: 1.1 }}
                 transition={{ duration: 0.2 }}
               >
-                <div className="w-12 h-12 rounded-full border-[#0C3C54] p-1">
-                  <div className="w-10 h-10 rounded-full bg-white p-1">
-                    <UserOutlined />
+                <div className="w-8 h-8 rounded-full border-[#0C3C54] p-0.5">
+                  <div className="w-7 h-7 rounded-full bg-white p-1 flex items-center justify-center">
+                    <UserOutlined className="text-xs" />
                   </div>
                 </div>
               </motion.div>
               
               <div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-1 line-clamp-1">
+                <h3 className="text-base font-semibold text-gray-800 mb-0.5 line-clamp-1">
                   {profile.fullName}
                 </h3>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm text-[#0C3C54] font-semibold border border-[#0C3C54] px-2 py-1 rounded-full">
+                <div className="flex items-center space-x-1.5">
+                  <span className="text-sm text-[#0C3C54] font-medium border border-[#0C3C54] px-1.5 py-0.5 rounded-full">
                     {getGenderText(profile.gender)}
                   </span>
                   {getAge() && (
@@ -156,30 +146,50 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
           </div>
 
           {/* Profile Details */}
-          <div className="space-y-3">
+          <div className="space-y-1.5 flex-1">
             {profile.phone && (
-              <div className="flex items-center space-x-2 text-gray-600">
-                <PhoneOutlined className="text-green-500" />
+              <div className="flex items-center space-x-1.5 text-gray-600">
+                <PhoneOutlined className="text-green-500 text-sm" />
                 <span className="text-sm">{profile.phone}</span>
               </div>
             )}
             
             {profile.year && (
-              <div className="flex items-center space-x-2 text-gray-600">
-                <CalendarOutlined className="text-orange-500" />
+              <div className="flex items-center space-x-1.5 text-gray-600">
+                <CalendarOutlined className="text-orange-500 text-sm" />
                 <span className="text-sm">Sinh năm: {dayjs(profile.year).year()}</span>
               </div>
             )}
           </div>
 
           {/* Footer */}
-          <div className="mt-4 pt-3 border-t border-gray-100">
-            <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="mt-2 pt-1.5 border-t border-gray-100">
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
               <span>Tạo lúc: {formatDate(profile.createdAt)}</span>
               {profile.updatedAt !== profile.createdAt && (
                 <span>Cập nhật: {formatDate(profile.updatedAt)}</span>
               )}
             </div>
+            
+            {/* Button Xem chi tiết bệnh án */}
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full"
+            >
+              <Button
+                type="primary"
+                block
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onView();
+                }}
+                className="bg-[#0C3C54] hover:bg-[#0C3C54]/90 border-0 text-white font-medium card-action-btn"
+              >
+                📋 Xem chi tiết bệnh án
+              </Button>
+            </motion.div>
           </div>
         </div>
 

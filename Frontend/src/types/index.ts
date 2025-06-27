@@ -44,6 +44,17 @@ export interface RegisterRequest {
   phone?: string;
 }
 
+export interface CreateUserRequest {
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+  role: 'guest' | 'customer' | 'doctor' | 'staff' | 'manager' | 'admin';
+  gender: 'male' | 'female' | 'other';
+  address?: string;
+  year?: string;
+}
+
 export interface RegisterResponse {
   user: User;
   token: string;
@@ -86,6 +97,8 @@ export interface LoginHistory {
   ipAddress: string;
   userAgent: string;
   loginAt: string;
+  logoutAt?: string;
+  location?: string;
   status: 'success' | 'failed';
   failReason?: string;
 }
@@ -157,10 +170,11 @@ export interface CreateServiceRequest {
   image?: string;
   serviceType: 'consultation' | 'test' | 'treatment' | 'other';
   availableAt: ('Athome' | 'Online' | 'Center')[];
+  status?: 'active' | 'inactive';
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface UpdateServiceRequest extends Partial<CreateServiceRequest> {}
+export interface UpdateServiceRequest extends Partial<CreateServiceRequest> { }
 
 export interface GetServicesParams {
   page?: number;
@@ -200,58 +214,36 @@ export interface ServiceResponse {
   message?: string;
 }
 
-// Service package types - Hybrid model with subscription + multi-profile support
+// Service item trong package với quantity
+export interface ServiceItem {
+  serviceId: string | Service;
+  quantity: number;
+}
+
+// Service package types - Simplified for new schema
 export interface ServicePackage {
   _id: string;
   name: string;
-  description: string;
-  priceBeforeDiscount: number;  // Giá gốc được tính tự động từ tổng giá dịch vụ x maxUsages
-  price: number;                // Giá đã giảm (nếu có) – không dùng mã
-  serviceIds: string[] | Service[];
+  description?: string;
+  priceBeforeDiscount: number;
+  price: number;
+  services: ServiceItem[];       // 🔹 NEW: Services with quantity
+  durationInDays: number;        // 🔹 Package duration in days
   isActive: boolean;
-  durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
-  maxUsages: number;           // 🔹 Số lượt được dùng tối đa cho toàn gói
-  maxProfiles: number[];       // 🔹 [1, 2, 4] - Số người tối đa có thể sử dụng gói
-  isMultiProfile: boolean;     // 🔹 Gói này có hỗ trợ nhiều hồ sơ không
-  pricingInfo?: {
-    packageId: string;
-    packageName: string;
-    baseServicePrice: number;       // Tổng giá của các dịch vụ trong gói
-    originalPrice: number;          // Giá gốc được tính tự động
-    discountPercentage: number;     // % giảm giá
-    durationInDays: number;         // Thời hạn sử dụng
-    maxUsages: number;             // Số lượt được dùng tối đa
-    maxProfiles: number[];         // Tùy chọn số profile
-    isMultiProfile: boolean;       // Hỗ trợ nhiều hồ sơ
-    pricePerUsage: number;         // Giá mỗi lượt sử dụng
-    pricePerDay: number;           // Giá mỗi ngày sử dụng
-    pricePerProfile: number;       // Giá trung bình mỗi profile (cho multi-profile)
-  };
-  valueMetrics?: {
-    savingsAmount: number;
-    savingsPercentage: number;
-    valueRating: 'excellent' | 'good' | 'fair' | 'poor';
-  };
-  autoCalculation?: {
-    totalServicePrice: number;     // Tổng giá các dịch vụ
-    calculatedPrice: number;       // Giá được tính tự động
-    formula: string;               // Công thức tính giá
-  };
-  pricingSummary?: string;
+  totalServiceQuantity?: number; // 🔹 Total quantity of all services
+  serviceCount?: number;         // 🔹 Number of different services
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateServicePackageRequest {
   name: string;
-  description: string;
-  priceBeforeDiscount: number;
-  price: number;                // Chỉ cần nhập giá khuyến mãi, priceBeforeDiscount sẽ được tính tự động
-  serviceIds: string[];
-  durationInDays: number;       // 🔹 Thời hạn sử dụng tính theo ngày (30, 90...)
-  maxUsages: number;           // 🔹 Số lượt được dùng tối đa cho toàn gói
-  maxProfiles: number[];       // 🔹 [1, 2, 4] - Số người tối đa có thể sử dụng gói
-  isMultiProfile: boolean;     // 🔹 Gói này có hỗ trợ nhiều hồ sơ không
+  description?: string;
+  priceBeforeDiscount?: number;
+  price: number;
+  services: ServiceItem[];       // 🔹 NEW: Services with quantity
+  durationInDays?: number;
+  isActive?: boolean;             // ✅ NEW: Add isActive to CreateServicePackageRequest
 }
 
 export interface UpdateServicePackageRequest extends Partial<CreateServicePackageRequest> {
@@ -348,18 +340,132 @@ export interface UserProfileListProps {
 export interface MenstrualCycle {
   _id: string;
   createdByUserId: string;
-  profileId: string;
   startDate: string;
-  endDate: string;
-  stamp: string;
-  symbol: string;
-  mood: string;
-  observation: string;
-  notes: string;
+  endDate?: string;
+  isCompleted: boolean;
+  cycleNumber: number; // Thứ tự chu kỳ: 1, 2, 3...
+  result?: number; // X+1 - Y
+  resultType?: string; // "normal", "short", "long"
+  peakDay?: string; // ngày X
+  status?: string;
   createdAt: string;
   updatedAt: string;
 }
 
+export interface CycleDay {
+  _id: string;
+  cycleId: string;
+  date: string;
+  mucusObservation?: string; // ví dụ: "có máu", "trong và âm hộ căng"
+  feeling?: string; // ví dụ: "trơn", "khô"
+  isPeakDay: boolean; // true nếu là ngày X
+  peakDayRelative?: number; // 0: ngày X, 1-3: sau X, -1/-2: trước X
+  fertilityProbability?: number; // 0-100 (% khả năng thụ thai)
+  babyGenderHint?: string; // "nam", "nữ", null
+  isValidated: boolean; // false nếu sai quy tắc mucus/feeling
+  warning?: string; // mô tả lỗi validation (nếu có)
+  isAutoGenerated: boolean; // true nếu do hệ thống tự tạo (sau ngày X)
+  cycleDayNumber?: number; // thứ tự trong chu kỳ
+  notes?: string; // ghi chú cá nhân của người dùng
+  month: number; // để biểu diễn lịch tháng
+  year: number; // để biểu diễn lịch năm
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MenstrualCycleReminder {
+  _id: string;
+  userId: string;
+  reminderEnabled: boolean;
+  reminderTime: string; // định dạng "HH:mm", ví dụ "20:00"
+  lastNotifiedAt?: string; // thời điểm gần nhất đã gửi nhắc nhở
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MenstrualCycleReport {
+  _id: string;
+  cycleId: string;
+  x?: string; // ngày X
+  xPlusOne?: string; // ngày sau đỉnh
+  y?: string; // ngày trước ngày có máu kế tiếp
+  result?: number; // X+1 - Y
+  resultType?: string; // "normal", "short", "long"
+  predictedFertilityPhase?: string; // mô tả dự đoán
+  possibleShortCyclePattern?: boolean; // true nếu phát hiện "khô" sau X mà không có "dầy"
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Billings Method validation rules
+export interface BillingsValidationRule {
+  mucusObservation: string;
+  allowedFeelings: string[];
+}
+
+// Calendar data for display
+export interface CalendarDayData {
+  date: string;
+  symbol?: string; // M, X, 1, 2, 3, C, S, D
+  fertilityProbability?: number;
+  isPeakDay?: boolean;
+  cycleDay?: CycleDay;
+  displayText?: string;
+  color?: string;
+}
+
+// API Request/Response types
+export interface CreateCycleRequest {
+  startDate: string;
+}
+
+export interface CreateCycleDayRequest {
+  cycleId: string;
+  date: string;
+  mucusObservation?: string;
+  feeling?: string;
+  notes?: string;
+}
+
+export interface GeneratePostPeakRequest {
+  cycleId: string;
+  peakDate: string;
+}
+
+export interface ValidateDayRequest {
+  mucusObservation: string;
+  feeling: string;
+}
+
+export interface ValidateDayResponse {
+  isValid: boolean;
+  warning?: string;
+  allowedFeelings: string[];
+  isPeakDay: boolean;
+}
+
+export interface GenderPrediction {
+  date: string;
+  genderPrediction: 'nam' | 'nữ' | 'cân bằng';
+  probability: number;
+  description: string;
+}
+
+export interface GenderPredictionResponse {
+  peakDay: string;
+  predictions: GenderPrediction[];
+  note: string;
+}
+
+export interface CycleComparison {
+  cycles: MenstrualCycle[];
+  averageLength?: number;
+  pattern?: string;
+  recommendations?: string[];
+  isComplete: boolean; // true nếu đã có đủ 3 chu kỳ
+}
+
+// Legacy types for backward compatibility
 export interface CycleSymptom {
   _id: string;
   cycleId: string;
@@ -494,7 +600,7 @@ export interface DoctorQA {
   phone: string;
   notes: string;
   question: string;
-  status: 'pending' | 'contacted' | 'resolved' | 'cancelled';
+  status: 'pending_payment' | 'contacted' | 'resolved' | 'cancelled';
   createdAt: string;
   updatedAt: string;
 }
@@ -532,18 +638,34 @@ export interface Payment {
   paymentAt: string;
 }
 
-// Package purchase types - Updated with new subscription fields
+// Used service trong package purchase
+export interface UsedService {
+  serviceId: string | Service;
+  usedCount: number;
+  maxQuantity: number;
+  usedDate?: string;
+}
+
 export interface PackagePurchase {
   _id: string;
-  userId: string;              // Ai là người mua
-  profileId: string;           // Hồ sơ bệnh án nào sử dụng gói này
-  packageId: string;           // FK đến ServicePackages._id
-  billId: string;              // Liên kết hóa đơn thanh toán
-  activatedAt: string;         // 🔹 Ngày bắt đầu sử dụng gói
-  expiredAt: string;           // 🔹 Ngày hết hạn (tính từ activatedAt + durationInDays)
-  remainingUsages: number;     // 🔹 Số lượt còn lại có thể dùng
-  totalAllowedUses: number;    // 🔹 Tổng lượt ban đầu được dùng
-  isActive: boolean;           // 🔹 Gói còn hiệu lực hay đã hết hạn/lượt
+  userId: string;
+  packageId: string;
+  servicePackage?: ServicePackage;
+  purchasePrice: number;
+  totalAmount: number;
+  status: 'active' | 'expired' | 'used_up';
+  isActive: boolean;
+  purchaseDate: string;
+  expiryDate: string;
+  expiresAt?: string;
+  remainingUsages: number;
+  usedServices: UsedService[];
+  usageInfo?: {
+    totalServices: number;
+    totalUsed: number;
+    totalMax: number;
+    usagePercentage: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -586,5 +708,71 @@ export interface PaginatedResponse<T> {
     page: number;
     limit: number;
     totalPages: number;
+  };
+}
+
+// 🆕 Package Analytics Types
+export interface ServiceUsage {
+  serviceId: string;
+  serviceName: string;
+  usedQuantity: number;
+  maxQuantity: number;
+  remainingQuantity: number;
+  usagePercentage: number;
+}
+
+export interface UserPackageUsage {
+  userId: string;
+  userInfo: {
+    fullName: string;
+    email: string;
+    phone?: string;
+  };
+  profileInfo: {
+    profileId: string;
+    fullName: string;
+    phone?: string;
+  };
+  purchaseId: string;
+  purchaseDate: string;
+  expiryDate: string;
+  status: 'active' | 'expired' | 'used_up';
+  purchasePrice: number;
+  serviceUsages: ServiceUsage[];
+  totalUsagePercentage: number;
+  daysRemaining: number;
+}
+
+export interface PackageAnalytics {
+  packageId: string;
+  packageName: string;
+  totalPurchases: number;
+  activePurchases: number;
+  expiredPurchases: number;
+  usedUpPurchases: number;
+  totalRevenue: number;
+  averageUsagePercentage: number;
+  userUsages: UserPackageUsage[];
+}
+
+export interface PackageAnalyticsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    analytics: PackageAnalytics;
+  };
+}
+
+export interface AllPackagesAnalyticsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    analytics: PackageAnalytics[];
+    summary: {
+      totalPackages: number;
+      totalRevenue: number;
+      totalPurchases: number;
+      averageUsage: number;
+    };
   };
 }

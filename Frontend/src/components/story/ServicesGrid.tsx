@@ -1,12 +1,12 @@
 import { motion } from "framer-motion";
 import React from "react";
 
-import Image1 from "../../assets/images/image1.jpg";
-import Image2 from "../../assets/images/image2.jpg";
-import Image3 from "../../assets/images/image3.jpg";
-import Image4 from "../../assets/images/image4.jpg";
-import Image5 from "../../assets/images/image5.jpg";
-import Image6 from "../../assets/images/image6.jpg";
+import Image1 from "../../assets/images/sv1.png";
+import Image2 from "../../assets/images/sti.webp";
+import Image3 from "../../assets/images/sv3.png";
+import Image4 from "../../assets/images/sv5.png";
+import Image5 from "../../assets/images/sv4.png";
+import Image6 from "../../assets/images/sv6.png";
 
 interface Service {
   image: string;

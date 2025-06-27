@@ -1,0 +1,242 @@
+@startuml 05_doctor_management
+
+skinparam classAttributeIconSize 0
+skin rose
+
+title Doctor Management System - Class Diagram
+
+package "Doctor Management System" {
+    class Doctor {
+        - id : ObjectId
+        - userId : ObjectId
+        - bio : string
+        - experience : number
+        - rating : number
+        - image : string
+        - specialization : string
+        - education : string
+        - certificate : string
+        - isDeleted : boolean
+        - deletedAt : Date
+        - deletedBy : ObjectId
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + updateProfile(data) : boolean
+        + updateSpecialization(specialization) : boolean
+        + updateAvailability(status) : boolean
+        + setRating(rating) : boolean
+        + uploadImage(imageUrl) : boolean
+        + addEducation(education) : boolean
+        + addCertificate(certificate) : boolean
+        + softDelete(deletedBy) : boolean
+        + restore() : boolean
+        + isActive() : boolean
+        - validateRating(rating) : boolean
+        - updateTimestamp() : boolean
+    }
+
+    class DoctorSchedule {
+        - id : ObjectId
+        - doctorId : ObjectId
+        - dayOfWeek : DayOfWeek
+        - startTime : string
+        - endTime : string
+        - slotDuration : number
+        - breakStartTime : string
+        - breakEndTime : string
+        - maxPatientsPerSlot : number
+        - isActive : boolean
+        - effectiveFrom : Date
+        - effectiveUntil : Date
+        - specialSettings : object
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createSchedule() : boolean
+        + updateSchedule(data) : boolean
+        + deleteSchedule() : boolean
+        + getAvailableSlots(date) : TimeSlot[]
+        + isAvailableAt(dateTime) : boolean
+        + addBreak(startTime, endTime) : boolean
+        + removeBreak() : boolean
+        + activateSchedule() : boolean
+        + deactivateSchedule() : boolean
+        - validateTimeSlots() : boolean
+        - generateTimeSlots() : TimeSlot[]
+        - checkOverlapping() : boolean
+    }
+
+    class Specialization {
+        - id : ObjectId
+        - name : string
+        - description : string
+        - category : SpecializationCategory
+        - isActive : boolean
+        - requiredCertifications : string[]
+        - averageConsultationTime : number
+        - baseConsultationFee : number
+        - createdAt : Date
+        - updatedAt : Date
+        --
+        + createSpecialization() : boolean
+        + updateSpecialization(data) : boolean
+        + getDoctors() : Doctor[]
+        + getRequiredCertifications() : string[]
+        + setBaseConsultationFee(fee) : boolean
+        + activate() : boolean
+        + deactivate() : boolean
+        - validateCertificationRequirements() : boolean
+        - updateDoctorCounts() : boolean
+    }
+
+    class DoctorReview {
+        - id : ObjectId
+        - doctorId : ObjectId
+        - patientId : ObjectId
+        - appointmentId : ObjectId
+        - rating : number
+        - comment : string
+        - reviewDate : Date
+        - isVerified : boolean
+        - isAnonymous : boolean
+        - helpful : number
+        - notHelpful : number
+        - reply : string
+        - repliedAt : Date
+        - repliedBy : ObjectId
+        --
+        + createReview() : boolean
+        + updateReview(data) : boolean
+        + markHelpful() : boolean
+        + markNotHelpful() : boolean
+        + replyToReview(reply) : boolean
+        + verifyReview() : boolean
+        + deleteReview() : boolean
+        + reportReview(reason) : boolean
+        - validateReviewData() : boolean
+        - updateDoctorRating() : boolean
+        - notifyDoctor() : boolean
+    }
+
+    class EducationRecord {
+        - degree : string
+        - institution : string
+        - yearGraduated : number
+        - fieldOfStudy : string
+        - isVerified : boolean
+        --
+        + addEducation() : boolean
+        + updateEducation() : boolean
+        + verifyEducation() : boolean
+        - validateDegree() : boolean
+    }
+
+    class Certification {
+        - name : string
+        - issuingOrganization : string
+        - issueDate : Date
+        - expiryDate : Date
+        - certificateNumber : string
+        - isVerified : boolean
+        - documentUrl : string
+        --
+        + addCertification() : boolean
+        + renewCertification() : boolean
+        + verifyCertification() : boolean
+        + isExpired() : boolean
+        + getDaysUntilExpiry() : number
+        - validateCertificate() : boolean
+        - scheduleRenewalReminder() : boolean
+    }
+
+    class TimeSlot {
+        - startTime : string
+        - endTime : string
+        - isAvailable : boolean
+        - maxBookings : number
+        - currentBookings : number
+        - slotType : SlotType
+        --
+        + bookSlot() : boolean
+        + cancelSlot() : boolean
+        + isBookable() : boolean
+        + getRemainingSlots() : number
+        - validateBooking() : boolean
+    }
+
+    enum DoctorStatus {
+        ACTIVE
+        INACTIVE
+        SUSPENDED
+        PENDING_VERIFICATION
+        ON_LEAVE
+    }
+
+    enum DayOfWeek {
+        MONDAY
+        TUESDAY
+        WEDNESDAY
+        THURSDAY
+        FRIDAY
+        SATURDAY
+        SUNDAY
+    }
+
+    enum SpecializationCategory {
+        REPRODUCTIVE_HEALTH
+        GYNECOLOGY
+        OBSTETRICS
+        MENTAL_HEALTH
+        GENERAL_MEDICINE
+        NUTRITION
+        DERMATOLOGY
+        ENDOCRINOLOGY
+    }
+
+    enum SlotType {
+        REGULAR
+        EMERGENCY
+        FOLLOW_UP
+        CONSULTATION
+        EXAMINATION
+    }
+}
+
+' External references
+class User {
+    - id : ObjectId
+    - email : string
+    - fullName : string
+    - role : string
+}
+
+class Appointment {
+    - id : ObjectId
+    - doctorId : ObjectId
+    - patientId : ObjectId
+    - dateTime : Date
+}
+
+' Relationships
+Doctor }o--|| User : "extends"
+Doctor ||--|| DoctorStatus : "has status"
+Doctor ||--o{ EducationRecord : "includes"
+Doctor ||--o{ Certification : "holds"
+Doctor }o--o{ Specialization : "specializes in"
+Doctor ||--o{ DoctorSchedule : "has"
+Doctor ||--o{ DoctorReview : "receives"
+
+DoctorSchedule }o--|| Doctor : "belongs to"
+DoctorSchedule ||--|| DayOfWeek : "on"
+DoctorSchedule ||--o{ TimeSlot : "contains"
+
+Specialization ||--|| SpecializationCategory : "categorized as"
+
+DoctorReview }o--|| Doctor : "for"
+DoctorReview }o--|| User : "by patient"
+DoctorReview }o--|| Appointment : "based on"
+
+TimeSlot ||--|| SlotType : "of type"
+
+@enduml 

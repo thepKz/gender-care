@@ -5,6 +5,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 // Layouts
 import MainLayout from '../components/layouts/MainLayout';
 import AuthLayout from '../layouts/AuthLayout';
+import BookingLayout from '../layouts/BookingLayout';
 import ProfileLayout from '../layouts/ProfileLayout';
 
 // Pages
@@ -28,24 +29,26 @@ import PublicServicesPage from '../pages/services/PublicServicesPage';
 import DoctorDetail from '../pages/doctors/DoctorDetail';
 
 // Booking Pages
-import BookingPage from '../pages/booking';
-import BookingHistoryPage from '../pages/booking-history';
+import BookingHistoryOptimized from '../pages/booking-history/BookingHistoryOptimized';
+import BookingPageNew from '../pages/booking/BookingPageNew';
 import FeedbackPage from '../pages/feedback';
 
 
 // Consultation Pages
-import PaymentSuccessPage from '../pages/consultation/PaymentSuccessPage';
+import PaymentPage from '../pages/consultation/PaymentPage';
+import ConsultationPaymentSuccessPage from '../pages/consultation/PaymentSuccessPage';
 import ServicesPage from '../pages/services';
 
 // Payment Pages
+import PaymentCancelPage from '../pages/payment/PaymentCancel';
 import PaymentProcessPage from '../pages/payment/PaymentProcessPage';
-import PaymentSuccessPageNew from '../pages/payment/PaymentSuccessPage';
-import PaymentCancelPage from '../pages/payment/PaymentCancelPage';
+import PaymentSuccessPage from '../pages/payment/PaymentSuccess';
 
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
 import RichTextComposerDemo from '../pages/demo/RichTextComposerDemo';
+import TestManagementDemo from '../pages/demo/TestManagementDemo';
 
 // Dashboard Wrapper Components
 import ManagementDashboardPage from '../pages/dashboard/management';
@@ -110,7 +113,7 @@ const AppRoutes: React.FC = () => {
       <Route element={<ProfileLayout />}>
         <Route path="/profile" element={isAuthenticated ? <ProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/profile/edit" element={isAuthenticated ? <ProfileEditPage /> : <Navigate to="/login" replace />} />
-        <Route path="/profile/create-profile" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
+        <Route path="/profile/create-profile" element={<Navigate to="/user-profiles/create" replace />} />
         <Route path="/profile/edit-profile/:profileId" element={isAuthenticated ? <EditProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/profile/view-profile/:profileId" element={isAuthenticated ? <ViewProfilePage /> : <Navigate to="/login" replace />} />
         <Route path="/medical-records/:profileId" element={isAuthenticated ? <NotFoundPage /> : <Navigate to="/login" replace />} />
@@ -137,6 +140,7 @@ const AppRoutes: React.FC = () => {
         
         {/* User Profiles Page */}
         <Route path="/user-profiles" element={isAuthenticated ? <UserProfilesPage /> : <Navigate to="/login" replace />} />
+        <Route path="/user-profiles/create" element={isAuthenticated ? <CreateProfilePage /> : <Navigate to="/login" replace />} />
         
         {/* Purchased Packages Page */}
         <Route path="/purchased-packages" element={isAuthenticated ? <PurchasedPackagesPage /> : <Navigate to="/login" replace />} />
@@ -144,44 +148,33 @@ const AppRoutes: React.FC = () => {
         {/* Cycle Tracking Page */}
         <Route path="/cycle" element={isAuthenticated ? <CyclePage /> : <Navigate to="/login" replace />} />
         
-        {/* Booking Pages */}
-        <Route path="/booking" element={<BookingPage />} />
-        <Route path="/booking-history" element={<BookingHistoryPage />} />
+        {/* Booking History */}
+        <Route path="/booking-history" element={<BookingHistoryOptimized />} />
 
         <Route path="/feedback" element={<FeedbackPage />} />
         
         {/* Payment Processing Pages */}
         <Route path="/payment/process" element={<PaymentProcessPage />} />
-        <Route path="/payment/success" element={
-          // IMMEDIATE redirect for PAID status
-          (() => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const status = urlParams.get('status');
-            const code = urlParams.get('code');
-            const cancel = urlParams.get('cancel');
-            
-            if (code === '00' && cancel === 'false' && status === 'PAID') {
-              console.log('🚨 [RouteLevel] PAID detected - immediate redirect');
-              // Force immediate redirect at route level
-              window.location.replace('/booking-history');
-              return <div>Redirecting...</div>;
-            }
-            
-            return <PaymentSuccessPageNew />;
-          })()
-        } />
+        <Route path="/payment/success" element={<PaymentSuccessPage />} />
         <Route path="/payment/cancel" element={<PaymentCancelPage />} />
         
         {/* Consultation Pages */}
-        <Route path="/consultation/success/:qaId" element={<PaymentSuccessPage />} />
+        <Route path="/consultation/payment/:qaId" element={<PaymentPage />} />
+        <Route path="/consultation/success/:qaId?" element={<ConsultationPaymentSuccessPage />} />
         
         {/* Demo Pages */}
         <Route path="/demo" element={<DemoIndexPage />} />
         <Route path="/demo/components" element={<ComponentShowcasePage />} />
         <Route path="/demo/composer" element={<RichTextComposerDemo />} />
+        <Route path="/demo/test-management" element={<TestManagementDemo />} />
         
         {/* Các route khác */}
         <Route path="*" element={<NotFoundPage />} />
+      </Route>
+      
+      {/* Booking route - no header/footer, requires authentication */}
+      <Route element={<BookingLayout />}>
+        <Route path="/booking" element={isAuthenticated ? <BookingPageNew /> : <Navigate to="/login?returnUrl=/booking" replace />} />
       </Route>
       
       {/* Legacy Dashboard Redirects (tạm giữ để không 404, chuyển sang cấu trúc mới) */}
