@@ -293,6 +293,79 @@ export const getAvailableSlots = async (doctorId: string, date: string, isStaff:
   }
 };
 
+/**
+ * Khóa một slot cụ thể (đặt trạng thái thành "Booked").
+ * @param slotId ID của slot cần khóa
+ * @returns {Promise<boolean>}
+ */
+export const lockSlot = async (slotId: string): Promise<boolean> => {
+    if (!isValidObjectId(slotId)) {
+        throw new Error('Slot ID không hợp lệ');
+    }
+
+    // Tìm và cập nhật slot trong một thao tác duy nhất để đảm bảo an toàn
+    const result = await DoctorSchedules.findOneAndUpdate(
+        { 
+            "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId),
+            "weekSchedule.slots.status": "Free" // Đảm bảo chỉ khóa slot đang "Free"
+        },
+        { 
+            $set: { "weekSchedule.$[].slots.$[slot].status": "Booked" }
+        },
+        {
+            arrayFilters: [
+                { "slot._id": new mongoose.Types.ObjectId(slotId) }
+            ],
+            new: true // Trả về document sau khi update
+        }
+    );
+
+    if (!result) {
+        // Nếu không tìm thấy document nào được update, có thể slot không tồn tại hoặc đã được đặt
+        const existingSlot = await DoctorSchedules.findOne({ "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId) });
+        if (!existingSlot) {
+            throw new Error('Không tìm thấy slot thời gian này.');
+        }
+        throw new Error('Slot thời gian này đã được đặt hoặc không có sẵn.');
+    }
+
+    console.log(`✅ [Slot Lock] Slot ${slotId} đã được khóa thành công.`);
+    return true;
+};
+
+/**
+ * Mở khóa một slot cụ thể (đặt trạng thái thành "Free").
+ * @param slotId ID của slot cần mở khóa
+ * @returns {Promise<boolean>}
+ */
+export const releaseSlot = async (slotId: string): Promise<boolean> => {
+    if (!isValidObjectId(slotId)) {
+        throw new Error('Slot ID không hợp lệ');
+    }
+
+    const result = await DoctorSchedules.findOneAndUpdate(
+        { "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId) },
+        { 
+            $set: { "weekSchedule.$[].slots.$[slot].status": "Free" }
+        },
+        {
+            arrayFilters: [
+                { "slot._id": new mongoose.Types.ObjectId(slotId) }
+            ],
+            new: true
+        }
+    );
+
+    if (!result) {
+        // Có thể slot không tồn tại, nhưng trong trường hợp này, việc không tìm thấy để release cũng không phải là lỗi nghiêm trọng
+        console.warn(`⚠️ [Slot Release] Không tìm thấy slot ${slotId} để mở khóa.`);
+        return false;
+    }
+
+    console.log(`✅ [Slot Release] Slot ${slotId} đã được mở khóa thành công.`);
+    return true;
+};
+
 // GET /doctors/:id/available-slots/staff - Staff xem tất cả slots theo ngày
 export const getAvailableSlotsForStaff = async (doctorId: string, date: string) => {
   return await getAvailableSlots(doctorId, date, true);

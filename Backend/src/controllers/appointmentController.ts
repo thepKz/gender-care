@@ -6,9 +6,12 @@ import { ValidationError } from '../errors/validationError';
 import { Appointments, Doctor, DoctorSchedules, PackagePurchases, Service, ServicePackages, UserProfiles } from '../models';
 import { LogAction, LogLevel } from '../models/SystemLogs';
 import systemLogService from '../services/systemLogService';
-import { createPaymentLinkForBill } from '../services/paymentService';
+import * as paymentService from '../services/paymentService';
+import { lockSlot, releaseSlot } from '../services/doctorScheduleService';
 import { Bills } from '../models';
 import { User } from '../models';
+import { IAppointments } from '../models/Appointments';
+import { UserProfile } from '../models/UserProfile';
 
 interface AuthRequest extends Request {
     user?: {
@@ -131,201 +134,148 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
  * Tạo cuộc hẹn mới
  */
 export const createAppointment = async (req: AuthRequest, res: Response) => {
+    const { 
+        profileId, packageId, serviceId, slotId,
+        appointmentDate, appointmentTime, appointmentType, typeLocation,
+        description, notes,
+        bookingType = 'service_only' // Default to service_only
+    } = req.body;
+
+    const userId = req.user?._id; 
+    if (!userId) {
+        return res.status(401).json({ success: false, message: 'Unauthorized: User ID not found.' });
+    }
+
     try {
-        const {
-            profileId,
-            packageId,
-            serviceId,
-            slotId,
+        const currentUser = await User.findById(userId);
+        if (!currentUser) {
+            return res.status(404).json({ success: false, message: 'Người dùng không tồn tại.' });
+        }
+
+        const patientProfile = await UserProfile.findById(profileId);
+        if (!patientProfile || patientProfile.ownerId.toString() !== userId.toString()) {
+            return res.status(404).json({ success: false, message: 'Hồ sơ bệnh nhân không hợp lệ hoặc không thuộc về bạn.' });
+        }
+
+        let totalAmount = 0;
+        let paymentUrl: string | null = null;
+        let newBill: any = null;
+        
+        const newAppointment = new Appointments({
+            createdByUserId: userId,
+            profileId: patientProfile._id,
+            status: 'pending_payment',
             appointmentDate,
             appointmentTime,
             appointmentType,
             typeLocation,
-            address,
             description,
-            notes
-        } = req.body;
-
-        // Kiểm tra profileId có tồn tại không
-        const profile = await UserProfiles.findById(profileId);
-        if (!profile) {
-            throw new NotFoundError('Không tìm thấy hồ sơ người dùng');
-        }
-
-        // Kiểm tra ít nhất một trong hai: packageId hoặc serviceId phải được cung cấp
-        if (!packageId && !serviceId) {
-            throw new ValidationError({ general: 'Phải cung cấp một trong hai: packageId hoặc serviceId' });
-        }
-
-        // Tính toán totalAmount dựa trên service/package
-        let totalAmount = 0;
-
-        // Nếu có packageId, kiểm tra nó có tồn tại không và lấy giá
-        if (packageId) {
-            const packageData = await ServicePackages.findById(packageId);
-            if (!packageData) {
-                throw new NotFoundError('Không tìm thấy gói dịch vụ');
-            }
-            totalAmount = packageData.price;
-        }
-
-        // Nếu có serviceId, kiểm tra nó có tồn tại không và lấy giá
-        if (serviceId) {
-            const serviceData = await Service.findById(serviceId);
-            if (!serviceData) {
-                throw new NotFoundError('Không tìm thấy dịch vụ');
-            }
-            totalAmount = serviceData.price;
-        }
-
-        console.log('💰 [Debug] Payment calculation:', {
-            packageId,
-            serviceId,
-            typeLocation,
-            totalAmount
+            notes,
+            serviceId: serviceId,
+            packageId: packageId,
+            slotId: slotId
         });
 
-        // Kiểm tra slot có trống không và lấy thông tin bác sĩ (nếu slotId được cung cấp)
-        let assignedDoctorId = null;
-        if (slotId) {
-            console.log('🔍 [Debug] Checking slot availability:', { slotId, appointmentDate, appointmentTime });
-
-            // Logic để kiểm tra slot có trống không
-            // Tìm schedule có chứa slot với _id matching slotId
-            const schedule = await DoctorSchedules.findOne({
-                'weekSchedule.slots._id': slotId
-            });
-
-            console.log('🔍 [Debug] Found schedule for slot:', schedule ? 'YES' : 'NO');
-
-            if (!schedule) {
-                console.log('❌ [Debug] No schedule found containing slotId:', slotId);
-                throw new NotFoundError('Không tìm thấy slot thời gian');
+        if (bookingType === 'service_only' && serviceId) {
+            const service = await Service.findById(serviceId);
+            if (!service || !service.price) {
+                return res.status(404).json({ success: false, message: 'Dịch vụ không tồn tại hoặc không có giá.' });
             }
 
-            // Lấy doctorId từ schedule để assign vào appointment
-            assignedDoctorId = schedule.doctorId;
-            console.log('🔍 [Debug] Assigned doctor ID:', assignedDoctorId);
+            totalAmount = service.price;
+            const billNumber = `GCC-BILL-${Date.now()}`;
 
-            // Tìm slot cụ thể và kiểm tra trạng thái
-            let slotFound = false;
-            let slotIsBooked = true;
-
-            for (const week of schedule.weekSchedule) {
-                for (const slot of week.slots) {
-                    if (slot._id?.toString() === slotId) {
-                        slotFound = true;
-                        slotIsBooked = slot.status !== "Free";
-                        break;
-                    }
-                }
-                if (slotFound) break;
-            }
-
-            if (!slotFound) {
-                throw new NotFoundError('Không tìm thấy slot thời gian');
-            }
-
-            if (slotIsBooked) {
-                throw new ValidationError({ slotId: 'Slot thời gian này đã được đặt' });
-            }
-        }
-
-        // Kiểm tra nếu typeLocation là "home" thì phải có address
-        if (typeLocation === 'home' && !address) {
-            throw new ValidationError({ address: 'Địa chỉ là bắt buộc khi chọn loại địa điểm là "home"' });
-        }
-
-        // 🎯 NEW DUAL FLOW LOGIC
-        const userId = req.user?._id;
-        const { bookingType = 'service_only', packagePurchaseId } = req.body;
-
-        console.log('🔍 [Booking Flow] Start:', { bookingType, packageId, serviceId });
-
-        // ----------------------------------------------------------------
-        // FLOW 1: Using a purchased package
-        // ----------------------------------------------------------------
-        if (bookingType === 'package_usage' && packagePurchaseId && serviceId) {
-            // ... [This logic should be copied from your existing 'purchased_package' flow]
-            // It should validate the package, consume a usage, and create a 'confirmed' appointment.
-            // For now, we'll assume it's handled and focus on the main bug.
-            return res.status(501).json({ message: 'Package usage flow not implemented in this fix.' });
-        } 
-        
-        // ----------------------------------------------------------------
-        // FLOW 2: Booking a new service or package that needs payment
-        // ----------------------------------------------------------------
-        else {
-            const appointmentData = {
-                createdByUserId: userId,
-                profileId,
-                packageId,
-                serviceId,
-                doctorId: assignedDoctorId,
-                appointmentDate,
-                appointmentTime,
-                appointmentType,
-                typeLocation,
-                address,
-                description,
-                notes,
-                status: 'pending_payment',
+            newBill = new Bills({
+                userId,
+                profileId: patientProfile._id,
+                appointmentId: newAppointment._id,
+                items: [{
+                    serviceId: service._id,
+                    serviceName: service.serviceName,
+                    quantity: 1,
+                    price: service.price,
+                }],
+                subtotal: totalAmount,
                 totalAmount,
-                paymentStatus: 'unpaid',
-                bookingType,
-            };
+                billNumber,
+                status: 'pending'
+            });
+            await newBill.save();
+            
+            newAppointment.billId = newBill._id;
+            
+            // Pass the full bill and user objects to the payment service
+            paymentUrl = await paymentService.createPaymentLinkForBill(newBill, currentUser);
+        } else if (bookingType === 'package_usage') {
+            // Logic for package usage booking needs to be implemented here
+            // This part is currently not handled and might be the source of future issues
+            return res.status(501).json({ success: false, message: 'Chức năng đặt lịch bằng gói khám chưa được hỗ trợ.' });
+        }
 
-            const newAppointment = await Appointments.create(appointmentData);
-            let paymentUrl = null;
-
-            if (totalAmount > 0) {
-                console.log('💳 [Payment] Creating bill and payment link...');
-                
-                const user = await User.findById(userId).select('fullName email phone');
-                if (!user) {
-                  throw new NotFoundError('User not found');
-                }
-
-                const bill = await Bills.create({
-                    userId: userId,
-                    appointmentId: newAppointment._id,
-                    billNumber: `BILL-${Date.now()}`,
-                    items: [{
-                        itemId: serviceId || packageId,
-                        itemType: serviceId ? 'Service' : 'Package',
-                        quantity: 1,
-                        price: totalAmount,
-                    }],
-                    subtotal: totalAmount,
-                    totalAmount: totalAmount,
-                    status: 'pending'
-                });
-
-                try {
-                    paymentUrl = await createPaymentLinkForBill(bill, user);
-                    newAppointment.billId = bill._id; // Link bill to appointment
-                    await newAppointment.save();
-                } catch (paymentError: any) {
-                    console.error('❌ [Payment] Failed to create payment link:', paymentError.message);
-                }
-            } else {
-                newAppointment.status = 'confirmed';
-                newAppointment.paymentStatus = 'paid';
-                await newAppointment.save();
+        // Now, save the appointment and lock the slot
+        try {
+            const savedAppointment = await newAppointment.save();
+            if (!savedAppointment || !savedAppointment._id) {
+                throw new Error('Lưu lịch hẹn thất bại hoặc không nhận được ID sau khi lưu.');
             }
+            
+            if (savedAppointment.status === 'pending_payment' && slotId) {
+                const lockResult = await DoctorSchedules.findOneAndUpdate(
+                    { 
+                        "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId),
+                        "weekSchedule.slots.status": "Free"
+                    },
+                    { 
+                        $set: { "weekSchedule.$[].slots.$[slot].status": "Booked" }
+                    },
+                    {
+                        arrayFilters: [{ "slot._id": new mongoose.Types.ObjectId(slotId) }],
+                        new: true
+                    }
+                );
 
-            console.log('✅ [Booking] Success:', { id: newAppointment._id, status: newAppointment.status });
+                if (!lockResult) {
+                    throw new Error('Slot thời gian này đã được đặt hoặc không có sẵn.');
+                }
+                console.log(`✅ [Slot Lock] Slot ${slotId} đã được khóa thành công.`);
+            }
+            
+            await systemLogService.createLog({
+                action: LogAction.APPOINTMENT_CREATE,
+                level: LogLevel.PUBLIC,
+                message: `Tạo lịch hẹn mới #${savedAppointment._id} cho user ${userId}`,
+                userId: userId?.toString(),
+                targetId: savedAppointment._id.toString(),
+                targetType: 'Appointment',
+            });
 
             return res.status(201).json({
                 success: true,
-                message: totalAmount > 0 
-                    ? 'Đặt lịch hẹn thành công! Vui lòng hoàn tất thanh toán.'
-                    : 'Đặt lịch hẹn miễn phí thành công!',
+                message: 'Tạo lịch hẹn thành công!',
                 data: {
-                    appointment: newAppointment,
-                    paymentUrl: paymentUrl,
-                },
+                    appointment: savedAppointment,
+                    paymentUrl: paymentUrl
+                }
             });
+            
+        } catch (error: any) {
+             console.error('❌ [Appointment Error] Error during appointment creation or slot locking:', error);
+             
+             // Rollback logic using the original 'newAppointment' object's ID
+             if (newAppointment?._id) {
+                 await Appointments.findByIdAndDelete(newAppointment._id);
+                 console.log(`🗑️ [Rollback] Deleted appointment ${newAppointment._id} due to failure.`);
+             }
+             
+             if (newBill?._id) {
+                 await Bills.findByIdAndUpdate(newBill._id, { status: 'cancelled' });
+                 console.log(`🗑️ [Rollback] Cancelled bill ${newBill._id}.`);
+             }
+
+             return res.status(500).json({
+                 success: false,
+                 message: error.message || 'Không thể tạo lịch hẹn hoặc khóa slot.'
+             });
         }
     } catch (error: any) {
         console.error('❌ [Error] Error in booking flow:', error);
@@ -771,8 +721,9 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
             throw new ValidationError({ id: 'ID cuộc hẹn không hợp lệ' });
         }
 
-        // Kiểm tra status có hợp lệ không - Updated với consulting status
-        if (!['pending', 'pending_payment', 'paid', 'scheduled', 'confirmed', 'consulting', 'completed', 'cancelled'].includes(status)) {
+        // Kiểm tra status có hợp lệ không - Thêm các trạng thái hủy/hết hạn
+        const validStatuses = ["pending", "pending_payment", "paid", "scheduled", "confirmed", "consulting", "completed", "cancelled", "payment_cancelled", "expired"];
+        if (!validStatuses.includes(status)) {
             throw new ValidationError({ status: 'Trạng thái không hợp lệ' });
         }
 
@@ -783,21 +734,34 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
         }
 
         // Kiểm tra logic chuyển trạng thái
-        if (appointment.status === 'cancelled' && status !== 'cancelled') {
-            throw new ValidationError({ status: 'Không thể thay đổi trạng thái của cuộc hẹn đã hủy' });
+        const isAlreadyTerminal = appointment.status === 'cancelled' || appointment.status === 'completed' || appointment.status === 'expired';
+        if (isAlreadyTerminal && appointment.status !== status) {
+            throw new ValidationError({ status: `Không thể thay đổi trạng thái của cuộc hẹn đã ${appointment.status}` });
         }
 
-        if (appointment.status === 'completed' && status !== 'completed') {
-            throw new ValidationError({ status: 'Không thể thay đổi trạng thái của cuộc hẹn đã hoàn thành' });
-        }
+        // ⭐️ LOGIC MỚI: Nếu chuyển sang các trạng thái hủy/hết hạn, giải phóng slot
+        const shouldReleaseSlot = ['cancelled', 'payment_cancelled', 'expired'].includes(status);
 
-        // Nếu chuyển sang cancelled, giải phóng slot
-        if (status === 'cancelled' && appointment.status !== 'cancelled' && appointment.slotId) {
-            await DoctorSchedules.updateOne(
-                { 'weekSchedule.slots._id': appointment.slotId },
-                { $set: { 'weekSchedule.$.slots.$[slot].status': 'Free' } },
-                { arrayFilters: [{ 'slot._id': appointment.slotId }] }
-            );
+        if (shouldReleaseSlot && appointment.slotId && appointment.status !== status) {
+            try {
+                const releaseResult = await DoctorSchedules.findOneAndUpdate(
+                    { "weekSchedule.slots._id": appointment.slotId, "weekSchedule.slots.status": "Booked" },
+                    { $set: { "weekSchedule.$[].slots.$[slot].status": "Free" } },
+                    { 
+                        arrayFilters: [{ "slot._id": appointment.slotId }],
+                        new: true 
+                    }
+                );
+                if (releaseResult) {
+                    console.log(`✅ [Slot Release] Slot ${appointment.slotId} đã được giải phóng do trạng thái cuộc hẹn chuyển thành ${status}.`);
+                } else {
+                    console.warn(`⚠️ [Slot Release] Không tìm thấy slot ${appointment.slotId} để giải phóng, có thể nó đã được giải phóng trước đó.`);
+                }
+            } catch (releaseError: any) {
+                // Log lỗi nhưng không dừng việc cập nhật trạng thái cuộc hẹn
+                console.error(`❌ [Slot Release Error] Lỗi khi giải phóng slot ${appointment.slotId}:`, releaseError);
+                // Cân nhắc thêm log hệ thống ở đây nếu cần
+            }
         }
 
         // Cập nhật trạng thái
