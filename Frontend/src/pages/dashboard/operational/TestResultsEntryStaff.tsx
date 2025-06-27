@@ -67,6 +67,7 @@ const TestResultsEntryStaff: React.FC = () => {
   const [createForm] = Form.useForm();
   const [createTargetAppointment, setCreateTargetAppointment] = useState<Appointment | null>(null);
   const [testResultItemsMap, setTestResultItemsMap] = useState<{ [appointmentId: string]: string[] }>({});
+  const [createTestResultItems, setCreateTestResultItems] = useState<any[]>([]);
 
   useEffect(() => {
     if (user?.role === 'staff') {
@@ -183,10 +184,11 @@ const TestResultsEntryStaff: React.FC = () => {
           <Tooltip title={"Tạo hồ sơ xét nghiệm"}>
             <Button
               icon={<PlusCircleOutlined />}
-              disabled={!(!!testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0)}
+              disabled={testResultStatus[record._id] === true}
               onClick={() => {
                 setCreateTargetAppointment(record);
                 setCreateModalVisible(true);
+                testResultItemsApi.getByAppointment(record._id).then(items => setCreateTestResultItems(items || []));
               }}
               type="default"
               shape="circle"
@@ -443,6 +445,28 @@ const TestResultsEntryStaff: React.FC = () => {
           <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: false }]}> 
             <Input.TextArea rows={3} placeholder="Nhập khuyến nghị" />
           </Form.Item>
+          {createTestResultItems.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>Kết quả chỉ số đã nhập:</div>
+              <div>
+                {createTestResultItems.map((item, idx) => (
+                  <div key={item._id} style={{ marginBottom: 10 }}>
+                    <div style={{ fontWeight: 500 }}>{item.itemNameId?.name}</div>
+                    <div style={{ marginLeft: 16, fontSize: 14 }}>
+                      <span>{item.itemNameId?.unit ? `(${item.itemNameId.unit})` : ''}</span>
+                      {item.itemNameId?.normalRange && (
+                        <span style={{ marginLeft: 8 }}>
+                          Bình thường: <span style={{ fontWeight: 400 }}>{item.itemNameId.normalRange}</span>
+                        </span>
+                      )}
+                      <span style={{ marginLeft: 16 }}>Giá trị: <b>{item.value}</b></span>
+                      <span style={{ marginLeft: 16 }}>Đánh giá: <b>{item.flag === 'normal' ? 'Bình thường' : item.flag === 'high' ? 'Cao' : item.flag === 'low' ? 'Thấp' : item.flag}</b></span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </Form>
       </Modal>
     </div>
