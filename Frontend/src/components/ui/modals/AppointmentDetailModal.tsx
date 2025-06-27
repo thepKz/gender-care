@@ -89,7 +89,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       const hasMedicalRecord = medicalResponse.data && medicalResponse.data.length > 0;
       
       // Check test results
-      const testResponse = await appointmentApi.checkTestResultExists(appointmentId);
+      const testResponse = await appointmentApi.checkTestResultsByAppointment(appointmentId);
       const hasTestResults = testResponse.data && testResponse.data.exists;
       
       setRecordStatus({
