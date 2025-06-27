@@ -701,7 +701,6 @@ const BookingPageNew: React.FC = () => {
           <Form
             form={createProfileForm}
             layout="vertical"
-            onFinish={handleCreateProfile}
             size="small"
           >
             <Form.Item
@@ -742,7 +741,7 @@ const BookingPageNew: React.FC = () => {
         </Modal>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .compact-calendar .ant-picker-calendar-header {
           padding: 4px 8px;
         }

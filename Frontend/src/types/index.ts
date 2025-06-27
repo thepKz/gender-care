@@ -528,11 +528,10 @@ export interface TestCategory {
 
 export interface TestResultItem {
   _id: string;
-  testResultId: string;
+  appointmentId: string;
   itemNameId: string;
   value: string;
   unit: string;
-  currentRange: string;
   flag: 'high' | 'low' | 'normal';
 }
 

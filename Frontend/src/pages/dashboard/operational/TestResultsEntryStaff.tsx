@@ -156,11 +156,10 @@ const TestResultsEntryStaff: React.FC = () => {
       key: 'actions',
       render: (_: any, record: Appointment) => (
         <Space>
-          <Tooltip title={testResultStatus[record._id] ? 'Đã có hồ sơ xét nghiệm' : 'Tạo hồ sơ xét nghiệm'}>
+          <Tooltip title={"Tạo hồ sơ xét nghiệm"}>
             <Button
               icon={<PlusCircleOutlined />}
-              disabled={testResultStatus[record._id] || creatingTestResultId === record._id}
-              loading={creatingTestResultId === record._id}
+              disabled={false}
               onClick={async () => {
                 setCreatingTestResultId(record._id);
                 try {
@@ -183,52 +182,15 @@ const TestResultsEntryStaff: React.FC = () => {
               shape="circle"
             />
           </Tooltip>
-          <Tooltip title={testResultStatus[record._id] ? 'Chỉnh sửa hồ sơ xét nghiệm' : 'Chưa có hồ sơ để chỉnh sửa'}>
-            <Button
-              icon={<EditOutlined />}
-              disabled={!testResultStatus[record._id]}
-              onClick={async () => {
-                try {
-                  const res = await appointmentApi.checkTestResultsByAppointment(record._id);
-                  if (res && res.testResultId) {
-                    // Lấy chi tiết testResult
-                    const detail = await appointmentApi.getTestResultsByAppointment(record._id);
-                    const testResult = Array.isArray(detail.data) ? detail.data.find(tr => tr._id === res.testResultId) : detail.data;
-                    setEditTestResultData(testResult);
-                    editForm.setFieldsValue({
-                      conclusion: testResult?.conclusion || '',
-                      recommendations: testResult?.recommendations || ''
-                    });
-                    setEditTestResultId(res.testResultId);
-                    setEditModalVisible(true);
-                  } else {
-                    message.error('Không tìm thấy hồ sơ xét nghiệm!');
-                  }
-                } catch (e) {
-                  message.error('Không thể lấy thông tin hồ sơ xét nghiệm!');
-                }
-              }}
-              type="default"
-              shape="circle"
-            />
-          </Tooltip>
-          <Tooltip title={testResultStatus[record._id] ? 'Nhập kết quả xét nghiệm' : 'Chưa có hồ sơ để nhập kết quả'}>
+          <Tooltip title={record.status === 'completed' ? 'Nhập kết quả xét nghiệm' : 'Chỉ nhập khi lịch đã hoàn thành'}>
             <Button
               icon={<ExperimentOutlined />}
-              disabled={!testResultStatus[record._id]}
+              disabled={record.status !== 'completed'}
               onClick={async () => {
                 setTestItemModalVisible(true);
                 setTestItemLoading(true);
                 try {
-                  // Lấy testResultId thực tế từ API
-                  const res = await appointmentApi.checkTestResultsByAppointment(record._id);
-                  if (!res || !res.testResultId) {
-                    message.error('Chưa có hồ sơ xét nghiệm, vui lòng tạo trước!');
-                    setTestItemModalVisible(false);
-                    setTestItemLoading(false);
-                    return;
-                  }
-                  setCurrentTestResultId(res.testResultId);
+                  setCurrentTestResultId(record._id);
                   setCurrentServiceId(record.serviceId._id);
                   const cats = await serviceTestCategoriesApi.getByService(record.serviceId._id);
                   setTestCategories(cats || []);
@@ -372,11 +334,10 @@ const TestResultsEntryStaff: React.FC = () => {
               const v = testItemValues[cat._id]?.value;
               const flag = testItemValues[cat._id]?.flag;
               await testResultItemsApi.create({
-                testResultId: currentTestResultId,
+                appointmentId: selectedAppointment?._id || currentTestResultId,
                 itemNameId: cat.testCategoryId?._id || cat.testCategoryId || cat._id,
                 value: v,
                 unit: cat.customUnit || cat.unit,
-                currentRange: cat.customNormalRange || cat.normalRange || '',
                 flag: flag
               });
             }
