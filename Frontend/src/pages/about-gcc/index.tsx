@@ -576,7 +576,7 @@ const AboutGCC = () => {
                 </BlurFade>
               ))
             ) : (
-              doctors.map((doctor, index) => (
+              doctors.filter(doctor => doctor.userId).map((doctor, index) => (
                 <BlurFade key={doctor._id} delay={0.2 + index * 0.1} inView>
                   <motion.div
                     whileHover={{ y: -10 }}
@@ -586,14 +586,14 @@ const AboutGCC = () => {
                     <WarpBackground className="h-full overflow-hidden">
                       <div className="relative h-64 overflow-hidden">
                         <img
-                          src={doctor.image || doctor.userId.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${doctor.userId.fullName}`}
-                          alt={doctor.userId.fullName}
+                          src={doctor.image || doctor.userId?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${doctor.userId?.fullName || 'doctor'}`}
+                          alt={doctor.userId?.fullName || 'Bác sĩ'}
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         <div className="absolute bottom-4 left-4 text-white transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                           <AnimatedShinyText className="text-lg font-bold">
-                            {doctor.userId.fullName}
+                            {doctor.userId?.fullName || 'Bác sĩ'}
                           </AnimatedShinyText>
                           <p className="text-sm opacity-90">{doctor.specialization || 'Bác sĩ chuyên khoa'}</p>
                         </div>
