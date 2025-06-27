@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import Banner from "../../assets/images/doctor-banner.jpg";
+import Banner from "../../assets/images/background.jpg";
 
 const commitments = [
   {

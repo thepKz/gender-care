@@ -25,6 +25,29 @@ import dayjs from 'dayjs';
 import { loginHistoryApi } from '../../../api/endpoints';
 import React, { useEffect, useState } from 'react';
 
+// Utility function để format IP address cho hiển thị
+const formatIPForDisplay = (ip: string): string => {
+  if (!ip || ip === 'unknown') return 'Không xác định';
+  
+  // Nếu IP đã được format từ backend, giữ nguyên
+  if (ip.includes('(')) {
+    return ip;
+  }
+  
+  // Hiển thị localhost một cách thân thiện hơn
+  if (ip === '127.0.0.1' || ip === '::1') {
+    return `${ip} (Localhost)`;
+  }
+
+  // Kiểm tra nếu là private IP
+  if (ip.startsWith('192.168.') || ip.startsWith('10.') || 
+      (ip.startsWith('172.') && parseInt(ip.split('.')[1]) >= 16 && parseInt(ip.split('.')[1]) <= 31)) {
+    return `${ip} (Mạng nội bộ)`;
+  }
+
+  return ip;
+};
+
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
@@ -67,45 +90,46 @@ const LoginHistoryManagement: React.FC = () => {
         status: selectedStatus !== 'all' ? selectedStatus : undefined,
         dateFrom: dateRange?.[0]?.format('YYYY-MM-DD'),
         dateTo: dateRange?.[1]?.format('YYYY-MM-DD'),
-        sortBy: 'loginTime',
+        sortBy: 'loginAt', // Sửa từ 'loginTime' thành 'loginAt' để match với backend
         sortOrder: 'desc' as const
       };
 
-      // Mock response data
-      const response = {
-        data: {
-          success: true,
-          data: [],
-          pagination: { total: 0, page: 1, limit: 10 }
-        }
-      };
-      console.log('📋 Login history response:', response.data);
-      
-      if (response.data.success) {
-        const formattedData = response.data.data.map((record: any) => ({
-          key: record.id,
-          id: record.id,
-          userId: record.userId,
-          username: record.username,
-          fullName: record.fullName,
-          email: record.email,
-          loginTime: record.loginTime,
-          logoutTime: record.logoutTime,
-          ipAddress: record.ipAddress,
-          userAgent: record.userAgent,
-          deviceType: record.deviceType,
-          browser: record.browser,
-          os: record.os,
-          location: record.location,
-          status: record.status,
-          sessionDuration: record.sessionDuration
-        }));
+      console.log('📋 Login history API params:', params);
+
+      try {
+        // Gọi API thật - sử dụng method đúng
+        const response = await loginHistoryApi.getAllLoginHistory(params);
+        console.log('✅ Login history API response:', response);
         
-        setLoginHistory(formattedData);
-        console.log('✅ Login history loaded:', formattedData.length, 'records');
-      } else {
-        // Use demo data when no real data available
-        console.log('🔄 Using fallback demo data...');
+        if (response.data.success) {
+          const formattedData = response.data.data.map((record: any) => ({
+            key: record.id || record._id,
+            id: record.id || record._id,
+            userId: record.userId,
+            username: record.username,
+            fullName: record.fullName,
+            email: record.email,
+            loginTime: record.loginTime,
+            logoutTime: record.logoutTime,
+            ipAddress: record.ipAddress,
+            userAgent: record.userAgent,
+            deviceType: record.deviceType,
+            browser: record.browser,
+            os: record.os,
+            location: record.location,
+            status: record.status,
+            sessionDuration: record.sessionDuration
+          }));
+          
+          setLoginHistory(formattedData);
+          console.log('✅ Login history loaded:', formattedData.length, 'records');
+        } else {
+          throw new Error('API response success = false');
+        }
+      } catch (apiError) {
+        console.warn('⚠️ API call failed, using fallback demo data...', apiError);
+        
+        // Fallback demo data với IP đã được format
         const mockData: LoginHistory[] = [
           {
             key: '1',
@@ -115,11 +139,11 @@ const LoginHistoryManagement: React.FC = () => {
             fullName: 'Nguyễn Văn Admin',
             email: 'admin@example.com',
             loginTime: new Date().toISOString(),
-            ipAddress: '192.168.1.1',
+            ipAddress: '127.0.0.1 (Localhost)', // IP đã được format
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             deviceType: 'desktop',
             browser: 'Chrome',
-            os: 'Windows',
+            os: 'Windows 10',
             location: 'Hà Nội, Việt Nam',
             status: 'active'
           },
@@ -129,10 +153,10 @@ const LoginHistoryManagement: React.FC = () => {
             userId: 'user2',
             username: 'manager',
             fullName: 'Trần Thị Manager',
-            email: 'manager@example.com',
-            loginTime: new Date(Date.now() - 3600000).toISOString(),
-            logoutTime: new Date().toISOString(),
-            ipAddress: '192.168.1.2',
+            email: 'maitanthepmrthep@gmail.com',
+            loginTime: new Date(Date.now() - 21600000).toISOString(), // 6 ngày trước
+            logoutTime: new Date(Date.now() - 21540000).toISOString(),
+            ipAddress: '127.0.0.1 (Localhost)',
             userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X)',
             deviceType: 'mobile',
             browser: 'Safari',
@@ -290,18 +314,23 @@ const LoginHistoryManagement: React.FC = () => {
       title: 'IP & Vị trí',
       dataIndex: 'ipAddress',
       key: 'ipAddress',
-      width: 150,
-      render: (ip: string, record: LoginHistory) => (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-            <GlobalOutlined style={{ color: '#52c41a' }} />
-            <Text code style={{ fontSize: '12px' }}>{ip}</Text>
+      width: 180,
+      render: (ip: string, record: LoginHistory) => {
+        const formattedIP = formatIPForDisplay(ip);
+        return (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+              <GlobalOutlined style={{ color: '#52c41a' }} />
+              <Tooltip title={`Raw IP: ${ip || 'N/A'}`}>
+                <Text code style={{ fontSize: '12px' }}>{formattedIP}</Text>
+              </Tooltip>
+            </div>
+            <Text type="secondary" style={{ fontSize: '12px' }}>
+              {record.location || 'Không xác định'}
+            </Text>
           </div>
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            {record.location}
-          </Text>
-        </div>
-      )
+        );
+      }
     },
     {
       title: 'Thời lượng',

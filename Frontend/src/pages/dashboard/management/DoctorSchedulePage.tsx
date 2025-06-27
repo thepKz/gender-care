@@ -217,10 +217,45 @@ const DoctorSchedulePage: React.FC = () => {
       
       console.log('✅ [Debug] Schedules loaded successfully:', data);
       setSchedules(data);
+      
+      // Show success message nếu có data
+      if (data.length > 0) {
+        console.log(`✅ [Success] Loaded ${data.length} schedules for ${selectedMonth.format('MM/YYYY')}`);
+      } else {
+        console.log(`ℹ️ [Info] No schedules found for ${selectedMonth.format('MM/YYYY')}`);
+        // Không hiển thị message để tránh spam user
+      }
+      
     } catch (error: unknown) {
       console.error('❌ [Debug] Lỗi tải lịch:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Không thể tải dữ liệu lịch làm việc';
-      message.error(errorMessage);
+      
+      // Set empty schedules to prevent old data display
+      setSchedules([]);
+      
+      // User-friendly error messages
+      if (error instanceof Error) {
+        if (error.message.includes('Network Error') || error.message.includes('timeout')) {
+          message.error({
+            content: 'Mất kết nối mạng. Vui lòng kiểm tra kết nối internet và thử lại.',
+            duration: 5
+          });
+        } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          message.error({
+            content: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+            duration: 5
+          });
+        } else {
+          message.error({
+            content: error.message || 'Không thể tải dữ liệu lịch làm việc. Vui lòng thử lại.',
+            duration: 5
+          });
+        }
+      } else {
+        message.error({
+          content: 'Có lỗi không xác định xảy ra. Vui lòng thử lại sau.',
+          duration: 5
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -269,6 +304,17 @@ const DoctorSchedulePage: React.FC = () => {
     maxEventsPerDay: 100, // Limit to 100 events per day for performance
     enableVirtualization: filteredEvents.length > 500 // Auto-enable for large datasets
   });
+
+  // Debug calendar display condition
+  React.useEffect(() => {
+    console.log('🔍 [Debug] Calendar display check:', {
+      'schedules.length': schedules.length,
+      'visibleEvents.length': visibleEvents.length,
+      'filteredEvents.length': filteredEvents.length,
+      'calendarEvents.length': calendarEvents.length,
+      'shouldShowCalendar': schedules.length > 0 || visibleEvents.length > 0
+    });
+  }, [schedules.length, visibleEvents.length, filteredEvents.length, calendarEvents.length]);
 
   // Calculate statistics from filtered data
   const scheduleStats = useMemo(() => {
@@ -399,6 +445,27 @@ const DoctorSchedulePage: React.FC = () => {
       setSelectedMonth(newMonth);
     }
     setCalendarView(view);
+    
+    // Update virtualized calendar view range
+    let start: Date, end: Date;
+    if (view === 'month') {
+      start = new Date(date.getFullYear(), date.getMonth(), 1);
+      end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    } else if (view === 'week') {
+      start = new Date(date);
+      start.setDate(date.getDate() - date.getDay()); // Start of week
+      end = new Date(start);
+      end.setDate(start.getDate() + 6); // End of week
+    } else if (view === 'day') {
+      start = new Date(date);
+      end = new Date(date);
+    } else {
+      // agenda view - show wider range
+      start = new Date(date.getFullYear(), date.getMonth(), 1);
+      end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    }
+    
+    updateViewRange(start, end);
   };
 
   const handleCalendarViewChange = (view: CalendarView) => {
@@ -797,6 +864,7 @@ const DoctorSchedulePage: React.FC = () => {
               onChange={(date) => setSelectedMonth(date || dayjs())}
               format="MM/YYYY"
               placeholder="Chọn tháng"
+              getPopupContainer={trigger => trigger.parentNode}
             />
           </Col>
           <Col>
@@ -854,34 +922,68 @@ const DoctorSchedulePage: React.FC = () => {
             </div>
           )}
           
-          <AdvancedCalendar
-            key="doctor-schedule-main-calendar"
-            events={visibleEvents}
-            onSelectEvent={handleSelectEvent}
-            onNavigate={(date, view) => {
-              handleCalendarNavigate(date, view);
-              // Update virtualization range based on view
-              const start = new Date(date);
-              const end = new Date(date);
-              
-              if (view === 'month') {
-                start.setDate(1);
-                end.setMonth(end.getMonth() + 1, 0);
-              } else if (view === 'week') {
-                start.setDate(start.getDate() - start.getDay());
-                end.setDate(end.getDate() + (6 - end.getDay()));
-              } else {
-                end.setDate(end.getDate() + 1);
-              }
-              
-              updateViewRange(start, end);
-            }}
-            onView={handleCalendarViewChange}
-            defaultView={calendarView}
-            views={['month', 'week', 'day', 'agenda'] as CalendarView[]}
-            loading={loading || searchLoading}
-            height={700}
-          />
+          {/* Error State với Retry */}
+          {schedules.length === 0 && !loading && (
+            <Card style={{ height: '700px' }}>
+              <div style={{ 
+                height: '100%',
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center',
+                flexDirection: 'column',
+                gap: '24px'
+              }}>
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '18px', fontWeight: 600, color: '#666', marginBottom: '8px' }}>
+                        Không có dữ liệu lịch làm việc
+                      </div>
+                      <div style={{ fontSize: '14px', color: '#999', marginBottom: '16px' }}>
+                        Tháng {selectedMonth.format('MM/YYYY')} chưa có lịch làm việc nào được tạo.
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                        <Button
+                          icon={<ReloadOutlined />}
+                          onClick={loadSchedules}
+                          loading={loading}
+                        >
+                          Thử lại
+                        </Button>
+                        <Button
+                          type="primary"
+                          icon={<PlusOutlined />}
+                          onClick={loadDoctorsForCreate}
+                        >
+                          Tạo lịch mới
+                        </Button>
+                      </div>
+                    </div>
+                  }
+                />
+              </div>
+            </Card>
+          )}
+          
+          {/* Calendar Component */}
+          {(schedules.length > 0 || visibleEvents.length > 0) && (
+            <AdvancedCalendar
+              key="doctor-schedule-main-calendar"
+              events={visibleEvents}
+              onSelectEvent={handleSelectEvent}
+              onNavigate={(date, view) => {
+                setSelectedMonth(dayjs(date));
+                handleCalendarNavigate(date, view);
+              }}
+              onView={handleCalendarViewChange}
+              defaultView={calendarView}
+              views={['month', 'week', 'day', 'agenda'] as CalendarView[]}
+              loading={loading || searchLoading}
+              height={700}
+              currentDate={selectedMonth.toDate()}
+            />
+          )}
         </div>
       ) : (
         /* Schedule Table */

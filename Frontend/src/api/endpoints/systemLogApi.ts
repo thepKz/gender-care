@@ -52,6 +52,12 @@ export interface GetLogsResponse {
 // Lấy danh sách logs
 export const getSystemLogs = async (params: GetLogsParams = {}): Promise<GetLogsResponse> => {
   const response = await apiClient.get('/system-logs', { params });
+  console.log('🔗 Raw API response structure:', {
+    status: response.status,
+    success: response.data.success,
+    dataStructure: Object.keys(response.data.data || {}),
+    fullData: response.data.data
+  });
   return response.data.data;
 };
 

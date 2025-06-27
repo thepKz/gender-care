@@ -4,6 +4,8 @@ import { OAuth2Client } from "google-auth-library";
 import { ValidationError } from "../errors/validationError";
 import { AuthToken, LoginHistory, OtpCode, User } from "../models";
 import { sendVerificationEmail } from "../services/emails";
+import systemLogService from "../services/systemLogService";
+import { LogAction, LogLevel } from "../models/SystemLogs";
 import { signRefreshToken, signToken, verifyRefreshToken } from "../utils";
 import { getRealIP, getLocationFromIP } from "../utils";
 
@@ -360,6 +362,19 @@ export const login = async (req: Request, res: Response) => {
       location: locationData.location || 'Unknown Location',
       status: 'success'
     });
+
+    // Log system activity
+    await systemLogService.logFromRequest(req as any, LogAction.LOGIN, 
+      `User ${user.fullName} (${user.email}) logged in successfully`, {
+        level: LogLevel.PUBLIC,
+        targetId: user._id.toString(),
+        targetType: 'user',
+        metadata: {
+          userRole: user.role,
+          location: locationData.location || 'Unknown Location'
+        }
+      }
+    );
 
     return res.status(200).json({
       message: "Đăng nhập thành công!",
@@ -736,6 +751,25 @@ export const logout = async (req: Request, res: Response) => {
             sort: { loginAt: -1 } // Lấy session login gần nhất
           }
         );
+        
+        // Log system activity
+        const user = await User.findById(tokenDoc.userId);
+        if (user) {
+          await systemLogService.createLog({
+            action: LogAction.LOGOUT,
+            level: LogLevel.PUBLIC,
+            message: `User ${user.fullName} (${user.email}) logged out`,
+            userId: user._id.toString(),
+            userEmail: user.email,
+            userRole: user.role,
+            ipAddress: req.ip || 'unknown',
+            userAgent: req.get('User-Agent') || 'unknown',
+            endpoint: req.path,
+            method: req.method as any,
+            targetId: user._id.toString(),
+            targetType: 'user'
+          });
+        }
         
         // Vô hiệu hóa refresh token
         await AuthToken.updateOne({ refreshToken }, { isRevoked: true });

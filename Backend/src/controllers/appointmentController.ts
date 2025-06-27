@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Appointments, DoctorSchedules, Service, ServicePackages, UserProfiles, PackagePurchases, Doctor } from '../models';
 import payosService from '../services/payosService';
+import systemLogService from '../services/systemLogService';
+import { LogAction, LogLevel } from '../models/SystemLogs';
 import { NotFoundError } from '../errors/notFoundError';
 import { ValidationError } from '../errors/validationError';
 import { UnauthorizedError } from '../errors/unauthorizedError';
@@ -397,6 +399,32 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
                 general: error.message || 'Không thể tạo cuộc hẹn' 
             });
         }
+
+        // Log system activity
+        const appointmentId = newAppointment._id?.toString() || 'unknown';
+        const userInfo = await UserProfiles.findById(profileId).select('fullName');
+        const serviceInfo = serviceId ? await Service.findById(serviceId).select('serviceName') : null;
+        const packageInfo = packageId ? await ServicePackages.findById(packageId).select('name') : null;
+        
+        const activityMessage = bookingType === 'purchased_package'
+            ? `Appointment created using purchased package: ${userInfo?.fullName || 'Unknown'} - ${serviceInfo?.serviceName || packageInfo?.name || 'Unknown service'}`
+            : `New appointment created: ${userInfo?.fullName || 'Unknown'} - ${serviceInfo?.serviceName || packageInfo?.name || 'Unknown service'}`;
+
+        await systemLogService.logFromRequest(req as any, LogAction.APPOINTMENT_CREATE, activityMessage, {
+            level: LogLevel.PUBLIC,
+            targetId: appointmentId,
+            targetType: 'appointment',
+            metadata: {
+                bookingType,
+                appointmentType,
+                totalAmount: newAppointment.totalAmount,
+                appointmentDate,
+                status: newAppointment.status,
+                profileId,
+                serviceId,
+                packageId
+            }
+        });
 
         // Trả về kết quả thành công
         const responseData: any = {
@@ -896,6 +924,27 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
         ).populate('profileId', 'fullName gender phone year')
             .populate('serviceId', 'serviceName price serviceType')
             .populate('packageId', 'name price serviceIds');
+
+        // Log system activity
+        const profileName = (updatedAppointment?.profileId as any)?.fullName || 'Unknown';
+        const serviceName = (updatedAppointment?.serviceId as any)?.serviceName || 
+                           (updatedAppointment?.packageId as any)?.name || 'Unknown service';
+        
+        await systemLogService.createLog({
+            action: LogAction.APPOINTMENT_UPDATE,
+            level: LogLevel.PUBLIC,
+            message: `Appointment status changed: ${profileName} - ${serviceName} (${appointment.status} → ${status})`,
+            targetId: id,
+            targetType: 'appointment',
+            metadata: {
+                oldStatus: appointment.status,
+                newStatus: status,
+                appointmentDate: updatedAppointment?.appointmentDate,
+                appointmentTime: updatedAppointment?.appointmentTime,
+                profileName,
+                serviceName
+            }
+        });
 
         return res.status(200).json({
             success: true,

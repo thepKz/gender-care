@@ -1,14 +1,19 @@
 import { CameraOutlined, LockOutlined, SaveOutlined, UserOutlined } from '@ant-design/icons';
 import { Avatar, Button, Col, DatePicker, Form, Input, notification, Row, Select, Skeleton, Spin, Upload } from 'antd';
+import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
 import moment from 'moment';
+import 'moment/locale/vi'; // Vietnamese locale for consistent formatting
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import userApi from '../../api/endpoints/userApi';
-import Image1 from '../../assets/images/image1.jpg';
+import Image1 from '../../assets/images/celeb.png';
 import ChangePasswordForm from '../../components/feature/auth/ChangePasswordForm';
 import { useAuth } from '../../hooks/useAuth';
 import './profile.css';
+
+// Set moment locale to Vietnamese for consistent date formatting
+moment.locale('vi');
 
 const ProfilePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -64,9 +69,10 @@ const ProfilePage: React.FC = () => {
     }
   }, [user?.avatar]);
 
-  // Set form values when user data is loaded
+  // Set form values when user data is loaded - FIX: Remove form from dependencies to prevent loops
   useEffect(() => {
-    if (user) {
+    if (user && !editMode) {
+      // Only set form values when not in edit mode to prevent interference
       form.setFieldsValue({
         fullName: user.fullName,
         phone: user.phone,
@@ -74,7 +80,7 @@ const ProfilePage: React.FC = () => {
         year: user.year ? moment(user.year) : null,
       });
     }
-  }, [user, form]);
+  }, [user, editMode]); // Removed 'form' from dependencies to prevent infinite loops
 
   const handleUpdateProfile = async (values: {
     fullName: string;
@@ -89,7 +95,7 @@ const ProfilePage: React.FC = () => {
         fullName: values.fullName,
         phone: values.phone,
         gender: values.gender,
-        year: values.year ? values.year.toISOString() : null,
+        year: values.year ? values.year.format('YYYY-MM-DD') : null,
       };
 
       await userApi.updateUserProfile(updateData);
@@ -101,6 +107,16 @@ const ProfilePage: React.FC = () => {
       
       await fetchProfile();
       setEditMode(false);
+      
+      // Set lại form values sau khi update thành công
+      setTimeout(() => {
+        form.setFieldsValue({
+          fullName: updateData.fullName,
+          phone: updateData.phone,
+          gender: updateData.gender,
+          year: updateData.year ? moment(updateData.year) : null,
+        });
+      }, 100);
     } catch (error: unknown) {
       console.error('Lỗi cập nhật thông tin:', error);
               notification.error({
@@ -229,7 +245,16 @@ const ProfilePage: React.FC = () => {
                 <Button
                   type="primary"
                   icon={<SaveOutlined />}
-                  onClick={() => setEditMode(true)}
+                  onClick={() => {
+                    setEditMode(true);
+                    // Set lại form values khi vào edit mode
+                    form.setFieldsValue({
+                      fullName: user.fullName,
+                      phone: user.phone,
+                      gender: user.gender,
+                      year: user.year ? moment(user.year) : null,
+                    });
+                  }}
                   className="bg-[#0C3C54] hover:bg-[#0C3C54]/90 border-0"
                 >
                   Chỉnh sửa
@@ -303,6 +328,12 @@ const ProfilePage: React.FC = () => {
                         placeholder="Chọn ngày sinh"
                         className="w-full rounded-xl border-gray-200 hover:border-[#0C3C54] focus:border-[#0C3C54]"
                         format="DD/MM/YYYY"
+                        disabledDate={(current) => {
+                          // Disable future dates (birth date can't be in the future)
+                          return current && current.isAfter(dayjs().endOf('day'));
+                        }}
+                        showToday={false}
+                        allowClear
                       />
                     </Form.Item>
                   </Col>
@@ -332,7 +363,13 @@ const ProfilePage: React.FC = () => {
                   <Button
                     onClick={() => {
                       setEditMode(false);
-                      form.resetFields();
+                      // Reset về values gốc thay vì clear hoàn toàn
+                      form.setFieldsValue({
+                        fullName: user.fullName,
+                        phone: user.phone,
+                        gender: user.gender,
+                        year: user.year ? moment(user.year) : null,
+                      });
                     }}
                     className="px-6"
                   >

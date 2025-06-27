@@ -24,13 +24,15 @@ import {
   UndoOutlined,
   AppstoreOutlined,
   LoadingOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  BarChartOutlined
 } from '@ant-design/icons';
 import { useStandardManagement } from '../../../hooks/useStandardManagement';
 import { servicePackageApi } from '../../../api';
 import { getServices } from '../../../api/endpoints/serviceApi';
 import { recoverServicePackage } from '../../../api/endpoints/servicePackageApi';
 import ServicePackageModal from '../../../components/ui/forms/ServicePackageModal';
+import PackageUsageModal from '../../../components/ui/modals/PackageUsageModal';
 import { Service, ServicePackage, CreateServicePackageRequest, UpdateServicePackageRequest, ServiceItem } from '../../../types';
 
 const { Title, Text } = Typography;
@@ -132,6 +134,12 @@ const ServicePackageManagementCore: React.FC = () => {
   const [serviceSearchText, setServiceSearchText] = useState<string>('');
   const [sortOption, setSortOption] = useState<string>('default');
   
+  // 🆕 Analytics Modal State
+  const [analyticsModalVisible, setAnalyticsModalVisible] = useState(false);
+  const [selectedPackageForAnalytics, setSelectedPackageForAnalytics] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   
   // ✅ FIX: Track initialization properly
@@ -557,6 +565,14 @@ const ServicePackageManagementCore: React.FC = () => {
       key: 'actions',
       render: (record: ServicePackage) => (
         <Space>
+          <Tooltip title="Xem Usage Analytics">
+            <Button
+              type="link"
+              icon={<BarChartOutlined />}
+              onClick={() => handleShowAnalytics(record)}
+              style={{ color: '#1890ff' }}
+            />
+          </Tooltip>
           <Tooltip title="Chỉnh sửa">
             <Button
               type="link"
@@ -613,6 +629,20 @@ const ServicePackageManagementCore: React.FC = () => {
 
   const handleModalSubmitCustom = async (data: CreateServicePackageRequest | UpdateServicePackageRequest) => {
     return originalHandleModalSubmit(data);
+  };
+
+  // 🆕 Analytics handlers
+  const handleShowAnalytics = (pkg: ServicePackage) => {
+    setSelectedPackageForAnalytics({
+      id: pkg._id,
+      name: pkg.name
+    });
+    setAnalyticsModalVisible(true);
+  };
+
+  const handleCloseAnalytics = () => {
+    setAnalyticsModalVisible(false);
+    setSelectedPackageForAnalytics(null);
   };
 
   return (
@@ -814,6 +844,16 @@ const ServicePackageManagementCore: React.FC = () => {
         servicePackage={editingPackage}
         loading={loading}
       />
+
+      {/* 🆕 Analytics Modal */}
+      {selectedPackageForAnalytics && (
+        <PackageUsageModal
+          visible={analyticsModalVisible}
+          onClose={handleCloseAnalytics}
+          packageId={selectedPackageForAnalytics.id}
+          packageName={selectedPackageForAnalytics.name}
+        />
+      )}
     </div>
   );
 };
