@@ -239,7 +239,6 @@ export const purchasePackageOriginal = async (req: AuthRequest, res: Response) =
     // Populate thông tin để trả về
     const populatedPurchase = await PackagePurchases.findById(packagePurchase._id)
       .populate('packageId', 'name description price serviceIds durationInDays maxUsages')
-      .populate('profileId', 'fullName phone year gender')
       .populate('billId', 'subtotal discountAmount totalAmount status');
 
     const response: ApiResponse<any> = {
@@ -321,11 +320,6 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
             model: 'Service',
             select: 'serviceName price description serviceType'
           }
-        })
-        .populate({
-          path: 'profileId',
-          model: 'UserProfiles', // Fix model name
-          select: 'fullName phone year gender'
         })
         .populate({
           path: 'billId',
@@ -537,7 +531,7 @@ export const getPackagePurchaseDetail = async (req: AuthRequest, res: Response) 
           select: 'serviceName price description serviceType availableAt'
         }
       })
-      .populate('profileId', 'fullName phone year gender')
+      .populate('profileId', 'fullName phone year gender', undefined, { strictPopulate: false })
       .populate('billId', 'subtotal discountAmount totalAmount status createdAt');
 
     if (!packagePurchase) {

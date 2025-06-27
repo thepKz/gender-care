@@ -63,7 +63,7 @@ const PackagePurchaseModal: React.FC<PackagePurchaseModalProps> = ({
         setUserProfiles(profiles);
         
         // Auto-select default profile if exists
-        const defaultProfile = profiles.find(p => p.isDefault === true);
+        const defaultProfile = profiles.find(p => (p as any).isDefault === true);
         if (defaultProfile) {
           form.setFieldsValue({ userProfileId: defaultProfile._id });
         }

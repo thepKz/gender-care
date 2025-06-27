@@ -7,30 +7,30 @@ import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import {
-  appointmentRoutes,
-  authRoutes,
-  dashboardRoutes,
-  doctorQARoutes,
-  doctorRoutes,
-  googleAuthRoutes,
-  loginHistoryRoutes,
-  medicalRecordsRoutes,
-  medicationRemindersRoutes,
-  medicinesRoutes,
-  meetingRoutes,
-  menstrualCycleRoutes,
-  notificationDaysRoutes,
-  packagePurchaseRoutes,
-  paymentRoutes,
-  servicePackageRoutes,
-  serviceRoutes,
-  serviceTestCategoriesRoutes,
-  systemLogRoutes,
-  testCategoriesRoutes,
-  testResultItemsRoutes,
-  testResultsRoutes,
-  userProfileRoutes,
-  userRoutes
+    appointmentRoutes,
+    authRoutes,
+    dashboardRoutes,
+    doctorQARoutes,
+    doctorRoutes,
+    googleAuthRoutes,
+    loginHistoryRoutes,
+    medicalRecordsRoutes,
+    medicationRemindersRoutes,
+    medicinesRoutes,
+    meetingRoutes,
+    menstrualCycleRoutes,
+    notificationDaysRoutes,
+    packagePurchaseRoutes,
+    paymentRoutes,
+    servicePackageRoutes,
+    serviceRoutes,
+    serviceTestCategoriesRoutes,
+    systemLogRoutes,
+    testCategoriesRoutes,
+    testResultItemsRoutes,
+    testResultsRoutes,
+    userProfileRoutes,
+    userRoutes
 } from "./routes";
 import consultationRoutes from './routes/consultationRoutes';
 
@@ -185,6 +185,9 @@ try {
 // Kết nối đến cơ sở dữ liệu MongoDB
 const connectDB = async () => {
   try {
+    // Set global mongoose options
+    mongoose.set('strictPopulate', false);
+    
     const conn = await mongoose.connect(process.env.MONGO_URI as string);
     console.log(`MongoDB đã kết nối: ${conn.connection.host}`);
 

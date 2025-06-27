@@ -1,4 +1,4 @@
-import { Button, Calendar, Form, Input, Modal, notification, Select } from 'antd';
+import { Button, Calendar, Form, Input, message, Modal, notification, Select } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -17,7 +17,6 @@ import userProfileApiInstance from '../../api/endpoints/userProfileApi';
 import useAuth from '../../hooks/useAuth';
 
 // Utils
-import { getValidTokenFromStorage } from '../../utils/helpers';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -91,6 +90,8 @@ interface PurchasedPackage {
   usedServices: Array<{
     serviceId: string;
     usedCount: number;
+    usedQuantity?: number; // Backend compatibility
+    maxQuantity?: number;  // Backend compatibility
   }>;
   totalAmount: number;
   status: 'active' | 'expired' | 'used_up';
@@ -101,50 +102,6 @@ const BookingPageNew: React.FC = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const [form] = Form.useForm();
-
-  // Authentication check - redirect if not authenticated
-  useEffect(() => {
-    if (!isAuthenticated) {
-      notification.warning({
-        message: 'Yêu cầu đăng nhập',
-        description: 'Bạn cần đăng nhập để đặt lịch hẹn. Đang chuyển hướng...',
-        placement: 'topRight',
-        duration: 3
-      });
-      
-      setTimeout(() => {
-        navigate('/login?returnUrl=/booking');
-      }, 1500);
-    }
-  }, [isAuthenticated, navigate]);
-
-  // Show loading state while redirecting if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div style={{ 
-        minHeight: '100vh', 
-        backgroundColor: '#f8fafc',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid #e5e7eb',
-            borderTop: '4px solid #3b82f6',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px'
-          }}></div>
-          <p style={{ color: '#6b7280', fontSize: '16px' }}>
-            Đang chuyển hướng đến trang đăng nhập...
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   // Form states
   const [selectedService, setSelectedService] = useState('');
@@ -339,12 +296,13 @@ const BookingPageNew: React.FC = () => {
             rating: doctorData.rating || 4.5,
             reviewCount: 0,
             avatar: doctorData.userId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-            isAvailable: true, // They are available for this time slot
+            isAvailable: true, // These doctors are available for the selected time
             bio: doctorData.bio || 'Bác sĩ chuyên nghiệp với nhiều năm kinh nghiệm'
           };
         })
         .filter(Boolean) as Doctor[];
-      
+
+      console.log('🔍 [Doctor Debug] Available doctors for', dateStr, timeSlot, ':', mappedDoctors.length);
       setDoctors(mappedDoctors);
     } catch (error) {
       console.error('Error fetching available doctors:', error);
@@ -352,6 +310,50 @@ const BookingPageNew: React.FC = () => {
       setDoctors([]);
     }
   }, []);
+
+  // Authentication check - redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      notification.warning({
+        message: 'Yêu cầu đăng nhập',
+        description: 'Bạn cần đăng nhập để đặt lịch hẹn. Đang chuyển hướng...',
+        placement: 'topRight',
+        duration: 3
+      });
+      
+      setTimeout(() => {
+        navigate('/login?returnUrl=/booking');
+      }, 1500);
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Show loading state while redirecting if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        backgroundColor: '#f8fafc',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            border: '4px solid #e5e7eb',
+            borderTop: '4px solid #3b82f6',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 16px'
+          }}></div>
+          <p style={{ color: '#6b7280', fontSize: '16px' }}>
+            Đang chuyển hướng đến trang đăng nhập...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Fetch user profiles
   const fetchUserProfiles = useCallback(async () => {
@@ -692,159 +694,151 @@ const BookingPageNew: React.FC = () => {
 
   // Handle form submission
   const handleSubmit = async (values: any) => {
-    // Prevent form submission if not ready (should not happen due to disabled button, but safety check)
-    const isReadyForSubmission = (
-      (selectedService || selectedServicePackage || (selectedPurchasedPackage && selectedServiceFromPackage)) && 
-      selectedDate && 
-      selectedTimeSlot && 
-      selectedProfile
-    );
-    
-    if (!isReadyForSubmission) {
-      return; // Silently block - user shouldn't be able to submit anyway due to disabled button
+    if (!selectedProfile) {
+      message.error('Vui lòng chọn hồ sơ khám bệnh');
+      return;
     }
+
+    if (!selectedDate || !selectedTimeSlot) {
+      message.error('Vui lòng chọn ngày và giờ khám');
+      return;
+    }
+
+    // 🎯 FIX: Determine bookingType based on selection
+    let backendBookingType: 'service_only' | 'new_package' | 'purchased_package';
+    let packagePurchaseId: string | undefined;
+
+    if (bookingType === 'service' && selectedService) {
+      backendBookingType = 'service_only';
+    } else if (bookingType === 'package' && selectedServicePackage) {
+      backendBookingType = 'new_package';
+    } else if (bookingType === 'purchased_package' && selectedPurchasedPackage && selectedServiceFromPackage) {
+      backendBookingType = 'purchased_package';
+      packagePurchaseId = selectedPurchasedPackage;
+    } else {
+      message.error('Vui lòng chọn dịch vụ hoặc gói dịch vụ');
+      return;
+    }
+
+    console.log('🔍 [Booking Debug] Booking type determined:', {
+      backendBookingType,
+      bookingType,
+      selectedService,
+      selectedServicePackage,
+      selectedPurchasedPackage,
+      selectedServiceFromPackage,
+      packagePurchaseId
+    });
+
+    // Auto-assign doctor if not selected
+    let assignedDoctorId = selectedDoctor;
+    let assignedDoctorName = '';
+
+    if (!assignedDoctorId) {
+      // Try to find available doctor from current context
+      const availableDoctor = doctors.find(doctor => doctor.isAvailable);
+      if (availableDoctor) {
+        assignedDoctorId = availableDoctor.id;
+        assignedDoctorName = availableDoctor.name;
+        console.log('🤖 Auto-assigned doctor from current context:', availableDoctor.name, 'ID:', availableDoctor.id);
+      } else {
+        // Fetch available doctors for the selected time slot
+        try {
+          const dateStr = selectedDate.format('YYYY-MM-DD');
+          const response = await doctorScheduleApi.getAvailableDoctors(dateStr);
+          const doctorsData = Array.isArray(response) ? response : [];
+
+          // Find doctors available for the selected time slot
+          const availableDoctorSchedule = doctorsData.find((doctorSchedule: any) => {
+            if (!doctorSchedule.availableSlots) return false;
+            return doctorSchedule.availableSlots.some((slot: any) =>
+              slot.slotTime === selectedTimeSlot && slot.status === 'Free'
+            );
+          });
+
+          if (availableDoctorSchedule) {
+            assignedDoctorId = availableDoctorSchedule.doctorId;
+            assignedDoctorName = availableDoctorSchedule.doctorInfo.fullName;
+            console.log('🤖 Auto-assigned doctor from API:', assignedDoctorName, 'ID:', assignedDoctorId);
+          }
+        } catch (error) {
+          console.error('Error fetching available doctors for auto-assignment:', error);
+        }
+      }
+    }
+
+    // Prepare appointment data
+    const appointmentData: any = {
+      profileId: selectedProfile,
+      appointmentDate: selectedDate.format('YYYY-MM-DD'),
+      appointmentTime: selectedTimeSlot,
+      appointmentType: 'consultation',
+      typeLocation,
+      description: values.description || '',
+      notes: values.notes || '',
+      bookingType: backendBookingType, // 🎯 FIX: Add bookingType
+      packagePurchaseId // 🎯 FIX: Add packagePurchaseId if needed
+    };
+
+    // Add service/package specific data
+    if (backendBookingType === 'service_only' && selectedService) {
+      appointmentData.serviceId = selectedService;
+    } else if (backendBookingType === 'new_package' && selectedServicePackage) {
+      appointmentData.packageId = selectedServicePackage;
+    } else if (backendBookingType === 'purchased_package' && selectedServiceFromPackage) {
+      appointmentData.serviceId = selectedServiceFromPackage;
+    }
+
+    // Add doctor and address if available
+    if (assignedDoctorId) {
+      appointmentData.doctorId = assignedDoctorId;
+    }
+
+    if (typeLocation === 'home' && values.address) {
+      appointmentData.address = values.address;
+    }
+
+    console.log('🔍 [Booking Debug] Final appointment data:', appointmentData);
 
     try {
       setIsSubmitting(true);
-      
-      // Auto-assign available doctor if not selected
-      let assignedDoctorId = selectedDoctor;
-      let assignedDoctorName = '';
-      
-      if (!assignedDoctorId) {
-        if (doctors.length > 0) {
-          // Find first available doctor for this time slot
-          const availableDoctor = doctors.find(doctor => doctor.isAvailable);
-          if (availableDoctor) {
-            assignedDoctorId = availableDoctor.id;
-            assignedDoctorName = availableDoctor.name;
-            console.log('🤖 Auto-assigned doctor from current context:', availableDoctor.name, 'ID:', availableDoctor.id);
-          }
-        } else {
-          // Fallback: fetch any available doctor for this date/time
-          try {
-            const dateStr = selectedDate.format('YYYY-MM-DD');
-            const response = await doctorScheduleApi.getAvailableDoctors(dateStr);
-            const doctorsData = Array.isArray(response) ? response : [];
-            
-            // Find doctors available for the selected time slot
-            const availableDoctorSchedule = doctorsData.find((doctorSchedule: any) => {
-              if (!doctorSchedule.availableSlots) return false;
-              return doctorSchedule.availableSlots.some((slot: any) => 
-                slot.slotTime === selectedTimeSlot && slot.status === 'Free'
-              );
-            });
-            
-            if (availableDoctorSchedule) {
-              assignedDoctorId = availableDoctorSchedule.doctorId;
-              assignedDoctorName = `Bác sĩ (ID: ${assignedDoctorId})`;
-              console.log('🔄 Fallback auto-assigned doctor ID:', assignedDoctorId);
-            }
-          } catch (error) {
-            console.error('Failed to fetch fallback doctor:', error);
-          }
-        }
-      } else if (assignedDoctorId) {
-        const selectedDoctorObj = doctors.find(d => d.id === assignedDoctorId);
-        assignedDoctorName = selectedDoctorObj?.name || '';
-        console.log('✅ Using selected doctor:', assignedDoctorName, 'ID:', assignedDoctorId);
-      }
-      
-      const bookingData = {
-        ...(bookingType === 'service' ? 
-          { serviceId: selectedService } : 
-          bookingType === 'package' ? 
-            { servicePackageId: selectedServicePackage } :
-            { 
-              serviceId: selectedServiceFromPackage,
-              packagePurchaseId: selectedPurchasedPackage
-            }
-        ),
-        doctorId: assignedDoctorId,
-        appointmentDate: selectedDate.format('YYYY-MM-DD'),
-        appointmentTime: selectedTimeSlot,
-        appointmentType: 'consultation' as const,
-        typeLocation: (typeLocation === 'online' ? 'Online' : typeLocation) as 'clinic' | 'home' | 'Online',
-        profileId: selectedProfile,
-        description: values.description,
-        notes: values.notes,
-        address: typeLocation === 'home' ? values.address : undefined,
-        bookingType: bookingType === 'service' ? 'service_only' : 
-                     bookingType === 'package' ? 'package_booking' : 
-                     'purchased_package_usage'
-      };
+      const result = await appointmentApi.createAppointment(appointmentData);
 
-      console.log('🚀 Creating appointment...', bookingData);
-      const response = await appointmentApi.createAppointment(bookingData as any);
-      
-      if (response.success || response.data) {
-        const appointmentId = response.data?._id || response.data?.id;
-        
-        if (!appointmentId) {
-          throw new Error('Không nhận được ID appointment');
-        }
+      console.log('✅ [Booking Success] Appointment created:', result);
 
-        console.log('✅ Appointment created, creating payment link...', appointmentId);
-
-        // Tạo payment link với PayOS
-        try {
-          const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-          const token = getValidTokenFromStorage('access_token');
-          
-          if (!token) {
-            throw new Error('Không tìm thấy token đăng nhập. Vui lòng đăng nhập lại.');
-          }
-          
-          const paymentResponse = await fetch(`${apiBase}/api/payments/appointments/${appointmentId}/create`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              returnUrl: `${window.location.origin}/payment/success?appointmentId=${appointmentId}`,
-              cancelUrl: `${window.location.origin}/booking`
-            })
-          });
-
-          const paymentData = await paymentResponse.json();
-          
-          if (paymentData.success && paymentData.data?.paymentUrl) {
-            console.log('💳 Redirecting to PayOS payment page...');
-            
-            // Store booking info for later refresh  
-            localStorage.setItem('pendingBooking', JSON.stringify({
-              appointmentId,
-              dateStr: selectedDate.format('YYYY-MM-DD'),
-              timeSlot: selectedTimeSlot
-            }));
-            
-            // Redirect đến trang thanh toán PayOS
-            window.location.href = paymentData.data.paymentUrl;
-          } else {
-            throw new Error(paymentData.message || 'Không thể tạo link thanh toán');
-          }
-          
-        } catch (paymentError) {
-          console.error('Payment error:', paymentError);
-          notification.error({
-            message: 'Lỗi thanh toán',
-            description: 'Có lỗi xảy ra khi tạo thanh toán. Vui lòng thử lại!',
-            placement: 'topRight'
-          });
-        }
-        
+      // Handle different booking types
+      if (backendBookingType === 'purchased_package') {
+        // Purchased package - no payment needed
+        message.success('Đặt lịch thành công! Cuộc hẹn đã được xác nhận.');
+        navigate('/booking-history');
       } else {
-        throw new Error('Invalid response from server');
+        // Service or new package - need payment
+        const paymentUrl = result.paymentUrl;
+        if (paymentUrl) {
+          // Store pending booking info
+          localStorage.setItem('pendingBooking', JSON.stringify({
+            appointmentId: result.appointmentId,
+            amount: result.totalAmount,
+            bookingType: backendBookingType
+          }));
+
+          // Redirect to payment
+          window.location.href = paymentUrl;
+        } else {
+          message.error('Không thể tạo link thanh toán');
+        }
       }
+    } catch (error: any) {
+      console.error('❌ [Booking Error]:', error);
       
-    } catch (error) {
-      console.error('Error submitting booking:', error);
-      notification.error({
-        message: 'Lỗi đặt lịch',
-        description: 'Có lỗi xảy ra khi đặt lịch. Vui lòng thử lại!',
-        placement: 'topRight'
-      });
+      // Show specific error message
+      if (error.message.includes('validation')) {
+        message.error(`Lỗi validation: ${error.message}`);
+      } else if (error.message.includes('slot')) {
+        message.error('Slot thời gian đã được đặt. Vui lòng chọn thời gian khác.');
+      } else {
+        message.error('Có lỗi xảy ra khi đặt lịch. Vui lòng thử lại.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -876,7 +870,7 @@ const BookingPageNew: React.FC = () => {
           used.serviceId === service.serviceId || used.serviceId === (service.serviceId as any)?._id
         );
         
-        const usedCount = usedService ? (usedService.usedCount || usedService.usedQuantity || 0) : 0;
+        const usedCount = usedService ? usedService.usedCount : 0;
         const maxQuantity = service.quantity || 1;
         const remainingQuantity = maxQuantity - usedCount;
         
@@ -889,8 +883,8 @@ const BookingPageNew: React.FC = () => {
           usedCount,
           remainingQuantity,
           canUse: remainingQuantity > 0,
-          price: service.price || 0,
-          description: service.description || ''
+          price: 0, // Default price for package services
+          description: 'Dịch vụ từ gói đã mua'
         };
       });
     } 
@@ -1897,6 +1891,15 @@ const BookingPageNew: React.FC = () => {
                             <div style={{ fontSize: '12px', color: '#10b981', marginBottom: '4px', fontWeight: '500' }}>
                               ✓ {doctors.length} bác sĩ có sẵn cho thời gian này
                             </div>
+                            {(() => {
+                              console.log('🔍 [Doctor Count Debug] Current doctors state:', {
+                                totalDoctors: doctors.length,
+                                availableDoctors: doctors.filter(d => d.isAvailable).length,
+                                selectedTimeSlot,
+                                selectedDate: selectedDate?.format('YYYY-MM-DD')
+                              });
+                              return null;
+                            })()}
                             {selectedDoctor && (
                               <div style={{ 
                                 padding: '8px', 

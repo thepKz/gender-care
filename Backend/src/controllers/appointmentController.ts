@@ -1,12 +1,11 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { Appointments, DoctorSchedules, Service, ServicePackages, UserProfiles, PackagePurchases, Doctor } from '../models';
-import payosService from '../services/payosService';
-import systemLogService from '../services/systemLogService';
-import { LogAction, LogLevel } from '../models/SystemLogs';
 import { NotFoundError } from '../errors/notFoundError';
-import { ValidationError } from '../errors/validationError';
 import { UnauthorizedError } from '../errors/unauthorizedError';
+import { ValidationError } from '../errors/validationError';
+import { Appointments, Doctor, DoctorSchedules, PackagePurchases, Service, ServicePackages, UserProfiles } from '../models';
+import { LogAction, LogLevel } from '../models/SystemLogs';
+import systemLogService from '../services/systemLogService';
 
 interface AuthRequest extends Request {
     user?: {
@@ -63,16 +62,32 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
 
         // Lấy dữ liệu với populate các trường liên quan
         const appointments = await Appointments.find(query)
-            .populate('profileId', 'fullName gender phone year')
-            .populate('serviceId', 'serviceName price serviceType')
-            .populate('packageId', 'name price')
+            .populate({
+                path: 'profileId',
+                model: 'UserProfiles',
+                select: 'fullName gender phone year',
+                options: { strictPopulate: false }
+            })
+            .populate({
+                path: 'serviceId',
+                model: 'Service',
+                select: 'serviceName price serviceType',
+                options: { strictPopulate: false }
+            })
+            .populate({
+                path: 'packageId',
+                model: 'ServicePackages',
+                select: 'name price',
+                options: { strictPopulate: false }
+            })
             .populate({
                 path: 'doctorId',
                 match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
                 populate: {
                     path: 'userId',
                     select: 'fullName email avatar'
-                }
+                },
+                options: { strictPopulate: false }
             })
             .sort({ appointmentDate: -1, appointmentTime: -1 })
             .skip(skip)
@@ -471,17 +486,18 @@ export const getAppointmentById = async (req: Request, res: Response) => {
 
         // Tìm cuộc hẹn theo ID
         const appointment = await Appointments.findById(id)
-            .populate('profileId', 'fullName gender phone year')
-            .populate('serviceId', 'serviceName price serviceType')
-            .populate('packageId', 'name price serviceIds')
-            .populate('createdByUserId', 'fullName email')
+            .populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
+            .populate('serviceId', 'serviceName price serviceType', undefined, { strictPopulate: false })
+            .populate('packageId', 'name price serviceIds', undefined, { strictPopulate: false })
+            .populate('createdByUserId', 'fullName email', undefined, { strictPopulate: false })
             .populate({
                 path: 'doctorId',
                 match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
                 populate: {
                     path: 'userId',
                     select: 'fullName email avatar'
-                }
+                },
+                options: { strictPopulate: false }
             });
 
         if (!appointment) {
@@ -598,16 +614,17 @@ export const updateAppointment = async (req: Request, res: Response) => {
             id,
             { $set: updateData },
             { new: true }
-        ).populate('profileId', 'fullName gender phone year')
-            .populate('serviceId', 'serviceName price serviceType')
-            .populate('packageId', 'name price serviceIds')
+        ).populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
+            .populate('serviceId', 'serviceName price serviceType', undefined, { strictPopulate: false })
+            .populate('packageId', 'name price serviceIds', undefined, { strictPopulate: false })
             .populate({
                 path: 'doctorId',
                 match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
                 populate: {
                     path: 'userId',
                     select: 'fullName email avatar'
-                }
+                },
+                options: { strictPopulate: false }
             });
 
         return res.status(200).json({
@@ -921,9 +938,9 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
             id,
             { $set: { status } },
             { new: true }
-        ).populate('profileId', 'fullName gender phone year')
-            .populate('serviceId', 'serviceName price serviceType')
-            .populate('packageId', 'name price serviceIds');
+        ).populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
+            .populate('serviceId', 'serviceName price serviceType', undefined, { strictPopulate: false })
+            .populate('packageId', 'name price serviceIds', undefined, { strictPopulate: false });
 
         // Log system activity
         const profileName = (updatedAppointment?.profileId as any)?.fullName || 'Unknown';
@@ -1155,9 +1172,9 @@ export const updatePaymentStatus = async (req: Request, res: Response) => {
 
         // 🔍 STEP 3: Fetch updated appointment with populated data (outside transaction)
         const updatedAppointment = await Appointments.findById(id)
-            .populate('profileId', 'fullName gender phone year')
-            .populate('serviceId', 'serviceName price serviceType')
-            .populate('packageId', 'name price serviceIds');
+            .populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
+            .populate('serviceId', 'serviceName price serviceType', undefined, { strictPopulate: false })
+            .populate('packageId', 'name price serviceIds', undefined, { strictPopulate: false });
 
         console.log('✅ [Payment] Payment status updated successfully', {
             appointmentId: id,
@@ -1411,9 +1428,9 @@ export const confirmAppointment = async (req: Request, res: Response) => {
             id,
             { $set: { status: 'scheduled' } },
             { new: true }
-        ).populate('profileId', 'fullName gender phone year')
-            .populate('serviceId', 'serviceName price serviceType')
-            .populate('packageId', 'name price serviceIds');
+        ).populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
+            .populate('serviceId', 'serviceName price serviceType', undefined, { strictPopulate: false })
+            .populate('packageId', 'name price serviceIds', undefined, { strictPopulate: false });
 
         return res.status(200).json({
             success: true,
@@ -1512,9 +1529,9 @@ export const cancelAppointmentByDoctor = async (req: AuthRequest, res: Response)
                 } 
             },
             { new: true }
-        ).populate('profileId', 'fullName gender phone year')
-            .populate('serviceId', 'serviceName price serviceType')
-            .populate('packageId', 'name price serviceIds');
+        ).populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
+            .populate('serviceId', 'serviceName price serviceType', undefined, { strictPopulate: false })
+            .populate('packageId', 'name price serviceIds', undefined, { strictPopulate: false });
 
         return res.status(200).json({
             success: true,
@@ -1604,16 +1621,17 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
 
             // Lấy dữ liệu với populate các trường liên quan
             const appointments = await Appointments.find(matchStage)
-                .populate('profileId', 'fullName gender phone year')
-                .populate('serviceId', 'serviceName price serviceType')
-                .populate('packageId', 'name price')
+                .populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
+                .populate('serviceId', 'serviceName price serviceType', undefined, { strictPopulate: false })
+                .populate('packageId', 'name price', undefined, { strictPopulate: false })
                 .populate({
                     path: 'doctorId',
                     match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
                     populate: {
                         path: 'userId',
                         select: 'fullName email avatar'
-                    }
+                    },
+                    options: { strictPopulate: false }
                 })
                 .sort({ appointmentDate: -1, appointmentTime: -1 })
                 .skip(skip)
@@ -1890,16 +1908,17 @@ export const getStaffAppointments = async (req: AuthRequest, res: Response) => {
 
         // Lấy dữ liệu với populate các trường liên quan
         const appointments = await Appointments.find(matchStage)
-            .populate('profileId', 'fullName gender phone year')
-            .populate('serviceId', 'serviceName price serviceType')
-            .populate('packageId', 'name price')
+            .populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
+            .populate('serviceId', 'serviceName price serviceType', undefined, { strictPopulate: false })
+            .populate('packageId', 'name price', undefined, { strictPopulate: false })
             .populate({
                 path: 'doctorId',
                 match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
                 populate: {
                     path: 'userId',
                     select: 'fullName email avatar'
-                }
+                },
+                options: { strictPopulate: false }
             })
             .sort({ appointmentDate: -1, appointmentTime: -1 })
             .skip(skip)
