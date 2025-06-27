@@ -4,6 +4,8 @@
 
 API quản lý chu kỳ kinh nguyệt theo phương pháp Billings, bao gồm theo dõi 3 chu kỳ, phân tích dữ liệu, và gửi nhắc nhở hàng ngày.
 
+**🚺 Lưu ý quan trọng:** Tính năng chu kỳ kinh nguyệt chỉ dành cho người dùng nữ (`gender: 'female'`). Hệ thống sẽ tự động kiểm tra và chỉ gửi nhắc nhở email cho user nữ có chu kỳ kinh nguyệt.
+
 ## Authentication
 
 Tất cả endpoints đều yêu cầu JWT token trong header `Authorization: Bearer <token>`, trừ endpoint trigger reminder.
@@ -300,6 +302,49 @@ POST /api/menstrual-cycles/:id/auto-complete
 Authorization: Bearer <token>
 ```
 
+#### Lấy hướng dẫn chi tiết về chu kỳ hiện tại
+```http
+GET /api/menstrual-cycles/:id/guidance
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Lấy hướng dẫn chu kỳ thành công",
+  "data": {
+    "cycleId": "cycle_id",
+    "cycleNumber": 1,
+    "startDate": "2024-01-01T00:00:00.000Z",
+    "isCompleted": false,
+    "currentPhase": "post_peak_tracking",
+    "analysis": "Đã qua ngày đỉnh. Cần theo dõi thêm 2 ngày để hoàn thành chu kỳ.",
+    "status": "critical",
+    "title": "⏰ Đang theo dõi sau ngày đỉnh",
+    "description": "Đã qua ngày đỉnh. Cần theo dõi thêm 2 ngày để hoàn thành chu kỳ.",
+    "peakDay": "2024-01-14T00:00:00.000Z",
+    "actions": [
+      {
+        "type": "continue",
+        "text": "Tiếp tục ghi nhận 2 ngày nữa",
+        "priority": "high"
+      },
+      {
+        "type": "observe",
+        "text": "Chú ý sự chuyển đổi sang trạng thái khô",
+        "priority": "medium"
+      }
+    ],
+    "tips": [
+      "Đây là giai đoạn quan trọng để xác định chu kỳ hoàn chỉnh",
+      "Ghi nhận chính xác cảm giác \"khô\" hoặc \"ít chất tiết\"",
+      "Không bỏ sót bất kỳ ngày nào trong giai đoạn này"
+    ]
+  }
+}
+```
+
 **Response khi chu kỳ đủ điều kiện:**
 ```json
 {
@@ -335,38 +380,276 @@ Authorization: Bearer <token>
 }
 ```
 
-## Logic Phân tích Chu kỳ theo Phương pháp Billings
+## Logic Phân tích Chu kỳ theo Phương pháp Billings - CẬP NHẬT MỚI
 
-### Chu kỳ Hoàn chỉnh
-Một chu kỳ được coi là hoàn chỉnh khi có đầy đủ các giai đoạn:
+### Định nghĩa Chu kỳ Hoàn chỉnh
 
-1. **Máu kinh nguyệt** (`có máu`)
-2. **Lấm tấm máu** (tùy chọn)
-3. **Ngày đỉnh** (`trong và âm hộ căng` + `trơn`)
-4. **Ít nhất 3 ngày khô** sau ngày đỉnh
+Một chu kỳ kinh nguyệt được coi là **hoàn chỉnh** khi có đầy đủ các giai đoạn theo đúng trình tự:
 
-### Trường hợp 1: Chu kỳ Bình thường
-**Mẫu:** Máu → Lấm tấm máu → Khô → Đục → Trơn, trong âm hộ căng
+1. **Bắt đầu**: Cảm giác chất nhờn là máu (`có máu`)
+2. **Tùy chọn**: Lấm tấm máu 
+3. **Ngày đỉnh**: Cảm giác chất nhờn là `trong và âm hộ căng` + cảm giác `trơn`
+4. **Kết thúc**: Cảm giác chất nhờn là khô (`khô` hoặc `ít chất tiết`) sau ít nhất 3 ngày sau đỉnh
 
-**Phân tích:**
-- Xác định được ngày đỉnh rõ ràng
-- Thời gian khô giữa "lấm tấm máu" và "đục" là chu kỳ khô bình thường
-- Có thể dự đoán chu kỳ tiếp theo với độ tin cậy cao
+### Hai Trường hợp Hoàn thành Chu kỳ
 
-### Trường hợp 2: Chu kỳ Cần Theo dõi
-**Mẫu:** Lấm tấm máu → Ít chất tiết
+#### **Trường hợp 1: Hoàn thành trong cùng tháng**
+```
+Diễn biến: Máu → [Lấm tấm] → Khô → Đục → Ngày đỉnh → 3 ngày sau đỉnh khô → Máu mới
+Thời gian: Tất cả diễn ra trong 1 tháng
+Điều kiện: Sau ngày 1,2,3 sau ngày đỉnh là khô → có máu chu kỳ mới
+```
 
-**Phân tích:**
-- Mẫu chưa rõ ràng, cần theo dõi thêm 2 chu kỳ
-- Nếu chu kỳ thứ 2 giống Trường hợp 1 → chuyển sang phân tích bình thường
-- Khuyến nghị ghi nhận đầy đủ mỗi ngày
+**Ví dụ:**
+- Ngày 1-5: Có máu kinh nguyệt
+- Ngày 6-7: Lấm tấm máu (optional)
+- Ngày 8-10: Khô (`ít chất tiết`, `khô`)
+- Ngày 11-12: Đục
+- Ngày 14: Ngày đỉnh (`trong và âm hộ căng`, `trơn`)
+- Ngày 15-17: 3 ngày sau đỉnh (ngày 17 = khô)
+- Ngày 18-28: Tiếp tục khô
+- **Ngày 29: Máu mới → CHU KỲ HOÀN CHỈNH**
 
-### Dự đoán Chu kỳ Tiếp theo
-- Dựa trên ngày đỉnh của chu kỳ hiện tại
-- Sử dụng chu kỳ trung bình 28 ngày (có thể điều chỉnh theo lịch sử)
-- Cung cấp khoảng dự đoán ±2 ngày
+#### **Trường hợp 2: Lấn sang tháng sau**
+```
+Diễn biến: Máu → [Lấm tấm] → Khô → Đục → Ngày đỉnh → 3 ngày sau đỉnh vẫn ít chất tiết
+Thời gian: Lấn sang tháng sau do chưa chuyển sang khô hoàn toàn
+Điều kiện: Sau ngày 1,2,3 sau ngày đỉnh vẫn ít chất tiết, chưa chuyển sang khô
+```
 
-### Khuyến nghị Tự động
-- **Chu kỳ bình thường**: Tiếp tục theo dõi đều đặn
-- **Chu kỳ cần theo dõi**: Theo dõi thêm 2 chu kỳ
-- **Chưa đủ dữ liệu**: Ghi nhận đầy đủ mỗi ngày
+**Ví dụ:**
+- Ngày 15-17 tháng 1: Có máu kinh nguyệt
+- Ngày 18-19 tháng 1: Lấm tấm máu
+- Ngày 20-21 tháng 1: Khô
+- Ngày 22-23 tháng 1: Đục
+- Ngày 26 tháng 1: Ngày đỉnh
+- Ngày 27-31 tháng 1: 3 ngày sau đỉnh vẫn `ít chất tiết`
+- **Ngày 1-5 tháng 2: Vẫn `ít chất tiết`, chưa khô hoàn toàn**
+- **Cần theo dõi thêm đến khi chuyển sang khô**
+
+### API Response mới
+
+#### Khi chu kỳ hoàn chỉnh (Trường hợp 1):
+```json
+{
+  "success": true,
+  "message": "Chu kỳ đã hoàn thành và tự động tạo chu kỳ mới",
+  "data": {
+    "completedCycle": {
+      "_id": "cycle_id",
+      "isCompleted": true,
+      "status": "completed",
+      "endDate": "2024-01-28T00:00:00.000Z"
+    },
+    "newCycle": {
+      "_id": "new_cycle_id",
+      "startDate": "2024-01-29T00:00:00.000Z",
+      "cycleNumber": 2
+    },
+    "analysis": {
+      "isComplete": true,
+      "phase": "completed_case_1",
+      "analysis": "Chu kỳ hoàn chỉnh (Trường hợp 1 - trong cùng tháng). Ngày đỉnh: 14/1/2024. Chu kỳ dài 28 ngày.",
+      "cycleType": "same_month_completion",
+      "cycleLength": 28,
+      "nextCycleStart": "2024-01-29T00:00:00.000Z"
+    }
+  }
+}
+```
+
+#### Khi chu kỳ chưa hoàn chỉnh (Trường hợp 2):
+```json
+{
+  "success": false,
+  "message": "Chu kỳ chưa đủ điều kiện để hoàn thành",
+  "data": {
+    "analysis": {
+      "isComplete": false,
+      "phase": "cross_month_drying",
+      "analysis": "Trường hợp 2 - Lấn sang tháng sau. Ngày 3 sau đỉnh vẫn có ít chất tiết. Cần tiếp tục theo dõi đến khi chuyển sang trạng thái khô.",
+      "cycleType": "cross_month_incomplete",
+      "peakDay": {
+        "date": "2024-01-26T00:00:00.000Z",
+        "cycleDayNumber": 12
+      }
+    },
+    "phase": "cross_month_drying",
+    "guidance": "Chu kỳ đã lấn sang tháng sau. Tiếp tục theo dõi cho đến khi hoàn toàn khô.",
+    "currentStatus": "Trường hợp 2 - Lấn sang tháng sau. Ngày 3 sau đỉnh vẫn có ít chất tiết."
+  }
+}
+```
+
+### Các Giai đoạn Chu kỳ Mới
+
+| Giai đoạn | Mô tả | Hành động |
+|-----------|-------|-----------|
+| `waiting_for_menstruation` | Chưa có máu kinh nguyệt | Ghi nhận ngày đầu có máu |
+| `pre_peak_tracking` | Đã có máu, chờ ngày đỉnh | Theo dõi đến khi có `trong và âm hộ căng` |
+| `post_peak_tracking` | Sau ngày đỉnh, chờ đủ 3 ngày | Theo dõi thêm X ngày |
+| `waiting_for_next_menstruation` | Đã khô 3 ngày, chờ máu mới | Chờ kinh nguyệt chu kỳ tiếp theo |
+| `cross_month_drying` | Lấn sang tháng, đã tìm thấy ngày khô | Theo dõi thêm để xác nhận |
+| `extended_post_peak_tracking` | Lấn sang tháng, vẫn chưa khô | Tiếp tục theo dõi đến khi khô |
+| `completed_case_1` | ✅ Hoàn thành Trường hợp 1 | Tự động tạo chu kỳ mới |
+| `completed_case_2` | ✅ Hoàn thành Trường hợp 2 | Đánh dấu hoàn thành |
+
+### Hướng dẫn Sử dụng
+
+1. **Theo dõi hàng ngày**: Ghi nhận đầy đủ `mucusObservation` và `feeling` mỗi ngày
+
+2. **Kiểm tra trạng thái**: Gọi API `GET /api/menstrual-cycles/:id/analysis` để xem trạng thái hiện tại
+
+3. **Tự động hoàn thành**: Gọi API `POST /api/menstrual-cycles/:id/auto-complete` khi muốn kiểm tra điều kiện hoàn thành
+
+4. **Xử lý Trường hợp 2**: Khi chu kỳ lấn sang tháng sau, tiếp tục theo dõi cho đến khi hoàn toàn khô
+
+### Quy tắc Validation Quan trọng
+
+- **Ngày đỉnh**: Phải có `mucusObservation = "trong và âm hộ căng"` + `feeling = "trơn"`
+- **3 ngày sau đỉnh**: Phải có ít nhất 3 ngày liên tiếp sau ngày đỉnh
+- **Ngày khô**: `feeling = "khô"` hoặc `mucusObservation = "ít chất tiết"`
+- **Chu kỳ mới**: Chỉ tự động tạo khi có máu mới xuất hiện (Trường hợp 1)
+
+### Ví dụ Thực tế
+
+#### Trường hợp 1 - Thành công:
+```bash
+# Ghi nhận đủ dữ liệu từ ngày 1-29 tháng 1
+# Ngày 14: Ngày đỉnh
+# Ngày 17: Ngày 3 sau đỉnh = khô
+# Ngày 29: Máu mới xuất hiện
+
+POST /api/menstrual-cycles/cycle_id/auto-complete
+# Response: success = true, tự động tạo chu kỳ mới
+```
+
+#### Trường hợp 2 - Cần theo dõi thêm:
+```bash
+# Ghi nhận dữ liệu từ 15/1 đến 5/2
+# Ngày 26/1: Ngày đỉnh  
+# Ngày 29/1: Ngày 3 sau đỉnh vẫn có ít chất tiết
+# Lấn sang tháng 2 và vẫn chưa khô hoàn toàn
+
+POST /api/menstrual-cycles/cycle_id/auto-complete
+# Response: success = false, cần theo dõi thêm
+```
+
+## 5. Hệ thống Nhắc nhở (Reminder System)
+
+### Cài đặt nhắc nhở
+```http
+PUT /api/reminders
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "reminderEnabled": true,
+  "reminderTime": "20:00"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Cập nhật cài đặt nhắc nhở thành công",
+  "data": {
+    "_id": "reminder_id",
+    "userId": "user_id",
+    "reminderEnabled": true,
+    "reminderTime": "20:00",
+    "lastNotifiedAt": null
+  }
+}
+```
+
+### Lấy cài đặt nhắc nhở
+```http
+GET /api/reminders
+Authorization: Bearer <token>
+```
+
+### Test gửi email nhắc nhở
+```http
+POST /api/reminders/test-email
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Email nhắc nhở test đã được gửi thành công",
+  "data": {
+    "userId": "user_id",
+    "email": "user@example.com",
+    "sentAt": "2024-01-15T10:30:00.000Z"
+  }
+}
+```
+
+### Trigger nhắc nhở cho tất cả users (Admin/Cronjob)
+```http
+POST /api/reminders/notify
+```
+
+**Lưu ý:** Endpoint này không yêu cầu authentication để có thể được gọi bởi cronjob.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Đã gửi nhắc nhở thành công",
+  "data": {
+    "notified": 15,
+    "skipped": 8,
+    "errors": 0
+  }
+}
+```
+
+### Thống kê nhắc nhở (Admin)
+```http
+GET /api/reminders/stats
+Authorization: Bearer <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "totalUsers": 23,
+    "enabledUsers": 18,
+    "disabledUsers": 5,
+    "popularReminderTimes": [
+      { "_id": "20:00", "count": 8 },
+      { "_id": "19:00", "count": 5 },
+      { "_id": "21:00", "count": 3 }
+    ]
+  }
+}
+```
+
+## Hệ thống Email Nhắc nhở
+
+### Tính năng
+- **Tự động gửi email** vào thời gian đã đặt hàng ngày
+- **Kiểm tra trước khi gửi** xem user đã cập nhật dữ liệu hôm nay chưa
+- **Email template đẹp** với thông tin hữu ích về việc theo dõi chu kỳ
+- **Link trực tiếp** đến trang cập nhật chu kỳ
+- **Cài đặt linh hoạt** cho từng user
+
+### Cách hoạt động
+1. **Cronjob chạy mỗi phút** để kiểm tra thời gian nhắc nhở
+2. **Tìm users** có `reminderEnabled: true` và `reminderTime` trùng với thời gian hiện tại
+3. **Kiểm tra** xem user đã cập nhật dữ liệu chu kỳ hôm nay chưa
+4. **Gửi email** nếu chưa cập nhật
+5. **Cập nhật** `lastNotifiedAt` để tránh gửi trùng lặp
+
+### Cấu hình Email
+Email sử dụng **Gmail SMTP** với các biến môi trường:
+- `MAIL_USER`: Email Gmail
+- `MAIL_PASSWORD`: App Password của Gmail
+- `FRONTEND_URL`: URL frontend để tạo link trong email

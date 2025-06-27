@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
     CalendarOutlined,
+    DeleteOutlined,
     FileTextOutlined,
     HeartOutlined,
     LineChartOutlined,
@@ -20,6 +21,8 @@ import {
     Input,
     Modal,
     notification,
+    Popconfirm,
+    Progress,
     Row,
     Select,
     Spin,
@@ -47,10 +50,568 @@ import './cycle.css';
 import HelpModal from '../../components/ui/HelpModal';
 import OnboardingTour from '../../components/ui/OnboardingTour';
 
+
 dayjs.extend(isBetween);
 dayjs.extend(relativeTime);
 
 const { TextArea } = Input;
+
+// Component hiển thị tổng quan chu kỳ hiện tại
+const CurrentCycleOverview: React.FC<{ currentCycle: MenstrualCycle }> = ({ currentCycle }) => {
+  const [cycleAnalysis, setCycleAnalysis] = useState<any>(null);
+  const [recentCycleDays, setRecentCycleDays] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadCurrentCycleInfo();
+  }, [currentCycle._id]);
+
+  const loadCurrentCycleInfo = async () => {
+    try {
+      setLoading(true);
+      
+      // Load cycle analysis và recent cycle days
+      const [analysisRes, cycleDaysRes] = await Promise.allSettled([
+        menstrualCycleApi.getCycleAnalysis(currentCycle._id),
+        menstrualCycleApi.getCycleDays(currentCycle._id)
+      ]);
+
+      if (analysisRes.status === 'fulfilled') {
+        const data = (analysisRes.value as any)?.data;
+        if (data?.success) {
+          setCycleAnalysis(data.data);
+        }
+      }
+
+      if (cycleDaysRes.status === 'fulfilled') {
+        const data = (cycleDaysRes.value as any)?.data;
+        if (data?.success) {
+          // Lấy 7 ngày gần nhất
+          const sortedDays = (data.data || []).sort((a: any, b: any) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          ).slice(0, 7);
+          setRecentCycleDays(sortedDays);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading current cycle info:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const daysSinceStart = dayjs().diff(dayjs(currentCycle.startDate), 'days') + 1;
+  const peakDay = cycleAnalysis?.analysis?.peakDay;
+  const currentPhase = cycleAnalysis?.analysis?.phase;
+
+  // Xác định giai đoạn hiện tại
+  const getPhaseInfo = () => {
+    if (!currentPhase) return { name: 'Đang phân tích...', color: 'blue', description: 'Hệ thống đang phân tích chu kỳ' };
+    
+    switch (currentPhase) {
+      case 'waiting_for_menstruation':
+        return { name: 'Chờ kinh nguyệt', color: 'red', description: 'Ghi nhận ngày đầu có máu kinh nguyệt' };
+      case 'pre_peak_tracking':
+        return { name: 'Theo dõi trước đỉnh', color: 'orange', description: 'Theo dõi đến khi xuất hiện ngày đỉnh' };
+      case 'post_peak_tracking':
+        return { name: 'Theo dõi sau đỉnh', color: 'yellow', description: 'Cần theo dõi thêm sau ngày đỉnh' };
+      case 'waiting_for_next_menstruation':
+        return { name: 'Chờ chu kỳ tiếp theo', color: 'green', description: 'Đã hoàn thành giai đoạn chính' };
+      case 'completed_case_1':
+        return { name: 'Đã hoàn thành', color: 'green', description: 'Chu kỳ đã hoàn thành' };
+      default:
+        return { name: 'Đang theo dõi', color: 'blue', description: 'Tiếp tục ghi nhận dữ liệu hàng ngày' };
+    }
+  };
+
+  const phaseInfo = getPhaseInfo();
+  const progress = Math.min((daysSinceStart / 35) * 100, 100); // Giả sử chu kỳ tối đa 35 ngày
+
+  if (loading) {
+    return (
+      <Card className="text-center p-4">
+        <Spin />
+        <div className="mt-2 text-gray-600">Đang tải thông tin chu kỳ...</div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card 
+      title={
+        <div className="flex items-center gap-2">
+          <span>🔍 Chu kỳ hiện tại - Chu kỳ {currentCycle.cycleNumber}</span>
+          <Tag color={phaseInfo.color}>{phaseInfo.name}</Tag>
+        </div>
+      }
+      className="mb-4"
+    >
+      <div className="space-y-4">
+        {/* Progress và thông tin cơ bản */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 bg-blue-50 rounded-lg text-center">
+            <div className="text-2xl font-bold text-blue-700 mb-1">{daysSinceStart}</div>
+            <div className="text-sm text-blue-600">Ngày thứ {daysSinceStart}</div>
+            <div className="text-xs text-gray-500 mt-1">
+              Từ {dayjs(currentCycle.startDate).format('DD/MM/YYYY')}
+            </div>
+          </div>
+          
+          {peakDay && (
+            <div className="p-4 bg-orange-50 rounded-lg text-center">
+              <div className="text-2xl font-bold text-orange-700 mb-1">
+                Ngày {peakDay.cycleDayNumber}
+              </div>
+              <div className="text-sm text-orange-600">Ngày đỉnh (X)</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {dayjs(peakDay.date).format('DD/MM/YYYY')}
+              </div>
+            </div>
+          )}
+          
+          <div className="p-4 bg-green-50 rounded-lg text-center">
+            <div className="text-2xl font-bold text-green-700 mb-1">
+              {currentCycle.isCompleted ? '✓' : '...'}
+            </div>
+            <div className="text-sm text-green-600">
+              {currentCycle.isCompleted ? 'Hoàn thành' : 'Đang theo dõi'}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {phaseInfo.description}
+            </div>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">Tiến độ chu kỳ</span>
+            <span className="text-gray-500">{Math.round(progress)}%</span>
+          </div>
+          <Progress 
+            percent={progress} 
+            strokeColor={{
+              '0%': '#108ee9',
+              '50%': '#87d068',
+              '100%': '#87d068'
+            }}
+            showInfo={false}
+          />
+          <div className="text-xs text-gray-500">
+            Chu kỳ bình thường: 21-35 ngày • Hiện tại: {daysSinceStart} ngày
+          </div>
+        </div>
+
+        {/* 7 ngày gần nhất */}
+        {recentCycleDays.length > 0 && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium text-gray-700">📅 7 ngày gần nhất:</div>
+            <div className="flex gap-1 overflow-x-auto pb-2">
+              {recentCycleDays.reverse().map((day: any, dayIndex: number) => {
+                const symbol = getSymbolForDay(day);
+                const symbolColor = getSymbolColor(symbol);
+                
+                return (
+                  <Tooltip 
+                    key={dayIndex}
+                    title={
+                      <div>
+                        <div><strong>Ngày {day.cycleDayNumber || 'N/A'}</strong></div>
+                        <div>{dayjs(day.date).format('DD/MM/YYYY')}</div>
+                        {day.mucusObservation && <div>Quan sát: {day.mucusObservation}</div>}
+                        {day.feeling && <div>Cảm giác: {day.feeling}</div>}
+                        {day.notes && <div>Ghi chú: {day.notes}</div>}
+                      </div>
+                    }
+                  >
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-bold cursor-pointer transition-transform hover:scale-110 flex-shrink-0"
+                      style={{ backgroundColor: symbolColor }}
+                    >
+                      {symbol}
+                    </div>
+                  </Tooltip>
+                );
+              })}
+            </div>
+            <div className="text-xs text-gray-500">
+              Hover vào các ký hiệu để xem chi tiết • M: Máu, X: Đỉnh, C: Có thể thụ thai, D: Khô, S: An toàn
+            </div>
+          </div>
+        )}
+
+        {/* Hướng dẫn tiếp theo */}
+        <Alert
+          message={`Hướng dẫn tiếp theo`}
+          description={cycleAnalysis?.analysis?.analysis || phaseInfo.description}
+          type="info"
+          showIcon
+          className="mt-4"
+        />
+      </div>
+    </Card>
+  );
+};
+
+// Helper functions
+const getSymbolForDay = (day: any): string => {
+  if (day.mucusObservation === 'có máu' || day.mucusObservation === 'lấm tấm máu') {
+    return 'M';
+  } else if (day.isPeakDay || (day.mucusObservation === 'trong và âm hộ căng' && day.feeling === 'trơn')) {
+    return 'X';
+  } else if (day.peakDayRelative === 1) {
+    return '1';
+  } else if (day.peakDayRelative === 2) {
+    return '2';
+  } else if (day.peakDayRelative === 3) {
+    return '3';
+  } else if (day.mucusObservation === 'đục' || day.mucusObservation === 'đục nhiều sợi' || day.mucusObservation === 'trong nhiều sợi') {
+    return 'C';
+  } else if (isDryDay(day.feeling, day.mucusObservation)) {
+    return 'D';
+  } else {
+    return 'S';
+  }
+};
+
+const getSymbolColor = (symbol: string): string => {
+  const colors: Record<string, string> = {
+    'M': '#e53935', // Đỏ cho kinh nguyệt
+    'X': '#ff9800', // Cam cho ngày đỉnh
+    '1': '#fdd835', // Vàng cho ngày 1 sau đỉnh
+    '2': '#66bb6a', // Xanh lá cho ngày 2 sau đỉnh
+    '3': '#42a5f5', // Xanh dương cho ngày 3 sau đỉnh
+    'C': '#ab47bc', // Tím cho có thể thụ thai
+    'S': '#26c6da', // Xanh nhạt cho an toàn
+    'D': '#78909c'  // Xám cho khô
+  };
+  return colors[symbol] || '#999';
+};
+
+const isDryDay = (feeling?: string, mucusObservation?: string): boolean => {
+  return feeling === 'khô' || mucusObservation === 'ít chất tiết' || (!feeling && !mucusObservation);
+};
+
+// Component báo cáo đơn giản tập trung vào thông tin chính
+const CycleReportSection: React.FC<{ currentCycle: MenstrualCycle }> = ({ currentCycle }) => {
+  const [predictiveAnalysis, setPredictiveAnalysis] = useState<any>(null);
+  const [healthAssessment, setHealthAssessment] = useState<any>(null);
+  const [threeCycleComparison, setThreeCycleComparison] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadReportData();
+  }, [currentCycle._id]);
+
+  const loadReportData = async () => {
+    try {
+      setLoading(true);
+      
+      const [predictiveRes, healthRes, comparisonRes] = await Promise.allSettled([
+        menstrualCycleApi.getPredictiveAnalysis(),
+        menstrualCycleApi.getHealthAssessment(),
+        menstrualCycleApi.getThreeCycleComparison()
+      ]);
+
+      if (predictiveRes.status === 'fulfilled') {
+        const data = (predictiveRes.value as any)?.data;
+        if (data?.success) {
+          setPredictiveAnalysis(data.data);
+        }
+      }
+
+      if (healthRes.status === 'fulfilled') {
+        const data = (healthRes.value as any)?.data;
+        if (data?.success) {
+          setHealthAssessment(data.data);
+        }
+      }
+
+      if (comparisonRes.status === 'fulfilled') {
+        const data = (comparisonRes.value as any)?.data;
+        if (data?.success) {
+          setThreeCycleComparison(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading report data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card className="text-center p-8">
+        <Spin size="large" />
+        <div className="mt-4 text-gray-600">Đang tải báo cáo...</div>
+      </Card>
+    );
+  }
+
+  // Lấy thông tin chu kỳ cũ và mới
+  const cycles = threeCycleComparison?.cycles || [];
+  const currentCycleInfo = cycles.find((c: any) => c.cycleNumber === currentCycle.cycleNumber);
+  const previousCycle = cycles.find((c: any) => c.cycleNumber === currentCycle.cycleNumber - 1);
+
+  // Xác định tình trạng sức khỏe
+  const getHealthStatus = () => {
+    if (!healthAssessment) return { status: 'unknown', color: 'gray', text: 'Đang phân tích...', advice: '' };
+    
+    const score = healthAssessment.overall.score;
+    const hasRedFlags = healthAssessment.redFlags && healthAssessment.redFlags.length > 0;
+    
+    if (hasRedFlags || score < 60) {
+      return { 
+        status: 'poor', 
+        color: 'red', 
+        text: '🔴 Cần khám bác sĩ', 
+        advice: 'Nên đặt lịch khám với bác sĩ phụ khoa để được tư vấn chi tiết' 
+      };
+    } else if (score < 80) {
+      return { 
+        status: 'monitoring', 
+        color: 'orange', 
+        text: '🟡 Cần theo dõi', 
+        advice: 'Tiếp tục theo dõi chu kỳ đều đặn và chú ý chế độ sinh hoạt' 
+      };
+    } else {
+      return { 
+        status: 'good', 
+        color: 'green', 
+        text: '🟢 Bình thường', 
+        advice: 'Chu kỳ của bạn rất tốt, tiếp tục duy trì lối sống lành mạnh' 
+      };
+    }
+  };
+
+  const healthStatus = getHealthStatus();
+
+  return (
+    <div className="space-y-6">
+      {/* Thông tin chu kỳ cũ và mới */}
+      <Card title={<span className="text-gray-800">📊 Thông tin chu kỳ</span>}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Chu kỳ cũ */}
+          <div className="p-4 bg-blue-50 rounded-lg">
+            <h4 className="font-medium text-blue-800 mb-3">Chu kỳ trước đó</h4>
+            {previousCycle ? (
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Chu kỳ:</span>
+                  <span className="font-medium">Chu kỳ {previousCycle.cycleNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Ngày bắt đầu:</span>
+                  <span className="font-medium">{new Date(previousCycle.startDate).toLocaleDateString('vi-VN')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Ngày kết thúc:</span>
+                  <span className="font-medium">
+                    {previousCycle.endDate ? new Date(previousCycle.endDate).toLocaleDateString('vi-VN') : 'N/A'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Độ dài:</span>
+                  <span className="font-medium">{previousCycle.length || 'N/A'} ngày</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Ngày đỉnh:</span>
+                  <span className="font-medium">Ngày {previousCycle.peakDay || 'N/A'}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-gray-500 text-center py-4">Chưa có dữ liệu chu kỳ trước</div>
+            )}
+          </div>
+
+          {/* Chu kỳ hiện tại */}
+          <div className="p-4 bg-green-50 rounded-lg">
+            <h4 className="font-medium text-green-800 mb-3">Chu kỳ hiện tại</h4>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Chu kỳ:</span>
+                <span className="font-medium">Chu kỳ {currentCycle.cycleNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Ngày bắt đầu:</span>
+                <span className="font-medium">{dayjs(currentCycle.startDate).format('DD/MM/YYYY')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Số ngày hiện tại:</span>
+                <span className="font-medium">{dayjs().diff(dayjs(currentCycle.startDate), 'days') + 1} ngày</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Trạng thái:</span>
+                <Tag color={currentCycle.isCompleted ? 'green' : 'blue'}>
+                  {currentCycle.isCompleted ? 'Đã hoàn thành' : 'Đang theo dõi'}
+                </Tag>
+              </div>
+              {currentCycleInfo?.peakDay && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Ngày đỉnh:</span>
+                  <span className="font-medium">Ngày {currentCycleInfo.peakDay}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Dự đoán chu kỳ tiếp theo */}
+      {predictiveAnalysis && predictiveAnalysis.nextCycle && (
+        <Card title={<span className="text-gray-800">🔮 Dự đoán chu kỳ tiếp theo</span>}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-4 bg-purple-50 rounded-lg text-center">
+              <div className="text-lg font-bold text-purple-700 mb-1">
+                📅 Ngày có kinh
+              </div>
+              <div className="text-xl font-bold text-purple-800">
+                {new Date(predictiveAnalysis.nextCycle.predictedStartDate).toLocaleDateString('vi-VN')}
+              </div>
+              <div className="text-sm text-purple-600 mt-1">
+                (±3 ngày)
+              </div>
+            </div>
+
+            <div className="p-4 bg-orange-50 rounded-lg text-center">
+              <div className="text-lg font-bold text-orange-700 mb-1">
+                🎯 Ngày đỉnh dự kiến
+              </div>
+              <div className="text-xl font-bold text-orange-800">
+                Ngày {predictiveAnalysis.nextCycle.predictedPeakDay}
+              </div>
+              <div className="text-sm text-orange-600 mt-1">
+                của chu kỳ mới
+              </div>
+            </div>
+
+            <div className="p-4 bg-green-50 rounded-lg text-center">
+              <div className="text-lg font-bold text-green-700 mb-1">
+                📊 Độ tin cậy
+              </div>
+              <div className="text-xl font-bold text-green-800">
+                {predictiveAnalysis.nextCycle.confidenceLevel === 'high' ? 'Cao' :
+                 predictiveAnalysis.nextCycle.confidenceLevel === 'medium' ? 'TB' : 'Thấp'}
+              </div>
+              <div className="text-sm text-green-600 mt-1">
+                {predictiveAnalysis.basedOn.cycles} chu kỳ
+              </div>
+            </div>
+
+            <div className="p-4 bg-blue-50 rounded-lg text-center">
+              <div className="text-lg font-bold text-blue-700 mb-1">
+                ⏱️ Dự kiến kết thúc
+              </div>
+              <div className="text-xl font-bold text-blue-800">
+                {(() => {
+                  const startDate = new Date(predictiveAnalysis.nextCycle.predictedStartDate);
+                  const avgLength = predictiveAnalysis.basedOn.averageLength;
+                  const endDate = new Date(startDate);
+                  endDate.setDate(endDate.getDate() + avgLength - 1);
+                  return endDate.toLocaleDateString('vi-VN');
+                })()}
+              </div>
+              <div className="text-sm text-blue-600 mt-1">
+                (~{Math.round(predictiveAnalysis.basedOn.averageLength)} ngày)
+              </div>
+            </div>
+          </div>
+
+          {predictiveAnalysis.warnings && (
+            <Alert
+              message="⚠️ Lưu ý"
+              description={predictiveAnalysis.warnings.join('; ')}
+              type="warning"
+              showIcon
+              className="mt-4"
+            />
+          )}
+        </Card>
+      )}
+
+      {/* Tình trạng sức khỏe */}
+      <Card title={<span className="text-gray-800">💖 Tình trạng sức khỏe</span>}>
+        <div className="space-y-4">
+          <div className={`p-6 rounded-lg text-center bg-${healthStatus.status === 'good' ? 'green' : healthStatus.status === 'monitoring' ? 'yellow' : 'red'}-50`}>
+            <div className="text-2xl font-bold mb-2" style={{ color: healthStatus.color === 'green' ? '#16a34a' : healthStatus.color === 'orange' ? '#ea580c' : '#dc2626' }}>
+              {healthStatus.text}
+            </div>
+            <div className="text-lg mb-3" style={{ color: healthStatus.color === 'green' ? '#15803d' : healthStatus.color === 'orange' ? '#c2410c' : '#b91c1c' }}>
+              {healthStatus.advice}
+            </div>
+            
+            {/* Phân tích ngắn gọn */}
+            {threeCycleComparison && threeCycleComparison.cycles?.length >= 2 && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div className="p-3 bg-white rounded border">
+                  <div className="font-medium text-gray-700">Độ dài chu kỳ</div>
+                  <div className="text-lg font-bold text-blue-600">
+                    {threeCycleComparison.pattern.averageLength.toFixed(0)} ngày
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {threeCycleComparison.pattern.averageLength < 21 ? 'Ngắn' : 
+                     threeCycleComparison.pattern.averageLength > 35 ? 'Dài' : 'Bình thường'}
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-white rounded border">
+                  <div className="font-medium text-gray-700">Tính ổn định</div>
+                  <div className="text-lg font-bold text-green-600">
+                    {threeCycleComparison.pattern.consistency === 'stable' ? 'Ổn định' :
+                     threeCycleComparison.pattern.consistency === 'variable' ? 'Thay đổi' : 'Không đều'}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {threeCycleComparison.cycles.length} chu kỳ
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-white rounded border">
+                  <div className="font-medium text-gray-700">Xu hướng</div>
+                  <div className="text-lg font-bold text-purple-600">
+                    {threeCycleComparison.pattern.trend === 'normal' ? 'Bình thường' :
+                     threeCycleComparison.pattern.trend === 'getting_shorter' ? 'Ngắn dần' : 'Dài dần'}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Gần đây
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Khuyến nghị */}
+          {healthAssessment?.recommendations && (
+            <div className="p-4 bg-blue-50 rounded-lg">
+              <h4 className="font-medium text-blue-800 mb-2">💡 Khuyến nghị:</h4>
+              <ul className="text-sm text-blue-700 space-y-1">
+                {healthAssessment.recommendations.slice(0, 3).map((rec: string, index: number) => (
+                  <li key={index}>• {rec}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Cảnh báo */}
+          {healthAssessment?.redFlags && healthAssessment.redFlags.length > 0 && (
+            <Alert
+              message="⚠️ Cần chú ý"
+              description={
+                <ul className="mt-2">
+                  {healthAssessment.redFlags.map((flag: string, index: number) => (
+                    <li key={index}>• {flag}</li>
+                  ))}
+                </ul>
+              }
+              type="error"
+              showIcon
+            />
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+};
 
 const CyclePage: React.FC = () => {
   const { isAuthenticated } = useAuth();
@@ -81,6 +642,7 @@ const CyclePage: React.FC = () => {
   const [validationWarning, setValidationWarning] = useState<string>('');
   const [calendarCache, setCalendarCache] = useState<Map<string, any[]>>(new Map());
   const [activeTab, setActiveTab] = useState<'calendar' | 'reports'>('calendar');
+  const [selectedCycleDay, setSelectedCycleDay] = useState<any>(null);
 
   // Debounced calendar change to avoid too many API calls
   const debouncedCalendarChange = useCallback(
@@ -341,6 +903,98 @@ const CyclePage: React.FC = () => {
     }
   };
 
+  const handleDeleteCycleDay = async () => {
+    if (!selectedCycleDay?._id) {
+      notification.error({
+        message: 'Lỗi',
+        description: 'Không tìm thấy dữ liệu để xóa'
+      });
+      return;
+    }
+
+    // Kiểm tra nếu đây là ngày bắt đầu chu kỳ
+    const isStartDay = currentCycle && 
+      dayjs(selectedDate).isSame(dayjs(currentCycle.startDate), 'day');
+
+    if (isStartDay) {
+      notification.error({
+        message: 'Không thể xóa ngày bắt đầu chu kỳ',
+        description: 'Ngày bắt đầu chu kỳ không thể xóa vì sẽ làm hỏng cấu trúc dữ liệu. Nếu cần thay đổi, hãy sử dụng "Đổi ngày bắt đầu".',
+        duration: 8
+      });
+      return;
+    }
+
+    // Kiểm tra nếu là ngày đầu tiên có dữ liệu
+    try {
+      const cycleDaysResponse = await menstrualCycleApi.getCycleDays(currentCycle!._id);
+      const cycleDays = (cycleDaysResponse as any)?.data?.data || [];
+      
+      if (cycleDays.length > 0) {
+        const sortedDays = cycleDays.sort((a: any, b: any) => 
+          new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        const firstDay = sortedDays[0];
+        
+        if (selectedCycleDay._id === firstDay._id) {
+          notification.warning({
+            message: 'Cảnh báo: Đây là ngày đầu tiên có dữ liệu',
+            description: 'Xóa ngày này có thể ảnh hưởng đến việc tính toán chu kỳ. Bạn có chắc chắn muốn tiếp tục?',
+            duration: 6,
+            btn: (
+              <div className="space-x-2">
+                <Button size="small" onClick={() => notification.destroy()}>
+                  Hủy
+                </Button>
+                <Button 
+                  size="small" 
+                  danger 
+                  onClick={() => {
+                    notification.destroy();
+                    performDelete();
+                  }}
+                >
+                  Vẫn xóa
+                </Button>
+              </div>
+            )
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking cycle days:', error);
+    }
+
+    await performDelete();
+  };
+
+  const performDelete = async () => {
+    try {
+      await menstrualCycleApi.deleteCycleDay(selectedCycleDay!._id);
+      
+      notification.success({
+        message: 'Thành công',
+        description: 'Đã xóa dữ liệu ngày thành công'
+      });
+      
+      setLogModalVisible(false);
+      form.resetFields();
+      setSelectedCycleDay(null);
+      
+      // Reload data
+      await loadCalendarData(selectedDate.month() + 1, selectedDate.year());
+      await loadCycleData();
+      await loadCycleAnalysis();
+    } catch (error) {
+      console.error('Error deleting cycle day:', error);
+      notification.error({
+        message: 'Lỗi',
+        description: 'Không thể xóa dữ liệu ngày'
+      });
+    }
+  };
+
   const handleLogCycle = async (values: {
     date: Dayjs;
     mucusObservation?: string;
@@ -356,7 +1010,57 @@ const CyclePage: React.FC = () => {
         return;
       }
 
-      // Validate theo Billings method nếu có cả mucus và feeling
+      // Advanced validation trước khi lưu
+      try {
+        const advancedValidation = await menstrualCycleApi.validateAdvancedCycleDay({
+          cycleId: currentCycle._id,
+          date: values.date.format('YYYY-MM-DD'),
+          mucusObservation: values.mucusObservation,
+          feeling: values.feeling
+        });
+
+        const validationData = (advancedValidation as any)?.data?.data;
+        
+        if (validationData && !validationData.isValid) {
+          // Hiển thị errors và không cho lưu
+          notification.error({
+            message: 'Dữ liệu không hợp lệ',
+            description: validationData.errors.join('; '),
+            duration: 8
+          });
+          
+          if (validationData.suggestions?.length > 0) {
+            notification.info({
+              message: 'Gợi ý sửa lỗi',
+              description: validationData.suggestions.join('; '),
+              duration: 10
+            });
+          }
+          return; // Không lưu
+        }
+        
+        if (validationData?.warnings?.length > 0) {
+          // Hiển thị warnings nhưng vẫn cho lưu
+          notification.warning({
+            message: 'Cảnh báo dữ liệu',
+            description: validationData.warnings.join('; '),
+            duration: 6
+          });
+          
+          if (validationData.suggestions?.length > 0) {
+            notification.info({
+              message: 'Gợi ý',
+              description: validationData.suggestions.join('; '),
+              duration: 8
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Advanced validation error:', error);
+        // Fallback to basic validation
+      }
+
+      // Basic validation theo Billings method
       if (values.mucusObservation && values.feeling) {
         const validationResponse = await menstrualCycleApi.validateDayInput({
           mucusObservation: values.mucusObservation,
@@ -366,11 +1070,9 @@ const CyclePage: React.FC = () => {
         const validationData = (validationResponse as any)?.data;
         if (validationData?.success && !validationData.data?.isValid) {
           notification.warning({
-            message: 'Cảnh báo validation',
+            message: 'Cảnh báo validation cơ bản',
             description: validationData.data?.warning || 'Sự kết hợp này không phù hợp theo phương pháp Billings'
           });
-          
-          // Vẫn cho phép lưu nhưng có warning
         }
 
         // Auto-generate các ngày sau nếu là ngày đỉnh
@@ -403,10 +1105,21 @@ const CyclePage: React.FC = () => {
       const responseData = (response as any)?.data;
       
       if (responseData?.success || responseData?._id) {
-        notification.success({
-          message: 'Thành công',
-          description: 'Đã ghi nhận dữ liệu chu kỳ'
-        });
+        // Kiểm tra xem có tạo chu kỳ mới không
+        if (responseData?.data?.newCycleCreated) {
+          notification.success({
+            message: '🎉 Chu kỳ mới được tạo!',
+            description: `Chu kỳ cũ đã hoàn thành và hệ thống đã tự động tạo chu kỳ mới (Chu kỳ ${responseData.data.newCycle.cycleNumber})`
+          });
+          
+          // Cập nhật currentCycle về chu kỳ mới
+          setCurrentCycle(responseData.data.newCycle);
+        } else {
+          notification.success({
+            message: 'Thành công',
+            description: 'Đã ghi nhận dữ liệu chu kỳ'
+          });
+        }
         
         setLogModalVisible(false);
         form.resetFields();
@@ -454,6 +1167,9 @@ const CyclePage: React.FC = () => {
       const mucusValue = dayData.cycleDay.mucusObservation || '';
       const feelingValue = dayData.cycleDay.feeling || '';
       
+      // Lưu thông tin cycle day để có thể xóa
+      setSelectedCycleDay(dayData.cycleDay);
+      
       // Set selected mucus để trigger filtering
       setSelectedMucus(mucusValue);
       
@@ -475,6 +1191,7 @@ const CyclePage: React.FC = () => {
       setLogModalVisible(true);
     } else {
       // Ngày mới, khởi tạo form trống
+      setSelectedCycleDay(null);
       setSelectedMucus('');
       setAllowedFeelings([]);
       setValidationWarning('');
@@ -580,12 +1297,25 @@ const CyclePage: React.FC = () => {
   };
 
   const averageCycleLength = cycles.length > 1 ? 
-    cycles.reduce((acc, cycle, index) => {
-      if (index === 0) return acc;
-      const current = dayjs(cycle.startDate);
-      const previous = dayjs(cycles[index - 1].startDate);
-      return acc + current.diff(previous, 'days');
-    }, 0) / (cycles.length - 1) : 28;
+    (() => {
+      // Sắp xếp cycles theo startDate để tính toán chính xác
+      const sortedCycles = [...cycles].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+      
+      const cycleLengths: number[] = [];
+      for (let i = 1; i < sortedCycles.length; i++) {
+        const current = dayjs(sortedCycles[i].startDate);
+        const previous = dayjs(sortedCycles[i - 1].startDate);
+        const length = current.diff(previous, 'days');
+        
+        // Chỉ tính chu kỳ hợp lệ (21-60 ngày)
+        if (length >= 21 && length <= 60) {
+          cycleLengths.push(length);
+        }
+      }
+      
+      return cycleLengths.length > 0 ? 
+        cycleLengths.reduce((sum, length) => sum + length, 0) / cycleLengths.length : 28;
+    })() : 28;
 
   // Smart validation for mucus-feeling combination
   const handleMucusChange = async (value: string) => {
@@ -649,19 +1379,19 @@ const CyclePage: React.FC = () => {
     setIsFirstTimeUser(false);
   };
 
-  const nextOnboardingStep = () => {
-    if (onboardingStep < 4) {
-      setOnboardingStep(onboardingStep + 1);
-    } else {
-      completeOnboarding();
-    }
-  };
+  // const nextOnboardingStep = () => {
+  //   if (onboardingStep < 4) {
+  //     setOnboardingStep(onboardingStep + 1);
+  //   } else {
+  //     completeOnboarding();
+  //   }
+  // };
 
-  const prevOnboardingStep = () => {
-    if (onboardingStep > 0) {
-      setOnboardingStep(onboardingStep - 1);
-    }
-  };
+  // const prevOnboardingStep = () => {
+  //   if (onboardingStep > 0) {
+  //     setOnboardingStep(onboardingStep - 1);
+  //   }
+  // };
 
   if (loading) {
     return (
@@ -729,6 +1459,40 @@ const CyclePage: React.FC = () => {
               >
                 Trợ giúp
               </Button>
+              <Tooltip title="Sửa chữa dữ liệu chu kỳ bị lỗi (xóa nhầm, số thứ tự sai)">
+                <Button 
+                  icon={<ReloadOutlined />} 
+                  size="large"
+                  onClick={async () => {
+                    try {
+                      const response = await menstrualCycleApi.autoFixCycleData();
+                      const responseData = (response as any)?.data;
+                      
+                      if (responseData?.success) {
+                        notification.success({
+                          message: 'Sửa chữa thành công',
+                          description: responseData.data?.message || 'Đã sửa chữa dữ liệu chu kỳ',
+                          duration: 5
+                        });
+                        
+                        // Reload tất cả dữ liệu
+                        await loadCycleData();
+                        await loadCalendarData(selectedDate.month() + 1, selectedDate.year());
+                        await loadCycleAnalysis();
+                      }
+                    } catch (error) {
+                      console.error('Auto fix error:', error);
+                      notification.error({
+                        message: 'Lỗi sửa chữa',
+                        description: 'Không thể sửa chữa dữ liệu tự động'
+                      });
+                    }
+                  }}
+                  className="text-gray-700 border-gray-300 hover:text-purple-600 hover:border-purple-300"
+                >
+                  Sửa chữa
+                </Button>
+              </Tooltip>
               {isFirstTimeUser && (
                 <Button 
                   type="dashed"
@@ -782,9 +1546,46 @@ const CyclePage: React.FC = () => {
                     title={<span className="text-gray-700">Chu kỳ trung bình</span>}
                     value={Math.round(averageCycleLength)}
                     suffix="ngày"
-                    valueStyle={{ color: '#ec4899' }}
+                    valueStyle={{ 
+                      color: averageCycleLength < 15 ? '#ef4444' : '#ec4899' 
+                    }}
                     prefix={<CalendarOutlined />}
                   />
+                  {averageCycleLength < 15 && (
+                    <div className="mt-2">
+                      <Tooltip title="Chu kỳ trung bình bất thường có thể do dữ liệu bị lỗi">
+                        <Button 
+                          size="small" 
+                          type="link" 
+                          danger
+                          icon={<ReloadOutlined />}
+                          onClick={async () => {
+                            try {
+                              const response = await menstrualCycleApi.autoFixCycleData();
+                              const responseData = (response as any)?.data;
+                              
+                              if (responseData?.success) {
+                                notification.success({
+                                  message: 'Sửa chữa thành công',
+                                  description: responseData.data?.message || 'Đã sửa chữa dữ liệu chu kỳ',
+                                });
+                                
+                                await loadCycleData();
+                                await loadCalendarData(selectedDate.month() + 1, selectedDate.year());
+                              }
+                            } catch (_error) {
+                              notification.error({
+                                message: 'Lỗi sửa chữa',
+                                description: 'Không thể sửa chữa dữ liệu tự động'
+                              });
+                            }
+                          }}
+                        >
+                          Sửa ngay
+                        </Button>
+                      </Tooltip>
+                    </div>
+                  )}
                 </Card>
               </Col>
               <Col xs={24} sm={12} lg={6}>
@@ -1009,6 +1810,16 @@ const CyclePage: React.FC = () => {
                     ),
                     children: (
                       <div className="space-y-6">
+                        {/* Current Cycle Overview */}
+                        {currentCycle && (
+                          <CurrentCycleOverview currentCycle={currentCycle} />
+                        )}
+
+                        {/* Detailed Cycle Report with Chart */}
+                        {currentCycle && (
+                          <CycleReportSection currentCycle={currentCycle} />
+                        )}
+
                         {/* Cycle Analysis Report */}
                         {cycleAnalysis && (
                           <Card 
@@ -1080,18 +1891,7 @@ const CyclePage: React.FC = () => {
                                 </Col>
                               </Row>
 
-                              {/* Khuyến nghị */}
-                              {cycleAnalysis.analysis?.recommendations && cycleAnalysis.analysis.recommendations.length > 0 && (
-                                <Card size="small" title="💡 Khuyến nghị">
-                                  <div className="space-y-2">
-                                    {cycleAnalysis.analysis.recommendations.map((rec: string, index: number) => (
-                                      <div key={index} className="text-sm text-gray-700 bg-gray-50 p-3 rounded">
-                                        {rec}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </Card>
-                              )}
+                             
 
                               {/* Auto complete button */}
                               {cycleAnalysis.analysis?.isComplete && !currentCycle?.isCompleted && (
@@ -1109,7 +1909,7 @@ const CyclePage: React.FC = () => {
                                         });
                                         await loadCycleData();
                                         await loadCycleAnalysis();
-                                      } catch (error) {
+                                      } catch (_error) {
                                         notification.error({
                                           message: 'Lỗi',
                                           description: 'Không thể hoàn thành chu kỳ'
@@ -1125,19 +1925,7 @@ const CyclePage: React.FC = () => {
                           </Card>
                         )}
 
-                        {/* Placeholder for more reports */}
-                        <Card 
-                          title={<span className="text-gray-800">📈 Báo cáo tổng hợp</span>}
-                          className="text-center"
-                        >
-                          <div className="py-8 text-gray-500">
-                            <LineChartOutlined className="text-4xl mb-4" />
-                            <div className="text-lg font-medium mb-2">Sắp có thêm báo cáo</div>
-                            <div className="text-sm">
-                              Báo cáo so sánh nhiều chu kỳ, thống kê, và phân tích xu hướng sẽ được bổ sung trong tương lai
-                            </div>
-                          </div>
-                        </Card>
+
                       </div>
                     ),
                   },
@@ -1167,6 +1955,7 @@ const CyclePage: React.FC = () => {
               setSelectedMucus('');
               setAllowedFeelings([]);
               setValidationWarning('');
+              setSelectedCycleDay(null);
             }}
             footer={null}
             width={600}
@@ -1243,19 +2032,47 @@ const CyclePage: React.FC = () => {
                 />
               )}
 
-              <Form.Item className="mb-0 text-right">
-                <Button 
-                  onClick={() => {
-                    setLogModalVisible(false);
-                    form.resetFields();
-                  }}
-                  className="mr-2 text-gray-700 border-gray-300"
-                >
-                  Hủy
-                </Button>
-                <Button type="primary" htmlType="submit" className="bg-pink-500 hover:bg-pink-600 border-pink-500">
-                  Lưu
-                </Button>
+              <Form.Item className="mb-0">
+                <div className="flex justify-between items-center">
+                  {/* Nút xóa bên trái - chỉ hiển thị khi có dữ liệu */}
+                  <div>
+                    {selectedCycleDay && (
+                      <Popconfirm
+                        title="Xóa dữ liệu ngày này?"
+                        description={`Bạn có chắc chắn muốn xóa tất cả dữ liệu đã ghi nhận cho ngày ${selectedDate.format('DD/MM/YYYY')}? Hành động này không thể hoàn tác.`}
+                        onConfirm={handleDeleteCycleDay}
+                        okText="Xóa"
+                        cancelText="Hủy"
+                        okButtonProps={{ danger: true }}
+                      >
+                        <Button 
+                          danger 
+                          icon={<DeleteOutlined />}
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          Xóa dữ liệu
+                        </Button>
+                      </Popconfirm>
+                    )}
+                  </div>
+                  
+                  {/* Nút hủy và lưu bên phải */}
+                  <div>
+                    <Button 
+                      onClick={() => {
+                        setLogModalVisible(false);
+                        form.resetFields();
+                        setSelectedCycleDay(null);
+                      }}
+                      className="mr-2 text-gray-700 border-gray-300"
+                    >
+                      Hủy
+                    </Button>
+                    <Button type="primary" htmlType="submit" className="bg-pink-500 hover:bg-pink-600 border-pink-500">
+                      {selectedCycleDay ? 'Cập nhật' : 'Lưu'}
+                    </Button>
+                  </div>
+                </div>
               </Form.Item>
             </Form>
           </Modal>
@@ -1447,38 +2264,6 @@ const CyclePage: React.FC = () => {
           </Form>
         </Modal>
 
-        {/* Debug Info - Chỉ hiển thị khi đang development */}
-        {process.env.NODE_ENV === 'development' && (
-          <Card className="mt-6 bg-gray-100" title={<span className="text-gray-800">🔧 Debug Info</span>}>
-            <div className="space-y-2 text-sm">
-              <div className="text-gray-800"><strong>Authentication:</strong> {isAuthenticated ? '✅ Đã đăng nhập' : '❌ Chưa đăng nhập'}</div>
-              <div className="text-gray-800"><strong>Current Cycle:</strong> {currentCycle ? `✅ Chu kỳ ${currentCycle.cycleNumber}` : '❌ Không có'}</div>
-              <div className="text-gray-800"><strong>Cycles Count:</strong> {cycles.length}</div>
-              <div className="text-gray-800"><strong>Calendar Data:</strong> {calendarData.length} ngày</div>
-              <div className="text-gray-800"><strong>Reminder Settings:</strong> {reminderSettings ? '✅ Có' : '❌ Không có'}</div>
-            </div>
-            {!currentCycle && (
-              <div className="mt-4">
-                <Button 
-                  type="dashed" 
-                  onClick={handleManualCreateCycle}
-                  icon={<PlusOutlined />}
-                  className="text-gray-700 border-gray-400 hover:text-blue-600 hover:border-blue-400 mr-2"
-                >
-                  Debug: Thử tạo chu kỳ lại
-                </Button>
-                <Button 
-                  type="dashed" 
-                  onClick={() => loadCalendarData(selectedDate.month() + 1, selectedDate.year())}
-                  icon={<ReloadOutlined />}
-                  className="text-gray-700 border-gray-400 hover:text-blue-600 hover:border-blue-400"
-                >
-                  Reload Calendar
-                </Button>
-              </div>
-            )}
-          </Card>
-        )}
 
         {/* Help Modal */}
         <HelpModal 
