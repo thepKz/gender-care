@@ -21,7 +21,8 @@ import {
   CheckCircleOutlined,
   TrophyOutlined,
   ClockCircleOutlined,
-  MedicineBoxOutlined
+  MedicineBoxOutlined,
+  HistoryOutlined
 } from '@ant-design/icons';
 import StatsCard from '../widgets/StatsCard';
 import ActivityFeed from '../widgets/ActivityFeed';
@@ -31,6 +32,7 @@ import ScheduleOverview from '../widgets/ScheduleOverview';
 import AppointmentManagement from '../../../pages/dashboard/operational/AppointmentManagement';
 import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
 import ConsultationManagement from '../../../pages/dashboard/operational/ConsultationManagement';
+import MeetingHistoryManagement from '../../../pages/dashboard/operational/MeetingHistoryManagement';
 
 import { 
   type DashboardStat,
@@ -86,6 +88,11 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
         key: 'consultations',
         icon: <VideoCameraOutlined />,
         label: 'Tư vấn trực tuyến',
+      },
+      {
+        key: 'meeting-history',
+        icon: <HistoryOutlined />,
+        label: 'Lịch sử Meeting',
       },
       {
         key: 'reports',
@@ -480,6 +487,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         );
       case 'consultations':
         if (userRole === 'doctor') return <ConsultationManagement />;
+        return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
+      case 'meeting-history':
+        if (userRole === 'doctor') return <MeetingHistoryManagement />;
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
       default:
         return renderDashboard();

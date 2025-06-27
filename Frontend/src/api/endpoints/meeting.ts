@@ -56,6 +56,12 @@ const meetingAPI = {
     return response.data;
   },
 
+  // Get my meetings (current doctor from token)
+  getMyMeetings: async () => {
+    const response = await axiosConfig.get('/meetings/doctor/my-meetings');
+    return response.data;
+  },
+
   // ➕ ADD: Update meeting status when doctor joins
   updateDoctorJoinStatus: async (qaId: string) => {
     try {

@@ -237,10 +237,51 @@ export const completeMeeting = async (req: Request, res: Response): Promise<void
   }
 };
 
-// GET /api/meetings/doctor/:doctorId - Lấy meetings của doctor (Doctor/Staff)
-export const getMeetingsByDoctorId = async (req: Request, res: Response): Promise<void> => {
+// GET /api/meetings/doctor/my-meetings - Lấy meetings của doctor hiện tại (từ token)
+export const getMyMeetings = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const currentUser = req.user;
+
+    if (!currentUser) {
+      res.status(401).json({ 
+        message: 'Vui lòng đăng nhập để thực hiện thao tác này' 
+      });
+      return;
+    }
+
+    // ✅ SECURITY: Tự động lấy doctor từ user hiện tại
+    const Doctor = require('../models/Doctor').default;
+    const currentDoctor = await Doctor.findOne({ userId: currentUser._id });
+    
+    if (!currentDoctor) {
+      res.status(403).json({ 
+        message: 'Không tìm thấy thông tin bác sĩ của bạn trong hệ thống' 
+      });
+      return;
+    }
+
+    console.log(`✅ [SECURITY] Doctor ${currentUser.email} getting their own meetings (doctorId: ${currentDoctor._id})`);
+
+    const meetings = await meetingService.getMeetingsByDoctorId(currentDoctor._id.toString());
+
+    res.status(200).json({
+      message: `Lấy danh sách meetings của bạn thành công (${meetings.length} meetings)`,
+      data: meetings
+    });
+
+  } catch (error: any) {
+    console.error('Error getting my meetings:', error);
+    res.status(500).json({ 
+      message: error.message || 'Lỗi server khi lấy meetings của doctor' 
+    });
+  }
+};
+
+// GET /api/meetings/doctor/:doctorId - Lấy meetings của doctor (Doctor chỉ xem của mình) - LEGACY
+export const getMeetingsByDoctorId = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { doctorId } = req.params;
+    const currentUser = req.user;
 
     if (!isValidObjectId(doctorId)) {
       res.status(400).json({ 
@@ -249,10 +290,38 @@ export const getMeetingsByDoctorId = async (req: Request, res: Response): Promis
       return;
     }
 
+    if (!currentUser) {
+      res.status(401).json({ 
+        message: 'Vui lòng đăng nhập để thực hiện thao tác này' 
+      });
+      return;
+    }
+
+    // ✅ SECURITY CHECK: Doctor chỉ được xem meetings của chính mình
+    const Doctor = require('../models/Doctor').default;
+    const currentDoctor = await Doctor.findOne({ userId: currentUser._id });
+    
+    if (!currentDoctor) {
+      res.status(403).json({ 
+        message: 'Không tìm thấy thông tin bác sĩ của bạn trong hệ thống' 
+      });
+      return;
+    }
+
+    if (currentDoctor._id.toString() !== doctorId) {
+      console.log(`🔒 [SECURITY] Doctor ${currentUser.email} attempted to access meetings of doctorId: ${doctorId}, but their doctorId is: ${currentDoctor._id}`);
+      res.status(403).json({ 
+        message: 'Bạn chỉ có thể xem lịch sử meeting của chính mình' 
+      });
+      return;
+    }
+
+    console.log(`✅ [SECURITY] Doctor ${currentUser.email} authorized to view their own meetings (doctorId: ${doctorId})`);
+
     const meetings = await meetingService.getMeetingsByDoctorId(doctorId);
 
     res.status(200).json({
-      message: `Lấy danh sách meetings của doctor thành công (${meetings.length} meetings)`,
+      message: `Lấy danh sách meetings của bạn thành công (${meetings.length} meetings)`,
       data: meetings
     });
 

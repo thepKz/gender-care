@@ -10,15 +10,19 @@ import {
   getMeetingsByDoctorId,
   getMeetingsByUserId,
   updateDoctorJoinStatus,
-  sendCustomerInvite
+  sendCustomerInvite,
+  getMyMeetings
 } from '../controllers/meetingController';
 
 const router = express.Router();
 
 // =============== SPECIFIC ROUTES FIRST (Tránh conflict với :qaId) ===============
 
-// GET /api/meetings/doctor/:doctorId - Lấy meetings của doctor (DOCTOR/STAFF/MANAGER/ADMIN)
-router.get('/doctor/:doctorId', verifyToken, getMeetingsByDoctorId);
+// GET /api/meetings/doctor/my-meetings - Lấy meetings của doctor hiện tại (DOCTOR ONLY - tự động từ token)
+router.get('/doctor/my-meetings', verifyToken, verifyDoctor, getMyMeetings);
+
+// GET /api/meetings/doctor/:doctorId - Lấy meetings của doctor (DOCTOR ONLY - chỉ xem của mình) - LEGACY
+router.get('/doctor/:doctorId', verifyToken, verifyDoctor, getMeetingsByDoctorId);
 
 // GET /api/meetings/user/:userId - Lấy meetings của user (USER - chỉ xem của mình)
 router.get('/user/:userId', verifyToken, getMeetingsByUserId);
