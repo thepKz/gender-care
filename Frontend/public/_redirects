@@ -1,1 +1,17 @@
+# Handle client-side routing for SPA
 /* /index.html 200
+
+# Handle API routes (if needed)
+/api/* https://gender-healthcare-service-management.onrender.com/api/:splat 200
+
+# Handle static assets
+/assets/* /assets/:splat 200
+/fonts/* /fonts/:splat 200
+/images/* /images/:splat 200
+
+# Security headers for all routes
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
