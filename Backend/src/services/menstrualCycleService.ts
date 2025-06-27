@@ -302,7 +302,7 @@ class MenstrualCycleService {
                 symbol = 'M';
                 color = '#e53935'; // Đỏ cho kinh nguyệt
                 description = 'Kinh nguyệt';
-            } else if (day.isPeakDay) {
+            } else if (day.isPeakDay || (day.mucusObservation === 'trong và âm hộ căng' && day.feeling === 'trơn')) {
                 symbol = 'X';
                 color = '#ff9800'; // Cam cho ngày đỉnh
                 description = 'Ngày đỉnh';
@@ -318,10 +318,15 @@ class MenstrualCycleService {
                 symbol = '3';
                 color = '#42a5f5'; // Xanh dương cho ngày 3 sau đỉnh
                 description = 'Ngày 3 sau đỉnh (20%)';
-            } else if (day.mucusObservation === 'đục' || day.mucusObservation === 'đục nhiều sợi' || day.mucusObservation === 'trong nhiều sợi') {
+            } else if (day.mucusObservation === 'đục nhiều sợi' || day.mucusObservation === 'trong nhiều sợi') {
                 symbol = 'C';
                 color = '#ab47bc'; // Tím cho có thể thụ thai
                 description = 'Có thể thụ thai';
+            } else if (!day.mucusObservation && day.feeling === 'khô') {
+                // Quy tắc đặc biệt: quan sát trống + cảm giác khô = an toàn
+                symbol = 'S';
+                color = '#26c6da'; // Xanh nhạt cho an toàn
+                description = 'An toàn';
             } else if (this.isDryDay(day.feeling, day.mucusObservation)) {
                 symbol = 'D';
                 color = '#78909c'; // Xám cho khô
@@ -712,19 +717,24 @@ class MenstrualCycleService {
     /**
      * Xác định ngày có phải là ngày khô không
      * Ngày khô bao gồm:
-     * - feeling === 'khô' 
      * - mucusObservation === 'ít chất tiết'
      * - Cả hai đều undefined (không có ghi nhận = khô)
+     * KHÔNG bao gồm: mucus trống + feeling "khô" (đây là ngày an toàn "S")
      */
     private isDryDay(feeling?: string, mucusObservation?: string): boolean {
-        // Trường hợp rõ ràng là khô
-        if (feeling === 'khô' || mucusObservation === 'ít chất tiết') {
+        // Trường hợp quan sát chất nhờn là "ít chất tiết"
+        if (mucusObservation === 'ít chất tiết') {
             return true;
         }
 
         // Trường hợp không có ghi nhận gì (undefined) - coi như khô
         if (!feeling && !mucusObservation) {
             return true;
+        }
+
+        // Trường hợp đặc biệt: mucus trống + feeling "khô" = ngày an toàn (S), không phải khô (D)
+        if (!mucusObservation && feeling === 'khô') {
+            return false;
         }
 
         // Trường hợp có ghi nhận nhưng không phải khô
@@ -994,9 +1004,13 @@ class MenstrualCycleService {
                 } else if (day.peakDayRelative === 3) {
                     symbol = '3';
                     fertilityProbability = 20;
-                } else if (day.mucusObservation === 'đục' || day.mucusObservation === 'đục nhiều sợi' || day.mucusObservation === 'trong nhiều sợi') {
+                } else if (day.mucusObservation === 'đục nhiều sợi' || day.mucusObservation === 'trong nhiều sợi') {
                     symbol = 'C';
                     fertilityProbability = 60;
+                } else if (!day.mucusObservation && day.feeling === 'khô') {
+                    // Quy tắc đặc biệt: quan sát trống + cảm giác khô = an toàn
+                    symbol = 'S';
+                    fertilityProbability = 15;
                 } else if (this.isDryDay(day.feeling, day.mucusObservation)) {
                     symbol = 'D';
                     fertilityProbability = 5;
