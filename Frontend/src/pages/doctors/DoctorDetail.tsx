@@ -163,8 +163,8 @@ const DoctorDetail = () => {
                       <div className="absolute -bottom-16 left-8">
                         <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden bg-white shadow-lg">
                           <img
-                            src={doctor.image || doctor.userId.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${doctor.userId.fullName}`}
-                            alt={doctor.userId.fullName}
+                            src={doctor.image || doctor.userId?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${doctor.userId?.fullName || 'doctor'}`}
+                            alt={doctor.userId?.fullName || 'Bác sĩ'}
                             className="w-full h-full object-cover"
                           />
                         </div>
@@ -192,7 +192,7 @@ const DoctorDetail = () => {
                       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
                         <div>
                           <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
-                            {doctor.userId.fullName}
+                            {doctor.userId?.fullName || 'Bác sĩ'}
                           </h2>
                           <p className="text-lg text-[#0C3C54] font-medium mb-2">
                             {doctor.specialization || 'Bác sĩ chuyên khoa'}
