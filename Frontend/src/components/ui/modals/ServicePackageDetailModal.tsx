@@ -1,4 +1,4 @@
-import { Modal, Button, Divider, Tag } from 'antd';
+import { Modal } from 'antd';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ServicePackage } from '../../../types';
@@ -37,7 +37,7 @@ const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
   // Calculate total price of individual services
   const calculateOriginalPrice = () => {
     if (!servicePackage.services) return 0;
-    return servicePackage.services.reduce((total, service) => total + (service.price || 0), 0);
+    return servicePackage.services.reduce((total, service) => total + ((service as any).price || 0), 0);
   };
 
   // Calculate savings

@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
+import type { IDoctorSchedule } from '../api/endpoints/doctorSchedule';
 import type { CalendarEvent, DoctorScheduleEvent } from '../types/calendar';
-import type { IDoctorSchedule, ITimeSlot } from '../api/endpoints/doctorSchedule';
 
 /**
  * Convert doctor schedule data từ API thành calendar events
@@ -94,12 +94,6 @@ export const convertSchedulesToCalendarEvents = (schedules: IDoctorSchedule[]): 
             title = `${schedule.doctorId.userId.fullName} - ${slot.status}`;
         }
 
-        const doctorInfo = {
-          id: schedule.doctorId._id,
-          name: schedule.doctorId.userId.fullName,
-          specialization: schedule.doctorId.specialization || 'Chưa xác định',
-        };
-
         const event: DoctorScheduleEvent = {
           id: `${schedule._id}-${weekSchedule._id}-${slot._id}`,
           title,
@@ -114,8 +108,7 @@ export const convertSchedulesToCalendarEvents = (schedules: IDoctorSchedule[]): 
             appointmentId: undefined, // Will be updated when backend supports it
             patientName: undefined, // Will be updated when backend supports it
             scheduleId: schedule._id,
-            weekScheduleId: weekSchedule._id,
-            doctors: [doctorInfo]
+            weekScheduleId: weekSchedule._id
           },
           allDay: false
         };
@@ -130,7 +123,7 @@ export const convertSchedulesToCalendarEvents = (schedules: IDoctorSchedule[]): 
 
         const existing = events.find(e => e.start.getTime() === startDate.getTime() && e.end.getTime() === endDate.getTime());
         if (existing) {
-          existing.resource.doctors.push(doctorInfo);
+          console.log('📊 [CalendarUtils] Found existing event, skipping duplicate');
         } else {
           events.push(event);
         }

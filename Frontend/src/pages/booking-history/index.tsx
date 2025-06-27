@@ -1,6 +1,6 @@
 import { DatePicker, Empty, Input, message, Modal, Rate, Select, Timeline } from 'antd';
-import type { Dayjs } from 'dayjs';
 import axios from 'axios';
+import type { Dayjs } from 'dayjs';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     Activity,
@@ -10,7 +10,6 @@ import {
     DocumentText,
     Eye,
     Heart,
-    Home,
     Location,
     MonitorMobbile,
     People,
@@ -23,13 +22,14 @@ import {
     User
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { appointmentApi } from '../../api/endpoints';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { consultationApi } from '../../api';
 import axiosInstance from '../../api/axiosConfig';
-import { useAuth } from '../../hooks/useAuth';
+import { appointmentApi } from '../../api/endpoints';
 import ModernButton from '../../components/ui/ModernButton';
 import ModernCard from '../../components/ui/ModernCard';
+import { useAuth } from '../../hooks/useAuth';
+import paymentApi from '../../api/endpoints/payment';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -268,6 +268,55 @@ const BookingHistory: React.FC = () => {
       clearInterval(pollInterval);
     };
   }, [appointments]); // Separate useEffect cho auto-polling
+
+  // ✅ NEW: Force check payment and assign doctor for stuck appointments
+  const handleForceCheck = async (appointment: Appointment) => {
+    try {
+      console.log('🔧 [ForceCheck] Force checking appointment:', appointment.id);
+      
+      const loadingMessage = message.loading('Đang kiểm tra thanh toán và chỉ định bác sĩ...', 0);
+      
+      const response = await paymentApi.forceCheckPaymentAndAssignDoctor(appointment.id);
+      
+      loadingMessage();
+      
+      if (response.success && response.data) {
+        const { paymentUpdated, doctorAssigned, doctorName, status, paymentStatus } = response.data;
+        
+        let successMessage = 'Kiểm tra hoàn tất! ';
+        if (paymentUpdated) successMessage += 'Thanh toán đã được cập nhật. ';
+        if (doctorAssigned) successMessage += `Đã chỉ định bác sĩ: ${doctorName}. `;
+        
+        message.success({
+          content: successMessage,
+          icon: <TickCircle size={20} className="text-green-500" />,
+          duration: 5
+        });
+        
+        // Update local appointment data
+        const updatedAppointments = appointments.map(apt => 
+          apt.id === appointment.id ? { 
+            ...apt, 
+            status: status,
+            doctorName: doctorName || apt.doctorName
+          } : apt
+        );
+        setAppointments(updatedAppointments);
+        
+        // Refresh full data to get latest state
+        setTimeout(() => {
+          fetchAppointments(true);
+        }, 1000);
+        
+      } else {
+        message.info(response.message || 'Kiểm tra hoàn tất, không có thay đổi.');
+      }
+      
+    } catch (error: any) {
+      console.error('❌ [ForceCheck] Error:', error);
+      message.error(`Lỗi kiểm tra: ${error.response?.data?.message || error.message}`);
+    }
+  };
 
   // Separate useEffect for window focus handler
   useEffect(() => {
@@ -1134,6 +1183,14 @@ const BookingHistory: React.FC = () => {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                                       </svg>
                                     </button>
+                                    {/* ✅ NEW: Force check button for stuck payments */}
+                                    <button
+                                      onClick={() => handleForceCheck(appointment)}
+                                      className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                      title="Kiểm tra thanh toán và chỉ định bác sĩ"
+                                    >
+                                      <Refresh size={16} />
+                                    </button>
                                     <button
                                       onClick={() => {
                                         Modal.confirm({
@@ -1300,6 +1357,15 @@ const BookingHistory: React.FC = () => {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                               </svg>
                               <span>Thanh toán</span>
+                            </button>
+                            {/* ✅ NEW: Force check button for stuck payments */}
+                            <button
+                              onClick={() => handleForceCheck(appointment)}
+                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 rounded-lg transition-colors"
+                              title="Kiểm tra thanh toán và chỉ định bác sĩ"
+                            >
+                              <Refresh size={12} />
+                              <span>Kiểm tra</span>
                             </button>
                             <button
                               onClick={() => {

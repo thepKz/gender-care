@@ -1,12 +1,11 @@
-import { Card, Empty, message, Skeleton, Spin } from 'antd';
+import { Card, Empty, message, Spin } from 'antd';
 import moment from 'moment';
 import 'moment/locale/vi'; // Vietnamese locale
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calendar, momentLocalizer, View } from 'react-big-calendar';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '../../styles/calendar.css';
 import type {
-    AdvancedCalendarProps,
     CalendarEvent,
     CalendarView,
     EventStyleGetter
@@ -183,7 +182,7 @@ const AdvancedCalendar: React.FC<AdvancedCalendarProps> = ({
   // Event style getter for color coding
   const eventStyleGetter: EventStyleGetter = useCallback((event: CalendarEvent) => {
     // Nếu event có nhiều bác sĩ, đổi màu hoặc icon
-    const doctors = event.resource?.doctors || [];
+    const doctors = (event.resource as any)?.doctors || [];
     let className = 'rbc-event ' + (theme === 'dark' ? 'event-dark' : 'event-light');
     if (doctors.length > 1) className += ' event-multi-doctor';
     return {
@@ -205,7 +204,7 @@ const AdvancedCalendar: React.FC<AdvancedCalendarProps> = ({
     if (onSelectEvent) {
       onSelectEvent(event);
     } else {
-      const doctors = event.resource?.doctors || [];
+      const doctors = (event.resource as any)?.doctors || [];
       message.info({
         content: (
           <div>

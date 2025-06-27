@@ -1,31 +1,30 @@
-import React, { useState, useEffect } from 'react';
 import {
-  Modal,
-  Form,
-  Select,
-  Card,
-  Button,
-  Typography,
-  Divider,
-  Space,
-  message,
-  Spin,
-  Alert,
-  Row,
-  Col,
-  Tag
-} from 'antd';
-import {
-  UserOutlined,
-  CreditCardOutlined,
-  GiftOutlined,
-  CheckCircleOutlined,
-  StarOutlined
+    CheckCircleOutlined,
+    CreditCardOutlined,
+    GiftOutlined,
+    StarOutlined,
+    UserOutlined
 } from '@ant-design/icons';
-import { ServicePackage, UserProfile } from '../../../types';
-import userProfileApiInstance from '../../../api/endpoints/userProfileApi';
+import {
+    Alert,
+    Button,
+    Card,
+    Col,
+    Divider,
+    Form,
+    message,
+    Modal,
+    Row,
+    Select,
+    Space,
+    Tag,
+    Typography
+} from 'antd';
+import React, { useEffect, useState } from 'react';
 import packagePurchaseApi from '../../../api/endpoints/packagePurchaseApi';
+import userProfileApiInstance from '../../../api/endpoints/userProfileApi';
 import { useAuth } from '../../../hooks/useAuth';
+import { ServicePackage, UserProfile } from '../../../types';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -64,7 +63,7 @@ const PackagePurchaseModal: React.FC<PackagePurchaseModalProps> = ({
         setUserProfiles(profiles);
         
         // Auto-select default profile if exists
-        const defaultProfile = profiles.find(p => p.isDefault);
+        const defaultProfile = profiles.find(p => (p as any).isDefault === true);
         if (defaultProfile) {
           form.setFieldsValue({ userProfileId: defaultProfile._id });
         }
@@ -96,7 +95,7 @@ const PackagePurchaseModal: React.FC<PackagePurchaseModalProps> = ({
       setLoading(true);
 
       const purchaseData = {
-        servicePackageId: servicePackage._id,
+        packageId: servicePackage._id,
         userProfileId: values.userProfileId,
         paymentMethod: 'payos' // Default payment method
       };
@@ -108,15 +107,12 @@ const PackagePurchaseModal: React.FC<PackagePurchaseModalProps> = ({
       if (response.success && response.data) {
         console.log('✅ [PackagePurchase] Purchase initiated successfully');
         
-        // If payment URL is provided, redirect to payment
-        if (response.data.paymentUrl) {
-          message.success('Đang chuyển hướng đến trang thanh toán...');
-          window.location.href = response.data.paymentUrl;
-        } else if (response.data.purchaseId) {
-          // Direct success (for free packages or testing)
+        if (response.data.bill?.paymentUrl) {
+          // Redirect to payment gateway
+          window.location.href = response.data.bill.paymentUrl;
+        } else if (response.data.packagePurchase) {
           message.success('Mua gói dịch vụ thành công!');
-          onPurchaseSuccess?.(response.data.purchaseId);
-          onCancel();
+          onPurchaseSuccess?.(response.data.packagePurchase._id);
         }
       } else {
         throw new Error(response.message || 'Purchase failed');
@@ -171,7 +167,7 @@ const PackagePurchaseModal: React.FC<PackagePurchaseModalProps> = ({
                         <Text className="text-sm">
                           {typeof service.serviceId === 'object' 
                             ? service.serviceId.serviceName 
-                            : service.serviceName || 'Dịch vụ'} 
+                            : (service as any).serviceName || 'Dịch vụ'} 
                           <Tag color="blue" className="ml-2">x{service.quantity}</Tag>
                         </Text>
                       </div>
@@ -258,7 +254,7 @@ const PackagePurchaseModal: React.FC<PackagePurchaseModalProps> = ({
                   <Space>
                     <UserOutlined />
                     <span>{profile.fullName}</span>
-                    {profile.isDefault && <Tag color="blue">Mặc định</Tag>}
+                    {(profile as any).isDefault && <Tag color="blue">Mặc định</Tag>}
                     <Text type="secondary">({profile.phone || 'Chưa có SĐT'})</Text>
                   </Space>
                 </Option>

@@ -70,7 +70,7 @@ const AppointmentManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState(''); // Client-side search since API doesn't support search
   const [selectedType, setSelectedType] = useState<string>('all');
-  const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [selectedLocation, setSelectedLocation] = useState<string>('all'); // Filter theo địa điểm
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>('all');
   
@@ -320,7 +320,7 @@ const AppointmentManagement: React.FC = () => {
   useEffect(() => {
     loadAppointments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStatus, selectedType, selectedDate, selectedDoctor, dateRange]);
+  }, [selectedStatus, selectedType, selectedLocation, selectedDate, selectedDoctor, dateRange]);
 
   // Reload when search text changes (debounced)
   useEffect(() => {
@@ -826,6 +826,7 @@ const AppointmentManagement: React.FC = () => {
                   setDateRange(null);
                 }
                   setSelectedType('all');
+                  setSelectedLocation('all');
                   setSelectedStatus('all');
                   setSelectedDate('all');
                   setSearchText('');

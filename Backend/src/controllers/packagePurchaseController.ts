@@ -1,16 +1,16 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
+import Bills from '../models/Bills';
 import PackagePurchases from '../models/PackagePurchases';
 import ServicePackages from '../models/ServicePackages';
-import Bills from '../models/Bills';
-import { UserProfile } from '../models/UserProfile';
-import { AuthRequest } from '../types/auth';
-import { ApiResponse } from '../types';
-import { PackagePurchaseService } from '../services/packagePurchaseService';
-import { PackageAnalyticsService } from '../services/packageAnalyticsService';
-import systemLogService from '../services/systemLogService';
 import { LogAction, LogLevel } from '../models/SystemLogs';
 import User from '../models/User';
+import { UserProfile } from '../models/UserProfile';
+import { PackageAnalyticsService } from '../services/packageAnalyticsService';
+import { PackagePurchaseService } from '../services/packagePurchaseService';
+import systemLogService from '../services/systemLogService';
+import { ApiResponse } from '../types';
+import { AuthRequest } from '../types/auth';
 
 // POST /package-purchases - Mua gói dịch vụ với PayOS thật
 export const purchasePackage = async (req: AuthRequest, res: Response) => {
@@ -239,7 +239,6 @@ export const purchasePackageOriginal = async (req: AuthRequest, res: Response) =
     // Populate thông tin để trả về
     const populatedPurchase = await PackagePurchases.findById(packagePurchase._id)
       .populate('packageId', 'name description price serviceIds durationInDays maxUsages')
-      .populate('profileId', 'fullName phone year gender')
       .populate('billId', 'subtotal discountAmount totalAmount status');
 
     const response: ApiResponse<any> = {
@@ -308,6 +307,8 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
     let total = 0;
     
     try {
+      console.log('🔍 [Backend] Starting populate query...');
+      
       // Try populate with ServicePackages model (correct model name)
       packagePurchases = await PackagePurchases.find(query)
         .populate({
@@ -321,11 +322,6 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
           }
         })
         .populate({
-          path: 'profileId',
-          model: 'UserProfiles', // Fix model name
-          select: 'fullName phone year gender'
-        })
-        .populate({
           path: 'billId',
           model: 'Bills',
           select: 'subtotal discountAmount totalAmount status createdAt'
@@ -335,23 +331,65 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
         .limit(limitNum)
         .lean();
 
+      console.log('🔍 [Backend] Raw packagePurchases found:', packagePurchases.length);
+      console.log('🔍 [Backend] Sample raw purchase:', packagePurchases[0] ? JSON.stringify(packagePurchases[0], null, 2) : 'No purchases');
+
       // Filter out null packageId (deleted packages)
       packagePurchases = packagePurchases.filter(purchase => purchase.packageId);
+      console.log('🔍 [Backend] After filtering null packageId:', packagePurchases.length);
 
       // 🔹 Transform data to match frontend expectation
-      transformedPurchases = packagePurchases.map((purchase: any) => ({
-        ...purchase,
-        servicePackage: purchase.packageId, // Map packageId to servicePackage for frontend compatibility
-        totalAmount: purchase.purchasePrice || purchase.totalAmount || 0,
-        // Ensure required fields are present
-        status: purchase.status || 'active',
-        isActive: purchase.isActive !== false,
-        purchaseDate: purchase.purchaseDate || purchase.createdAt,
-        expiryDate: purchase.expiryDate || purchase.expiresAt,
-        expiresAt: purchase.expiryDate || purchase.expiresAt,
-        remainingUsages: purchase.remainingUsages || 0,
-        usedServices: purchase.usedServices || []
-      }));
+      transformedPurchases = packagePurchases.map((purchase: any) => {
+        console.log('🔍 [Backend] Processing purchase:', purchase._id);
+        console.log('🔍 [Backend] PackageId structure:', purchase.packageId);
+        console.log('🔍 [Backend] PackageId services:', purchase.packageId?.services);
+        
+        // Fix services mapping based on actual structure
+        const services = (purchase.packageId?.services || []).map((service: any) => {
+          console.log('🔍 [Backend] Processing service item:', service);
+          
+          // Handle both populated and non-populated cases
+          const serviceData = service.serviceId;
+          const serviceId = serviceData?._id || serviceData || service.serviceId;
+          const serviceName = serviceData?.serviceName || 'Tên dịch vụ không xác định';
+          
+          console.log('🔍 [Backend] Service data:', { serviceId, serviceName, quantity: service.quantity });
+          
+          return {
+            serviceId: serviceId,
+            serviceName: serviceName,
+            quantity: service.quantity || 1,
+            price: serviceData?.price || 0,
+            description: serviceData?.description || '',
+            serviceType: serviceData?.serviceType || 'consultation'
+          };
+        });
+        
+        console.log('🔍 [Backend] Transformed services:', services);
+        
+        return {
+          ...purchase,
+          servicePackage: {
+            ...purchase.packageId,
+            services: services
+          },
+          totalAmount: purchase.purchasePrice || purchase.totalAmount || 0,
+          // Ensure required fields are present
+          status: purchase.status || 'active',
+          isActive: purchase.isActive !== false && purchase.status === 'active',
+          purchaseDate: purchase.purchaseDate || purchase.createdAt,
+          expiryDate: purchase.expiryDate || purchase.expiresAt,
+          expiresAt: purchase.expiryDate || purchase.expiresAt,
+          remainingUsages: purchase.remainingUsages || 0,
+          // Fix usedServices structure để frontend hiểu đúng
+          usedServices: (purchase.usedServices || []).map((used: any) => ({
+            serviceId: used.serviceId,
+            usedCount: used.usedQuantity || 0, // Map usedQuantity to usedCount cho frontend
+            usedQuantity: used.usedQuantity || 0,
+            maxQuantity: used.maxQuantity || 1
+          }))
+        };
+      });
 
       total = await PackagePurchases.countDocuments(query);
       
@@ -371,15 +409,31 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
       // 🔹 Transform fallback data too
       transformedPurchases = packagePurchases.map((purchase: any) => ({
         ...purchase,
-        servicePackage: purchase.packageId,
+        servicePackage: {
+          ...purchase.packageId,
+          // Basic services structure cho fallback case
+          services: purchase.packageId?.services?.map((service: any) => ({
+            serviceId: service.serviceId,
+            serviceName: service.serviceName || 'Tên dịch vụ không xác định',
+            quantity: service.quantity || 1,
+            price: 0, // Fallback không có populate price
+            description: '',
+            serviceType: 'consultation'
+          })) || []
+        },
         totalAmount: purchase.purchasePrice || 0,
         status: purchase.status || 'active',
-        isActive: purchase.isActive !== false,
+        isActive: purchase.isActive !== false && purchase.status === 'active',
         purchaseDate: purchase.purchaseDate || purchase.createdAt,
         expiryDate: purchase.expiryDate || purchase.expiresAt,
         expiresAt: purchase.expiryDate || purchase.expiresAt,
         remainingUsages: purchase.remainingUsages || 0,
-        usedServices: purchase.usedServices || []
+        usedServices: (purchase.usedServices || []).map((used: any) => ({
+          serviceId: used.serviceId,
+          usedCount: used.usedQuantity || 0,
+          usedQuantity: used.usedQuantity || 0,
+          maxQuantity: used.maxQuantity || 1
+        }))
       }));
         
       total = await PackagePurchases.countDocuments(query);
@@ -477,7 +531,7 @@ export const getPackagePurchaseDetail = async (req: AuthRequest, res: Response) 
           select: 'serviceName price description serviceType availableAt'
         }
       })
-      .populate('profileId', 'fullName phone year gender')
+      .populate('profileId', 'fullName phone year gender', undefined, { strictPopulate: false })
       .populate('billId', 'subtotal discountAmount totalAmount status createdAt');
 
     if (!packagePurchase) {

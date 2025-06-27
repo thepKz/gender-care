@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
-import ServicePackages, { IServicePackages, IServiceItem } from '../models/ServicePackages';
-import PackagePurchases, { IPackagePurchases, PackagePurchaseDocument } from '../models/PackagePurchases';
+import PackagePurchases, { PackagePurchaseDocument } from '../models/PackagePurchases';
 import Service from '../models/Service';
+import ServicePackages, { IServicePackages } from '../models/ServicePackages';
 
 // 🔹 Service đơn giản hóa cho Package Purchase
 export class PackagePurchaseService {
@@ -79,10 +79,36 @@ export class PackagePurchaseService {
     try {
       session.startTransaction();
 
-      // Check duplicate active package
-      const existing = await PackagePurchases.findOne({ userId, packageId, status: 'active' }).session(session);
+      // Check duplicate active package với logic cải tiến
+      const now = new Date();
+      const existing = await PackagePurchases.findOne({ 
+        userId, 
+        packageId, 
+        status: 'active',
+        expiryDate: { $gt: now } // Chỉ kiểm tra gói còn hiệu lực (chưa hết hạn)
+      }).session(session);
+      
       if (existing) {
-        throw new Error('Bạn đã sở hữu gói này và vẫn còn hiệu lực. Vui lòng sử dụng hết hoặc chờ hết hạn trước khi mua lại.');
+        // Kiểm tra thêm điều kiện gói đã sử dụng hết chưa
+        const packageDoc = await ServicePackages.findOne({ 
+          _id: packageId, 
+          isActive: true 
+        }).session(session);
+        
+        if (packageDoc) {
+          // Check xem gói có còn dịch vụ khả dụng không
+          const hasAvailableServices = existing.usedServices.some((usedService: any) => {
+            const packageService = packageDoc.services.find((s: any) => 
+              s.serviceId.toString() === usedService.serviceId.toString()
+            );
+            if (!packageService) return false;
+            return usedService.usedQuantity < (packageService.quantity || 1);
+          });
+          
+          if (hasAvailableServices) {
+            throw new Error('Bạn đã sở hữu gói này và vẫn còn hiệu lực với dịch vụ chưa sử dụng hết. Vui lòng sử dụng hết hoặc chờ hết hạn trước khi mua lại.');
+          }
+        }
       }
 
       // Validate package
@@ -102,15 +128,15 @@ export class PackagePurchaseService {
 
       // Tính expiryDate
       const duration = packageDoc.durationInDays || 30;
-      const now = new Date();
-      const expiryDate = new Date(now.getTime() + duration * 24 * 60 * 60 * 1000);
+      const currentTime = new Date();
+      const expiryDate = new Date(currentTime.getTime() + duration * 24 * 60 * 60 * 1000);
 
       // Tạo purchase record
       const purchase = new PackagePurchases({
         userId: new mongoose.Types.ObjectId(userId),
         packageId: new mongoose.Types.ObjectId(packageId),
         purchasePrice: paymentAmount,
-        purchaseDate: now,
+        purchaseDate: currentTime,
         expiryDate: expiryDate,
         usedServices: (packageDoc.services || []).map((s: any) => ({
           serviceId: s.serviceId,

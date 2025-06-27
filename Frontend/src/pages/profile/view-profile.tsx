@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { CalendarOutlined, EditOutlined, FileTextOutlined, UserOutlined } from '@ant-design/icons';
+import { Button, Card, DatePicker, Form, Input, Modal, notification, Select, Spin } from 'antd';
 import axios from 'axios';
-import { useNavigate, useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Button, Modal, Form, Input, Select, DatePicker, notification, Spin, Card } from 'antd';
-import { EditOutlined, CalendarOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import userProfileApi from '../../api/endpoints/userProfileApi';
+import { motion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import medicalApi from '../../api/endpoints/medical';
+import userProfileApi from '../../api/endpoints/userProfileApi';
 import { useAuth } from '../../hooks/useAuth';
-import { UserProfile, MedicalRecord } from '../../types';
+import { MedicalRecord, UserProfile } from '../../types';
 
 interface TestResult {
   date: string;
@@ -373,25 +373,9 @@ const ViewProfilePage: React.FC = () => {
                               <UserOutlined className="text-blue-500" />
                               <span className="font-semibold text-[#0C3C54]">Bác sĩ:</span>
                               <span className="text-gray-700">
-                                {record.doctorId?.fullName || 'Chưa có thông tin'}
+                                {record.doctorId || 'Chưa có thông tin'}
                               </span>
                             </div>
-
-                            {record.medicines && record.medicines.length > 0 && (
-                              <div className="mt-3 pt-2 border-t border-gray-200">
-                                <span className="font-semibold text-[#0C3C54] text-sm">Thuốc kê đơn:</span>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {record.medicines.slice(0, 3).map((medicine: any, idx: number) => (
-                                    <span key={idx} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                                      {medicine.name}
-                                    </span>
-                                  ))}
-                                  {record.medicines.length > 3 && (
-                                    <span className="text-xs text-gray-500">+{record.medicines.length - 3} khác</span>
-                                  )}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </Card>
                       </motion.div>
@@ -420,18 +404,14 @@ const ViewProfilePage: React.FC = () => {
                   <Card className="text-center">
                     <div className="text-2xl text-green-500 mb-2">👨‍⚕️</div>
                     <div className="text-2xl font-bold text-[#0C3C54]">
-                      {new Set(medicalRecords.map(r => r.doctorId?._id).filter(Boolean)).size}
+                      {new Set(medicalRecords.map(r => r.doctorId).filter(Boolean)).size}
                     </div>
                     <div className="text-gray-600">Bác sĩ đã thăm khám</div>
                   </Card>
                   
                   <Card className="text-center">
                     <div className="text-2xl text-orange-500 mb-2">💊</div>
-                    <div className="text-2xl font-bold text-[#0C3C54]">
-                      {medicalRecords.reduce((total, record) => 
-                        total + (record.medicines?.length || 0), 0
-                      )}
-                    </div>
+                    <div className="text-2xl font-bold text-[#0C3C54]">0</div>
                     <div className="text-gray-600">Loại thuốc đã kê</div>
                   </Card>
                 </div>

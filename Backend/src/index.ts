@@ -7,30 +7,30 @@ import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import {
-  appointmentRoutes,
-  authRoutes,
-  dashboardRoutes,
-  doctorQARoutes,
-  doctorRoutes,
-  googleAuthRoutes,
-  loginHistoryRoutes,
-  medicalRecordsRoutes,
-  medicationRemindersRoutes,
-  medicinesRoutes,
-  meetingRoutes,
-  menstrualCycleRoutes,
-  notificationDaysRoutes,
-  packagePurchaseRoutes,
-  paymentRoutes,
-  servicePackageRoutes,
-  serviceRoutes,
-  serviceTestCategoriesRoutes,
-  systemLogRoutes,
-  testCategoriesRoutes,
-  testResultItemsRoutes,
-  testResultsRoutes,
-  userProfileRoutes,
-  userRoutes
+    appointmentRoutes,
+    authRoutes,
+    dashboardRoutes,
+    doctorQARoutes,
+    doctorRoutes,
+    googleAuthRoutes,
+    loginHistoryRoutes,
+    medicalRecordsRoutes,
+    medicationRemindersRoutes,
+    medicinesRoutes,
+    meetingRoutes,
+    menstrualCycleRoutes,
+    notificationDaysRoutes,
+    packagePurchaseRoutes,
+    paymentRoutes,
+    servicePackageRoutes,
+    serviceRoutes,
+    serviceTestCategoriesRoutes,
+    systemLogRoutes,
+    testCategoriesRoutes,
+    testResultItemsRoutes,
+    testResultsRoutes,
+    userProfileRoutes,
+    userRoutes
 } from "./routes";
 import consultationRoutes from './routes/consultationRoutes';
 
@@ -107,7 +107,10 @@ const allowedOrigins = [
   'https://gender-healthcare-service-management.onrender.com',
   'http://localhost:5000',
   'https://team05.ksfu.cloud',
-
+  // ✅ ADD: PayOS domains for payment processing
+  'https://pay.payos.vn',
+  'https://payos.vn',
+  'https://api.payos.vn'
 ];
 
 // Middleware
@@ -129,7 +132,14 @@ app.use(cors({
   },
   credentials: true, // Quan trọng: cho phép gửi cookie
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    // ✅ ADD: PayOS specific headers
+    'X-PayOS-Signature',
+    'X-PayOS-Webhook-Id'
+  ],
   optionsSuccessStatus: 200 // Để support legacy browsers
 }));
 
@@ -143,6 +153,20 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // ✅ ADD: PayOS specific headers and debugging
+  if (req.headers.origin?.includes('payos.vn')) {
+    console.log('🔍 PayOS Request detected:', {
+      origin: req.headers.origin,
+      method: req.method,
+      path: req.path,
+      userAgent: req.headers['user-agent']
+    });
+    
+    // Allow PayOS to access response
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
 
   next();
 });
@@ -161,6 +185,9 @@ try {
 // Kết nối đến cơ sở dữ liệu MongoDB
 const connectDB = async () => {
   try {
+    // Set global mongoose options
+    mongoose.set('strictPopulate', false);
+    
     const conn = await mongoose.connect(process.env.MONGO_URI as string);
     console.log(`MongoDB đã kết nối: ${conn.connection.host}`);
 

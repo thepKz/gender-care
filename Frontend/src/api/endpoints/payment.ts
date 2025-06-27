@@ -72,11 +72,35 @@ export const fastConfirmPayment = async (data: {
   return response.data;
 };
 
+/**
+ * ✅ NEW: Force check payment status and assign doctor
+ */
+export const forceCheckPaymentAndAssignDoctor = async (appointmentId: string): Promise<{
+  success: boolean;
+  message: string;
+  data?: {
+    appointmentId: string;
+    status: string;
+    paymentStatus: string;
+    paidAt?: string;
+    doctorId?: string;
+    doctorName?: string;
+    paymentUpdated: boolean;
+    doctorAssigned: boolean;
+    orderCode: number;
+    paymentTrackingStatus: string;
+  };
+}> => {
+  const response = await axiosInstance.post(`/payments/appointments/${appointmentId}/force-check`);
+  return response.data;
+};
+
 const paymentApi = {
   createPaymentLink,
   checkPaymentStatus,
   cancelPayment,
   fastConfirmPayment,
+  forceCheckPaymentAndAssignDoctor,
 };
 
 export default paymentApi; 

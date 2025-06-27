@@ -1,35 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Modal,
-  Card,
-  Button,
-  Space,
-  Tag,
-  Typography,
-  Avatar,
-  Descriptions,
-  Row,
-  Col,
-  Spin
-} from 'antd';
 import {
   CalendarOutlined,
-  UserOutlined,
   ClockCircleOutlined,
-  EnvironmentOutlined,
   DollarOutlined,
-  PhoneOutlined,
+  EnvironmentOutlined,
   ExperimentOutlined,
-  MedicineBoxOutlined,
+  FileSearchOutlined,
   InfoCircleOutlined,
-  FileSearchOutlined
+  MedicineBoxOutlined,
+  PhoneOutlined,
+  UserOutlined
 } from '@ant-design/icons';
-import { UnifiedAppointment } from '../../../types/appointment';
-import appointmentManagementService from '../../../api/services/appointmentManagementService';
+import {
+  Avatar,
+  Button,
+  Card,
+  Col,
+  Descriptions,
+  Modal,
+  Row,
+  Space,
+  Spin,
+  Tag,
+  Typography
+} from 'antd';
+import React, { useEffect, useState } from 'react';
 import { appointmentApi } from '../../../api/endpoints/appointment';
-import MedicalRecordModal, { MedicalRecordFormData } from '../forms/MedicalRecordModal';
 import medicalApi from '../../../api/endpoints/medical';
-import dayjs from 'dayjs';
+import { UnifiedAppointment } from '../../../types/appointment';
+import MedicalRecordModal, { MedicalRecordFormData } from '../forms/MedicalRecordModal';
 // import apiClient from '../../../api/axiosConfig'; // 🚫 COMMENTED FOR MOCK TESTING
 
 const { Text } = Typography;
@@ -64,7 +62,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   userRole,
   onCancel,
   onCreateTestRecord,
-  onCreateMedicalRecord,
+  onCreateMedicalRecord, // eslint-disable-line @typescript-eslint/no-unused-vars
   onViewTestRecord,
   onViewMedicalRecord
 }) => {
@@ -73,9 +71,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     hasTestResults: false,
     loading: false
   });
-  const [detailData, setDetailData] = useState<DetailData | null>(null);
   const [medicalRecordModalVisible, setMedicalRecordModalVisible] = useState(false);
-
 
   // Check record status when appointment changes
   useEffect(() => {
@@ -85,68 +81,27 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   }, [appointment, visible]);
 
   const checkRecordStatus = async (appointmentId: string) => {
-    setRecordStatus(prev => ({ ...prev, loading: true }));
-    
     try {
-      // ✅ FIX: Gọi trực tiếp từ appointmentApi thay vì qua service layer
-      const [medicalResponse, testResponse] = await Promise.all([
-        medicalApi.checkMedicalRecordByAppointment(appointmentId),
-        appointmentApi.checkTestResultsByAppointment(appointmentId) // Fixed: checkTestResultsByAppointment instead of checkTestResultExists
-      ]);
-
-      console.log('🏥 Medical record check:', medicalResponse.data);
-      console.log('🧪 Test result check:', testResponse.data);
-
-
+      setRecordStatus(prev => ({ ...prev, loading: true }));
+      
+      // Check medical record
+      const medicalResponse = await medicalApi.getMedicalRecordsByAppointment(appointmentId);
+      const hasMedicalRecord = medicalResponse.data && medicalResponse.data.length > 0;
+      
+      // Check test results
+      const testResponse = await appointmentApi.checkTestResultExists(appointmentId);
+      const hasTestResults = testResponse.data && testResponse.data.exists;
+      
       setRecordStatus({
-        hasMedicalRecord: medicalResponse.data?.exists || false,
-        hasTestResults: testResponse.data?.exists || false,
+        hasMedicalRecord,
+        hasTestResults,
         loading: false
       });
-
+      
+      console.log('✅ [Record Status] Updated:', { hasMedicalRecord, hasTestResults });
     } catch (error) {
-      console.error('❌ Error checking record status:', error);
-      setRecordStatus({
-        hasMedicalRecord: false,
-        hasTestResults: false,
-        loading: false
-      });
-    }
-  };
-
-  // Load detail data từ API thật
-  const loadDetailData = async () => {
-    try {
-      if (!appointment) return;
-      
-      // ✅ SỬ DỤNG REAL API để load chi tiết appointment
-      const data = await appointmentManagementService.getAppointmentDetail(
-        appointment._id, 
-        appointment.type
-      );
-      
-      if (data) {
-        // Transform API data to DetailData format
-        const detailData: DetailData = {
-          profileId: 'profileId' in data ? (data as any).profileId || undefined : undefined,
-          serviceId: 'serviceId' in data ? (data as any).serviceId || undefined : undefined,
-          packageId: 'packageId' in data ? (data as any).packageId || undefined : undefined,
-          doctorNotes: 'doctorNotes' in data ? (data as any).doctorNotes || (data as any).notes || undefined : undefined
-        };  
-        
-        setDetailData(detailData);
-        console.log('✅ [API] Loaded appointment detail data:', detailData);
-      } else {
-        setDetailData(null);
-        console.log('⚠️ [API] No detail data found for appointment:', appointment._id);
-      }
-      
-    } catch (error) {
-      console.error('❌ [API] Failed to load detail data:', error);
-      setDetailData(null);
-      
-      // Don't show error message to user as this is supplementary data
-      console.warn('Detail data unavailable, using basic appointment info only');
+      console.error('❌ [Record Status] Error checking records:', error);
+      setRecordStatus(prev => ({ ...prev, loading: false }));
     }
   };
 

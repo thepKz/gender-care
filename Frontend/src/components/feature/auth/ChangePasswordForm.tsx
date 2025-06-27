@@ -48,12 +48,26 @@ const ChangePasswordForm: React.FC<ChangePasswordFormProps> = ({ onSuccess }) =>
       
       if (onSuccess) onSuccess();
       
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Lỗi đổi mật khẩu:', error);
+      
+      // Xử lý các loại lỗi cụ thể từ API
+      let errorMessage = 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại thông tin và thử lại sau.';
+      
+      if (error.response?.data?.message) {
+        // Lấy message cụ thể từ API
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Mật khẩu hiện tại không chính xác. Vui lòng kiểm tra lại.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
       
       notification.error({
         message: 'Lỗi đổi mật khẩu',
-        description: 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại thông tin và thử lại sau.',
+        description: errorMessage,
       });
     } finally {
       setLoading(false);

@@ -864,7 +864,7 @@ const DoctorSchedulePage: React.FC = () => {
               onChange={(date) => setSelectedMonth(date || dayjs())}
               format="MM/YYYY"
               placeholder="Chọn tháng"
-              getPopupContainer={trigger => trigger.parentNode}
+              getPopupContainer={trigger => trigger.parentNode as HTMLElement}
             />
           </Col>
           <Col>

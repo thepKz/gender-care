@@ -44,7 +44,7 @@ const PaymentSuccess: React.FC<PaymentSuccessProps> = () => {
   };
 
   const handleViewPackages = () => {
-    navigate('/booking');
+    navigate('/booking-history');
   };
 
   const handleCheckPurchases = async () => {
