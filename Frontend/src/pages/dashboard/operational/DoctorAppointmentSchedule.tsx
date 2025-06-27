@@ -31,6 +31,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import { appointmentApi } from '../../../api/endpoints';
 import { useAuth } from '../../../hooks/useAuth';
 import { TestResultsForm } from '../../../components/feature/medical/TestResultsForm';
@@ -42,6 +43,8 @@ const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 // Removed TabPane import as it's deprecated
+
+dayjs.extend(isSameOrAfter);
 
 interface DoctorAppointment {
   _id: string;
@@ -183,35 +186,22 @@ const DoctorAppointmentSchedule: React.FC = () => {
 
   const filterAppointments = () => {
     let filtered = appointments;
-
-    // Filter by tab
     const today = dayjs().format('YYYY-MM-DD');
     const selectedDateStr = selectedDate?.format('YYYY-MM-DD');
-
     switch (activeTab) {
       case 'today':
-        filtered = filtered.filter(apt => 
-          dayjs(apt.appointmentDate).format('YYYY-MM-DD') === today
-        );
+        filtered = filtered.filter(apt => dayjs(apt.appointmentDate).format('YYYY-MM-DD') === today && apt.status === 'confirmed');
         break;
       case 'upcoming':
-        filtered = filtered.filter(apt => 
-          dayjs(apt.appointmentDate).isAfter(dayjs()) && 
-          apt.status !== 'completed' && 
-          apt.status !== 'cancelled'
-        );
+        filtered = filtered.filter(apt => dayjs(apt.appointmentDate).isSameOrAfter(dayjs(), 'day') && apt.status === 'confirmed');
         break;
       case 'completed':
         filtered = filtered.filter(apt => apt.status === 'completed');
         break;
       case 'selected-date':
-        filtered = filtered.filter(apt => 
-          dayjs(apt.appointmentDate).format('YYYY-MM-DD') === selectedDateStr
-        );
+        filtered = filtered.filter(apt => dayjs(apt.appointmentDate).format('YYYY-MM-DD') === selectedDateStr);
         break;
     }
-
-    // Filter by search text
     if (searchText) {
       filtered = filtered.filter(apt =>
         apt.profileId.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -219,12 +209,9 @@ const DoctorAppointmentSchedule: React.FC = () => {
         apt.serviceId.serviceName.toLowerCase().includes(searchText.toLowerCase())
       );
     }
-
-    // Filter by status
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(apt => apt.status === selectedStatus);
     }
-
     setFilteredAppointments(filtered);
   };
 
@@ -232,6 +219,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
     const colors = {
       pending: 'orange',
       confirmed: 'blue',
+      consulting: 'lime',
       completed: 'green',
       cancelled: 'red'
     };
@@ -242,6 +230,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
     const texts = {
       pending: 'Chờ xác nhận',
       confirmed: 'Đã xác nhận',
+      consulting: 'Đang khám',
       completed: 'Hoàn thành',
       cancelled: 'Đã hủy'
     };
@@ -360,13 +349,25 @@ const DoctorAppointmentSchedule: React.FC = () => {
 
           {record.status === 'confirmed' && (
             <Popconfirm
-              title="Xác nhận hoàn thành cuộc hẹn?"
-              onConfirm={() => handleCompleteAppointment(record._id)}
+              title="Xác nhận bắt đầu khám?"
+              onConfirm={async () => {
+                try {
+                  await appointmentApi.updateAppointmentStatus(record._id, 'consulting');
+                  message.success('Đã chuyển trạng thái sang Đang khám');
+                  loadMyAppointments();
+                } catch (error) {
+                  message.error('Lỗi khi cập nhật trạng thái cuộc hẹn');
+                }
+              }}
               okText="Có"
               cancelText="Không"
             >
-              <Tooltip title="Hoàn thành cuộc hẹn">
-                <Button type="text" icon={<CheckCircleOutlined />} />
+              <Tooltip title="Bắt đầu khám">
+                <Button
+                  type="text"
+                  icon={<CheckCircleOutlined style={{ color: '#52c41a', fontSize: 20 }} />}
+                  style={{ backgroundColor: '#e6ffed', border: 'none', borderRadius: '50%' }}
+                />
               </Tooltip>
             </Popconfirm>
           )}

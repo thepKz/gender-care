@@ -860,7 +860,7 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
         }
 
         // Kiểm tra status có hợp lệ không - Updated với consulting status
-        if (!['pending', 'pending_payment', 'paid', 'scheduled', 'confirmed', 'consulting', 'completed', 'cancelled'].includes(status)) {
+        if (!['pending', 'pending_payment', 'paid', 'scheduled', 'confirmed', 'consulting', 'completed', 'cancelled', 'done_testResultItem', 'done_testResult'].includes(status)) {
             throw new ValidationError({ status: 'Trạng thái không hợp lệ' });
         }
 
@@ -1560,7 +1560,7 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
                 .populate('packageId', 'name price')
                 .populate({
                     path: 'doctorId',
-                    match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
+                    match: { isDeleted: { $ne: true } },
                     populate: {
                         path: 'userId',
                         select: 'fullName email avatar'

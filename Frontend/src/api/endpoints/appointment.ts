@@ -158,7 +158,7 @@ export const appointmentApi = {
     },
 
     // Cập nhật trạng thái cuộc hẹn - Updated với đầy đủ status
-    updateAppointmentStatus: async (id: string, status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled') => {
+    updateAppointmentStatus: async (id: string, status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'done_testResultItem' | 'done_testResult') => {
         const response = await axiosInstance.put(`/appointments/${id}/status`, { status });
         return response.data;
     },

@@ -14,7 +14,7 @@ export interface IAppointments {
   address?: string;
   description?: string;
   notes?: string;
-  status: "pending_payment" | "pending" | "scheduled" | "confirmed" | "consulting" | "completed" | "cancelled" | "payment_cancelled" | "expired";
+  status: "pending_payment" | "pending" | "scheduled" | "confirmed" | "consulting" | "completed" | "cancelled" | "payment_cancelled" | "expired" | "done_testResultItem" | "done_testResult";
   totalAmount?: number; // Total amount for payment
   paymentStatus?: "unpaid" | "paid" | "partial" | "refunded";
   paidAt?: Date; // Timestamp when payment was completed

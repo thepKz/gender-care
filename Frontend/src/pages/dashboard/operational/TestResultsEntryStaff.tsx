@@ -123,15 +123,21 @@ const TestResultsEntryStaff: React.FC = () => {
     try {
       setLoading(true);
       const targetDate = selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : undefined;
-      const response = await appointmentApi.getAllAppointments({
-        page: 1,
-        limit: 100,
-        status: 'completed',
-        startDate: targetDate,
-        endDate: targetDate
-      });
+      // Lấy tất cả các trạng thái liên quan
+      const statuses = ['consulting', 'done_testResultItem', 'done_testResult'];
+      let allAppointments: any[] = [];
+      for (const status of statuses) {
+        const response = await appointmentApi.getAllAppointments({
+          page: 1,
+          limit: 100,
+          status,
+          startDate: targetDate,
+          endDate: targetDate
+        });
+        allAppointments = allAppointments.concat(response.data.appointments);
+      }
       // Chỉ lấy các lịch có serviceType là 'test' (xét nghiệm)
-      const filtered = response.data.appointments.filter((apt: any) => apt.serviceId?.serviceType === 'test');
+      const filtered = allAppointments.filter((apt: any) => apt.serviceId?.serviceType === 'test');
       setAppointments(filtered);
     } catch (err) {
       message.error('Không thể tải danh sách lịch hẹn');
@@ -172,9 +178,31 @@ const TestResultsEntryStaff: React.FC = () => {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      render: (status: string) => (
-        <Tag color={status === 'completed' ? 'green' : 'default'}>Hoàn thành</Tag>
-      ),
+      render: (status: string) => {
+        let color = 'default';
+        let text = '';
+        switch (status) {
+          case 'consulting':
+            color = 'lime';
+            text = 'Đang khám';
+            break;
+          case 'done_testResultItem':
+            color = 'blue';
+            text = 'Hoàn thành kết quả';
+            break;
+          case 'done_testResult':
+            color = 'cyan';
+            text = 'Hoàn thành hồ sơ';
+            break;
+          case 'completed':
+            color = 'green';
+            text = 'Hoàn thành';
+            break;
+          default:
+            text = status;
+        }
+        return <Tag color={color}>{text}</Tag>;
+      }
     },
     {
       title: 'Thao tác',
@@ -184,8 +212,11 @@ const TestResultsEntryStaff: React.FC = () => {
           <Tooltip title={"Tạo hồ sơ xét nghiệm"}>
             <Button
               icon={<PlusCircleOutlined />}
-              disabled={testResultStatus[record._id] === true}
-              onClick={() => {
+              disabled={
+                testResultStatus[record._id] === true ||
+                !(testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0 && record.status === 'done_testResultItem')
+              }
+              onClick={async () => {
                 setCreateTargetAppointment(record);
                 setCreateModalVisible(true);
                 testResultItemsApi.getByAppointment(record._id).then(items => setCreateTestResultItems(items || []));
@@ -194,10 +225,14 @@ const TestResultsEntryStaff: React.FC = () => {
               shape="circle"
             />
           </Tooltip>
-          <Tooltip title={record.status === 'completed' ? 'Nhập kết quả xét nghiệm' : 'Chỉ nhập khi lịch đã hoàn thành'}>
+          <Tooltip title={
+            record.status === 'consulting'
+              ? 'Nhập kết quả xét nghiệm'
+              : 'Chỉ nhập khi lịch đang khám'
+          }>
             <Button
               icon={<ExperimentOutlined />}
-              disabled={record.status !== 'completed' || (!!testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0)}
+              disabled={record.status !== 'consulting' || (testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0)}
               onClick={async () => {
                 setTestItemModalVisible(true);
                 setTestItemLoading(true);
@@ -236,7 +271,7 @@ const TestResultsEntryStaff: React.FC = () => {
 
   return (
     <div style={{ padding: 24 }}>
-      <Title level={3} style={{ marginBottom: 24 }}>Nhập kết quả xét nghiệm (Staff)</Title>
+      <Title level={3} style={{ marginBottom: 24 }}>Nhập kết quả xét nghiệm</Title>
       <Card style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <DatePicker
@@ -340,7 +375,6 @@ const TestResultsEntryStaff: React.FC = () => {
               // Nếu còn thiếu, không gọi API, không đóng modal
               return;
             }
-            console.log('DEBUG testResultId', currentTestResultId);
             setTestItemLoading(true);
             for (const cat of testCategories) {
               const v = testItemValues[cat._id]?.value;
@@ -353,6 +387,8 @@ const TestResultsEntryStaff: React.FC = () => {
                 flag: flag
               });
             }
+            // Sau khi nhập xong, chuyển trạng thái appointment sang done_testResultItem
+            await appointmentApi.updateAppointmentStatus(selectedAppointment?._id || currentTestResultId, 'done_testResultItem');
             message.success('Lưu kết quả xét nghiệm thành công!');
             setTestItemModalVisible(false);
             loadAppointments();
@@ -424,10 +460,13 @@ const TestResultsEntryStaff: React.FC = () => {
               recommendations: values.recommendations,
               testResultItemsId: []
             });
+            // Chuyển trạng thái sang done_testResult
+            await appointmentApi.updateAppointmentStatus(createTargetAppointment._id, 'done_testResult');
             message.success('Tạo hồ sơ xét nghiệm thành công!');
             setTestResultStatus((prev) => ({ ...prev, [createTargetAppointment._id]: true }));
             setCreateModalVisible(false);
             createForm.resetFields();
+            loadAppointments();
           } catch (e) {
             message.error('Tạo hồ sơ xét nghiệm thất bại!');
           } finally {
