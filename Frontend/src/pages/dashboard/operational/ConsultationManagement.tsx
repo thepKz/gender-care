@@ -30,6 +30,7 @@ import {
 import consultationApi from '../../../api/endpoints/consultation';
 import { meetingAPI } from '../../../api/endpoints/meeting';
 import MeetingNotesModal from '../../../components/ui/modals/MeetingNotesModal';
+import ConsultationEndConfirmModal from '../../../components/ui/modals/ConsultationEndConfirmModal';
 
 const { Title, Text } = Typography;
 
@@ -77,6 +78,10 @@ const ConsultationManagement: React.FC = () => {
   // Meeting Notes Modal state
   const [meetingNotesVisible, setMeetingNotesVisible] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationData | null>(null);
+
+  // ➕ ADD: Consultation End Confirm Modal state
+  const [endConfirmVisible, setEndConfirmVisible] = useState(false);
+  const [consultationToEnd, setConsultationToEnd] = useState<ConsultationData | null>(null);
 
   // ➕ ADD: Meeting Password & Invite state
   const [meetingPasswords, setMeetingPasswords] = useState<{[key: string]: string}>({});
@@ -191,13 +196,27 @@ const ConsultationManagement: React.FC = () => {
     }
   };
 
-  const handleCompleteConsultation = async (consultation: ConsultationData) => {
+  // ✅ UPDATED: Show confirmation modal instead of direct completion
+  const handleCompleteConsultation = (consultation: ConsultationData) => {
+    console.log('🔴 [COMPLETE-CONSULTATION] Requesting completion for:', consultation._id);
+    setConsultationToEnd(consultation);
+    setEndConfirmVisible(true);
+  };
+
+  // ➕ ADD: Handle actual completion after confirmation
+  const handleConfirmEndConsultation = async () => {
+    if (!consultationToEnd) return;
+
     try {
-      console.log('✅ [COMPLETE-CONSULTATION] Completing consultation:', consultation._id);
+      console.log('✅ [CONFIRM-END] Completing consultation:', consultationToEnd._id);
       
-      await consultationApi.completeConsultationWithMeeting(consultation._id, 'Consultation completed successfully');
+      await consultationApi.completeConsultationWithMeeting(consultationToEnd._id, 'Consultation completed successfully');
       
-      message.success(`Đã hoàn thành tư vấn với ${consultation.patientName}`);
+      message.success(`Đã hoàn thành tư vấn với ${consultationToEnd.patientName}`);
+      
+      // ✅ Close modal and reset state
+      setEndConfirmVisible(false);
+      setConsultationToEnd(null);
       
       // ✅ Reload data to reflect status changes
       loadConsultationData();
@@ -205,7 +224,14 @@ const ConsultationManagement: React.FC = () => {
     } catch (error) {
       console.error('❌ Error completing consultation:', error);
       message.error('Không thể hoàn thành tư vấn. Vui lòng thử lại.');
+      throw error; // Re-throw to let modal handle loading state
     }
+  };
+
+  // ➕ ADD: Handle cancel end consultation
+  const handleCancelEndConsultation = () => {
+    setEndConfirmVisible(false);
+    setConsultationToEnd(null);
   };
 
   // ✅ Helper function để check meeting existence cho consultation
@@ -706,6 +732,21 @@ const ConsultationManagement: React.FC = () => {
           }}
           onClose={handleCloseMeetingNotes}
           onMeetingCompleted={handleMeetingCompleted}
+        />
+      )}
+
+      {/* ➕ ADD: Consultation End Confirm Modal */}
+      {consultationToEnd && (
+        <ConsultationEndConfirmModal
+          visible={endConfirmVisible}
+          onConfirm={handleConfirmEndConsultation}
+          onCancel={handleCancelEndConsultation}
+          consultationData={{
+            patientName: consultationToEnd.patientName,
+            patientPhone: consultationToEnd.patientPhone,
+            appointmentTime: consultationToEnd.appointmentTime,
+            description: consultationToEnd.description
+          }}
         />
       )}
     </div>

@@ -1042,8 +1042,8 @@ export const createMeetingRecord = async (qaId: string): Promise<{
       scheduledTime,
       status: 'scheduled',
       participantCount: 0,
-      maxParticipants: 2,
-      notes: `Meeting created for consultation: ${qa.question.substring(0, 100)}...`
+      maxParticipants: 2
+      // ✅ REMOVED: notes - Để trống để bắt buộc doctor phải nhập thông tin thực tế
     });
 
     console.log('✅ [CREATE-MEETING] Meeting record created:', newMeeting._id);
@@ -1128,7 +1128,7 @@ export const updateMeetingParticipants = async (
 };
 
 /**
- * ✅ Hoàn thành consultation và meeting
+ *  Hoàn thành consultation và meeting
  * @param qaId - ID của DoctorQA
  * @param doctorNotes - Ghi chú của bác sĩ
  */
@@ -1141,13 +1141,14 @@ export const completeConsultationWithMeeting = async (qaId: string, doctorNotes?
       throw new Error('QA ID không hợp lệ');
     }
 
-    console.log('✅ [COMPLETE-CONSULTATION] Completing consultation:', qaId);
+    console.log(' [COMPLETE-CONSULTATION] Completing consultation:', qaId);
 
-    // 1. Update DoctorQA status to 'completed'
+    // 1. Update DoctorQA status to 'completed' - KHÔNG lưu notes ở đây nữa
     const updateData: any = { status: 'completed' };
-    if (doctorNotes) {
-      updateData.doctorNotes = doctorNotes;
-    }
+    // ❌ REMOVED: doctorNotes sẽ được lưu ở Meeting table thôi
+    // if (doctorNotes) {
+    //   updateData.doctorNotes = doctorNotes;
+    // }
 
     const updatedQA = await DoctorQA.findByIdAndUpdate(
       qaId,
@@ -1166,16 +1167,53 @@ export const completeConsultationWithMeeting = async (qaId: string, doctorNotes?
       throw new Error('Không tìm thấy yêu cầu tư vấn');
     }
 
-    // 2. Update Meeting status to 'completed'
+    // 2. Update Meeting status to 'completed' - KHÔNG override notes đã có
     const Meeting = require('../models/Meeting').default;
     const updatedMeeting = await Meeting.findOneAndUpdate(
       { qaId: new mongoose.Types.ObjectId(qaId) },
       { 
-        status: 'completed',
-        notes: doctorNotes || 'Consultation completed successfully'
+        status: 'completed'
+        // ❌ REMOVED: Không override notes đã được lưu từ updateMeetingNotes
+        // notes: doctorNotes || 'Consultation completed successfully'  
       },
       { new: true }
     );
+
+    // ➕ 3. NEW: Send thank you email to customer
+    try {
+      console.log(' [SEND-THANKS] Sending completion thank you email...');
+      
+      const { sendConsultationCompletedEmail } = await import('./emails');
+      
+      // Extract customer and doctor info
+      const customerData = updatedQA.userId as any;
+      const doctorData = (updatedQA.doctorId as any)?.userId as any;
+      const doctorName = doctorData?.fullName || 'Bác sĩ';
+      
+      if (customerData?.email) {
+        // ✅ FIX: Safe handling của appointmentDate
+        const appointmentDate = updatedQA.appointmentDate || new Date();
+        const appointmentSlot = updatedQA.appointmentSlot || 'N/A';
+        
+        await sendConsultationCompletedEmail(
+          customerData.email,
+          customerData.fullName || updatedQA.fullName,
+          updatedQA.phone,
+          doctorName,
+          appointmentDate,
+          appointmentSlot,
+          updatedQA.question,
+          updatedMeeting?.notes // ✅ FIX: Lấy notes từ Meeting thay vì doctorNotes
+        );
+        console.log(`✅ [SEND-THANKS] Thank you email sent to: ${customerData.email}`);
+      } else {
+        console.warn('⚠️ [SEND-THANKS] No customer email found, skipping thank you email');
+      }
+      
+    } catch (emailError: any) {
+      console.error('❌ [EMAIL-ERROR] Failed to send thank you email:', emailError.message);
+      // Don't throw error - email failure shouldn't block consultation completion
+    }
 
     console.log('✅ [COMPLETE-CONSULTATION] Both QA and Meeting completed');
 
@@ -1185,7 +1223,7 @@ export const completeConsultationWithMeeting = async (qaId: string, doctorNotes?
     };
 
   } catch (error) {
-    console.error('❌ [ERROR] Complete consultation failed:', error);
+    console.error(' [ERROR] Complete consultation failed:', error);
     throw error;
   }
 };

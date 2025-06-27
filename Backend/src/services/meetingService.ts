@@ -428,9 +428,16 @@ export const sendCustomerInvite = async (qaId: string, doctorId: string) => {
       throw new Error('QA ID hoặc Doctor ID không hợp lệ');
     }
 
-    // Lấy meeting với đầy đủ thông tin populated
+    // ✅ FIX: Lấy meeting với đầy đủ thông tin populated - populate nested để lấy doctor name
     const meeting = await Meeting.findOne({ qaId })
-      .populate('doctorId', 'fullName email specialization')
+      .populate({
+        path: 'doctorId',
+        select: 'userId specialization',
+        populate: {
+          path: 'userId',
+          select: 'fullName email'
+        }
+      })
       .populate('userId', 'fullName email phone')
       .populate('qaId', 'fullName phone question status');
 
@@ -468,12 +475,22 @@ export const sendCustomerInvite = async (qaId: string, doctorId: string) => {
     const doctorData = meeting.doctorId as any;
     const qaData = meeting.qaId as any;
 
+    // ✅ FIX: Safely extract doctor name từ nested populate
+    const doctorName = doctorData?.userId?.fullName || doctorData?.fullName || 'Bác sĩ';
+    
+    console.log(`📧 [DEBUG] Doctor info:`, {
+      doctorData: doctorData,
+      doctorName,
+      hasUserId: !!doctorData?.userId,
+      userIdName: doctorData?.userId?.fullName
+    });
+
     // Gửi email invite
     await sendCustomerMeetingInviteEmail(
       customerData.email,
       customerData.fullName,
       customerData.phone || qaData.phone,
-      doctorData.fullName,
+      doctorName,  // ✅ FIX: Use safely extracted doctorName
       meeting.meetingLink,
       meeting.meetingPassword,
       meeting.scheduledTime,
@@ -486,7 +503,7 @@ export const sendCustomerInvite = async (qaId: string, doctorId: string) => {
 
     console.log(`📧 [INVITE-SENT] Customer meeting invite sent for meeting: ${meeting._id}`);
     console.log(`   Customer: ${customerData.fullName} (${customerData.email})`);
-    console.log(`   Doctor: ${doctorData.fullName}`);
+    console.log(`   Doctor: ${doctorName}`);  // ✅ FIX: Use safely extracted doctorName
     console.log(`   Password: ${meeting.meetingPassword}`);
     console.log(`✅ [STATUS-UPDATE] Meeting status updated: waiting_customer → invite_sent`);
 
@@ -495,7 +512,7 @@ export const sendCustomerInvite = async (qaId: string, doctorId: string) => {
       meetingId: meeting._id,
       customerEmail: customerData.email,
       customerName: customerData.fullName,
-      doctorName: doctorData.fullName,
+      doctorName: doctorName,  // ✅ FIX: Use safely extracted doctorName
       meetingPassword: meeting.meetingPassword,
       sentAt: new Date(),
       newStatus: 'invite_sent'

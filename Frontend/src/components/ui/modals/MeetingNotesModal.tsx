@@ -32,6 +32,7 @@ import {
 } from '@ant-design/icons';
 import consultationApi from '../../../api/endpoints/consultation';
 import { meetingAPI } from '../../../api/endpoints/meeting';
+import ConsultationEndConfirmModal from './ConsultationEndConfirmModal';
 
 const { TextArea } = Input;
 
@@ -76,6 +77,9 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
   // 🎥 Recording Confirmation Modal state
   const [recordingModalVisible, setRecordingModalVisible] = useState(false);
   const [recordingConfirmed, setRecordingConfirmed] = useState(false);
+
+  // ➕ ADD: Consultation End Confirm Modal state  
+  const [endConfirmVisible, setEndConfirmVisible] = useState(false);
 
   // ➕ ADD: Meeting password state
   const [meetingPassword, setMeetingPassword] = useState<string>('');
@@ -183,11 +187,21 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
       
       if (details) {
         setMeetingDetails(details);
-        // ✅ CHỈ set maxParticipants - KHÔNG BAO GIỜ set notes để tránh load content cũ
-        form.setFieldsValue({
+        
+        // ✅ FIX: Load cả notes và maxParticipants từ DB để user có thể edit tiếp
+        const formValues: { maxParticipants: number; notes?: string } = {
           maxParticipants: details.maxParticipants || 2
-          // ❌ KHÔNG set notes: Để form field hoàn toàn trống, chỉ hiển thị placeholder
-        });
+        };
+        
+        // ✅ FIX: Chỉ set notes nếu có trong DB, nếu không có thì để trống
+        if (details.notes && details.notes.trim()) {
+          formValues.notes = details.notes;
+          console.log('📝 [LOAD-NOTES] Found existing notes, loading into form:', details.notes);
+        } else {
+          console.log('📝 [LOAD-NOTES] No existing notes found, form will be empty');
+        }
+        
+        form.setFieldsValue(formValues);
 
         // ➕ ADD: Load meeting password từ meeting API
         try {
@@ -223,8 +237,8 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
       
       message.success('Lưu ghi chú meeting thành công');
       
-      // ❌ REMOVED: Không reload meeting details để tránh load lại notes vào form
-      // await loadMeetingDetails();
+      // ✅ FIX: Reload meeting details để update UI với notes mới được lưu
+      await loadMeetingDetails();
       
     } catch (error) {
       console.error('Error saving notes:', error);
@@ -303,34 +317,59 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
     }
   };
 
-  const handleCompleteMeeting = async () => {
+  // ✅ UPDATED: Show confirmation modal instead of direct completion
+  const handleCompleteMeeting = () => {
+    console.log('🔴 [MEETING-COMPLETE] Requesting meeting completion for:', consultationId);
+    setEndConfirmVisible(true);
+  };
+
+  // ➕ ADD: Handle actual completion after confirmation
+  const handleConfirmEndMeeting = async () => {
     try {
       setLoading(true);
       
-      // Lưu notes trước khi kết thúc
+      // ✅ SIMPLIFIED: Chỉ lưu notes ở Meeting, không duplicate ở DoctorQA
       const values = form.getFieldsValue();
-      if (values.notes) {
+      console.log('📝 [FORM-VALUES] Notes from form:', values.notes);
+      
+      // 1. Lưu notes vào Meeting (bắt buộc)
+      if (values.notes && values.notes.trim()) {
+        console.log('💾 [SAVE-NOTES] Saving notes to meeting:', values.notes);
         await consultationApi.updateMeetingNotes(consultationId, {
           notes: values.notes
         });
+        console.log('✅ [SAVE-NOTES] Notes saved successfully');
+      } else {
+        console.warn('⚠️ [SAVE-NOTES] No notes to save or notes is empty');
       }
       
-      // Kết thúc consultation
+      // 2. Kết thúc consultation KHÔNG cần truyền notes (đã lưu ở Meeting rồi)
       await consultationApi.completeConsultationWithMeeting(
         consultationId, 
-        values.notes || 'Meeting completed successfully'
+        'Meeting completed successfully' // Generic message, notes đã lưu ở Meeting
       );
       
       message.success('Kết thúc tư vấn thành công');
+      
+      // ✅ Close confirmation modal
+      setEndConfirmVisible(false);
+      
+      // ✅ Close meeting notes modal và notify parent
       onMeetingCompleted();
       onClose();
       
     } catch (error) {
       console.error('Error completing meeting:', error);
       message.error('Không thể kết thúc tư vấn');
+      throw error; // Re-throw to let modal handle loading state
     } finally {
       setLoading(false);
     }
+  };
+
+  // ➕ ADD: Handle cancel end meeting
+  const handleCancelEndMeeting = () => {
+    setEndConfirmVisible(false);
   };
 
   const getStatusColor = (status: string) => {
@@ -607,7 +646,6 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
                 rules={[
                   { required: true, message: 'Vui lòng nhập ghi chú về cuộc tư vấn' }
                 ]}
-                help="⚠️ Trường này luôn để trống để doctor nhập ghi chú mới cho buổi tư vấn hiện tại"
               >
                 <TextArea
                   rows={6}
@@ -780,6 +818,20 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
           💡 <strong>Gợi ý phần mềm ghi màn hình:</strong> OBS Studio (miễn phí), Bandicam, Camtasia, hoặc sử dụng tính năng ghi màn hình có sẵn trên hệ điều hành.
         </div>
       </Modal>
+
+      {/* ➕ ADD: Consultation End Confirm Modal */}
+      <ConsultationEndConfirmModal
+        visible={endConfirmVisible}
+        onConfirm={handleConfirmEndMeeting}
+        onCancel={handleCancelEndMeeting}
+        consultationData={{
+          patientName: consultationData.patientName,
+          patientPhone: consultationData.patientPhone,
+          appointmentTime: consultationData.appointmentTime,
+          description: consultationData.description
+        }}
+        loading={loading}
+      />
     </Modal>
   );
 };
