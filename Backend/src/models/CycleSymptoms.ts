@@ -44,10 +44,10 @@ export const FEELINGS = [
 // Validation rules theo phương pháp Billings
 export const MUCUS_FEELING_RULES: Record<string, string[]> = {
   'có máu': ['ướt'],
-  'lấm tấm máu': ['ướt'],
+  'lấm tấm máu': ['ướt', 'khô'],
   'đục nhiều sợi': ['ướt', 'trơn'],
   'trong nhiều sợi': ['ướt', 'trơn'],
-  'đục': ['dính', 'ẩm'],
+  'đục': ['dính', 'ẩm', 'khô'],
   'trong và âm hộ căng': ['trơn'],
   'ít chất tiết': ['ẩm', 'ướt']
 };
@@ -121,9 +121,7 @@ const CycleDaysSchema = new mongoose.Schema<ICycleDays>({
   },
   year: {
     type: Number,
-    required: true,
-    min: 2020,
-    max: 2050
+    required: true
   }
 }, {
   timestamps: true,

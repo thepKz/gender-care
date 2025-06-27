@@ -1,412 +1,364 @@
-import React from 'react';
-import { Modal, Steps, Button } from 'antd';
+import React, { useState } from 'react';
+import { Modal, Button, Progress } from 'antd';
 import { 
-  HeartOutlined, 
   CalendarOutlined, 
-  CheckCircleOutlined, 
+  EditOutlined, 
   BookOutlined, 
-  BulbOutlined, 
-  MedicineBoxOutlined,
-  PlusOutlined,
-  SettingOutlined,
-  StarOutlined,
-  RocketOutlined
+  BellOutlined, 
+  LineChartOutlined,
+  RightOutlined,
+  LeftOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons';
 
 interface OnboardingTourProps {
   visible: boolean;
-  currentStep: number;
-  onNext: () => void;
-  onPrev: () => void;
-  onComplete: () => void;
+  onClose: () => void;
 }
 
-const OnboardingTour: React.FC<OnboardingTourProps> = ({ 
-  visible, 
-  currentStep, 
-  onNext, 
-  onPrev, 
-  onComplete 
-}) => {
+const OnboardingTour: React.FC<OnboardingTourProps> = ({ visible, onClose }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+
   const steps = [
     {
-      title: 'Chào mừng đến với Phương pháp Billings',
+      title: 'Chào mừng đến với Theo dõi Chu kỳ Kinh nguyệt',
+      icon: <CalendarOutlined className="text-xl text-blue-600" />,
       content: (
-        <div className="text-center space-y-10 py-8">
-          <div className="space-y-6">
-            <div className="w-24 h-24 mx-auto bg-gray-900 rounded-full flex items-center justify-center shadow-xl">
-              <HeartOutlined className="text-4xl text-white" />
-            </div>
-            <h2 className="text-4xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-              Chào mừng bạn đến với
-            </h2>
-            <h3 className="text-3xl font-bold text-gray-900">
-              Phương pháp Billings
-            </h3>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              Hãy cùng bắt đầu hành trình theo dõi chu kỳ tự nhiên, an toàn và khoa học 
-              được tin dùng bởi hàng triệu phụ nữ trên toàn thế giới
-            </p>
-          </div>
-          
-          <div className="bg-white border border-gray-200 rounded-lg p-8 max-w-3xl mx-auto shadow-lg">
-            <div className="flex items-center justify-center mb-6">
-              <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mr-4">
-                <MedicineBoxOutlined className="text-2xl text-white" />
-              </div>
-              <h3 className="text-2xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                Phương pháp tự nhiên, an toàn và hiệu quả
-              </h3>
-            </div>
-            <div className="grid md:grid-cols-3 gap-6 text-gray-700">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <CheckCircleOutlined className="text-xl text-white" />
-                </div>
-                <p className="font-medium">Được WHO khuyến nghị</p>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <StarOutlined className="text-xl text-white" />
-                </div>
-                <p className="font-medium">96% độ chính xác</p>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <HeartOutlined className="text-xl text-white" />
-                </div>
-                <p className="font-medium">Hoàn toàn tự nhiên</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      title: 'Tạo chu kỳ đầu tiên',
-      content: (
-        <div className="space-y-10 py-8">
-          <div className="text-center space-y-6">
-            <div className="w-24 h-24 mx-auto bg-gray-900 rounded-full flex items-center justify-center shadow-xl">
-              <PlusOutlined className="text-4xl text-white" />
-            </div>
-            <h2 className="text-4xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-              Bước đầu tiên
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-              Tạo chu kỳ theo dõi đầu tiên để bắt đầu hành trình của bạn
-            </p>
-          </div>
-          
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-lg">
-              <div className="flex items-center mb-8">
-                <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mr-4">
-                  <BulbOutlined className="text-2xl text-white" />
-                </div>
-                <h3 className="text-2xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Cách thực hiện:
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-gray-50 rounded-2xl">
+            <div className="flex items-center justify-center space-x-4">
+              <CalendarOutlined className="text-3xl text-blue-600" />
+              <div className="text-left">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Bắt đầu hành trình theo dõi chu kỳ của bạn
                 </h3>
+                <p className="text-gray-600 text-sm">
+                  Ứng dụng được thiết kế dựa trên phương pháp Billings - được WHO khuyến nghị
+                </p>
               </div>
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-lg p-6 border border-gray-200 hover:shadow-lg transition-shadow duration-300">
-                  <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold mb-4 mx-auto">1</div>
-                  <h4 className="font-semibold text-gray-900 mb-3 text-center">Tạo chu kỳ mới</h4>
-                  <p className="text-gray-700 text-center leading-relaxed">
-                    Nhấn nút "Tạo chu kỳ mới" trên trang chính
-                  </p>
-                </div>
-                <div className="bg-white rounded-lg p-6 border border-gray-200 hover:shadow-lg transition-shadow duration-300">
-                  <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold mb-4 mx-auto">2</div>
-                  <h4 className="font-semibold text-gray-900 mb-3 text-center">Chọn ngày bắt đầu</h4>
-                  <p className="text-gray-700 text-center leading-relaxed">
-                    Chọn ngày đầu tiên có kinh nguyệt của chu kỳ hiện tại
-                  </p>
-                </div>
-                <div className="bg-white rounded-lg p-6 border border-gray-200 hover:shadow-lg transition-shadow duration-300">
-                  <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center text-lg font-bold mb-4 mx-auto">3</div>
-                  <h4 className="font-semibold text-gray-900 mb-3 text-center">Hoàn thành</h4>
-                  <p className="text-gray-700 text-center leading-relaxed">
-                    Hệ thống tự động tạo chu kỳ theo dõi cho bạn
-                  </p>
-                </div>
-              </div>
+            </div>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="bg-white p-3 rounded-2xl border border-gray-200 text-center">
+              <EditOutlined className="text-lg text-green-600 mb-2" />
+              <h4 className="font-semibold text-gray-900 mb-1 text-sm">Ghi nhận dễ dàng</h4>
+              <p className="text-gray-600 text-xs">Interface đơn giản, thao tác nhanh chóng</p>
             </div>
             
-            <div className="mt-8 bg-white border border-gray-200 rounded-lg p-6 shadow-lg">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mr-4">
-                  <StarOutlined className="text-xl text-white" />
-                </div>
-                <p className="text-gray-900 font-semibold text-lg">Lưu ý quan trọng</p>
-              </div>
-              <p className="text-gray-700 leading-relaxed text-lg">
-                Bạn cần theo dõi ít nhất <strong>3 chu kỳ liên tiếp</strong> để có kết quả chính xác nhất 
-                và hiểu rõ pattern chu kỳ của mình.
-              </p>
+            <div className="bg-white p-3 rounded-2xl border border-gray-200 text-center">
+              <LineChartOutlined className="text-lg text-purple-600 mb-2" />
+              <h4 className="font-semibold text-gray-900 mb-1 text-sm">Phân tích thông minh</h4>
+              <p className="text-gray-600 text-xs">Dự đoán chu kỳ và thời gian quan trọng</p>
+            </div>
+            
+            <div className="bg-white p-3 rounded-2xl border border-gray-200 text-center">
+              <BellOutlined className="text-lg text-orange-600 mb-2" />
+              <h4 className="font-semibold text-gray-900 mb-1 text-sm">Nhắc nhở thông minh</h4>
+              <p className="text-gray-600 text-xs">Không bao giờ bỏ lỡ việc ghi nhận</p>
             </div>
           </div>
         </div>
       )
     },
     {
-      title: 'Cách ghi nhận dữ liệu hàng ngày',
+      title: 'Bước 1: Ghi nhận hàng ngày',
+      icon: <EditOutlined className="text-xl text-green-600" />,
       content: (
-        <div className="space-y-10 py-8">
-          <div className="text-center space-y-6">
-            <div className="w-24 h-24 mx-auto bg-gray-900 rounded-full flex items-center justify-center shadow-xl">
-              <BookOutlined className="text-4xl text-white" />
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-gray-50 rounded-2xl">
+            <div className="flex items-center justify-center space-x-4">
+              <EditOutlined className="text-3xl text-green-600" />
+              <div className="text-left">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Quan sát và ghi nhận
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  Mỗi tối, dành 2-3 phút để quan sát và ghi nhận những thay đổi của cơ thể
+                </p>
+              </div>
             </div>
-            <h2 className="text-4xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-              Quan sát hàng ngày
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              Ghi nhận quan sát mỗi tối để có kết quả chính xác. Đây là bước quan trọng nhất trong phương pháp Billings.
-            </p>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-lg">
-              <div className="flex items-center mb-6">
-                <div className="w-14 h-14 bg-gray-900 rounded-full flex items-center justify-center mr-4">
-                  <HeartOutlined className="text-xl text-white" />
+          <div className="grid lg:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-3">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs mt-1">
+                  1
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Quan sát chất nhờn
-                </h3>
-              </div>
-              <div className="space-y-4">
-                <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-800">Có máu</span>
-                    <span className="text-sm bg-red-500 text-white px-3 py-1 rounded-full font-medium">M</span>
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-800">Đục</span>
-                    <span className="text-sm bg-purple-500 text-white px-3 py-1 rounded-full font-medium">C</span>
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg p-4 border-2 border-blue-600 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-800">Trong và âm hộ căng</span>
-                    <span className="text-sm bg-orange-500 text-white px-3 py-1 rounded-full font-bold">X</span>
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-800">Ít chất tiết</span>
-                    <span className="text-sm bg-gray-500 text-white px-3 py-1 rounded-full font-medium">D</span>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2 text-sm">Chọn quan sát chất nhờn</h4>
+                  <p className="text-gray-700 mb-2 text-xs">
+                    Có máu, Đục, Đục nhiều sợi, Trong và âm hộ căng, Ít chất tiết
+                  </p>
+                  <div className="bg-gray-50 p-2 rounded-xl">
+                    <p className="text-xs text-gray-600">
+                      💡 Quan sát tại cửa âm đạo, không dùng giấy vệ sinh
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
             
-            <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-lg">
-              <div className="flex items-center mb-6">
-                <div className="w-14 h-14 bg-gray-900 rounded-full flex items-center justify-center mr-4">
-                  <CheckCircleOutlined className="text-xl text-white" />
+            <div className="bg-white border border-gray-200 rounded-2xl p-3">
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs mt-1">
+                  2
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Cảm giác âm đạo
-                </h3>
-              </div>
-              <div className="space-y-4">
-                <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-800">Ướt</span>
-                    <span className="text-sm text-gray-600 font-medium">Cảm giác ẩm ướt</span>
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-800">Dính</span>
-                    <span className="text-sm text-gray-600 font-medium">Hơi dính chất</span>
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg p-4 border-2 border-blue-600 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-800">Trơn</span>
-                    <span className="text-sm text-gray-700 font-bold">Rất mượt mà ⭐</span>
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow duration-300">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-800">Khô</span>
-                    <span className="text-sm text-gray-600 font-medium">Khô ráo</span>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-2 text-sm">Chọn cảm giác</h4>
+                  <p className="text-gray-700 mb-2 text-xs">
+                    Khô, Ẩm, Ướt, Trơn - cảm giác tại âm đạo
+                  </p>
+                  <div className="bg-gray-50 p-2 rounded-xl">
+                    <p className="text-xs text-gray-600">
+                      ⚡ Hệ thống sẽ tự động kiểm tra kết hợp đúng/sai
+                    </p>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-          
-          <div className="max-w-3xl mx-auto">
-            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-lg">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mr-4">
-                  <CalendarOutlined className="text-xl text-white" />
-                </div>
-                <p className="text-gray-900 font-semibold text-lg">Thời gian tốt nhất</p>
-              </div>
-              <p className="text-gray-700 leading-relaxed text-lg">
-                Quan sát vào <strong>buổi tối, trước khi đi ngủ</strong> để có kết quả chính xác nhất. 
-                Hãy kiên trì thực hiện hàng ngày.
-              </p>
             </div>
           </div>
         </div>
       )
     },
     {
-      title: 'Hiểu ký hiệu trên lịch',
+      title: 'Bước 2: Hiểu ký hiệu và màu sắc',
+      icon: <BookOutlined className="text-xl text-purple-600" />,
       content: (
-        <div className="space-y-10 py-8">
-          <div className="text-center space-y-6">
-            <div className="w-24 h-24 mx-auto bg-gray-900 rounded-full flex items-center justify-center shadow-xl">
-              <StarOutlined className="text-4xl text-white" />
-            </div>
-            <h2 className="text-4xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-              Bảng ký hiệu và màu sắc
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              Mỗi ký hiệu và màu sắc có ý nghĩa riêng trong chu kỳ của bạn. Hãy nắm vững để theo dõi hiệu quả.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-red-500 text-white rounded-full mx-auto mb-4 flex items-center justify-center font-bold text-xl shadow-md">M</div>
-                <h4 className="font-semibold text-gray-900 mb-2" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Kinh nguyệt
-                </h4>
-                <p className="text-gray-600 text-sm">Có máu</p>
-              </div>
-            </div>
-            <div className="bg-white border-2 border-blue-600 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-orange-500 text-white rounded-full mx-auto mb-4 flex items-center justify-center font-bold text-xl shadow-md">X</div>
-                <h4 className="font-semibold text-gray-900 mb-2" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Ngày đỉnh
-                </h4>
-                <p className="text-gray-600 text-sm font-bold">🌟 Quan trọng</p>
-              </div>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-yellow-500 text-gray-800 rounded-full mx-auto mb-4 flex items-center justify-center font-bold text-xl shadow-md">1</div>
-                <h4 className="font-semibold text-gray-900 mb-2" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Sau đỉnh
-                </h4>
-                <p className="text-gray-600 text-sm">Theo dõi</p>
-              </div>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-purple-500 text-white rounded-full mx-auto mb-4 flex items-center justify-center font-bold text-xl shadow-md">C</div>
-                <h4 className="font-semibold text-gray-900 mb-2" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Có thể thụ thai
-                </h4>
-                <p className="text-gray-600 text-sm">Chú ý</p>
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-gray-50 rounded-2xl">
+            <div className="flex items-center justify-center space-x-4">
+              <BookOutlined className="text-3xl text-purple-600" />
+              <div className="text-left">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Bảng ký hiệu màu sắc
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  Mỗi màu sắc và ký hiệu có ý nghĩa riêng, giúp bạn dễ dàng nhận biết giai đoạn hiện tại
+                </p>
               </div>
             </div>
           </div>
           
-          <div className="max-w-3xl mx-auto">
-            <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-lg">
-              <div className="flex items-center mb-4">
-                <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mr-4">
-                  <BulbOutlined className="text-xl text-white" />
-                </div>
-                <p className="text-gray-900 font-semibold text-lg">Ngày X là quan trọng nhất</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 bg-red-500 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold text-xs">
+                M
               </div>
-              <p className="text-gray-700 leading-relaxed text-lg">
-                Khi chọn <strong>"Trong và âm hộ căng" + "Trơn"</strong>, hệ thống sẽ tự động đánh dấu đây là ngày đỉnh 
-                và tạo các ngày theo dõi tiếp theo.
-              </p>
+              <h4 className="font-semibold text-gray-900 text-xs mb-1">Kinh nguyệt</h4>
+              <p className="text-gray-600 text-xs">Có máu</p>
+            </div>
+            
+            <div className="bg-white border-2 border-orange-500 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 bg-orange-500 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold text-xs">
+                X
+              </div>
+              <h4 className="font-semibold text-gray-900 text-xs mb-1">Ngày đỉnh</h4>
+              <p className="text-gray-600 text-xs">Quan trọng nhất</p>
+            </div>
+            
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 bg-purple-500 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold text-xs">
+                C
+              </div>
+              <h4 className="font-semibold text-gray-900 text-xs mb-1">Có thể thụ thai</h4>
+              <p className="text-gray-600 text-xs">Chất nhờn đục</p>
+            </div>
+            
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 bg-gray-500 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold text-xs">
+                D
+              </div>
+              <h4 className="font-semibold text-gray-900 text-xs mb-1">Khô</h4>
+              <p className="text-gray-600 text-xs">Ít/không tiết</p>
+            </div>
+          </div>
+          
+          <div className="bg-white border border-gray-200 rounded-2xl p-3">
+            <h4 className="font-semibold text-gray-900 mb-2 flex items-center text-sm">
+              <CheckCircleOutlined className="text-green-600 mr-2" />
+              Lưu ý quan trọng
+            </h4>
+            <div className="grid md:grid-cols-3 gap-3">
+              <div className="space-y-1 text-gray-700 text-xs">
+                <p>• Màu cam (X) = Ngày đỉnh - quan trọng nhất trong chu kỳ</p>
+                <p>• Sau ngày X, hệ thống tự động tạo các ngày 1, 2, 3...</p>
+              </div>
+              <div className="space-y-1 text-gray-700 text-xs">
+                <p>• Quan sát liên tục ít nhất 3 chu kỳ để có kết quả chính xác</p>
+                <p>• Mỗi ký hiệu và màu đại diện cho giai đoạn khác nhau</p>
+              </div>
+              <div className="space-y-1 text-gray-700 text-xs">
+                <p>• Ghi nhận vào cùng thời điểm mỗi ngày</p>
+                <p>• Dựa vào cảm giác thực tế, không đoán</p>
+              </div>
             </div>
           </div>
         </div>
       )
     },
     {
-      title: 'Sẵn sàng bắt đầu',
+      title: 'Bước 3: Thiết lập nhắc nhở',
+      icon: <BellOutlined className="text-xl text-orange-600" />,
       content: (
-        <div className="text-center space-y-10 py-8">
-          <div className="space-y-6">
-            <div className="w-24 h-24 mx-auto bg-gray-900 rounded-full flex items-center justify-center shadow-xl">
-              <RocketOutlined className="text-4xl text-white" />
-            </div>
-            <h2 className="text-4xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-              Bạn đã sẵn sàng!
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              Hãy bắt đầu theo dõi chu kỳ của mình. Nhớ ghi nhận dữ liệu mỗi ngày để có kết quả chính xác nhất.
-            </p>
-          </div>
-          
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white border border-gray-200 rounded-lg p-8 shadow-lg">
-              <div className="flex items-center justify-center mb-8">
-                <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mr-4">
-                  <SettingOutlined className="text-2xl text-white" />
-                </div>
-                <h3 className="text-2xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Các tính năng hữu ích
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-gray-50 rounded-2xl">
+            <div className="flex items-center justify-center space-x-4">
+              <BellOutlined className="text-3xl text-orange-600" />
+              <div className="text-left">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Nhắc nhở thông minh
                 </h3>
+                <p className="text-gray-600 text-sm">
+                  Đặt nhắc nhở để không bao giờ quên ghi nhận. Tính nhất quán là chìa khóa thành công
+                </p>
               </div>
-              <div className="grid md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow duration-300">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                        <CheckCircleOutlined className="text-white text-sm" />
-                      </div>
-                      <span className="font-medium text-gray-900">Nhắc nhở hàng ngày lúc 8h tối</span>
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow duration-300">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                        <CheckCircleOutlined className="text-white text-sm" />
-                      </div>
-                      <span className="font-medium text-gray-900">Validation thông minh khi nhập sai</span>
-                    </div>
-                  </div>
+            </div>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-3">
+              <div className="flex items-start space-x-3 mb-3">
+                <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-xs mt-1">
+                  1
                 </div>
-                <div className="space-y-4">
-                  <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow duration-300">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                        <CheckCircleOutlined className="text-white text-sm" />
-                      </div>
-                      <span className="font-medium text-gray-900">Bảng chi tiết theo phương pháp Billings</span>
-                    </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1 text-sm">Chọn thời gian phù hợp</h4>
+                  <p className="text-gray-700 text-xs">Thường là 21:00 - 22:00 mỗi tối</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3 mb-3">
+                <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-xs mt-1">
+                  2
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1 text-sm">Đặt nhắc nhở hàng ngày</h4>
+                  <p className="text-gray-700 text-xs">Để duy trì thói quen quan sát</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-xs mt-1">
+                  3
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-1 text-sm">Tùy chỉnh thông báo</h4>
+                  <p className="text-gray-700 text-xs">Cá nhân hóa nội dung nhắc nhở</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div className="bg-white border border-gray-200 rounded-2xl p-3">
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center text-sm">
+                  <CalendarOutlined className="text-blue-600 mr-2" />
+                  Nhắc nhở thông minh
+                </h4>
+                <div className="space-y-1 text-gray-700 text-xs">
+                  <p>• Nhắc nhở ghi nhận hàng ngày</p>
+                  <p>• Cảnh báo khi quên ghi nhận</p>
+                  <p>• Thông báo giai đoạn quan trọng</p>
+                </div>
+              </div>
+              
+              <div className="bg-white border border-gray-200 rounded-2xl p-3">
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center text-sm">
+                  <CheckCircleOutlined className="text-green-600 mr-2" />
+                  Lợi ích
+                </h4>
+                <div className="space-y-1 text-gray-700 text-xs">
+                  <p>• Duy trì thói quen quan sát đều đặn</p>
+                  <p>• Không bỏ lỡ thông tin quan trọng</p>
+                  <p>• Tăng độ chính xác của dữ liệu</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      title: 'Sẵn sàng bắt đầu!',
+      icon: <CheckCircleOutlined className="text-xl text-green-600" />,
+      content: (
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-2xl">
+            <div className="flex items-center justify-center space-x-4">
+              <CheckCircleOutlined className="text-3xl text-green-600" />
+              <div className="text-left">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Bạn đã sẵn sàng!
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  Bắt đầu hành trình tự nhiên với phương pháp Billings - được WHO khuyến nghị
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-200 rounded-2xl p-3">
+              <h4 className="font-semibold text-gray-900 mb-3 flex items-center text-sm">
+                🚀 Bắt đầu ngay hôm nay
+              </h4>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
                   </div>
-                  <div className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow duration-300">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                        <CheckCircleOutlined className="text-white text-sm" />
-                      </div>
-                      <span className="font-medium text-gray-900">Trợ giúp luôn có sẵn khi cần</span>
-                    </div>
+                  <span className="text-gray-700 text-xs">Quan sát và ghi nhận vào buổi tối</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
                   </div>
+                  <span className="text-gray-700 text-xs">Đặt nhắc nhở cho phù hợp</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">✓</span>
+                  </div>
+                  <span className="text-gray-700 text-xs">Kiên trì trong ít nhất 3 chu kỳ</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white border border-gray-200 rounded-2xl p-3">
+              <h4 className="font-semibold text-gray-900 mb-3 flex items-center text-sm">
+                📚 Luôn có hỗ trợ
+              </h4>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">?</span>
+                  </div>
+                  <span className="text-gray-700 text-xs">Nhấn "Trợ giúp" để xem lại hướng dẫn</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">!</span>
+                  </div>
+                  <span className="text-gray-700 text-xs">Hệ thống validation sẽ hỗ trợ bạn</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                    <span className="text-white text-xs">💡</span>
+                  </div>
+                  <span className="text-gray-700 text-xs">Tooltips và gợi ý luôn sẵn sàng</span>
                 </div>
               </div>
             </div>
           </div>
           
-          <div className="bg-white border border-gray-200 rounded-lg p-6 max-w-3xl mx-auto shadow-lg">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center mr-4">
-                <HeartOutlined className="text-xl text-white" />
-              </div>
-              <p className="text-gray-900 font-semibold text-lg">Chúc bạn thành công!</p>
-            </div>
-            <p className="text-gray-700 leading-relaxed text-lg">
-              Nếu có thắc mắc, hãy nhấn nút <strong>"Trợ giúp"</strong> bất cứ lúc nào. 
-              Chúng tôi luôn sẵn sàng hỗ trợ bạn.
+          <div className="bg-white border-2 border-green-500 rounded-2xl p-3 text-center">
+            <h4 className="font-semibold text-green-800 mb-2 text-sm">
+              🌟 Phương pháp Billings - Được WHO khuyến nghị
+            </h4>
+            <p className="text-green-700 text-xs">
+              Một phương pháp tự nhiên, an toàn và hiệu quả để hiểu rõ chu kỳ của bạn.
+              Hãy kiên nhẫn và nhất quán - kết quả sẽ đến!
             </p>
           </div>
         </div>
@@ -414,124 +366,101 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({
     }
   ];
 
-  const currentStepData = steps[currentStep];
+  const nextStep = () => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    }
+  };
+
+  const prevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleFinish = () => {
+    onClose();
+  };
 
   return (
     <Modal
       title={
-        <div className="text-center py-8 bg-white -mx-6 -mt-6 mb-6 border-b border-gray-200">
-          <div className="w-20 h-20 mx-auto mb-4 bg-gray-900 rounded-full flex items-center justify-center shadow-lg">
-            <RocketOutlined className="text-3xl text-white" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            {steps[currentStep].icon}
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900">
+                {steps[currentStep].title}
+              </h1>
+              <p className="text-sm text-gray-600">
+                Bước {currentStep + 1} / {steps.length}
+              </p>
+            </div>
           </div>
-          <h1 className="text-3xl font-semibold text-gray-900 mb-6" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-            Hướng dẫn sử dụng nhanh
-          </h1>
-          <div className="max-w-5xl mx-auto">
-            <Steps
-              current={currentStep}
+          <div className="flex items-center space-x-3">
+            <Progress 
+              percent={((currentStep + 1) / steps.length) * 100} 
               size="small"
-              items={steps.map((step, index) => ({
-                title: index === currentStep ? step.title : '',
-                status: index < currentStep ? 'finish' : index === currentStep ? 'process' : 'wait'
-              }))}
-              className="onboarding-steps"
+              strokeColor="#10b981"
+              className="w-20"
             />
-          </div>
-          <div className="mt-6 inline-flex items-center px-4 py-2 bg-gray-50 rounded-full border border-gray-300">
-            <HeartOutlined className="text-blue-600 mr-2" />
-            <span className="text-gray-800 font-medium text-sm">
-              Chỉ mất 2 phút để bắt đầu
+            <span className="text-xs text-gray-500 font-medium">
+              {currentStep + 1}/{steps.length}
             </span>
           </div>
         </div>
       }
       open={visible}
-      onCancel={onComplete}
+      onCancel={onClose}
       footer={
-        <div className="bg-white -mx-6 -mb-6 border-t border-gray-200">
-          <div className="flex justify-between items-center py-6 px-6">
-            <Button 
-              onClick={onPrev} 
-              disabled={currentStep === 0}
-              size="large"
-              className="px-8 py-3 h-auto text-base font-medium border-gray-300 text-gray-600 hover:text-gray-800 hover:border-gray-400 rounded-lg"
-              style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}
-            >
-              ← Quay lại
-            </Button>
-            
-            <div className="flex items-center space-x-3">
-              <span className="text-sm text-gray-600 font-medium">
-                {currentStep + 1} / {steps.length}
-              </span>
-              <div className="flex items-center space-x-2">
-                {steps.map((_, index) => (
-                  <div
-                    key={index}
-                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                      index === currentStep ? 'bg-purple-600 scale-125' : 
-                      index < currentStep ? 'bg-green-500' : 'bg-gray-300'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-            
-            {currentStep < steps.length - 1 ? (
-              <Button 
-                type="primary" 
-                onClick={onNext}
-                size="large"
-                className="px-8 py-3 h-auto text-base font-semibold bg-gray-900 hover:bg-gray-800 border-0 shadow-lg hover:shadow-xl transition-all duration-300 rounded-lg"
-                style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}
-              >
-                Tiếp theo →
-              </Button>
-            ) : (
-              <Button 
-                type="primary" 
-                onClick={onComplete}
-                size="large"
-                className="px-12 py-3 h-auto text-lg font-bold bg-gray-900 hover:bg-gray-800 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-lg"
-                style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}
-              >
-                <RocketOutlined className="mr-2" />
-                Bắt đầu sử dụng
-              </Button>
-            )}
-          </div>
+        <div className="flex justify-between items-center">
+          <Button 
+            onClick={prevStep} 
+            disabled={currentStep === 0}
+            className="flex items-center space-x-2 rounded-2xl"
+          >
+            <LeftOutlined className="text-xs" />
+            <span>Quay lại</span>
+          </Button>
           
-          <div className="text-center pb-4">
-            <p className="text-xs text-gray-500">
-              Bạn có thể xem lại hướng dẫn này bất cứ lúc nào bằng cách nhấn nút "Hướng dẫn"
-            </p>
+          <div className="flex space-x-2">
+            {steps.map((_, index) => (
+              <div
+                key={index}
+                className={`w-2 h-2 rounded-full ${
+                  index <= currentStep ? 'bg-green-500' : 'bg-gray-300'
+                }`}
+              />
+            ))}
           </div>
+
+          {currentStep === steps.length - 1 ? (
+            <Button 
+              type="primary" 
+              onClick={handleFinish}
+              className="flex items-center space-x-2 rounded-2xl bg-green-600 hover:bg-green-700 border-0"
+            >
+              <CheckCircleOutlined />
+              <span>Bắt đầu sử dụng</span>
+            </Button>
+          ) : (
+            <Button 
+              type="primary" 
+              onClick={nextStep}
+              className="flex items-center space-x-2 rounded-2xl"
+            >
+              <span>Tiếp theo</span>
+              <RightOutlined className="text-xs" />
+            </Button>
+          )}
         </div>
       }
-      width={1100}
-      centered
-      closable={false}
-      maskClosable={false}
-      className="onboarding-modal overflow-hidden"
-      styles={{
-        body: { 
-          padding: '0 24px 0 24px',
-          maxHeight: '70vh',
-          overflowY: 'auto'
-        },
-        header: { 
-          padding: 0,
-          border: 'none',
-          marginBottom: 0
-        },
-        footer: {
-          padding: 0,
-          border: 'none'
-        }
-      }}
+      width="95%"
+      style={{ maxWidth: '1000px' }}
+      className="onboarding-modal"
     >
-      <div className="min-h-[500px] flex items-center justify-center px-4">
-        {currentStepData.content}
+      <div className="mt-4">
+        {steps[currentStep].content}
       </div>
     </Modal>
   );
