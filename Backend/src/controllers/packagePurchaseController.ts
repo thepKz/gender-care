@@ -308,6 +308,8 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
     let total = 0;
     
     try {
+      console.log('🔍 [Backend] Starting populate query...');
+      
       // Try populate with ServicePackages model (correct model name)
       packagePurchases = await PackagePurchases.find(query)
         .populate({
@@ -335,40 +337,65 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
         .limit(limitNum)
         .lean();
 
+      console.log('🔍 [Backend] Raw packagePurchases found:', packagePurchases.length);
+      console.log('🔍 [Backend] Sample raw purchase:', packagePurchases[0] ? JSON.stringify(packagePurchases[0], null, 2) : 'No purchases');
+
       // Filter out null packageId (deleted packages)
       packagePurchases = packagePurchases.filter(purchase => purchase.packageId);
+      console.log('🔍 [Backend] After filtering null packageId:', packagePurchases.length);
 
       // 🔹 Transform data to match frontend expectation
-      transformedPurchases = packagePurchases.map((purchase: any) => ({
-        ...purchase,
-        servicePackage: {
-          ...purchase.packageId, // Map packageId to servicePackage for frontend compatibility
-          // Ensure services có đầy đủ thông tin
-          services: purchase.packageId?.services?.map((service: any) => ({
-            serviceId: service.serviceId?._id || service.serviceId,
-            serviceName: service.serviceId?.serviceName || 'Tên dịch vụ không xác định',
+      transformedPurchases = packagePurchases.map((purchase: any) => {
+        console.log('🔍 [Backend] Processing purchase:', purchase._id);
+        console.log('🔍 [Backend] PackageId structure:', purchase.packageId);
+        console.log('🔍 [Backend] PackageId services:', purchase.packageId?.services);
+        
+        // Fix services mapping based on actual structure
+        const services = (purchase.packageId?.services || []).map((service: any) => {
+          console.log('🔍 [Backend] Processing service item:', service);
+          
+          // Handle both populated and non-populated cases
+          const serviceData = service.serviceId;
+          const serviceId = serviceData?._id || serviceData || service.serviceId;
+          const serviceName = serviceData?.serviceName || 'Tên dịch vụ không xác định';
+          
+          console.log('🔍 [Backend] Service data:', { serviceId, serviceName, quantity: service.quantity });
+          
+          return {
+            serviceId: serviceId,
+            serviceName: serviceName,
             quantity: service.quantity || 1,
-            price: service.serviceId?.price || 0,
-            description: service.serviceId?.description || '',
-            serviceType: service.serviceId?.serviceType || 'consultation'
-          })) || []
-        },
-        totalAmount: purchase.purchasePrice || purchase.totalAmount || 0,
-        // Ensure required fields are present
-        status: purchase.status || 'active',
-        isActive: purchase.isActive !== false && purchase.status === 'active',
-        purchaseDate: purchase.purchaseDate || purchase.createdAt,
-        expiryDate: purchase.expiryDate || purchase.expiresAt,
-        expiresAt: purchase.expiryDate || purchase.expiresAt,
-        remainingUsages: purchase.remainingUsages || 0,
-        // Fix usedServices structure để frontend hiểu đúng
-        usedServices: (purchase.usedServices || []).map((used: any) => ({
-          serviceId: used.serviceId,
-          usedCount: used.usedQuantity || 0, // Map usedQuantity to usedCount cho frontend
-          usedQuantity: used.usedQuantity || 0,
-          maxQuantity: used.maxQuantity || 1
-        }))
-      }));
+            price: serviceData?.price || 0,
+            description: serviceData?.description || '',
+            serviceType: serviceData?.serviceType || 'consultation'
+          };
+        });
+        
+        console.log('🔍 [Backend] Transformed services:', services);
+        
+        return {
+          ...purchase,
+          servicePackage: {
+            ...purchase.packageId,
+            services: services
+          },
+          totalAmount: purchase.purchasePrice || purchase.totalAmount || 0,
+          // Ensure required fields are present
+          status: purchase.status || 'active',
+          isActive: purchase.isActive !== false && purchase.status === 'active',
+          purchaseDate: purchase.purchaseDate || purchase.createdAt,
+          expiryDate: purchase.expiryDate || purchase.expiresAt,
+          expiresAt: purchase.expiryDate || purchase.expiresAt,
+          remainingUsages: purchase.remainingUsages || 0,
+          // Fix usedServices structure để frontend hiểu đúng
+          usedServices: (purchase.usedServices || []).map((used: any) => ({
+            serviceId: used.serviceId,
+            usedCount: used.usedQuantity || 0, // Map usedQuantity to usedCount cho frontend
+            usedQuantity: used.usedQuantity || 0,
+            maxQuantity: used.maxQuantity || 1
+          }))
+        };
+      });
 
       total = await PackagePurchases.countDocuments(query);
       

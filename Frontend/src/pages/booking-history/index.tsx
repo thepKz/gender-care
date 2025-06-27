@@ -29,6 +29,7 @@ import { appointmentApi } from '../../api/endpoints';
 import ModernButton from '../../components/ui/ModernButton';
 import ModernCard from '../../components/ui/ModernCard';
 import { useAuth } from '../../hooks/useAuth';
+import paymentApi from '../../api/endpoints/payment';
 
 const { Search } = Input;
 const { Option } = Select;

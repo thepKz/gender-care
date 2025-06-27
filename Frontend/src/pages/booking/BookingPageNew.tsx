@@ -858,40 +858,76 @@ const BookingPageNew: React.FC = () => {
   // 🆕 Get available services from purchased package with remaining quantities
   const getAvailableServicesFromPackage = () => {
     const purchasedPackage = getSelectedPurchasedPackage();
-    if (!purchasedPackage || !purchasedPackage.servicePackage || !Array.isArray(purchasedPackage.servicePackage.services)) {
-      console.log('❌ No purchased package or services array:', purchasedPackage);
+    if (!purchasedPackage || !purchasedPackage.servicePackage) {
+      console.log('❌ No purchased package or servicePackage:', purchasedPackage);
       return [];
     }
     
     console.log('🔍 Processing package services:', purchasedPackage.servicePackage.services);
     console.log('🔍 Used services:', purchasedPackage.usedServices);
     
-    const availableServices = purchasedPackage.servicePackage.services.map(service => {
-      // Tìm thông tin sử dụng của service này
-      const usedService = purchasedPackage.usedServices.find(used => 
-        used.serviceId === service.serviceId || used.serviceId === service.serviceId._id
-      );
-      
-      const usedCount = usedService ? (usedService.usedCount || usedService.usedQuantity || 0) : 0;
-      const maxQuantity = service.quantity || 1;
-      const remainingQuantity = maxQuantity - usedCount;
-      
-      console.log(`🔍 Service ${service.serviceName}: used=${usedCount}, max=${maxQuantity}, remaining=${remainingQuantity}`);
-      
-      return {
-        serviceId: service.serviceId,
-        serviceName: service.serviceName,
-        quantity: maxQuantity,
-        usedCount,
-        remainingQuantity,
-        canUse: remainingQuantity > 0,
-        price: service.price || 0,
-        description: service.description || ''
-      };
-    }).filter(service => service.canUse); // Chỉ hiển thị dịch vụ còn có thể sử dụng
+    let availableServices = [];
     
-    console.log('✅ Available services:', availableServices);
-    return availableServices;
+    // Primary method: Use servicePackage.services if available
+    if (Array.isArray(purchasedPackage.servicePackage.services) && purchasedPackage.servicePackage.services.length > 0) {
+      availableServices = purchasedPackage.servicePackage.services.map(service => {
+        // Tìm thông tin sử dụng của service này
+        const usedService = purchasedPackage.usedServices.find(used => 
+          used.serviceId === service.serviceId || used.serviceId === (service.serviceId as any)?._id
+        );
+        
+        const usedCount = usedService ? (usedService.usedCount || usedService.usedQuantity || 0) : 0;
+        const maxQuantity = service.quantity || 1;
+        const remainingQuantity = maxQuantity - usedCount;
+        
+        console.log(`🔍 Service ${service.serviceName}: used=${usedCount}, max=${maxQuantity}, remaining=${remainingQuantity}`);
+        
+        return {
+          serviceId: service.serviceId,
+          serviceName: service.serviceName,
+          quantity: maxQuantity,
+          usedCount,
+          remainingQuantity,
+          canUse: remainingQuantity > 0,
+          price: service.price || 0,
+          description: service.description || ''
+        };
+      });
+    } 
+    // Fallback method: Reconstruct từ usedServices
+    else if (Array.isArray(purchasedPackage.usedServices) && purchasedPackage.usedServices.length > 0) {
+      console.log('🔄 Using fallback method: reconstructing from usedServices');
+      
+      availableServices = purchasedPackage.usedServices.map(usedService => {
+        const usedCount = usedService.usedCount || usedService.usedQuantity || 0;
+        const maxQuantity = usedService.maxQuantity || 1;
+        const remainingQuantity = maxQuantity - usedCount;
+        
+        // Try to find service name from existing services list
+        const existingService = services.find(s => s.id === usedService.serviceId);
+        const serviceName = existingService?.serviceName || `Dịch vụ ${usedService.serviceId.slice(-6)}`;
+        const price = existingService?.price || 0;
+        
+        console.log(`🔄 Fallback service ${serviceName}: used=${usedCount}, max=${maxQuantity}, remaining=${remainingQuantity}`);
+        
+        return {
+          serviceId: usedService.serviceId,
+          serviceName: serviceName,
+          quantity: maxQuantity,
+          usedCount,
+          remainingQuantity,
+          canUse: remainingQuantity > 0,
+          price: price,
+          description: existingService?.description || 'Dịch vụ từ gói đã mua'
+        };
+      });
+    }
+    
+    // Filter only services that can still be used
+    const filteredServices = availableServices.filter(service => service.canUse);
+    
+    console.log('✅ Available services:', filteredServices);
+    return filteredServices;
   };
   
   const formatPrice = (price: number) => {
@@ -962,6 +998,19 @@ const BookingPageNew: React.FC = () => {
     const tomorrow = today.add(1, 'day');
     return !availableDates.includes(dateStr) || date.isBefore(tomorrow, 'day');
   }, [availableDates]);
+
+  // Helper function to get actual service count for a package
+  const getPackageServiceCount = (purchase: PurchasedPackage) => {
+    // Primary method: Use servicePackage.services if available
+    if (Array.isArray(purchase.servicePackage.services) && purchase.servicePackage.services.length > 0) {
+      return purchase.servicePackage.services.length;
+    }
+    // Fallback method: Count from usedServices
+    else if (Array.isArray(purchase.usedServices) && purchase.usedServices.length > 0) {
+      return purchase.usedServices.length;
+    }
+    return 0;
+  };
 
   return (
     <div style={{ 
@@ -1308,7 +1357,7 @@ const BookingPageNew: React.FC = () => {
             borderRadius: '6px',
                                     fontWeight: '500'
                                   }}>
-                                    {(purchase.servicePackage && Array.isArray(purchase.servicePackage.services) ? purchase.servicePackage.services.length : 0)} dịch vụ
+                                    {purchase.usedServices?.length || 0} dịch vụ
                                   </span>
                                   <span style={{
                                     fontSize: '13px',

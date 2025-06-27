@@ -1,37 +1,51 @@
-import React, { useState, useEffect } from 'react';
 import {
-  Modal,
-  Card,
-  Button,
-  Space,
-  Tag,
-  Typography,
-  Avatar,
-  Descriptions,
-  Row,
-  Col,
-  Spin
-} from 'antd';
-import {
-  CalendarOutlined,
-  UserOutlined,
-  ClockCircleOutlined,
-  EnvironmentOutlined,
-  DollarOutlined,
-  PhoneOutlined,
-  ExperimentOutlined,
-  MedicineBoxOutlined,
-  InfoCircleOutlined,
-  FileSearchOutlined
+    CalendarOutlined,
+    ClockCircleOutlined,
+    DollarOutlined,
+    EnvironmentOutlined,
+    ExperimentOutlined,
+    FileSearchOutlined,
+    InfoCircleOutlined,
+    MedicineBoxOutlined,
+    PhoneOutlined,
+    UserOutlined
 } from '@ant-design/icons';
-import { UnifiedAppointment } from '../../../types/appointment';
-import appointmentManagementService from '../../../api/services/appointmentManagementService';
+import {
+    Avatar,
+    Button,
+    Card,
+    Col,
+    Descriptions,
+    Modal,
+    Row,
+    Space,
+    Spin,
+    Tag,
+    Typography
+} from 'antd';
+import React, { useEffect, useState } from 'react';
 import { appointmentApi } from '../../../api/endpoints/appointment';
-import MedicalRecordModal, { MedicalRecordFormData } from '../forms/MedicalRecordModal';
 import medicalApi from '../../../api/endpoints/medical';
+import appointmentManagementService from '../../../api/services/appointmentManagementService';
+import { UnifiedAppointment } from '../../../types/appointment';
+import MedicalRecordModal, { MedicalRecordFormData } from '../forms/MedicalRecordModal';
 // import apiClient from '../../../api/axiosConfig'; // 🚫 COMMENTED FOR MOCK TESTING
 
 const { Text } = Typography;
+
+interface DetailData {
+  id: string;
+  serviceName: string;
+  doctorName?: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  typeLocation: string;
+  status: string;
+  price: number;
+  description?: string;
+  notes?: string;
+  address?: string;
+}
 
 interface AppointmentDetailModalProps {
   visible: boolean;
@@ -120,10 +134,17 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       if (data) {
         // Transform API data to DetailData format
         const detailData: DetailData = {
-          profileId: 'profileId' in data ? (data as any).profileId || undefined : undefined,
-          serviceId: 'serviceId' in data ? (data as any).serviceId || undefined : undefined,
-          packageId: 'packageId' in data ? (data as any).packageId || undefined : undefined,
-          doctorNotes: 'doctorNotes' in data ? (data as any).doctorNotes || (data as any).notes || undefined : undefined
+          id: data._id,
+          serviceName: data.serviceName || '',
+          doctorName: data.doctorName,
+          appointmentDate: data.appointmentDate,
+          appointmentTime: data.appointmentTime,
+          typeLocation: data.typeLocation || '',
+          status: data.status,
+          price: data.price || 0,
+          description: data.description,
+          notes: data.notes,
+          address: data.address
         };  
         
         setDetailData(detailData);
