@@ -1,39 +1,39 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Table,
-  Button,
-  Space,
-  Popconfirm,
-  message,
-  Tag,
-  Card,
-  Row,
-  Col,
-  Statistic,
-  Typography,
-  Select,
-  Tooltip,
-  Alert,
-  Input
-} from 'antd';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  ReloadOutlined,
-  UndoOutlined,
-  AppstoreOutlined,
-  LoadingOutlined,
-  ExclamationCircleOutlined,
-  BarChartOutlined
+    AppstoreOutlined,
+    BarChartOutlined,
+    DeleteOutlined,
+    EditOutlined,
+    ExclamationCircleOutlined,
+    LoadingOutlined,
+    PlusOutlined,
+    ReloadOutlined,
+    UndoOutlined
 } from '@ant-design/icons';
-import { useStandardManagement } from '../../../hooks/useStandardManagement';
+import {
+    Alert,
+    Button,
+    Card,
+    Col,
+    Input,
+    message,
+    Popconfirm,
+    Row,
+    Select,
+    Space,
+    Statistic,
+    Table,
+    Tag,
+    Tooltip,
+    Typography
+} from 'antd';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { servicePackageApi } from '../../../api';
 import { getServices } from '../../../api/endpoints/serviceApi';
 import { recoverServicePackage } from '../../../api/endpoints/servicePackageApi';
 import ServicePackageModal from '../../../components/ui/forms/ServicePackageModal';
 import PackageUsageModal from '../../../components/ui/modals/PackageUsageModal';
-import { Service, ServicePackage, CreateServicePackageRequest, UpdateServicePackageRequest, ServiceItem } from '../../../types';
+import { useStandardManagement } from '../../../hooks/useStandardManagement';
+import { CreateServicePackageRequest, Service, ServiceItem, ServicePackage, UpdateServicePackageRequest } from '../../../types';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -437,13 +437,27 @@ const ServicePackageManagementCore: React.FC = () => {
     return (
       <Space direction="vertical" size="small">
         {services.map((serviceItem, index) => {
-          const service = typeof serviceItem.serviceId === 'object' 
-            ? serviceItem.serviceId 
-            : { serviceName: 'Đang tải...', _id: serviceItem.serviceId };
+          // Handle both populated Service object and string serviceId
+          let serviceName = 'Đang tải...';
+          let serviceId = '';
+          
+          if (typeof serviceItem.serviceId === 'object' && serviceItem.serviceId !== null) {
+            // Populated Service object
+            serviceName = serviceItem.serviceId.serviceName || 'Không có tên';
+            serviceId = serviceItem.serviceId._id || '';
+          } else if (typeof serviceItem.serviceId === 'string') {
+            // String serviceId (not populated)
+            serviceName = 'Đang tải...';
+            serviceId = serviceItem.serviceId;
+          } else {
+            // Null or undefined serviceId
+            serviceName = 'Dịch vụ không xác định';
+            serviceId = 'unknown';
+          }
           
           return (
-            <Tag key={index} color="blue">
-              {service.serviceName} x{serviceItem.quantity}
+            <Tag key={`${serviceId}-${index}`} color="blue">
+              {serviceName} x{serviceItem.quantity}
             </Tag>
           );
         })}

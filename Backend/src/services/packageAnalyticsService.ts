@@ -1,7 +1,6 @@
-import PackagePurchases, { IPackagePurchases } from '../models/PackagePurchases';
-import ServicePackages from '../models/ServicePackages';
-import { UserProfiles, User } from '../models';
 import mongoose from 'mongoose';
+import PackagePurchases from '../models/PackagePurchases';
+import ServicePackages from '../models/ServicePackages';
 
 export interface IUserPackageUsage {
   userId: string;
@@ -69,7 +68,7 @@ export class PackageAnalyticsService {
           {
             path: 'userId',
             select: 'fullName email phone',
-            model: 'Users'
+            model: 'User'
           },
           {
             path: 'usedServices.serviceId',
