@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, Card, Typography, Space, message, Spin } from 'antd';
-import { CheckCircleOutlined, CreditCardOutlined } from '@ant-design/icons';
-import { ServicePackage } from '../../../types';
+import { CreditCardOutlined } from '@ant-design/icons';
+import { Button, Card, message, Modal, Typography } from 'antd';
+import React, { useState } from 'react';
 import packagePurchaseApi from '../../../api/endpoints/packagePurchaseApi';
+import { ServicePackage } from '../../../types';
 
 const { Title, Text } = Typography;
 
@@ -56,9 +56,50 @@ const PurchasePackageModal: React.FC<PurchasePackageModalProps> = ({
       console.error('❌ [Frontend] Error purchasing package:', error);
       console.error('❌ [Frontend] Error response:', error.response);
       console.error('❌ [Frontend] Error data:', error.response?.data);
-      message.error(
-        error.response?.data?.message || 'Có lỗi xảy ra khi mua gói dịch vụ'
-      );
+      
+      // Enhanced error handling với user-friendly messages
+      let errorMessage = 'Có lỗi xảy ra khi mua gói dịch vụ';
+      
+      if (error.response?.data?.errors?.general) {
+        const originalError = error.response.data.errors.general;
+        
+        // Handle specific duplicate package error
+        if (originalError.includes('Bạn đã sở hữu gói này')) {
+          errorMessage = 'Bạn đã sở hữu gói dịch vụ này và vẫn còn hiệu lực. Vui lòng sử dụng hết các dịch vụ hoặc chờ gói hết hạn trước khi mua lại.';
+          
+          // Show additional info modal
+          Modal.info({
+            title: '🎁 Gói dịch vụ đã có sẵn',
+            content: (
+              <div>
+                <p>Bạn đã sở hữu gói dịch vụ này với:</p>
+                <ul style={{ marginTop: '12px', paddingLeft: '20px' }}>
+                  <li>✅ Các dịch vụ chưa sử dụng hết</li>
+                  <li>📅 Thời hạn còn hiệu lực</li>
+                </ul>
+                <p style={{ marginTop: '12px', fontWeight: '500' }}>
+                  💡 <strong>Gợi ý:</strong> Hãy vào trang <em>"Gói đã mua"</em> để đặt lịch sử dụng các dịch vụ có sẵn.
+                </p>
+              </div>
+            ),
+            okText: 'Đã hiểu',
+            centered: true
+          });
+          
+        } else if (originalError.includes('Package not found')) {
+          errorMessage = 'Không tìm thấy gói dịch vụ hoặc gói đã ngừng hoạt động';
+        } else if (originalError.includes('Insufficient payment')) {
+          errorMessage = 'Số tiền thanh toán không đủ cho gói dịch vụ này';
+        } else {
+          errorMessage = originalError;
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      message.error(errorMessage);
     } finally {
       setLoading(false);
     }

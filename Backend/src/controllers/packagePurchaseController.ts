@@ -1,16 +1,16 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
+import Bills from '../models/Bills';
 import PackagePurchases from '../models/PackagePurchases';
 import ServicePackages from '../models/ServicePackages';
-import Bills from '../models/Bills';
-import { UserProfile } from '../models/UserProfile';
-import { AuthRequest } from '../types/auth';
-import { ApiResponse } from '../types';
-import { PackagePurchaseService } from '../services/packagePurchaseService';
-import { PackageAnalyticsService } from '../services/packageAnalyticsService';
-import systemLogService from '../services/systemLogService';
 import { LogAction, LogLevel } from '../models/SystemLogs';
 import User from '../models/User';
+import { UserProfile } from '../models/UserProfile';
+import { PackageAnalyticsService } from '../services/packageAnalyticsService';
+import { PackagePurchaseService } from '../services/packagePurchaseService';
+import systemLogService from '../services/systemLogService';
+import { ApiResponse } from '../types';
+import { AuthRequest } from '../types/auth';
 
 // POST /package-purchases - Mua gói dịch vụ với PayOS thật
 export const purchasePackage = async (req: AuthRequest, res: Response) => {
@@ -341,16 +341,33 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
       // 🔹 Transform data to match frontend expectation
       transformedPurchases = packagePurchases.map((purchase: any) => ({
         ...purchase,
-        servicePackage: purchase.packageId, // Map packageId to servicePackage for frontend compatibility
+        servicePackage: {
+          ...purchase.packageId, // Map packageId to servicePackage for frontend compatibility
+          // Ensure services có đầy đủ thông tin
+          services: purchase.packageId?.services?.map((service: any) => ({
+            serviceId: service.serviceId?._id || service.serviceId,
+            serviceName: service.serviceId?.serviceName || 'Tên dịch vụ không xác định',
+            quantity: service.quantity || 1,
+            price: service.serviceId?.price || 0,
+            description: service.serviceId?.description || '',
+            serviceType: service.serviceId?.serviceType || 'consultation'
+          })) || []
+        },
         totalAmount: purchase.purchasePrice || purchase.totalAmount || 0,
         // Ensure required fields are present
         status: purchase.status || 'active',
-        isActive: purchase.isActive !== false,
+        isActive: purchase.isActive !== false && purchase.status === 'active',
         purchaseDate: purchase.purchaseDate || purchase.createdAt,
         expiryDate: purchase.expiryDate || purchase.expiresAt,
         expiresAt: purchase.expiryDate || purchase.expiresAt,
         remainingUsages: purchase.remainingUsages || 0,
-        usedServices: purchase.usedServices || []
+        // Fix usedServices structure để frontend hiểu đúng
+        usedServices: (purchase.usedServices || []).map((used: any) => ({
+          serviceId: used.serviceId,
+          usedCount: used.usedQuantity || 0, // Map usedQuantity to usedCount cho frontend
+          usedQuantity: used.usedQuantity || 0,
+          maxQuantity: used.maxQuantity || 1
+        }))
       }));
 
       total = await PackagePurchases.countDocuments(query);
@@ -371,15 +388,31 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
       // 🔹 Transform fallback data too
       transformedPurchases = packagePurchases.map((purchase: any) => ({
         ...purchase,
-        servicePackage: purchase.packageId,
+        servicePackage: {
+          ...purchase.packageId,
+          // Basic services structure cho fallback case
+          services: purchase.packageId?.services?.map((service: any) => ({
+            serviceId: service.serviceId,
+            serviceName: service.serviceName || 'Tên dịch vụ không xác định',
+            quantity: service.quantity || 1,
+            price: 0, // Fallback không có populate price
+            description: '',
+            serviceType: 'consultation'
+          })) || []
+        },
         totalAmount: purchase.purchasePrice || 0,
         status: purchase.status || 'active',
-        isActive: purchase.isActive !== false,
+        isActive: purchase.isActive !== false && purchase.status === 'active',
         purchaseDate: purchase.purchaseDate || purchase.createdAt,
         expiryDate: purchase.expiryDate || purchase.expiresAt,
         expiresAt: purchase.expiryDate || purchase.expiresAt,
         remainingUsages: purchase.remainingUsages || 0,
-        usedServices: purchase.usedServices || []
+        usedServices: (purchase.usedServices || []).map((used: any) => ({
+          serviceId: used.serviceId,
+          usedCount: used.usedQuantity || 0,
+          usedQuantity: used.usedQuantity || 0,
+          maxQuantity: used.maxQuantity || 1
+        }))
       }));
         
       total = await PackagePurchases.countDocuments(query);

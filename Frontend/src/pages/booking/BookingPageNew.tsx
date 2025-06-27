@@ -1,4 +1,4 @@
-import { Button, Calendar, Form, Input, message, Modal, Select, notification } from 'antd';
+import { Button, Calendar, Form, Input, Modal, notification, Select } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -8,10 +8,10 @@ import { useNavigate } from 'react-router-dom';
 import { appointmentApi } from '../../api/endpoints';
 import { doctorApi } from '../../api/endpoints/doctorApi';
 import doctorScheduleApi from '../../api/endpoints/doctorSchedule';
+import packagePurchaseApi from '../../api/endpoints/packagePurchaseApi';
+import servicePackageApi from '../../api/endpoints/servicePackageApi';
 import servicesApi from '../../api/endpoints/services';
 import userProfileApiInstance from '../../api/endpoints/userProfileApi';
-import servicePackageApi from '../../api/endpoints/servicePackageApi';
-import packagePurchaseApi from '../../api/endpoints/packagePurchaseApi';
 
 // Hooks
 import useAuth from '../../hooks/useAuth';
@@ -858,20 +858,40 @@ const BookingPageNew: React.FC = () => {
   // 🆕 Get available services from purchased package with remaining quantities
   const getAvailableServicesFromPackage = () => {
     const purchasedPackage = getSelectedPurchasedPackage();
-    if (!purchasedPackage || !purchasedPackage.servicePackage || !Array.isArray(purchasedPackage.servicePackage.services)) return [];
+    if (!purchasedPackage || !purchasedPackage.servicePackage || !Array.isArray(purchasedPackage.servicePackage.services)) {
+      console.log('❌ No purchased package or services array:', purchasedPackage);
+      return [];
+    }
     
-    return purchasedPackage.servicePackage.services.map(service => {
-      const usedService = purchasedPackage.usedServices.find(used => used.serviceId === service.serviceId);
-      const usedCount = usedService ? usedService.usedCount : 0;
-      const remainingQuantity = service.quantity - usedCount;
+    console.log('🔍 Processing package services:', purchasedPackage.servicePackage.services);
+    console.log('🔍 Used services:', purchasedPackage.usedServices);
+    
+    const availableServices = purchasedPackage.servicePackage.services.map(service => {
+      // Tìm thông tin sử dụng của service này
+      const usedService = purchasedPackage.usedServices.find(used => 
+        used.serviceId === service.serviceId || used.serviceId === service.serviceId._id
+      );
+      
+      const usedCount = usedService ? (usedService.usedCount || usedService.usedQuantity || 0) : 0;
+      const maxQuantity = service.quantity || 1;
+      const remainingQuantity = maxQuantity - usedCount;
+      
+      console.log(`🔍 Service ${service.serviceName}: used=${usedCount}, max=${maxQuantity}, remaining=${remainingQuantity}`);
       
       return {
-        ...service,
+        serviceId: service.serviceId,
+        serviceName: service.serviceName,
+        quantity: maxQuantity,
         usedCount,
         remainingQuantity,
-        canUse: remainingQuantity > 0
+        canUse: remainingQuantity > 0,
+        price: service.price || 0,
+        description: service.description || ''
       };
-    }).filter(service => service.canUse); // Only show services that can still be used
+    }).filter(service => service.canUse); // Chỉ hiển thị dịch vụ còn có thể sử dụng
+    
+    console.log('✅ Available services:', availableServices);
+    return availableServices;
   };
   
   const formatPrice = (price: number) => {

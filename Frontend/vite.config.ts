@@ -21,6 +21,26 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      cors: {
+        origin: [
+          'http://localhost:3000',
+          'http://localhost:5173',
+          'http://localhost:5174',
+          'https://pay.payos.vn',
+          'https://payos.vn',
+          'https://api.payos.vn'
+        ],
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+      },
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+        'Cross-Origin-Embedder-Policy': 'unsafe-none',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With'
+      },
       proxy: {
         '/api': {
           target: env.VITE_API_URL || 'http://localhost:5000',
