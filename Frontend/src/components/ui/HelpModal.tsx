@@ -57,13 +57,18 @@ const HelpModal: React.FC<HelpModalProps> = ({ visible, onClose }) => {
             
             <div className="bg-white p-4 rounded-2xl border border-gray-200 lg:col-span-1 md:col-span-2">
               <div className="flex items-center mb-3">
-                <BookOutlined className="text-lg text-gray-600 mr-2" />
-                <h3 className="text-base font-semibold text-gray-900">Lưu ý quan trọng</h3>
+                <BookOutlined className="text-lg text-red-600 mr-2" />
+                <h3 className="text-base font-semibold text-red-600">⚠️ Cảnh báo an toàn</h3>
               </div>
-              <div className="space-y-2 text-gray-700 text-sm">
-                <p>• Quan sát tại cửa âm đạo, không dùng giấy vệ sinh</p>
+              <div className="space-y-2 text-red-700 text-sm bg-red-50 p-3 rounded-xl">
+                <p>• <strong>KHÔNG thăm khám bằng tay</strong> trực tiếp</p>
+                <p>• <strong>KHÔNG dùng tay</strong> để kiểm tra bên trong âm hộ</p>
+                <p>• Chỉ quan sát chất nhờn tự nhiên tiết ra</p>
+                <p>• Cảm nhận âm hộ căng từ bên ngoài, tự nhiên</p>
+                <p>• Đây là phương pháp quan sát an toàn, không xâm lấn</p>
+              </div>
+              <div className="space-y-2 text-gray-700 text-sm mt-3">
                 <p>• Ghi nhận vào cùng thời điểm mỗi ngày</p>
-                <p>• Dựa trên quan sát chất nhờn và cảm giác âm đạo</p>
                 <p>• Hỗ trợ kế hoạch gia đình tự nhiên hiệu quả</p>
               </div>
             </div>
@@ -136,7 +141,7 @@ const HelpModal: React.FC<HelpModalProps> = ({ visible, onClose }) => {
                   <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
                     <span className="text-white font-bold text-xs">X</span>
                   </div>
-                  <h3 className="text-sm font-semibold text-gray-900">Trong và âm hộ căng</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Trong và ÂH căng</h3>
                 </div>
                 <div className="bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-bold">NGÀY ĐỈNH</div>
               </div>
@@ -144,6 +149,11 @@ const HelpModal: React.FC<HelpModalProps> = ({ visible, onClose }) => {
                 <p className="text-gray-900 font-semibold text-sm">🌟 NGÀY X - Cảm giác: <strong>Trơn</strong></p>
                 <p className="text-gray-700 bg-gray-50 p-2 rounded-xl text-xs">
                   Khả năng thụ thai cao nhất. Hệ thống sẽ tự động tạo các ngày theo dõi tiếp theo.
+                </p>
+              </div>
+              <div className="mt-2 bg-red-50 p-2 rounded-xl">
+                <p className="text-red-700 text-xs font-medium">
+                  ⚠️ Lưu ý: "ÂH căng" = cảm nhận âm hộ căng từ bên ngoài, KHÔNG dùng tay thăm khám
                 </p>
               </div>
             </div>
@@ -371,9 +381,12 @@ const HelpModal: React.FC<HelpModalProps> = ({ visible, onClose }) => {
                     <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
                       <span className="text-white font-bold text-xs">X</span>
                     </div>
-                    <span className="text-sm font-semibold text-gray-900">Trong và âm hộ căng</span>
+                    <span className="text-sm font-semibold text-gray-900">Trong và ÂH căng</span>
                   </div>
                   <div className="bg-orange-500 text-white px-2 py-1 rounded-xl text-xs font-bold">Trơn</div>
+                </div>
+                <div className="mt-2 bg-red-50 p-2 rounded-xl">
+                  <p className="text-red-700 text-xs">⚠️ Quan sát tự nhiên, không thăm khám bằng tay</p>
                 </div>
               </div>
             </div>
@@ -418,6 +431,113 @@ const HelpModal: React.FC<HelpModalProps> = ({ visible, onClose }) => {
                   <p>• Liên tục trong ít nhất 3 chu kỳ</p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: '5',
+      label: '⚠️ An toàn',
+      children: (
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-red-50 rounded-2xl border-2 border-red-200">
+            <div className="flex items-center justify-center space-x-4">
+              <div className="text-3xl">⚠️</div>
+              <div className="text-left">
+                <h2 className="text-xl font-semibold text-red-800">
+                  Cảnh báo an toàn quan trọng
+                </h2>
+                <p className="text-red-600 text-sm">
+                  Phương pháp Billings là phương pháp quan sát tự nhiên, an toàn
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-4">
+            <div className="bg-white border-2 border-red-300 rounded-2xl p-4">
+              <h3 className="text-base font-semibold text-red-800 mb-3 flex items-center">
+                🚫 NGHIÊM CẤM
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-red-50 p-3 rounded-xl">
+                  <p className="text-red-700 font-semibold text-sm mb-1">❌ Thăm khám bằng tay</p>
+                  <p className="text-red-600 text-xs">Không được dùng tay để kiểm tra bên trong âm hộ</p>
+                </div>
+                <div className="bg-red-50 p-3 rounded-xl">
+                  <p className="text-red-700 font-semibold text-sm mb-1">❌ Xâm lấn cơ thể</p>
+                  <p className="text-red-600 text-xs">Không được dùng bất kỳ dụng cụ nào để thăm khám</p>
+                </div>
+                <div className="bg-red-50 p-3 rounded-xl">
+                  <p className="text-red-700 font-semibold text-sm mb-1">❌ Tự ý đoán định</p>
+                  <p className="text-red-600 text-xs">Không tự ý kiểm tra hay thay đổi kết quả</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white border-2 border-green-300 rounded-2xl p-4">
+              <h3 className="text-base font-semibold text-green-800 mb-3 flex items-center">
+                ✅ ĐƯỢC PHÉP
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-green-50 p-3 rounded-xl">
+                  <p className="text-green-700 font-semibold text-sm mb-1">✓ Quan sát tự nhiên</p>
+                  <p className="text-green-600 text-xs">Quan sát chất nhờn tự nhiên tiết ra từ cơ thể</p>
+                </div>
+                <div className="bg-green-50 p-3 rounded-xl">
+                  <p className="text-green-700 font-semibold text-sm mb-1">✓ Cảm nhận bên ngoài</p>
+                  <p className="text-green-600 text-xs">Cảm nhận âm hộ căng từ bên ngoài, một cách tự nhiên</p>
+                </div>
+                <div className="bg-green-50 p-3 rounded-xl">
+                  <p className="text-green-700 font-semibold text-sm mb-1">✓ Ghi nhận trung thực</p>
+                  <p className="text-green-600 text-xs">Ghi nhận những gì cơ thể tự nhiên thể hiện</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
+              💡 Hướng dẫn chi tiết an toàn
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-2">Quan sát chất nhờn:</h4>
+                <ul className="space-y-1 text-gray-700 text-sm">
+                  <li>• Quan sát chất nhờn tiết ra tự nhiên</li>
+                  <li>• Không dùng giấy vệ sinh để lau kiểm tra</li>
+                  <li>• Quan sát vào buổi tối trước khi ngủ</li>
+                  <li>• Dựa vào màu sắc và độ nhớt tự nhiên</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-2">Cảm nhận âm hộ căng:</h4>
+                <ul className="space-y-1 text-gray-700 text-sm">
+                  <li>• Cảm nhận sự căng của âm hộ từ bên ngoài</li>
+                  <li>• Không dùng tay để kiểm tra bên trong</li>
+                  <li>• Dựa vào cảm giác tự nhiên của cơ thể</li>
+                  <li>• Ghi nhận cảm giác thực tế, không đoán</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+            <h3 className="text-base font-semibold text-blue-800 mb-3 flex items-center">
+              🏥 Khi nào cần gặp bác sĩ
+            </h3>
+            <div className="grid md:grid-cols-2 gap-3 text-sm">
+                             <div className="space-y-1 text-blue-700">
+                 <p>• Chu kỳ bất thường (&lt; 21 ngày hoặc &gt; 35 ngày)</p>
+                 <p>• Chảy máu bất thường giữa chu kỳ</p>
+                 <p>• Đau bụng dữ dội trong chu kỳ</p>
+               </div>
+               <div className="space-y-1 text-blue-700">
+                 <p>• Chất nhờn có mùi lạ hoặc màu lạ</p>
+                 <p>• Nghi ngờ có vấn đề sức khỏe sinh sản</p>
+                 <p>• Cần tư vấn về kế hoạch gia đình</p>
+               </div>
             </div>
           </div>
         </div>
