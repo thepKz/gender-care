@@ -30,7 +30,10 @@ import {
     getDetailedCycleReport,
     getThreeCycleComparison,
     getPredictiveAnalysis,
-    getHealthAssessment
+    getHealthAssessment,
+    resetAllCycles,
+    createFlexibleCycle,
+    cleanDuplicateCycleDays
 } from '../controllers/menstrualCycleController';
 import { verifyToken as authenticate } from '../middleware/auth';
 import { requireFemaleGender } from '../middleware/genderCheck';
@@ -85,5 +88,13 @@ router.post('/menstrual-cycles/:id/auto-complete', authenticate, autoCompleteCyc
 // Routes cho Data Recovery & Advanced Validation
 router.post('/menstrual-cycles/auto-fix', authenticate, requireFemaleGender, autoFixCycleData);
 router.post('/menstrual-cycles/validate-advanced', authenticate, requireFemaleGender, validateAdvancedCycleDay);
+
+// ==================== FLEXIBLE CYCLE MANAGEMENT ====================
+// Routes cho quản lý chu kỳ linh hoạt
+router.post('/menstrual-cycles/reset-all', authenticate, requireFemaleGender, resetAllCycles);
+router.post('/menstrual-cycles/create-flexible', authenticate, requireFemaleGender, createFlexibleCycle);
+
+// Routes cho data cleaning
+router.post('/menstrual-cycles/clean-duplicates', authenticate, requireFemaleGender, cleanDuplicateCycleDays);
 
 export default router; 

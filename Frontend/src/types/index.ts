@@ -356,7 +356,7 @@ export interface CycleDay {
   _id: string;
   cycleId: string;
   date: string;
-  mucusObservation?: string; // ví dụ: "có máu", "trong và âm hộ căng"
+  mucusObservation?: string; // ví dụ: "có máu", "trong và ÂH căng"
   feeling?: string; // ví dụ: "trơn", "khô"
   isPeakDay: boolean; // true nếu là ngày X
   peakDayRelative?: number; // 0: ngày X, 1-3: sau X, -1/-2: trước X

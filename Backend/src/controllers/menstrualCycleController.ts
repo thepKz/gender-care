@@ -954,7 +954,7 @@ export const validateDayInput = async (req: AuthRequest, res: Response) => {
             'đục': ['dính', 'ẩm', 'khô'],
             'đục nhiều sợi': ['ướt', 'trơn'],
             'trong nhiều sợi': ['ướt', 'trơn'],
-            'trong và âm hộ căng': ['trơn'],
+            'trong và ÂH căng': ['trơn'],
             'ít chất tiết': ['ẩm', 'ướt']
         };
 
@@ -973,7 +973,7 @@ export const validateDayInput = async (req: AuthRequest, res: Response) => {
                 isValid,
                 warning,
                 allowedFeelings: allowedFeelings || [],
-                isPeakDay: mucusObservation === 'trong và âm hộ căng' && feeling === 'trơn'
+                isPeakDay: mucusObservation === 'trong và ÂH căng' && feeling === 'trơn'
             }
         });
     } catch (error: any) {
@@ -1216,7 +1216,7 @@ export const autoCompleteCycle = async (req: AuthRequest, res: Response) => {
                     guidance = 'Hãy ghi nhận ngày đầu có máu kinh nguyệt để bắt đầu chu kỳ.';
                     break;
                 case 'pre_peak_tracking':
-                    guidance = 'Tiếp tục theo dõi hàng ngày cho đến khi xuất hiện "cảm giác chất nhờn là trong và âm hộ căng".';
+                    guidance = 'Tiếp tục theo dõi hàng ngày cho đến khi xuất hiện "cảm giác chất nhờn là trong và ÂH căng".';
                     break;
                 case 'post_peak_tracking':
                     guidance = `Cần theo dõi thêm ${analysis.nextRequiredDays} ngày sau ngày đỉnh để hoàn thành chu kỳ.`;
@@ -1786,7 +1786,7 @@ const generateDetailedGuidance = (analysis: any, cycle: any) => {
                 ...baseInfo,
                 status: 'tracking',
                 title: '🔍 Đang theo dõi đến ngày đỉnh',
-                description: 'Đã có kinh nguyệt, hiện đang chờ ngày đỉnh (cảm giác chất nhờn là trong và âm hộ căng).',
+                description: 'Đã có kinh nguyệt, hiện đang chờ ngày đỉnh (cảm giác chất nhờn là trong và ÂH căng).',
                 actions: [
                     {
                         type: 'observe',
@@ -1795,14 +1795,14 @@ const generateDetailedGuidance = (analysis: any, cycle: any) => {
                     },
                     {
                         type: 'record',
-                        text: 'Ghi nhận khi có "trong và âm hộ căng" + "trơn"',
+                        text: 'Ghi nhận khi có "trong và ÂH căng" + "trơn"',
                         priority: 'high'
                     }
                 ],
                 tips: [
                     'Chú ý quan sát thay đổi từ khô → đục → trong',
                     'Ngày đỉnh thường xuất hiện khoảng ngày 12-16 của chu kỳ',
-                    'Khi thấy "trong và âm hộ căng", hãy chọn cảm giác "trơn"'
+                    'Khi thấy "trong và ÂH căng", hãy chọn cảm giác "trơn"'
                 ]
             };
 
@@ -1929,5 +1929,216 @@ const generateDetailedGuidance = (analysis: any, cycle: any) => {
                     'Hệ thống sẽ phân tích khi có đủ dữ liệu'
                 ]
             };
+    }
+};
+
+/**
+ * Reset toàn bộ chu kỳ về cycleNumber = 1
+ * POST /api/menstrual-cycles/reset-all
+ */
+export const resetAllCycles = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user!._id;
+        const { confirmReset } = req.body;
+
+        if (!confirmReset) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cần xác nhận reset để tiếp tục',
+                requiresConfirmation: true
+            });
+        }
+
+        // Xóa tất cả cycle days của user
+        const cycles = await MenstrualCycles.find({ createdByUserId: userId });
+        const cycleIds = cycles.map(c => c._id);
+
+        await CycleDays.deleteMany({ cycleId: { $in: cycleIds } });
+        console.log(`🗑️ Deleted all cycle days for user ${userId}`);
+
+        // Xóa tất cả cycles của user
+        const deletedCycles = await MenstrualCycles.deleteMany({ createdByUserId: userId });
+        console.log(`🗑️ Deleted ${deletedCycles.deletedCount} cycles for user ${userId}`);
+
+        // Xóa tất cả reports của user
+        await MenstrualCycleReports.deleteMany({ userId });
+        console.log(`🗑️ Deleted all reports for user ${userId}`);
+
+        return res.json({
+            success: true,
+            message: '🔄 Đã reset toàn bộ dữ liệu chu kỳ thành công',
+            data: {
+                deletedCycles: deletedCycles.deletedCount,
+                deletedCycleDays: cycleIds.length,
+                message: 'Bạn có thể tạo chu kỳ mới từ số 1'
+            }
+        });
+
+    } catch (error: any) {
+        console.error('Reset all cycles error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi reset dữ liệu'
+        });
+    }
+};
+
+/**
+ * Tạo chu kỳ mới với tùy chọn reset cycleNumber
+ * POST /api/menstrual-cycles/create-flexible
+ */
+export const createFlexibleCycle = async (req: AuthRequest, res: Response) => {
+    try {
+        const { startDate, resetToCycle1, forceCreate } = req.body;
+        const userId = req.user!._id;
+
+        if (!startDate) {
+            throw new ValidationError({ startDate: 'Ngày bắt đầu chu kỳ là bắt buộc' });
+        }
+
+        const start = new Date(startDate);
+        if (isNaN(start.getTime())) {
+            throw new ValidationError({ startDate: 'Định dạng ngày không hợp lệ' });
+        }
+
+        // Kiểm tra chu kỳ chưa hoàn thành
+        const incompleteCycle = await MenstrualCycles.findOne({
+            createdByUserId: userId,
+            isCompleted: false
+        });
+
+        if (incompleteCycle && !forceCreate) {
+            return res.status(409).json({
+                success: false,
+                message: 'Bạn có chu kỳ chưa hoàn thành',
+                data: {
+                    incompleteCycle: {
+                        _id: incompleteCycle._id,
+                        cycleNumber: incompleteCycle.cycleNumber,
+                        startDate: incompleteCycle.startDate,
+                        daysSinceStart: Math.ceil((Date.now() - incompleteCycle.startDate.getTime()) / (1000 * 60 * 60 * 24))
+                    },
+                    requiresConfirmation: true,
+                    options: {
+                        forceCreate: 'Tạo chu kỳ mới và để chu kỳ cũ chưa hoàn thành',
+                        resetToCycle1: 'Reset về chu kỳ 1 và xóa chu kỳ cũ'
+                    }
+                }
+            });
+        }
+
+        let cycleNumber: number;
+
+        if (resetToCycle1) {
+            // Reset về chu kỳ 1 - xóa tất cả chu kỳ cũ
+            const cycles = await MenstrualCycles.find({ createdByUserId: userId });
+            const cycleIds = cycles.map(c => c._id);
+
+            await CycleDays.deleteMany({ cycleId: { $in: cycleIds } });
+            await MenstrualCycles.deleteMany({ createdByUserId: userId });
+            await MenstrualCycleReports.deleteMany({ userId });
+
+            cycleNumber = 1;
+        } else {
+            // Tạo chu kỳ mới với số tiếp theo
+            const lastCycle = await MenstrualCycles.findOne({ createdByUserId: userId }).sort({ cycleNumber: -1 });
+            cycleNumber = lastCycle ? lastCycle.cycleNumber + 1 : 1;
+        }
+
+        const newCycle = await MenstrualCycles.create({
+            createdByUserId: userId,
+            startDate: start,
+            cycleNumber,
+            status: 'tracking'
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: resetToCycle1 ?
+                '🔄 Đã reset và tạo chu kỳ 1 mới thành công' :
+                `✨ Tạo chu kỳ ${cycleNumber} mới thành công`,
+            data: newCycle
+        });
+
+    } catch (error: any) {
+        if (error instanceof ValidationError) {
+            return res.status(400).json({
+                success: false,
+                errors: error.errors
+            });
+        }
+        console.error('Create flexible cycle error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi server'
+        });
+    }
+};
+
+/**
+ * Clean duplicate cycle days trong database
+ * POST /api/menstrual-cycles/clean-duplicates
+ */
+export const cleanDuplicateCycleDays = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = req.user!._id;
+
+        // Tìm tất cả cycle days của user
+        const userCycles = await MenstrualCycles.find({ createdByUserId: userId });
+        const cycleIds = userCycles.map(c => c._id);
+
+        // Tìm tất cả cycle days thuộc về user
+        const allCycleDays = await CycleDays.find({ cycleId: { $in: cycleIds } })
+            .sort({ cycleId: 1, date: 1, _id: 1 });
+
+        // Group by (cycleId, date) để tìm duplicates
+        const groupedDays = allCycleDays.reduce((acc, day) => {
+            const key = `${day.cycleId}-${day.date.toISOString().split('T')[0]}`;
+            if (!acc[key]) {
+                acc[key] = [];
+            }
+            acc[key].push(day);
+            return acc;
+        }, {} as Record<string, any[]>);
+
+        // Tìm và xóa duplicates
+        let totalDuplicates = 0;
+        let cleanedDuplicates = 0;
+
+        for (const [key, days] of Object.entries(groupedDays)) {
+            if (days.length > 1) {
+                totalDuplicates += days.length - 1;
+
+                // Giữ lại record mới nhất, xóa các record cũ
+                const toKeep = days[days.length - 1]; // Record cuối cùng (mới nhất)
+                const toDelete = days.slice(0, -1); // Tất cả records trước đó
+
+                // Xóa duplicates
+                for (const duplicate of toDelete) {
+                    await CycleDays.findByIdAndDelete(duplicate._id);
+                    cleanedDuplicates++;
+                }
+
+                console.log(`🧹 [CLEAN] ${key}: Kept ${toKeep._id}, deleted ${toDelete.length} duplicates`);
+            }
+        }
+
+        return res.json({
+            success: true,
+            message: '🧹 Đã dọn dẹp dữ liệu trùng lặp thành công',
+            data: {
+                totalRecords: allCycleDays.length,
+                duplicatesFound: totalDuplicates,
+                duplicatesCleaned: cleanedDuplicates,
+                remainingRecords: allCycleDays.length - cleanedDuplicates
+            }
+        });
+
+    } catch (error: any) {
+        console.error('Clean duplicates error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi dọn dẹp dữ liệu'
+        });
     }
 }; 

@@ -360,7 +360,7 @@ const menstrualCycleApi = {
     'đục': ['dính', 'ẩm', 'khô'],
     'đục nhiều sợi': ['ướt', 'trơn'],
     'trong nhiều sợi': ['ướt', 'trơn'],
-    'trong và âm hộ căng': ['trơn'],
+    'trong và ÂH căng': ['trơn'],
     'ít chất tiết': ['ẩm', 'ướt']
   } as const,
 
@@ -371,7 +371,7 @@ const menstrualCycleApi = {
     { value: 'đục', label: 'Đục' },
     { value: 'đục nhiều sợi', label: 'Đục nhiều sợi' },
     { value: 'trong nhiều sợi', label: 'Trong nhiều sợi' },
-    { value: 'trong và âm hộ căng', label: 'Trong và âm hộ căng' },
+    { value: 'trong và ÂH căng', label: 'Trong và ÂH căng' },
     { value: 'dầy', label: 'Dầy' },
     { value: 'ít chất tiết', label: 'Ít chất tiết' }
   ] as const,
@@ -434,6 +434,36 @@ const menstrualCycleApi = {
   // Đánh giá sức khỏe dựa trên chu kỳ
   getHealthAssessment: (): Promise<ApiResponse<HealthAssessmentReport>> => {
     return axiosInstance.get('/menstrual-cycles/health-assessment');
+  },
+
+  // ==================== FLEXIBLE CYCLE MANAGEMENT ====================
+
+  // Reset toàn bộ chu kỳ về số 1
+  resetAllCycles: (confirmReset: boolean = false): Promise<ApiResponse<{
+    deletedCycles: number;
+    deletedCycleDays: number;
+    message: string;
+  }>> => {
+    return axiosInstance.post('/menstrual-cycles/reset-all', { confirmReset });
+  },
+
+  // Tạo chu kỳ mới với tùy chọn linh hoạt
+  createFlexibleCycle: (data: {
+    startDate: string;
+    resetToCycle1?: boolean;
+    forceCreate?: boolean;
+  }): Promise<ApiResponse<MenstrualCycle>> => {
+    return axiosInstance.post('/menstrual-cycles/create-flexible', data);
+  },
+
+  // Dọn dẹp dữ liệu trùng lặp trong database
+  cleanDuplicates: (): Promise<ApiResponse<{
+    totalRecords: number;
+    duplicatesFound: number;
+    duplicatesCleaned: number;
+    remainingRecords: number;
+  }>> => {
+    return axiosInstance.post('/menstrual-cycles/clean-duplicates');
   }
 };
 

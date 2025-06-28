@@ -144,7 +144,7 @@ Authorization: Bearer <token>
 {
   "cycleId": "cycle_id",
   "date": "2024-01-15",
-  "mucusObservation": "trong và âm hộ căng",
+  "mucusObservation": "trong và ÂH căng",
   "feeling": "trơn",
   "notes": "Cảm giác có thể là ngày X"
 }
@@ -156,7 +156,7 @@ Authorization: Bearer <token>
 - `đục`
 - `đục nhiều sợi`
 - `trong nhiều sợi`
-- `trong và âm hộ căng` (ngày X)
+- `trong và ÂH căng` (ngày X)
 - `dầy`
 - `ít chất tiết`
 
@@ -176,7 +176,7 @@ Authorization: Bearer <token>
     "_id": "day_id",
     "cycleId": "cycle_id",
     "date": "2024-01-15T00:00:00.000Z",
-    "mucusObservation": "trong và âm hộ căng",
+    "mucusObservation": "trong và ÂH căng",
     "feeling": "trơn",
     "isPeakDay": true,
     "peakDayRelative": 0,
@@ -260,7 +260,7 @@ Authorization: Bearer <token>
     "isCompleted": false,
     "analysis": {
       "isComplete": false,
-      "analysis": "Đã có kinh nguyệt, đang chờ ngày đỉnh (trong và âm hộ căng).",
+      "analysis": "Đã có kinh nguyệt, đang chờ ngày đỉnh (trong và ÂH căng).",
       "phase": "pre_peak_tracking",
       "peakDay": null,
       "pattern": {
@@ -284,7 +284,7 @@ Authorization: Bearer <token>
 ```
 
 **Các loại mẫu chu kỳ (Pattern Types):**
-- `normal_pattern`: Chu kỳ bình thường (Máu → Lấm tấm máu → Khô → Đục → Trong âm hộ căng)
+- `normal_pattern`: Chu kỳ bình thường (Máu → Lấm tấm máu → Khô → Đục → Trong ÂH căng)
 - `irregular_pattern`: Chu kỳ cần theo dõi (Lấm tấm máu → Ít chất tiết)
 - `unknown_pattern`: Mẫu chưa rõ ràng
 
@@ -388,7 +388,7 @@ Một chu kỳ kinh nguyệt được coi là **hoàn chỉnh** khi có đầy �
 
 1. **Bắt đầu**: Cảm giác chất nhờn là máu (`có máu`)
 2. **Tùy chọn**: Lấm tấm máu 
-3. **Ngày đỉnh**: Cảm giác chất nhờn là `trong và âm hộ căng` + cảm giác `trơn`
+3. **Ngày đỉnh**: Cảm giác chất nhờn là `trong và ÂH căng` + cảm giác `trơn`
 4. **Kết thúc**: Cảm giác chất nhờn là khô (`khô` hoặc `ít chất tiết`) sau ít nhất 3 ngày sau đỉnh
 
 ### Hai Trường hợp Hoàn thành Chu kỳ
@@ -405,7 +405,7 @@ Thời gian: Tất cả diễn ra trong 1 tháng
 - Ngày 6-7: Lấm tấm máu (optional)
 - Ngày 8-10: Khô (`ít chất tiết`, `khô`)
 - Ngày 11-12: Đục
-- Ngày 14: Ngày đỉnh (`trong và âm hộ căng`, `trơn`)
+- Ngày 14: Ngày đỉnh (`trong và ÂH căng`, `trơn`)
 - Ngày 15-17: 3 ngày sau đỉnh (ngày 17 = khô)
 - Ngày 18-28: Tiếp tục khô
 - **Ngày 29: Máu mới → CHU KỲ HOÀN CHỈNH**
@@ -486,7 +486,7 @@ Thời gian: Lấn sang tháng sau do chưa chuyển sang khô hoàn toàn
 | Giai đoạn | Mô tả | Hành động |
 |-----------|-------|-----------|
 | `waiting_for_menstruation` | Chưa có máu kinh nguyệt | Ghi nhận ngày đầu có máu |
-| `pre_peak_tracking` | Đã có máu, chờ ngày đỉnh | Theo dõi đến khi có `trong và âm hộ căng` |
+| `pre_peak_tracking` | Đã có máu, chờ ngày đỉnh | Theo dõi đến khi có `trong và ÂH căng` |
 | `post_peak_tracking` | Sau ngày đỉnh, chờ đủ 3 ngày | Theo dõi thêm X ngày |
 | `waiting_for_next_menstruation` | Đã khô 3 ngày, chờ máu mới | Chờ kinh nguyệt chu kỳ tiếp theo |
 | `cross_month_drying` | Lấn sang tháng, đã tìm thấy ngày khô | Theo dõi thêm để xác nhận |
@@ -506,7 +506,7 @@ Thời gian: Lấn sang tháng sau do chưa chuyển sang khô hoàn toàn
 
 ### Quy tắc Validation Quan trọng
 
-- **Ngày đỉnh**: Phải có `mucusObservation = "trong và âm hộ căng"` + `feeling = "trơn"`
+- **Ngày đỉnh**: Phải có `mucusObservation = "trong và ÂH căng"` + `feeling = "trơn"`
 - **3 ngày sau đỉnh**: Phải có ít nhất 3 ngày liên tiếp sau ngày đỉnh
 - **Ngày khô**: `feeling = "khô"` hoặc `mucusObservation = "ít chất tiết"`
 - **Chu kỳ mới**: Chỉ tự động tạo khi có máu mới xuất hiện (Trường hợp 1)
