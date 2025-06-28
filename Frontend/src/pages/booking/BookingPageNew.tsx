@@ -18,7 +18,7 @@ import useAuth from '../../hooks/useAuth';
 
 // Utils
 
-const { TextArea } = Input;
+// const { TextArea } = Input; // Commented out as not used
 const { Option } = Select;
 
 interface Service {
@@ -241,27 +241,36 @@ const BookingPageNew: React.FC = () => {
   const fetchAvailableDoctors = useCallback(async (date?: Dayjs, timeSlot?: string) => {
     if (!date || !timeSlot) {
       // If no date/time selected, fetch all doctors
-    try {
-      setNetworkError(false);
-      const apiDoctors = await doctorApi.getAll();
-      
-      const mappedDoctors: Doctor[] = apiDoctors.map((doctor: any) => ({
-        id: doctor._id,
-          name: doctor.userId?.fullName || doctor.name || 'Chưa có tên',
-        specialization: doctor.specialization || 'Chưa xác định',
-        experience: doctor.experience || 0,
-        rating: doctor.rating || 4.5,
-        reviewCount: 0,
-          avatar: doctor.userId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-        isAvailable: doctor.userId?.isActive !== false,
-        bio: doctor.bio || 'Bác sĩ chuyên nghiệp với nhiều năm kinh nghiệm'
-      }));
-      
-      setDoctors(mappedDoctors);
+      try {
+        setNetworkError(false);
+        const apiDoctors = await doctorApi.getAll();
+        
+        const mappedDoctors: Doctor[] = apiDoctors
+          .filter((doctor: any) => {
+            // Filter out doctors without proper user info or inactive
+            return doctor.userId && 
+                   doctor.userId.fullName && 
+                   doctor.userId.isActive !== false;
+          })
+          .map((doctor: any) => ({
+            id: doctor.userId._id, // Use userId as primary ID
+            doctorId: doctor._id, // Keep doctorId for reference
+            name: doctor.userId.fullName,
+            specialization: doctor.specialization || 'Chuyên khoa tổng quát',
+            experience: doctor.experience || 0,
+            rating: doctor.rating || 4.5,
+            reviewCount: 0,
+            avatar: doctor.userId.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+            isAvailable: doctor.userId.isActive !== false,
+            bio: doctor.bio || 'Bác sĩ chuyên nghiệp với nhiều năm kinh nghiệm'
+          }));
+        
+        console.log('🔍 [Doctor Debug] All available doctors:', mappedDoctors.length);
+        setDoctors(mappedDoctors);
         return;
-    } catch (error) {
+      } catch (error) {
         console.error('Error fetching all doctors:', error);
-      setNetworkError(true);
+        setNetworkError(true);
         return;
       }
     }
@@ -270,37 +279,41 @@ const BookingPageNew: React.FC = () => {
     try {
       setNetworkError(false);
       const dateStr = date.format('YYYY-MM-DD');
-      const response = await doctorScheduleApi.getAvailableDoctors(dateStr);
+      console.log('🔍 [Doctor Debug] Fetching available doctors for date:', dateStr, 'timeSlot:', timeSlot);
+
+      const response = await doctorScheduleApi.getAvailableDoctors(dateStr, timeSlot);
       const availableDoctorsData = Array.isArray(response) ? response : [];
       
-      // Filter doctors who have the specific time slot available
-      const filteredDoctors = availableDoctorsData.filter((doctorSchedule: any) => {
-        if (!doctorSchedule.availableSlots) return false;
-        return doctorSchedule.availableSlots.some((slot: any) => 
-          slot.slotTime === timeSlot && slot.status === 'Free'
-        );
-      });
+      console.log('🔍 [Doctor Debug] Raw response:', availableDoctorsData.length, 'doctors');
 
-      // Get doctor details for filtered doctors
-      const allDoctors = await doctorApi.getAll();
-      const mappedDoctors: Doctor[] = filteredDoctors
-        .map((doctorSchedule: any) => {
-          const doctorData = allDoctors.find((d: any) => d._id === doctorSchedule.doctorId);
-          if (!doctorData) return null;
+      // Use improved backend response format
+      const mappedDoctors: Doctor[] = availableDoctorsData
+        .filter((doctorSchedule: any) => {
+          // Only include doctors with valid info and available slots for the specific time
+          const hasValidDoctor = doctorSchedule.doctorInfo && 
+                                doctorSchedule.doctorInfo.fullName && 
+                                doctorSchedule.doctorInfo.isActive !== false;
+          const hasSlotForTime = doctorSchedule.availableSlots && 
+                               doctorSchedule.availableSlots.some((slot: any) => 
+                                 slot.slotTime === timeSlot && slot.status === 'Free'
+                               );
           
-          return {
-            id: doctorData._id,
-            name: doctorData.userId?.fullName || 'Chưa có tên',
-            specialization: doctorData.specialization || 'Chưa xác định',
-            experience: doctorData.experience || 0,
-            rating: doctorData.rating || 4.5,
-            reviewCount: 0,
-            avatar: doctorData.userId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-            isAvailable: true, // These doctors are available for the selected time
-            bio: doctorData.bio || 'Bác sĩ chuyên nghiệp với nhiều năm kinh nghiệm'
-          };
+          return hasValidDoctor && hasSlotForTime;
         })
-        .filter(Boolean) as Doctor[];
+        .map((doctorSchedule: any) => ({
+          id: doctorSchedule.userId || doctorSchedule.doctorId, // Prefer userId
+          doctorId: doctorSchedule.doctorId, // Keep doctorId for reference
+          name: doctorSchedule.doctorInfo.fullName,
+          specialization: doctorSchedule.doctorInfo.specialization || 'Chuyên khoa tổng quát',
+          experience: doctorSchedule.doctorInfo.experience || 0,
+          rating: doctorSchedule.doctorInfo.rating || 4.5,
+          reviewCount: 0,
+          avatar: doctorSchedule.doctorInfo.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+          isAvailable: true, // These doctors are confirmed available for the selected time
+          bio: 'Bác sĩ chuyên nghiệp với nhiều năm kinh nghiệm',
+          availableSlots: doctorSchedule.availableSlots,
+          totalAvailableSlots: doctorSchedule.totalAvailableSlots
+        }));
 
       console.log('🔍 [Doctor Debug] Available doctors for', dateStr, timeSlot, ':', mappedDoctors.length);
       setDoctors(mappedDoctors);

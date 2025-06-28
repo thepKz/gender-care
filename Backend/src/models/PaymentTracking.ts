@@ -113,7 +113,7 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   },
   expiresAt: {
     type: Date,
-    default: () => new Date(Date.now() + 15 * 60 * 1000),
+    default: () => new Date(Date.now() + 10 * 60 * 1000),
   }
 }, { 
   timestamps: true 
