@@ -89,7 +89,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ visible, onClose }) => 
                 <div>
                   <h4 className="font-semibold text-gray-900 mb-2 text-sm">Chọn quan sát chất nhờn</h4>
                   <p className="text-gray-700 mb-2 text-xs">
-                    Có máu, Đục, Đục nhiều sợi, Trong và âm hộ căng, Ít chất tiết
+                    Có máu, Đục, Đục nhiều sợi, Trong và ÂH căng, Ít chất tiết
                   </p>
                   <div className="bg-gray-50 p-2 rounded-xl">
                     <p className="text-xs text-gray-600">

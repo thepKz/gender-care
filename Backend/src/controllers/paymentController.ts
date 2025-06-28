@@ -107,7 +107,7 @@ export class PaymentController {
           orderCode: paymentData.orderCode,
           amount: amount,
           qrCode: paymentData.qrCode,
-          expiredAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+          expiredAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
         }
       });
 
@@ -216,7 +216,7 @@ export class PaymentController {
         existingPayment.status = 'pending';
         existingPayment.paymentUrl = paymentData.checkoutUrl;
         existingPayment.paymentLinkId = paymentData.paymentLinkId;
-        existingPayment.expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        existingPayment.expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         paymentTracking = await existingPayment.save();
       } else {
         paymentTracking = await PaymentTracking.create({
@@ -242,7 +242,7 @@ export class PaymentController {
           orderCode: paymentData.orderCode,
           amount: amount,
           qrCode: paymentData.qrCode,
-          expiredAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+          expiredAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
         }
       });
 

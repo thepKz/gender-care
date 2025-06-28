@@ -1,11 +1,10 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Appointments from '../models/Appointments';
 import PaymentTracking from '../models/PaymentTracking';
-import PackagePurchases from '../models/PackagePurchases';
 import '../models/Service';
 import '../models/ServicePackages';
-import payosService from '../services/payosService';
 import { PackagePurchaseService } from '../services/packagePurchaseService';
+import payosService from '../services/payosService';
 import { AuthRequest } from '../types/auth';
 
 export class AppointmentPaymentController {
@@ -107,7 +106,7 @@ export class AppointmentPaymentController {
         existingPayment.status = 'pending';
         existingPayment.paymentUrl = paymentData.checkoutUrl;
         existingPayment.paymentLinkId = paymentData.paymentLinkId;
-        existingPayment.expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        existingPayment.expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         paymentTracking = await existingPayment.save();
       } else {
         paymentTracking = await PaymentTracking.create({
@@ -133,7 +132,7 @@ export class AppointmentPaymentController {
           orderCode: paymentData.orderCode,
           amount: amount,
           qrCode: paymentData.qrCode,
-          expiredAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+          expiredAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
         }
       });
 

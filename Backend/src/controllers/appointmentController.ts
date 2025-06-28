@@ -3,15 +3,11 @@ import mongoose from 'mongoose';
 import { NotFoundError } from '../errors/notFoundError';
 import { UnauthorizedError } from '../errors/unauthorizedError';
 import { ValidationError } from '../errors/validationError';
-import { Appointments, Doctor, DoctorSchedules, PackagePurchases, Service, ServicePackages, UserProfiles } from '../models';
+import { Appointments, Bills, Doctor, DoctorSchedules, PackagePurchases, Service, User } from '../models';
 import { LogAction, LogLevel } from '../models/SystemLogs';
-import systemLogService from '../services/systemLogService';
-import * as paymentService from '../services/paymentService';
-import { lockSlot, releaseSlot } from '../services/doctorScheduleService';
-import { Bills } from '../models';
-import { User } from '../models';
-import { IAppointments } from '../models/Appointments';
 import { UserProfile } from '../models/UserProfile';
+import * as paymentService from '../services/paymentService';
+import systemLogService from '../services/systemLogService';
 
 interface AuthRequest extends Request {
     user?: {
@@ -91,7 +87,8 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
                 match: { isDeleted: { $ne: true } }, // Loại trừ doctor đã bị xóa
                 populate: {
                     path: 'userId',
-                    select: 'fullName email avatar'
+                    select: 'fullName email avatar isActive',
+                    match: { isActive: { $ne: false } } // Chỉ lấy user active
                 },
                 options: { strictPopulate: false }
             })
@@ -99,20 +96,56 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
             .skip(skip)
             .limit(limitNumber);
 
+        // Process appointments để handle missing doctor data
+        const processedAppointments = appointments.map(apt => {
+            const appointmentObj = apt.toObject() as any; // Cast to any để add custom properties
+            
+            // Type cast để access populated fields
+            const populatedDoctor = appointmentObj.doctorId as any;
+            
+            // Handle missing doctor data gracefully
+            if (!populatedDoctor || !populatedDoctor.userId) {
+                appointmentObj.doctorInfo = {
+                    fullName: 'Chưa chỉ định bác sĩ',
+                    email: null,
+                    avatar: null,
+                    isActive: false,
+                    missing: true
+                };
+                // Keep original doctorId for reference if exists
+                if (populatedDoctor && !populatedDoctor.userId) {
+                    console.warn(`⚠️ [Appointment] Doctor ${populatedDoctor._id || populatedDoctor} has no userId or inactive user`);
+                }
+            } else {
+                appointmentObj.doctorInfo = {
+                    doctorId: populatedDoctor._id,
+                    userId: populatedDoctor.userId._id,
+                    fullName: populatedDoctor.userId.fullName,
+                    email: populatedDoctor.userId.email,
+                    avatar: populatedDoctor.userId.avatar,
+                    isActive: populatedDoctor.userId.isActive !== false,
+                    specialization: populatedDoctor.specialization,
+                    experience: populatedDoctor.experience,
+                    rating: populatedDoctor.rating,
+                    missing: false
+                };
+            }
+            
+            return appointmentObj;
+        });
+
         // Debug logging để kiểm tra dữ liệu doctor
-        console.log('🔍 [Debug] Sample appointment doctor data:', appointments.slice(0, 2).map(apt => ({
+        console.log('🔍 [Debug] Sample appointment doctor data:', processedAppointments.slice(0, 2).map(apt => ({
             _id: apt._id,
-            doctorId: apt.doctorId,
-            doctorIdType: typeof apt.doctorId,
-            hasDoctor: apt.doctorId ? true : false,
-            doctorUserId: (apt.doctorId as any)?.userId,
-            doctorFullName: (apt.doctorId as any)?.userId?.fullName
+            doctorId: apt.doctorId?._id || apt.doctorId,
+            doctorInfo: apt.doctorInfo,
+            hasValidDoctor: !apt.doctorInfo.missing
         })));
 
         return res.status(200).json({
             success: true,
             data: {
-                appointments,
+                appointments: processedAppointments,
                 pagination: {
                     total,
                     page: pageNumber,

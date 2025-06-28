@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { MenstrualCycles, CycleDays, MenstrualCycleReports } from '../models';
 import { MUCUS_FEELING_RULES } from '../models/CycleSymptoms';
 
@@ -22,6 +23,143 @@ class MenstrualCycleService {
         });
     }
 
+    /**
+     * 🔄 RESET ALL CYCLES - Xóa toàn bộ dữ liệu chu kỳ và bắt đầu từ chu kỳ 1
+     */
+    async resetAllCycles(userId: string): Promise<any> {
+        try {
+            console.log(`🔄 [RESET] User ${userId} yêu cầu reset toàn bộ chu kỳ`);
+
+            // Lấy tất cả chu kỳ của user
+            const userCycles = await MenstrualCycles.find({ createdByUserId: userId });
+            console.log(`🔍 [RESET] Tìm thấy ${userCycles.length} chu kỳ`);
+
+            if (userCycles.length === 0) {
+                return {
+                    success: true,
+                    message: 'Không có dữ liệu chu kỳ để xóa',
+                    deletedCycles: 0,
+                    deletedCycleDays: 0
+                };
+            }
+
+            const cycleIds = userCycles.map(cycle => cycle._id);
+
+            // Xóa tất cả cycle days
+            const deletedCycleDays = await CycleDays.deleteMany({
+                cycleId: { $in: cycleIds }
+            });
+
+            // Xóa tất cả cycles
+            const deletedCycles = await MenstrualCycles.deleteMany({
+                createdByUserId: userId
+            });
+
+            console.log(`✅ [RESET] Đã xóa ${deletedCycles.deletedCount} chu kỳ và ${deletedCycleDays.deletedCount} ngày`);
+
+            return {
+                success: true,
+                message: 'Đã reset toàn bộ dữ liệu chu kỳ',
+                deletedCycles: deletedCycles.deletedCount,
+                deletedCycleDays: deletedCycleDays.deletedCount
+            };
+
+        } catch (error) {
+            console.error('Error in resetAllCycles:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 🆕 CREATE FLEXIBLE CYCLE - Tạo chu kỳ mới với validation thông minh
+     */
+    async createFlexibleCycle(userId: string, startDate: Date, options?: {
+        resetToFirstCycle?: boolean;
+        forceCreate?: boolean;
+    }): Promise<any> {
+        try {
+            console.log(`🆕 [FLEXIBLE] User ${userId} yêu cầu tạo chu kỳ mới`, { startDate, options });
+
+            // Kiểm tra chu kỳ hiện tại
+            const currentCycle = await MenstrualCycles.findOne({
+                createdByUserId: userId,
+                status: 'tracking'
+            }).sort({ cycleNumber: -1 });
+
+            let warnings = [];
+            let shouldCreate = true;
+            let cycleNumber = 1;
+
+            if (currentCycle) {
+                // Kiểm tra chu kỳ hiện tại có hoàn thành chưa
+                const cycleDays = await CycleDays.find({ cycleId: currentCycle._id });
+                const isIncomplete = !currentCycle.isCompleted && cycleDays.length > 0;
+
+                if (isIncomplete && !options?.forceCreate) {
+                    return {
+                        success: false,
+                        requiresConfirmation: true,
+                        currentCycle: {
+                            cycleNumber: currentCycle.cycleNumber,
+                            startDate: currentCycle.startDate,
+                            daysTracked: cycleDays.length,
+                            isCompleted: currentCycle.isCompleted
+                        },
+                        message: `Chu kỳ ${currentCycle.cycleNumber} chưa hoàn thành (đã ghi nhận ${cycleDays.length} ngày). Bạn muốn:`,
+                        options: [
+                            {
+                                key: 'createNew',
+                                label: 'Tạo chu kỳ mới (giữ chu kỳ cũ)',
+                                action: 'createFlexibleCycle',
+                                params: { forceCreate: true }
+                            },
+                            {
+                                key: 'resetAll',
+                                label: 'Reset về chu kỳ 1 (xóa chu kỳ cũ)',
+                                action: 'resetAllCycles',
+                                params: {}
+                            }
+                        ]
+                    };
+                }
+
+                // Xác định số chu kỳ tiếp theo
+                if (options?.resetToFirstCycle) {
+                    // Reset về chu kỳ 1
+                    await this.resetAllCycles(userId);
+                    cycleNumber = 1;
+                    warnings.push('Đã reset toàn bộ dữ liệu về chu kỳ 1');
+                } else {
+                    // Chu kỳ tiếp theo
+                    const lastCycle = await MenstrualCycles.findOne({ createdByUserId: userId })
+                        .sort({ cycleNumber: -1 });
+                    cycleNumber = lastCycle ? lastCycle.cycleNumber + 1 : 1;
+                }
+            }
+
+            // Tạo chu kỳ mới
+            const newCycle = await MenstrualCycles.create({
+                createdByUserId: userId,
+                startDate,
+                cycleNumber,
+                status: 'tracking'
+            });
+
+            console.log(`✅ [FLEXIBLE] Đã tạo chu kỳ ${cycleNumber}`);
+
+            return {
+                success: true,
+                cycle: newCycle,
+                message: `Đã tạo chu kỳ ${cycleNumber} thành công`,
+                warnings
+            };
+
+        } catch (error) {
+            console.error('Error in createFlexibleCycle:', error);
+            throw error;
+        }
+    }
+
     async createOrUpdateCycleDay(data: CreateCycleDayData): Promise<any> {
         const { cycleId, date, mucusObservation, feeling, notes } = data;
 
@@ -33,17 +171,55 @@ class MenstrualCycleService {
             throw new Error(`Validation failed: ${validation.errors.join('; ')}`);
         }
 
-        let cycleDay = await CycleDays.findOne({ cycleId, date });
+        // ✅ FIXED: Tìm cycle day dựa trên cycleId và date (exact match)
+        console.log(`🔍 [DEBUG] Input data: cycleId=${cycleId}, date=${date}, type=${typeof cycleId}`);
+
+        // Đảm bảo cycleId là ObjectId
+        const objectIdCycleId = new mongoose.Types.ObjectId(cycleId);
+
+        // Chuyển date về dạng chuẩn YYYY-MM-DD để tránh issue timezone
+        const dateString = date.toISOString().split('T')[0]; // YYYY-MM-DD
+        const queryDate = new Date(dateString + 'T00:00:00.000Z');
+
+        console.log(`🔍 [DEBUG] Query params: cycleId=${objectIdCycleId}, queryDate=${queryDate}, dateString=${dateString}`);
+
+        // Tìm tất cả cycle days của cycleId này để debug
+        const allCycleDaysForCycle = await CycleDays.find({ cycleId: objectIdCycleId });
+        console.log(`🔍 [DEBUG] All cycle days for cycle ${objectIdCycleId}:`,
+            allCycleDaysForCycle.map(d => ({
+                id: d._id,
+                date: d.date.toISOString().split('T')[0],
+                mucus: d.mucusObservation,
+                notes: d.notes
+            }))
+        );
+
+        let cycleDay = await CycleDays.findOne({
+            cycleId: objectIdCycleId,
+            date: {
+                $gte: queryDate,
+                $lt: new Date(queryDate.getTime() + 24 * 60 * 60 * 1000) // next day
+            }
+        });
+
+        console.log(`🔍 [CREATE_UPDATE] Looking for cycle day: cycleId=${objectIdCycleId}, date=${dateString}, found=${!!cycleDay}`);
+        if (cycleDay) {
+            console.log(`🔍 [DEBUG] Found existing cycle day: ID=${cycleDay._id}, Date=${cycleDay.date.toISOString().split('T')[0]}, Notes="${cycleDay.notes}"`);
+        }
 
         if (cycleDay) {
+            // ✅ UPDATE existing record
+            console.log(`📝 [UPDATE] Updating existing cycle day ${cycleDay._id} for ${dateString}`);
             cycleDay.mucusObservation = mucusObservation;
             cycleDay.feeling = feeling;
             cycleDay.notes = notes;
         } else {
-            const cycle = await MenstrualCycles.findById(cycleId);
+            // ✅ CREATE new record
+            console.log(`➕ [CREATE] Creating new cycle day for ${dateString}`);
+            const cycle = await MenstrualCycles.findById(objectIdCycleId);
             if (!cycle) throw new Error('Cycle not found');
 
-            const diffTime = date.getTime() - cycle.startDate.getTime();
+            const diffTime = queryDate.getTime() - cycle.startDate.getTime();
             let cycleDayNumber = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
             // Đảm bảo cycleDayNumber luôn >= 1
@@ -52,14 +228,14 @@ class MenstrualCycleService {
                 // Nếu đây là ngày có máu kinh nguyệt và trước ngày bắt đầu hiện tại
                 if (mucusObservation === 'có máu' || mucusObservation === 'lấm tấm máu') {
                     // Cập nhật ngày bắt đầu chu kỳ về ngày này
-                    cycle.startDate = date;
+                    cycle.startDate = queryDate;
                     await cycle.save();
 
                     // Tính toán lại cycleDayNumber = 1 cho ngày này
                     cycleDayNumber = 1;
 
                     // Cập nhật lại tất cả các ngày khác trong chu kỳ
-                    await this.recalculateAllCycleDays(cycleId, date);
+                    await this.recalculateAllCycleDays(objectIdCycleId.toString(), queryDate);
                 } else {
                     // Nếu không phải ngày có máu, set cycleDayNumber = 1 để tránh lỗi validation
                     cycleDayNumber = 1;
@@ -67,21 +243,21 @@ class MenstrualCycleService {
             }
 
             cycleDay = new CycleDays({
-                cycleId,
-                date,
+                cycleId: objectIdCycleId, // Sử dụng ObjectId đã chuẩn hóa
+                date: queryDate, // Sử dụng normalized date
                 mucusObservation,
                 feeling,
                 notes,
                 cycleDayNumber,
-                month: date.getMonth() + 1,
-                year: date.getFullYear()
+                month: queryDate.getMonth() + 1,
+                year: queryDate.getFullYear()
             });
         }
 
         await cycleDay.save();
 
         // Đánh dấu ngày đỉnh
-        if (mucusObservation === 'trong và âm hộ căng' && feeling === 'trơn') {
+        if (mucusObservation === 'trong và ÂH căng' && feeling === 'trơn') {
             cycleDay.isPeakDay = true;
             cycleDay.fertilityProbability = 100;
             await cycleDay.save();
@@ -89,13 +265,13 @@ class MenstrualCycleService {
 
         // ✨ LOGIC MỚI: Tự động phát hiện chu kỳ mới khi có máu sau chu kỳ hoàn thành
         if (mucusObservation === 'có máu') {
-            console.log(`🩸 [AUTO-CYCLE] Phát hiện máu mới ngày ${date.toISOString().split('T')[0]}, kiểm tra điều kiện tạo chu kỳ mới...`);
-            const shouldCreateNewCycle = await this.checkForNewCycleCreation(cycleId, date);
+            console.log(`🩸 [AUTO-CYCLE] Phát hiện máu mới ngày ${dateString}, kiểm tra điều kiện tạo chu kỳ mới...`);
+            const shouldCreateNewCycle = await this.checkForNewCycleCreation(objectIdCycleId.toString(), queryDate);
             console.log(`🔍 [AUTO-CYCLE] Kết quả kiểm tra:`, shouldCreateNewCycle);
 
             if (shouldCreateNewCycle.shouldCreate) {
                 // Hoàn thành chu kỳ cũ
-                const oldCycle = await MenstrualCycles.findById(cycleId);
+                const oldCycle = await MenstrualCycles.findById(objectIdCycleId);
                 if (oldCycle && !oldCycle.isCompleted) {
                     oldCycle.isCompleted = true;
                     oldCycle.status = 'completed';
@@ -107,7 +283,7 @@ class MenstrualCycleService {
                 }
 
                 // Tạo chu kỳ mới
-                const newCycle = await this.createCycle(oldCycle!.createdByUserId.toString(), date);
+                const newCycle = await this.createCycle(oldCycle!.createdByUserId.toString(), queryDate);
 
                 // Chuyển cycle day này sang chu kỳ mới
                 cycleDay.cycleId = newCycle._id;
@@ -117,7 +293,7 @@ class MenstrualCycleService {
                 return {
                     cycleDay,
                     newCycleCreated: true,
-                    oldCycleId: cycleId,
+                    oldCycleId: objectIdCycleId,
                     newCycleId: newCycle._id,
                     completedCycle: oldCycle,
                     newCycle: newCycle
@@ -155,7 +331,7 @@ class MenstrualCycleService {
 
             // Tìm ngày đỉnh - kiểm tra cả isPeakDay và mucusObservation
             const peakDay = cycleDays.find(day =>
-                day.mucusObservation === 'trong và âm hộ căng' || day.isPeakDay === true
+                day.mucusObservation === 'trong và ÂH căng' || day.isPeakDay === true
             );
 
             console.log(`🔍 [AUTO-CYCLE] Tìm ngày đỉnh trong ${cycleDays.length} ngày:`,
@@ -292,7 +468,26 @@ class MenstrualCycleService {
         // Filter chỉ lấy days thuộc về user
         const userCycleDays = cycleDays.filter(day => day.cycleId);
 
-        return userCycleDays.map(day => {
+        // ✅ DEDUPLICATION: Loại bỏ duplicate entries dựa trên (cycleId, date)
+        const uniqueDays = userCycleDays.reduce((acc, day) => {
+            const key = `${day.cycleId._id}-${day.date.toISOString().split('T')[0]}`;
+            if (!acc.has(key)) {
+                acc.set(key, day);
+            } else {
+                // Nếu trùng, ưu tiên record mới nhất (có _id lớn hơn)
+                const existing = acc.get(key);
+                if (day._id.toString() > existing._id.toString()) {
+                    acc.set(key, day);
+                }
+            }
+            return acc;
+        }, new Map());
+
+        const deduplicatedDays = Array.from(uniqueDays.values());
+
+        console.log(`📅 [CALENDAR] Total days: ${userCycleDays.length}, After dedup: ${deduplicatedDays.length}`);
+
+        return deduplicatedDays.map(day => {
             let symbol = '';
             let color = '';
             let description = '';
@@ -302,7 +497,7 @@ class MenstrualCycleService {
                 symbol = 'M';
                 color = '#e53935'; // Đỏ cho kinh nguyệt
                 description = 'Kinh nguyệt';
-            } else if (day.isPeakDay || (day.mucusObservation === 'trong và âm hộ căng' && day.feeling === 'trơn')) {
+            } else if (day.isPeakDay || (day.mucusObservation === 'trong và ÂH căng' && day.feeling === 'trơn')) {
                 symbol = 'X';
                 color = '#ff9800'; // Cam cho ngày đỉnh
                 description = 'Ngày đỉnh';
@@ -385,7 +580,7 @@ class MenstrualCycleService {
             );
 
             const peakDays = cycleDays.filter(day =>
-                day.mucusObservation === 'trong và âm hộ căng'
+                day.mucusObservation === 'trong và ÂH căng'
             );
 
             const dryDays = cycleDays.filter(day =>
@@ -425,18 +620,18 @@ class MenstrualCycleService {
     private identifyCyclePattern(cycleDays: any[]): any {
         const sequence = cycleDays.map(day => day.mucusObservation).filter(obs => obs);
 
-        // Trường hợp 1: Máu → Lấm tấm máu → Khô → Đục → Trong âm hộ căng
+        // Trường hợp 1: Máu → Lấm tấm máu → Khô → Đục → Trong ÂH căng
         const hasBlood = sequence.includes('có máu');
         const hasSpotting = sequence.includes('lấm tấm máu');
         const hasDry = sequence.includes('ít chất tiết') || cycleDays.some(d => d.feeling === 'khô');
         const hasCloudy = sequence.includes('đục');
-        const hasPeak = sequence.includes('trong và âm hộ căng');
+        const hasPeak = sequence.includes('trong và ÂH căng');
 
         if (hasBlood && hasSpotting && hasDry && hasCloudy && hasPeak) {
             return {
                 type: 'normal_pattern',
                 name: 'Chu kỳ bình thường',
-                description: 'Máu → Lấm tấm máu → Khô → Đục → Trong âm hộ căng',
+                description: 'Máu → Lấm tấm máu → Khô → Đục → Trong ÂH căng',
                 confidence: 'high'
             };
         }
@@ -467,7 +662,7 @@ class MenstrualCycleService {
      * Định nghĩa chu kỳ hoàn chỉnh:
      * 1. Bắt đầu: Cảm giác chất nhờn là máu (có máu)
      * 2. Tùy chọn: Lấm tấm máu  
-     * 3. Ngày đỉnh: Cảm giác chất nhờn là trong và âm hộ căng
+     * 3. Ngày đỉnh: Cảm giác chất nhờn là trong và ÂH căng
      * 4. Kết thúc: Cảm giác chất nhờn là khô (sau ít nhất 3 ngày sau đỉnh)
      * 
      * Trường hợp 1: Tất cả diễn ra trong 1 tháng (sau ngày 1,2,3 sau ngày đỉnh là khô → có máu mới)
@@ -487,8 +682,8 @@ class MenstrualCycleService {
         const bloodDays = sequence.filter(day => day.mucus === 'có máu');
         const firstBloodDay = bloodDays.length > 0 ? bloodDays[0] : null;
 
-        // Bước 2: Tìm ngày đỉnh (trong và âm hộ căng)
-        const peakDays = sequence.filter(day => day.mucus === 'trong và âm hộ căng');
+        // Bước 2: Tìm ngày đỉnh (trong và ÂH căng)
+        const peakDays = sequence.filter(day => day.mucus === 'trong và ÂH căng');
         const peakDay = peakDays.length > 0 ? peakDays[peakDays.length - 1] : null; // Lấy ngày đỉnh cuối cùng
 
         if (!firstBloodDay) {
@@ -503,7 +698,7 @@ class MenstrualCycleService {
             return {
                 isComplete: false,
                 phase: 'pre_peak_tracking',
-                analysis: 'Đã có kinh nguyệt, đang chờ ngày đỉnh (cảm giác chất nhờn là trong và âm hộ căng).'
+                analysis: 'Đã có kinh nguyệt, đang chờ ngày đỉnh (cảm giác chất nhờn là trong và ÂH căng).'
             };
         }
 
@@ -870,7 +1065,7 @@ class MenstrualCycleService {
                 .lean();
 
             const peakDay = cycleDays.find(day =>
-                day.mucusObservation === 'trong và âm hộ căng' && day.feeling === 'trơn'
+                day.mucusObservation === 'trong và ÂH căng' && day.feeling === 'trơn'
             );
 
             if (!peakDay) {
@@ -992,7 +1187,7 @@ class MenstrualCycleService {
                 if (day.mucusObservation === 'có máu' || day.mucusObservation === 'lấm tấm máu') {
                     symbol = 'M';
                     fertilityProbability = 10;
-                } else if (day.isPeakDay || (day.mucusObservation === 'trong và âm hộ căng' && day.feeling === 'trơn')) {
+                } else if (day.isPeakDay || (day.mucusObservation === 'trong và ÂH căng' && day.feeling === 'trơn')) {
                     symbol = 'X';
                     fertilityProbability = 100;
                 } else if (day.peakDayRelative === 1) {
@@ -1036,7 +1231,7 @@ class MenstrualCycleService {
             // Thống kê
             const statistics = {
                 totalDays: cycleDays.length,
-                peakDay: cycleDays.find(d => d.isPeakDay || (d.mucusObservation === 'trong và âm hộ căng' && d.feeling === 'trơn'))?.cycleDayNumber,
+                peakDay: cycleDays.find(d => d.isPeakDay || (d.mucusObservation === 'trong và ÂH căng' && d.feeling === 'trơn'))?.cycleDayNumber,
                 fertileDays: chartData.filter(d => d.fertilityProbability >= 60).length,
                 dryDays: chartData.filter(d => d.symbol === 'D').length
             };
@@ -1283,10 +1478,10 @@ class MenstrualCycleService {
             const suggestions: string[] = [];
 
             // 1. Kiểm tra ngày đỉnh trùng lặp trong chu kỳ
-            if (mucusObservation === 'trong và âm hộ căng' && feeling === 'trơn') {
+            if (mucusObservation === 'trong và ÂH căng' && feeling === 'trơn') {
                 const existingPeakDays = await CycleDays.find({
                     cycleId,
-                    mucusObservation: 'trong và âm hộ căng',
+                    mucusObservation: 'trong và ÂH căng',
                     feeling: 'trơn',
                     date: { $ne: date }
                 });
@@ -1321,7 +1516,7 @@ class MenstrualCycleService {
 
             if (mucusObservation === 'có máu' && futureEntries.length > 0) {
                 const hasPeakAfter = futureEntries.some(d =>
-                    d.mucusObservation === 'trong và âm hộ căng' && d.feeling === 'trơn'
+                    d.mucusObservation === 'trong và ÂH căng' && d.feeling === 'trơn'
                 );
 
                 if (hasPeakAfter) {

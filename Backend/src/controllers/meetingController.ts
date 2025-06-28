@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { AuthRequest } from '../types/auth';
 import mongoose from 'mongoose';
 import * as meetingService from '../services/meetingService';
+import { AuthRequest } from '../types/auth';
 
 // Validate ObjectId helper
 const isValidObjectId = (id: string): boolean => {
@@ -90,6 +90,49 @@ export const getMeetingByQaId = async (req: Request, res: Response): Promise<voi
 
     const meeting = await meetingService.getMeetingByQaId(qaId);
 
+    // Populate doctor info với error handling
+    let doctorInfo = null;
+    if (meeting.doctorId) {
+      try {
+        const doctor = await require('../models/Doctor').default.findOne({
+          _id: meeting.doctorId,
+          isDeleted: { $ne: true }
+        }).populate({
+          path: 'userId',
+          select: 'fullName email avatar isActive',
+          match: { isActive: { $ne: false } }
+        });
+
+        if (doctor && doctor.userId) {
+          doctorInfo = {
+            doctorId: doctor._id,
+            userId: doctor.userId._id,
+            fullName: doctor.userId.fullName,
+            email: doctor.userId.email,
+            avatar: doctor.userId.avatar,
+            specialization: doctor.specialization,
+            experience: doctor.experience,
+            rating: doctor.rating,
+            isActive: doctor.userId.isActive !== false
+          };
+        } else {
+          console.warn(`⚠️ [Meeting] Doctor ${meeting.doctorId} not found or inactive`);
+          doctorInfo = {
+            fullName: 'Bác sĩ không khả dụng',
+            isActive: false,
+            missing: true
+          };
+        }
+      } catch (error) {
+        console.error(`❌ [Meeting] Error fetching doctor info:`, error);
+        doctorInfo = {
+          fullName: 'Lỗi tải thông tin bác sĩ',
+          isActive: false,
+          error: true
+        };
+      }
+    }
+
     res.status(200).json({
       message: 'Lấy thông tin meeting thành công',
       data: {
@@ -102,7 +145,7 @@ export const getMeetingByQaId = async (req: Request, res: Response): Promise<voi
         participantCount: meeting.participantCount,
         maxParticipants: meeting.maxParticipants,
         notes: meeting.notes,
-        doctor: meeting.doctorId,
+        doctor: doctorInfo,
         user: meeting.userId,
         qa: meeting.qaId
       }
