@@ -410,7 +410,7 @@ const TestResultsEntryStaff: React.FC = () => {
             const testName = cat.testCategoryId?.name || cat.testCategory?.name || cat.name || cat.testCategoryName || cat.label || cat.title || '';
             const unit = cat.customUnit || cat.unit || '';
             const normal = cat.targetValue || cat.customNormalRange || cat.normalRange || '';
-            const label = `${testName}${unit ? ` (${unit})` : ''}${normal ? `, Bình thường: ${normal}` : ''}`;
+            const label = `${testName}${unit ? ` (${unit})` : ''}${(cat.minValue !== undefined && cat.maxValue !== undefined) ? `, giá trị dao động: ${cat.minValue} - ${cat.maxValue}` : (normal ? `, Bình thường: ${normal}` : '')}`;
             return (
               <Form.Item
                 key={cat._id}

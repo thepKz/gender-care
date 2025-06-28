@@ -153,7 +153,10 @@ const BookingHistoryOptimized: React.FC = () => {
     pending: { color: '#faad14', text: 'Chờ xác nhận', icon: <Timer size={16} /> },
     pending_payment: { color: '#ff7f00', text: 'Chờ thanh toán', icon: <Clock size={16} /> },
     confirmed: { color: '#52c41a', text: 'Đã xác nhận', icon: <TickCircle size={16} /> },
-    completed: { color: '#722ed1', text: 'Hoàn thành', icon: <TickCircle size={16} /> },
+    consulting: { color: '#a3e635', text: 'Đang khám', icon: <MonitorMobbile size={16} /> },
+    done_testResultItem: { color: '#2563eb', text: 'Hoàn thành kết quả', icon: <TickCircle size={16} /> },
+    done_testResult: { color: '#06b6d4', text: 'Hoàn thành hồ sơ', icon: <TickCircle size={16} /> },
+    completed: { color: '#22c55e', text: 'Hoàn thành', icon: <TickCircle size={16} /> },
     cancelled: { color: '#f5222d', text: 'Đã hủy', icon: <CloseCircle size={16} /> },
     payment_cancelled: { color: '#ff4d4f', text: 'Hủy thanh toán', icon: <CloseCircle size={16} /> }
   };
