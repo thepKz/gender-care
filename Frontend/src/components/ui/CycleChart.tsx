@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Tag, Tooltip, Alert } from 'antd';
+import { Card, Alert, Tag, Tooltip } from 'antd';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Tooltip as RechartsTooltip } from 'recharts';
 
 interface CycleChartProps {

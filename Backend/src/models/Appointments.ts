@@ -1,6 +1,6 @@
-import mongoose from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 
-export interface IAppointments {
+export interface IAppointments extends Document {
   createdByUserId: mongoose.Types.ObjectId;
   profileId: mongoose.Types.ObjectId;
   packageId?: mongoose.Types.ObjectId;
@@ -22,6 +22,7 @@ export interface IAppointments {
   packagePurchaseId?: mongoose.Types.ObjectId; // Reference đến package đã mua (cho purchased_package)
   expiresAt?: Date; // Thời gian hết hạn cho pending appointments (15 phút)
   paymentLinkId?: string; // PayOS order code/payment link ID
+  billId?: mongoose.Types.ObjectId;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -110,6 +111,11 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   paymentLinkId: {
     type: String
+  },
+  billId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Bills',
+    default: null
   }
 }, { timestamps: true });
 

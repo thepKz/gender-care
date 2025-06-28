@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Button, Card, Col, Row, Spin, Tag, Typography, message, Empty, Breadcrumb, Table, Badge, Tooltip, Space, Modal, Descriptions } from 'antd';
+import { Button, Card, Col, Row, Spin, Tag, Typography, message, Empty, Breadcrumb, Table, Badge, Tooltip, Space, Modal, Descriptions, Divider, Avatar } from 'antd';
 import { motion } from 'framer-motion';
-import { ArrowLeftOutlined, ShoppingOutlined, ClockCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, EyeOutlined, ScheduleOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, ShoppingOutlined, ClockCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, EyeOutlined, ScheduleOutlined, UserAddOutlined, EditOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import packagePurchaseApi from '../../api/endpoints/packagePurchaseApi';
+import userProfileApi from '../../api/endpoints/userProfileApi';
 import { useAuth } from '../../hooks/useAuth';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { CalendarOutlined, UserOutlined, CreditCardOutlined } from '@ant-design/icons';
-import { PackagePurchase, ServiceItem } from '../../types';
+import { PackagePurchase, ServiceItem, UserProfile } from '../../types';
 
 const { Title, Text } = Typography;
 
@@ -19,6 +20,28 @@ const PurchasedPackagesPage: React.FC = () => {
   const [purchases, setPurchases] = useState<PackagePurchase[]>([]);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
   const [selectedPurchase, setSelectedPurchase] = useState<PackagePurchase | null>(null);
+  
+  // 🆕 User Profiles State
+  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(true);
+
+  // 🆕 Fetch User Profiles
+  const fetchProfiles = useCallback(async () => {
+    try {
+      if (!isAuthenticated || !user?._id) {
+        return;
+      }
+      
+      setProfilesLoading(true);
+      const profilesData = await userProfileApi.getMyProfiles();
+      setProfiles(profilesData);
+    } catch (error: any) {
+      console.error('❌ [Frontend] Error fetching profiles:', error);
+      setProfiles([]);
+    } finally {
+      setProfilesLoading(false);
+    }
+  }, [isAuthenticated, user?._id]);
 
   const fetchPurchases = useCallback(async () => {
     try {
@@ -75,7 +98,8 @@ const PurchasedPackagesPage: React.FC = () => {
 
   useEffect(() => {
     fetchPurchases();
-  }, [fetchPurchases]);
+    fetchProfiles();
+  }, [fetchPurchases, fetchProfiles]);
 
   const renderStatusBadge = (status: PackagePurchase['status']) => {
     const statusConfig = {
@@ -228,6 +252,33 @@ const PurchasedPackagesPage: React.FC = () => {
               onClick={() => showPurchaseDetails(record)}
             />
           </Tooltip>
+          {record.status === 'active' && calculateRemainingServices(record) > 0 && (
+            <Tooltip title="Đặt lịch với gói này">
+              <Button
+                type="primary"
+                size="small"
+                icon={<CalendarOutlined />}
+                onClick={() => {
+                  // Navigate to booking with package context
+                  const packageServices = record.servicePackage?.services || [];
+                  if (packageServices.length > 0) {
+                    // Nếu chỉ có 1 service, redirect trực tiếp
+                    if (packageServices.length === 1) {
+                      const service = packageServices[0];
+                      const serviceId = typeof service.serviceId === 'object' ? service.serviceId._id : service.serviceId;
+                      navigate(`/booking?serviceId=${serviceId}&packageId=${record.packageId}&from=packages`);
+                    } else {
+                      // Nếu có nhiều services, để user chọn trong booking page
+                      navigate(`/booking?packageId=${record.packageId}&from=packages`);
+                    }
+                  }
+                }}
+                className="bg-green-600 border-green-600"
+              >
+                Đặt lịch
+              </Button>
+            </Tooltip>
+          )}
         </Space>
       ),
     },
@@ -325,6 +376,110 @@ const PurchasedPackagesPage: React.FC = () => {
               </Button>
             </div>
           </div>
+
+          {/* 🆕 User Profiles Section */}
+          <Card className="mb-6 border-0 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <UserOutlined style={{ fontSize: 20, color: "#1890ff" }} />
+                </div>
+                <div>
+                  <Title level={4} className="mb-0">Hồ sơ bệnh án</Title>
+                  <Text type="secondary" className="text-sm">
+                    Quản lý hồ sơ để đặt lịch khám bệnh
+                  </Text>
+                </div>
+              </div>
+              <Button
+                type="primary"
+                icon={<UserAddOutlined />}
+                onClick={() => navigate('/user-profiles/create')}
+                className="bg-blue-600 border-blue-600"
+              >
+                Tạo hồ sơ mới
+              </Button>
+            </div>
+
+            {profilesLoading ? (
+              <div className="flex justify-center py-8">
+                <Spin size="small" />
+                <span className="ml-2">Đang tải hồ sơ...</span>
+              </div>
+            ) : profiles.length === 0 ? (
+              <Empty
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                description={
+                  <div className="text-center">
+                    <Text type="secondary">Chưa có hồ sơ bệnh án nào</Text>
+                    <br />
+                    <Text type="secondary" className="text-sm">
+                      Tạo hồ sơ để có thể đặt lịch khám bệnh
+                    </Text>
+                  </div>
+                }
+              >
+                <Button
+                  type="primary"
+                  icon={<UserAddOutlined />}
+                  onClick={() => navigate('/user-profiles/create')}
+                >
+                  Tạo hồ sơ đầu tiên
+                </Button>
+              </Empty>
+            ) : (
+              <Row gutter={[16, 16]}>
+                {profiles.map((profile) => (
+                  <Col xs={24} sm={12} lg={8} key={profile._id}>
+                    <Card
+                      size="small"
+                      className="border border-gray-200 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer"
+                      onClick={() => navigate(`/profile/view-profile/${profile._id}`)}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <Avatar 
+                          size={40} 
+                          icon={<UserOutlined />}
+                          className="bg-blue-100 text-blue-600"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <Text strong className="block truncate">
+                            {profile.fullName}
+                          </Text>
+                          <Text type="secondary" className="text-xs block">
+                            {profile.gender === 'male' ? 'Nam' : 
+                             profile.gender === 'female' ? 'Nữ' : 'Khác'} • 
+                            {profile.phone || 'Chưa có SĐT'}
+                          </Text>
+                        </div>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<EditOutlined />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/profile/edit-profile/${profile._id}`);
+                          }}
+                        />
+                      </div>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            )}
+
+            {profiles.length > 0 && (
+              <div className="mt-4 text-center">
+                <Button
+                  type="link"
+                  onClick={() => navigate('/user-profiles')}
+                  className="text-blue-600"
+                >
+                  Xem tất cả hồ sơ →
+                </Button>
+              </div>
+            )}
+          </Card>
 
           {/* Content */}
           {loading ? (
