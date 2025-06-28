@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Card,
   Table,
@@ -76,6 +76,8 @@ const ServiceTestConfigurationInner: React.FC = () => {
   const [editingItem, setEditingItem] = useState<ServiceTestCategory | null>(null);
   const [newTestCategoryName, setNewTestCategoryName] = useState('');
   const [form] = Form.useForm();
+  const selectRef = useRef<any>(null); // ref cho Select
+  const [customTestCategoryName, setCustomTestCategoryName] = useState<string>('');
 
   useEffect(() => {
     loadInitialData();
@@ -546,7 +548,9 @@ const ServiceTestConfigurationInner: React.FC = () => {
     },
   ];
 
+  // Lọc dịch vụ theo tên và loại serviceType === 'test'
   const filteredServices = services.filter(service =>
+    service.serviceType === 'test' &&
     service.serviceName.toLowerCase().includes(searchText.toLowerCase())
   );
 
@@ -844,34 +848,46 @@ const ServiceTestConfigurationInner: React.FC = () => {
                 rules={[{ required: true, message: 'Vui lòng chọn chỉ số' }]}
               >
                 <Select
-                  placeholder="Chọn chỉ số có sẵn hoặc nhập tên mới..."
                   showSearch
                   allowClear
-                  disabled={!!editingItem} // Disable khi edit
-                  dropdownRender={!editingItem ? (menu) => (
-                    <>
-                      {menu}
-                      <div style={{ padding: '8px 0', borderTop: '1px solid #d9d9d9' }}>
-                        <Input
-                          placeholder="Nhập tên chỉ số mới..."
-                          value={newTestCategoryName}
-                          onChange={(e) => setNewTestCategoryName(e.target.value)}
-                          onPressEnter={() => {
-                            if (newTestCategoryName.trim()) {
-                              form.setFieldValue('testCategoryId', `new:${newTestCategoryName.trim()}`);
-                              setNewTestCategoryName('');
-                            }
-                          }}
-                        />
-                      </div>
-                    </>
-                  ) : undefined}
+                  disabled={!!editingItem}
+                  placeholder="Chọn chỉ số có sẵn hoặc nhập tên mới..."
+                  filterOption={(input, option) =>
+                    String(option?.children ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  onSearch={value => {
+                    setCustomTestCategoryName(value);
+                  }}
+                  onBlur={() => {
+                    if (
+                      customTestCategoryName &&
+                      !testCategories.some(tc => tc.name.toLowerCase() === customTestCategoryName.toLowerCase())
+                    ) {
+                      form.setFieldValue('testCategoryId', `new:${customTestCategoryName}`);
+                    }
+                  }}
+                  onChange={val => {
+                    if (typeof val === 'string' && !val.startsWith('new:')) {
+                      setCustomTestCategoryName('');
+                    }
+                  }}
+                  value={(() => {
+                    const v = form.getFieldValue('testCategoryId');
+                    if (typeof v === 'string') return v;
+                    return undefined;
+                  })()}
                 >
                   {testCategories.map(tc => (
                     <Select.Option key={tc._id} value={tc._id}>
                       {tc.name}
                     </Select.Option>
                   ))}
+                  {customTestCategoryName &&
+                    !testCategories.some(tc => tc.name.toLowerCase() === customTestCategoryName.toLowerCase()) && (
+                      <Select.Option key={`new:${customTestCategoryName}`} value={`new:${customTestCategoryName}`}>
+                        {customTestCategoryName} (Tạo mới)
+                      </Select.Option>
+                    )}
                 </Select>
               </Form.Item>
 

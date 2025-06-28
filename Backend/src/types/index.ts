@@ -246,11 +246,10 @@ export interface ITestCategory {
 
 export interface ITestResultItem {
   _id: string;
-  testResultId: string;
+  appointmentId: string;
   itemNameId: string;
   value: string;
   unit: string;
-  currentRange: string;
   flag: 'high' | 'low' | 'normal';
 }
 

@@ -37,6 +37,7 @@ interface TestResultData {
     doctorId: string;
     conclusion?: string;
     recommendations?: string;
+    testResultItemsId: string[];
 }
 
 export const appointmentApi = {
@@ -157,7 +158,7 @@ export const appointmentApi = {
     },
 
     // Cập nhật trạng thái cuộc hẹn - Updated với đầy đủ status
-    updateAppointmentStatus: async (id: string, status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled') => {
+    updateAppointmentStatus: async (id: string, status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'done_testResultItem' | 'done_testResult') => {
         const response = await axiosInstance.put(`/appointments/${id}/status`, { status });
         return response.data;
     },
@@ -189,7 +190,7 @@ export const appointmentApi = {
     },
 
     // Kiểm tra xem appointment đã có test result chưa
-    checkTestResultExists: async (appointmentId: string) => {
+    checkTestResultsByAppointment: async (appointmentId: string) => {
         const response = await axiosInstance.get(`/test-results/check/${appointmentId}`);
         return response.data;
     },

@@ -2,7 +2,7 @@
 // Includes both regular appointments and doctor QA consultations
 
 // ✅ UPDATED STATUS TYPES - Đồng bộ với Backend
-export type AppointmentStatus = 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled';
+export type AppointmentStatus = 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'done_testResultItem' | 'done_testResult';
 export type ConsultationStatus = 'pending_payment' | 'scheduled' | 'consulting' | 'completed' | 'cancelled';
 export type UnifiedStatus = 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled';
 
@@ -159,6 +159,7 @@ export interface TestResultData {
   conclusion?: string;
   recommendations?: string;
   createdAt: string;
+  testResultItemsId: string[];
 }
 
 export interface TestResultResponse {

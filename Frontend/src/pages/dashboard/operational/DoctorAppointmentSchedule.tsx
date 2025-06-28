@@ -31,14 +31,20 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import { appointmentApi } from '../../../api/endpoints';
 import { useAuth } from '../../../hooks/useAuth';
 import { TestResultsForm } from '../../../components/feature/medical/TestResultsForm';
+import MedicalRecordModal from '../../../components/ui/forms/MedicalRecordModal';
+import ViewMedicalRecordModal from '../../../components/ui/forms/ViewMedicalRecordModal';
+import medicalApi from '../../../api/endpoints/medical';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 // Removed TabPane import as it's deprecated
+
+dayjs.extend(isSameOrAfter);
 
 interface DoctorAppointment {
   _id: string;
@@ -84,6 +90,10 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [showTestForm, setShowTestForm] = useState(false);
   const [activeTab, setActiveTab] = useState('today');
+  const [medicalRecordModalVisible, setMedicalRecordModalVisible] = useState(false);
+  const [viewMedicalRecordModalVisible, setViewMedicalRecordModalVisible] = useState(false);
+  const [hasMedicalRecord, setHasMedicalRecord] = useState<boolean | null>(null);
+  const [medicalRecordId, setMedicalRecordId] = useState<string | null>(null);
 
   useEffect(() => {
     loadMyAppointments();
@@ -93,36 +103,65 @@ const DoctorAppointmentSchedule: React.FC = () => {
     filterAppointments();
   }, [appointments, searchText, selectedStatus, activeTab]);
 
+  useEffect(() => {
+    const checkMedicalRecord = async () => {
+      if (isDetailModalVisible && selectedAppointment) {
+        try {
+          const res = await medicalApi.checkMedicalRecordByAppointment(selectedAppointment._id);
+          if (res.data?.exists && res.data?.medicalRecordId) {
+            setHasMedicalRecord(true);
+            setMedicalRecordId(res.data.medicalRecordId);
+          } else {
+            setHasMedicalRecord(false);
+            setMedicalRecordId(null);
+          }
+        } catch (e) {
+          setHasMedicalRecord(false);
+          setMedicalRecordId(null);
+        }
+      }
+    };
+    checkMedicalRecord();
+  }, [isDetailModalVisible, selectedAppointment]);
+
   const loadMyAppointments = async () => {
     try {
       setLoading(true);
       const response = await appointmentApi.getAllAppointments();
-      
-      // Lọc chỉ lấy appointments của bác sĩ/staff hiện tại
-      const myAppointments = response.data.appointments.filter((appointment: any) => {
-        const doctorId = appointment.doctorId?._id || appointment.doctorId;
-        return doctorId === user?._id;
-      });
+      let myAppointments;
+      if (user?.role === 'staff') {
+        // Staff: chỉ xem lịch hẹn xét nghiệm
+        myAppointments = response.data.appointments.filter((appointment: any) => appointment.serviceId?.serviceType === 'test');
+      } else {
+        // Bác sĩ: chỉ xem lịch hẹn xét nghiệm của mình
+        myAppointments = response.data.appointments.filter((appointment: any) => {
+          const doctorId = appointment.doctorId?._id || appointment.doctorId;
+          return doctorId === user?._id && appointment.serviceId?.serviceType === 'test';
+        });
+      }
 
       const convertedAppointments: DoctorAppointment[] = myAppointments.map((appointment: any) => ({
         _id: appointment._id,
         profileId: {
-          _id: appointment.profileId._id || appointment.profileId,
-          fullName: appointment.profileId.fullName || 'N/A',
-          phoneNumber: appointment.profileId.phoneNumber || 'N/A',
-          dateOfBirth: appointment.profileId.dateOfBirth,
-          gender: appointment.profileId.gender
+          _id: appointment.profileId?._id || appointment.profileId || '',
+          fullName: appointment.profileId?.fullName || 'N/A',
+          phoneNumber: appointment.profileId?.phoneNumber || 'N/A',
+          dateOfBirth: appointment.profileId?.dateOfBirth,
+          gender: appointment.profileId?.gender
         },
         serviceId: {
-          _id: appointment.serviceId._id || appointment.serviceId,
-          serviceName: appointment.serviceId.serviceName || 'N/A',
-          serviceType: appointment.serviceId.serviceType || 'consultation'
+          _id: appointment.serviceId?._id || appointment.serviceId || '',
+          serviceName: appointment.serviceId?.serviceName || 'N/A',
+          serviceType: appointment.serviceId?.serviceType || 'consultation'
         },
-        doctorId: {
-          _id: appointment.doctorId._id || appointment.doctorId,
+        doctorId: appointment.doctorId ? {
+          _id: appointment.doctorId._id || appointment.doctorId || '',
           userId: {
             fullName: appointment.doctorId?.userId?.fullName || user?.fullName || 'N/A'
           }
+        } : {
+          _id: '',
+          userId: { fullName: 'Chưa phân công' }
         },
         appointmentDate: appointment.appointmentDate,
         appointmentTime: appointment.appointmentTime,
@@ -147,35 +186,22 @@ const DoctorAppointmentSchedule: React.FC = () => {
 
   const filterAppointments = () => {
     let filtered = appointments;
-
-    // Filter by tab
     const today = dayjs().format('YYYY-MM-DD');
     const selectedDateStr = selectedDate?.format('YYYY-MM-DD');
-
     switch (activeTab) {
       case 'today':
-        filtered = filtered.filter(apt => 
-          dayjs(apt.appointmentDate).format('YYYY-MM-DD') === today
-        );
+        filtered = filtered.filter(apt => dayjs(apt.appointmentDate).format('YYYY-MM-DD') === today && apt.status === 'confirmed');
         break;
       case 'upcoming':
-        filtered = filtered.filter(apt => 
-          dayjs(apt.appointmentDate).isAfter(dayjs()) && 
-          apt.status !== 'completed' && 
-          apt.status !== 'cancelled'
-        );
+        filtered = filtered.filter(apt => dayjs(apt.appointmentDate).isSameOrAfter(dayjs(), 'day') && apt.status === 'confirmed');
         break;
       case 'completed':
         filtered = filtered.filter(apt => apt.status === 'completed');
         break;
       case 'selected-date':
-        filtered = filtered.filter(apt => 
-          dayjs(apt.appointmentDate).format('YYYY-MM-DD') === selectedDateStr
-        );
+        filtered = filtered.filter(apt => dayjs(apt.appointmentDate).format('YYYY-MM-DD') === selectedDateStr);
         break;
     }
-
-    // Filter by search text
     if (searchText) {
       filtered = filtered.filter(apt =>
         apt.profileId.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -183,12 +209,9 @@ const DoctorAppointmentSchedule: React.FC = () => {
         apt.serviceId.serviceName.toLowerCase().includes(searchText.toLowerCase())
       );
     }
-
-    // Filter by status
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(apt => apt.status === selectedStatus);
     }
-
     setFilteredAppointments(filtered);
   };
 
@@ -196,6 +219,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
     const colors = {
       pending: 'orange',
       confirmed: 'blue',
+      consulting: 'lime',
       completed: 'green',
       cancelled: 'red'
     };
@@ -206,6 +230,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
     const texts = {
       pending: 'Chờ xác nhận',
       confirmed: 'Đã xác nhận',
+      consulting: 'Đang khám',
       completed: 'Hoàn thành',
       cancelled: 'Đã hủy'
     };
@@ -239,6 +264,19 @@ const DoctorAppointmentSchedule: React.FC = () => {
     setIsDetailModalVisible(true);
   };
 
+  const handleCreateMedicalRecord = async (medicalRecordData) => {
+    try {
+      await medicalApi.createMedicalRecord(medicalRecordData);
+      setMedicalRecordModalVisible(false);
+      setHasMedicalRecord(true);
+      message.success('Tạo hồ sơ bệnh án thành công!');
+      return true;
+    } catch (e) {
+      message.error('Tạo hồ sơ bệnh án thất bại!');
+      return false;
+    }
+  };
+
   const columns: ColumnsType<DoctorAppointment> = [
     {
       title: 'Bệnh nhân',
@@ -267,20 +305,23 @@ const DoctorAppointmentSchedule: React.FC = () => {
     },
     {
       title: 'Loại',
-      dataIndex: 'appointmentType',
       key: 'type',
-      render: (type) => {
+      render: (_, record) => {
+        // Ưu tiên lấy serviceType nếu có, fallback về appointmentType
+        const type = record.serviceId?.serviceType || record.appointmentType;
         const typeColors = {
           consultation: 'blue',
           test: 'green',
+          treatment: 'orange',
           other: 'purple'
         };
         const typeTexts = {
           consultation: 'Tư vấn',
           test: 'Xét nghiệm',
+          treatment: 'Điều trị',
           other: 'Khác'
         };
-        return <Tag color={typeColors[type]}>{typeTexts[type]}</Tag>;
+        return <Tag color={typeColors[type] || 'default'}>{typeTexts[type] || 'Khác'}</Tag>;
       },
     },
     {
@@ -308,18 +349,30 @@ const DoctorAppointmentSchedule: React.FC = () => {
 
           {record.status === 'confirmed' && (
             <Popconfirm
-              title="Xác nhận hoàn thành cuộc hẹn?"
-              onConfirm={() => handleCompleteAppointment(record._id)}
+              title="Xác nhận bắt đầu khám?"
+              onConfirm={async () => {
+                try {
+                  await appointmentApi.updateAppointmentStatus(record._id, 'consulting');
+                  message.success('Đã chuyển trạng thái sang Đang khám');
+                  loadMyAppointments();
+                } catch (error) {
+                  message.error('Lỗi khi cập nhật trạng thái cuộc hẹn');
+                }
+              }}
               okText="Có"
               cancelText="Không"
             >
-              <Tooltip title="Hoàn thành cuộc hẹn">
-                <Button type="text" icon={<CheckCircleOutlined />} />
+              <Tooltip title="Bắt đầu khám">
+                <Button
+                  type="text"
+                  icon={<CheckCircleOutlined style={{ color: '#52c41a', fontSize: 20 }} />}
+                  style={{ backgroundColor: '#e6ffed', border: 'none', borderRadius: '50%' }}
+                />
               </Tooltip>
             </Popconfirm>
           )}
 
-          {(record.status === 'completed' && record.serviceId.serviceType === 'test') && (
+          {(record.status === 'completed' && record.serviceId.serviceType === 'test' && false) && (
             <Tooltip title="Nhập kết quả xét nghiệm">
               <Button
                 type="text"
@@ -460,11 +513,34 @@ const DoctorAppointmentSchedule: React.FC = () => {
         title="Chi tiết cuộc hẹn"
         open={isDetailModalVisible}
         onCancel={() => setIsDetailModalVisible(false)}
-        footer={[
-          <Button key="close" onClick={() => setIsDetailModalVisible(false)}>
-            Đóng
-          </Button>
-        ]}
+        footer={(() => {
+          if (!selectedAppointment) return [<Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>];
+          const isTest = selectedAppointment.serviceId?.serviceType === 'test';
+          // Nếu là xét nghiệm
+          if (isTest) {
+            return [
+              <Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>,
+              // TODO: kiểm tra đã có testResult chưa, nếu chưa thì cho nhập, nếu có thì cho xem
+              false && <Button key="test" type="primary" onClick={() => { setShowTestForm(true); setIsDetailModalVisible(false); }}>
+                Nhập kết quả xét nghiệm
+              </Button>
+            ];
+          }
+          // Nếu là tư vấn/điều trị
+          return [
+            <Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>,
+            hasMedicalRecord === false && (
+              <Button key="create" type="primary" onClick={() => setMedicalRecordModalVisible(true)}>
+                Tạo hồ sơ bệnh án
+              </Button>
+            ),
+            hasMedicalRecord === true && medicalRecordId && (
+              <Button key="view" onClick={() => setViewMedicalRecordModalVisible(true)}>
+                Xem hồ sơ bệnh án
+              </Button>
+            )
+          ].filter(Boolean);
+        })()}
         width={600}
       >
         {selectedAppointment && (
@@ -512,6 +588,52 @@ const DoctorAppointmentSchedule: React.FC = () => {
           </Descriptions>
         )}
       </Modal>
+
+      {/* Modal tạo hồ sơ bệnh án */}
+      <MedicalRecordModal
+        visible={medicalRecordModalVisible}
+        onCancel={() => setMedicalRecordModalVisible(false)}
+        appointment={selectedAppointment && {
+          key: selectedAppointment._id,
+          _id: selectedAppointment._id,
+          patientName: selectedAppointment.profileId?.fullName || '',
+          patientPhone: selectedAppointment.profileId?.phoneNumber || '',
+          serviceName: selectedAppointment.serviceId?.serviceName || '',
+          serviceType: selectedAppointment.serviceId?.serviceType || '',
+          doctorName: selectedAppointment.doctorId?.userId?.fullName || '',
+          doctorSpecialization: '',
+          appointmentDate: selectedAppointment.appointmentDate,
+          appointmentTime: selectedAppointment.appointmentTime,
+          appointmentType: selectedAppointment.appointmentType,
+          typeLocation: selectedAppointment.typeLocation,
+          address: selectedAppointment.address,
+          description: selectedAppointment.description,
+          notes: selectedAppointment.notes,
+          status: selectedAppointment.status as any,
+          totalAmount: undefined,
+          paymentStatus: undefined,
+          bookingType: undefined,
+          createdAt: selectedAppointment.createdAt,
+          updatedAt: selectedAppointment.updatedAt,
+          type: 'appointment',
+          originalData: selectedAppointment as any
+        }}
+        onSubmit={handleCreateMedicalRecord}
+      />
+      {/* Modal xem hồ sơ bệnh án */}
+      <ViewMedicalRecordModal
+        visible={viewMedicalRecordModalVisible}
+        appointment={selectedAppointment ? {
+          _id: selectedAppointment._id,
+          patientName: selectedAppointment.profileId?.fullName || '',
+          patientPhone: selectedAppointment.profileId?.phoneNumber || '',
+          serviceName: selectedAppointment.serviceId?.serviceName || '',
+          appointmentDate: selectedAppointment.appointmentDate,
+          appointmentTime: selectedAppointment.appointmentTime,
+          appointmentType: selectedAppointment.appointmentType,
+        } : null}
+        onCancel={() => setViewMedicalRecordModalVisible(false)}
+      />
     </div>
   );
 };

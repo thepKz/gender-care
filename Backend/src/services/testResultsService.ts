@@ -161,13 +161,19 @@ export class TestResultsService {
       throw new Error('Test result already exists for this appointment');
     }
 
+    // Trước khi tạo testResult mới:
+    const TestResultItems = (await import('../models/TestResultItems')).default;
+    const items = await TestResultItems.find({ appointmentId: data.appointmentId });
+    const testResultItemsId = items.map(item => item._id);
+
     // Tạo test result mới
     const testResult = new TestResults({
       appointmentId: data.appointmentId,
       profileId: data.profileId,
       doctorId: data.doctorId,
       conclusion: data.conclusion?.trim(),
-      recommendations: data.recommendations?.trim()
+      recommendations: data.recommendations?.trim(),
+      testResultItemsId
     });
 
     return await testResult.save();

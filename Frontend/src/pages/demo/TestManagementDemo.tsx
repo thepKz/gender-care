@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import { Card, Tabs, Typography, Space } from 'antd';
 import { ServiceTestCategoriesManager } from '../../components/feature/medical/ServiceTestCategoriesManager';
 import { TestResultsForm } from '../../components/feature/medical/TestResultsForm';
-import { ValueEvaluator } from '../../components/feature/medical/ValueEvaluator';
-import { ValueEvaluatorOptimized } from '../../components/feature/medical/ValueEvaluatorOptimized';
 import { ServiceSelector } from '../../components/ui/ServiceSelector';
 import { useServiceSelection } from '../../hooks/useServiceSelection';
 import ModernButton from '../../components/ui/ModernButton';
@@ -92,69 +90,6 @@ const TestManagementDemo: React.FC = () => {
                 onSuccess={() => console.log('Test results saved successfully')}
                 onCancel={() => console.log('Test results form cancelled')}
               />
-            </div>
-          </Card>
-        </TabPane>
-
-        <TabPane tab="Value Evaluator (Original)" key="3">
-          <Card>
-            <Title level={4}>ValueEvaluator Component (Original)</Title>
-            <Paragraph>
-              Component gốc với manual error handling và loading states.
-            </Paragraph>
-            
-            <div className="demo-content">
-              <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                <ValueEvaluator
-                  serviceId={demoServiceId}
-                  testCategoryId={demoTestCategoryId}
-                  testCategoryName="Glucose"
-                  normalRange="80-120"
-                  unit="mg/dL"
-                  onEvaluate={(result) => console.log('Evaluation result:', result)}
-                />
-                
-                <ValueEvaluator
-                  serviceId={demoServiceId}
-                  testCategoryId="demo-test-category-2"
-                  testCategoryName="Cholesterol"
-                  normalRange="< 200"
-                  unit="mg/dL"
-                  onEvaluate={(result) => console.log('Evaluation result:', result)}
-                />
-              </Space>
-            </div>
-          </Card>
-        </TabPane>
-
-        <TabPane tab="Value Evaluator (Optimized)" key="4">
-          <Card>
-            <Title level={4}>ValueEvaluatorOptimized Component</Title>
-            <Paragraph>
-              Component tối ưu sử dụng <code>useApiState</code> hook và <code>handleApiError</code> utility.
-              Ít code hơn, dễ maintain hơn.
-            </Paragraph>
-            
-            <div className="demo-content">
-              <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                <ValueEvaluatorOptimized
-                  serviceId={demoServiceId}
-                  testCategoryId={demoTestCategoryId}
-                  testCategoryName="Glucose (Optimized)"
-                  normalRange="80-120"
-                  unit="mg/dL"
-                  onEvaluate={(result) => console.log('Optimized evaluation result:', result)}
-                />
-                
-                <ValueEvaluatorOptimized
-                  serviceId={demoServiceId}
-                  testCategoryId="demo-test-category-2"
-                  testCategoryName="HDL Cholesterol (Optimized)"
-                  normalRange="> 40"
-                  unit="mg/dL"
-                  onEvaluate={(result) => console.log('Optimized evaluation result:', result)}
-                />
-              </Space>
             </div>
           </Card>
         </TabPane>

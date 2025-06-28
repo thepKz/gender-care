@@ -32,6 +32,13 @@ import MedicalRecordModal, { MedicalRecordFormData } from '../forms/MedicalRecor
 
 const { Text } = Typography;
 
+interface DetailData {
+  profileId?: string;
+  serviceId?: string;
+  packageId?: string;
+  doctorNotes?: string;
+}
+
 interface AppointmentDetailModalProps {
   visible: boolean;
   appointment: UnifiedAppointment | null;
@@ -82,7 +89,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       const hasMedicalRecord = medicalResponse.data && medicalResponse.data.length > 0;
       
       // Check test results
-      const testResponse = await appointmentApi.checkTestResultExists(appointmentId);
+      const testResponse = await appointmentApi.checkTestResultsByAppointment(appointmentId);
       const hasTestResults = testResponse.data && testResponse.data.exists;
       
       setRecordStatus({

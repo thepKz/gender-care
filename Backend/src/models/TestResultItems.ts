@@ -1,18 +1,17 @@
 import mongoose from 'mongoose';
 
 export interface ITestResultItems {
-  testResultId: mongoose.Types.ObjectId;
+  appointmentId: mongoose.Types.ObjectId;
   itemNameId: mongoose.Types.ObjectId;
   value: string;
   unit?: string;
-  currentRange?: string;
   flag?: "high" | "low" | "normal";
 }
 
 const TestResultItemsSchema = new mongoose.Schema<ITestResultItems>({
-  testResultId: { 
+  appointmentId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'TestResults', 
+    ref: 'Appointments', 
     required: true 
   },
   itemNameId: { 
@@ -27,9 +26,6 @@ const TestResultItemsSchema = new mongoose.Schema<ITestResultItems>({
   unit: { 
     type: String 
   },
-  currentRange: { 
-    type: String 
-  },
   flag: { 
     type: String, 
     enum: ["high", "low", "normal"]
@@ -37,7 +33,7 @@ const TestResultItemsSchema = new mongoose.Schema<ITestResultItems>({
 }, { timestamps: false }); // Không cần timestamps
 
 // Tạo index để tối ưu hóa truy vấn
-TestResultItemsSchema.index({ testResultId: 1 });
+TestResultItemsSchema.index({ appointmentId: 1 });
 TestResultItemsSchema.index({ itemNameId: 1 });
 
 const TestResultItems = mongoose.model<ITestResultItems>('TestResultItems', TestResultItemsSchema);

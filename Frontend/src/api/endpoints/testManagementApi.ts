@@ -65,40 +65,15 @@ export interface TestResultTemplate {
 }
 
 export interface TestResultItemData {
-  testResultId: string;
-  testCategoryId: string;
+  appointmentId: string;
+  testCategoryId?: string;
+  itemNameId?: string;
   value: string;
   unit?: string;
   isHigh?: boolean;
   isLow?: boolean;
   isNormal?: boolean;
-  notes?: string;
-}
-
-export interface AutoEvaluateData {
-  testResultId: string;
-  serviceId: string;
-  testItems: {
-    testCategoryId: string;
-    value: string;
-    unit?: string;
-    notes?: string;
-  }[];
-}
-
-export interface EvaluateValueData {
-  serviceId: string;
-  testCategoryId: string;
-  value: string;
-}
-
-export interface EvaluationResult {
-  isHigh: boolean;
-  isLow: boolean;
-  isNormal: boolean;
-  evaluation: string;
-  effectiveRange: string;
-  effectiveUnit: string;
+  flag?: string;
 }
 
 // ServiceTestCategories API
@@ -141,21 +116,56 @@ export const testResultItemsApi = {
     return response.data.data;
   },
 
-  // Create with auto evaluation
-  createWithAutoEvaluation: async (data: TestResultItemData): Promise<any> => {
-    const response = await axiosInstance.post(`/test-result-items/auto-evaluate`, data);
+  // Create testResultItem thủ công
+  create: async (data: TestResultItemData): Promise<any> => {
+    const response = await axiosInstance.post(`/test-result-items`, data);
     return response.data.data;
   },
 
-  // Bulk create with auto evaluation
-  bulkCreateWithAutoEvaluation: async (data: AutoEvaluateData): Promise<any> => {
-    const response = await axiosInstance.post(`/test-result-items/bulk-auto-evaluate`, data);
+  // Bulk create test result items
+  bulkCreate: async (data: {
+    appointmentId: string;
+    items: Array<{
+      itemNameId: string;
+      value: string;
+      unit?: string;
+      flag?: string;
+    }>;
+  }): Promise<any> => {
+    const response = await axiosInstance.post(`/test-result-items/bulk`, data);
     return response.data.data;
   },
 
-  // Evaluate value
-  evaluateValue: async (data: EvaluateValueData): Promise<EvaluationResult> => {
-    const response = await axiosInstance.post(`/test-result-items/evaluate-value`, data);
+  // Get test result items by appointment ID
+  getByAppointment: async (appointmentId: string): Promise<any[]> => {
+    const response = await axiosInstance.get(`/test-result-items/appointment/${appointmentId}`);
+    return response.data.data;
+  },
+
+  // Get test result item by ID
+  getById: async (id: string): Promise<any> => {
+    const response = await axiosInstance.get(`/test-result-items/${id}`);
+    return response.data.data;
+  },
+
+  // Update test result item
+  update: async (id: string, data: {
+    value?: string;
+    unit?: string;
+    flag?: string;
+  }): Promise<any> => {
+    const response = await axiosInstance.put(`/test-result-items/${id}`, data);
+    return response.data.data;
+  },
+
+  // Delete test result item
+  delete: async (id: string): Promise<void> => {
+    await axiosInstance.delete(`/test-result-items/${id}`);
+  },
+
+  // Get summary by appointment ID
+  getSummary: async (appointmentId: string): Promise<any> => {
+    const response = await axiosInstance.get(`/test-result-items/summary/${appointmentId}`);
     return response.data.data;
   }
 };
@@ -195,4 +205,4 @@ export const testCategoriesApi = {
     const response = await axiosInstance.put(`/test-categories/${id}`, data);
     return response.data;
   }
-}; 
+};
