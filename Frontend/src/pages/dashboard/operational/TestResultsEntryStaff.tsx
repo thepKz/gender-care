@@ -15,7 +15,7 @@ import {
   Select,
   Spin
 } from 'antd';
-import { SearchOutlined, ExperimentOutlined, PlusCircleOutlined, EditOutlined, FileTextOutlined, EyeOutlined } from '@ant-design/icons';
+import { SearchOutlined, ExperimentOutlined, PlusCircleOutlined, EditOutlined, FileTextOutlined, EyeOutlined, FileSearchOutlined, FileProtectOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { appointmentApi, testResultItemsApi, serviceTestCategoriesApi } from '../../../api/endpoints';
 import { useAuth } from '../../../hooks/useAuth';
@@ -70,6 +70,10 @@ const TestResultsEntryStaff: React.FC = () => {
   const [createTestResultItems, setCreateTestResultItems] = useState<any[]>([]);
   const [modalMode, setModalMode] = useState<'create' | 'view' | 'edit'>('create');
   const [testResultItemIdMap, setTestResultItemIdMap] = useState<{ [testCategoryId: string]: string }>({});
+  const [testResultModalVisible, setTestResultModalVisible] = useState(false);
+  const [testResultModalMode, setTestResultModalMode] = useState<'view' | 'edit'>('view');
+  const [testResultModalItems, setTestResultModalItems] = useState<any[]>([]);
+  const [testResultModalId, setTestResultModalId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.role === 'staff') {
@@ -336,6 +340,54 @@ const TestResultsEntryStaff: React.FC = () => {
               shape="circle"
             />
           </Tooltip>
+          <Tooltip title={"Xem chi tiết hồ sơ xét nghiệm"}>
+            <Button
+              icon={<FileSearchOutlined />}
+              disabled={!testResultStatus[record._id]}
+              onClick={async () => {
+                setTestResultModalMode('view');
+                setCreateTargetAppointment(record);
+                // Lấy testResultItems để hiển thị
+                const items = await testResultItemsApi.getByAppointment(record._id);
+                setTestResultModalItems(items || []);
+                setTestResultModalVisible(true);
+                // Lấy dữ liệu hồ sơ để fill form
+                const testResultsRes = await appointmentApi.getTestResultsByAppointment(record._id);
+                const testResult = Array.isArray(testResultsRes?.data) ? testResultsRes.data[0] : testResultsRes?.data || {};
+                setTestResultModalId(testResult?._id || null);
+                createForm.setFieldsValue({
+                  diagnosis: testResult?.diagnosis || '',
+                  recommendations: testResult?.recommendations || ''
+                });
+              }}
+              type="default"
+              shape="circle"
+            />
+          </Tooltip>
+          <Tooltip title={"Chỉnh sửa hồ sơ xét nghiệm"}>
+            <Button
+              icon={<FileProtectOutlined />}
+              disabled={!testResultStatus[record._id]}
+              onClick={async () => {
+                setTestResultModalMode('edit');
+                setCreateTargetAppointment(record);
+                // Lấy testResultItems để hiển thị
+                const items = await testResultItemsApi.getByAppointment(record._id);
+                setTestResultModalItems(items || []);
+                setTestResultModalVisible(true);
+                // Lấy dữ liệu hồ sơ để fill form
+                const testResultsRes = await appointmentApi.getTestResultsByAppointment(record._id);
+                const testResult = Array.isArray(testResultsRes?.data) ? testResultsRes.data[0] : testResultsRes?.data || {};
+                setTestResultModalId(testResult?._id || null);
+                createForm.setFieldsValue({
+                  diagnosis: testResult?.diagnosis || '',
+                  recommendations: testResult?.recommendations || ''
+                });
+              }}
+              type="default"
+              shape="circle"
+            />
+          </Tooltip>
         </Space>
       ),
     },
@@ -414,7 +466,7 @@ const TestResultsEntryStaff: React.FC = () => {
             const values = await editForm.validateFields();
             if (editTestResultId) {
               await appointmentApi.updateTestResult(editTestResultId, {
-                conclusion: values.conclusion,
+                diagnosis: values.diagnosis,
                 recommendations: values.recommendations
               });
               message.success('Cập nhật hồ sơ xét nghiệm thành công!');
@@ -432,8 +484,8 @@ const TestResultsEntryStaff: React.FC = () => {
         destroyOnClose
       >
         <Form form={editForm} layout="vertical">
-          <Form.Item name="conclusion" label="Kết luận" rules={[{ required: false }]}> 
-            <Input.TextArea rows={3} placeholder="Nhập kết luận" />
+          <Form.Item name="diagnosis" label="Chẩn đoán" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập chẩn đoán" />
           </Form.Item>
           <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: false }]}> 
             <Input.TextArea rows={3} placeholder="Nhập khuyến nghị" />
@@ -576,7 +628,7 @@ const TestResultsEntryStaff: React.FC = () => {
               appointmentId: createTargetAppointment._id,
               profileId: createTargetAppointment.profileId._id,
               doctorId: user?._id || '',
-              conclusion: values.conclusion,
+              diagnosis: values.diagnosis,
               recommendations: values.recommendations,
               testResultItemsId: []
             });
@@ -598,8 +650,8 @@ const TestResultsEntryStaff: React.FC = () => {
         destroyOnClose
       >
         <Form form={createForm} layout="vertical">
-          <Form.Item name="conclusion" label="Kết luận" rules={[{ required: false }]}> 
-            <Input.TextArea rows={3} placeholder="Nhập kết luận" />
+          <Form.Item name="diagnosis" label="Chẩn đoán" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập chẩn đoán" />
           </Form.Item>
           <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: false }]}> 
             <Input.TextArea rows={3} placeholder="Nhập khuyến nghị" />
@@ -609,6 +661,68 @@ const TestResultsEntryStaff: React.FC = () => {
               <div style={{ fontWeight: 600, marginBottom: 8 }}>Kết quả chỉ số đã nhập:</div>
               <div>
                 {createTestResultItems.map((item, idx) => (
+                  <div key={item._id} style={{ marginBottom: 10 }}>
+                    <div style={{ fontWeight: 500 }}>{item.itemNameId?.name}</div>
+                    <div style={{ marginLeft: 16, fontSize: 14 }}>
+                      <span>{item.itemNameId?.unit ? `(${item.itemNameId.unit})` : ''}</span>
+                      {item.itemNameId?.normalRange && (
+                        <span style={{ marginLeft: 8 }}>
+                          Bình thường: <span style={{ fontWeight: 400 }}>{item.itemNameId.normalRange}</span>
+                        </span>
+                      )}
+                      <span style={{ marginLeft: 16 }}>Giá trị: <b>{item.value}</b></span>
+                      <span style={{ marginLeft: 16 }}>Đánh giá: <b>{item.flag === 'normal' ? 'Bình thường' : item.flag === 'high' ? 'Cao' : item.flag === 'low' ? 'Thấp' : item.flag}</b></span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Form>
+      </Modal>
+      <Modal
+        open={testResultModalVisible}
+        onCancel={() => setTestResultModalVisible(false)}
+        onOk={async () => {
+          if (testResultModalMode === 'view') {
+            setTestResultModalVisible(false);
+            return;
+          }
+          try {
+            const values = await createForm.validateFields();
+            if (!testResultModalId) return;
+            await appointmentApi.updateTestResult(testResultModalId, {
+              diagnosis: values.diagnosis,
+              recommendations: values.recommendations
+            });
+            message.success('Cập nhật hồ sơ xét nghiệm thành công!');
+            setTestResultModalVisible(false);
+            loadAppointments();
+          } catch (e) {
+            message.error('Cập nhật hồ sơ xét nghiệm thất bại!');
+          }
+        }}
+        title={testResultModalMode === 'view' ? 'Chi tiết hồ sơ xét nghiệm' : 'Chỉnh sửa hồ sơ xét nghiệm'}
+        width={600}
+        destroyOnClose
+        footer={testResultModalMode === 'view' ? [
+          <Button key="ok" type="primary" onClick={() => setTestResultModalVisible(false)}>
+            OK
+          </Button>
+        ] : undefined}
+      >
+        <Form form={createForm} layout="vertical">
+          <Form.Item name="diagnosis" label="Chẩn đoán" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập chẩn đoán" readOnly={testResultModalMode === 'view'} />
+          </Form.Item>
+          <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập khuyến nghị" readOnly={testResultModalMode === 'view'} />
+          </Form.Item>
+          {testResultModalItems.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>Kết quả chỉ số đã nhập:</div>
+              <div>
+                {testResultModalItems.map((item, idx) => (
                   <div key={item._id} style={{ marginBottom: 10 }}>
                     <div style={{ fontWeight: 500 }}>{item.itemNameId?.name}</div>
                     <div style={{ marginLeft: 16, fontSize: 14 }}>

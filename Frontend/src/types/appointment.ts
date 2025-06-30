@@ -156,7 +156,7 @@ export interface TestResultData {
   appointmentId: string;
   profileId: string;
   doctorId: string;
-  conclusion?: string;
+  diagnosis?: string;
   recommendations?: string;
   createdAt: string;
   testResultItemsId: string[];

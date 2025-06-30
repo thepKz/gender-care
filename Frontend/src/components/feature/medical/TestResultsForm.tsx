@@ -380,8 +380,8 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
         </Card>
 
         <Form layout="vertical" style={{ marginTop: 24 }}>
-          <Form.Item label="Kết luận (conclusion)" name="conclusion">
-            <TextArea rows={2} placeholder="Nhập kết luận cho xét nghiệm (nếu có)" />
+          <Form.Item label="Chẩn đoán (diagnosis)" name="diagnosis">
+            <TextArea rows={2} placeholder="Nhập chẩn đoán cho xét nghiệm (nếu có)" />
           </Form.Item>
           <Form.Item label="Khuyến nghị (recommendations)" name="recommendations">
             <TextArea rows={2} placeholder="Nhập khuyến nghị cho bệnh nhân (nếu có)" />
