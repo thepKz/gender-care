@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, Select, Card, Typography, Space, message, Spin } from 'antd';
-import { CheckCircleOutlined, CreditCardOutlined, UserOutlined } from '@ant-design/icons';
-import { ServicePackage, UserProfile } from '../../../types';
+import { CreditCardOutlined } from '@ant-design/icons';
+import { Button, Card, message, Modal, Typography } from 'antd';
+import React, { useState } from 'react';
 import packagePurchaseApi from '../../../api/endpoints/packagePurchaseApi';
-import userProfileApiInstance from '../../../api/endpoints/userProfileApi';
+import { ServicePackage } from '../../../types';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 interface PurchasePackageModalProps {
   visible: boolean;
@@ -22,37 +21,7 @@ const PurchasePackageModal: React.FC<PurchasePackageModalProps> = ({
   onSuccess
 }) => {
   const [loading, setLoading] = useState(false);
-  const [loadingProfiles, setLoadingProfiles] = useState(false);
-  const [selectedProfileId, setSelectedProfileId] = useState<string>('');
-  const [userProfiles, setUserProfiles] = useState<UserProfile[]>([]);
-  const [profilesLoaded, setProfilesLoaded] = useState(false);
-
-  useEffect(() => {
-    // Chỉ gọi API nếu modal visible và chưa load profiles
-    if (visible && !profilesLoaded) {
-      fetchUserProfiles();
-    }
-  }, [visible, profilesLoaded]);
-
-  const fetchUserProfiles = async () => {
-    try {
-      setLoadingProfiles(true);
-      const profiles = await userProfileApiInstance.getMyProfiles();
-      setUserProfiles(profiles);
-      setProfilesLoaded(true); // Đánh dấu đã load xong
-      
-      // Auto select first profile if available
-      if (profiles.length > 0) {
-        setSelectedProfileId(profiles[0]._id);
-      }
-    } catch (error: any) {
-      console.error('Error fetching profiles:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Không thể tải danh sách hồ sơ';
-      message.error(errorMessage);
-    } finally {
-      setLoadingProfiles(false);
-    }
-  };
+  const navigate = useNavigate();
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -62,46 +31,133 @@ const PurchasePackageModal: React.FC<PurchasePackageModalProps> = ({
   };
 
   const handlePurchase = async () => {
-    if (!selectedProfileId) {
-      message.error('Vui lòng chọn hồ sơ bệnh án');
-      return;
-    }
+    if (!servicePackage?._id) return;
 
-    if (!servicePackage) {
-      message.error('Không tìm thấy thông tin gói dịch vụ');
-      return;
-    }
-
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      // Call API to purchase package - Mock thành công 100%
-      await packagePurchaseApi.purchasePackage({
-        profileId: selectedProfileId,
+      console.log('🔍 [Frontend] Calling purchasePackage API...');
+      const response = await packagePurchaseApi.purchasePackage({
         packageId: servicePackage._id,
-        promotionId: undefined // Có thể thêm promotion logic sau
+        // Không cần gửi profileId nữa
       });
 
-      message.success('Mua gói dịch vụ thành công!');
+      console.log('🔍 [Frontend] API Response:', response);
+      console.log('🔍 [Frontend] Response success:', response.success);
+      console.log('🔍 [Frontend] Response data:', response.data);
       
-      if (onSuccess) {
-        onSuccess();
+      if (response.success && response.data) {
+        // 🆕 Handle different response types based on backend structure
+        const data = response.data as any; // Type assertion for dynamic response structure
+        
+        console.log('🔍 [Frontend] Analyzing response structure:', {
+          hasPackagePurchase: !!data.packagePurchase,
+          hasPaymentUrl: !!data.paymentUrl,
+          hasBill: !!data.bill,
+          packageName: data.packageName,
+          pricing: data.pricing
+        });
+        
+        // Case 1: Paid package with payment URL (most common)
+        if (data.paymentUrl || (data.bill && data.bill.paymentUrl)) {
+          const paymentUrl = data.paymentUrl || data.bill.paymentUrl;
+          const packageName = data.packageName || servicePackage.name;
+          console.log('💳 [Frontend] Redirecting to payment URL:', paymentUrl);
+          message.success({ 
+            content: `Đang chuyển hướng đến trang thanh toán cho ${packageName}...`,
+            duration: 2,
+          });
+          
+          // Redirect to payment
+          window.location.href = paymentUrl;
+          return;
+        }
+        
+        // Case 2: Free package - already purchased and activated immediately
+        if (data.packagePurchase && data.packagePurchase.status === 'active') {
+          const packageName = data.packageName || servicePackage.name;
+          console.log('✅ [Frontend] Free package activated successfully');
+          message.success({
+            content: `🎉 ${packageName} đã được kích hoạt thành công!`,
+            duration: 3,
+          });
+          
+          // Close modal and navigate to purchased packages
+          onClose();
+          if (navigate) {
+            navigate('/purchased-packages');
+          }
+          return;
+        }
+        
+        // Case 3: Purchase created but waiting for payment (has bill but no package yet)
+        if (data.bill && !data.packagePurchase) {
+          const packageName = data.packageName || servicePackage.name;
+          console.log('⏳ [Frontend] Purchase pending - payment required');
+          message.info({
+            content: `Đơn hàng ${packageName} đã được tạo. Cần thanh toán để kích hoạt.`,
+            duration: 3,
+          });
+          
+          // Close modal and navigate to purchased packages or billing
+          onClose();
+          return;
+        }
+        
+        // Case 4: Unexpected response structure
+        console.error('❌ [Frontend] Unexpected response structure:', {
+          hasPackagePurchase: !!data.packagePurchase,
+          hasPaymentUrl: !!data.paymentUrl,
+          hasBill: !!data.bill,
+          dataKeys: Object.keys(data)
+        });
+        
+        message.error({
+          content: 'Cấu trúc response không như mong đợi. Vui lòng thử lại.',
+          duration: 3,
+        });
       }
-      
-      onClose();
     } catch (error: any) {
-      console.error('Error purchasing package:', error);
-      const errorMessage = error.response?.data?.message || 'Có lỗi xảy ra khi mua gói dịch vụ';
-      message.error(errorMessage);
+      console.error('❌ [Frontend] Error purchasing package:', error);
+      console.error('❌ [Frontend] Error response:', error.response);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi mua gói dịch vụ';
+      console.error('❌ [Frontend] Error message:', errorMessage);
+      
+      // 🆕 Better error handling with specific messages
+      if (error.response?.status === 400) {
+        message.error({
+          content: `❌ ${errorMessage}`,
+          duration: 4,
+        });
+      } else if (error.response?.status === 409) {
+        // Conflict - likely duplicate purchase
+        Modal.info({
+          title: '📋 Thông báo',
+          content: 'Bạn đã mua gói này rồi. Vui lòng kiểm tra danh sách gói đã mua.',
+          onOk: () => {
+            onClose();
+            if (navigate) {
+              navigate('/purchased-packages');
+            }
+          },
+        });
+      } else if (error.response?.status === 500) {
+        message.error({
+          content: `❌ Lỗi hệ thống: ${errorMessage}. Vui lòng thử lại sau.`,
+          duration: 5,
+        });
+      } else {
+        message.error({
+          content: `❌ ${errorMessage}`,
+          duration: 4,
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancel = () => {
-    setSelectedProfileId('');
-    // Reset cache để lần sau sẽ load fresh data nếu user có thay đổi profiles
-    setProfilesLoaded(false);
     onClose();
   };
 
@@ -207,65 +263,6 @@ const PurchasePackageModal: React.FC<PurchasePackageModalProps> = ({
           </Card>
         )}
 
-        {/* Profile Selection */}
-        <div>
-          <div className="mb-3">
-            <div className="flex items-center justify-between">
-              <Title level={5} className="mb-1 flex items-center gap-2">
-                <UserOutlined />
-                Chọn hồ sơ bệnh án
-              </Title>
-            </div>
-            <Text type="secondary">Gói dịch vụ sẽ được gán cho hồ sơ này</Text>
-          </div>
-          
-          {loadingProfiles ? (
-            <div className="text-center py-4">
-              <Spin />
-              <div className="mt-2 text-gray-500">Đang tải danh sách hồ sơ...</div>
-            </div>
-          ) : userProfiles.length === 0 ? (
-            <div className="text-center py-4">
-              <Text type="secondary">
-                Bạn chưa có hồ sơ bệnh án nào. Vui lòng tạo hồ sơ trước khi mua gói.
-              </Text>
-            </div>
-          ) : (
-            <Select
-              placeholder="Chọn hồ sơ bệnh án"
-              value={selectedProfileId}
-              onChange={setSelectedProfileId}
-              className="w-full"
-              size="large"
-            >
-              {userProfiles.map(profile => (
-                <Option key={profile._id} value={profile._id}>
-                  <div className="flex items-center justify-between">
-                    <span>{profile.fullName}</span>
-                    <span className="text-gray-500 text-sm">
-                      {profile.gender === 'male' ? 'Nam' : profile.gender === 'female' ? 'Nữ' : 'Khác'} • 
-                      {profile.phone}
-                    </span>
-                  </div>
-                </Option>
-              ))}
-            </Select>
-          )}
-        </div>
-
-        {/* Mock Payment Info */}
-        <Card className="bg-yellow-50 border border-yellow-200">
-          <div className="flex items-start gap-3">
-            <CheckCircleOutlined className="text-green-500 text-xl mt-1" />
-            <div>
-              <Title level={5} className="mb-1 text-gray-800">Thanh toán giả lập</Title>
-              <Text className="text-gray-600">
-                Đây là chế độ demo - thanh toán sẽ thành công 100% để bạn có thể test các chức năng khác.
-              </Text>
-            </div>
-          </div>
-        </Card>
-
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4 border-t">
           <Button 
@@ -280,11 +277,10 @@ const PurchasePackageModal: React.FC<PurchasePackageModalProps> = ({
             size="large"
             loading={loading}
             onClick={handlePurchase}
-            disabled={!selectedProfileId || userProfiles.length === 0}
             className="flex-1 bg-blue-600 hover:bg-blue-700"
           >
             <CreditCardOutlined />
-            Thanh toán - {formatPrice(servicePackage.price)}
+            Thanh toán với PayOS - {formatPrice(servicePackage.price)}
           </Button>
         </div>
       </div>

@@ -7,6 +7,8 @@ import {
     sendNewAccountEmail
 } from "../services/emails";
 import { uploadToCloudinary } from '../services/uploadService';
+import systemLogService from "../services/systemLogService";
+import { LogAction, LogLevel } from "../models/SystemLogs";
 import { generateRandomPassword } from "../utils";
 import { AuthRequest } from "../types";
 import mongoose from 'mongoose';
@@ -250,6 +252,21 @@ export const toggleUserStatus = async (req: Request, res: Response): Promise<voi
     const action = newStatus ? 'activated' : 'deactivated';
     const actionBy = currentUserRole === 'manager' ? 'MANAGER' : 'ADMIN';
     console.log(`[${actionBy} ACTION] User ${user.email} ${action}. Reason: ${reason || 'No reason provided'}`);
+    
+    // System log entry
+    await systemLogService.logFromRequest(req as any, LogAction.USER_UPDATE, 
+      `User ${user.fullName} (${user.email}) ${action} by ${actionBy}. Reason: ${reason || 'No reason provided'}`, {
+        level: actionBy === 'MANAGER' ? LogLevel.MANAGER : LogLevel.ADMIN,
+        targetId: user._id.toString(),
+        targetType: 'user',
+        metadata: {
+          previousStatus: !newStatus,
+          newStatus: newStatus,
+          reason: reason || 'No reason provided',
+          actionBy: actionBy
+        }
+      }
+    );
     
     res.status(200).json({
       success: true,
@@ -500,6 +517,21 @@ export const createUser = async (req: Request, res: Response) => {
     // Log the creation
     const actionBy = currentUserRole === 'manager' ? 'MANAGER' : 'ADMIN';
     console.log(`[${actionBy} ACTION] Created new user: ${user.email} with role: ${user.role}`);
+    
+    // System log entry
+    await systemLogService.logFromRequest(req as any, LogAction.USER_CREATE, 
+      `New user created: ${user.fullName} (${user.email}) with role ${user.role} by ${actionBy}`, {
+        level: actionBy === 'MANAGER' ? LogLevel.MANAGER : LogLevel.ADMIN,
+        targetId: user._id.toString(),
+        targetType: 'user',
+        metadata: {
+          userRole: user.role,
+          createdBy: actionBy,
+          hasPhone: !!phone,
+          hasAvatar: !!avatar
+        }
+      }
+    );
     
     return res.status(201).json({ 
       success: true,

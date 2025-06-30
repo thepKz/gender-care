@@ -7,30 +7,30 @@ import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import {
-  appointmentRoutes,
-  appointmentTestsRoutes,
-  authRoutes,
-  dashboardRoutes,
-  doctorQARoutes,
-  doctorRoutes,
-  googleAuthRoutes,
-  loginHistoryRoutes,
-  medicalRecordsRoutes,
-  medicationRemindersRoutes,
-  medicinesRoutes,
-  meetingRoutes,
-  menstrualCycleRoutes,
-  notificationDaysRoutes,
-  packagePurchaseRoutes,
-  paymentRoutes,
-  servicePackageRoutes,
-  serviceRoutes,
-  systemLogRoutes,
-  testCategoriesRoutes,
-  testResultItemsRoutes,
-  testResultsRoutes,
-  userProfileRoutes,
-  userRoutes
+    appointmentRoutes,
+    authRoutes,
+    dashboardRoutes,
+    doctorQARoutes,
+    doctorRoutes,
+    googleAuthRoutes,
+    loginHistoryRoutes,
+    medicalRecordsRoutes,
+    medicationRemindersRoutes,
+    medicinesRoutes,
+    meetingRoutes,
+    menstrualCycleRoutes,
+    notificationDaysRoutes,
+    packagePurchaseRoutes,
+    paymentRoutes,
+    servicePackageRoutes,
+    serviceRoutes,
+    serviceTestCategoriesRoutes,
+    systemLogRoutes,
+    testCategoriesRoutes,
+    testResultItemsRoutes,
+    testResultsRoutes,
+    userProfileRoutes,
+    userRoutes
 } from "./routes";
 import consultationRoutes from './routes/consultationRoutes';
 
@@ -107,7 +107,10 @@ const allowedOrigins = [
   'https://gender-healthcare-service-management.onrender.com',
   'http://localhost:5000',
   'https://team05.ksfu.cloud',
-
+  // ✅ ADD: PayOS domains for payment processing
+  'https://pay.payos.vn',
+  'https://payos.vn',
+  'https://api.payos.vn'
 ];
 
 // Middleware
@@ -129,7 +132,14 @@ app.use(cors({
   },
   credentials: true, // Quan trọng: cho phép gửi cookie
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    // ✅ ADD: PayOS specific headers
+    'X-PayOS-Signature',
+    'X-PayOS-Webhook-Id'
+  ],
   optionsSuccessStatus: 200 // Để support legacy browsers
 }));
 
@@ -143,6 +153,20 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  // ✅ ADD: PayOS specific headers and debugging
+  if (req.headers.origin?.includes('payos.vn')) {
+    console.log('🔍 PayOS Request detected:', {
+      origin: req.headers.origin,
+      method: req.method,
+      path: req.path,
+      userAgent: req.headers['user-agent']
+    });
+    
+    // Allow PayOS to access response
+    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
 
   next();
 });
@@ -161,6 +185,9 @@ try {
 // Kết nối đến cơ sở dữ liệu MongoDB
 const connectDB = async () => {
   try {
+    // Set global mongoose options
+    mongoose.set('strictPopulate', false);
+    
     const conn = await mongoose.connect(process.env.MONGO_URI as string);
     console.log(`MongoDB đã kết nối: ${conn.connection.host}`);
 
@@ -180,6 +207,24 @@ const connectDB = async () => {
 
 connectDB();
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime()
+  });
+});
+
+// Test endpoint mà không cần auth
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'API is working',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Thiết lập routes
 const apiRouter = express.Router();
 app.use('/api', apiRouter);
@@ -191,6 +236,7 @@ apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/doctors', doctorRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
+apiRouter.use('/service-test-categories', serviceTestCategoriesRoutes);
 apiRouter.use('/package-purchases', packagePurchaseRoutes);
 
 // ✅ NEW: Google Authentication routes
@@ -198,7 +244,6 @@ apiRouter.use('/google-auth', googleAuthRoutes);
 
 // Thêm Test Management routes
 apiRouter.use('/test-categories', testCategoriesRoutes);
-apiRouter.use('/appointment-tests', appointmentTestsRoutes);
 apiRouter.use('/test-results', testResultsRoutes);
 apiRouter.use('/test-result-items', testResultItemsRoutes);
 
@@ -232,10 +277,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  
+
   // Start auto status transition service
   startAutoTransitionService();
-  
+
   console.log('Server started successfully with all services');
 });
 

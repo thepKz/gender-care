@@ -41,11 +41,11 @@ class TestResultItemsController {
     }
   };
 
-  // GET /api/test-result-items/test-result/:testResultId - Lấy items theo test result ID
-  getTestResultItemsByTestResultId = async (req: Request, res: Response): Promise<void> => {
+  // GET /api/test-result-items/appointment/:appointmentId - Lấy items theo appointment ID
+  getTestResultItemsByAppointmentId = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { testResultId } = req.params;
-      const testResultItems = await this.testResultItemsService.getTestResultItemsByTestResultId(testResultId);
+      const { appointmentId } = req.params;
+      const testResultItems = await this.testResultItemsService.getTestResultItemsByAppointmentId(appointmentId);
 
       res.status(200).json({
         success: true,
@@ -98,23 +98,22 @@ class TestResultItemsController {
   // POST /api/test-result-items - Tạo test result item mới
   createTestResultItem = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { testResultId, itemNameId, value, unit, currentRange, flag } = req.body;
+      const { appointmentId, itemNameId, value, unit, flag } = req.body;
       const userRole = req.user?.role || '';
 
-      if (!testResultId || !itemNameId || !value) {
+      if (!appointmentId || !itemNameId || !value) {
         res.status(400).json({
           success: false,
-          message: 'Test result ID, item name ID, and value are required'
+          message: 'Appointment ID, item name ID, and value are required'
         });
         return;
       }
 
       const data = {
-        testResultId,
+        appointmentId,
         itemNameId,
         value,
         unit,
-        currentRange,
         flag
       };
 
@@ -145,18 +144,18 @@ class TestResultItemsController {
   // POST /api/test-result-items/bulk - Tạo nhiều test result items cùng lúc
   createMultipleTestResultItems = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { testResultId, items } = req.body;
+      const { appointmentId, items } = req.body;
       const userRole = req.user?.role || '';
 
-      if (!testResultId || !items || !Array.isArray(items) || items.length === 0) {
+      if (!appointmentId || !items || !Array.isArray(items) || items.length === 0) {
         res.status(400).json({
           success: false,
-          message: 'Test result ID and items array are required'
+          message: 'Appointment ID and items array are required'
         });
         return;
       }
 
-      const data = { testResultId, items };
+      const data = { appointmentId, items };
       const createdItems = await this.testResultItemsService.createMultipleTestResultItems(data, userRole);
 
       res.status(201).json({
@@ -185,13 +184,12 @@ class TestResultItemsController {
   updateTestResultItem = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const { value, unit, currentRange, flag } = req.body;
+      const { value, unit, flag } = req.body;
       const userRole = req.user?.role || '';
 
       const updateData = {
         value,
         unit,
-        currentRange,
         flag
       };
 
@@ -252,11 +250,11 @@ class TestResultItemsController {
     }
   };
 
-  // GET /api/test-result-items/summary/:testResultId - Lấy summary của items theo test result
+  // GET /api/test-result-items/summary/:appointmentId - Lấy summary của items theo appointment
   getTestResultItemsSummary = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { testResultId } = req.params;
-      const summary = await this.testResultItemsService.getTestResultItemsSummary(testResultId);
+      const { appointmentId } = req.params;
+      const summary = await this.testResultItemsService.getTestResultItemsSummary(appointmentId);
 
       res.status(200).json({
         success: true,
@@ -273,6 +271,42 @@ class TestResultItemsController {
         res.status(500).json({
           success: false,
           message: 'Failed to retrieve test result items summary',
+          error: error.message
+        });
+      }
+    }
+  };
+
+  // GET /api/test-result-items/template/:serviceId - Lấy template cho việc nhập kết quả xét nghiệm
+  getTestResultTemplateForService = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { serviceId } = req.params;
+
+      const template = await this.testResultItemsService.getTestResultTemplateForService(serviceId);
+
+      if (!template) {
+        res.status(404).json({
+          success: false,
+          message: 'Service not found or has no test categories'
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Test result template retrieved successfully',
+        data: template
+      });
+    } catch (error: any) {
+      if (error.message.includes('Invalid')) {
+        res.status(400).json({
+          success: false,
+          message: error.message
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: 'Failed to retrieve test result template',
           error: error.message
         });
       }

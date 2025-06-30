@@ -37,9 +37,13 @@ import ServiceManagement from '../../../pages/dashboard/management/ServiceManage
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import SystemLogManagement from '../../../pages/dashboard/management/SystemLogManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
+
 import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedulePage';
 import MedicineManagement from '../../../pages/dashboard/management/MedicineManagement';
 import TestManagement from '../../../pages/dashboard/management/TestManagement';
+
+import TestCategoriesManagement from '../../../pages/dashboard/management/TestCategoriesManagement';
+
 import { 
   type DashboardStat,
   type ActivityItem,
@@ -149,14 +153,17 @@ const getMenuItems = (role: 'admin' | 'manager') => {
       label: 'Quản lý gói dịch vụ',
     },
     {
+
       key: 'medicines',
       icon: <MedicineBoxOutlined />,
       label: 'Quản lý thuốc',
     },
     {
+
       key: 'test-categories',
-      icon: <ExperimentOutlined />,
-      label: 'Quản lý loại xét nghiệm',
+      icon: <FileTextOutlined />,
+      label: 'Quản lý danh mục xét nghiệm',
+
     },
     {
       key: 'login-history',
@@ -569,49 +576,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
               </Card>
             </Col>
 
-            {/* System Status - Compact */}
-            <Col xs={24}>
-              <Card
-                title="Tình trạng hệ thống"
-                size="small"
-                style={{
-                  borderRadius: '12px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                }}
-              >
-                <Row gutter={[8, 16]}>
-                  <Col span={12}>
-                    <Statistic
-                      title="Bác sĩ hoạt động"
-                      value={stats.find(s => s.title === 'Tổng bác sĩ')?.value || 0}
-                      prefix={<UserOutlined style={{ color: '#52c41a' }} />}
-                      valueStyle={{ fontSize: '18px', color: '#52c41a' }}
-                    />
-                  </Col>
-                  <Col span={12}>
-                    <Statistic
-                      title="Dịch vụ"
-                      value={stats.find(s => s.title === 'Tổng dịch vụ')?.value || 0}
-                      prefix={<MedicineBoxOutlined style={{ color: '#1890ff' }} />}
-                      valueStyle={{ fontSize: '18px', color: '#1890ff' }}
-                    />
-                  </Col>
-                  <Col span={24}>
-                    <div style={{ 
-                      padding: '12px', 
-                      background: '#f6ffed', 
-                      borderRadius: '8px',
-                      border: '1px solid #b7eb8f',
-                      textAlign: 'center'
-                    }}>
-                      <Text style={{ color: '#52c41a', fontWeight: 500 }}>
-                        Hệ thống hoạt động bình thường
-                      </Text>
-                    </div>
-                  </Col>
-                </Row>
-              </Card>
-            </Col>
+    
           </Row>
         </Col>
       </Row>
@@ -690,10 +655,13 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         return <ServiceManagement />;
       case 'service-packages':
         return <ServicePackageManagement />;
+
       case 'medicines':
         return <MedicineManagement />;
+
       case 'test-categories':
-        return <TestManagement />;
+        return <TestCategoriesManagement />;
+
       case 'login-history':
         return <LoginHistoryManagement />;
       case 'system-logs':

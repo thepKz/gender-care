@@ -29,7 +29,6 @@ import Medicines, { IMedicines as IMedicinesData } from './Medicines';
 
 // Testing & Results
 import TestResults from './TestResults';
-import AppointmentTests from './AppointmentTests';
 
 // Doctor QA & Meeting
 import DoctorQA from './DoctorQA';
@@ -48,6 +47,11 @@ import Bills from './Bills';
 import Payments from './Payments';
 import PackagePurchases from './PackagePurchases';
 import PaymentTracking from './PaymentTracking';
+
+// Test Management  
+import TestCategories from './TestCategories';
+import TestResultItems from './TestResultItems';
+import ServiceTestCategories from './ServiceTestCategories';
 
 // System
 import SystemConfigs from './SystemConfigs';
@@ -83,11 +87,9 @@ export {
   // Medical Records & Medicines
   MedicalRecords,
   Medicines,
-  
+
   // Testing & Results
   TestResults,
-  AppointmentTests,
-  
   // Doctor QA & Meeting
   DoctorQA,
   Meeting,
@@ -105,6 +107,12 @@ export {
   Payments,
   PackagePurchases,
   PaymentTracking,
+
+
+  // Test Management
+  TestCategories,
+  TestResultItems,
+  ServiceTestCategories,
 
   // System
   SystemConfigs,

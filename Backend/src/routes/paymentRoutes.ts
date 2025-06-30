@@ -17,8 +17,11 @@ router.get('/consultations/:doctorQAId/status', authMiddleware, consultationPaym
 router.post('/consultations/:doctorQAId/cancel', authMiddleware, consultationPaymentController.cancelPayment);
 
 // ✅ FAST CONFIRM ROUTES - For PayOS return URL processing
-router.post('/appointments/fast-confirm', authMiddleware, paymentController.fastConfirmPayment);
-router.post('/consultations/fast-confirm', authMiddleware, paymentController.fastConfirmConsultationPayment);
+router.post('/appointments/:appointmentId/fast-confirm', authMiddleware, paymentController.fastConfirmPayment);
+router.post('/consultations/:qaId/fast-confirm', authMiddleware, paymentController.fastConfirmConsultationPayment);
+
+// ✅ NEW: Force check payment and assign doctor route
+router.post('/appointments/:appointmentId/force-check', authMiddleware, paymentController.forceCheckPaymentAndAssignDoctor);
 
 // ✅ SHARED WEBHOOK ROUTE - No auth required (PayOS calls this)
 router.post('/webhook', paymentController.payosWebhook);

@@ -11,14 +11,14 @@ Ví dụ về workflow:
 User chọn ngày.  
 Tiếp theo User sẽ cung cấp thông tin vào các trường sau:
 
-\- Nhập quan sát chất nhờn: ( Có máu, lấm tấm máu, đục, đục nhiều sợi, trong nhiều sợi, trong và âm hộ căng, dầy, ít chất tiết )
+\- Nhập quan sát chất nhờn: ( Có máu, lấm tấm máu, đục, đục nhiều sợi, trong nhiều sợi, trong và ÂH căng, dầy, ít chất tiết )
 
 \- Nhập cảm giác: ( Ướt, dính, ẩm, khô, trơn )
 
 Đề phòng việc người dùng phải nhập quá nhiều hoặc nhập sai.
 
 Điểm cần lưu ý triển khai:  
-Nếu người dùng chọn nhập chất nhờn là “Trong và âm hộ căng “ thì chắc chắn đó là ngày đỉnh X ( khả năng thụ thai cao nhất ) thì ngay lập tức bổ sung vào 3 ngày tiếp theo sau ngày đỉnh X là 1, 2, 3 ( màu vàng ) vì trong 3 ngày khả năng thụ thai giảm từ từ. Và ngày sau số 3 thì chắc chắn phải là khô.  
+Nếu người dùng chọn nhập chất nhờn là “Trong và ÂH căng “ thì chắc chắn đó là ngày đỉnh X ( khả năng thụ thai cao nhất ) thì ngay lập tức bổ sung vào 3 ngày tiếp theo sau ngày đỉnh X là 1, 2, 3 ( màu vàng ) vì trong 3 ngày khả năng thụ thai giảm từ từ. Và ngày sau số 3 thì chắc chắn phải là khô.  
 \- Ngày có đánh dấu là 1 thì là khả năng có thai là 75%, 2 là khả năng là 50%, 3 là khả năng là 20%.
 
 \- Tiếp theo so sánh với 7 ngày trước ngày đỉnh X nếu quan sát chất nhờn là “đục” và cảm giác là “dính” hoặc “ ẩm” thì 2 ngày trước ngày X thì cũng là khả năng cao có em bé, tuần tự là 50% và 70%.  
@@ -57,7 +57,7 @@ Nếu đã “Có máu” và “Lấm tấm máu” thì chỉ đi được “
 Nếu đã “ Đục nhiều sợi” và “ Trong nhiều sợi “ thì chỉ có thể đi cùng với “ướt” hoặc “trơn”.
 
 Nếu đã “ Đục” thì chỉ có thể đi với “Dính” hoặc “ẩm”.  
-Nếu đã là “ trong và âm hộ căng “ thì chỉ được phép đi cùng với “ trơn”.
+Nếu đã là “ trong và ÂH căng “ thì chỉ được phép đi cùng với “ trơn”.
 
 Nếu “ ít chất tiết “ thì chỉ được phép ẩm hoặc ướt.
 
@@ -130,7 +130,7 @@ Table CycleDays {
 
 &nbsp; date DateTime
 
-&nbsp; mucusObservation String // ví dụ: "có máu", "trong và âm hộ căng"
+&nbsp; mucusObservation String // ví dụ: "có máu", "trong và ÂH căng"
 
 &nbsp; feeling String // ví dụ: "trơn", "khô"
 

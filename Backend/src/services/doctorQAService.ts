@@ -1,5 +1,3 @@
-import DoctorQA from '../models/DoctorQA';
-import Doctor from '../models/Doctor';
 import mongoose from 'mongoose';
 import { getDoctorStatistics } from './doctorService';
 import { generateMeetingPassword } from '../utils/passwordGenerator'; // ➕ IMPORT password generator
@@ -356,7 +354,7 @@ const bookSlotWithTimeout = async (doctorId: string, slotId: any, qaId: string) 
       } catch (error) {
         console.error('❌ [ERROR] Timeout handler failed:', error);
       }
-    }, 15 * 60 * 1000); // 15 phút
+    }, 10 * 60 * 1000); // 10 phút
 
   } catch (error) {
     console.error('❌ [ERROR] Booking slot failed:', error);

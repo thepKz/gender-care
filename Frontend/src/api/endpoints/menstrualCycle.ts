@@ -32,6 +32,169 @@ interface UpdateReminderSettings {
   reminderTime?: string;
 }
 
+interface ReminderNotifyResponse {
+  message: string;
+  notifiedUsers?: number;
+}
+
+interface ReminderStatsResponse {
+  totalReminders: number;
+  activeReminders: number;
+  lastNotification?: string;
+}
+
+interface TestEmailResponse {
+  success: boolean;
+  message: string;
+}
+
+interface AutoFixResponse {
+  success: boolean;
+  fixes: Array<{
+    action: string;
+    message: string;
+  }>;
+  message: string;
+}
+
+interface CycleAnalysisResponse {
+  isComplete: boolean;
+  analysis: string;
+  phase: string;
+  peakDay?: {
+    date: string;
+    cycleDayNumber: number;
+  };
+  pattern: {
+    type: string;
+    name: string;
+    description: string;
+    confidence: string;
+  };
+  nextPeakPrediction?: {
+    prediction: {
+      date: string;
+      cycleDayNumber: number;
+      range: {
+        earliest: string;
+        latest: string;
+      };
+    };
+    confidence: string;
+    message: string;
+  };
+  recommendations: string[];
+}
+
+interface AutoCompleteResponse {
+  success: boolean;
+  message: string;
+  completedCycle: MenstrualCycle;
+}
+
+interface CycleGuidanceResponse {
+  currentPhase: string;
+  instructions: string[];
+  tips: string[];
+  warnings?: string[];
+}
+
+interface DetailedCycleReport {
+  cycle: MenstrualCycle;
+  chartData: Array<{
+    date: string;
+    dayNumber: number;
+    mucusObservation?: string;
+    feeling?: string;
+    symbol: string;
+    fertilityProbability: number;
+    isPeakDay: boolean;
+  }>;
+  resultCalculation?: {
+    peakDayX: number;
+    dayXPlus1: number;
+    dayY?: number;
+    result?: number;
+    status: 'normal' | 'short' | 'long' | 'incomplete';
+    message: string;
+  };
+  statistics: {
+    totalDays: number;
+    peakDay?: number;
+    fertileDays: number;
+    dryDays: number;
+  };
+}
+
+interface ThreeCycleComparisonReport {
+  cycles: Array<{
+    cycleNumber: number;
+    startDate: string;
+    endDate?: string;
+    peakDay?: number;
+    result?: number;
+    status: string;
+    length?: number;
+  }>;
+  pattern: {
+    averageLength: number;
+    averageResult: number;
+    consistency: 'stable' | 'variable' | 'irregular';
+    trend: 'normal' | 'getting_shorter' | 'getting_longer';
+  };
+  healthAssessment: {
+    overall: 'healthy' | 'needs_attention' | 'consult_doctor';
+    message: string;
+    recommendations: string[];
+  };
+}
+
+interface PredictiveAnalysisReport {
+  nextCycle: {
+    predictedStartDate: string;
+    predictedPeakDay: number;
+    confidenceLevel: 'high' | 'medium' | 'low';
+    range: {
+      earliest: string;
+      latest: string;
+    };
+  };
+  basedOn: {
+    cycles: number;
+    averageLength: number;
+    averageResultValue: number;
+    patternRecognition: string;
+  };
+  warnings?: string[];
+}
+
+interface HealthAssessmentReport {
+  overall: {
+    status: 'healthy' | 'needs_monitoring' | 'consult_doctor';
+    score: number; // 0-100
+    summary: string;
+  };
+  factors: {
+    cycleRegularity: {
+      score: number;
+      status: string;
+      notes: string;
+    };
+    peakDayConsistency: {
+      score: number;
+      status: string;
+      notes: string;
+    };
+    lengthVariation: {
+      score: number;
+      status: string;
+      notes: string;
+    };
+  };
+  recommendations: string[];
+  redFlags?: string[];
+}
+
 const menstrualCycleApi = {
   // ==================== MENSTRUAL CYCLES ====================
 
@@ -122,13 +285,40 @@ const menstrualCycleApi = {
   },
 
   // Trigger gửi nhắc nhở thủ công (cho admin)
-  triggerReminders: (): Promise<ApiResponse<any>> => {
+  triggerReminders: (): Promise<ApiResponse<ReminderNotifyResponse>> => {
     return axiosInstance.post('/reminders/notify');
   },
 
   // Lấy thống kê reminder (Admin only)
-  getReminderStats: (): Promise<ApiResponse<any>> => {
+  getReminderStats: (): Promise<ApiResponse<ReminderStatsResponse>> => {
     return axiosInstance.get('/reminders/stats');
+  },
+
+  // Test gửi email nhắc nhở
+  testEmailReminder: (): Promise<ApiResponse<TestEmailResponse>> => {
+    return axiosInstance.post('/reminders/test-email');
+  },
+
+  // ==================== DATA RECOVERY & VALIDATION ====================
+
+  // Tự động sửa chữa dữ liệu chu kỳ bị lỗi
+  autoFixCycleData: (): Promise<ApiResponse<AutoFixResponse>> => {
+    return axiosInstance.post('/menstrual-cycles/auto-fix');
+  },
+
+  // Validation nâng cao cho dữ liệu ngày
+  validateAdvancedCycleDay: (data: {
+    cycleId: string;
+    date: string;
+    mucusObservation?: string;
+    feeling?: string;
+  }): Promise<ApiResponse<{
+    isValid: boolean;
+    warnings: string[];
+    errors: string[];
+    suggestions: string[];
+  }>> => {
+    return axiosInstance.post('/menstrual-cycles/validate-advanced', data);
   },
 
   // ==================== LOGIC & ANALYSIS ====================
@@ -166,11 +356,11 @@ const menstrualCycleApi = {
   // Constants cho validation rules
   MUCUS_FEELING_RULES: {
     'có máu': ['ướt'],
-    'lấm tấm máu': ['ướt'],
-    'đục': ['dính', 'ẩm'],
+    'lấm tấm máu': ['ướt', 'khô'],
+    'đục': ['dính', 'ẩm', 'khô'],
     'đục nhiều sợi': ['ướt', 'trơn'],
     'trong nhiều sợi': ['ướt', 'trơn'],
-    'trong và âm hộ căng': ['trơn'],
+    'trong và ÂH căng': ['trơn'],
     'ít chất tiết': ['ẩm', 'ướt']
   } as const,
 
@@ -181,7 +371,7 @@ const menstrualCycleApi = {
     { value: 'đục', label: 'Đục' },
     { value: 'đục nhiều sợi', label: 'Đục nhiều sợi' },
     { value: 'trong nhiều sợi', label: 'Trong nhiều sợi' },
-    { value: 'trong và âm hộ căng', label: 'Trong và âm hộ căng' },
+    { value: 'trong và ÂH căng', label: 'Trong và ÂH căng' },
     { value: 'dầy', label: 'Dầy' },
     { value: 'ít chất tiết', label: 'Ít chất tiết' }
   ] as const,
@@ -205,7 +395,76 @@ const menstrualCycleApi = {
     C: { symbol: 'C', color: '#ab47bc', description: 'Có thể thụ thai' },
     S: { symbol: 'S', color: '#26c6da', description: 'An toàn' },
     D: { symbol: 'D', color: '#78909c', description: 'Khô' }
-  } as const
+  } as const,
+
+  // ==================== CYCLE ANALYSIS ====================
+
+  // Lấy báo cáo phân tích chu kỳ hoàn chỉnh
+  getCycleAnalysis: (cycleId: string): Promise<ApiResponse<CycleAnalysisResponse>> => {
+    return axiosInstance.get(`/menstrual-cycles/${cycleId}/analysis`);
+  },
+
+  // Tự động đánh dấu chu kỳ hoàn thành
+  autoCompleteCycle: (cycleId: string): Promise<ApiResponse<AutoCompleteResponse>> => {
+    return axiosInstance.post(`/menstrual-cycles/${cycleId}/auto-complete`);
+  },
+
+  // Lấy hướng dẫn chi tiết về chu kỳ hiện tại
+  getCycleGuidance: (cycleId: string): Promise<ApiResponse<CycleGuidanceResponse>> => {
+    return axiosInstance.get(`/menstrual-cycles/${cycleId}/guidance`);
+  },
+
+  // ==================== ADVANCED CYCLE REPORTS ====================
+
+  // Lấy báo cáo chi tiết cho 1 chu kỳ với biểu đồ
+  getDetailedCycleReport: (cycleId: string): Promise<ApiResponse<DetailedCycleReport>> => {
+    return axiosInstance.get(`/menstrual-cycles/${cycleId}/detailed-report`);
+  },
+
+  // Lấy báo cáo so sánh 3 chu kỳ gần nhất với health assessment
+  getThreeCycleComparison: (): Promise<ApiResponse<ThreeCycleComparisonReport>> => {
+    return axiosInstance.get('/menstrual-cycles/three-cycle-comparison');
+  },
+
+  // Dự đoán chu kỳ tiếp theo dựa trên pattern phân tích
+  getPredictiveAnalysis: (): Promise<ApiResponse<PredictiveAnalysisReport>> => {
+    return axiosInstance.get('/menstrual-cycles/predictive-analysis');
+  },
+
+  // Đánh giá sức khỏe dựa trên chu kỳ
+  getHealthAssessment: (): Promise<ApiResponse<HealthAssessmentReport>> => {
+    return axiosInstance.get('/menstrual-cycles/health-assessment');
+  },
+
+  // ==================== FLEXIBLE CYCLE MANAGEMENT ====================
+
+  // Reset toàn bộ chu kỳ về số 1
+  resetAllCycles: (confirmReset: boolean = false): Promise<ApiResponse<{
+    deletedCycles: number;
+    deletedCycleDays: number;
+    message: string;
+  }>> => {
+    return axiosInstance.post('/menstrual-cycles/reset-all', { confirmReset });
+  },
+
+  // Tạo chu kỳ mới với tùy chọn linh hoạt
+  createFlexibleCycle: (data: {
+    startDate: string;
+    resetToCycle1?: boolean;
+    forceCreate?: boolean;
+  }): Promise<ApiResponse<MenstrualCycle>> => {
+    return axiosInstance.post('/menstrual-cycles/create-flexible', data);
+  },
+
+  // Dọn dẹp dữ liệu trùng lặp trong database
+  cleanDuplicates: (): Promise<ApiResponse<{
+    totalRecords: number;
+    duplicatesFound: number;
+    duplicatesCleaned: number;
+    remainingRecords: number;
+  }>> => {
+    return axiosInstance.post('/menstrual-cycles/clean-duplicates');
+  }
 };
 
 export default menstrualCycleApi; 

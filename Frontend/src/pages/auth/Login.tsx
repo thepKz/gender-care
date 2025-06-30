@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -56,6 +56,8 @@ const LoginPage: React.FC = () => {
   
   const { handleLogin, handleGoogleLogin, error, fetchProfile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl');
   const googleButtonRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -104,15 +106,19 @@ const LoginPage: React.FC = () => {
                 // Gọi fetchProfile để lấy thông tin user mới nhất
                 await fetchProfile();
                 
-                // Chuyển hướng dựa trên role
-                const userRole = result.user?.role;
-                if (userRole && ['admin', 'manager'].includes(userRole)) {
-                  navigate('/dashboard/management');
-                } else if (userRole && ['staff', 'doctor'].includes(userRole)) {
-                  navigate('/dashboard/operational');
+                // Chuyển hướng dựa trên returnUrl hoặc role
+                if (returnUrl) {
+                  navigate(returnUrl);
                 } else {
-                  // Customer hoặc role khác thì về trang chủ
-                  navigate('/');
+                  const userRole = result.user?.role;
+                  if (userRole && ['admin', 'manager'].includes(userRole)) {
+                    navigate('/dashboard/management');
+                  } else if (userRole && ['staff', 'doctor'].includes(userRole)) {
+                    navigate('/dashboard/operational');
+                  } else {
+                    // Customer hoặc role khác thì về trang chủ
+                    navigate('/');
+                  }
                 }
               } else {
                 setLoginError(result.error || 'Đăng nhập Google thất bại');
@@ -211,15 +217,19 @@ const LoginPage: React.FC = () => {
         // Gọi fetchProfile để lấy avatar ngay
         await fetchProfile();
         
-        // Chuyển hướng dựa trên role
-        const userRole = result.user?.role;
-        if (userRole && ['admin', 'manager'].includes(userRole)) {
-          navigate('/dashboard/management');
-        } else if (userRole && ['staff', 'doctor'].includes(userRole)) {
-          navigate('/dashboard/operational');
+        // Chuyển hướng dựa trên returnUrl hoặc role
+        if (returnUrl) {
+          navigate(returnUrl);
         } else {
-          // Customer hoặc role khác thì về trang chủ
-          navigate('/');
+          const userRole = result.user?.role;
+          if (userRole && ['admin', 'manager'].includes(userRole)) {
+            navigate('/dashboard/management');
+          } else if (userRole && ['staff', 'doctor'].includes(userRole)) {
+            navigate('/dashboard/operational');
+          } else {
+            // Customer hoặc role khác thì về trang chủ
+            navigate('/');
+          }
         }
       } else {
         setLoginError(result.error || 'Đăng nhập thất bại, vui lòng thử lại');

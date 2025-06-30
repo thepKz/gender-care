@@ -184,6 +184,7 @@ Table TestResults {
   appointmentId ObjectId [ref: > Appointments._id] // ADDED: Link to which appointment
   profileId ObjectId [ref: > UserProfiles._id] // ADDED: Link to which patient
   doctorId ObjectId [ref: > Doctors._id] // ADDED: Which doctor ordered the test
+  testResultItemsId ObjectId [ref: > TestResultItems._id]
   conclusion String 
   recommendations String 
   createdAt DateTime 
@@ -201,7 +202,6 @@ Table TestCategories {
  
 Table TestResultItems { 
   _id ObjectId [pk] 
-  testResultId ObjectId [ref: > TestResults._id] 
   itemNameId ObjectId [ref: > TestCategories._id]   
   value String                                         
   unit String                                          
@@ -303,6 +303,6 @@ Table MedicalRecords {
   treatment String 
   notes String 
   pictures String[] 
-  createdAt DateTime 
+  createdAt DateTime
   updatedAt DateTime 
 }

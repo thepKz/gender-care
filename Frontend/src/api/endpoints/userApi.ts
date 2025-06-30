@@ -240,6 +240,12 @@ export const userApi = {
   createDoctor: async (request: CreateDoctorRequest): Promise<CreateDoctorResponse> => {
     const response = await axiosInstance.post('/doctors', request);
     return response.data;
+  },
+
+  // Cập nhật thông tin user (Admin & Manager)
+  updateUser: async (userId: string, updateData: Partial<User>): Promise<User> => {
+    const response = await axiosInstance.put(`/users/${userId}`, updateData);
+    return response.data.data;
   }
 };
 

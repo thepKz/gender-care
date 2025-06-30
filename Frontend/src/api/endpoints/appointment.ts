@@ -6,24 +6,38 @@ interface AppointmentFilters {
     limit?: number;
     status?: string;
     appointmentType?: string;
+    typeLocation?: string;
+    paymentStatus?: string;
+    bookingType?: string;
     startDate?: string;
     endDate?: string;
     profileId?: string;
     createdByUserId?: string;
+    doctorId?: string;
 }
 
 interface CreateAppointmentParams {
     profileId: string;
     packageId?: string;
     serviceId?: string;
+    doctorId?: string;
     slotId?: string;
     appointmentDate: string;
     appointmentTime: string;
     appointmentType: 'consultation' | 'test' | 'other';
-    typeLocation: 'clinic' | 'home' | 'online';
+    typeLocation: 'clinic' | 'home' | 'Online';
     address?: string;
     description?: string;
     notes?: string;
+}
+
+interface TestResultData {
+    appointmentId: string;
+    profileId: string;
+    doctorId: string;
+    conclusion?: string;
+    recommendations?: string;
+    testResultItemsId: string[];
 }
 
 export const appointmentApi = {
@@ -99,6 +113,10 @@ export const appointmentApi = {
             throw new Error('ID gói dịch vụ không hợp lệ');
         }
 
+        if (appointmentData.doctorId && !isValidObjectId(appointmentData.doctorId)) {
+            throw new Error('ID bác sĩ không hợp lệ');
+        }
+
         if (appointmentData.slotId && !isValidObjectId(appointmentData.slotId)) {
             throw new Error('ID slot thời gian không hợp lệ');
         }
@@ -139,14 +157,14 @@ export const appointmentApi = {
         return response.data;
     },
 
-    // Cập nhật trạng thái cuộc hẹn
-    updateAppointmentStatus: async (id: string, status: 'pending' | 'pending_payment' | 'confirmed' | 'completed' | 'cancelled') => {
+    // Cập nhật trạng thái cuộc hẹn - Updated với đầy đủ status
+    updateAppointmentStatus: async (id: string, status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'done_testResultItem' | 'done_testResult') => {
         const response = await axiosInstance.put(`/appointments/${id}/status`, { status });
         return response.data;
     },
 
     // Cập nhật trạng thái thanh toán
-    updatePaymentStatus: async (id: string, status: 'confirmed') => {
+    updatePaymentStatus: async (id: string, status: 'paid' | 'unpaid' | 'partial' | 'refunded') => {
         const response = await axiosInstance.put(`/appointments/${id}/payment`, { status });
         return response.data;
     },
@@ -160,6 +178,52 @@ export const appointmentApi = {
     // Hủy cuộc hẹn bởi bác sĩ với lý do
     cancelAppointmentByDoctor: async (id: string, reason: string) => {
         const response = await axiosInstance.put(`/appointments/${id}/cancel-by-doctor`, { reason });
+        return response.data;
+    },
+
+    // ===== TEST RESULTS API ENDPOINTS =====
+    
+    // Lấy test results cho appointment
+    getTestResultsByAppointment: async (appointmentId: string) => {
+        const response = await axiosInstance.get(`/test-results/appointment/${appointmentId}`);
+        return response.data;
+    },
+
+    // Kiểm tra xem appointment đã có test result chưa
+    checkTestResultsByAppointment: async (appointmentId: string) => {
+        const response = await axiosInstance.get(`/test-results/check/${appointmentId}`);
+        return response.data;
+    },
+
+    // Tạo test result mới
+    createTestResult: async (testResultData: TestResultData) => {
+        const response = await axiosInstance.post('/test-results', testResultData);
+        return response.data;
+    },
+
+    // Cập nhật test result
+    updateTestResult: async (testResultId: string, data: { conclusion?: string; recommendations?: string }) => {
+        const response = await axiosInstance.put(`/test-results/${testResultId}`, data);
+        return response.data;
+    },
+
+    // Xóa test result
+    deleteTestResult: async (testResultId: string) => {
+        const response = await axiosInstance.delete(`/test-results/${testResultId}`);
+        return response.data;
+    },
+
+    // Lấy test results theo profile
+    getTestResultsByProfile: async (profileId: string, page: number = 1, limit: number = 10) => {
+        const response = await axiosInstance.get(`/test-results/profile/${profileId}`, {
+            params: { page, limit }
+        });
+        return response.data;
+    },
+
+    // Lấy thống kê test results theo tháng
+    getTestResultStats: async (year: number, month: number) => {
+        const response = await axiosInstance.get(`/test-results/stats/${year}/${month}`);
         return response.data;
     }
 };

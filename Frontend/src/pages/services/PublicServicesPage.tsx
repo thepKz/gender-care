@@ -27,6 +27,7 @@ import { GetServicePackagesParams, ServicePackage } from '../../types';
 import { BlurFade } from '../../components/ui/blur-fade';
 import { BoxReveal } from '../../components/ui/box-reveal';
 import { WarpBackground } from '../../components/ui/warp-background';
+import PurchasePackageModal from '../../components/ui/modals/PurchasePackageModal';
 
 
 
@@ -49,6 +50,8 @@ const PublicServicesPage: React.FC = () => {
   const [servicePackages, setServicePackages] = useState<ServicePackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 
 
   // Service highlights
@@ -111,6 +114,16 @@ const PublicServicesPage: React.FC = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  const handlePurchaseClick = (servicePackage) => {
+    setSelectedPackage(servicePackage);
+    setShowPurchaseModal(true);
+  };
+
+  const handleClosePurchaseModal = () => {
+    setShowPurchaseModal(false);
+    setSelectedPackage(null);
+  };
 
 
 
@@ -389,10 +402,11 @@ const PublicServicesPage: React.FC = () => {
                 {servicePackages.map((pkg, index) => (
                   <BlurFade key={pkg._id} delay={0.2 + index * 0.1} inView>
                     <WarpBackground className="h-full group cursor-pointer">
-                                             <ServicePackageDisplayCard
-                         servicePackage={pkg}
-                         className="h-full border-0 shadow-none"
-                       />
+                      <ServicePackageDisplayCard
+                        servicePackage={pkg}
+                        className="h-full border-0 shadow-none"
+                        onPurchaseClick={handlePurchaseClick}
+                      />
                     </WarpBackground>
                   </BlurFade>
                 ))}
@@ -518,6 +532,11 @@ const PublicServicesPage: React.FC = () => {
           </BlurFade>
         </div>
       </section>
+      <PurchasePackageModal
+        visible={showPurchaseModal}
+        onClose={handleClosePurchaseModal}
+        servicePackage={selectedPackage}
+      />
     </div>
   );
 };

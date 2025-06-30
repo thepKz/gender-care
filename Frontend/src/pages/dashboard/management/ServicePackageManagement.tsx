@@ -1,37 +1,39 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Table,
-  Button,
-  Space,
-  Popconfirm,
-  message,
-  Tag,
-  Card,
-  Row,
-  Col,
-  Statistic,
-  Typography,
-  Select,
-  Tooltip,
-  Alert,
-  Input
-} from 'antd';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  ReloadOutlined,
-  UndoOutlined,
-  AppstoreOutlined,
-  LoadingOutlined,
-  ExclamationCircleOutlined
+    AppstoreOutlined,
+    BarChartOutlined,
+    DeleteOutlined,
+    EditOutlined,
+    ExclamationCircleOutlined,
+    LoadingOutlined,
+    PlusOutlined,
+    ReloadOutlined,
+    UndoOutlined
 } from '@ant-design/icons';
-import { useStandardManagement } from '../../../hooks/useStandardManagement';
+import {
+    Alert,
+    Button,
+    Card,
+    Col,
+    Input,
+    message,
+    Popconfirm,
+    Row,
+    Select,
+    Space,
+    Statistic,
+    Table,
+    Tag,
+    Tooltip,
+    Typography
+} from 'antd';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { servicePackageApi } from '../../../api';
 import { getServices } from '../../../api/endpoints/serviceApi';
 import { recoverServicePackage } from '../../../api/endpoints/servicePackageApi';
 import ServicePackageModal from '../../../components/ui/forms/ServicePackageModal';
-import { Service, ServicePackage, CreateServicePackageRequest, UpdateServicePackageRequest, ServiceItem } from '../../../types';
+import PackageUsageModal from '../../../components/ui/modals/PackageUsageModal';
+import { useStandardManagement } from '../../../hooks/useStandardManagement';
+import { CreateServicePackageRequest, Service, ServiceItem, ServicePackage, UpdateServicePackageRequest } from '../../../types';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -132,6 +134,12 @@ const ServicePackageManagementCore: React.FC = () => {
   const [serviceSearchText, setServiceSearchText] = useState<string>('');
   const [sortOption, setSortOption] = useState<string>('default');
   
+  // 🆕 Analytics Modal State
+  const [analyticsModalVisible, setAnalyticsModalVisible] = useState(false);
+  const [selectedPackageForAnalytics, setSelectedPackageForAnalytics] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   
   // ✅ FIX: Track initialization properly
@@ -429,13 +437,27 @@ const ServicePackageManagementCore: React.FC = () => {
     return (
       <Space direction="vertical" size="small">
         {services.map((serviceItem, index) => {
-          const service = typeof serviceItem.serviceId === 'object' 
-            ? serviceItem.serviceId 
-            : { serviceName: 'Đang tải...', _id: serviceItem.serviceId };
+          // Handle both populated Service object and string serviceId
+          let serviceName = 'Đang tải...';
+          let serviceId = '';
+          
+          if (typeof serviceItem.serviceId === 'object' && serviceItem.serviceId !== null) {
+            // Populated Service object
+            serviceName = serviceItem.serviceId.serviceName || 'Không có tên';
+            serviceId = serviceItem.serviceId._id || '';
+          } else if (typeof serviceItem.serviceId === 'string') {
+            // String serviceId (not populated)
+            serviceName = 'Đang tải...';
+            serviceId = serviceItem.serviceId;
+          } else {
+            // Null or undefined serviceId
+            serviceName = 'Dịch vụ không xác định';
+            serviceId = 'unknown';
+          }
           
           return (
-            <Tag key={index} color="blue">
-              {service.serviceName} x{serviceItem.quantity}
+            <Tag key={`${serviceId}-${index}`} color="blue">
+              {serviceName} x{serviceItem.quantity}
             </Tag>
           );
         })}
@@ -557,6 +579,14 @@ const ServicePackageManagementCore: React.FC = () => {
       key: 'actions',
       render: (record: ServicePackage) => (
         <Space>
+          <Tooltip title="Xem Usage Analytics">
+            <Button
+              type="link"
+              icon={<BarChartOutlined />}
+              onClick={() => handleShowAnalytics(record)}
+              style={{ color: '#1890ff' }}
+            />
+          </Tooltip>
           <Tooltip title="Chỉnh sửa">
             <Button
               type="link"
@@ -613,6 +643,20 @@ const ServicePackageManagementCore: React.FC = () => {
 
   const handleModalSubmitCustom = async (data: CreateServicePackageRequest | UpdateServicePackageRequest) => {
     return originalHandleModalSubmit(data);
+  };
+
+  // 🆕 Analytics handlers
+  const handleShowAnalytics = (pkg: ServicePackage) => {
+    setSelectedPackageForAnalytics({
+      id: pkg._id,
+      name: pkg.name
+    });
+    setAnalyticsModalVisible(true);
+  };
+
+  const handleCloseAnalytics = () => {
+    setAnalyticsModalVisible(false);
+    setSelectedPackageForAnalytics(null);
   };
 
   return (
@@ -814,6 +858,16 @@ const ServicePackageManagementCore: React.FC = () => {
         servicePackage={editingPackage}
         loading={loading}
       />
+
+      {/* 🆕 Analytics Modal */}
+      {selectedPackageForAnalytics && (
+        <PackageUsageModal
+          visible={analyticsModalVisible}
+          onClose={handleCloseAnalytics}
+          packageId={selectedPackageForAnalytics.id}
+          packageName={selectedPackageForAnalytics.name}
+        />
+      )}
     </div>
   );
 };

@@ -2,11 +2,10 @@ import { Request, Response } from 'express';
 import Appointments from '../models/Appointments';
 import DoctorQA from '../models/DoctorQA';
 import PaymentTracking from '../models/PaymentTracking';
-import PackagePurchases from '../models/PackagePurchases';
 import '../models/Service';
 import '../models/ServicePackages';
-import payosService from '../services/payosService';
 import { PackagePurchaseService } from '../services/packagePurchaseService';
+import payosService from '../services/payosService';
 import { AuthRequest } from '../types/auth';
 import { sendConsultationPaymentSuccessEmail } from '../services/emails';
 
@@ -109,7 +108,7 @@ export class PaymentController {
           orderCode: paymentData.orderCode,
           amount: amount,
           qrCode: paymentData.qrCode,
-          expiredAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+          expiredAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
         }
       });
 
@@ -218,7 +217,7 @@ export class PaymentController {
         existingPayment.status = 'pending';
         existingPayment.paymentUrl = paymentData.checkoutUrl;
         existingPayment.paymentLinkId = paymentData.paymentLinkId;
-        existingPayment.expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        existingPayment.expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         paymentTracking = await existingPayment.save();
       } else {
         paymentTracking = await PaymentTracking.create({
@@ -244,7 +243,7 @@ export class PaymentController {
           orderCode: paymentData.orderCode,
           amount: amount,
           qrCode: paymentData.qrCode,
-          expiredAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+          expiredAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
         }
       });
 
@@ -1086,6 +1085,181 @@ export class PaymentController {
       return res.status(500).json({
         success: false,
         message: 'Lỗi xác nhận thanh toán consultation nhanh',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  };
+
+  // ✅ NEW: Force check payment and assign doctor for stuck appointments
+  forceCheckPaymentAndAssignDoctor = async (req: AuthRequest, res: Response) => {
+    try {
+      const { appointmentId } = req.params;
+      const userId = req.user?._id;
+
+      console.log('🔧 [ForceCheck] Force checking payment and assigning doctor for appointment:', appointmentId, 'user:', userId);
+
+      const appointment = await Appointments.findOne({
+        _id: appointmentId,
+        createdByUserId: userId
+      });
+
+      if (!appointment) {
+        console.log('❌ [ForceCheck] Appointment not found');
+        return res.status(404).json({
+          success: false,
+          message: 'Appointment không tồn tại'
+        });
+      }
+
+      console.log('📋 [ForceCheck] Current appointment:', {
+        status: appointment.status,
+        paymentStatus: appointment.paymentStatus,
+        doctorId: appointment.doctorId,
+        paidAt: appointment.paidAt
+      });
+
+      const paymentTracking = await PaymentTracking.findOne({
+        recordId: appointmentId,
+        serviceType: 'appointment'
+      });
+
+      if (!paymentTracking) {
+        console.log('❌ [ForceCheck] Payment tracking not found');
+        return res.status(404).json({
+          success: false,
+          message: 'Không tìm thấy thông tin thanh toán'
+        });
+      }
+
+      console.log('💳 [ForceCheck] Payment tracking:', {
+        status: paymentTracking.status,
+        orderCode: paymentTracking.orderCode,
+        amount: paymentTracking.amount
+      });
+
+      let paymentUpdated = false;
+      let doctorAssigned = false;
+
+      // Step 1: Force check PayOS status
+      try {
+        console.log('🔄 [ForceCheck] Checking PayOS status...');
+        const paymentInfo = await payosService.getPaymentStatus(paymentTracking.orderCode);
+
+        console.log('💳 [ForceCheck] PayOS response:', {
+          status: paymentInfo.status,
+          amount: paymentInfo.amount,
+          orderCode: paymentInfo.orderCode
+        });
+
+        if (paymentInfo.status === 'PAID' && (appointment.status !== 'confirmed' || appointment.paymentStatus !== 'paid')) {
+          console.log('✅ [ForceCheck] Payment CONFIRMED by PayOS - updating appointment...');
+
+          // Update payment tracking
+          await paymentTracking.updatePaymentStatus('success', {
+            reference: paymentInfo.transactions?.[0]?.reference,
+            transactionDateTime: paymentInfo.transactions?.[0]?.transactionDateTime
+          });
+
+          // Update appointment payment status
+          appointment.status = 'confirmed';
+          appointment.paymentStatus = 'paid';
+          appointment.paidAt = new Date();
+          
+          // Handle PackagePurchase for new_package bookings
+          if (appointment.bookingType === 'new_package' && appointment.packageId && !appointment.packagePurchaseId) {
+            try {
+              console.log('🎯 [ForceCheck] Creating PackagePurchase for new_package appointment');
+              
+              const packagePurchase = await PackagePurchaseService.purchasePackage(
+                appointment.createdByUserId.toString(),
+                appointment.packageId.toString(),
+                appointment.totalAmount || 0
+              );
+
+              appointment.packagePurchaseId = packagePurchase._id;
+              console.log('✅ [ForceCheck] PackagePurchase created:', packagePurchase._id);
+            } catch (packageError) {
+              console.error('❌ [ForceCheck] Error creating PackagePurchase:', packageError);
+            }
+          }
+
+          await appointment.save();
+          paymentUpdated = true;
+          console.log('✅ [ForceCheck] Payment status updated to confirmed/paid');
+        }
+      } catch (payosError) {
+        console.error('❌ [ForceCheck] Error checking PayOS:', payosError);
+      }
+
+      // Step 2: Auto assign doctor if not assigned and payment is confirmed
+      if ((appointment.status === 'confirmed' || paymentUpdated) && !appointment.doctorId) {
+        try {
+          console.log('👨‍⚕️ [ForceCheck] Auto assigning doctor...');
+
+          // Import doctor model
+          const { default: Doctors } = await import('../models/Doctor');
+          
+          console.log('🔍 [ForceCheck] Looking for available doctors for appointment type:', appointment.appointmentType);
+
+          // Get all active doctors (simplified assignment)
+          const allDoctors = await Doctors.find({ isDeleted: { $ne: true } })
+            .populate('userId', 'fullName');
+          
+          if (allDoctors.length > 0) {
+            // For now, assign first available doctor
+            // TODO: Enhance with schedule-based selection later
+            const selectedDoctor = allDoctors[0];
+
+            // Assign doctor to appointment
+            appointment.doctorId = selectedDoctor._id;
+            await appointment.save();
+
+            doctorAssigned = true;
+            
+            console.log('✅ [ForceCheck] Doctor assigned:', {
+              doctorId: selectedDoctor._id,
+              doctorName: (selectedDoctor.userId as any)?.fullName || 'Unknown Doctor',
+              note: 'Simple assignment - can be enhanced with schedule checking'
+            });
+          } else {
+            console.log('⚠️ [ForceCheck] No active doctors found for assignment');
+          }
+        } catch (doctorError) {
+          console.error('❌ [ForceCheck] Error assigning doctor:', doctorError);
+        }
+      }
+
+      // Get final appointment state
+      const finalAppointment = await Appointments.findById(appointmentId)
+        .populate('doctorId', 'fullName')
+        .populate('packageId', 'name');
+
+      const result = {
+        appointmentId: finalAppointment?._id,
+        status: finalAppointment?.status,
+        paymentStatus: finalAppointment?.paymentStatus,
+        paidAt: finalAppointment?.paidAt,
+        doctorId: finalAppointment?.doctorId?._id,
+        doctorName: (finalAppointment?.doctorId as any)?.fullName,
+        paymentUpdated,
+        doctorAssigned,
+        orderCode: paymentTracking.orderCode,
+        paymentTrackingStatus: paymentTracking.status
+      };
+
+      console.log('🎯 [ForceCheck] Final result:', result);
+
+      return res.status(200).json({
+        success: true,
+        message: `Force check completed. ${paymentUpdated ? 'Payment updated. ' : ''}${doctorAssigned ? 'Doctor assigned.' : ''}`,
+        data: result
+      });
+
+    } catch (error) {
+      console.error('❌ [ForceCheck] Error in force check:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Lỗi khi force check payment và assign doctor',
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }

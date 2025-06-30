@@ -211,24 +211,27 @@ export interface INotificationDay {
 }
 
 // Test types
-export interface IAppointmentTest {
-  _id: string;
-  appointmentId: string;
-  description: string;
-  name: string;
-  price: number;
-  preparationGuidelines: string;
-  resultWaitTime: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 export interface ITestResult {
   _id: string;
-  appointmentTestId: string;
+  appointmentId: string;
+  profileId: string;
+  doctorId: string;
   conclusion: string;
   recommendations: string;
   createdAt: Date;
+}
+
+export interface IServiceTestCategories {
+  _id: string;
+  serviceId: string;
+  testCategoryId: string;
+  isRequired: boolean;
+  customNormalRange?: string;
+  customUnit?: string;
+  targetValue?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ITestCategory {
@@ -243,11 +246,10 @@ export interface ITestCategory {
 
 export interface ITestResultItem {
   _id: string;
-  testResultId: string;
+  appointmentId: string;
   itemNameId: string;
   value: string;
   unit: string;
-  currentRange: string;
   flag: 'high' | 'low' | 'normal';
 }
 

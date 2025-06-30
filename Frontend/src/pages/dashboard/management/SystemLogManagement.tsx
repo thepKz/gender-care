@@ -52,6 +52,29 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
+// Utility function để format IP address cho hiển thị
+const formatIPForDisplay = (ip: string): string => {
+  if (!ip || ip === 'unknown') return 'Không xác định';
+  
+  // Hiển thị localhost một cách thân thiện hơn
+  if (ip === '127.0.0.1' || ip === '::1') {
+    return `${ip} (Localhost)`;
+  }
+  
+  // Nếu IP đã được format từ backend, giữ nguyên
+  if (ip.includes('(')) {
+    return ip;
+  }
+
+  // Kiểm tra nếu là private IP
+  if (ip.startsWith('192.168.') || ip.startsWith('10.') || 
+      (ip.startsWith('172.') && parseInt(ip.split('.')[1]) >= 16 && parseInt(ip.split('.')[1]) <= 31)) {
+    return `${ip} (Mạng nội bộ)`;
+  }
+
+  return ip;
+};
+
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -90,16 +113,22 @@ const SystemLogManagement: React.FC = () => {
   const [cleanupForm] = Form.useForm();
   const [testLogForm] = Form.useForm();
   
-  // Local state for filters and pagination to avoid circular dependency
+  // Local pagination state for server-side pagination
+  const [localPagination, setLocalPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0
+  });
   const [localFilters, setLocalFilters] = useState<Record<string, any>>({});
-  const [localPagination, setLocalPagination] = useState({ current: 1, pageSize: 10, total: 0 });
 
-  // Memoized fetchData function to prevent infinite loops
+  // Memoized fetchData function để tránh infinite loops
   const fetchData = useCallback(async () => {
     try {
+      console.log('🔄 Fetching system logs...');
+      
       const params: GetLogsParams = {
-        page: localPagination.current || 1,
-        limit: localPagination.pageSize || 10
+        page: localPagination.current,
+        limit: localPagination.pageSize
       };
       
       // Add filters only if they exist and have values
@@ -107,41 +136,44 @@ const SystemLogManagement: React.FC = () => {
       if (localFilters.action) params.action = localFilters.action;
       if (localFilters.search) params.search = localFilters.search;
       
-      if (selectedDateRange) {
-        params.startDate = selectedDateRange[0]?.format('YYYY-MM-DD');
-        params.endDate = selectedDateRange[1]?.format('YYYY-MM-DD');
+      if (selectedDateRange && selectedDateRange[0] && selectedDateRange[1]) {
+        params.startDate = selectedDateRange[0].format('YYYY-MM-DD');
+        params.endDate = selectedDateRange[1].format('YYYY-MM-DD');
       }
       
+      console.log('📋 System logs API params:', params);
+      
       const result = await getSystemLogs(params);
+      console.log('✅ System logs API response:', result);
+      console.log('📊 Pagination info:', {
+        total: result.total,
+        page: result.page,
+        totalPages: result.totalPages,
+        logsLength: result.logs?.length
+      });
+      
+      // Update pagination state manually cho server-side pagination
+      setLocalPagination(prev => ({
+        ...prev,
+        total: result.total || 0,
+        current: result.page || prev.current
+      }));
+      
       return result.logs || [];
     } catch (error) {
-      console.error('Error fetching system logs:', error);
+      console.error('❌ Error fetching system logs:', error);
       return [];
     }
-  }, [localPagination.current, localPagination.pageSize, localFilters.level, localFilters.action, localFilters.search, selectedDateRange]);
+  }, [localPagination.current, localPagination.pageSize, localFilters, selectedDateRange]);
 
   // Use our standard management hook
   const {
     items: logs,
     loading,
-    currentFilters,
-    pagination,
-    handleTableChange,
-    handleSearch,
-    handleFilterChange,
     refreshData
   } = useStandardManagement<SystemLog>({
     fetchData
   });
-
-  // Sync local state with hook state
-  useEffect(() => {
-    setLocalFilters(currentFilters || {});
-  }, [currentFilters]);
-
-  useEffect(() => {
-    setLocalPagination(pagination || { current: 1, pageSize: 10, total: 0 });
-  }, [pagination]);
 
   // Fetch stats
   const fetchStats = async () => {
@@ -158,43 +190,56 @@ const SystemLogManagement: React.FC = () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     setUserRole(user.role || '');
     fetchStats();
-    
-    // Trigger initial data load only once
-    refreshData();
-  }, []); // Remove refreshData dependency to prevent infinite loop
+  }, []);
 
-  // Separate effect for refreshing data when filters change (but not refreshData function itself)
+  // Separate effect for refreshing data when filters change
   useEffect(() => {
-    // Only refresh if there are actual filter values or date range
-    const hasFilters = selectedDateRange || Object.keys(localFilters).some(key => localFilters[key] && localFilters[key] !== '');
-    if (hasFilters) {
-      // Use a timeout to debounce the refresh calls
-      const timeoutId = setTimeout(() => {
-        refreshData();
-      }, 300);
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [selectedDateRange, localFilters]); // Remove refreshData dependency to prevent infinite loops
+    const timeoutId = setTimeout(() => {
+      console.log('🔄 Filter changed, refreshing data...');
+      refreshData();
+    }, 300);
+    
+    return () => clearTimeout(timeoutId);
+  }, [selectedDateRange, localFilters.level, localFilters.action, localFilters.search, refreshData]);
 
-  // Custom filter handlers that update local state
+  // Custom filter handlers
   const handleCustomFilterChange = useCallback((key: string, value: any) => {
+    console.log('🔧 Filter change:', key, value);
     setLocalFilters(prev => ({
       ...prev,
       [key]: value
     }));
-    // Also update the hook's filters
-    handleFilterChange(key, value);
-  }, [handleFilterChange]);
+    // Reset pagination to page 1 when filtering
+    setLocalPagination(prev => ({
+      ...prev,
+      current: 1
+    }));
+  }, []);
 
   const handleCustomSearch = useCallback((text: string) => {
+    console.log('🔍 Search change:', text);
     setLocalFilters(prev => ({
       ...prev,
       search: text
     }));
-    // Also update the hook's search
-    handleSearch(text);
-  }, [handleSearch]);
+    // Reset pagination to page 1 when searching
+    setLocalPagination(prev => ({
+      ...prev,
+      current: 1
+    }));
+  }, []);
+
+  // Custom table change handler for server-side pagination
+  const handleCustomTableChange = useCallback((pagination: any, filters: any, sorter: any) => {
+    console.log('📄 Table change:', { pagination, filters, sorter });
+    
+    // Update local pagination state
+    setLocalPagination(prev => ({
+      ...prev,
+      current: pagination.current || 1,
+      pageSize: pagination.pageSize || 10
+    }));
+  }, []);
 
   // Stats cards
   const managementStats: ManagementStat[] = [
@@ -312,32 +357,32 @@ const SystemLogManagement: React.FC = () => {
         params.startDate = selectedDateRange[0]?.format('YYYY-MM-DD');
         params.endDate = selectedDateRange[1]?.format('YYYY-MM-DD');
       }
-      if (localFilters?.level) params.level = localFilters.level;
-      if (localFilters?.action) params.action = localFilters.action;
-      
+      if (localFilters.level) params.level = localFilters.level;
+      if (localFilters.action) params.action = localFilters.action;
+
       await downloadLogsCSV(params);
-      message.success('Đã tải xuống file CSV thành công!');
+      message.success('Đã export logs thành công!');
     } catch (error) {
+      console.error('Export error:', error);
       message.error('Lỗi khi export logs');
     }
   }
 
-  // Cleanup logs
   const handleCleanupLogs = async () => {
     try {
       const values = await cleanupForm.validateFields();
-      const result = await cleanupOldLogs(values.daysToKeep);
-      message.success(`Đã xóa ${result.deletedCount} logs cũ`);
+      await cleanupOldLogs(values.daysToKeep);
+      message.success('Đã dọn dẹp logs cũ thành công!');
       setCleanupModalVisible(false);
       cleanupForm.resetFields();
       refreshData();
       fetchStats();
     } catch (error) {
+      console.error('Cleanup error:', error);
       message.error('Lỗi khi dọn dẹp logs');
     }
   };
 
-  // Create test log
   const handleCreateTestLog = async () => {
     try {
       const values = await testLogForm.validateFields();
@@ -348,6 +393,7 @@ const SystemLogManagement: React.FC = () => {
       refreshData();
       fetchStats();
     } catch (error) {
+      console.error('Test log error:', error);
       message.error('Lỗi khi tạo test log');
     }
   };
@@ -359,17 +405,16 @@ const SystemLogManagement: React.FC = () => {
       dataIndex: 'createdAt',
       key: 'createdAt',
       width: 150,
-      render: (createdAt: string) => {
-        if (!createdAt) return <Text type="secondary">N/A</Text>;
-        
-        return (
-          <Tooltip title={new Date(createdAt).toLocaleString('vi-VN')}>
-            <Text type="secondary">
-              {formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale: vi })}
-            </Text>
-          </Tooltip>
-        );
-      },
+      render: (createdAt: string) => (
+        <Space direction="vertical" size={0}>
+          <Text style={{ fontSize: '12px' }}>
+            {new Date(createdAt).toLocaleDateString('vi-VN')}
+          </Text>
+          <Text type="secondary" style={{ fontSize: '11px' }}>
+            {new Date(createdAt).toLocaleTimeString('vi-VN')}
+          </Text>
+        </Space>
+      ),
       sorter: true
     },
     {
@@ -377,41 +422,22 @@ const SystemLogManagement: React.FC = () => {
       dataIndex: 'level',
       key: 'level',
       width: 100,
-      render: (level: string) => {
-        if (!level) {
-          return <Tag color="default">N/A</Tag>;
-        }
-        
-        const icons = {
-          public: <InfoCircleOutlined />,
-          manager: <WarningOutlined />,
-          admin: <LockOutlined />
-        };
-        
-        return (
-          <Tag 
-            color={logLevelColors[level as keyof typeof logLevelColors] || 'default'} 
-            icon={icons[level as keyof typeof icons]}
-          >
-            {level.toUpperCase()}
-          </Tag>
-        );
-      }
+      render: (level: string) => (
+        <Tag color={logLevelColors[level as keyof typeof logLevelColors] || 'default'}>
+          {level?.toUpperCase()}
+        </Tag>
+      )
     },
     {
       title: 'Hành Động',
       dataIndex: 'action',
       key: 'action',
-      width: 150,
-      render: (action: string) => {
-        if (!action) return <Tag color="default">N/A</Tag>;
-        
-        return (
-          <Tag color={actionTypeColors[action] || 'default'}>
-            {action.replace(/_/g, ' ').toUpperCase()}
-          </Tag>
-        );
-      }
+      width: 140,
+      render: (action: string) => (
+        <Tag color={actionTypeColors[action] || 'default'}>
+          {action?.replace(/_/g, ' ')?.toUpperCase()}
+        </Tag>
+      )
     },
     {
       title: 'Người Dùng',
@@ -442,8 +468,17 @@ const SystemLogManagement: React.FC = () => {
       title: 'IP Address',
       dataIndex: 'ipAddress',
       key: 'ipAddress',
-      width: 120,
-      render: (ip: string) => ip || 'N/A'
+      width: 150,
+      render: (ip: string) => {
+        const formattedIP = formatIPForDisplay(ip);
+        return (
+          <Tooltip title={`Raw IP: ${ip || 'N/A'}`}>
+            <Text code style={{ fontSize: '12px' }}>
+              {formattedIP}
+            </Text>
+          </Tooltip>
+        );
+      }
     },
     {
       title: 'Target',
@@ -571,15 +606,16 @@ const SystemLogManagement: React.FC = () => {
           loading={loading}
           rowKey="_id"
           pagination={{
-            current: pagination.current,
-            pageSize: pagination.pageSize,
-            total: pagination.total,
+            current: localPagination.current,
+            pageSize: localPagination.pageSize,
+            total: localPagination.total,
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total, range) => 
-              `${range[0]}-${range[1]} của ${total} logs`
+              `${range[0]}-${range[1]} của ${total} logs`,
+            pageSizeOptions: ['10', '20', '50', '100']
           }}
-          onChange={handleTableChange}
+          onChange={handleCustomTableChange}
           scroll={{ x: 1200 }}
         />
       </Card>
@@ -658,7 +694,7 @@ const SystemLogManagement: React.FC = () => {
           <Form.Item
             name="level"
             label="Mức độ"
-            rules={[{ required: true, message: 'Vui lòng chọn level' }]}
+            rules={[{ required: true, message: 'Vui lòng chọn mức độ' }]}
           >
             <Select placeholder="Chọn level">
               <Option value="public">Public</Option>
@@ -670,19 +706,12 @@ const SystemLogManagement: React.FC = () => {
           <Form.Item
             name="message"
             label="Tin nhắn"
-            rules={[{ required: true, message: 'Vui lòng nhập message' }]}
+            rules={[{ required: true, message: 'Vui lòng nhập tin nhắn' }]}
           >
-            <Input.TextArea 
-              placeholder="Mô tả chi tiết hành động..." 
+            <Input.TextArea
+              placeholder="Nội dung log..."
               rows={3}
             />
-          </Form.Item>
-          
-          <Form.Item
-            name="targetType"
-            label="Target Type (tuỳ chọn)"
-          >
-            <Input placeholder="Ví dụ: user, appointment, system..." />
           </Form.Item>
         </Form>
       </Modal>

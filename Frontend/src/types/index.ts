@@ -356,7 +356,7 @@ export interface CycleDay {
   _id: string;
   cycleId: string;
   date: string;
-  mucusObservation?: string; // ví dụ: "có máu", "trong và âm hộ căng"
+  mucusObservation?: string; // ví dụ: "có máu", "trong và ÂH căng"
   feeling?: string; // ví dụ: "trơn", "khô"
   isPeakDay: boolean; // true nếu là ngày X
   peakDayRelative?: number; // 0: ngày X, 1-3: sau X, -1/-2: trước X
@@ -514,6 +514,7 @@ export interface TestResult {
   conclusion: string;
   recommendations: string;
   createdAt: string;
+  testResultItemsId: string[];
 }
 
 export interface TestCategory {
@@ -528,11 +529,10 @@ export interface TestCategory {
 
 export interface TestResultItem {
   _id: string;
-  testResultId: string;
+  appointmentId: string;
   itemNameId: string;
   value: string;
   unit: string;
-  currentRange: string;
   flag: 'high' | 'low' | 'normal';
 }
 
@@ -708,5 +708,71 @@ export interface PaginatedResponse<T> {
     page: number;
     limit: number;
     totalPages: number;
+  };
+}
+
+// 🆕 Package Analytics Types
+export interface ServiceUsage {
+  serviceId: string;
+  serviceName: string;
+  usedQuantity: number;
+  maxQuantity: number;
+  remainingQuantity: number;
+  usagePercentage: number;
+}
+
+export interface UserPackageUsage {
+  userId: string;
+  userInfo: {
+    fullName: string;
+    email: string;
+    phone?: string;
+  };
+  profileInfo: {
+    profileId: string;
+    fullName: string;
+    phone?: string;
+  };
+  purchaseId: string;
+  purchaseDate: string;
+  expiryDate: string;
+  status: 'active' | 'expired' | 'used_up';
+  purchasePrice: number;
+  serviceUsages: ServiceUsage[];
+  totalUsagePercentage: number;
+  daysRemaining: number;
+}
+
+export interface PackageAnalytics {
+  packageId: string;
+  packageName: string;
+  totalPurchases: number;
+  activePurchases: number;
+  expiredPurchases: number;
+  usedUpPurchases: number;
+  totalRevenue: number;
+  averageUsagePercentage: number;
+  userUsages: UserPackageUsage[];
+}
+
+export interface PackageAnalyticsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    analytics: PackageAnalytics;
+  };
+}
+
+export interface AllPackagesAnalyticsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    analytics: PackageAnalytics[];
+    summary: {
+      totalPackages: number;
+      totalRevenue: number;
+      totalPurchases: number;
+      averageUsage: number;
+    };
   };
 }

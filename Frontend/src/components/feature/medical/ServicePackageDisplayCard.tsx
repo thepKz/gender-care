@@ -1,217 +1,176 @@
-import {
-    EyeOutlined,
-    GiftOutlined,
-    StarOutlined
-} from '@ant-design/icons';
-import { Button, Card } from 'antd';
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ServicePackage } from '../../../types';
+import { ServicePackage, Service } from '../../../types';
 import ServicePackageDetailModal from '../../ui/modals/ServicePackageDetailModal';
 
 interface ServicePackageDisplayCardProps {
   servicePackage: ServicePackage;
   className?: string;
-  showBookingButton?: boolean;
   onBookingClick?: (servicePackage: ServicePackage) => void;
-  onViewDetail?: (servicePackage: ServicePackage) => void;
+  onPurchaseClick?: (servicePackage: ServicePackage) => void;
 }
 
-const ServicePackageDisplayCard: React.FC<ServicePackageDisplayCardProps> = ({ 
-  servicePackage, 
+const ServicePackageDisplayCard: React.FC<ServicePackageDisplayCardProps> = ({
+  servicePackage,
   className = '',
-  showBookingButton = true,
   onBookingClick,
-  onViewDetail
+  onPurchaseClick
 }) => {
-  const navigate = useNavigate();
-  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
 
   // Format price - Định dạng giá tiền
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN').format(price);
   };
 
+  // Calculate total price of individual services
+  const calculateOriginalPrice = () => {
+    if (!servicePackage.services) return 0;
+    return servicePackage.services.reduce((total, serviceItem) => {
+      if (typeof serviceItem.serviceId === 'object' && serviceItem.serviceId !== null) {
+        const service = serviceItem.serviceId as Service;
+        return total + (service.price || 0) * serviceItem.quantity;
+      }
+      return total;
+    }, 0);
+  };
+
+  // Calculate savings amount
+  const calculateSavings = () => {
+    const originalPrice = calculateOriginalPrice();
+    const packagePrice = servicePackage.price || 0;
+    return originalPrice - packagePrice;
+  };
+
   // Calculate discount percentage
-  const discountPercentage = Math.round(
-    ((servicePackage.priceBeforeDiscount - servicePackage.price) / servicePackage.priceBeforeDiscount) * 100
-  );
-
-  // Handle booking - Xử lý đặt lịch (điều hướng sang booking page)
-  const handleBooking = () => {
-    if (onBookingClick) {
-      onBookingClick(servicePackage);
-    } else {
-      // Điều hướng sang booking page với packageId param
-      navigate(`/booking?packageId=${servicePackage._id}&type=package`);
-    }
+  const calculateDiscountPercentage = () => {
+    const originalPrice = calculateOriginalPrice();
+    const savings = calculateSavings();
+    if (originalPrice === 0) return 0;
+    return Math.round((savings / originalPrice) * 100);
   };
 
-  // Handle view detail - Xử lý xem chi tiết
-  const handleViewDetail = () => {
-    if (onViewDetail) {
-      onViewDetail(servicePackage);
-    } else {
-      setShowDetailModal(true);
-    }
+  const handleCardClick = () => {
+    setIsModalVisible(true);
   };
+
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+  };
+
+  const originalPrice = calculateOriginalPrice();
+  const savings = calculateSavings();
+  const discountPercentage = calculateDiscountPercentage();
 
   return (
     <>
-    <Card
-      hoverable
-      className={`medical-service-package-display-card h-full rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border-0 overflow-hidden group ${className}`}
-      cover={
-        <div className="relative h-40 bg-gradient-to-br from-green-50 to-cyan-50 flex items-center justify-center overflow-hidden">
-          {/* Background Pattern - Họa tiết nền */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23006478' fill-opacity='0.1'%3E%3Ccircle cx='20' cy='20' r='2'/%3E%3C/g%3E%3C/svg%3E")`,
-            }} />
+      <div
+        className={`
+          relative bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300
+          cursor-pointer overflow-hidden group h-full
+          ${className}
+        `}
+        onClick={handleCardClick}
+      >
+        {/* Animated Background Elements */}
+        <div className="relative z-10 p-6 text-gray-900 h-full flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-3 py-1 rounded-full">Gói dịch vụ</span>
+            {discountPercentage > 0 && (
+              <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">-{discountPercentage}%</span>
+            )}
           </div>
-
-          {/* Icon gói dịch vụ (không dùng ảnh) */}
-          <div className="text-center">
-            <div className="text-7xl text-[#0C3C54]/30 group-hover:scale-110 transition-transform duration-300">
-              🎁
-            </div>
+          <h3 className="text-xl font-bold mb-3 leading-tight group-hover:scale-100 transition-none">
+            {servicePackage.name}
+          </h3>
+          {/* Description */}
+          <div className="flex-1 mb-4">
+            <p className="text-sm leading-relaxed text-gray-600 line-clamp-3">
+              {servicePackage.description || 'Gói dịch vụ chăm sóc sức khỏe toàn diện với chất lượng cao và giá trị tối ưu.'}
+            </p>
           </div>
-
-          {/* Package Type Badge - Nhãn loại gói */}
-          <div className="absolute top-3 left-3">
-            <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-sm">
-              <span className="text-xs font-medium text-[#0C3C54] flex items-center gap-1">
-                <GiftOutlined />
-                Gói dịch vụ
-              </span>
-            </div>
-          </div>
-
-          {/* Discount Badge - Nhãn giảm giá */}
-          {discountPercentage > 0 && (
-            <div className="absolute top-3 right-3">
-              <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg animate-pulse">
-                -{discountPercentage}%
+          {/* Services Count & Info */}
+          {servicePackage.services && servicePackage.services.length > 0 && (
+            <div className="mb-4">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <div className="text-lg font-bold mb-1 text-blue-600">
+                    {servicePackage.services.length}
+                  </div>
+                  <div className="text-xs text-gray-500">Dịch vụ</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold mb-1 text-yellow-600">4.9</div>
+                  <div className="text-xs text-gray-500">Đánh giá ⭐</div>
+                </div>
               </div>
             </div>
           )}
-        </div>
-      }
-    >
-      <div className="p-5">
-        {/* Package Name - Tên gói dịch vụ */}
-        <h3 className="text-lg font-bold text-gray-900 mb-3 line-clamp-2 min-h-[3.5rem]">
-          {servicePackage.name}
-        </h3>
-
-        {/* Package Description - Mô tả gói dịch vụ */}
-        <p className="text-gray-600 text-sm mb-4 line-clamp-2 min-h-[2.5rem] leading-relaxed">
-          {servicePackage.description || 'Gói dịch vụ chăm sóc sức khỏe toàn diện với các dịch vụ chuyên nghiệp.'}
-        </p>
-
-        {/* Package Details - Chi tiết gói dịch vụ */}
-        <div className="space-y-3 mb-4">
-          {/* View Details Link */}
-          <div className="flex items-center gap-2 text-sm">
-            <EyeOutlined className="text-[#0C3C54]" />
+          {/* Price Section */}
+          <div className="mb-4">
+            <div className="text-center">
+              {originalPrice > 0 && savings > 0 && (
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-sm line-through text-gray-400">
+                    {formatPrice(originalPrice)} VNĐ
+                  </span>
+                  <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs font-bold">
+                    Tiết kiệm {formatPrice(savings)} VNĐ
+                  </span>
+                </div>
+              )}
+              <div className="text-2xl font-bold mb-1 text-blue-700">
+                {servicePackage.price ? formatPrice(servicePackage.price) : 'Liên hệ'}
+              </div>
+              {servicePackage.price && (
+                <div className="text-xs text-gray-500">VNĐ</div>
+              )}
+            </div>
+          </div>
+          {/* Benefits Highlights */}
+          <div className="mb-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs text-gray-600">
+                <span className="w-2 h-2 bg-yellow-300 rounded-full"></span>
+                <span>Ưu tiên đặt lịch</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-600">
+                <span className="w-2 h-2 bg-yellow-300 rounded-full"></span>
+                <span>Chăm sóc VIP 24/7</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-600">
+                <span className="w-2 h-2 bg-yellow-300 rounded-full"></span>
+                <span>Bảo hành kết quả</span>
+              </div>
+            </div>
+          </div>
+          {/* Hover Effect Indicator */}
+          <div className="text-center mb-2">
+            <span className="text-xs text-gray-400">Nhấp để xem chi tiết</span>
+          </div>
+          {/* Nút Mua ngay */}
+          <div className="mt-auto flex justify-center">
             <button
-              onClick={handleViewDetail}
-              className="text-[#0C3C54] hover:text-[#2A7F9E] hover:underline font-medium transition-colors duration-200"
+              type="button"
+              className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-full transition-all duration-200 text-sm"
+              onClick={e => {
+                e.stopPropagation();
+                if (onPurchaseClick) onPurchaseClick(servicePackage);
+              }}
             >
-              Xem chi tiết {servicePackage.services?.length || 0} dịch vụ
+              Mua ngay
             </button>
           </div>
-
-          {/* Package Benefits */}
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-green-500">✓</span>
-            <span className="text-gray-600">Tiết kiệm chi phí</span>
-          </div>
-
-          {/* 🔹 NEW: Total Service Quantity Display */}
-          {servicePackage.totalServiceQuantity && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-blue-500">✓</span>
-              <span className="text-gray-600">
-                Tổng {servicePackage.totalServiceQuantity} lượt sử dụng
-              </span>
-            </div>
-          )}
-
-          {/* 🔹 NEW: Duration Display */}
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-purple-500">📅</span>
-            <span className="text-gray-600">
-              Thời hạn {servicePackage.durationInDays} ngày
-            </span>
-          </div>
         </div>
-
-        {/* Price - Giá tiền */}
-        <div className="bg-gradient-to-br from-green-50 to-cyan-50 p-4 rounded-xl border border-green-200/50 mb-4">
-          {/* Original Price & Discount */}
-          {discountPercentage > 0 && (
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm text-gray-500 line-through">
-                {formatPrice(servicePackage.priceBeforeDiscount)} VNĐ
-              </span>
-              <span className="bg-red-500 text-white px-2 py-0.5 rounded-full text-xs font-bold">
-                -{discountPercentage}%
-              </span>
-            </div>
-          )}
-          
-          {/* Current Price */}
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-2xl font-bold text-[#0C3C54]">
-                {formatPrice(servicePackage.price)}
-              </span>
-              <span className="text-gray-500 ml-1">VNĐ</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <StarOutlined className="text-yellow-500 text-sm" />
-              <span className="text-sm text-gray-600 font-medium">4.8</span>
-            </div>
-          </div>
-
-          {/* Savings */}
-          {discountPercentage > 0 && (
-            <div className="text-right mt-1">
-              <span className="text-xs text-green-600 font-medium">
-                Tiết kiệm {formatPrice(servicePackage.priceBeforeDiscount - servicePackage.price)} VNĐ
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Action Buttons - Nút hành động */}
-        {showBookingButton && (
-          <div className="flex gap-3">
-            <Button
-              type="primary"
-              className="flex-1 bg-[#0C3C54] hover:bg-[#2A7F9E] border-[#0C3C54] hover:border-[#2A7F9E] rounded-xl h-11 font-medium"
-              onClick={handleBooking}
-            >
-              Đặt gói ngay
-            </Button>
-            <Button
-              className="border-[#0C3C54] text-[#0C3C54] hover:bg-[#0C3C54] hover:text-white rounded-xl h-11 font-medium px-4"
-              onClick={handleViewDetail}
-            >
-              Chi tiết
-            </Button>
-          </div>
-        )}
       </div>
-    </Card>
 
-    {/* Service Package Detail Modal */}
-    <ServicePackageDetailModal
-      visible={showDetailModal}
-      onClose={() => setShowDetailModal(false)}
-      servicePackage={servicePackage}
-    />
+      {/* Service Package Detail Modal */}
+      <ServicePackageDetailModal
+        visible={isModalVisible}
+        onClose={handleCloseModal}
+        servicePackage={servicePackage}
+        onBookingClick={onBookingClick}
+      />
     </>
   );
 };

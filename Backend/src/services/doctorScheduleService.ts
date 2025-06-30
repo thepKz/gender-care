@@ -1,15 +1,13 @@
-import DoctorSchedules from '../models/DoctorSchedules';
-import Doctor from '../models/Doctor';
 import mongoose from 'mongoose';
-import { 
-  createVietnamDate, 
-  getVietnamDayOfWeek, 
-  getVietnamDayName, 
-  isWorkingDay, 
-  isWeekend,
-  getDayInfo,
-  generateWorkingDaysInMonth,
-  debugMonthWorkingDays 
+import { Appointments } from '../models';
+import Doctor from '../models/Doctor';
+import DoctorSchedules from '../models/DoctorSchedules';
+import {
+    createVietnamDate,
+    debugMonthWorkingDays,
+    generateWorkingDaysInMonth,
+    getDayInfo,
+    isWorkingDay
 } from '../utils/timezoneUtils';
 
 // Thêm function validation ObjectId
@@ -293,6 +291,79 @@ export const getAvailableSlots = async (doctorId: string, date: string, isStaff:
   }
 };
 
+/**
+ * Khóa một slot cụ thể (đặt trạng thái thành "Booked").
+ * @param slotId ID của slot cần khóa
+ * @returns {Promise<boolean>}
+ */
+export const lockSlot = async (slotId: string): Promise<boolean> => {
+    if (!isValidObjectId(slotId)) {
+        throw new Error('Slot ID không hợp lệ');
+    }
+
+    // Tìm và cập nhật slot trong một thao tác duy nhất để đảm bảo an toàn
+    const result = await DoctorSchedules.findOneAndUpdate(
+        { 
+            "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId),
+            "weekSchedule.slots.status": "Free" // Đảm bảo chỉ khóa slot đang "Free"
+        },
+        { 
+            $set: { "weekSchedule.$[].slots.$[slot].status": "Booked" }
+        },
+        {
+            arrayFilters: [
+                { "slot._id": new mongoose.Types.ObjectId(slotId) }
+            ],
+            new: true // Trả về document sau khi update
+        }
+    );
+
+    if (!result) {
+        // Nếu không tìm thấy document nào được update, có thể slot không tồn tại hoặc đã được đặt
+        const existingSlot = await DoctorSchedules.findOne({ "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId) });
+        if (!existingSlot) {
+            throw new Error('Không tìm thấy slot thời gian này.');
+        }
+        throw new Error('Slot thời gian này đã được đặt hoặc không có sẵn.');
+    }
+
+    console.log(`✅ [Slot Lock] Slot ${slotId} đã được khóa thành công.`);
+    return true;
+};
+
+/**
+ * Mở khóa một slot cụ thể (đặt trạng thái thành "Free").
+ * @param slotId ID của slot cần mở khóa
+ * @returns {Promise<boolean>}
+ */
+export const releaseSlot = async (slotId: string): Promise<boolean> => {
+    if (!isValidObjectId(slotId)) {
+        throw new Error('Slot ID không hợp lệ');
+    }
+
+    const result = await DoctorSchedules.findOneAndUpdate(
+        { "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId) },
+        { 
+            $set: { "weekSchedule.$[].slots.$[slot].status": "Free" }
+        },
+        {
+            arrayFilters: [
+                { "slot._id": new mongoose.Types.ObjectId(slotId) }
+            ],
+            new: true
+        }
+    );
+
+    if (!result) {
+        // Có thể slot không tồn tại, nhưng trong trường hợp này, việc không tìm thấy để release cũng không phải lỗi nghiêm trọng
+        console.warn(`⚠️ [Slot Release] Không tìm thấy slot ${slotId} để mở khóa.`);
+        return false;
+    }
+
+    console.log(`✅ [Slot Release] Slot ${slotId} đã được mở khóa thành công.`);
+    return true;
+};
+
 // GET /doctors/:id/available-slots/staff - Staff xem tất cả slots theo ngày
 export const getAvailableSlotsForStaff = async (doctorId: string, date: string) => {
   return await getAvailableSlots(doctorId, date, true);
@@ -303,12 +374,36 @@ export const getAvailableDoctors = async (date: string, timeSlot?: string, isSta
   try {
     const targetDate = new Date(date);
 
-    // Lấy tất cả bác sĩ với populate userId
-    const allDoctors = await Doctor.find().populate('userId', 'fullName email avatar');
+    // Lấy tất cả bác sĩ với populate userId, exclude soft deleted
+    const allDoctors = await Doctor.find({ 
+      isDeleted: { $ne: true } 
+    }).populate({
+      path: 'userId',
+      select: 'fullName email avatar isActive',
+      match: { isActive: { $ne: false } } // Chỉ lấy user active
+    });
+
+    // Lấy tất cả appointments đã confirmed/scheduled trong ngày để check slot conflicts
+    const existingAppointments = await Appointments.find({
+      appointmentDate: {
+        $gte: new Date(targetDate.setHours(0, 0, 0, 0)),
+        $lte: new Date(targetDate.setHours(23, 59, 59, 999))
+      },
+      status: { $in: ['confirmed', 'scheduled', 'consulting', 'pending_payment'] },
+      doctorId: { $exists: true, $ne: null }
+    }).select('doctorId appointmentTime slotId');
+
+    console.log(`🔍 [Available Doctors] Found ${existingAppointments.length} existing appointments for ${date}`);
 
     const availableDoctors: any[] = [];
 
     for (const doctor of allDoctors) {
+      // Skip nếu doctor không có userId (corrupted data)
+      if (!doctor.userId) {
+        console.warn(`⚠️ [Available Doctors] Doctor ${doctor._id} has no userId, skipping`);
+        continue;
+      }
+
       // Tìm lịch làm việc của doctor trong ngày được yêu cầu
       const schedule = await DoctorSchedules.findOne({ doctorId: doctor._id });
 
@@ -326,6 +421,11 @@ export const getAvailableDoctors = async (date: string, timeSlot?: string, isSta
         continue; // Bác sĩ không làm việc trong ngày này
       }
 
+      // Lấy danh sách appointments của doctor này trong ngày
+      const doctorAppointments = existingAppointments.filter(apt => 
+        apt.doctorId && apt.doctorId.toString() === doctor._id.toString()
+      );
+
       // Kiểm tra theo timeSlot hoặc tìm bất kỳ slot nào
       let hasAvailableSlots = false;
       let availableSlotsInDay: any[] = [];
@@ -333,10 +433,21 @@ export const getAvailableDoctors = async (date: string, timeSlot?: string, isSta
       if (timeSlot) {
         // Tìm slot cụ thể trong timeSlot
         const specificSlot = daySchedule.slots.find((slot: any) => {
+          const slotTimeMatch = slot.slotTime === timeSlot;
+          
+          if (!slotTimeMatch) return false;
+          
           if (isStaff) {
-            return slot.slotTime === timeSlot; // Staff: xem tất cả status
+            return true; // Staff: xem tất cả status
           } else {
-            return slot.slotTime === timeSlot && slot.status === "Free"; // Public: chỉ Free
+            // Public: chỉ Free và không bị book bởi appointment
+            const isSlotFree = slot.status === "Free";
+            const isSlotBooked = doctorAppointments.some(apt => 
+              apt.appointmentTime === timeSlot || 
+              (apt.slotId && apt.slotId.toString() === (slot as any)._id.toString())
+            );
+            
+            return isSlotFree && !isSlotBooked;
           }
         });
 
@@ -359,9 +470,17 @@ export const getAvailableDoctors = async (date: string, timeSlot?: string, isSta
           }));
           hasAvailableSlots = availableSlotsInDay.length > 0;
         } else {
-          // Public: chỉ lấy slot Free
+          // Public: chỉ lấy slot Free và không bị book
           availableSlotsInDay = daySchedule.slots
-            .filter((slot: any) => slot.status === "Free")
+            .filter((slot: any) => {
+              const isSlotFree = slot.status === "Free";
+              const isSlotBooked = doctorAppointments.some(apt => 
+                apt.appointmentTime === slot.slotTime ||
+                (apt.slotId && apt.slotId.toString() === (slot as any)._id.toString())
+              );
+              
+              return isSlotFree && !isSlotBooked;
+            })
             .map((slot: any) => ({
               slotId: (slot as any)._id,
               slotTime: slot.slotTime,
@@ -376,14 +495,16 @@ export const getAvailableDoctors = async (date: string, timeSlot?: string, isSta
         const populatedDoctor = doctor as any;
 
         availableDoctors.push({
-          doctorId: doctor._id,
+          doctorId: doctor._id, // Doctor document ID
+          userId: populatedDoctor.userId._id, // User ID của doctor
           doctorInfo: {
             fullName: populatedDoctor.userId.fullName,
             email: populatedDoctor.userId.email,
             avatar: populatedDoctor.userId.avatar,
             specialization: doctor.specialization,
             experience: doctor.experience,
-            rating: doctor.rating
+            rating: doctor.rating,
+            isActive: populatedDoctor.userId.isActive !== false
           },
           availableSlots: availableSlotsInDay,
           totalAvailableSlots: availableSlotsInDay.length
@@ -391,8 +512,11 @@ export const getAvailableDoctors = async (date: string, timeSlot?: string, isSta
       }
     }
 
+    console.log(`✅ [Available Doctors] Found ${availableDoctors.length} available doctors for ${date}${timeSlot ? ` at ${timeSlot}` : ''}`);
+    
     return availableDoctors;
   } catch (error: any) {
+    console.error('❌ [Available Doctors] Error:', error);
     throw new Error(error.message || 'Không thể tìm bác sĩ có lịch trống');
   }
 };

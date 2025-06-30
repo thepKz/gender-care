@@ -3,6 +3,8 @@ import ServicePackages from '../models/ServicePackages';
 import Service from '../models/Service';
 import { AuthRequest, ApiResponse, PaginationQuery } from '../types';
 import { PackagePurchaseService } from '../services/packagePurchaseService';
+import systemLogService from '../services/systemLogService';
+import { LogAction, LogLevel } from '../models/SystemLogs';
 import mongoose from 'mongoose';
 
 // GET /service-packages - Get all service packages (updated for new schema)
@@ -242,6 +244,22 @@ export const createServicePackage = async (req: AuthRequest, res: Response) => {
     const savedPackage = await ServicePackages.findById(newPackage._id)
       .populate('services.serviceId', 'serviceName price description');
 
+    // Log system activity
+    await systemLogService.logFromRequest(req as any, LogAction.PACKAGE_CREATE, 
+      `Service package created: ${savedPackage?.name} - ${savedPackage?.services.length} services (${savedPackage?.price.toLocaleString()}đ)`, {
+        level: LogLevel.MANAGER,
+        targetId: (savedPackage?._id as mongoose.Types.ObjectId).toString(),
+        targetType: 'service_package',
+        metadata: {
+          packageName: savedPackage?.name,
+          price: savedPackage?.price,
+          priceBeforeDiscount: savedPackage?.priceBeforeDiscount,
+          servicesCount: savedPackage?.services.length,
+          durationInDays: savedPackage?.durationInDays
+        }
+      }
+    );
+
     const response: ApiResponse<any> = {
       success: true,
       message: 'Service package created successfully',
@@ -326,6 +344,22 @@ export const updateServicePackage = async (req: AuthRequest, res: Response) => {
       { new: true, runValidators: true }
     ).populate('services.serviceId', 'serviceName price description');
 
+    // Log system activity
+    const changedFields = Object.keys(updateData);
+    await systemLogService.logFromRequest(req as any, LogAction.PACKAGE_UPDATE, 
+      `Service package updated: ${updatedPackage?.name} - Fields changed: ${changedFields.join(', ')}`, {
+        level: LogLevel.MANAGER,
+        targetId: id,
+        targetType: 'service_package',
+        metadata: {
+          packageName: updatedPackage?.name,
+          changedFields,
+          updateData,
+          originalName: existingPackage.name
+        }
+      }
+    );
+
     const response: ApiResponse<any> = {
       success: true,
       message: 'Service package updated successfully',
@@ -356,6 +390,8 @@ export const deleteServicePackage = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    const packageToDelete = await ServicePackages.findById(id);
+    
     const updatedPackage = await ServicePackages.findByIdAndUpdate(
       id,
       { isActive: false, updatedAt: new Date() },
@@ -369,6 +405,21 @@ export const deleteServicePackage = async (req: AuthRequest, res: Response) => {
         errors: { package: 'Package does not exist' }
       });
     }
+
+    // Log system activity
+    await systemLogService.logFromRequest(req as any, LogAction.PACKAGE_DELETE, 
+      `Service package deleted: ${packageToDelete?.name} - ${packageToDelete?.services.length} services (${packageToDelete?.price.toLocaleString()}đ)`, {
+        level: LogLevel.MANAGER,
+        targetId: id,
+        targetType: 'service_package',
+        metadata: {
+          packageName: packageToDelete?.name,
+          price: packageToDelete?.price,
+          servicesCount: packageToDelete?.services.length,
+          deletedAt: new Date()
+        }
+      }
+    );
 
     const response: ApiResponse<any> = {
       success: true,

@@ -59,7 +59,10 @@ const Counselors = () => {
   // Filter and sort doctors
   const filteredDoctors = doctors
     .filter(doctor => {
-      const matchesSearch = doctor.userId.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      // Check if userId exists before accessing fullName
+      if (!doctor.userId) return false;
+      
+      const matchesSearch = doctor.userId?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            (doctor.specialization && doctor.specialization.toLowerCase().includes(searchTerm.toLowerCase()));
       const matchesSpecialization = selectedSpecialization === "all" || 
                                    doctor.specialization === selectedSpecialization;

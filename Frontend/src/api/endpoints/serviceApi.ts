@@ -139,4 +139,19 @@ export const recoverService = async (id: string): Promise<ServiceResponse> => {
     }
     throw new Error(error.response?.data?.message || 'Lỗi khi khôi phục dịch vụ');
   }
+};
+
+/**
+ * Toggle service status (active/inactive) - Manager only
+ */
+export const toggleServiceStatus = async (id: string): Promise<ServiceResponse> => {
+  try {
+    const response = await serviceApi.put(`/${id}/toggle-status`);
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      throw new Error('Không tìm thấy dịch vụ');
+    }
+    throw new Error(error.response?.data?.message || 'Lỗi khi thay đổi trạng thái dịch vụ');
+  }
 }; 
