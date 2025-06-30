@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 import { getDoctorStatistics } from './doctorService';
 import { generateMeetingPassword } from '../utils/passwordGenerator'; // ➕ IMPORT password generator
+import DoctorQA from '../models/DoctorQA'; // ➕ IMPORT DoctorQA model
+
 
 // Validate ObjectId helper
 const isValidObjectId = (id: string): boolean => {

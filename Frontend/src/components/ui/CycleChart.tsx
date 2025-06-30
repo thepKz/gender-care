@@ -97,7 +97,7 @@ const CycleChart: React.FC<CycleChartProps> = ({ chartData, resultCalculation, s
   }
 
   // Custom dot cho line chart
-  const CustomDot = (props: { cx?: number; cy?: number; payload?: any }) => {
+  const CustomDot = (props: { cx?: number; cy?: number; payload?: { symbol: string; isPeakDay: boolean } }) => {
     const { cx, cy, payload } = props;
     if (!cx || !cy || !payload) return null;
     
