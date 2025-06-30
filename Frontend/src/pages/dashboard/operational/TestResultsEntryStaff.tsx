@@ -15,7 +15,7 @@ import {
   Select,
   Spin
 } from 'antd';
-import { SearchOutlined, ExperimentOutlined, PlusCircleOutlined, EditOutlined } from '@ant-design/icons';
+import { SearchOutlined, ExperimentOutlined, PlusCircleOutlined, EditOutlined, FileTextOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { appointmentApi, testResultItemsApi, serviceTestCategoriesApi } from '../../../api/endpoints';
 import { useAuth } from '../../../hooks/useAuth';
@@ -209,22 +209,6 @@ const TestResultsEntryStaff: React.FC = () => {
       key: 'actions',
       render: (_: any, record: Appointment) => (
         <Space>
-          <Tooltip title={"Tạo hồ sơ xét nghiệm"}>
-            <Button
-              icon={<PlusCircleOutlined />}
-              disabled={
-                testResultStatus[record._id] === true ||
-                !(testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0 && record.status === 'done_testResultItem')
-              }
-              onClick={async () => {
-                setCreateTargetAppointment(record);
-                setCreateModalVisible(true);
-                testResultItemsApi.getByAppointment(record._id).then(items => setCreateTestResultItems(items || []));
-              }}
-              type="default"
-              shape="circle"
-            />
-          </Tooltip>
           <Tooltip title={
             record.status === 'consulting'
               ? 'Nhập kết quả xét nghiệm'
@@ -253,6 +237,22 @@ const TestResultsEntryStaff: React.FC = () => {
                 } finally {
                   setTestItemLoading(false);
                 }
+              }}
+              type="default"
+              shape="circle"
+            />
+          </Tooltip>
+          <Tooltip title={"Tạo hồ sơ xét nghiệm"}>
+            <Button
+              icon={<FileTextOutlined />}
+              disabled={
+                testResultStatus[record._id] === true ||
+                !(testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0 && record.status === 'done_testResultItem')
+              }
+              onClick={async () => {
+                setCreateTargetAppointment(record);
+                setCreateModalVisible(true);
+                testResultItemsApi.getByAppointment(record._id).then(items => setCreateTestResultItems(items || []));
               }}
               type="default"
               shape="circle"
