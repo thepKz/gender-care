@@ -408,7 +408,8 @@ export class TestResultItemsService {
           customNormalRange: stc.customNormalRange,
           customUnit: stc.customUnit,
           targetValue: stc.targetValue,
-          notes: stc.notes
+          minValue: stc.minValue,
+          maxValue: stc.maxValue
         };
       })
     };
