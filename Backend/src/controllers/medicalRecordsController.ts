@@ -483,4 +483,22 @@ export const checkMedicalRecordByAppointment = async (req: Request, res: Respons
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
+};
+
+export const getMedicalRecordsByAppointment = async (req: Request, res: Response) => {
+  try {
+    const { appointmentId } = req.params;
+    if (!appointmentId) {
+      return res.status(400).json({ message: 'appointmentId is required' });
+    }
+    const records = await MedicalRecords.find({ appointmentId }).populate([
+      { path: 'doctorId', select: 'userId', populate: { path: 'userId', select: 'fullName email' } },
+      { path: 'profileId', select: 'fullName gender phone' },
+      { path: 'appointmentId', select: 'appointmentDate appointmentTime status' }
+    ]);
+    return res.json(records);
+  } catch (error) {
+    console.error('Error in getMedicalRecordsByAppointment:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
 }; 

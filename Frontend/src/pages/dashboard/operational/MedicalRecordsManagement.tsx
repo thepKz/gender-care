@@ -26,69 +26,72 @@ import {
   MedicineBoxOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
-import { medicalApi } from '../../../api/endpoints';
+import { appointmentApi } from '../../../api/endpoints/appointment';
+import type { ApiAppointment } from '../../../types/appointment';
 import dayjs from 'dayjs';
+import medicalApi from '../../../api/endpoints/medical';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
 const { Option } = Select;
 const { TextArea } = Input;
 
-interface MedicalRecord {
+interface AppointmentTableItem {
   key: string;
   id: string;
   patientName: string;
-  patientEmail: string;
   patientPhone: string;
   doctorName: string;
   appointmentDate: string;
-  diagnosis: string;
-  treatment: string;
-  prescription: string;
-  notes: string;
-  status: 'draft' | 'completed' | 'reviewed';
+  appointmentTime: string;
+  serviceName: string;
+  appointmentType: string;
+  status: string;
+  paymentStatus: string;
   createdAt: string;
   updatedAt: string;
+  notes?: string;
 }
 
 const MedicalRecordsManagement: React.FC = () => {
-  const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
+  const [appointments, setAppointments] = useState<AppointmentTableItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedDoctor, setSelectedDoctor] = useState<string>('all');
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<MedicalRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<AppointmentTableItem | null>(null);
   const [form] = Form.useForm();
+  const [medicalModalOpen, setMedicalModalOpen] = useState(false);
+  const [medicalForm] = Form.useForm();
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentTableItem | null>(null);
+  const [medicineList, setMedicineList] = useState([{ name: '', dosage: '', instruction: '' }]);
+  const [medicalRecordMap, setMedicalRecordMap] = useState<{ [key: string]: boolean }>({});
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const response = await medicalApi.getMedicalRecords({
-        sortBy: 'createdAt',
-        sortOrder: 'desc'
-      });
-      
-      // Convert API response to component format
-      const convertedRecords = response.data.map((record: any) => ({
-        key: record._id,
-        id: record._id,
-        patientName: record.profileId?.fullName || 'N/A',
-        patientEmail: record.profileId?.email || 'N/A',
-        patientPhone: record.profileId?.phone || 'N/A',
-        doctorName: record.doctorId?.fullName || 'N/A',
-        appointmentDate: record.createdAt,
-        diagnosis: record.diagnosis || '',
-        treatment: record.treatment || '',
-        prescription: record.prescription || '',
-        notes: record.notes || '',
-        status: 'completed', // Default status
-        createdAt: record.createdAt,
-        updatedAt: record.updatedAt
+      const response = await appointmentApi.getAllAppointments({});
+      const data: ApiAppointment[] = response.data.appointments;
+      const mapped = data.map((item) => ({
+        key: item._id,
+        id: item._id,
+        patientName: item.profileId?.fullName || 'N/A',
+        patientPhone: item.profileId?.phone || 'N/A',
+        doctorName: item.doctorId?.userId?.fullName || 'N/A',
+        appointmentDate: item.appointmentDate,
+        appointmentTime: item.appointmentTime,
+        serviceName: item.serviceId?.serviceName || '',
+        appointmentType: item.appointmentType,
+        status: item.status,
+        paymentStatus: item.paymentStatus,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+        notes: item.notes || '',
       }));
-      setMedicalRecords(convertedRecords);
+      setAppointments(mapped);
     } catch (err: any) {
-      message.error(err?.message || 'Không thể tải danh sách hồ sơ y tế');
+      message.error(err?.message || 'Không thể tải danh sách cuộc hẹn');
     } finally {
       setLoading(false);
     }
@@ -98,37 +101,55 @@ const MedicalRecordsManagement: React.FC = () => {
     loadData();
   }, []);
 
-  const filteredRecords = medicalRecords.filter(record => {
+  useEffect(() => {
+    const fetchMedicalRecords = async () => {
+      const map: { [key: string]: boolean } = {};
+      for (const appt of appointments) {
+        try {
+          const res = await medicalApi.getMedicalRecordsByAppointment(appt.id);
+          map[appt.id] = res.data && res.data.length > 0;
+        } catch (err: any) {
+          if (err?.response?.status === 404) {
+            map[appt.id] = false;
+          } else {
+            console.error('API error:', err);
+            map[appt.id] = false;
+          }
+        }
+      }
+      setMedicalRecordMap(map);
+    };
+    if (appointments.length) fetchMedicalRecords();
+  }, [appointments]);
+
+  const filteredRecords = appointments.filter(record => {
     const matchesSearch = record.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
-                         record.patientEmail.toLowerCase().includes(searchText.toLowerCase()) ||
-                         record.doctorName.toLowerCase().includes(searchText.toLowerCase()) ||
-                         record.diagnosis.toLowerCase().includes(searchText.toLowerCase());
+      record.doctorName.toLowerCase().includes(searchText.toLowerCase()) ||
+      record.serviceName.toLowerCase().includes(searchText.toLowerCase());
     const matchesStatus = selectedStatus === 'all' || record.status === selectedStatus;
     const matchesDoctor = selectedDoctor === 'all' || record.doctorName === selectedDoctor;
-    
-    return matchesSearch && matchesStatus && matchesDoctor;
+    const matchesVerify = record.status === 'done_testResult' || record.status === 'completed';
+    return matchesSearch && matchesStatus && matchesDoctor && matchesVerify;
   });
 
-  const getStatusColor = (status: MedicalRecord['status']) => {
+  const getStatusColor = (status: string) => {
     const colors = {
-      draft: 'orange',
+      done_testResult: 'cyan',
       completed: 'green',
-      reviewed: 'blue'
     };
-    return colors[status];
+    return colors[status] || 'default';
   };
 
-  const getStatusText = (status: MedicalRecord['status']) => {
+  const getStatusText = (status: string) => {
     const texts = {
-      draft: 'Bản nháp',
+      done_testResult: 'Hoàn thành hồ sơ',
       completed: 'Hoàn thành',
-      reviewed: 'Đã xem xét'
     };
-    return texts[status];
+    return texts[status] || status;
   };
 
-  const handleEdit = (record: MedicalRecord) => {
-    setEditingRecord(record);
+  const handleEdit = (record: AppointmentTableItem) => {
+    setSelectedRecord(record);
     form.setFieldsValue({
       ...record,
       appointmentDate: dayjs(record.appointmentDate)
@@ -138,10 +159,11 @@ const MedicalRecordsManagement: React.FC = () => {
 
   const handleDelete = async (recordId: string) => {
     try {
-      // Note: medicalApi doesn't have delete method, so we'll show a message
-      message.warning('Chức năng xóa hồ sơ y tế chưa được hỗ trợ');
+      await appointmentApi.deleteAppointment(recordId);
+      message.success('Đã hủy cuộc hẹn');
+      loadData();
     } catch (err: any) {
-      message.error(err?.message || 'Không thể xóa hồ sơ y tế');
+      message.error('Không thể hủy cuộc hẹn');
     }
   };
 
@@ -153,27 +175,15 @@ const MedicalRecordsManagement: React.FC = () => {
         appointmentDate: values.appointmentDate.format('YYYY-MM-DD')
       };
       
-      if (editingRecord) {
-        await medicalApi.updateMedicalRecord(editingRecord.id, {
-          diagnosis: formattedValues.diagnosis,
-          treatment: formattedValues.treatment,
+      if (selectedRecord) {
+        await appointmentApi.updateAppointment(selectedRecord.id, {
           notes: formattedValues.notes
         });
-        message.success('Cập nhật hồ sơ y tế thành công');
-      } else {
-        await medicalApi.createMedicalRecord({
-          profileId: formattedValues.profileId,
-          appointmentId: formattedValues.appointmentId,
-          diagnosis: formattedValues.diagnosis,
-          symptoms: formattedValues.symptoms || '',
-          treatment: formattedValues.treatment,
-          notes: formattedValues.notes
-        });
-        message.success('Tạo hồ sơ y tế thành công');
+        message.success('Cập nhật thông tin cuộc hẹn thành công');
       }
       setIsModalVisible(false);
       form.resetFields();
-      setEditingRecord(null);
+      setSelectedRecord(null);
       loadData();
     } catch (err: any) {
       message.error(err?.response?.data?.message || 'Có lỗi xảy ra');
@@ -183,144 +193,122 @@ const MedicalRecordsManagement: React.FC = () => {
   const handleModalCancel = () => {
     setIsModalVisible(false);
     form.resetFields();
-    setEditingRecord(null);
+    setSelectedRecord(null);
   };
 
-  const showRecordDetails = (record: MedicalRecord) => {
-    Modal.info({
-      title: 'Chi tiết hồ sơ y tế',
-      width: 700,
-      content: (
-        <div style={{ marginTop: 16 }}>
-          <p><strong>Mã hồ sơ:</strong> {record.id}</p>
-          <p><strong>Bệnh nhân:</strong> {record.patientName}</p>
-          <p><strong>Email:</strong> {record.patientEmail}</p>
-          <p><strong>Số điện thoại:</strong> {record.patientPhone}</p>
-          <p><strong>Bác sĩ:</strong> {record.doctorName}</p>
-          <p><strong>Ngày khám:</strong> {new Date(record.appointmentDate).toLocaleDateString('vi-VN')}</p>
-          <p><strong>Chẩn đoán:</strong> {record.diagnosis}</p>
-          <p><strong>Điều trị:</strong> {record.treatment}</p>
-          <p><strong>Đơn thuốc:</strong> {record.prescription}</p>
-          <p><strong>Ghi chú:</strong> {record.notes || 'Không có'}</p>
-          <p><strong>Trạng thái:</strong> {getStatusText(record.status)}</p>
-          <p><strong>Ngày tạo:</strong> {new Date(record.createdAt).toLocaleDateString('vi-VN')}</p>
-          <p><strong>Cập nhật:</strong> {new Date(record.updatedAt).toLocaleDateString('vi-VN')}</p>
-        </div>
-      ),
-    });
-  };
+  const showDetailModal = selectedRecord !== null;
 
-  const columns: ColumnsType<MedicalRecord> = [
+  const columns: ColumnsType<AppointmentTableItem> = [
     {
       title: 'Bệnh nhân',
       dataIndex: 'patientName',
       key: 'patientName',
-      width: 200,
-      render: (text: string, record: MedicalRecord) => (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <UserOutlined style={{ color: '#1890ff' }} />
-          <div>
-            <Text strong>{text}</Text>
-            <br />
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              {record.patientEmail}
-            </Text>
-            <br />
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              {record.patientPhone}
-            </Text>
-          </div>
+      width: 120,
+      render: (text: string, record: AppointmentTableItem) => (
+        <div>
+          <Text strong>{text}</Text>
+          <br />
+          <Text type="secondary" style={{ fontSize: '12px' }}>{record.patientPhone}</Text>
         </div>
       )
     },
     {
-      title: 'Bác sĩ & Ngày khám',
+      title: 'Bác sĩ',
       dataIndex: 'doctorName',
       key: 'doctorName',
-      width: 180,
-      render: (text: string, record: MedicalRecord) => (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
-            <MedicineBoxOutlined style={{ color: '#52c41a' }} />
-            <Text strong style={{ fontSize: '12px' }}>{text}</Text>
-          </div>
-          <Text style={{ fontSize: '12px' }}>
-            {new Date(record.appointmentDate).toLocaleDateString('vi-VN')}
-          </Text>
-        </div>
-      )
+      width: 100,
+      render: (text: string) => <Text>{text}</Text>
     },
     {
-      title: 'Chẩn đoán',
-      dataIndex: 'diagnosis',
-      key: 'diagnosis',
-      width: 200,
-      render: (text: string) => (
-        <Text style={{ fontSize: '12px' }}>
-          {text.length > 50 ? `${text.substring(0, 50)}...` : text}
-        </Text>
-      )
+      title: 'Ngày',
+      dataIndex: 'appointmentDate',
+      key: 'appointmentDate',
+      width: 80,
+      render: (text: string) => <Text>{new Date(text).toLocaleDateString('vi-VN')}</Text>
     },
     {
-      title: 'Điều trị',
-      dataIndex: 'treatment',
-      key: 'treatment',
-      width: 200,
-      render: (text: string) => (
-        <Text style={{ fontSize: '12px' }}>
-          {text.length > 50 ? `${text.substring(0, 50)}...` : text}
-        </Text>
-      )
+      title: 'Giờ',
+      dataIndex: 'appointmentTime',
+      key: 'appointmentTime',
+      width: 50,
+      render: (text: string) => <Text>{text}</Text>
+    },
+    {
+      title: 'Dịch vụ',
+      dataIndex: 'serviceName',
+      key: 'serviceName',
+      width: 110,
+      render: (text: string) => <Text>{text}</Text>
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      width: 120,
-      render: (status: MedicalRecord['status']) => (
-        <Tag color={getStatusColor(status)}>
-          {getStatusText(status)}
-        </Tag>
-      )
+      width: 80,
+      render: (status: string) => <Tag color={getStatusColor(status)}>{getStatusText(status)}</Tag>
     },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 150,
-      render: (_, record: MedicalRecord) => (
-        <Space size="small">
-          <Tooltip title="Xem chi tiết">
-            <Button 
-              type="text" 
-              icon={<EyeOutlined />} 
-              onClick={() => showRecordDetails(record)}
-            />
-          </Tooltip>
-          <Tooltip title="Chỉnh sửa">
-            <Button 
-              type="text" 
-              icon={<EditOutlined />} 
-              onClick={() => handleEdit(record)}
-            />
-          </Tooltip>
-          <Tooltip title="Xóa">
-            <Popconfirm
-              title="Bạn có chắc chắn muốn xóa hồ sơ y tế này?"
-              onConfirm={() => handleDelete(record.id)}
-              okText="Có"
-              cancelText="Không"
-            >
-              <Button 
-                type="text" 
-                danger 
-                icon={<DeleteOutlined />}
-              />
-            </Popconfirm>
-          </Tooltip>
-        </Space>
+      width: 40,
+      render: (_, record: AppointmentTableItem) => (
+        <Button
+          type="text"
+          icon={<FileTextOutlined />}
+          onClick={() => handleCreateMedicalRecord(record)}
+          disabled={!!medicalRecordMap[record.id]}
+        />
       )
     }
   ];
+
+  const handleCreateMedicalRecord = (record?: AppointmentTableItem) => {
+    setSelectedAppointment(record || null);
+    setMedicalModalOpen(true);
+    // Reset form and medicine list
+    medicalForm.resetFields();
+    setMedicineList([{ name: '', dosage: '', instruction: '' }]);
+  };
+
+  const handleAddMedicine = () => {
+    setMedicineList([...medicineList, { name: '', dosage: '', instruction: '' }]);
+  };
+
+  const handleRemoveMedicine = (idx: number) => {
+    setMedicineList(medicineList.filter((_, i) => i !== idx));
+  };
+
+  const handleMedicineChange = (idx: number, field: string, value: string) => {
+    const newList = [...medicineList];
+    newList[idx][field] = value;
+    setMedicineList(newList);
+  };
+
+  const handleMedicalSubmit = async () => {
+    try {
+      const values = await medicalForm.validateFields();
+      if (!selectedAppointment) {
+        message.error('Không tìm thấy thông tin cuộc hẹn!');
+        return;
+      }
+      const data = {
+        profileId: selectedAppointment.id, // hoặc selectedAppointment.profileId nếu có
+        appointmentId: selectedAppointment.id,
+        diagnosis: values.summary,
+        symptoms: values.symptoms,
+        treatment: values.treatment,
+        notes: values.notes,
+        // Có thể bổ sung medicines nếu backend hỗ trợ
+      };
+      await medicalApi.createMedicalRecord(data);
+      message.success('Tạo hồ sơ bệnh án thành công!');
+      setMedicalModalOpen(false);
+      medicalForm.resetFields();
+      loadData();
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || 'Tạo hồ sơ bệnh án thất bại!');
+    }
+  };
 
   return (
     <div style={{ padding: '24px' }}>
@@ -328,27 +316,18 @@ const MedicalRecordsManagement: React.FC = () => {
         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
             <FileTextOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-            Quản lý hồ sơ y tế
+            Quản lý cuộc hẹn
           </Title>
-          <Button 
-            type="primary" 
-            icon={<PlusOutlined />}
-            onClick={() => setIsModalVisible(true)}
-          >
-            Thêm hồ sơ mới
-          </Button>
         </div>
-
         <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <Search
-            placeholder="Tìm kiếm theo tên bệnh nhân, bác sĩ hoặc chẩn đoán..."
+            placeholder="Tìm kiếm theo tên bệnh nhân, bác sĩ hoặc dịch vụ..."
             allowClear
             style={{ width: 350 }}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
             prefix={<SearchOutlined />}
           />
-          
           <Select
             placeholder="Trạng thái"
             style={{ width: 150 }}
@@ -356,11 +335,13 @@ const MedicalRecordsManagement: React.FC = () => {
             onChange={setSelectedStatus}
           >
             <Option value="all">Tất cả trạng thái</Option>
-            <Option value="draft">Bản nháp</Option>
+            <Option value="pending">Chờ xác nhận</Option>
+            <Option value="scheduled">Đã lên lịch</Option>
+            <Option value="confirmed">Đã xác nhận</Option>
+            <Option value="consulting">Đang tư vấn</Option>
             <Option value="completed">Hoàn thành</Option>
-            <Option value="reviewed">Đã xem xét</Option>
+            <Option value="cancelled">Đã hủy</Option>
           </Select>
-
           <Select
             placeholder="Bác sĩ"
             style={{ width: 200 }}
@@ -368,12 +349,9 @@ const MedicalRecordsManagement: React.FC = () => {
             onChange={setSelectedDoctor}
           >
             <Option value="all">Tất cả bác sĩ</Option>
-            <Option value="Dr. Nguyễn Thị Hương">Dr. Nguyễn Thị Hương</Option>
-            <Option value="Dr. Trần Minh Đức">Dr. Trần Minh Đức</Option>
-            <Option value="Dr. Lê Thị Mai">Dr. Lê Thị Mai</Option>
+            {/* Có thể map động danh sách bác sĩ nếu cần */}
           </Select>
         </div>
-
         <Table
           columns={columns}
           dataSource={filteredRecords}
@@ -383,108 +361,121 @@ const MedicalRecordsManagement: React.FC = () => {
             pageSize: 10,
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total, range) => 
-              `${range[0]}-${range[1]} của ${total} hồ sơ y tế`
+            showTotal: (total, range) => `${range[0]}-${range[1]} của ${total} cuộc hẹn`
           }}
-          scroll={{ x: 1200 }}
         />
       </Card>
-
       <Modal
-        title={editingRecord ? 'Chỉnh sửa hồ sơ y tế' : 'Thêm hồ sơ y tế mới'}
-        open={isModalVisible}
-        onOk={handleModalOk}
-        onCancel={handleModalCancel}
-        width={700}
-        okText={editingRecord ? 'Cập nhật' : 'Tạo mới'}
-        cancelText="Hủy"
+        title="Chi tiết cuộc hẹn"
+        open={showDetailModal}
+        onCancel={() => { setIsModalVisible(false); setSelectedRecord(null); }}
+        footer={null}
+        width={600}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          style={{ marginTop: 16 }}
-        >
-          <Form.Item
-            name="patientName"
-            label="Tên bệnh nhân"
-            rules={[{ required: true, message: 'Vui lòng nhập tên bệnh nhân!' }]}
-          >
-            <Input placeholder="Nhập tên bệnh nhân" />
-          </Form.Item>
-
-          <Form.Item
-            name="patientEmail"
-            label="Email bệnh nhân"
-            rules={[
-              { required: true, message: 'Vui lòng nhập email!' },
-              { type: 'email', message: 'Email không hợp lệ!' }
-            ]}
-          >
-            <Input placeholder="Nhập email bệnh nhân" />
-          </Form.Item>
-
-          <Form.Item
-            name="patientPhone"
-            label="Số điện thoại"
-            rules={[{ required: true, message: 'Vui lòng nhập số điện thoại!' }]}
-          >
-            <Input placeholder="Nhập số điện thoại" />
-          </Form.Item>
-
-          <div style={{ display: 'flex', gap: 16 }}>
-            <Form.Item
-              name="doctorName"
-              label="Bác sĩ"
-              rules={[{ required: true, message: 'Vui lòng chọn bác sĩ!' }]}
-              style={{ flex: 1 }}
-            >
-              <Select placeholder="Chọn bác sĩ">
-                <Option value="Dr. Nguyễn Thị Hương">Dr. Nguyễn Thị Hương</Option>
-                <Option value="Dr. Trần Minh Đức">Dr. Trần Minh Đức</Option>
-                <Option value="Dr. Lê Thị Mai">Dr. Lê Thị Mai</Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              name="appointmentDate"
-              label="Ngày khám"
-              rules={[{ required: true, message: 'Vui lòng chọn ngày khám!' }]}
-              style={{ flex: 1 }}
-            >
-              <DatePicker style={{ width: '100%' }} />
-            </Form.Item>
+        {selectedRecord && (
+          <div style={{ marginTop: 16 }}>
+            <p><strong>Bệnh nhân:</strong> {selectedRecord.patientName}</p>
+            <p><strong>Số điện thoại:</strong> {selectedRecord.patientPhone}</p>
+            <p><strong>Bác sĩ:</strong> {selectedRecord.doctorName}</p>
+            <p><strong>Ngày:</strong> {new Date(selectedRecord.appointmentDate).toLocaleDateString('vi-VN')}</p>
+            <p><strong>Giờ:</strong> {selectedRecord.appointmentTime}</p>
+            <p><strong>Dịch vụ:</strong> {selectedRecord.serviceName}</p>
+            <p><strong>Loại hẹn:</strong> {selectedRecord.appointmentType}</p>
+            <p><strong>Trạng thái:</strong> {selectedRecord.status}</p>
+            <p><strong>Thanh toán:</strong> {selectedRecord.paymentStatus}</p>
+            <p><strong>Ghi chú:</strong> {selectedRecord.notes || 'Không có'}</p>
+            <p><strong>Ngày tạo:</strong> {new Date(selectedRecord.createdAt).toLocaleDateString('vi-VN')}</p>
+            <p><strong>Cập nhật:</strong> {new Date(selectedRecord.updatedAt).toLocaleDateString('vi-VN')}</p>
           </div>
-
-          <Form.Item
-            name="diagnosis"
-            label="Chẩn đoán"
-            rules={[{ required: true, message: 'Vui lòng nhập chẩn đoán!' }]}
+        )}
+      </Modal>
+      <Modal
+        open={medicalModalOpen}
+        onCancel={() => setMedicalModalOpen(false)}
+        title="Thêm hồ sơ y tế mới"
+        footer={null}
+        width={700}
+      >
+        {selectedAppointment && (
+          <div
+            style={{
+              background: '#f6f8fa',
+              borderRadius: 8,
+              padding: 16,
+              marginBottom: 16,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              fontSize: 15,
+              gap: 32
+            }}
           >
-            <TextArea rows={3} placeholder="Nhập chẩn đoán chi tiết" />
+            <div>
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                Tên bệnh nhân: <span style={{ fontWeight: 400 }}>{selectedAppointment.patientName}</span>
+              </div>
+              <div style={{ fontWeight: 600 }}>
+                Bác sĩ: <span style={{ fontWeight: 400 }}>{selectedAppointment.doctorName}</span>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', minWidth: 210 }}>
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                <span style={{ minWidth: 100, display: 'inline-block' }}>Số điện thoại:</span>
+                <span style={{ fontWeight: 400 }}>{selectedAppointment.patientPhone}</span>
+              </div>
+              <div style={{ fontWeight: 600 }}>
+                <span style={{ minWidth: 100, display: 'inline-block' }}>Ngày khám:</span>
+                <span style={{ fontWeight: 400 }}>{new Date(selectedAppointment.appointmentDate).toLocaleDateString('vi-VN')}</span>
+              </div>
+            </div>
+          </div>
+        )}
+        <Form
+          form={medicalForm}
+          layout="vertical"
+          onFinish={handleMedicalSubmit}
+        >
+          <Form.Item name="symptoms" label="Triệu chứng" rules={[{ required: true, message: 'Vui lòng nhập triệu chứng!' }]}>
+            <TextArea placeholder="Nhập triệu chứng" autoSize={{ minRows: 2 }} />
           </Form.Item>
-
+          <Form.Item name="summary" label="Kết luận" rules={[{ required: true, message: 'Vui lòng nhập kết luận!' }]}>
+            <TextArea placeholder="Không có kết luận" autoSize={{ minRows: 2 }} />
+          </Form.Item>
           <Form.Item
             name="treatment"
             label="Điều trị"
             rules={[{ required: true, message: 'Vui lòng nhập phương pháp điều trị!' }]}
           >
-            <TextArea rows={3} placeholder="Nhập phương pháp điều trị" />
+            <TextArea placeholder="Nhập phương pháp điều trị" autoSize={{ minRows: 2 }} />
           </Form.Item>
-
-          <Form.Item
-            name="prescription"
-            label="Đơn thuốc"
-          >
-            <TextArea rows={3} placeholder="Nhập đơn thuốc (tùy chọn)" />
+          <div style={{ marginBottom: 8 }}>Thuốc</div>
+          {medicineList.map((med, idx) => (
+            <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <Input
+                placeholder="Tên thuốc"
+                value={med.name}
+                onChange={e => handleMedicineChange(idx, 'name', e.target.value)}
+                style={{ width: 120 }}
+              />
+              <Input
+                placeholder="Liều lượng/nhóm"
+                value={med.dosage}
+                onChange={e => handleMedicineChange(idx, 'dosage', e.target.value)}
+                style={{ width: 120 }}
+              />
+              <Input
+                placeholder="Hướng dẫn sử dụng"
+                value={med.instruction}
+                onChange={e => handleMedicineChange(idx, 'instruction', e.target.value)}
+                style={{ width: 180 }}
+              />
+              <Button disabled={medicineList.length === 1} onClick={() => handleRemoveMedicine(idx)}>Xóa</Button>
+            </div>
+          ))}
+          <Button type="dashed" onClick={handleAddMedicine} style={{ marginBottom: 16 }}>Thêm thuốc</Button>
+          <Form.Item name="notes" label="Ghi chú">
+            <TextArea placeholder="Nhập ghi chú thêm (tùy chọn)" autoSize={{ minRows: 2 }} />
           </Form.Item>
-
-          <Form.Item
-            name="notes"
-            label="Ghi chú"
-          >
-            <TextArea rows={2} placeholder="Nhập ghi chú thêm (tùy chọn)" />
-          </Form.Item>
-
           <Form.Item
             name="status"
             label="Trạng thái"
@@ -496,6 +487,11 @@ const MedicalRecordsManagement: React.FC = () => {
               <Option value="reviewed">Đã xem xét</Option>
             </Select>
           </Form.Item>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Form.Item>
+              <Button type="primary" htmlType="submit" style={{ width: 200 }}>Tạo hồ sơ</Button>
+            </Form.Item>
+          </div>
         </Form>
       </Modal>
     </div>
