@@ -32,8 +32,6 @@
     "@react-oauth/google": "^0.12.2",
     "@types/axios": "^0.9.36",
     "@types/bcryptjs": "^2.4.6",
-    "@types/cookie-parser": "^1.4.8",
-    "@types/cors": "^2.8.17",
     "@types/express-rate-limit": "^6.0.0",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/mongoose": "^5.11.97",
@@ -62,6 +60,9 @@
     "yamljs": "^0.3.0"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.9",
+    "@types/cors": "^2.8.19",
+    "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.3",
     "@types/jest": "^29.5.13",
     "@types/multer": "^1.4.12",
@@ -71,7 +72,7 @@
     "@types/semver": "^7.5.8",
     "@types/supertest": "^6.0.2",
     "@types/swagger-jsdoc": "^6.0.4",
-    "@types/swagger-ui-express": "^4.1.6",
+    "@types/swagger-ui-express": "^4.1.8",
     "@types/yamljs": "^0.2.34",
     "copyfiles": "^2.4.1",
     "jest": "^29.7.0",
