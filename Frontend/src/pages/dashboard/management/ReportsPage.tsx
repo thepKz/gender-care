@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, Row, Col, Spin, Typography, DatePicker, Select, Button, Table, message, Tag, Progress, Statistic, Space, Divider } from 'antd';
 import { DownloadOutlined, RiseOutlined, FallOutlined, CalendarOutlined, DollarOutlined, ClockCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
@@ -38,10 +39,12 @@ const APPOINTMENT_STATUS_OPTIONS = [
     { value: 'missed', label: 'Đã lỡ hẹn', color: 'grey' },
 ];
 
+
 const ReportsPage: React.FC = () => {
   // State for overview charts
   const [overviewData, setOverviewData] = useState<ReportsResponse | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(false);
+
 
   // State for detailed report
   const [filters, setFilters] = useState<Omit<ReportFilters, 'reportType'>>({});
@@ -92,7 +95,7 @@ const ReportsPage: React.FC = () => {
   
   // Handler for exporting to Excel
   const handleExport = async () => {
-    if (detailedData.length === 0) {
+    if (!detailedData || detailedData.length === 0) {
       message.warn('Không có dữ liệu để xuất. Vui lòng áp dụng bộ lọc trước.');
       return;
     }

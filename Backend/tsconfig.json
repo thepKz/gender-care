@@ -12,7 +12,8 @@
     "baseUrl": "./src",
     "paths": {
       "*": ["*"]
-    }
+    },
+    "lib": ["es2016", "es2020", "dom"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]
