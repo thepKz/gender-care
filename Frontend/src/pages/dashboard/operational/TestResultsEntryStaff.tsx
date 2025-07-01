@@ -41,7 +41,7 @@ interface Appointment {
   status: string;
 }
 
-const TestResultsEntryStaff: React.FC = () => {
+const TestResultsEntry: React.FC = () => {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -76,7 +76,7 @@ const TestResultsEntryStaff: React.FC = () => {
   const [testResultModalId, setTestResultModalId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user?.role === 'staff') {
+    if (user?.role === 'staff' || user?.role === 'doctor') {
       loadAppointments();
     }
   }, [selectedDate, user]);
@@ -746,4 +746,4 @@ const TestResultsEntryStaff: React.FC = () => {
   );
 };
 
-export default TestResultsEntryStaff; 
+export default TestResultsEntry; 

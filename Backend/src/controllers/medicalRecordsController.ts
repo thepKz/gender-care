@@ -6,7 +6,7 @@ import mongoose from 'mongoose';
 // Tạo medical record (Doctor/Staff)
 export const createMedicalRecord = async (req: AuthRequest, res: Response) => {
   try {
-    const { profileId, appointmentId, diagnosis, symptoms, treatment, medicines, notes, pictures } = req.body;
+    const { profileId, appointmentId, conclusion, symptoms, treatment, medicines, notes, status } = req.body;
     const doctorId = req.user?._id;
 
     // Validate required fields
@@ -21,12 +21,12 @@ export const createMedicalRecord = async (req: AuthRequest, res: Response) => {
       doctorId,
       profileId,
       appointmentId,
-      diagnosis,
+      conclusion,
       symptoms,
       treatment,
       medicines: medicines || [],
       notes,
-      pictures: pictures || []
+      status: status || "draft"
     });
 
     await medicalRecord.save();
@@ -52,7 +52,7 @@ export const createMedicalRecord = async (req: AuthRequest, res: Response) => {
 export const updateMedicalRecord = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { diagnosis, symptoms, treatment, medicines, notes, pictures } = req.body;
+    const { conclusion, symptoms, treatment, medicines, notes, status } = req.body;
     const currentUserId = req.user?._id;
     const userRole = req.user?.role;
 
@@ -76,12 +76,12 @@ export const updateMedicalRecord = async (req: AuthRequest, res: Response) => {
 
     // Update medical record
     const updateData: Partial<IMedicalRecords> = {};
-    if (diagnosis !== undefined) updateData.diagnosis = diagnosis;
+    if (conclusion !== undefined) updateData.conclusion = conclusion;
     if (symptoms !== undefined) updateData.symptoms = symptoms;
     if (treatment !== undefined) updateData.treatment = treatment;
     if (medicines !== undefined) updateData.medicines = medicines;
     if (notes !== undefined) updateData.notes = notes;
-    if (pictures !== undefined) updateData.pictures = pictures;
+    if (status !== undefined) updateData.status = status;
 
     const updatedRecord = await MedicalRecords.findByIdAndUpdate(
       id,
@@ -317,7 +317,7 @@ export const getMedicalRecordsByProfile = async (req: AuthRequest, res: Response
 export const searchMyMedicalRecords = async (req: AuthRequest, res: Response) => {
   try {
     const currentUserId = req.user?._id;
-    const { diagnosis, patientName, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
+    const { conclusion, patientName, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
 
     // Find doctor record first
     const Doctor = mongoose.model('Doctor');
@@ -331,8 +331,8 @@ export const searchMyMedicalRecords = async (req: AuthRequest, res: Response) =>
     // Build search query
     const query: any = { doctorId: doctorRecord._id };
     
-    if (diagnosis) {
-      query.diagnosis = { $regex: diagnosis, $options: 'i' };
+    if (conclusion) {
+      query.conclusion = { $regex: conclusion, $options: 'i' };
     }
     
     if (dateFrom || dateTo) {
@@ -365,7 +365,7 @@ export const searchMyMedicalRecords = async (req: AuthRequest, res: Response) =>
       message: `Tìm kiếm hồ sơ khám bệnh thành công (${medicalRecords.length} kết quả)`,
       data: medicalRecords,
       searchCriteria: {
-        diagnosis,
+        conclusion,
         patientName,
         dateFrom,
         dateTo
@@ -382,13 +382,13 @@ export const searchMyMedicalRecords = async (req: AuthRequest, res: Response) =>
 // Staff tìm kiếm trong tất cả medical records
 export const searchAllMedicalRecords = async (req: AuthRequest, res: Response) => {
   try {
-    const { diagnosis, doctorName, patientName, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
+    const { conclusion, doctorName, patientName, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
 
     // Build search query
     const query: any = {};
     
-    if (diagnosis) {
-      query.diagnosis = { $regex: diagnosis, $options: 'i' };
+    if (conclusion) {
+      query.conclusion = { $regex: conclusion, $options: 'i' };
     }
     
     if (dateFrom || dateTo) {
@@ -434,7 +434,7 @@ export const searchAllMedicalRecords = async (req: AuthRequest, res: Response) =
       message: `Tìm kiếm tất cả hồ sơ khám bệnh thành công (${medicalRecords.length} kết quả)`,
       data: medicalRecords,
       searchCriteria: {
-        diagnosis,
+        conclusion,
         doctorName,
         patientName,
         dateFrom,
