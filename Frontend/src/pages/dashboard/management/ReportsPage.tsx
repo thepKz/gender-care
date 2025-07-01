@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { FC, useEffect, useState } from 'react';
 import { Card, Row, Col, Spin, Typography } from 'antd';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, PieChart, Pie, Cell, Legend } from 'recharts';
 import { fetchManagementReports, ReportsResponse } from '../../../api/endpoints/reports';
@@ -7,7 +7,7 @@ const { Title } = Typography;
 
 const COLORS = ['#003f5c', '#2f4b7c', '#665191', '#a05195', '#d45087', '#f95d6a', '#ff7c43', '#ffa600'];
 
-const ReportsPage: React.FC = () => {
+const ReportsPage: FC = () => {
   const [data, setData] = useState<ReportsResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
