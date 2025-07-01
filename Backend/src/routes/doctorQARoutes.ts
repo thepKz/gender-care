@@ -5,6 +5,10 @@ import {
   getLeastBookedDoctor,
   getBestAssignment,
   createDoctorQA,
+  checkSlotAvailability,
+  getAvailableSlotsForDate,
+  getDoctorsWorkloadStatistics,
+  createQAWithSelectedSlot,
   getAllDoctorQAs,
   getDoctorQAById,
   getMyDoctorQAs,
@@ -22,6 +26,7 @@ import {
   manualTriggerScheduling,
   batchProcessPaidQAs,
   cancelConsultationByDoctor,
+  cancelConsultationByUser,
   getLiveConsultations,
   getTodayConsultations,
   checkMeetingExistence,
@@ -34,6 +39,19 @@ import {
 const router = express.Router();
 
 // =============== SPECIFIC ROUTES FIRST (Tránh conflict với :id) ===============
+// ➕ NEW SLOT CHECKING ROUTES
+// GET /api/doctor-qa/check-slot/:date/:slotTime - Check if specific slot is available (PUBLIC)
+router.get('/doctor-qa/check-slot/:date/:slotTime', checkSlotAvailability);
+
+// GET /api/doctor-qa/available-slots-for-date/:date - Get all 8 slots availability for date (PUBLIC)
+router.get('/doctor-qa/available-slots-for-date/:date', getAvailableSlotsForDate);
+
+// GET /api/doctor-qa/doctors-workload - Get doctors workload statistics (STAFF/MANAGER/ADMIN)
+router.get('/doctor-qa/doctors-workload', verifyToken, requireRole('staff'), getDoctorsWorkloadStatistics);
+
+// POST /api/doctor-qa/create-with-selected-slot - Create QA with selected slot and auto-assign doctor (USER)
+router.post('/doctor-qa/create-with-selected-slot', verifyToken, createQAWithSelectedSlot);
+
 // GET /api/doctor-qa/best-assignment - Tìm assignment tốt nhất cho slot gần nhất (STAFF/MANAGER/ADMIN)
 router.get('/doctor-qa/best-assignment', verifyToken, requireRole('staff'), getBestAssignment);
 
@@ -46,8 +64,6 @@ router.get('/doctor-qa/live', verifyToken, getLiveConsultations);
 // GET /api/doctor-qa/today - Lấy tất cả consultation HÔM NAY (DOCTOR/STAFF)
 router.get('/doctor-qa/today', verifyToken, getTodayConsultations);
 
-
-
 // GET /api/doctor-qa/my-requests - Lấy yêu cầu tư vấn của user đang đăng nhập
 router.get('/doctor-qa/my-requests', verifyToken, getMyDoctorQAs);
 
@@ -55,7 +71,7 @@ router.get('/doctor-qa/my-requests', verifyToken, getMyDoctorQAs);
 router.get('/doctor-qa/my', verifyToken, requireAnyRole(['doctor', 'staff']), getMyDoctorQAAsDoctor);
 
 // =============== USER ROUTES (Cần auth) ===============
-// POST /api/doctor-qa - Tạo yêu cầu tư vấn mới
+// POST /api/doctor-qa - Tạo yêu cầu tư vấn mới (cơ bản, không auto-assign)
 router.post('/doctor-qa', verifyToken, createDoctorQA);
 
 // GET /api/doctor-qa - Lấy tất cả yêu cầu tư vấn (có thể filter) - STAFF/MANAGER/ADMIN
@@ -91,6 +107,9 @@ router.put('/doctor-qa/:id/confirm-consultation', verifyToken, confirmConsultati
 // PUT /api/doctor-qa/:id/cancel-by-doctor - Hủy cuộc tư vấn bởi bác sĩ với lý do (DOCTOR ONLY)
 router.put('/doctor-qa/:id/cancel-by-doctor', verifyToken, verifyDoctor, cancelConsultationByDoctor);
 
+// PUT /api/doctor-qa/:id/cancel-by-user - Hủy cuộc tư vấn bởi user (USER ONLY)
+router.put('/doctor-qa/:id/cancel-by-user', verifyToken, cancelConsultationByUser);
+
 // PUT /api/doctor-qa/:id/confirm - Bác sĩ confirm/reject yêu cầu tư vấn
 router.put('/doctor-qa/:id/confirm', verifyToken, doctorConfirmQA);
 
@@ -123,8 +142,5 @@ router.put('/doctor-qa/:id/manual-schedule', verifyToken, verifyStaff, manualTri
 
 // POST /api/doctor-qa/batch-process-paid - Batch process tất cả paid QAs (STAFF)
 router.post('/doctor-qa/batch-process-paid', verifyToken, verifyStaff, batchProcessPaidQAs);
-
-
-
 
 export default router; 

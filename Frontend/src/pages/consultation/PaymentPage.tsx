@@ -19,6 +19,8 @@ interface ConsultationInfo {
   _id: string;
   fullName: string;
   phone: string;
+  age?: number;
+  gender?: string;
   question: string;
   notes?: string;
   status: string;
@@ -57,9 +59,11 @@ const PaymentPage: React.FC = () => {
       });
       
       setConsultation(consultationData);
-    } catch (error: any) {
-      console.error('❌ [PaymentPage] Error fetching consultation:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Lỗi lấy thông tin tư vấn';
+    } catch (error: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as { response?: any; message?: string };
+      console.error('❌ [PaymentPage] Error fetching consultation:', err);
+      const errorMessage = err.response?.data?.message || err.message || 'Lỗi lấy thông tin tư vấn';
       message.error(errorMessage);
       navigate('/online-consultation');
     } finally {
@@ -102,8 +106,10 @@ const PaymentPage: React.FC = () => {
       // Redirect to PayOS payment page
       window.location.href = paymentUrl;
       
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Lỗi tạo link thanh toán';
+    } catch (error: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as { response?: any; message?: string };
+      const errorMessage = err.response?.data?.message || err.message || 'Lỗi tạo link thanh toán';
       message.error(errorMessage);
     } finally {
       setIsProcessingPayment(false);
@@ -114,11 +120,13 @@ const PaymentPage: React.FC = () => {
     if (!qaId) return;
     
     try {
-      await consultationApi.updatePaymentStatus(qaId, { paymentSuccess: false });
-      message.info('Bạn đã hủy thanh toán. Yêu cầu tư vấn đã bị hủy.');
+      await consultationApi.cancelConsultationByUser(qaId, 'Hủy thanh toán');
+      message.success('Đã hủy lịch tư vấn thành công. Slot đã được giải phóng.');
       navigate('/online-consultation');
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || 'Lỗi hủy thanh toán';
+    } catch (error: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const err = error as { response?: any; message?: string };
+      const errorMessage = err.response?.data?.message || err.message || 'Lỗi hủy lịch tư vấn';
       message.error(errorMessage);
       navigate('/online-consultation');
     }
@@ -200,7 +208,7 @@ const PaymentPage: React.FC = () => {
                 <div className="bg-blue-50 p-6 rounded-xl">
                   <Title level={5} className="text-blue-800 mb-4">Thông tin khách hàng</Title>
                   <Row gutter={[24, 16]}>
-                    <Col span={12}>
+                    <Col span={8}>
                       <div className="flex items-center gap-3">
                         <Profile size={20} color="#1890FF" />
                         <div>
@@ -209,7 +217,7 @@ const PaymentPage: React.FC = () => {
                         </div>
                       </div>
                     </Col>
-                    <Col span={12}>
+                    <Col span={8}>
                       <div className="flex items-center gap-3">
                         <Call size={20} color="#1890FF" />
                         <div>
@@ -218,6 +226,54 @@ const PaymentPage: React.FC = () => {
                         </div>
                       </div>
                     </Col>
+                    {consultation.age && (
+                      <Col span={8}>
+                        <div className="flex items-center gap-3">
+                          <Profile size={20} color="#1890FF" />
+                          <div>
+                            <Text className="text-gray-500 block text-sm">Tuổi:</Text>
+                            <Text className="font-semibold">{consultation.age}</Text>
+                          </div>
+                        </div>
+                      </Col>
+                    )}
+                    {consultation.gender && (
+                      <Col span={8}>
+                        <div className="flex items-center gap-3">
+                          <Profile size={20} color="#1890FF" />
+                          <div>
+                            <Text className="text-gray-500 block text-sm">Giới tính:</Text>
+                            <Text className="font-semibold capitalize">{consultation.gender}</Text>
+                          </div>
+                        </div>
+                      </Col>
+                    )}
+                    {consultation.appointmentDate && (
+                      <Col span={8}>
+                        <div className="flex items-center gap-3">
+                          <Profile size={20} color="#1890FF" />
+                          <div>
+                            <Text className="text-gray-500 block text-sm">Ngày khám:</Text>
+                            <Tag color="green" className="px-2 py-1">
+                              {new Date(consultation.appointmentDate).toLocaleDateString('vi-VN')}
+                            </Tag>
+                          </div>
+                        </div>
+                      </Col>
+                    )}
+                    {consultation.appointmentSlot && (
+                      <Col span={8}>
+                        <div className="flex items-center gap-3">
+                          <Profile size={20} color="#1890FF" />
+                          <div>
+                            <Text className="text-gray-500 block text-sm">Khung giờ:</Text>
+                            <Tag color="blue" className="px-2 py-1 font-semibold">
+                              {consultation.appointmentSlot}
+                            </Tag>
+                          </div>
+                        </div>
+                      </Col>
+                    )}
                   </Row>
                 </div>
 

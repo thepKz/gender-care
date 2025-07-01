@@ -3,6 +3,8 @@ import { AuthRequest } from '../types/auth';
 import mongoose from 'mongoose';
 import * as doctorQAService from '../services/doctorQAService';
 import * as meetingService from '../services/meetingService';
+import { releaseSlot } from '../services/doctorScheduleService';
+import { DoctorQA } from '../models';
 
 // Validate ObjectId helper
 const isValidObjectId = (id: string): boolean => {
@@ -47,10 +49,10 @@ export const getLeastBookedDoctor = async (req: Request, res: Response): Promise
   }
 };
 
-// POST /api/doctor-qa - Tạo yêu cầu tư vấn mới (USER) với AUTO-ASSIGN
+// POST /api/doctor-qa - Tạo yêu cầu tư vấn mới (USER) - ✏️ UPDATED: No auto-assign
 export const createDoctorQA = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { doctorId, fullName, phone, question, notes } = req.body;
+    const { fullName, phone, age, gender, question, notes } = req.body;
     const userId = req.user?._id;  // Từ middleware auth
 
     // 🔧 Enhanced validation
@@ -68,10 +70,17 @@ export const createDoctorQA = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    // Validate doctorId nếu có (manual assignment)
-    if (doctorId && !isValidObjectId(doctorId)) {
+    // ➕ NEW: Validate age and gender
+    if (!age || age < 1 || age > 120) {
       res.status(400).json({ 
-        message: 'Doctor ID không hợp lệ' 
+        message: 'Tuổi phải từ 1 đến 120' 
+      });
+      return;
+    }
+
+    if (!gender || !['male', 'female'].includes(gender)) {
+      res.status(400).json({ 
+        message: 'Giới tính phải là "male" hoặc "female"' 
       });
       return;
     }
@@ -79,65 +88,39 @@ export const createDoctorQA = async (req: AuthRequest, res: Response): Promise<v
     console.log('🚀 [CREATE-QA-CONTROLLER] Starting QA creation...', {
       userId,
       fullName: fullName?.trim(),
-      hasManualDoctorId: !!doctorId,
-      autoAssign: !doctorId
+      age,
+      gender
     });
 
-    // 🎯 Call service để tạo QA với auto-assign logic
+    // 🎯 Call service để tạo QA cơ bản (no auto-assign)
     const newQA = await doctorQAService.createDoctorQA({
-      doctorId,  // có thể null để trigger auto-assign
       userId,
       fullName: fullName.trim(),
       phone: phone.trim(),
+      age: parseInt(age),
+      gender,
       question: question.trim(),
       notes: notes?.trim()
     });
 
-    // 🎉 Success response với thông tin assignment
+    // 🎉 Success response
     if (!newQA) {
       throw new Error('Không thể tạo yêu cầu tư vấn. Vui lòng thử lại.');
     }
 
-    const response: any = {
-      message: 'Tạo yêu cầu tư vấn thành công! Vui lòng thanh toán để hoàn tất.',
-      data: newQA
-    };
-
-    // ✨ Thêm thông tin về việc auto-assign nếu có
-    if (newQA.doctorId && newQA.appointmentDate && newQA.appointmentSlot) {
-      response.autoAssigned = true;
-      response.assignmentInfo = {
-        doctorName: (newQA.doctorId as any)?.userId?.fullName || 'N/A',
-        appointmentDate: newQA.appointmentDate,
-        appointmentSlot: newQA.appointmentSlot,
-        message: 'Đã tự động phân công bác sĩ và lịch hẹn gần nhất cho bạn!'
-      };
-    }
-
-    res.status(201).json(response);
+    res.status(201).json({
+      message: 'Tạo yêu cầu tư vấn thành công! Hãy chọn lịch hẹn để tiếp tục.',
+      data: newQA,
+      nextStep: 'SLOT_SELECTION'
+    });
 
   } catch (error: any) {
     console.error('❌ [ERROR] Creating DoctorQA failed:', error);
     
-    // 🔧 Enhanced error handling
-    if (error.message?.includes('Không có slot nào khả dụng')) {
-      res.status(400).json({ 
-        message: 'Hiện tại không có lịch trống. Vui lòng thử lại sau hoặc liên hệ để được hỗ trợ.',
-        error: 'NO_AVAILABLE_SLOTS',
-        details: error.message
-      });
-    } else if (error.message?.includes('Không có bác sĩ nào')) {
-      res.status(400).json({ 
-        message: 'Hiện tại chưa có bác sĩ nào sẵn sàng. Vui lòng liên hệ để được hỗ trợ.',
-        error: 'NO_AVAILABLE_DOCTORS',
-        details: error.message
-      });
-    } else {
-      res.status(400).json({ 
-        message: error.message || 'Lỗi server khi tạo yêu cầu tư vấn',
-        error: 'GENERAL_ERROR'
-      });
-    }
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi tạo yêu cầu tư vấn',
+      error: 'CREATE_QA_ERROR'
+    });
   }
 };
 
@@ -476,7 +459,7 @@ export const doctorConfirmQA = async (req: Request, res: Response): Promise<void
 };
 
 // PUT /api/doctor-qa/:id/schedule - Staff xếp lịch tự động (STAFF ONLY)
-// ⚠️ DEPRECATED ENDPOINT - Không còn cần thiết vì auto assignment được thực hiện khi tạo QA
+// ⚠️ DEPRECATED ENDPOINT - Không còn cần thiết vì auto assignment được thực hiện khi tạo QA mới.
 export const scheduleQA = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -1190,6 +1173,312 @@ export const getMeetingDetails = async (req: Request, res: Response): Promise<vo
     console.error('Error getting meeting details:', error);
     res.status(400).json({ 
       message: error.message || 'Lỗi server khi lấy thông tin meeting' 
+    });
+  }
+};
+
+// ➕ NEW: Check slot availability
+export const checkSlotAvailability = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { date, slotTime } = req.params;
+
+    if (!date || !slotTime) {
+      res.status(400).json({
+        success: false,
+        message: 'Vui lòng cung cấp ngày và slot thời gian'
+      });
+      return;
+    }
+
+    // Validate date format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      res.status(400).json({
+        success: false,
+        message: 'Định dạng ngày không hợp lệ. Sử dụng YYYY-MM-DD'
+      });
+      return;
+    }
+
+    const result = await doctorQAService.checkSlotAvailability(date, slotTime);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: result.available ? 'Slot khả dụng' : 'Slot không khả dụng'
+    });
+
+  } catch (error: any) {
+    console.error('❌ [ERROR] Check slot availability failed:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Lỗi khi kiểm tra slot',
+      error: 'CHECK_SLOT_ERROR'
+    });
+  }
+};
+
+// ➕ NEW: Get available slots for date
+export const getAvailableSlotsForDate = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { date } = req.params;
+
+    if (!date) {
+      res.status(400).json({
+        success: false,
+        message: 'Vui lòng cung cấp ngày'
+      });
+      return;
+    }
+
+    // Validate date format
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      res.status(400).json({
+        success: false,
+        message: 'Định dạng ngày không hợp lệ. Sử dụng YYYY-MM-DD'
+      });
+      return;
+    }
+
+    // Check not past date
+    const targetDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (targetDate < today) {
+      res.status(400).json({
+        success: false,
+        message: 'Không thể chọn ngày trong quá khứ'
+      });
+      return;
+    }
+
+    const result = await doctorQAService.getAvailableSlotsForDate(date);
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      message: `Tìm thấy ${result.slots.filter(s => s.available).length} slot khả dụng cho ngày ${date}`
+    });
+
+  } catch (error: any) {
+    console.error('❌ [ERROR] Get available slots failed:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Lỗi khi lấy danh sách slot',
+      error: 'GET_SLOTS_ERROR'
+    });
+  }
+};
+
+// ➕ NEW: Get doctors workload statistics
+export const getDoctorsWorkloadStatistics = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const stats = await doctorQAService.getDoctorsWorkloadStatistics();
+
+    res.status(200).json({
+      success: true,
+      data: stats,
+      message: `Thống kê workload cho ${stats.length} bác sĩ`
+    });
+
+  } catch (error: any) {
+    console.error('❌ [ERROR] Get doctors workload stats failed:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Lỗi khi lấy thống kê workload',
+      error: 'GET_WORKLOAD_ERROR'
+    });
+  }
+};
+
+// ➕ NEW: Create QA with selected slot
+export const createQAWithSelectedSlot = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { fullName, phone, age, gender, question, notes, selectedDate, selectedSlot } = req.body;
+    const userId = req.user?._id;
+
+    // Basic validation
+    if (!userId) {
+      res.status(401).json({ 
+        message: 'Không tìm thấy thông tin user từ token. Vui lòng đăng nhập lại.' 
+      });
+      return;
+    }
+
+    if (!fullName?.trim() || !phone?.trim() || !question?.trim() || !selectedDate || !selectedSlot) {
+      res.status(400).json({ 
+        message: 'Vui lòng cung cấp đầy đủ thông tin bao gồm ngày và slot đã chọn' 
+      });
+      return;
+    }
+
+    // Age and gender validation
+    if (!age || age < 1 || age > 100) {
+      res.status(400).json({ 
+        message: 'Tuổi phải từ 1 đến 100' 
+      });
+      return;
+    }
+
+    if (!gender || !['male', 'female'].includes(gender)) {
+      res.status(400).json({ 
+        message: 'Giới tính phải là "male" hoặc "female"' 
+      });
+      return;
+    }
+
+    console.log('🎯 [CREATE-QA-WITH-SLOT] Starting assignment...', {
+      userId,
+      selectedDate,
+      selectedSlot
+    });
+
+    // Call service to assign doctor to selected slot
+    const result = await doctorQAService.assignDoctorToSelectedSlot({
+      userId,
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      age: parseInt(age),
+      gender,
+      question: question.trim(),
+      notes: notes?.trim()
+    }, selectedDate, selectedSlot);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        qaId: result.qa._id,
+        assignedDoctor: result.assignedDoctor,
+        appointmentDetails: {
+          date: selectedDate,
+          slot: selectedSlot,
+          status: result.qa.status
+        },
+        serviceInfo: {
+          serviceName: result.service.serviceName,
+          price: result.service.price
+        },
+        consultationInfo: result.qa
+      },
+      message: 'Đặt lịch tư vấn thành công! Vui lòng thanh toán để hoàn tất.'
+    });
+
+  } catch (error: any) {
+    console.error('❌ [ERROR] Create QA with selected slot failed:', error);
+    
+    if (error.message.includes('Không có bác sĩ nào khả dụng')) {
+      res.status(409).json({
+        success: false,
+        message: 'Slot đã chọn không còn khả dụng. Vui lòng chọn slot khác.',
+        error: 'SLOT_NOT_AVAILABLE'
+      });
+    } else if (error.message.includes('Không thể phân công bác sĩ')) {
+      res.status(409).json({
+        success: false,
+        message: 'Không thể phân công bác sĩ cho slot này. Vui lòng thử lại.',
+        error: 'ASSIGNMENT_FAILED'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi khi đặt lịch tư vấn',
+        error: 'CREATE_WITH_SLOT_ERROR'
+      });
+    }
+  }
+};
+
+// ➕ NEW: Cancel consultation by user (release slot)
+export const cancelConsultationByUser = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id: qaId } = req.params;
+    const userId = req.user?._id;
+    const { reason } = req.body;
+
+    // Basic validation
+    if (!userId) {
+      res.status(401).json({ 
+        message: 'Không tìm thấy thông tin user từ token. Vui lòng đăng nhập lại.' 
+      });
+      return;
+    }
+
+    if (!qaId) {
+      res.status(400).json({ 
+        message: 'ID tư vấn không hợp lệ' 
+      });
+      return;
+    }
+
+    console.log('🚫 [CANCEL-CONSULTATION] Starting cancellation...', {
+      qaId,
+      userId,
+      reason: reason || 'User cancelled'
+    });
+
+    // Tìm consultation
+    const consultation = await DoctorQA.findById(qaId);
+    if (!consultation) {
+      res.status(404).json({
+        message: 'Không tìm thấy yêu cầu tư vấn'
+      });
+      return;
+    }
+
+    // Kiểm tra quyền sở hữu
+    if (consultation.userId.toString() !== userId.toString()) {
+      res.status(403).json({
+        message: 'Bạn không có quyền hủy yêu cầu tư vấn này'
+      });
+      return;
+    }
+
+    // Kiểm tra trạng thái có thể hủy
+    if (!['pending_payment', 'scheduled'].includes(consultation.status)) {
+      res.status(400).json({
+        message: 'Không thể hủy tư vấn ở trạng thái này'
+      });
+      return;
+    }
+
+    // Release slot nếu có
+    let slotReleased = false;
+    if (consultation.slotId) {
+      try {
+        slotReleased = await releaseSlot(consultation.slotId.toString());
+        console.log(`🔓 [CANCEL-CONSULTATION] Slot release result: ${slotReleased}`);
+      } catch (error: any) {
+        console.error('❌ [CANCEL-CONSULTATION] Error releasing slot:', error);
+        // Không fail toàn bộ operation vì slot release không critical
+      }
+    }
+
+    // Update consultation status
+    const updatedConsultation = await DoctorQA.findByIdAndUpdate(
+      qaId,
+      { 
+        status: 'cancelled',
+        doctorNotes: reason ? `Hủy bởi user: ${reason}` : 'Hủy bởi user'
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Hủy lịch tư vấn thành công',
+      data: {
+        consultationId: qaId,
+        status: 'cancelled',
+        slotReleased,
+        consultation: updatedConsultation
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ [CANCEL-CONSULTATION] Error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Lỗi khi hủy lịch tư vấn'
     });
   }
 };
