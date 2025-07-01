@@ -256,15 +256,18 @@ apiRouter.use('/medicines', medicinesRoutes);
 apiRouter.use('/medication-reminders', medicationRemindersRoutes);
 apiRouter.use('/notification-days', notificationDaysRoutes);
 apiRouter.use('/user-profiles', userProfileRoutes);
+
+// Mount reports routes BEFORE menstrualCycleRoutes to prevent path conflict
+apiRouter.use('/reports', reportsRoutes);
+
+// ✅ NEW: Consultation transfer routes
+apiRouter.use('/consultations', consultationRoutes);
+
 // Menstrual Cycle routes
 apiRouter.use('/', menstrualCycleRoutes);
 apiRouter.use('/appointments', appointmentRoutes);
 apiRouter.use('/payments', paymentRoutes);
 apiRouter.use('/system-logs', systemLogRoutes);
-apiRouter.use('/reports', reportsRoutes);
-
-// ✅ NEW: Consultation transfer routes
-apiRouter.use('/consultations', consultationRoutes);
 
 // Middleware xử lý lỗi
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
