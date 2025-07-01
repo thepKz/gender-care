@@ -256,12 +256,16 @@ apiRouter.use('/medicines', medicinesRoutes);
 apiRouter.use('/medication-reminders', medicationRemindersRoutes);
 apiRouter.use('/notification-days', notificationDaysRoutes);
 apiRouter.use('/user-profiles', userProfileRoutes);
+
+// ✅ FIX: Đặt reportsRoutes TRƯỚC menstrualCycleRoutes để tránh xung đột
+// route /reports/management với /reports/:cycleId
+apiRouter.use('/reports', reportsRoutes);
+
 // Menstrual Cycle routes
 apiRouter.use('/', menstrualCycleRoutes);
 apiRouter.use('/appointments', appointmentRoutes);
 apiRouter.use('/payments', paymentRoutes);
 apiRouter.use('/system-logs', systemLogRoutes);
-apiRouter.use('/reports', reportsRoutes);
 
 // ✅ NEW: Consultation transfer routes
 apiRouter.use('/consultations', consultationRoutes);
