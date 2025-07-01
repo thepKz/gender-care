@@ -33,6 +33,7 @@ import {
     userRoutes
 } from "./routes";
 import consultationRoutes from './routes/consultationRoutes';
+import reportsRoutes from './routes/reportsRoutes';
 
 import { runAllSeeds } from "./seeds";
 import { startAutoTransitionService } from './services/appointmentAutoTransitionService';
@@ -260,6 +261,7 @@ apiRouter.use('/', menstrualCycleRoutes);
 apiRouter.use('/appointments', appointmentRoutes);
 apiRouter.use('/payments', paymentRoutes);
 apiRouter.use('/system-logs', systemLogRoutes);
+apiRouter.use('/reports', reportsRoutes);
 
 // ✅ NEW: Consultation transfer routes
 apiRouter.use('/consultations', consultationRoutes);

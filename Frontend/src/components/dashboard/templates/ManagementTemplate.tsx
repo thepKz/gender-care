@@ -52,6 +52,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { fetchManagementDashboard } from '../../../api/endpoints/dashboard';
+import ReportsPage from '../../../pages/dashboard/management/ReportsPage';
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
@@ -668,12 +669,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         if (userRole === 'admin' || userRole === 'manager') return <SystemLogManagement />;
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
       case 'reports':
-        return (
-          <div style={{ padding: '24px' }}>
-            <Title level={2}>Báo cáo</Title>
-            <p>Trang báo cáo đang được phát triển...</p>
-          </div>
-        );
+        return <ReportsPage />;
       case 'settings':
         if (userRole === 'admin') {
           return (
