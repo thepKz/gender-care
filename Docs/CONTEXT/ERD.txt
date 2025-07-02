@@ -45,19 +45,26 @@ Table LoginHistory {
   failReason String 
 } 
  
-Table Doctors { 
-  _id ObjectId [pk] 
-  userId ObjectId [ref: - Users._id] 
-  bio String 
-  experience Number 
-  rating Number 
-  image String
-  specialization String 
-  education String 
-  createdAt DateTime 
-  updatedAt DateTime 
-  certificate String 
-} 
+Table Doctors {
+  _id              ObjectId [pk]                            
+  userId           ObjectId [ref: - Users._id]            
+  bio              String
+  rating           Number
+  image            String                                
+  specialization   String
+  education        String
+  certificates     JSON      
+  experiences      JSON      
+  approvalStatus   String      
+  pendingChanges   JSON         
+  lastApprovedBy   ObjectId [ref: > Users._id]
+  lastApprovedAt   DateTime
+  rejectionReason  String
+  createdAt        DateTime
+  updatedAt        DateTime
+}
+
+
 
 Table DoctorSchedules { 
   _id ObjectId [pk] 
