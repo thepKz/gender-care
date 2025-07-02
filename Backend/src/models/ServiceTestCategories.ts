@@ -6,7 +6,8 @@ export interface IServiceTestCategories {
   isRequired: boolean;
   customNormalRange?: string; // Range riêng cho service này (override TestCategories.normalRange)
   customUnit?: string;        // Unit riêng cho service này (override TestCategories.unit)
-  targetValue?: string;       // Giá trị mục tiêu ideal cho service này             // Ghi chú cho staff/doctor
+  targetValue?: string;       // Giá trị mục tiêu ideal cho service này
+  notes?: string;             // Ghi chú cho staff/doctor
   minValue?: number;          // Giá trị tối thiểu cho khoảng dao động
   maxValue?: number;          // Giá trị tối đa cho khoảng dao động
   createdAt?: Date;
@@ -37,6 +38,10 @@ const ServiceTestCategoriesSchema = new mongoose.Schema<IServiceTestCategories>(
     trim: true
   },
   targetValue: {
+    type: String,
+    trim: true
+  },
+  notes: {
     type: String,
     trim: true
   },

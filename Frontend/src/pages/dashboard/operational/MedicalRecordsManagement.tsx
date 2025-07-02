@@ -13,7 +13,8 @@ import {
   Tooltip,
   Popconfirm,
   DatePicker,
-  message
+  message,
+  Tabs
 } from 'antd';
 import {
   SearchOutlined,
@@ -30,6 +31,7 @@ import { appointmentApi } from '../../../api/endpoints/appointment';
 import type { ApiAppointment } from '../../../types/appointment';
 import dayjs from 'dayjs';
 import medicalApi from '../../../api/endpoints/medical';
+// import './medical-records-view.css';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -53,6 +55,17 @@ interface AppointmentTableItem {
   notes?: string;
 }
 
+// Định nghĩa type MedicineItem
+interface MedicineItem {
+  name: string;
+  type?: string;
+  dosage: string;
+  frequency?: number;
+  timingInstructions?: string;
+  duration?: string;
+  instructions?: string;
+}
+
 const MedicalRecordsManagement: React.FC = () => {
   const [appointments, setAppointments] = useState<AppointmentTableItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -65,8 +78,11 @@ const MedicalRecordsManagement: React.FC = () => {
   const [medicalModalOpen, setMedicalModalOpen] = useState(false);
   const [medicalForm] = Form.useForm();
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentTableItem | null>(null);
-  const [medicineList, setMedicineList] = useState([{ name: '', dosage: '', instruction: '' }]);
+  const [medicineList, setMedicineList] = useState<MedicineItem[]>([{ name: '', dosage: '' }]);
   const [medicalRecordMap, setMedicalRecordMap] = useState<{ [key: string]: boolean }>({});
+  const [medicinesOptions, setMedicinesOptions] = useState<any[]>([]);
+  const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
+  const [currentMedicalRecord, setCurrentMedicalRecord] = useState<any>(null);
 
   const loadData = async () => {
     try {
@@ -121,6 +137,14 @@ const MedicalRecordsManagement: React.FC = () => {
     };
     if (appointments.length) fetchMedicalRecords();
   }, [appointments]);
+
+  useEffect(() => {
+    if (medicalModalOpen) {
+      medicalApi.getMedicines(1, 100).then(res => {
+        setMedicinesOptions(res.data?.data || []);
+      });
+    }
+  }, [medicalModalOpen]);
 
   const filteredRecords = appointments.filter(record => {
     const matchesSearch = record.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -198,6 +222,68 @@ const MedicalRecordsManagement: React.FC = () => {
 
   const showDetailModal = selectedRecord !== null;
 
+  const handleViewMedicalRecord = async (record: AppointmentTableItem) => {
+    setSelectedAppointment(record);
+    setModalMode('view');
+    setMedicalModalOpen(true);
+    try {
+      const res = await medicalApi.getMedicalRecordsByAppointment(record.id);
+      const medRecord = Array.isArray(res.data) ? res.data[0] : res.data;
+      setCurrentMedicalRecord(medRecord);
+      medicalForm.setFieldsValue({
+        symptoms: medRecord.symptoms,
+        conclusion: medRecord.conclusion,
+        treatment: medRecord.treatment,
+        notes: medRecord.notes,
+        status: medRecord.status,
+      });
+      setMedicineList(
+        (medRecord.medicines || []).map((m: any) => ({
+          name: m.name,
+          type: m.type,
+          dosage: m.dosage,
+          frequency: m.frequency,
+          timingInstructions: m.timingInstructions,
+          duration: m.duration,
+          instructions: m.instructions,
+        }))
+      );
+    } catch (err) {
+      message.error('Không thể tải chi tiết hồ sơ bệnh án');
+    }
+  };
+
+  const handleEditMedicalRecord = async (record: AppointmentTableItem) => {
+    setSelectedAppointment(record);
+    setModalMode('edit');
+    setMedicalModalOpen(true);
+    try {
+      const res = await medicalApi.getMedicalRecordsByAppointment(record.id);
+      const medRecord = Array.isArray(res.data) ? res.data[0] : res.data;
+      setCurrentMedicalRecord(medRecord);
+      medicalForm.setFieldsValue({
+        symptoms: medRecord.symptoms,
+        conclusion: medRecord.conclusion,
+        treatment: medRecord.treatment,
+        notes: medRecord.notes,
+        status: medRecord.status,
+      });
+      setMedicineList(
+        (medRecord.medicines || []).map((m: any) => ({
+          name: m.name,
+          type: m.type,
+          dosage: m.dosage,
+          frequency: m.frequency,
+          timingInstructions: m.timingInstructions,
+          duration: m.duration,
+          instructions: m.instructions,
+        }))
+      );
+    } catch (err) {
+      message.error('Không thể tải chi tiết hồ sơ bệnh án');
+    }
+  };
+
   const columns: ColumnsType<AppointmentTableItem> = [
     {
       title: 'Bệnh nhân',
@@ -250,28 +336,49 @@ const MedicalRecordsManagement: React.FC = () => {
     {
       title: 'Thao tác',
       key: 'action',
-      width: 40,
+      width: 100,
       render: (_, record: AppointmentTableItem) => (
-        <Button
-          type="text"
-          icon={<FileTextOutlined />}
-          onClick={() => handleCreateMedicalRecord(record)}
-          disabled={!!medicalRecordMap[record.id]}
-        />
+        <Space>
+          <Tooltip title="Tạo hồ sơ bệnh án">
+            <Button
+              type="text"
+              icon={<FileTextOutlined />}
+              onClick={() => handleCreateMedicalRecord(record)}
+              disabled={!!medicalRecordMap[record.id]}
+            />
+          </Tooltip>
+          <Tooltip title="Xem chi tiết hồ sơ bệnh án">
+            <Button
+              type="text"
+              icon={<EyeOutlined />}
+              onClick={() => handleViewMedicalRecord(record)}
+              disabled={!medicalRecordMap[record.id]}
+            />
+          </Tooltip>
+          <Tooltip title="Chỉnh sửa hồ sơ bệnh án">
+            <Button
+              type="text"
+              icon={<EditOutlined />}
+              onClick={() => handleEditMedicalRecord(record)}
+              disabled={!medicalRecordMap[record.id]}
+            />
+          </Tooltip>
+        </Space>
       )
     }
   ];
 
   const handleCreateMedicalRecord = (record?: AppointmentTableItem) => {
     setSelectedAppointment(record || null);
+    setModalMode('create');
     setMedicalModalOpen(true);
-    // Reset form and medicine list
     medicalForm.resetFields();
-    setMedicineList([{ name: '', dosage: '', instruction: '' }]);
+    setMedicineList([{ name: '', dosage: '' }]);
+    setCurrentMedicalRecord(null);
   };
 
   const handleAddMedicine = () => {
-    setMedicineList([...medicineList, { name: '', dosage: '', instruction: '' }]);
+    setMedicineList([...medicineList, { name: '', dosage: '', instructions: '' }]);
   };
 
   const handleRemoveMedicine = (idx: number) => {
@@ -280,8 +387,18 @@ const MedicalRecordsManagement: React.FC = () => {
 
   const handleMedicineChange = (idx: number, field: string, value: string) => {
     const newList = [...medicineList];
-    newList[idx][field] = value;
+    if (field === 'instruction' || field === 'instructions') {
+      newList[idx].instructions = value;
+    } else {
+      (newList[idx] as any)[field] = value;
+    }
     setMedicineList(newList);
+  };
+
+  // Hàm parse frequency từ defaultDosage
+  const parseFrequency = (dosage) => {
+    const match = dosage && dosage.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 1;
   };
 
   const handleMedicalSubmit = async () => {
@@ -291,24 +408,79 @@ const MedicalRecordsManagement: React.FC = () => {
         message.error('Không tìm thấy thông tin cuộc hẹn!');
         return;
       }
+      const medicines = medicineList.map(med => ({
+        name: med.name || '',
+        type: med.type || 'other',
+        dosage: med.dosage || '',
+        frequency: med.frequency || 1,
+        timingInstructions: med.timingInstructions || 'Theo chỉ định',
+        duration: med.duration || '',
+        instructions: med.instructions || med.dosage || 'Theo chỉ định',
+      })).filter(med => med.name && med.dosage); // Filter out empty medicines
+      if (medicines.some(m => !m.name || !m.dosage)) {
+        message.error('Thuốc phải có tên và liều dùng!');
+        return;
+      }
       const data = {
         profileId: selectedAppointment.id, // hoặc selectedAppointment.profileId nếu có
         appointmentId: selectedAppointment.id,
-        diagnosis: values.summary,
+        conclusion: values.conclusion,
         symptoms: values.symptoms,
         treatment: values.treatment,
         notes: values.notes,
-        // Có thể bổ sung medicines nếu backend hỗ trợ
+        medicines,
+        status: values.status,
       };
-      await medicalApi.createMedicalRecord(data);
-      message.success('Tạo hồ sơ bệnh án thành công!');
+      if (modalMode === 'edit' && currentMedicalRecord && currentMedicalRecord._id) {
+        const updateData = {
+          conclusion: values.conclusion,
+          symptoms: values.symptoms,
+          treatment: values.treatment,
+          notes: values.notes,
+          medicines,
+          status: values.status,
+        };
+        await medicalApi.updateMedicalRecord(currentMedicalRecord._id, updateData);
+        message.success('Cập nhật hồ sơ bệnh án thành công!');
+      } else {
+        await medicalApi.createMedicalRecord(data);
+        message.success('Tạo hồ sơ bệnh án thành công!');
+      }
       setMedicalModalOpen(false);
       medicalForm.resetFields();
       loadData();
     } catch (err: any) {
-      message.error(err?.response?.data?.message || 'Tạo hồ sơ bệnh án thất bại!');
+      message.error(err?.message || err?.response?.data?.message || 'Tạo/Cập nhật hồ sơ bệnh án thất bại!');
     }
   };
+
+  // Thêm component chi tiết hồ sơ xét nghiệm
+  const TestRecordDetail = () => (
+    <div style={{ padding: 16 }}>
+      <h3 style={{ fontWeight: 600, marginBottom: 12 }}>Chi tiết hồ sơ xét nghiệm</h3>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontWeight: 500 }}>Chẩn đoán</div>
+        <div style={{ width: '100%', minHeight: 48, marginBottom: 8, border: '1px solid #d9d9d9', borderRadius: 4, padding: 8, background: '#fafafa' }}>Nam</div>
+      </div>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontWeight: 500 }}>Khuyến nghị</div>
+        <div style={{ width: '100%', minHeight: 48, marginBottom: 8, border: '1px solid #d9d9d9', borderRadius: 4, padding: 8, background: '#fafafa' }}>Thắng</div>
+      </div>
+      <div style={{ fontWeight: 500, marginBottom: 8 }}>Kết quả chỉ số đã nhập:</div>
+      <div style={{ marginBottom: 8 }}>
+        <b>HBeAg (Hepatitis B e Antigen)</b><br />
+        giá trị dao động: <b>0 - 0.05</b> (IU/mL)  Kết quả: <b>0.025</b>  Đánh giá: <b>Bình thường</b>
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <b>Anti-HBs (Hepatitis B surface Antibody)</b><br />
+        giá trị dao động: <b>10 - 1000</b> (mIU/mL)  Kết quả: <b>501</b>  Đánh giá: <b>Bình thường</b>
+      </div>
+      <div style={{ marginBottom: 8 }}>
+        <b>HBsAg (Hepatitis B surface Antigen)</b><br />
+        giá trị dao động: <b>0 - 0.05</b> (IU/mL)  Kết quả: <b>0.025</b>  Đánh giá: <b>Bình thường</b>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ padding: '24px' }}>
@@ -392,107 +564,140 @@ const MedicalRecordsManagement: React.FC = () => {
       <Modal
         open={medicalModalOpen}
         onCancel={() => setMedicalModalOpen(false)}
-        title="Thêm hồ sơ y tế mới"
+        title={modalMode === 'view' ? 'Chi tiết hồ sơ bệnh án' : (modalMode === 'edit' ? 'Chỉnh sửa hồ sơ bệnh án' : 'Thêm hồ sơ bệnh án mới')}
         footer={null}
         width={700}
       >
-        {selectedAppointment && (
-          <div
-            style={{
-              background: '#f6f8fa',
-              borderRadius: 8,
-              padding: 16,
-              marginBottom: 16,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-              fontSize: 15,
-              gap: 32
-            }}
-          >
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 2 }}>
-                Tên bệnh nhân: <span style={{ fontWeight: 400 }}>{selectedAppointment.patientName}</span>
+        <Tabs defaultActiveKey="1">
+          <Tabs.TabPane tab="Tạo hồ sơ bệnh án" key="1">
+            {selectedAppointment && (
+              <div
+                style={{
+                  background: '#f6f8fa',
+                  borderRadius: 8,
+                  padding: 16,
+                  marginBottom: 16,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  fontSize: 15,
+                  gap: 32
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                    Tên bệnh nhân: <span style={{ fontWeight: 400 }}>{selectedAppointment.patientName}</span>
+                  </div>
+                  <div style={{ fontWeight: 600 }}>
+                    Bác sĩ: <span style={{ fontWeight: 400 }}>{selectedAppointment.doctorName}</span>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', minWidth: 210 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 2 }}>
+                    <span style={{ minWidth: 100, display: 'inline-block' }}>Số điện thoại:</span>
+                    <span style={{ fontWeight: 400 }}>{selectedAppointment.patientPhone}</span>
+                  </div>
+                  <div style={{ fontWeight: 600 }}>
+                    <span style={{ minWidth: 100, display: 'inline-block' }}>Ngày khám:</span>
+                    <span style={{ fontWeight: 400 }}>{new Date(selectedAppointment.appointmentDate).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                </div>
               </div>
-              <div style={{ fontWeight: 600 }}>
-                Bác sĩ: <span style={{ fontWeight: 400 }}>{selectedAppointment.doctorName}</span>
+            )}
+            <Form
+              form={medicalForm}
+              layout="vertical"
+              onFinish={handleMedicalSubmit}
+            >
+              <Form.Item name="symptoms" label="Triệu chứng" rules={[{ required: true, message: 'Vui lòng nhập triệu chứng!' }]}
+                >
+                <TextArea placeholder="Nhập triệu chứng" autoSize={{ minRows: 2 }} readOnly={modalMode === 'view'} />
+              </Form.Item>
+              <Form.Item name="conclusion" label="Kết luận" rules={[{ required: true, message: 'Vui lòng nhập kết luận!' }]}
+                >
+                <TextArea placeholder="Không có kết luận" autoSize={{ minRows: 2 }} readOnly={modalMode === 'view'} />
+              </Form.Item>
+              <Form.Item name="treatment" label="Điều trị" rules={[{ required: true, message: 'Vui lòng nhập phương pháp điều trị!' }]}
+                >
+                <TextArea placeholder="Nhập phương pháp điều trị" autoSize={{ minRows: 2 }} readOnly={modalMode === 'view'} />
+              </Form.Item>
+              <div style={{ marginBottom: 8 }}>Thuốc</div>
+              {medicineList.map((med, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                  <Select
+                    showSearch
+                    placeholder="Tên thuốc"
+                    value={med.name}
+                    style={{ width: 150 }}
+                    onChange={val => {
+                      if (modalMode === 'view') return;
+                      const selected = medicinesOptions.find(m => m.name === val);
+                      handleMedicineChange(idx, 'name', selected?.name || val);
+                      if (selected) {
+                        handleMedicineChange(idx, 'dosage', selected.defaultDosage || '');
+                        handleMedicineChange(idx, 'instructions', selected.defaultTimingInstructions || '');
+                      } else {
+                        handleMedicineChange(idx, 'dosage', '');
+                        handleMedicineChange(idx, 'instructions', '');
+                      }
+                    }}
+                    options={medicinesOptions.map(m => ({ label: m.name, value: m.name }))}
+                    disabled={modalMode === 'view'}
+                  />
+                  <Input
+                    placeholder="Liều lượng/nhóm"
+                    value={med.dosage}
+                    onChange={e => modalMode !== 'view' && handleMedicineChange(idx, 'dosage', e.target.value)}
+                    style={{ width: 120 }}
+                    readOnly={modalMode === 'view'}
+                  />
+                  <Input
+                    placeholder="Hướng dẫn sử dụng"
+                    value={med.instructions}
+                    onChange={e => modalMode !== 'view' && handleMedicineChange(idx, 'instructions', e.target.value)}
+                    style={{ width: 180 }}
+                    readOnly={modalMode === 'view'}
+                  />
+                  <Input
+                    placeholder="Thời gian dùng (VD: 7 ngày, 2 tuần)"
+                    value={med.duration}
+                    onChange={e => modalMode !== 'view' && handleMedicineChange(idx, 'duration', e.target.value)}
+                    style={{ width: 120 }}
+                    readOnly={modalMode === 'view'}
+                  />
+                  <Button disabled={medicineList.length === 1 || modalMode === 'view'} onClick={() => handleRemoveMedicine(idx)}>Xóa</Button>
+                </div>
+              ))}
+              <Button type="dashed" onClick={handleAddMedicine} style={{ marginBottom: 16 }} disabled={modalMode === 'view'}>Thêm thuốc</Button>
+              <Form.Item name="notes" label="Ghi chú">
+                <TextArea placeholder="Nhập ghi chú thêm (tùy chọn)" autoSize={{ minRows: 2 }} readOnly={modalMode === 'view'} />
+              </Form.Item>
+              <Form.Item name="status" label="Trạng thái" initialValue="completed" rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
+                >
+                <Select placeholder="Chọn trạng thái" disabled={modalMode === 'view'}>
+                  <Option value="completed">Hoàn thành</Option>
+                </Select>
+              </Form.Item>
+              {modalMode !== 'view' && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Form.Item>
+                    <Button type="primary" htmlType="submit" style={{ width: 200 }}>
+                      {modalMode === 'edit' ? 'Cập nhật hồ sơ' : 'Tạo hồ sơ'}
+                    </Button>
+                  </Form.Item>
+                </div>
+              )}
+            </Form>
+            {modalMode === 'view' && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+                <Button type="primary" onClick={() => setMedicalModalOpen(false)} style={{ width: 120 }}>OK</Button>
               </div>
-            </div>
-            <div style={{ textAlign: 'right', minWidth: 210 }}>
-              <div style={{ fontWeight: 600, marginBottom: 2 }}>
-                <span style={{ minWidth: 100, display: 'inline-block' }}>Số điện thoại:</span>
-                <span style={{ fontWeight: 400 }}>{selectedAppointment.patientPhone}</span>
-              </div>
-              <div style={{ fontWeight: 600 }}>
-                <span style={{ minWidth: 100, display: 'inline-block' }}>Ngày khám:</span>
-                <span style={{ fontWeight: 400 }}>{new Date(selectedAppointment.appointmentDate).toLocaleDateString('vi-VN')}</span>
-              </div>
-            </div>
-          </div>
-        )}
-        <Form
-          form={medicalForm}
-          layout="vertical"
-          onFinish={handleMedicalSubmit}
-        >
-          <Form.Item name="symptoms" label="Triệu chứng" rules={[{ required: true, message: 'Vui lòng nhập triệu chứng!' }]}>
-            <TextArea placeholder="Nhập triệu chứng" autoSize={{ minRows: 2 }} />
-          </Form.Item>
-          <Form.Item name="summary" label="Kết luận" rules={[{ required: true, message: 'Vui lòng nhập kết luận!' }]}>
-            <TextArea placeholder="Không có kết luận" autoSize={{ minRows: 2 }} />
-          </Form.Item>
-          <Form.Item
-            name="treatment"
-            label="Điều trị"
-            rules={[{ required: true, message: 'Vui lòng nhập phương pháp điều trị!' }]}
-          >
-            <TextArea placeholder="Nhập phương pháp điều trị" autoSize={{ minRows: 2 }} />
-          </Form.Item>
-          <div style={{ marginBottom: 8 }}>Thuốc</div>
-          {medicineList.map((med, idx) => (
-            <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <Input
-                placeholder="Tên thuốc"
-                value={med.name}
-                onChange={e => handleMedicineChange(idx, 'name', e.target.value)}
-                style={{ width: 120 }}
-              />
-              <Input
-                placeholder="Liều lượng/nhóm"
-                value={med.dosage}
-                onChange={e => handleMedicineChange(idx, 'dosage', e.target.value)}
-                style={{ width: 120 }}
-              />
-              <Input
-                placeholder="Hướng dẫn sử dụng"
-                value={med.instruction}
-                onChange={e => handleMedicineChange(idx, 'instruction', e.target.value)}
-                style={{ width: 180 }}
-              />
-              <Button disabled={medicineList.length === 1} onClick={() => handleRemoveMedicine(idx)}>Xóa</Button>
-            </div>
-          ))}
-          <Button type="dashed" onClick={handleAddMedicine} style={{ marginBottom: 16 }}>Thêm thuốc</Button>
-          <Form.Item name="notes" label="Ghi chú">
-            <TextArea placeholder="Nhập ghi chú thêm (tùy chọn)" autoSize={{ minRows: 2 }} />
-          </Form.Item>
-          <Form.Item
-            name="status"
-            label="Trạng thái"
-            rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
-          >
-            <Select placeholder="Chọn trạng thái">
-              <Option value="draft">Bản nháp</Option>
-              <Option value="completed">Hoàn thành</Option>
-              <Option value="reviewed">Đã xem xét</Option>
-            </Select>
-          </Form.Item>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Form.Item>
-              <Button type="primary" htmlType="submit" style={{ width: 200 }}>Tạo hồ sơ</Button>
-            </Form.Item>
-          </div>
-        </Form>
+            )}
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="Chi tiết hồ sơ xét nghiệm" key="2">
+            <TestRecordDetail />
+          </Tabs.TabPane>
+        </Tabs>
       </Modal>
     </div>
   );
