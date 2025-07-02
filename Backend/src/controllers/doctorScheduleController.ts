@@ -827,6 +827,33 @@ export const realTestFridaySchedule = async (req: Request, res: Response) => {
 };
 
 // 🔥 UPDATED TIMEZONE + 7-DAY LOGIC: Test logic với local time cho Việt Nam (cho phép cả cuối tuần)
+// 🔥 NEW: Check schedule conflicts before creation
+export const checkScheduleConflicts = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { dates } = req.body;
+
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      return res.status(400).json({
+        message: 'Vui lòng cung cấp mảng dates để kiểm tra xung đột'
+      });
+    }
+
+    const result = await doctorScheduleService.checkScheduleConflicts(id, dates);
+
+    return res.status(200).json({
+      message: 'Kiểm tra xung đột lịch làm việc thành công',
+      data: result
+    });
+
+  } catch (error: any) {
+    console.log('Error in checkScheduleConflicts:', error);
+    return res.status(400).json({
+      message: error.message || 'Không thể kiểm tra xung đột lịch làm việc'
+    });
+  }
+};
+
 export const testSingleDate = async (req: Request, res: Response) => {
   try {
     const { date } = req.query;
