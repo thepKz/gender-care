@@ -1193,6 +1193,7 @@ export class PaymentController {
 
       // Step 2: Auto assign doctor if not assigned and payment is confirmed
       if ((appointment.status === 'confirmed' || paymentUpdated) && !appointment.doctorId) {
+        console.log('👨‍⚕️ [ForceCheck] No doctor assigned, auto-assigning...');
         try {
           console.log('👨‍⚕️ [ForceCheck] Auto assigning doctor...');
 
