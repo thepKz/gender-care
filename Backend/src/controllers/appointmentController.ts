@@ -168,7 +168,7 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
  */
 export const createAppointment = async (req: AuthRequest, res: Response) => {
     const { 
-        profileId, packageId, serviceId, slotId,
+        profileId, packageId, serviceId, doctorId, slotId,
         appointmentDate, appointmentTime, appointmentType, typeLocation,
         description, notes,
         bookingType = 'service_only' // Default to service_only
@@ -194,6 +194,16 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         let paymentUrl: string | null = null;
         let newBill: any = null;
         
+        // Validate doctorId if provided
+        if (doctorId && !mongoose.Types.ObjectId.isValid(doctorId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'ID bác sĩ không hợp lệ' 
+            });
+        }
+
+        console.log('🔍 [Appointment Create] Creating appointment with doctorId:', doctorId);
+
         const newAppointment = new Appointments({
             createdByUserId: userId,
             profileId: patientProfile._id,
@@ -206,6 +216,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             notes,
             serviceId: serviceId,
             packageId: packageId,
+            doctorId: doctorId, // ✅ FIX: Add doctorId to appointment
             slotId: slotId
         });
 
