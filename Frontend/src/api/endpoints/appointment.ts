@@ -225,6 +225,16 @@ export const appointmentApi = {
     getTestResultStats: async (year: number, month: number) => {
         const response = await axiosInstance.get(`/test-results/stats/${year}/${month}`);
         return response.data;
+    },
+
+    // ➕ NEW: Lấy danh sách appointments của user hiện tại (chỉ appointments)
+    getUserAppointments: (filters?: AppointmentFilters) => {
+        return axiosInstance.get('/appointments/user', { params: filters });
+    },
+
+    // ➕ NEW: Lấy toàn bộ lịch sử đặt lịch của user (appointments + consultations)
+    getUserBookingHistory: (filters?: AppointmentFilters & { serviceType?: 'appointment' | 'consultation' | 'all' }) => {
+        return axiosInstance.get('/appointments/booking-history', { params: filters });
     }
 };
 
