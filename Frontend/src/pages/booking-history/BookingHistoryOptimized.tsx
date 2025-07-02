@@ -418,7 +418,7 @@ const BookingHistoryOptimized: React.FC = () => {
                         {/* ➕ Hiển thị thông tin bệnh nhân cho consultations */}
                         {appointment.type === 'consultation' && appointment.patientName && (
                           <div className="flex items-center gap-2 col-span-2">
-                            <span className="text-gray-500">👤 Bệnh nhân:</span>
+                            <span className="text-gray-500"> Bệnh nhân:</span>
                             <span>{appointment.patientName}</span>
                             {appointment.phone && <span className="text-gray-400">• {appointment.phone}</span>}
                           </div>
