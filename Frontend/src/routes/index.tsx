@@ -42,7 +42,8 @@ import ServicesPage from '../pages/services';
 // Payment Pages
 import PaymentCancelPage from '../pages/payment/PaymentCancel';
 import PaymentProcessPage from '../pages/payment/PaymentProcessPage';
-import PaymentSuccessPage from '../pages/payment/PaymentSuccess';
+import PaymentSuccessPage from '../pages/payment/PaymentSuccessPage';
+import PackagePaymentSuccessPage from '../pages/payment/PaymentSuccess';
 
 // Demo Pages
 import DemoIndexPage from '../pages/demo';
@@ -156,6 +157,7 @@ const AppRoutes: React.FC = () => {
         {/* Payment Processing Pages */}
         <Route path="/payment/process" element={<PaymentProcessPage />} />
         <Route path="/payment/success" element={<PaymentSuccessPage />} />
+        <Route path="/payment/package-success" element={<PackagePaymentSuccessPage />} />
         <Route path="/payment/cancel" element={<PaymentCancelPage />} />
         
         {/* Consultation Pages */}

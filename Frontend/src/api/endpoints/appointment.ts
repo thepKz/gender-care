@@ -239,7 +239,10 @@ export const appointmentApi = {
 
     // Fast confirm payment (for PayOS return URLs)
     fastConfirmPayment: async (data: { appointmentId: string; orderCode: string; status: string }) => {
-        return axiosInstance.post(`/payments/appointments/${data.appointmentId}/fast-confirm`, data);
+        return axiosInstance.post(`/payments/appointments/${data.appointmentId}/fast-confirm`, {
+            orderCode: data.orderCode,
+            status: data.status
+        });
     }
 };
 
