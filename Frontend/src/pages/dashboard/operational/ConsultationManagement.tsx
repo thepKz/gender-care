@@ -11,10 +11,7 @@ import {
   Statistic,
   List,
   Badge,
-  message,
-  Modal,
-  Checkbox,
-  Alert
+  message
 } from 'antd';
 import {
   VideoCameraOutlined,
@@ -28,12 +25,12 @@ import {
   CalendarOutlined,
   PoweroffOutlined,
   CloseCircleOutlined,
-  EditOutlined,
-  ExclamationCircleOutlined,
-  CameraOutlined
+  EditOutlined
 } from '@ant-design/icons';
 import consultationApi from '../../../api/endpoints/consultation';
+import { meetingAPI } from '../../../api/endpoints/meeting';
 import MeetingNotesModal from '../../../components/ui/modals/MeetingNotesModal';
+import ConsultationEndConfirmModal from '../../../components/ui/modals/ConsultationEndConfirmModal';
 
 const { Title, Text } = Typography;
 
@@ -82,10 +79,14 @@ const ConsultationManagement: React.FC = () => {
   const [meetingNotesVisible, setMeetingNotesVisible] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState<ConsultationData | null>(null);
 
-  // 🎥 Recording Confirmation Modal state
-  const [recordingModalVisible, setRecordingModalVisible] = useState(false);
-  const [recordingConfirmed, setRecordingConfirmed] = useState(false);
-  const [pendingJoinConsultation, setPendingJoinConsultation] = useState<ConsultationData | null>(null);
+  // ➕ ADD: Consultation End Confirm Modal state
+  const [endConfirmVisible, setEndConfirmVisible] = useState(false);
+  const [consultationToEnd, setConsultationToEnd] = useState<ConsultationData | null>(null);
+
+  // ➕ ADD: Meeting Password & Invite state
+  const [meetingPasswords, setMeetingPasswords] = useState<{[key: string]: string}>({});
+  const [meetingStatuses, setMeetingStatuses] = useState<{[key: string]: string}>({});
+  const [inviteLoading, setInviteLoading] = useState<{[key: string]: boolean}>({});
 
   const loadConsultationData = async () => {
     setLoading(true);
@@ -119,11 +120,17 @@ const ConsultationManagement: React.FC = () => {
       const scheduledData = todayData.filter(item => item.status === 'scheduled');
       setScheduledConsultations(scheduledData);
 
-      // ✅ Check meeting existence cho từng consultation
+      // ✅ Check meeting existence cho từng consultation và load password
       const meetingStatuses: {[key: string]: boolean} = {};
       for (const consultation of todayData) {
         const hasMeeting = await checkConsultationMeeting(consultation._id);
         meetingStatuses[consultation._id] = hasMeeting;
+        
+        // ➕ ADD: Load password nếu có meeting
+        if (hasMeeting) {
+          console.log(`🔑 [LOAD-DATA] Found existing meeting for ${consultation._id}, loading password...`);
+          loadMeetingPassword(consultation._id);
+        }
       }
       setConsultationMeetings(meetingStatuses);
       
@@ -156,69 +163,60 @@ const ConsultationManagement: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleJoinMeeting = async (consultation: ConsultationData) => {
-    console.log('🎯 [JOIN-MEETING] Requesting to join meeting for consultation:', consultation._id);
-    
-    // 🎥 Show recording confirmation modal first
-    setPendingJoinConsultation(consultation);
-    setRecordingConfirmed(false);
-    setRecordingModalVisible(true);
-  };
-
-  // 🎥 Handle recording confirmation and actual meeting join
-  const handleConfirmRecordingAndJoin = async () => {
-    if (!recordingConfirmed || !pendingJoinConsultation) {
-      message.warning('Vui lòng xác nhận đã hiểu về việc ghi hình buổi tư vấn');
-      return;
-    }
-
+  // ➕ NEW: Handle doctor join meeting with status update
+  const handleDoctorJoinMeeting = async (consultation: ConsultationData) => {
     try {
-      console.log('🎯 [JOIN-MEETING] Confirmed recording, joining meeting for consultation:', pendingJoinConsultation._id);
+      console.log('🎯 [DOCTOR-JOIN] Doctor joining meeting for consultation:', consultation._id);
+      console.log('🌐 [API-CALL] Calling API: POST /meetings/' + consultation._id + '/doctor-join');
       
-      // ✅ Call API to join meeting and update status
-      await consultationApi.joinConsultationMeeting(pendingJoinConsultation._id, {
-        participantType: 'doctor'
-      });
+      // ✅ Call NEW API to update meeting status
+      const response = await meetingAPI.updateDoctorJoinStatus(consultation._id);
       
-      // ✅ Update status to 'consulting' if not already
-      if (pendingJoinConsultation.status !== 'consulting') {
-        await consultationApi.updateConsultationStatus(pendingJoinConsultation._id, 'consulting');
-      }
+      console.log('✅ [API-RESPONSE] Doctor join response:', response);
       
-      // ✅ Open meeting link
-      const meetingLink = pendingJoinConsultation.meetingLink || `https://meet.jit.si/consultation-${pendingJoinConsultation._id}`;
+      // ✅ Open meeting link  
+      const meetingLink = consultation.meetingLink || `https://meet.jit.si/consultation-${consultation._id}`;
+      console.log('🔗 [MEETING-LINK] Opening:', meetingLink);
       window.open(meetingLink, '_blank');
       
-      message.success(`Đã tham gia meeting với ${pendingJoinConsultation.patientName}`);
-      
-      // ✅ Close modal and reset state
-      setRecordingModalVisible(false);
-      setPendingJoinConsultation(null);
-      setRecordingConfirmed(false);
+      // ✅ Show success message from API
+      message.success(`🎥 ${response.message}`);
+      console.log('✅ [DOCTOR-JOIN] Status updated:', response.data);
       
       // ✅ Reload data to reflect status changes
       loadConsultationData();
       
-    } catch (error) {
-      console.error('❌ Error joining meeting:', error);
-      message.error('Không thể tham gia meeting. Vui lòng thử lại.');
+    } catch (error: unknown) {
+      console.error('❌ [ERROR] Doctor joining meeting failed:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message 
+        : 'Không thể tham gia meeting. Vui lòng thử lại.';
+      console.error('❌ [ERROR-MESSAGE]:', errorMessage);
+      message.error(errorMessage || 'Không thể tham gia meeting. Vui lòng thử lại.');
     }
   };
 
-  // 🎥 Handle recording modal close
-  const handleRecordingModalClose = () => {
-    setRecordingModalVisible(false);
-    setPendingJoinConsultation(null);
-    setRecordingConfirmed(false);
+  // ✅ UPDATED: Show confirmation modal instead of direct completion
+  const handleCompleteConsultation = (consultation: ConsultationData) => {
+    console.log('🔴 [COMPLETE-CONSULTATION] Requesting completion for:', consultation._id);
+    setConsultationToEnd(consultation);
+    setEndConfirmVisible(true);
   };
 
-  const handleCompleteConsultation = async (consultation: ConsultationData) => {
+  // ➕ ADD: Handle actual completion after confirmation
+  const handleConfirmEndConsultation = async () => {
+    if (!consultationToEnd) return;
+
     try {
-      console.log('✅ [COMPLETE-CONSULTATION] Completing consultation:', consultation._id);
+      console.log('✅ [CONFIRM-END] Completing consultation:', consultationToEnd._id);
       
-      await consultationApi.completeConsultationWithMeeting(consultation._id, 'Consultation completed successfully');
+      await consultationApi.completeConsultationWithMeeting(consultationToEnd._id, 'Consultation completed successfully');
       
-      message.success(`Đã hoàn thành tư vấn với ${consultation.patientName}`);
+      message.success(`Đã hoàn thành tư vấn với ${consultationToEnd.patientName}`);
+      
+      // ✅ Close modal and reset state
+      setEndConfirmVisible(false);
+      setConsultationToEnd(null);
       
       // ✅ Reload data to reflect status changes
       loadConsultationData();
@@ -226,7 +224,14 @@ const ConsultationManagement: React.FC = () => {
     } catch (error) {
       console.error('❌ Error completing consultation:', error);
       message.error('Không thể hoàn thành tư vấn. Vui lòng thử lại.');
+      throw error; // Re-throw to let modal handle loading state
     }
+  };
+
+  // ➕ ADD: Handle cancel end consultation
+  const handleCancelEndConsultation = () => {
+    setEndConfirmVisible(false);
+    setConsultationToEnd(null);
   };
 
   // ✅ Helper function để check meeting existence cho consultation
@@ -255,6 +260,11 @@ const ConsultationManagement: React.FC = () => {
         [consultation._id]: true
       }));
       
+      // ➕ ADD: Load password ngay sau khi tạo meeting
+      setTimeout(() => {
+        loadMeetingPassword(consultation._id);
+      }, 1000); // Delay 1s để đảm bảo meeting đã được tạo
+      
       loadConsultationData();
       
     } catch (error) {
@@ -280,73 +290,144 @@ const ConsultationManagement: React.FC = () => {
     loadConsultationData();
   };
 
-  // Live Consultation Card Component
-  const LiveConsultationCard: React.FC<{ consultation: ConsultationData }> = ({ consultation }) => (
-    <Card
-      size="small"
-      style={{ 
-        marginBottom: 16,
-        border: '2px solid #fa8c16',
-        background: '#fff7e6'
-      }}
-    >
-      <Row justify="space-between" align="middle">
-        <Col flex="auto">
-          <Space>
-            <Badge status="processing" />
-            <Avatar icon={<UserOutlined />} />
-            <div>
-              <Text strong style={{ fontSize: '16px' }}>
-                {consultation.patientName}
-              </Text>
-              <div style={{ color: '#666', fontSize: '14px' }}>
-                <PhoneOutlined style={{ marginRight: '8px' }} />
-                {consultation.patientPhone}
-              </div>
-            </div>
-            <Tag color="orange">🔴 LIVE</Tag>
-          </Space>
-        </Col>
-        <Col>
-          <Space>
-            <Text type="secondary">
-              {consultation.appointmentTime}
-            </Text>
-            <Button 
-              icon={<VideoCameraOutlined />}
-              onClick={() => handleJoinMeeting(consultation)}
-            >
-              Tham gia lại
-            </Button>
-            <Button 
-              icon={<EditOutlined />}
-              onClick={() => handleOpenMeetingNotes(consultation)}
-              type="dashed"
-            >
-              Quản lý
-            </Button>
-            <Button 
-              type="primary"
-              danger
-              icon={<PoweroffOutlined />}
-              onClick={() => handleCompleteConsultation(consultation)}
-            >
-              Kết thúc
-            </Button>
-          </Space>
-        </Col>
-      </Row>
-      <div style={{ marginTop: 12, padding: '8px 0', borderTop: '1px solid #f0f0f0' }}>
-        <Text type="secondary">
-          <strong>Vấn đề:</strong> {consultation.description}
-        </Text>
-      </div>
-    </Card>
-  );
+  // ➕ ADD: Load meeting password và status cho consultation
+  const loadMeetingPassword = async (consultationId: string) => {
+    try {
+      console.log(`🔑 [LOAD-PASSWORD] Loading password for consultation: ${consultationId}`);
+      
+      const meetingData = await meetingAPI.getMeetingByQA(consultationId);
+      console.log(`🔑 [LOAD-PASSWORD] Meeting data received:`, meetingData);
+      
+      if (meetingData) {
+        if (meetingData.meetingPassword) {
+        console.log(`🔑 [LOAD-PASSWORD] Password found: ${meetingData.meetingPassword}`);
+        setMeetingPasswords(prev => ({
+          ...prev,
+          [consultationId]: meetingData.meetingPassword
+        }));
+        }
+        
+        if (meetingData.status) {
+          console.log(`🔑 [LOAD-STATUS] Status found: ${meetingData.status}`);
+          setMeetingStatuses(prev => ({
+            ...prev,
+            [consultationId]: meetingData.status
+          }));
+        }
+      } else {
+        console.log(`🔑 [LOAD-PASSWORD] No meeting data found`);
+      }
+    } catch (error) {
+      console.error('❌ [LOAD-PASSWORD] Error loading meeting data:', error);
+    }
+  };
 
-  // Today's Consultation Item Component - ✅ UPDATED với meeting workflow
+  // ➕ ADD: Send customer invite
+  const handleSendCustomerInvite = async (consultation: ConsultationData) => {
+    try {
+      setInviteLoading(prev => ({ ...prev, [consultation._id]: true }));
+      
+      console.log('📧 [SEND-INVITE] Sending customer invite for consultation:', consultation._id);
+      
+      const response = await meetingAPI.sendCustomerInvite(consultation._id);
+      
+      message.success(`📧 Đã gửi thư mời tham gia meeting cho ${consultation.patientName}!`);
+      console.log('✅ Customer invite sent:', response);
+      
+    } catch (error: unknown) {
+      console.error('❌ Error sending customer invite:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error 
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message 
+        : 'Không thể gửi thư mời cho customer';
+      message.error(errorMessage || 'Không thể gửi thư mời cho customer');
+    } finally {
+      setInviteLoading(prev => ({ ...prev, [consultation._id]: false }));
+    }
+  };
+
+  // Live Consultation Card Component - ✅ UPDATED với password display
+  const LiveConsultationCard: React.FC<{ consultation: ConsultationData }> = ({ consultation }) => {
+    const password = meetingPasswords[consultation._id];
+
+    // Load meeting password khi component mount
+    React.useEffect(() => {
+      if (!password) {
+        loadMeetingPassword(consultation._id);
+      }
+    }, [consultation._id, password]);
+
+    return (
+      <Card
+        size="small"
+        style={{ 
+          marginBottom: 16,
+          border: '2px solid #fa8c16',
+          background: '#fff7e6'
+        }}
+      >
+        <Row justify="space-between" align="middle">
+          <Col flex="auto">
+            <Space>
+              <Badge status="processing" />
+              <Avatar icon={<UserOutlined />} />
+              <div>
+                <Text strong style={{ fontSize: '16px' }}>
+                  {consultation.patientName}
+                </Text>
+                <div style={{ color: '#666', fontSize: '14px' }}>
+                  <PhoneOutlined style={{ marginRight: '8px' }} />
+                  {consultation.patientPhone}
+                </div>
+              </div>
+              <Tag color="orange">🔴 LIVE</Tag>
+            </Space>
+          </Col>
+          <Col>
+            <Space>
+              <Text type="secondary">
+                {consultation.appointmentTime}
+              </Text>
+              <Button 
+                icon={<EditOutlined />}
+                onClick={() => handleOpenMeetingNotes(consultation)}
+                type="dashed"
+              >
+                Quản lý
+              </Button>
+              <Button 
+                type="primary"
+                danger
+                icon={<PoweroffOutlined />}
+                onClick={() => handleCompleteConsultation(consultation)}
+              >
+                Kết thúc
+              </Button>
+            </Space>
+          </Col>
+        </Row>
+
+        <div style={{ marginTop: 12, padding: '8px 0', borderTop: '1px solid #f0f0f0' }}>
+          <Text type="secondary">
+            <strong>Vấn đề:</strong> {consultation.description}
+          </Text>
+        </div>
+      </Card>
+    );
+  };
+
+  // Today's Consultation Item Component - ✅ UPDATED với meeting workflow + PASSWORD DISPLAY
   const TodayConsultationItem: React.FC<{ consultation: ConsultationData }> = ({ consultation }) => {
     const hasMeeting = consultationMeetings[consultation._id] || false;
+    const password = meetingPasswords[consultation._id];
+    const meetingStatus = meetingStatuses[consultation._id];
+    const isInviteLoading = inviteLoading[consultation._id] || false;
+
+    // Load meeting password khi component mount nếu có meeting
+    React.useEffect(() => {
+      if (hasMeeting && !password) {
+        loadMeetingPassword(consultation._id);
+      }
+    }, [consultation._id, hasMeeting, password]);
     
     // ✅ Dynamic button logic dựa trên meeting existence
     const renderActionButton = () => {
@@ -393,19 +474,58 @@ const ConsultationManagement: React.FC = () => {
           </Button>
         );
       } else {
-        // Đã có meeting record → hiển thị tag đã tạo meeting
+        // Đã có meeting record → check meeting status
+        if (meetingStatus === 'scheduled') {
+          // Doctor chưa tham gia → hiển thị button tham gia
+          return (
+            <Button 
+              type="primary"
+              icon={<VideoCameraOutlined />}
+              onClick={() => handleDoctorJoinMeeting(consultation)}
+              size="small"
+              style={{ backgroundColor: '#1890ff', borderColor: '#1890ff' }}
+            >
+              Tham gia Meeting
+            </Button>
+          );
+        } else if (meetingStatus === 'waiting_customer') {
+          // Doctor đã vào → đang chờ customer
+          return (
+            <Tag color="orange">
+              <ClockCircleOutlined style={{ marginRight: '4px' }} />
+              Chờ customer tham gia
+            </Tag>
+          );
+        } else {
+          // Các status khác (in_progress, completed)
         return (
           <Tag color="green">
             <CheckCircleOutlined style={{ marginRight: '4px' }} />
-            Đã tạo meeting
+              Meeting đang hoạt động
           </Tag>
         );
+        }
       }
     };
 
     return (
       <List.Item
-        actions={[renderActionButton()]}
+        actions={[
+          renderActionButton(),
+          // ➕ ADD: Send invite button chỉ khi meeting status = waiting_customer
+          hasMeeting && meetingStatus === 'waiting_customer' && consultation.status === 'scheduled' && (
+            <Button 
+              type="primary"
+              icon={<MessageOutlined />}
+              onClick={() => handleSendCustomerInvite(consultation)}
+              loading={isInviteLoading}
+              style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+              size="small"
+            >
+              Gửi thư mời
+            </Button>
+          )
+        ].filter(Boolean)}
       >
         <List.Item.Meta
           avatar={<Avatar icon={<UserOutlined />} />}
@@ -587,12 +707,13 @@ const ConsultationManagement: React.FC = () => {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="💡 Mẹo tư vấn">
+          <Card title="💡 Mẹo tư vấn với Password bảo mật">
             <div style={{ color: '#666' }}>
-              <p>• Kiểm tra kết nối mạng trước khi bắt đầu</p>
-              <p>• Chuẩn bị sẵn câu hỏi để tư vấn hiệu quả</p>
-              <p>• Ghi chú lại các điểm quan trọng</p>
-              <p>• Đảm bảo môi trường yên tĩnh</p>
+              <p>• <strong>Kiểm tra password hiển thị</strong> trước khi gửi thư mời</p>
+              <p>• <strong>Chỉ gửi thư mời</strong> qua nút "Gửi thư mời Meeting"</p>
+              <p>• <strong>Xác nhận customer nhận email</strong> trước khi bắt đầu</p>
+              <p>• <strong>Ghi hình toàn bộ buổi tư vấn</strong> để bảo vệ quyền lợi</p>
+              <p>• <strong>Không chia sẻ password</strong> qua điện thoại hoặc tin nhắn</p>
             </div>
           </Card>
         </Col>
@@ -614,109 +735,20 @@ const ConsultationManagement: React.FC = () => {
         />
       )}
 
-      {/* 🎥 Recording Confirmation Modal */}
-      <Modal
-        title={
-          <Space>
-            <ExclamationCircleOutlined style={{ color: '#fa8c16' }} />
-            <span>Xác nhận ghi hình buổi tư vấn</span>
-          </Space>
-        }
-        open={recordingModalVisible}
-        onCancel={handleRecordingModalClose}
-        footer={[
-          <Button key="cancel" onClick={handleRecordingModalClose}>
-            Hủy bỏ
-          </Button>,
-          <Button 
-            key="confirm" 
-            type="primary" 
-            disabled={!recordingConfirmed}
-            onClick={handleConfirmRecordingAndJoin}
-            icon={<CameraOutlined />}
-          >
-            Xác nhận và Tham gia Meeting
-          </Button>
-        ]}
-        width={600}
-        maskClosable={false}
-      >
-        <div style={{ marginBottom: '20px' }}>
-          <Alert
-            message="Thông báo quan trọng về ghi hình buổi tư vấn"
-            description={
-              <div style={{ marginTop: '12px', lineHeight: '1.6' }}>
-                <p><strong>Để đảm bảo chất lượng dịch vụ và bảo vệ quyền lợi của cả hai bên, bác sĩ vui lòng:</strong></p>
-                <ul style={{ paddingLeft: '20px', margin: '12px 0' }}>
-                  <li><strong>Tự ghi hình</strong> toàn bộ buổi tư vấn bằng phần mềm ghi màn hình trên máy tính của mình</li>
-                  <li><strong>Lưu trữ file ghi hình</strong> tại máy tính cá nhân với tên file theo format: <code>YYYYMMDD_HH-mm_TenBenhNhan.mp4</code></li>
-                  <li><strong>Ghi chú ngày giờ</strong> vào sổ tay hoặc lịch cá nhân để tra cứu khi cần</li>
-                  <li><strong>Bảo mật thông tin</strong> bệnh nhân và chỉ cung cấp khi có yêu cầu chính thức từ trung tâm</li>
-                </ul>
-                <p style={{ color: '#fa8c16', fontWeight: 'bold', marginTop: '16px' }}>
-                  ⚠️ <strong>Lưu ý:</strong> Nếu không thực hiện ghi hình và xảy ra tranh chấp, công ty sẽ không chịu trách nhiệm về các vấn đề pháp lý phát sinh.
-                </p>
-              </div>
-            }
-            type="warning"
-            showIcon
-          />
-        </div>
-
-        {pendingJoinConsultation && (
-          <div style={{ 
-            padding: '16px', 
-            background: '#f9f9f9', 
-            borderRadius: '8px',
-            marginBottom: '20px'
-          }}>
-            <h4 style={{ margin: '0 0 8px 0', color: '#1890ff' }}>
-              📋 Thông tin buổi tư vấn:
-            </h4>
-            <Row gutter={16}>
-              <Col span={12}>
-                <p><strong>Bệnh nhân:</strong> {pendingJoinConsultation.patientName}</p>
-                <p><strong>Số điện thoại:</strong> {pendingJoinConsultation.patientPhone}</p>
-              </Col>
-              <Col span={12}>
-                <p><strong>Thời gian:</strong> {pendingJoinConsultation.appointmentTime}</p>
-                <p><strong>Dịch vụ:</strong> {pendingJoinConsultation.serviceName}</p>
-              </Col>
-            </Row>
-            <p style={{ margin: '8px 0 0 0' }}>
-              <strong>Vấn đề:</strong> {pendingJoinConsultation.description}
-            </p>
-          </div>
-        )}
-
-        <div style={{ 
-          padding: '16px', 
-          border: '2px dashed #d9d9d9', 
-          borderRadius: '8px',
-          textAlign: 'center'
-        }}>
-          <Checkbox
-            checked={recordingConfirmed}
-            onChange={(e) => setRecordingConfirmed(e.target.checked)}
-            style={{ fontSize: '16px' }}
-          >
-            <strong>
-              Tôi xác nhận đã đọc và hiểu các yêu cầu trên. Tôi sẽ tự ghi hình buổi tư vấn và chịu trách nhiệm về việc lưu trữ, bảo mật thông tin bệnh nhân.
-            </strong>
-          </Checkbox>
-        </div>
-
-        <div style={{ 
-          marginTop: '16px', 
-          padding: '12px', 
-          background: '#e6f7ff', 
-          borderRadius: '6px',
-          fontSize: '14px',
-          color: '#0050b3'
-        }}>
-          💡 <strong>Gợi ý phần mềm ghi màn hình:</strong> OBS Studio (miễn phí), Bandicam, Camtasia, hoặc sử dụng tính năng ghi màn hình có sẵn trên hệ điều hành.
-        </div>
-      </Modal>
+      {/* ➕ ADD: Consultation End Confirm Modal */}
+      {consultationToEnd && (
+        <ConsultationEndConfirmModal
+          visible={endConfirmVisible}
+          onConfirm={handleConfirmEndConsultation}
+          onCancel={handleCancelEndConsultation}
+          consultationData={{
+            patientName: consultationToEnd.patientName,
+            patientPhone: consultationToEnd.patientPhone,
+            appointmentTime: consultationToEnd.appointmentTime,
+            description: consultationToEnd.description
+          }}
+        />
+      )}
     </div>
   );
 };

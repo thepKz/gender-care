@@ -800,11 +800,7 @@ const MedicineManagement: React.FC = () => {
                 <Title level={5}>Liều lượng mặc định:</Title>
                 <Text>{selectedMedicine.defaultDosage || 'Chưa xác định'}</Text>
               </Col>
-              
-              <Col span={12}>
-                <Title level={5}>Hướng dẫn sử dụng:</Title>
-                <Text>{selectedMedicine.defaultTimingInstructions || 'Chưa có hướng dẫn'}</Text>
-              </Col>
+            
               
               <Col span={12}>
                 <Title level={5}>Ngày tạo:</Title>

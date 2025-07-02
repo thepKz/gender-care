@@ -21,4 +21,4 @@ export default OperationalDashboard;
 export { default as AppointmentManagement } from './AppointmentManagement';
 export { default as MedicalRecordsManagement } from './MedicalRecordsManagement';
 export { default as ConsultationManagement } from './ConsultationManagement';
-export { default as TestResultsEntry } from './TestResultsEntryStaff';     
+export { default as MeetingHistoryManagement } from './MeetingHistoryManagement';     

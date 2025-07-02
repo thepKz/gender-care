@@ -60,6 +60,26 @@ const CycleChart: React.FC<CycleChartProps> = ({ chartData, resultCalculation, s
     }
   }
 
+  // Custom dot cho line chart
+  const CustomDot = (props: { cx?: number; cy?: number; payload?: { symbol: string; isPeakDay: boolean } }) => {
+    const { cx, cy, payload } = props;
+    if (!cx || !cy || !payload) return null;
+    
+    const color = symbolColors[payload.symbol] || '#999';
+    const size = payload.isPeakDay ? 8 : 6;
+    
+    return (
+      <circle 
+        cx={cx} 
+        cy={cy} 
+        r={size} 
+        fill={color} 
+        stroke="#fff" 
+        strokeWidth={2}
+      />
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* Result Calculation Card */}

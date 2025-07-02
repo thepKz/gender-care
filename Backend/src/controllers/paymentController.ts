@@ -7,6 +7,7 @@ import '../models/ServicePackages';
 import { PackagePurchaseService } from '../services/packagePurchaseService';
 import payosService from '../services/payosService';
 import { AuthRequest } from '../types/auth';
+import { sendConsultationPaymentSuccessEmail } from '../services/emails';
 
 export class PaymentController {
   // Payment controller handles all payment-related operations
@@ -866,6 +867,58 @@ export class PaymentController {
       // Nếu đã scheduled rồi thì trả về thành công luôn
       if (consultation.status === 'scheduled') {
         console.log('✅ [PaymentController] Consultation already scheduled');
+        
+        // 📧 Gửi email cho trường hợp consultation đã scheduled trước đó (để đảm bảo user nhận được email)
+        try {
+          console.log('📧 [PaymentController] Sending confirmation email for already scheduled consultation...');
+          
+          const fullConsultation = await DoctorQA.findById(qaId)
+            .populate({
+              path: 'doctorId',
+              select: 'userId bio specialization',
+              populate: {
+                path: 'userId',
+                select: 'fullName email'
+              }
+            })
+            .populate('userId', 'fullName email');
+
+          if (fullConsultation) {
+            const customerEmail = (fullConsultation.userId as any).email;
+            const customerName = fullConsultation.fullName;
+            const customerPhone = fullConsultation.phone;
+            const doctorName = (fullConsultation.doctorId as any)?.userId?.fullName || 'Bác sĩ tư vấn';
+            
+            const appointmentDate = fullConsultation.appointmentDate 
+              ? new Date(fullConsultation.appointmentDate)
+              : new Date(Date.now() + 24 * 60 * 60 * 1000);
+            
+            const appointmentSlot = fullConsultation.appointmentSlot || 'Sẽ được thông báo sau';
+            
+            // Tìm amount từ payment tracking
+            const paymentInfo = await PaymentTracking.findOne({
+              recordId: qaId,
+              serviceType: 'consultation'
+            });
+            
+            await sendConsultationPaymentSuccessEmail(
+              customerEmail,
+              customerName,
+              customerPhone,
+              doctorName,
+              appointmentDate,
+              appointmentSlot,
+              fullConsultation.question,
+              fullConsultation.consultationFee || paymentInfo?.amount || 0,
+              fullConsultation._id.toString()
+            );
+            
+            console.log('✅ [PaymentController] Confirmation email sent for already scheduled consultation to:', customerEmail);
+          }
+        } catch (emailError) {
+          console.error('⚠️ [PaymentController] Error sending confirmation email for scheduled consultation:', emailError);
+        }
+        
         return res.status(200).json({
           success: true,
           message: 'Consultation đã được xác nhận trước đó',
@@ -897,6 +950,51 @@ export class PaymentController {
         if ((consultation.status as any) !== 'scheduled') {
           (consultation.status as any) = 'scheduled';
           await consultation.save();
+          
+          // 📧 Gửi email cho trường hợp payment đã success nhưng consultation chưa được scheduled
+          try {
+            console.log('📧 [PaymentController] Sending delayed payment success email...');
+            
+            const fullConsultation = await DoctorQA.findById(qaId)
+              .populate({
+                path: 'doctorId',
+                select: 'userId bio specialization',
+                populate: {
+                  path: 'userId',
+                  select: 'fullName email'
+                }
+              })
+              .populate('userId', 'fullName email');
+
+            if (fullConsultation) {
+              const customerEmail = (fullConsultation.userId as any).email;
+              const customerName = fullConsultation.fullName;
+              const customerPhone = fullConsultation.phone;
+              const doctorName = (fullConsultation.doctorId as any)?.userId?.fullName || 'Bác sĩ tư vấn';
+              
+              const appointmentDate = fullConsultation.appointmentDate 
+                ? new Date(fullConsultation.appointmentDate)
+                : new Date(Date.now() + 24 * 60 * 60 * 1000);
+              
+              const appointmentSlot = fullConsultation.appointmentSlot || 'Sẽ được thông báo sau';
+              
+              await sendConsultationPaymentSuccessEmail(
+                customerEmail,
+                customerName,
+                customerPhone,
+                doctorName,
+                appointmentDate,
+                appointmentSlot,
+                fullConsultation.question,
+                fullConsultation.consultationFee || paymentTracking.amount,
+                fullConsultation._id.toString()
+              );
+              
+              console.log('✅ [PaymentController] Delayed payment success email sent to:', customerEmail);
+            }
+          } catch (emailError) {
+            console.error('⚠️ [PaymentController] Error sending delayed payment success email:', emailError);
+          }
         }
 
         return res.status(200).json({
@@ -922,6 +1020,54 @@ export class PaymentController {
       await consultation.save();
 
       console.log('✅ [PaymentController] Fast confirm consultation completed successfully');
+
+      // 📧 Gửi email thông báo thanh toán thành công
+      try {
+        console.log('📧 [PaymentController] Sending payment success email...');
+        
+        // Lấy thông tin đầy đủ consultation với doctor info
+        const fullConsultation = await DoctorQA.findById(qaId)
+          .populate({
+            path: 'doctorId',
+            select: 'userId bio specialization',
+            populate: {
+              path: 'userId',
+              select: 'fullName email'
+            }
+          })
+          .populate('userId', 'fullName email');
+
+        if (fullConsultation) {
+          const customerEmail = (fullConsultation.userId as any).email;
+          const customerName = fullConsultation.fullName;
+          const customerPhone = fullConsultation.phone;
+          const doctorName = (fullConsultation.doctorId as any)?.userId?.fullName || 'Bác sĩ tư vấn';
+          
+          // Tạo thời gian hẹn (hiện tại + 1 ngày làm ví dụ)
+          const appointmentDate = fullConsultation.appointmentDate 
+            ? new Date(fullConsultation.appointmentDate)
+            : new Date(Date.now() + 24 * 60 * 60 * 1000); // +1 day
+          
+          const appointmentSlot = fullConsultation.appointmentSlot || 'Sẽ được thông báo sau';
+          
+          await sendConsultationPaymentSuccessEmail(
+            customerEmail,
+            customerName,
+            customerPhone,
+            doctorName,
+            appointmentDate,
+            appointmentSlot,
+            fullConsultation.question,
+            fullConsultation.consultationFee || paymentTracking.amount,
+            fullConsultation._id.toString()
+          );
+          
+          console.log('✅ [PaymentController] Payment success email sent to:', customerEmail);
+        }
+      } catch (emailError) {
+        console.error('⚠️ [PaymentController] Error sending payment success email:', emailError);
+        // Không throw error để không ảnh hưởng payment flow chính
+      }
 
       return res.status(200).json({
         success: true,

@@ -308,7 +308,24 @@ const consultationApi = {
   // Lấy chi tiết meeting của consultation
   getMeetingDetails: (qaId: string) => {
     return axiosInstance.get(`/doctor-qa/${qaId}/meeting-details`);
-  }
+  },
+
+  // =============== ONLINE CONSULTATION APIs (Updated) ===============
+
+  // ➕ NEW: Get available slots for a date
+  getAvailableSlotsForDate: (date: string) => {
+    return axiosInstance.get(`/doctor-qa/available-slots-for-date/${date}`);
+  },
+
+  // ➕ NEW: Create QA with selected slot (manual slot selection)
+  createQAWithSelectedSlot: (data: Record<string, unknown>) => {
+    return axiosInstance.post('/doctor-qa/create-with-selected-slot', data);
+  },
+
+  // ➕ NEW: Cancel consultation by user (release slot)
+  cancelConsultationByUser: (qaId: string, reason?: string) => {
+    return axiosInstance.put(`/doctor-qa/${qaId}/cancel-by-user`, { reason });
+  },
 };
 
 export default consultationApi; 

@@ -332,8 +332,8 @@ export const lockSlot = async (slotId: string): Promise<boolean> => {
 };
 
 /**
- * Mở khóa một slot cụ thể (đặt trạng thái thành "Free").
- * @param slotId ID của slot cần mở khóa
+ * Giải phóng một slot cụ thể (đặt trạng thái từ "Booked" về "Free").
+ * @param slotId ID của slot cần giải phóng
  * @returns {Promise<boolean>}
  */
 export const releaseSlot = async (slotId: string): Promise<boolean> => {
@@ -341,8 +341,12 @@ export const releaseSlot = async (slotId: string): Promise<boolean> => {
         throw new Error('Slot ID không hợp lệ');
     }
 
+    // Tìm và cập nhật slot trong một thao tác duy nhất
     const result = await DoctorSchedules.findOneAndUpdate(
-        { "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId) },
+        { 
+            "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId),
+            "weekSchedule.slots.status": "Booked" // Đảm bảo chỉ release slot đang "Booked"
+        },
         { 
             $set: { "weekSchedule.$[].slots.$[slot].status": "Free" }
         },
@@ -355,12 +359,17 @@ export const releaseSlot = async (slotId: string): Promise<boolean> => {
     );
 
     if (!result) {
-        // Có thể slot không tồn tại, nhưng trong trường hợp này, việc không tìm thấy để release cũng không phải lỗi nghiêm trọng
-        console.warn(`⚠️ [Slot Release] Không tìm thấy slot ${slotId} để mở khóa.`);
+        // Nếu không tìm thấy document nào được update
+        const existingSlot = await DoctorSchedules.findOne({ "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId) });
+        if (!existingSlot) {
+            console.log(`⚠️ [Slot Release] Slot ${slotId} không tồn tại.`);
+            return false; // Không throw error, chỉ return false
+        }
+        console.log(`⚠️ [Slot Release] Slot ${slotId} không ở trạng thái "Booked".`);
         return false;
     }
 
-    console.log(`✅ [Slot Release] Slot ${slotId} đã được mở khóa thành công.`);
+    console.log(`✅ [Slot Release] Slot ${slotId} đã được giải phóng thành công.`);
     return true;
 };
 

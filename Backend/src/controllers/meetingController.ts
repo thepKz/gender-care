@@ -138,6 +138,7 @@ export const getMeetingByQaId = async (req: Request, res: Response): Promise<voi
       data: {
         meetingId: meeting._id,
         meetLink: meeting.meetingLink,
+        meetingPassword: meeting.meetingPassword,    // ➕ ADD: Return password field
         provider: meeting.provider,
         scheduledTime: meeting.scheduledTime,
         actualStartTime: meeting.actualStartTime,
@@ -202,11 +203,11 @@ export const updateMeetingLink = async (req: Request, res: Response): Promise<vo
 export const joinMeetingNotification = async (req: Request, res: Response): Promise<void> => {
   try {
     const { qaId } = req.params;
-    const { participantId, participantType } = req.body;
+    const { participantType } = req.body;
 
-    if (!isValidObjectId(qaId) || !isValidObjectId(participantId)) {
+    if (!isValidObjectId(qaId)) {
       res.status(400).json({ 
-        message: 'QA ID hoặc Participant ID không hợp lệ' 
+        message: 'QA ID không hợp lệ' 
       });
       return;
     }
@@ -218,9 +219,13 @@ export const joinMeetingNotification = async (req: Request, res: Response): Prom
       return;
     }
 
+    // ✅ Get participantId from meeting data
+    const meeting = await meetingService.getMeetingByQaId(qaId);
+    const participantId = participantType === 'doctor' ? meeting.doctorId : meeting.userId;
+
     const updatedMeeting = await meetingService.participantJoinMeeting(
       qaId, 
-      participantId, 
+      participantId.toString(), 
       participantType
     );
 
@@ -275,10 +280,51 @@ export const completeMeeting = async (req: Request, res: Response): Promise<void
   }
 };
 
-// GET /api/meetings/doctor/:doctorId - Lấy meetings của doctor (Doctor/Staff)
-export const getMeetingsByDoctorId = async (req: Request, res: Response): Promise<void> => {
+// GET /api/meetings/doctor/my-meetings - Lấy meetings của doctor hiện tại (từ token)
+export const getMyMeetings = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const currentUser = req.user;
+
+    if (!currentUser) {
+      res.status(401).json({ 
+        message: 'Vui lòng đăng nhập để thực hiện thao tác này' 
+      });
+      return;
+    }
+
+    // ✅ SECURITY: Tự động lấy doctor từ user hiện tại
+    const Doctor = require('../models/Doctor').default;
+    const currentDoctor = await Doctor.findOne({ userId: currentUser._id });
+    
+    if (!currentDoctor) {
+      res.status(403).json({ 
+        message: 'Không tìm thấy thông tin bác sĩ của bạn trong hệ thống' 
+      });
+      return;
+    }
+
+    console.log(`✅ [SECURITY] Doctor ${currentUser.email} getting their own meetings (doctorId: ${currentDoctor._id})`);
+
+    const meetings = await meetingService.getMeetingsByDoctorId(currentDoctor._id.toString());
+
+    res.status(200).json({
+      message: `Lấy danh sách meetings của bạn thành công (${meetings.length} meetings)`,
+      data: meetings
+    });
+
+  } catch (error: any) {
+    console.error('Error getting my meetings:', error);
+    res.status(500).json({ 
+      message: error.message || 'Lỗi server khi lấy meetings của doctor' 
+    });
+  }
+};
+
+// GET /api/meetings/doctor/:doctorId - Lấy meetings của doctor (Doctor chỉ xem của mình) - LEGACY
+export const getMeetingsByDoctorId = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { doctorId } = req.params;
+    const currentUser = req.user;
 
     if (!isValidObjectId(doctorId)) {
       res.status(400).json({ 
@@ -287,10 +333,38 @@ export const getMeetingsByDoctorId = async (req: Request, res: Response): Promis
       return;
     }
 
+    if (!currentUser) {
+      res.status(401).json({ 
+        message: 'Vui lòng đăng nhập để thực hiện thao tác này' 
+      });
+      return;
+    }
+
+    // ✅ SECURITY CHECK: Doctor chỉ được xem meetings của chính mình
+    const Doctor = require('../models/Doctor').default;
+    const currentDoctor = await Doctor.findOne({ userId: currentUser._id });
+    
+    if (!currentDoctor) {
+      res.status(403).json({ 
+        message: 'Không tìm thấy thông tin bác sĩ của bạn trong hệ thống' 
+      });
+      return;
+    }
+
+    if (currentDoctor._id.toString() !== doctorId) {
+      console.log(`🔒 [SECURITY] Doctor ${currentUser.email} attempted to access meetings of doctorId: ${doctorId}, but their doctorId is: ${currentDoctor._id}`);
+      res.status(403).json({ 
+        message: 'Bạn chỉ có thể xem lịch sử meeting của chính mình' 
+      });
+      return;
+    }
+
+    console.log(`✅ [SECURITY] Doctor ${currentUser.email} authorized to view their own meetings (doctorId: ${doctorId})`);
+
     const meetings = await meetingService.getMeetingsByDoctorId(doctorId);
 
     res.status(200).json({
-      message: `Lấy danh sách meetings của doctor thành công (${meetings.length} meetings)`,
+      message: `Lấy danh sách meetings của bạn thành công (${meetings.length} meetings)`,
       data: meetings
     });
 
@@ -334,6 +408,105 @@ export const getMeetingsByUserId = async (req: AuthRequest, res: Response): Prom
     console.error('Error getting meetings by userId:', error);
     res.status(500).json({ 
       message: error.message || 'Lỗi server khi lấy meetings của user' 
+    });
+  }
+};
+
+// ➕ ADD: POST /api/meetings/:qaId/doctor-join - Update status khi doctor join
+export const updateDoctorJoinStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { qaId } = req.params;
+    const doctorUserId = req.user?._id;
+
+    console.log(`🎯 [API-DOCTOR-JOIN] === REQUEST RECEIVED ===`);
+    console.log(`🎯 [API-DOCTOR-JOIN] qaId: ${qaId}`);
+    console.log(`🎯 [API-DOCTOR-JOIN] doctorUserId: ${doctorUserId}`);
+    console.log(`🎯 [API-DOCTOR-JOIN] URL Path: ${req.originalUrl}`);
+    console.log(`🎯 [API-DOCTOR-JOIN] Method: ${req.method}`);
+
+    if (!isValidObjectId(qaId)) {
+      console.log(`❌ [API-DOCTOR-JOIN] Invalid qaId: ${qaId}`);
+      res.status(400).json({ 
+        message: 'QA ID không hợp lệ' 
+      });
+      return;
+    }
+
+    if (!doctorUserId) {
+      console.log(`❌ [API-DOCTOR-JOIN] Missing doctorUserId from token`);
+      res.status(401).json({ 
+        message: 'Vui lòng đăng nhập để thực hiện thao tác này' 
+      });
+      return;
+    }
+
+    console.log(`🎯 [API-DOCTOR-JOIN] Updating meeting status for QA: ${qaId}, Doctor: ${doctorUserId}`);
+
+    // Gọi service để update status
+    const result = await meetingService.updateMeetingStatusToDoctorJoined(qaId, doctorUserId.toString());
+
+    console.log(`✅ [API-DOCTOR-JOIN] Service result:`, result);
+
+    res.status(200).json({
+      message: result.message,
+      data: {
+        success: result.success,
+        meetingId: result.meetingId,
+        oldStatus: result.oldStatus,
+        newStatus: result.newStatus,
+        participantCount: result.participantCount
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ [API-DOCTOR-JOIN] Error updating doctor join status:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi update trạng thái meeting' 
+    });
+  }
+};
+
+// ➕ ADD: POST /api/meetings/:qaId/send-customer-invite - Gửi thư mời cho customer
+export const sendCustomerInvite = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { qaId } = req.params;
+    const doctorId = req.user?._id; // Lấy doctorId từ auth token
+
+    if (!isValidObjectId(qaId)) {
+      res.status(400).json({ 
+        message: 'QA ID không hợp lệ' 
+      });
+      return;
+    }
+
+    if (!doctorId) {
+      res.status(401).json({ 
+        message: 'Vui lòng đăng nhập để thực hiện thao tác này' 
+      });
+      return;
+    }
+
+    // Gọi service để gửi invite
+    const result = await meetingService.sendCustomerInvite(qaId, doctorId.toString());
+
+    res.status(200).json({
+      message: '📧 Đã gửi thư mời tham gia meeting cho customer thành công!',
+      data: {
+        success: result.success,
+        meetingId: result.meetingId,
+        customerEmail: result.customerEmail,
+        customerName: result.customerName,
+        doctorName: result.doctorName,
+        sentAt: result.sentAt,
+        // Password hiển thị cho doctor xem (debug purpose)
+        meetingPassword: result.meetingPassword
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error sending customer invite:', error);
+    res.status(400).json({ 
+      message: error.message || 'Lỗi server khi gửi thư mời cho customer' 
     });
   }
 }; 

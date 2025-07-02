@@ -7,6 +7,8 @@ export interface IDoctorQA {
   phone: string;
   notes?: string;
   question: string;
+  age: number;
+  gender: string;
   // ✅ SIMPLIFIED STATUS: 5 states (thêm 'consulting' cho online sessions)
   status: "pending_payment" | "scheduled" | "consulting" | "completed" | "cancelled";
   consultationFee: number;
@@ -50,6 +52,17 @@ const DoctorQASchema = new mongoose.Schema<IDoctorQA>({
   question: { 
     type: String, 
     required: true 
+  },
+  age: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 100
+  },
+  gender: {
+    type: String,
+    enum: ['male', 'female'],
+    required: true
   },
   // ✅ SIMPLIFIED STATUS ENUM with all required states
   status: { 
