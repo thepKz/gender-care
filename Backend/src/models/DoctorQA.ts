@@ -16,7 +16,8 @@ export interface IDoctorQA {
   serviceName?: string;  // Tên service cho tiện
   appointmentDate?: Date;
   appointmentSlot?: string;  // VD: "14:00-15:00"
-  slotId?: mongoose.Types.ObjectId;  // ID của slot đã book
+  slotId?: mongoose.Types.ObjectId;  // ID của slot đã book trong DoctorSchedules
+  paymentTrackingId?: mongoose.Types.ObjectId; // ✅ ADD: Payment reference
   doctorNotes?: string;  // Ghi chú của doctor sau khi tư vấn
   createdAt?: Date;
   updatedAt?: Date;
@@ -89,6 +90,10 @@ const DoctorQASchema = new mongoose.Schema<IDoctorQA>({
   },
   slotId: {
     type: mongoose.Schema.Types.ObjectId  // ID của slot đã book trong DoctorSchedules
+  },
+  paymentTrackingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PaymentTracking'
   },
   doctorNotes: {
     type: String  // Ghi chú của doctor sau khi tư vấn

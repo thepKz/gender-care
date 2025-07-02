@@ -732,6 +732,12 @@ const BookingPageNew: React.FC = () => {
       return;
     }
 
+    // Validate description length
+    if (values.description && values.description.length > 25) {
+      message.error('Mô tả không được vượt quá 25 ký tự');
+      return;
+    }
+
     // 🎯 FIX: Determine bookingType based on selection
     let backendBookingType: 'service_only' | 'new_package' | 'purchased_package';
     let packagePurchaseId: string | undefined;
@@ -800,12 +806,12 @@ const BookingPageNew: React.FC = () => {
       profileId: selectedProfile,
       appointmentDate: selectedDate.format('YYYY-MM-DD'),
       appointmentTime: selectedTimeSlot,
-      appointmentType: 'consultation',
+      appointmentType: getSelectedService()?.serviceType || 'consultation',
       typeLocation,
       description: values.description || '',
       notes: values.notes || '',
-      bookingType: backendBookingType, // 🎯 FIX: Add bookingType
-      packagePurchaseId // 🎯 FIX: Add packagePurchaseId if needed
+      bookingType: backendBookingType,
+      packagePurchaseId
     };
 
     // Add service/package specific data
@@ -1968,11 +1974,14 @@ const BookingPageNew: React.FC = () => {
                       label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Triệu chứng</span>}
                       name="description"
                       style={{ marginBottom: '16px' }}
+                      rules={[
+                        { max: 25, message: 'Mô tả không được vượt quá 25 ký tự' }
+                      ]}
                     >
                       <Input.TextArea
-                        placeholder="Mô tả triệu chứng hoặc lý do khám (tùy chọn)"
-                        rows={3}
-                        maxLength={200}
+                        placeholder="Mô tả triệu chứng hoặc lý do khám (tối đa 25 ký tự)"
+                        rows={2}
+                        maxLength={25}
                         showCount
                         size="large"
                       />

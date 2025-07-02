@@ -32,25 +32,26 @@ const PaymentSuccessPage = () => {
   const [searchParams] = useSearchParams();
   
   const appointmentId = searchParams.get('appointmentId');
+  const orderCode = searchParams.get('orderCode');
+  const status = searchParams.get('status');
   const [isLoading, setIsLoading] = useState(true);
   const [appointmentData, setAppointmentData] = useState<AppointmentDetail | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchAppointmentDetails = async () => {
-      if (!appointmentId) {
-        message.error('Không tìm thấy mã lịch hẹn');
+    const confirmAndFetch = async () => {
+      if (!appointmentId || !orderCode || !status) {
+        message.error('Thiếu thông tin xác nhận thanh toán');
         navigate('/booking', { replace: true });
         return;
       }
-
       try {
-        console.log('🔄 Fetching appointment details:', appointmentId);
+        // Gọi API xác nhận nhanh
+        await appointmentApi.fastConfirmPayment({ appointmentId, orderCode, status });
+        // Sau khi xác nhận, lấy chi tiết lịch hẹn
         const response = await appointmentApi.getAppointmentById(appointmentId);
-        
         if (response.success && response.data) {
           const appointment = response.data;
-          console.log('✅ Appointment data:', appointment);
-          
           setAppointmentData({
             id: appointment.id || appointmentId,
             serviceName: appointment.serviceName || 'Dịch vụ khám bệnh',
@@ -65,28 +66,14 @@ const PaymentSuccessPage = () => {
         } else {
           throw new Error('Không thể lấy thông tin lịch hẹn');
         }
-      } catch (error) {
-        console.error('❌ Error fetching appointment:', error);
-        message.error('Có lỗi khi tải thông tin lịch hẹn');
-        // Vẫn hiển thị trang với thông tin cơ bản
-        setAppointmentData({
-          id: appointmentId,
-          serviceName: 'Dịch vụ khám bệnh',
-          doctorName: 'Bác sĩ',
-          patientName: 'Bệnh nhân',
-          appointmentDate: 'Chưa xác định',
-          timeSlot: 'Chưa xác định',
-          totalAmount: 0,
-          status: 'confirmed',
-          location: 'Tại phòng khám'
-        });
+      } catch (error: any) {
+        setConfirmError(error?.message || 'Có lỗi khi xác nhận thanh toán');
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchAppointmentDetails();
-  }, [appointmentId, navigate]);
+    confirmAndFetch();
+  }, [appointmentId, orderCode, status, navigate]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -115,9 +102,20 @@ const PaymentSuccessPage = () => {
         <div className="text-center">
           <Spin size="large" />
           <div className="mt-4">
-            <Text className="text-lg text-gray-600">Đang tải thông tin lịch hẹn...</Text>
+            <Text className="text-lg text-gray-600">Đang xác nhận thanh toán...</Text>
           </div>
         </div>
+      </div>
+    );
+  }
+  if (confirmError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card>
+          <Title level={3} type="danger">Lỗi xác nhận thanh toán</Title>
+          <Paragraph>{confirmError}</Paragraph>
+          <Button type="primary" onClick={() => navigate('/')}>Về trang chủ</Button>
+        </Card>
       </div>
     );
   }

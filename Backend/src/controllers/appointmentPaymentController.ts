@@ -102,6 +102,7 @@ export class AppointmentPaymentController {
       if (existingPayment) {
         existingPayment.orderCode = paymentData.orderCode;
         existingPayment.amount = amount;
+        existingPayment.totalAmount = amount;
         existingPayment.description = description;
         existingPayment.status = 'pending';
         existingPayment.paymentUrl = paymentData.checkoutUrl;
@@ -112,10 +113,13 @@ export class AppointmentPaymentController {
         paymentTracking = await PaymentTracking.create({
           serviceType: 'appointment',
           recordId: appointmentId,
+          userId: userId,
           orderCode: paymentData.orderCode,
           paymentLinkId: paymentData.paymentLinkId,
           paymentGateway: 'payos',
           amount,
+          totalAmount: amount,
+          billNumber: `APT-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
           description,
           customerName: req.user?.fullName || 'Khách hàng',
           customerEmail: req.user?.email,

@@ -235,6 +235,11 @@ export const appointmentApi = {
     // ➕ NEW: Lấy toàn bộ lịch sử đặt lịch của user (appointments + consultations)
     getUserBookingHistory: (filters?: AppointmentFilters & { serviceType?: 'appointment' | 'consultation' | 'all' }) => {
         return axiosInstance.get('/appointments/booking-history', { params: filters });
+    },
+
+    // Fast confirm payment (for PayOS return URLs)
+    fastConfirmPayment: async (data: { appointmentId: string; orderCode: string; status: string }) => {
+        return axiosInstance.post(`/payments/appointments/${data.appointmentId}/fast-confirm`, data);
     }
 };
 
