@@ -46,8 +46,22 @@ const PaymentSuccessPage = () => {
         return;
       }
       try {
-        // Gọi API xác nhận nhanh
-        await appointmentApi.fastConfirmPayment({ appointmentId, orderCode, status });
+        console.log('🚀 [PaymentSuccess] Fast confirming appointment payment...', { appointmentId, orderCode, status });
+        
+        // ✅ FIX: Gọi API xác nhận nhanh cho appointment (giống như consultation)
+        const confirmResponse = await appointmentApi.fastConfirmPayment({ 
+          appointmentId, 
+          orderCode, 
+          status 
+        });
+        
+        if (confirmResponse.data.success) {
+          console.log('✅ [PaymentSuccess] Appointment payment confirmed successfully');
+          message.success('Thanh toán thành công! Lịch hẹn đã được xác nhận.');
+        } else {
+          throw new Error(confirmResponse.data.message || 'Không thể xác nhận thanh toán');
+        }
+        
         // Sau khi xác nhận, lấy chi tiết lịch hẹn
         const response = await appointmentApi.getAppointmentById(appointmentId);
         if (response.success && response.data) {
@@ -67,7 +81,10 @@ const PaymentSuccessPage = () => {
           throw new Error('Không thể lấy thông tin lịch hẹn');
         }
       } catch (error: any) {
-        setConfirmError(error?.message || 'Có lỗi khi xác nhận thanh toán');
+        console.error('❌ [PaymentSuccess] Error confirming appointment payment:', error);
+        const errorMessage = error?.response?.data?.message || error?.message || 'Có lỗi khi xác nhận thanh toán';
+        setConfirmError(errorMessage);
+        message.error(errorMessage);
       } finally {
         setIsLoading(false);
       }

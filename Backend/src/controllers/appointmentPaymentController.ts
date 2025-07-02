@@ -28,11 +28,13 @@ export class AppointmentPaymentController {
         });
       }
 
+      // ✅ FIX: Check existing payment properly - check cả pending và success
       const existingPayment = await PaymentTracking.findOne({
         recordId: appointmentId,
         serviceType: 'appointment'
       });
 
+      // Nếu đã thanh toán thành công rồi
       if (existingPayment && existingPayment.status === 'success') {
         return res.status(400).json({
           success: false,
@@ -54,14 +56,6 @@ export class AppointmentPaymentController {
         }
       }
 
-      // Validate required fields
-      if (!req.body.returnUrl || !req.body.cancelUrl) {
-        return res.status(400).json({
-          success: false,
-          message: 'returnUrl và cancelUrl là bắt buộc'
-        });
-      }
-
       if (amount <= 0) {
         return res.status(400).json({
           success: false,
@@ -74,7 +68,8 @@ export class AppointmentPaymentController {
         amount,
         bookingType: appointment.bookingType,
         hasService: !!appointment.serviceId,
-        hasPackage: !!appointment.packageId
+        hasPackage: !!appointment.packageId,
+        hasExistingPayment: !!existingPayment
       });
 
       const serviceName = (appointment.serviceId as any)?.serviceName || (appointment.packageId as any)?.name || 'Dịch vụ y tế';
@@ -99,7 +94,11 @@ export class AppointmentPaymentController {
       });
 
       let paymentTracking;
-      if (existingPayment) {
+
+      // ✅ FIX: Nếu có existing payment với status pending/failed, reuse và update
+      if (existingPayment && ['pending', 'failed', 'cancelled'].includes(existingPayment.status)) {
+        console.log('🔄 [AppointmentPayment] Reusing existing payment record:', existingPayment._id);
+        
         existingPayment.orderCode = paymentData.orderCode;
         existingPayment.amount = amount;
         existingPayment.totalAmount = amount;
@@ -108,11 +107,19 @@ export class AppointmentPaymentController {
         existingPayment.paymentUrl = paymentData.checkoutUrl;
         existingPayment.paymentLinkId = paymentData.paymentLinkId;
         existingPayment.expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+        existingPayment.customerName = req.user?.fullName || 'Khách hàng';
+        existingPayment.customerEmail = req.user?.email;
+        
         paymentTracking = await existingPayment.save();
+        console.log('✅ [AppointmentPayment] Updated existing payment record');
       } else {
+        // ✅ FIX: Tạo PaymentTracking mới chỉ khi chưa có hoặc không reuse được
+        console.log('🆕 [AppointmentPayment] Creating new payment record');
+        
         paymentTracking = await PaymentTracking.create({
           serviceType: 'appointment',
           recordId: appointmentId,
+          appointmentId: appointmentId,
           userId: userId,
           orderCode: paymentData.orderCode,
           paymentLinkId: paymentData.paymentLinkId,
@@ -124,8 +131,11 @@ export class AppointmentPaymentController {
           customerName: req.user?.fullName || 'Khách hàng',
           customerEmail: req.user?.email,
           status: 'pending',
-          paymentUrl: paymentData.checkoutUrl
+          paymentUrl: paymentData.checkoutUrl,
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000)
         });
+        
+        console.log('✅ [AppointmentPayment] Created new payment record:', paymentTracking._id);
       }
 
       return res.status(200).json({
@@ -136,7 +146,8 @@ export class AppointmentPaymentController {
           orderCode: paymentData.orderCode,
           amount: amount,
           qrCode: paymentData.qrCode,
-          expiredAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+          expiredAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+          isReusedPayment: !!existingPayment
         }
       });
 
@@ -230,6 +241,7 @@ export class AppointmentPaymentController {
           orderCode: paymentTracking.orderCode,
           status: paymentTracking.status,
           amount: paymentTracking.amount,
+          paymentUrl: paymentTracking.paymentUrl, // ✅ FIX: Thêm paymentUrl để frontend có thể reuse
           appointmentStatus: updatedAppointment?.status,
           paymentStatus: updatedAppointment?.paymentStatus,
           paidAt: updatedAppointment?.paidAt,

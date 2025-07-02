@@ -205,10 +205,6 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             return res.status(404).json({ success: false, message: 'Hồ sơ bệnh nhân không hợp lệ hoặc không thuộc về bạn.' });
         }
 
-        let totalAmount = 0;
-        let paymentUrl: string | null = null;
-        let newPayment: any = null;
-        
         // Validate doctorId if provided
         if (doctorId && !mongoose.Types.ObjectId.isValid(doctorId)) {
             console.error('[createAppointment] doctorId không hợp lệ:', doctorId);
@@ -218,24 +214,8 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             });
         }
 
-        console.log('[createAppointment] Tạo appointment với doctorId:', doctorId);
-
-        const newAppointment = new Appointments({
-            createdByUserId: userId,
-            profileId: patientProfile._id,
-            status: 'pending_payment',
-            appointmentDate,
-            appointmentTime,
-            appointmentType,
-            typeLocation,
-            description,
-            notes,
-            serviceId: serviceId,
-            packageId: packageId,
-            doctorId: doctorId, // ✅ FIX: Add doctorId to appointment
-            slotId: slotId
-        });
-
+        // ✅ FIX: Validate service/package trước khi tạo appointment
+        let totalAmount = 0;
         if (bookingType === 'service_only' && serviceId) {
             console.log('[createAppointment] Tìm service:', serviceId);
             const service = await Service.findById(serviceId);
@@ -254,41 +234,33 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
             }
 
             totalAmount = service.price;
-
-            // ✅ CREATE PaymentTracking instead of Bills
-            const billNumber = `APP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-            newPayment = new PaymentTracking({
-                serviceType: appointmentType === 'consultation' ? 'consultation' : 'appointment',
-                recordId: newAppointment._id,
-                appointmentId: newAppointment._id,
-                userId,
-                amount: totalAmount,
-                totalAmount,
-                billNumber: billNumber,
-                description: billNumber, // Ngắn gọn, hợp lệ PayOS
-                customerName: currentUser.fullName || 'Khách hàng',
-                customerEmail: currentUser.email,
-                customerPhone: currentUser.phone,
-                orderCode: Date.now(),
-                paymentGateway: 'payos',
-                status: 'pending'
-            });
-            await newPayment.save();
-            console.log('[createAppointment] Đã lưu PaymentTracking:', newPayment._id);
-            newAppointment.paymentTrackingId = newPayment._id;
-
-            // Gọi service để tạo payment link, không tự tạo thủ công
-            const paymentUrl = await require('../services/paymentService').createPaymentLinkForPayment(newPayment, currentUser);
-            console.log('[createAppointment] Nhận về paymentUrl:', paymentUrl);
-            await PaymentTracking.findByIdAndUpdate(newPayment._id, { paymentUrl });
         } else if (bookingType === 'package_usage') {
             // Logic for package usage booking needs to be implemented here
-            // This part is currently not handled and might be the source of future issues
             console.error('[createAppointment] bookingType package_usage chưa được hỗ trợ');
             return res.status(501).json({ success: false, message: 'Chức năng đặt lịch bằng gói khám chưa được hỗ trợ.' });
         }
 
-        // Now, save the appointment and lock the slot
+        console.log('[createAppointment] Tạo appointment với doctorId:', doctorId);
+
+        // ✅ FIX: Chỉ tạo appointment, KHÔNG tạo PaymentTracking (Lazy Payment Creation)
+        const newAppointment = new Appointments({
+            createdByUserId: userId,
+            profileId: patientProfile._id,
+            status: 'pending_payment',
+            appointmentDate,
+            appointmentTime,
+            appointmentType,
+            typeLocation,
+            description,
+            notes,
+            serviceId: serviceId,
+            packageId: packageId,
+            doctorId: doctorId,
+            slotId: slotId,
+            totalAmount: totalAmount // Lưu amount để dùng sau khi tạo payment
+        });
+
+        // Lock slot trước khi save appointment
         try {
             const savedAppointment = await newAppointment.save();
             if (!savedAppointment || !savedAppointment._id) {
@@ -327,35 +299,32 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
                 targetType: 'Appointment',
             });
 
-            console.log('[createAppointment] Thành công, trả response cho FE');
+            console.log('[createAppointment] Thành công, PaymentTracking sẽ được tạo khi user click thanh toán');
             return res.status(201).json({
                 success: true,
-                message: 'Tạo lịch hẹn thành công!',
+                message: 'Tạo lịch hẹn thành công! Vui lòng tiến hành thanh toán.',
                 data: {
                     appointment: savedAppointment,
-                    paymentUrl: paymentUrl
+                    // ✅ FIX: Không trả paymentUrl, user sẽ click nút thanh toán riêng
+                    needsPayment: true,
+                    totalAmount: totalAmount
                 }
             });
             
         } catch (error: any) {
-             console.error('❌ [Appointment Error] Error during appointment creation or slot locking:', error);
+            console.error('❌ [Appointment Error] Error during appointment creation or slot locking:', error);
              
-             // Rollback logic using the original 'newAppointment' object's ID
-             if (newAppointment?._id) {
-                 await Appointments.findByIdAndDelete(newAppointment._id);
-                 console.log(`🗑️ [Rollback] Deleted appointment ${newAppointment._id} due to failure.`);
-             }
-             
-             if (newPayment?._id) {
-                 await PaymentTracking.findByIdAndUpdate(newPayment._id, { status: 'cancelled' });
-                 console.log(`🗑️ [Rollback] Cancelled payment ${newPayment._id}.`);
-             }
+            // Rollback logic
+            if (newAppointment?._id) {
+                await Appointments.findByIdAndDelete(newAppointment._id);
+                console.log(`🗑️ [Rollback] Deleted appointment ${newAppointment._id} due to failure.`);
+            }
 
-             return res.status(500).json({
-                 success: false,
-                 message: 'Đã có lỗi xảy ra trong quá trình đặt lịch',
-                 error: error.message
-             });
+            return res.status(500).json({
+                success: false,
+                message: 'Đã có lỗi xảy ra trong quá trình đặt lịch',
+                error: error.message
+            });
         }
     } catch (error) {
         const err = error as any;

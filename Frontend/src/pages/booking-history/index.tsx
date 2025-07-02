@@ -578,9 +578,42 @@ const BookingHistory: React.FC = () => {
     navigate(`/feedback?appointment=${appointment.id}`);
   };
 
-  const handlePayment = (appointment: Appointment) => {
-    // Redirect đến trang PaymentProcessPage để tạo PayOS link
-    navigate(`/payment/process?appointmentId=${appointment.id}`);
+  const handlePayment = async (appointment: Appointment) => {
+    try {
+      console.log('💳 [BookingHistory] Starting payment for appointment:', appointment.id);
+      
+      // ✅ FIX: Check existing payment trước khi tạo mới
+      try {
+        const statusResponse = await axiosInstance.get(`/payments/appointments/${appointment.id}/status`);
+        
+        if (statusResponse.data?.success && statusResponse.data?.data) {
+          const paymentData = statusResponse.data.data;
+          console.log('🔍 [BookingHistory] Found existing payment:', paymentData.status);
+          
+          // Nếu payment đã success thì không cần thanh toán lại
+          if (paymentData.status === 'success') {
+            message.info('Lịch hẹn này đã được thanh toán thành công');
+            return;
+          }
+          
+          // Nếu có pending payment với paymentUrl, reuse nó
+          if (paymentData.status === 'pending' && paymentData.paymentUrl) {
+            console.log('♻️ [BookingHistory] Reusing existing payment URL');
+            window.location.href = paymentData.paymentUrl;
+            return;
+          }
+        }
+      } catch (error) {
+        console.log('🔍 [BookingHistory] No existing payment found, creating new one...');
+      }
+      
+      // Nếu không có existing payment hoặc expired, tạo mới
+      navigate(`/payment/process?appointmentId=${appointment.id}`);
+      
+    } catch (error) {
+      console.error('❌ [BookingHistory] Error in handlePayment:', error);
+      message.error('Có lỗi xảy ra khi xử lý thanh toán');
+    }
   };
 
   const handleCancelPayment = async (appointment: Appointment) => {

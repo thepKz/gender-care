@@ -122,137 +122,22 @@ export class PaymentController {
     }
   };
 
-  // Tạo payment link cho appointment
+  // ✅ DEPRECATED: Tạo payment link cho appointment
+  // NOTE: Function này đã được move sang appointmentPaymentController.ts để tránh duplicate logic
+  // Sử dụng endpoint /api/payment/appointments/:appointmentId/create thay vào đó
   createPaymentLink = async (req: AuthRequest, res: Response) => {
     try {
-      const { appointmentId } = req.params;
-      const userId = req.user?._id;
-
-      const appointment = await Appointments.findOne({
-        _id: appointmentId,
-        createdByUserId: userId,
-        status: 'pending_payment'
-      }).populate('serviceId').populate('packageId');
-
-      if (!appointment) {
-        return res.status(404).json({
-          message: 'Appointment không tồn tại hoặc không thể thanh toán'
-        });
-      }
-
-      const existingPayment = await PaymentTracking.findOne({
-        recordId: appointmentId,
-        serviceType: 'appointment'
+      // ✅ FIX: Remove duplicate logic - use appointmentPaymentController instead
+      return res.status(301).json({
+        success: false,
+        message: 'Please use /api/payment/appointments/:appointmentId/create endpoint instead',
+        redirectTo: `/api/payment/appointments/${req.params.appointmentId}/create`
       });
-
-      if (existingPayment && existingPayment.status === 'success') {
-        return res.status(400).json({
-          message: 'Appointment này đã được thanh toán'
-        });
-      }
-
-      // Tính toán amount từ service hoặc package
-      let amount = appointment.totalAmount || 0;
-
-      // Nếu totalAmount = 0, tính lại từ service/package
-      if (amount === 0) {
-        if (appointment.serviceId) {
-          const serviceData = (appointment.serviceId as any);
-          amount = serviceData.price || 0;
-        } else if (appointment.packageId) {
-          const packageData = (appointment.packageId as any);
-          amount = packageData.price || 0;
-        }
-      }
-
-      // Validate required fields
-      if (!req.body.returnUrl || !req.body.cancelUrl) {
-        return res.status(400).json({
-          success: false,
-          message: 'returnUrl và cancelUrl là bắt buộc'
-        });
-      }
-
-      if (amount <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Amount phải lớn hơn 0'
-        });
-      }
-
-      console.log('💳 [CreatePaymentLink] Creating payment for appointment:', {
-        appointmentId,
-        amount,
-        bookingType: appointment.bookingType,
-        hasService: !!appointment.serviceId,
-        hasPackage: !!appointment.packageId
-      });
-      const serviceName = (appointment.serviceId as any)?.serviceName || (appointment.packageId as any)?.name || 'Dịch vụ y tế';
-
-      // PayOS chỉ cho phép description tối đa 25 ký tự
-      let description = `Thanh toán - ${serviceName}`;
-      if (description.length > 25) {
-        // Cắt ngắn serviceName để fit trong 25 ký tự
-        const maxServiceNameLength = 25 - 'Thanh toán - '.length;
-        const shortServiceName = serviceName.substring(0, maxServiceNameLength);
-        description = `Thanh toán - ${shortServiceName}`;
-      }
-
-      const paymentData = await payosService.createPaymentLink({
-        recordId: appointmentId,
-        serviceType: 'appointment',
-        amount,
-        description,
-        customerName: req.user?.fullName || 'Khách hàng',
-        customerEmail: req.user?.email,
-        returnUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/success?appointmentId=${appointmentId}`,
-        cancelUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/cancel?appointmentId=${appointmentId}`
-      });
-
-      let paymentTracking;
-      if (existingPayment) {
-        existingPayment.orderCode = paymentData.orderCode;
-        existingPayment.amount = amount;
-        existingPayment.description = description;
-        existingPayment.status = 'pending';
-        existingPayment.paymentUrl = paymentData.checkoutUrl;
-        existingPayment.paymentLinkId = paymentData.paymentLinkId;
-        existingPayment.expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-        paymentTracking = await existingPayment.save();
-      } else {
-        paymentTracking = await PaymentTracking.create({
-          serviceType: 'appointment',
-          recordId: appointmentId,
-          orderCode: paymentData.orderCode,
-          paymentLinkId: paymentData.paymentLinkId,
-          paymentGateway: 'payos',
-          amount,
-          description,
-          customerName: req.user?.fullName || 'Khách hàng',
-          customerEmail: req.user?.email,
-          status: 'pending',
-          paymentUrl: paymentData.checkoutUrl
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: 'Tạo payment link thành công',
-        data: {
-          paymentUrl: paymentData.checkoutUrl,
-          orderCode: paymentData.orderCode,
-          amount: amount,
-          qrCode: paymentData.qrCode,
-          expiredAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
-        }
-      });
-
     } catch (error) {
-      console.error('Error creating payment link:', error);
+      console.error('Error in deprecated createPaymentLink:', error);
       return res.status(500).json({
         success: false,
-        message: 'Lỗi tạo payment link',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        message: 'Endpoint này đã deprecated, vui lòng sử dụng appointment payment controller'
       });
     }
   };
@@ -455,6 +340,7 @@ export class PaymentController {
           orderCode: paymentTracking.orderCode,
           status: paymentTracking.status,
           amount: paymentTracking.amount,
+          paymentUrl: paymentTracking.paymentUrl, // ✅ FIX: Thêm paymentUrl để frontend có thể reuse
           appointmentStatus: updatedAppointment.status,
           paymentStatus: updatedAppointment.paymentStatus,
           paidAt: updatedAppointment.paidAt,
