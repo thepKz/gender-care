@@ -101,7 +101,7 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
       {
         key: 'medical-records',
         icon: <FileTextOutlined />,
-        label: 'Hồ sơ y tế',
+        label: 'Hồ sơ bệnh án',
       },
       {
         key: 'consultations',

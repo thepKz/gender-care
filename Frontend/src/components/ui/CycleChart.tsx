@@ -1,6 +1,5 @@
 import React from 'react';
 import { Card, Alert, Tag, Tooltip } from 'antd';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie, Tooltip as RechartsTooltip } from 'recharts';
 
 interface CycleChartProps {
   chartData: Array<{
@@ -40,41 +39,6 @@ const CycleChart: React.FC<CycleChartProps> = ({ chartData, resultCalculation, s
     'S': '#26c6da', // Xanh nhạt cho an toàn
     'D': '#78909c'  // Xám cho khô
   };
-
-  // Tạo dữ liệu cho fertility chart
-  const fertilityChartData = chartData.map(day => ({
-    dayNumber: day.dayNumber,
-    fertilityProbability: day.fertilityProbability,
-    symbol: day.symbol,
-    date: new Date(day.date).toLocaleDateString('vi-VN', { month: 'short', day: 'numeric' }),
-    isPeakDay: day.isPeakDay
-  }));
-
-  // Thống kê symbol distribution
-  const symbolStats = chartData.reduce((acc, day) => {
-    acc[day.symbol] = (acc[day.symbol] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const pieData = Object.entries(symbolStats).map(([symbol, count]) => ({
-    name: getSymbolDescription(symbol),
-    value: count,
-    color: symbolColors[symbol]
-  }));
-
-  function getSymbolDescription(symbol: string): string {
-    const descriptions: Record<string, string> = {
-      'M': 'Kinh nguyệt',
-      'X': 'Ngày đỉnh',
-      '1': 'Sau đỉnh 1',
-      '2': 'Sau đỉnh 2', 
-      '3': 'Sau đỉnh 3',
-      'C': 'Có thể thụ thai',
-      'S': 'An toàn',
-      'D': 'Khô'
-    };
-    return descriptions[symbol] || symbol;
-  }
 
   function getStatusColor(status: string): string {
     switch (status) {
@@ -211,81 +175,6 @@ const CycleChart: React.FC<CycleChartProps> = ({ chartData, resultCalculation, s
         </div>
       </Card>
 
-      {/* Fertility Probability Chart */}
-      <Card title="📊 Biểu đồ khả năng thụ thai" className="mb-4">
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={fertilityChartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis 
-              dataKey="date" 
-              angle={-45}
-              textAnchor="end"
-              height={80}
-              fontSize={12}
-            />
-            <YAxis 
-              label={{ value: 'Khả năng thụ thai (%)', angle: -90, position: 'insideLeft' }}
-              domain={[0, 100]}
-            />
-            <RechartsTooltip />
-            <Legend />
-            <Line 
-              type="monotone" 
-              dataKey="fertilityProbability" 
-              stroke="#8884d8" 
-              strokeWidth={2}
-              dot={<CustomDot />}
-              name="Khả năng thụ thai (%)"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </Card>
-
-      {/* Symbol Distribution Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card title="🎯 Phân bố các ký hiệu" className="h-fit">
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                dataKey="value"
-                label={({ name, value }) => `${name}: ${value}`}
-              >
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card title="📊 Biểu đồ cột theo ngày" className="h-fit">
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={fertilityChartData.slice(0, 20)}> {/* Hiển thị 20 ngày đầu */}
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="dayNumber" 
-                label={{ value: 'Ngày trong chu kỳ', position: 'insideBottom', offset: -5 }}
-              />
-              <YAxis 
-                label={{ value: 'Khả năng thụ thai (%)', angle: -90, position: 'insideLeft' }}
-                domain={[0, 100]}
-              />
-              <RechartsTooltip />
-              <Bar dataKey="fertilityProbability" name="Khả năng thụ thai (%)">
-                {fertilityChartData.slice(0, 20).map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={symbolColors[entry.symbol]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-      </div>
-
       {/* Cycle Timeline */}
       <Card title="⏰ Dòng thời gian chu kỳ" className="mt-4">
         <div className="overflow-x-auto">
@@ -297,7 +186,7 @@ const CycleChart: React.FC<CycleChartProps> = ({ chartData, resultCalculation, s
                   <div>
                     <div><strong>Ngày {day.dayNumber}</strong></div>
                     <div>{new Date(day.date).toLocaleDateString('vi-VN')}</div>
-                    <div>{getSymbolDescription(day.symbol)}</div>
+                    <div>{day.symbol}</div>
                     <div>Khả năng thụ thai: {day.fertilityProbability}%</div>
                     {day.mucusObservation && <div>Quan sát: {day.mucusObservation}</div>}
                     {day.feeling && <div>Cảm giác: {day.feeling}</div>}
@@ -328,7 +217,7 @@ const CycleChart: React.FC<CycleChartProps> = ({ chartData, resultCalculation, s
                   style={{ backgroundColor: color }}
                 />
                 <span className="text-xs text-gray-600">
-                  {symbol} - {getSymbolDescription(symbol)}
+                  {symbol}
                 </span>
               </div>
             ))}

@@ -137,7 +137,7 @@ const ProfilesPage: React.FC = () => {
                     Hồ sơ bệnh án của bạn
                   </Title>
                   <Text className="text-gray-600 text-base">
-                    Quản lý hồ sơ y tế cho bản thân và người thân trong gia đình
+                    Quản lý hồ sơ bệnh án cho bản thân và người thân trong gia đình
                   </Text>
                 </div>
               </div>

@@ -121,12 +121,12 @@ export const seedUserMedicalData = async () => {
           doctorId: doctor._id,
           profileId: profile._id,
           appointmentId: appointment._id,
-          diagnosis: medicalRecordData.diagnosis,
+          conclusion: medicalRecordData.conclusion,
           symptoms: medicalRecordData.symptoms,
           treatment: medicalRecordData.treatment,
           medicines: medicalRecordData.medicines,
           notes: medicalRecordData.notes,
-          pictures: medicalRecordData.pictures
+          status: "completed"
         });
 
         allMedicalRecords.push(medicalRecord);
@@ -156,7 +156,7 @@ function getMedicalRecordData(userIndex: number, profileIndex: number, gender: s
     [
       // Profile 1 - Chính chủ (female)
       {
-        diagnosis: 'Viêm nhiễm phụ khoa nhẹ',
+        conclusion: 'Viêm nhiễm phụ khoa nhẹ',
         symptoms: 'Ngứa vùng kín, khí hư bất thường, đau bụng dưới nhẹ',
         treatment: 'Sử dụng thuốc kháng sinh và gel vệ sinh phụ khoa, kiêng quan hệ trong 1 tuần',
         medicines: [
@@ -179,12 +179,11 @@ function getMedicalRecordData(userIndex: number, profileIndex: number, gender: s
             instructions: 'Pha loãng với nước sạch, vệ sinh nhẹ nhàng.'
           }
         ],
-        notes: 'Tái khám sau 1 tuần. Giữ vệ sinh cá nhân, mặc đồ lót cotton.',
-        pictures: ['vaginal_exam_1.jpg', 'ultrasound_result_1.jpg']
+        notes: 'Tái khám sau 1 tuần. Giữ vệ sinh cá nhân, mặc đồ lót cotton.'
       },
       // Profile 2 - Con gái (female, 9 tuổi)
       {
-        diagnosis: 'Viêm họng cấp tính',
+        conclusion: 'Viêm họng cấp tính',
         symptoms: 'Sốt 38.5°C, đau họng, khó nuốt, ho khan',
         treatment: 'Nghỉ ngơi, uống nhiều nước, dùng thuốc theo đơn',
         medicines: [
@@ -207,12 +206,11 @@ function getMedicalRecordData(userIndex: number, profileIndex: number, gender: s
             instructions: 'Uống đủ liều theo đơn. Không được ngừng thuốc khi hết triệu chứng.'
           }
         ],
-        notes: 'Cho bé uống nhiều nước ấm, ăn mềm. Tái khám nếu sốt không giảm sau 3 ngày.',
-        pictures: ['throat_exam_child.jpg']
+        notes: 'Cho bé uống nhiều nước ấm, ăn mềm. Tái khám nếu sốt không giảm sau 3 ngày.'
       },
       // Profile 3 - Con trai (male, 6 tuổi)
       {
-        diagnosis: 'Viêm da cơ địa (Eczema)',
+        conclusion: 'Viêm da cơ địa (Eczema)',
         symptoms: 'Da khô, ngứa, đỏ ở khuỷu tay và đầu gối',
         treatment: 'Thoa kem dưỡng ẩm, tránh chất kích ứng, dùng thuốc theo đơn',
         medicines: [
@@ -235,15 +233,14 @@ function getMedicalRecordData(userIndex: number, profileIndex: number, gender: s
             instructions: 'Thoa đều lên toàn thân, đặc biệt vùng da khô.'
           }
         ],
-        notes: 'Tránh xà phòng mạnh, mặc quần áo cotton. Cắt ngắn móng tay để tránh gãi.',
-        pictures: ['eczema_arms.jpg', 'eczema_knees.jpg']
+        notes: 'Tránh xà phòng mạnh, mặc quần áo cotton. Cắt ngắn móng tay để tránh gãi.'
       }
     ],
     // User 2 - Trần Văn Nam  
     [
       // Profile 1 - Chính chủ (male)
       {
-        diagnosis: 'Viêm dạ dày - tá tràng',
+        conclusion: 'Viêm dạ dày - tá tràng',
         symptoms: 'Đau bụng trên rốn, ợ hơi, buồn nôn, đầy bụng sau ăn',
         treatment: 'Ăn nhỏ nhiều bữa, tránh cay nóng, uống thuốc theo đơn',
         medicines: [
@@ -266,12 +263,11 @@ function getMedicalRecordData(userIndex: number, profileIndex: number, gender: s
             instructions: 'Giúp tiêu hóa và giảm buồn nôn.'
           }
         ],
-        notes: 'Kiêng rượu bia, cà phê, thức ăn cay. Ăn chậm, nhai kỹ. Tái khám sau 2 tuần.',
-        pictures: ['gastroscopy_result.jpg']
+        notes: 'Kiêng rượu bia, cà phê, thức ăn cay. Ăn chậm, nhai kỹ. Tái khám sau 2 tuần.'
       },
       // Profile 2 - Vợ (female)
       {
-        diagnosis: 'Thiểu năng tuần hoàn não',
+        conclusion: 'Thiểu năng tuần hoàn não',
         symptoms: 'Đau đầu, chóng mặt, mệt mỏi, khó tập trung',
         treatment: 'Nghỉ ngơi đầy đủ, tập thể dục nhẹ, dùng thuốc cải thiện tuần hoàn',
         medicines: [
@@ -294,12 +290,11 @@ function getMedicalRecordData(userIndex: number, profileIndex: number, gender: s
             instructions: 'Bổ sung vitamin nhóm B cho hệ thần kinh.'
           }
         ],
-        notes: 'Ngủ đủ 8 tiếng, tránh stress. Tập yoga hoặc đi bộ 30 phút/ngày.',
-        pictures: ['brain_mri.jpg']
+        notes: 'Ngủ đủ 8 tiếng, tránh stress. Tập yoga hoặc đi bộ 30 phút/ngày.'
       },
       // Profile 3 - Con gái (female, 4 tuổi)
       {
-        diagnosis: 'Viêm phế quản cấp',
+        conclusion: 'Viêm phế quản cấp',
         symptoms: 'Ho có đờm, sốt nhẹ, khó thở, thở khò khè',
         treatment: 'Xông mũi họng, uống nhiều nước ấm, dùng thuốc theo đơn',
         medicines: [
@@ -322,8 +317,7 @@ function getMedicalRecordData(userIndex: number, profileIndex: number, gender: s
             instructions: 'Làm loãng đờm, dễ tống đờm ra ngoài.'
           }
         ],
-        notes: 'Xông mũi họng 2 lần/ngày. Tránh khói thuốc, bụi. Tái khám nếu ho không giảm sau 1 tuần.',
-        pictures: ['chest_xray_child.jpg']
+        notes: 'Xông mũi họng 2 lần/ngày. Tránh khói thuốc, bụi. Tái khám nếu ho không giảm sau 1 tuần.'
       }
     ]
   ];

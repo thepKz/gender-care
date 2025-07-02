@@ -78,7 +78,7 @@ export const createMedicationReminder = async (req: AuthRequest, res: Response) 
 
     await reminder.populate([
       { path: 'profileId', select: 'fullName gender phone' },
-      { path: 'medicalRecordId', select: 'diagnosis treatment createdAt' }
+      { path: 'medicalRecordId', select: 'conclusion treatment createdAt' }
     ]);
 
     res.status(201).json({
@@ -139,7 +139,7 @@ export const getMyMedicationReminders = async (req: AuthRequest, res: Response) 
     const reminders = await MedicationReminders.find(query)
       .populate([
         { path: 'profileId', select: 'fullName gender phone' },
-        { path: 'medicalRecordId', select: 'diagnosis treatment createdAt' }
+        { path: 'medicalRecordId', select: 'conclusion treatment createdAt' }
       ])
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -172,7 +172,7 @@ export const getMedicationReminderById = async (req: AuthRequest, res: Response)
 
     const reminder = await MedicationReminders.findOne({ _id: id, isDeleted: false }).populate([
       { path: 'profileId', select: 'fullName gender phone ownerId' },
-      { path: 'medicalRecordId', select: 'diagnosis treatment createdAt' }
+      { path: 'medicalRecordId', select: 'conclusion treatment createdAt' }
     ]);
 
     if (!reminder) {
@@ -237,7 +237,7 @@ export const updateMedicationReminder = async (req: AuthRequest, res: Response) 
       { new: true, runValidators: true }
     ).populate([
       { path: 'profileId', select: 'fullName gender phone' },
-      { path: 'medicalRecordId', select: 'diagnosis treatment createdAt' }
+      { path: 'medicalRecordId', select: 'conclusion treatment createdAt' }
     ]);
 
     // If medicines or dates changed, recreate notification schedule
@@ -291,7 +291,7 @@ export const toggleReminderStatus = async (req: AuthRequest, res: Response) => {
       { new: true }
     ).populate([
       { path: 'profileId', select: 'fullName gender phone' },
-      { path: 'medicalRecordId', select: 'diagnosis treatment createdAt' }
+      { path: 'medicalRecordId', select: 'conclusion treatment createdAt' }
     ]);
 
     res.json({
@@ -365,7 +365,7 @@ export const getAllMedicationReminders = async (req: AuthRequest, res: Response)
       .populate([
         { path: 'createdByUserId', select: 'fullName email' },
         { path: 'profileId', select: 'fullName gender phone' },
-        { path: 'medicalRecordId', select: 'diagnosis treatment createdAt' }
+        { path: 'medicalRecordId', select: 'conclusion treatment createdAt' }
       ])
       .sort({ createdAt: -1 })
       .skip(skip)
