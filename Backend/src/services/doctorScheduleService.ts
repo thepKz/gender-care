@@ -3,11 +3,8 @@ import { Appointments } from '../models';
 import Doctor from '../models/Doctor';
 import DoctorSchedules from '../models/DoctorSchedules';
 import {
-    createVietnamDate,
     debugMonthWorkingDays,
-    generateWorkingDaysInMonth,
-    getDayInfo,
-    isWorkingDay
+    generateWorkingDaysInMonth
 } from '../utils/timezoneUtils';
 
 // Thêm function validation ObjectId
@@ -113,20 +110,16 @@ export const createDoctorSchedule = async (doctorId: string, scheduleData: { dat
       throw new Error('Vui lòng cung cấp ngày làm việc');
     }
 
-    // 🔥 TIMEZONE FIX: Sử dụng centralized timezone utils 
-    const dayInfo = getDayInfo(date);
-    const workDate = createVietnamDate(date);
+    // 🔥 VIETNAM TIMEZONE: Tạo date với timezone Việt Nam (GMT+7)
+    const workDate = new Date(date);
+    const dayName = workDate.toLocaleDateString('vi-VN', { weekday: 'long', timeZone: 'Asia/Ho_Chi_Minh' });
 
-    // 🔍 UNIFIED DEBUG: Log với format mới
-    console.log(`🔥 [TIMEZONE FIX] Processing date: ${date}`);
-    console.log(`🔥 [Day Info] ${JSON.stringify(dayInfo, null, 2)}`);
+    // 🔍 DEBUG: Log processing date
+    console.log(`🔥 [VIETNAM TIMEZONE] Processing date: ${date}`);
+    console.log(`🔥 [Day Info] ${dayName} - ${date}`);
 
-    // 🎯 BUSINESS RULE: CHỈ CHO PHÉP T2-T6 (Monday-Friday)
-    if (!isWorkingDay(date)) {
-      throw new Error(`🚫 ${dayInfo.reason}: ${date}`);
-    }
-
-    console.log(`✅ [SUCCESS] Creating schedule for ${dayInfo.dayName} (${date}) - Working day T2-T6`);
+    // 🎯 NEW BUSINESS RULE: CHO PHÉP TẤT CẢ NGÀY (T2-T3-T4-T5-T6-T7-CN)
+    console.log(`✅ [SUCCESS] Creating schedule for ${dayName} (${date}) - CHO PHÉP TẤT CẢ NGÀY 7 DAYS/WEEK`);
 
     // Tìm schedule hiện tại của doctor
     let doctorSchedule = await DoctorSchedules.findOne({ doctorId });
@@ -568,7 +561,7 @@ export const setDoctorAbsentForDay = async (doctorId: string, date: string) => {
   }
 };
 
-// BULK CREATE: Tạo lịch cho nhiều ngày cụ thể
+// BULK CREATE: Tạo lịch cho nhiều ngày cụ thể (CHO PHÉP TẤT CẢ NGÀY TRONG TUẦN)
 export const createBulkDoctorScheduleForDays = async (doctorId: string, dates: string[], overwrite: boolean = false) => {
   try {
     // Validate doctor exists
@@ -584,35 +577,32 @@ export const createBulkDoctorScheduleForDays = async (doctorId: string, dates: s
 
     const results = [];
     const errors = [];
-    const weekendDates = [];
     const skippedDates = [];
     const overwrittenDates = [];
 
     for (const dateStr of dates) {
       try {
-        // Validate date format - using timezone utils for consistency
+        // 🔥 UPDATED: Chỉ validate format, không filter weekend
+        // Validate date format và timezone VN
+        let workDateBulkDays: Date;
         try {
-          // This will throw if invalid format or date
-          createVietnamDate(dateStr);
+          // Parse với timezone VN
+          const [year, month, day] = dateStr.split('-').map(Number);
+          workDateBulkDays = new Date(year, month - 1, day);
+          
+          // Validate format
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || isNaN(workDateBulkDays.getTime())) {
+            throw new Error('Format ngày không đúng YYYY-MM-DD');
+          }
         } catch (validateError: any) {
           errors.push(`Ngày không hợp lệ: ${dateStr} - ${validateError.message}`);
           continue;
         }
 
-        // 🔥 TIMEZONE FIX: Use centralized timezone utils
-        const dayInfo = getDayInfo(dateStr);
-        const workDateBulkDays = createVietnamDate(dateStr);
-
-        console.log(`📅 BulkDays checking ${dateStr}: ${JSON.stringify(dayInfo, null, 2)}`);
-
-        if (!isWorkingDay(dateStr)) {
-          weekendDates.push(dateStr);
-          errors.push(`🚫 ${dayInfo.reason}: ${dateStr}`);
-          console.log(`🚫 BulkDays skipped ${dateStr} - ${dayInfo.reason}`);
-          continue;
-        }
-
-        console.log(`✅ BulkDays processing ${dateStr} - ${dayInfo.reason}`);
+        const dayOfWeek = workDateBulkDays.getDay();
+        const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+        
+        console.log(`📅 BulkDays processing ${dateStr} (${dayNames[dayOfWeek]}) - CHO PHÉP TẤT CẢ NGÀY`);
 
         // Check if schedule already exists for this date
         const existingSchedule = await DoctorSchedules.findOne({
@@ -622,7 +612,9 @@ export const createBulkDoctorScheduleForDays = async (doctorId: string, dates: s
 
         if (existingSchedule && !overwrite) {
           skippedDates.push(dateStr);
-          errors.push(`Lịch làm việc đã tồn tại cho ngày ${dateStr}. Sử dụng overwrite=true để ghi đè.`);
+          const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+          const dayOfWeek = workDateBulkDays.getDay();
+          errors.push(`❌ Bác sĩ đã có lịch làm việc cho ${dayNames[dayOfWeek]} ngày ${dateStr}. Vui lòng chọn ngày khác hoặc sử dụng chế độ ghi đè.`);
           continue;
         }
 
@@ -643,9 +635,22 @@ export const createBulkDoctorScheduleForDays = async (doctorId: string, dates: s
           schedule: newSchedule
         });
 
+        console.log(`✅ BulkDays created schedule for ${dateStr} (${dayNames[dayOfWeek]})`);
+
       } catch (error: any) {
         errors.push(`Lỗi tạo lịch cho ngày ${dateStr}: ${error.message}`);
+        console.log(`❌ BulkDays error for ${dateStr}: ${error.message}`);
       }
+    }
+
+    // 🔥 IMPROVED ERROR HANDLING: Provide clear feedback for duplicate schedules
+    if (results.length === 0 && skippedDates.length > 0) {
+      // Tất cả ngày đều bị trùng lịch
+      const errorMessage = skippedDates.length === 1 
+        ? `Bác sĩ đã có lịch làm việc cho ngày ${skippedDates[0]}. Vui lòng chọn ngày khác hoặc sử dụng chế độ ghi đè.`
+        : `Bác sĩ đã có lịch làm việc cho ${skippedDates.length} ngày được chọn (${skippedDates.slice(0, 3).join(', ')}${skippedDates.length > 3 ? '...' : ''}). Vui lòng chọn những ngày khác hoặc sử dụng chế độ ghi đè.`;
+      
+      throw new Error(errorMessage);
     }
 
     return {
@@ -653,14 +658,14 @@ export const createBulkDoctorScheduleForDays = async (doctorId: string, dates: s
       totalRequested: dates.length,
       successCount: results.length,
       errorCount: errors.length,
-      weekendCount: weekendDates.length,
       skippedCount: skippedDates.length,
       overwrittenCount: overwrittenDates.length,
       results,
       errors,
-      weekendDates,
       skippedDates,
-      overwrittenDates
+      overwrittenDates,
+      allowWeekends: true,
+      note: 'Hệ thống cho phép tạo lịch cho tất cả ngày trong tuần'
     };
 
   } catch (error: any) {
@@ -668,7 +673,7 @@ export const createBulkDoctorScheduleForDays = async (doctorId: string, dates: s
   }
 };
 
-// BULK CREATE: Tạo lịch cho cả tháng (trừ thứ 7, CN) - USING TIMEZONE UTILS
+// BULK CREATE: Tạo lịch cho cả tháng (BAO GỒM TẤT CẢ NGÀY) - UPDATED FOR 7-DAY WEEK
 export const createBulkDoctorScheduleForMonth = async (doctorId: string, month: number, year: number, overwrite: boolean = false) => {
   try {
     // Validate doctor exists
@@ -677,26 +682,74 @@ export const createBulkDoctorScheduleForMonth = async (doctorId: string, month: 
       throw new Error('Không tìm thấy bác sĩ');
     }
 
-    // 🔥 STREAMLINED: Use timezone utils for validation and generation
-    const workingDays = generateWorkingDaysInMonth(month, year);
-    const monthAnalysis = debugMonthWorkingDays(month, year);
+    // 🔥 UPDATED: Tạo lịch cho TẤT CẢ ngày trong tháng (bao gồm cả cuối tuần)
+    const daysInMonth = new Date(year, month, 0).getDate(); // Số ngày trong tháng
+    const allDaysInMonth: string[] = [];
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month - 1, day);
+      const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+      allDaysInMonth.push(dateStr);
+    }
 
-    console.log(`🔍 [BULK MONTH] Creating schedule for ${workingDays.length} working days in ${month}/${year}`);
-    console.log(`📊 [MONTH ANALYSIS] ${JSON.stringify(monthAnalysis.summary, null, 2)}`);
+    console.log(`🔍 [BULK MONTH] Creating schedule for ALL ${allDaysInMonth.length} days in ${month}/${year} (including weekends)`);
+    console.log(`📊 [MONTH ANALYSIS] Total days: ${allDaysInMonth.length}, Weekends included: YES`);
 
+    // 🔥 ENHANCED ERROR HANDLING: Improved error handling for month conflicts
     // Use the bulk days function with overwrite parameter
-    const result = await createBulkDoctorScheduleForDays(doctorId, workingDays, overwrite);
+    const result = await createBulkDoctorScheduleForDays(doctorId, allDaysInMonth, overwrite);
+
+    // Calculate weekdays and weekends for stats
+    const weekdays = [];
+    const weekends = [];
+    
+    for (const dateStr of allDaysInMonth) {
+      const date = new Date(dateStr);
+      const dayOfWeek = date.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        weekends.push(dateStr);
+      } else {
+        weekdays.push(dateStr);
+      }
+    }
 
     return {
       ...result,
       month,
       year,
-      totalWorkingDays: workingDays.length,
-      weekendsExcluded: monthAnalysis.summary.totalWeekends,
-      monthAnalysis
+      totalDays: allDaysInMonth.length,
+      totalWorkingDays: allDaysInMonth.length, // Giờ tất cả ngày đều là "working days"
+      weekendsIncluded: weekends.length,
+      weekdaysIncluded: weekdays.length,
+      weekendsExcluded: 0, // Không loại bỏ weekend nữa
+      monthAnalysis: {
+        month,
+        year,
+        totalDays: allDaysInMonth.length,
+        allDays: allDaysInMonth,
+        weekdays,
+        weekends,
+        summary: {
+          totalDays: allDaysInMonth.length,
+          totalWeekdays: weekdays.length,
+          totalWeekends: weekends.length,
+          allowWeekends: true,
+          note: 'Tạo lịch cho tất cả ngày trong tháng, bao gồm cả cuối tuần'
+        }
+      }
     };
 
   } catch (error: any) {
+    // 🔥 ENHANCED ERROR HANDLING for month creation conflicts
+    if (error.message && error.message.includes('đã có lịch làm việc')) {
+      // Convert generic error to more specific month error
+      throw new Error(`❌ Tháng ${month}/${year} đã có lịch làm việc của bác sĩ. Vui lòng:
+📅 Chọn tháng khác, hoặc
+🔄 Sử dụng chế độ ghi đè để thay thế lịch cũ, hoặc  
+📝 Tạo lịch theo ngày cụ thể cho những ngày chưa có lịch.`);
+    }
+    
+    // Re-throw other errors with better context
     throw new Error(error.message || 'Không thể tạo lịch cho cả tháng');
   }
 };
@@ -720,34 +773,27 @@ export const createBulkDoctorSchedule = async (doctorId: string, scheduleData: {
       throw new Error('Chỉ có thể tạo tối đa 31 ngày cùng lúc');
     }
 
-    // Validate format ngày và loại bỏ ngày cuối tuần
+    // 🔥 UPDATED: Validate format ngày, CHO PHÉP TẤT CẢ NGÀY TRONG TUẦN
     const validDates: Date[] = [];
     const invalidDates: string[] = [];
-    const weekendDates: string[] = [];
 
     dates.forEach(dateStr => {
-      const workDate = new Date(dateStr);
-      if (isNaN(workDate.getTime()) || !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      if (!dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
         invalidDates.push(dateStr);
       } else {
-        // 🔥 TIMEZONE FIX: Local time cho bulk dates
+        // Parse với timezone VN
         const [yearBulk, monthBulk, dayBulk] = dateStr.split('-').map(Number);
         const localDateBulk = new Date(yearBulk, monthBulk - 1, dayBulk);
-        const dayOfWeekBulk = localDateBulk.getDay();
-        const dayNameBulk = localDateBulk.toLocaleDateString('vi-VN', {
-          weekday: 'long',
-          timeZone: 'Asia/Ho_Chi_Minh'
-        });
-        const isWeekendBulk = (dayOfWeekBulk === 0) || (dayOfWeekBulk === 6) || (dayNameBulk.includes('Chủ nhật')) || (dayNameBulk.includes('Thứ Bảy'));
-
-        console.log(`📅 Bulk checking ${dateStr}: dayOfWeek=${dayOfWeekBulk}, dayName=${dayNameBulk}, isWeekend=${isWeekendBulk}`);
-
-        if (isWeekendBulk) {
-          weekendDates.push(dateStr); // T7 và CN
-          console.log(`🚫 Bulk skipped ${dateStr} (${dayNameBulk}) - Weekend (T7/CN)`);
+        
+        if (isNaN(localDateBulk.getTime())) {
+          invalidDates.push(dateStr);
         } else {
-          validDates.push(localDateBulk); // T2-T6 với local time
-          console.log(`✅ Bulk added ${dateStr} (${dayNameBulk}) to valid dates (T2-T6)`);
+          const dayOfWeekBulk = localDateBulk.getDay();
+          const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+          console.log(`📅 Bulk processing ${dateStr} (${dayNames[dayOfWeekBulk]}) - CHO PHÉP TẤT CẢ NGÀY`);
+          
+          validDates.push(localDateBulk); // Cho phép tất cả ngày
         }
       }
     });
@@ -762,16 +808,14 @@ export const createBulkDoctorSchedule = async (doctorId: string, scheduleData: {
     const results = {
       successful: 0,
       failed: 0,
-      weekendSkipped: weekendDates.length,
       details: {
         created: [] as string[],
         skipped: [] as string[],
-        weekendDates: weekendDates,
         errors: [] as { date: string, reason: string }[]
       }
     };
 
-    // Xử lý từng ngày (chỉ các ngày trong tuần)
+    // 🔥 UPDATED: Xử lý từng ngày (cho phép tất cả ngày trong tuần)
     for (const workDate of validDates) {
       const dateStr = workDate.toISOString().split('T')[0];
 
@@ -801,9 +845,15 @@ export const createBulkDoctorSchedule = async (doctorId: string, scheduleData: {
           });
 
           if (existingDay) {
-            // Ngày đã tồn tại, skip
+            // 🔥 IMPROVED: Provide more specific error for existing dates
+            const dayOfWeek = workDate.getDay();
+            const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
             results.failed++;
             results.details.skipped.push(dateStr);
+            results.details.errors.push({
+              date: dateStr,
+              reason: `❌ Bác sĩ đã có lịch làm việc cho ${dayNames[dayOfWeek]} ngày ${dateStr}. Bỏ qua ngày này.`
+            });
           } else {
             // Thêm ngày mới vào weekSchedule
             doctorSchedule.weekSchedule.push(newDaySchedule as any);
@@ -836,5 +886,84 @@ export const createBulkDoctorSchedule = async (doctorId: string, scheduleData: {
 
   } catch (error: any) {
     throw new Error(error.message || 'Không thể tạo lịch làm việc hàng loạt');
+  }
+};
+
+// 🔥 NEW: Helper function to check schedule conflicts before creation
+export const checkScheduleConflicts = async (doctorId: string, dates: string[]) => {
+  try {
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor) {
+      throw new Error('Không tìm thấy bác sĩ');
+    }
+
+    const conflicts = [];
+    const available = [];
+
+    for (const dateStr of dates) {
+      try {
+        // Parse date with VN timezone
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const workDate = new Date(year, month - 1, day);
+        
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || isNaN(workDate.getTime())) {
+          conflicts.push({
+            date: dateStr,
+            status: 'invalid',
+            reason: 'Format ngày không hợp lệ'
+          });
+          continue;
+        }
+
+        // Check if schedule already exists
+        const existingSchedule = await DoctorSchedules.findOne({
+          doctorId,
+          'weekSchedule.dayOfWeek': workDate
+        });
+
+        const dayOfWeek = workDate.getDay();
+        const dayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+        if (existingSchedule) {
+          conflicts.push({
+            date: dateStr,
+            status: 'conflict',
+            reason: `Bác sĩ đã có lịch làm việc cho ${dayNames[dayOfWeek]}`,
+            dayName: dayNames[dayOfWeek]
+          });
+        } else {
+          available.push({
+            date: dateStr,
+            status: 'available',
+            reason: `Có thể tạo lịch cho ${dayNames[dayOfWeek]}`,
+            dayName: dayNames[dayOfWeek]
+          });
+        }
+      } catch (error: any) {
+        conflicts.push({
+          date: dateStr,
+          status: 'error',
+          reason: error.message || 'Lỗi kiểm tra ngày'
+        });
+      }
+    }
+
+    return {
+      doctorId,
+      totalRequested: dates.length,
+      conflicts: conflicts.length,
+      available: available.length,
+      canProceed: available.length > 0,
+      details: {
+        conflicts,
+        available
+      },
+      recommendation: conflicts.length > 0 
+        ? `Có ${conflicts.length} ngày bị trùng lịch. Bạn có thể tạo lịch cho ${available.length} ngày còn lại hoặc sử dụng chế độ ghi đè.`
+        : `Tất cả ${available.length} ngày đều có thể tạo lịch.`
+    };
+
+  } catch (error: any) {
+    throw new Error(error.message || 'Không thể kiểm tra xung đột lịch làm việc');
   }
 }; 

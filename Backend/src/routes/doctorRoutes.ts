@@ -89,6 +89,9 @@ router.get('/debug/schedule-logic', doctorScheduleController.debugScheduleCreati
 // DEBUG: Real test cho thứ 6 - tạo lịch thật để verify
 router.post('/:id/debug/test-friday', doctorScheduleController.realTestFridaySchedule);
 
+// 🔥 NEW: Check schedule conflicts before creation (STAFF/MANAGER/ADMIN)
+router.post('/:id/check-schedule-conflicts', verifyToken, requireRole('staff'), doctorScheduleController.checkScheduleConflicts);
+
 // PUBLIC: Xem lịch bác sĩ (chỉ Free status - để customer chọn doctor)
 router.get('/:id/schedules', doctorScheduleController.getDoctorSchedules);
 

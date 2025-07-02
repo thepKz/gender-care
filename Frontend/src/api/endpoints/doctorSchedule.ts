@@ -132,42 +132,9 @@ const doctorScheduleApi = {
   createScheduleByDates: async (data: CreateScheduleByDatesRequest): Promise<IDoctorSchedule> => {
     const { doctorId, dates, timeSlots } = data;
 
-    // Validate chỉ cho phép thứ 2-6 (1-5, Monday = 1, Sunday = 0)
-    const weekendDates: string[] = [];
-    const validDates: string[] = [];
-
-    dates.forEach(dateStr => {
-      const date = new Date(dateStr);
-      const dayOfWeek = date.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        // Thứ 7 (6) hoặc Chủ nhật (0)
-        weekendDates.push(dateStr);
-      } else {
-        // Thứ 2-6 (1-5)
-        validDates.push(dateStr);
-      }
-    });
-
-    // Nếu có ngày cuối tuần, throw error
-    if (weekendDates.length > 0) {
-      const weekendNames = weekendDates.map(dateStr => {
-        const date = new Date(dateStr);
-        const dayName = date.getDay() === 0 ? 'Chủ nhật' : 'Thứ 7';
-        return `${dayName} (${dateStr})`;
-      });
-
-      throw new Error(`Không thể tạo lịch cho các ngày cuối tuần: ${weekendNames.join(', ')}. Chỉ cho phép tạo lịch từ thứ 2 đến thứ 6.`);
-    }
-
-    // Nếu không có ngày hợp lệ nào
-    if (validDates.length === 0) {
-      throw new Error('Vui lòng chọn ít nhất một ngày từ thứ 2 đến thứ 6.');
-    }
-
-    // Gửi object chứa array dates
+    // ✅ CHO PHÉP TẤT CẢ NGÀY TRONG TUẦN - KHÔNG FILTER WEEKEND NỮA
     const requestData = {
-      dates: validDates, // Gửi array dates trực tiếp
+      dates, // Gửi array dates trực tiếp, không filter
       timeSlots: timeSlots || []
     };
 
