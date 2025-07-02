@@ -35,7 +35,7 @@ interface TestResultData {
     appointmentId: string;
     profileId: string;
     doctorId: string;
-    conclusion?: string;
+    diagnosis?: string;
     recommendations?: string;
     testResultItemsId: string[];
 }
@@ -202,7 +202,7 @@ export const appointmentApi = {
     },
 
     // Cập nhật test result
-    updateTestResult: async (testResultId: string, data: { conclusion?: string; recommendations?: string }) => {
+    updateTestResult: async (testResultId: string, data: { diagnosis?: string; recommendations?: string }) => {
         const response = await axiosInstance.put(`/test-results/${testResultId}`, data);
         return response.data;
     },

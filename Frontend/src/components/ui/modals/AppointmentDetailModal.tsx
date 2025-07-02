@@ -251,7 +251,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       const response = await medicalApi.createMedicalRecord({
         profileId: medicalRecordData.profileId,
         appointmentId: medicalRecordData.appointmentId,
-        diagnosis: medicalRecordData.diagnosis,
+        conclusion: medicalRecordData.conclusion,
         symptoms: medicalRecordData.symptoms || '',
         treatment: medicalRecordData.treatment,
         notes: medicalRecordData.notes || ''
