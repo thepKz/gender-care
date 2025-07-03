@@ -568,6 +568,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
               menu={{ items: userMenuItems }}
               placement="bottomRight"
               trigger={['click']}
+              overlayClassName="dashboard-user-dropdown"
+              getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
             >
               <div style={{ 
                 display: 'flex', 

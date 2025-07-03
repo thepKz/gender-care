@@ -119,6 +119,8 @@ const ServiceManagementCard: React.FC<ServiceManagementCardProps> = ({
               menu={{ items: getActionMenuItems() }}
               placement="bottomRight"
               trigger={['click']}
+              overlayClassName="service-management-dropdown"
+              getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
             >
               <Button
                 size="small"

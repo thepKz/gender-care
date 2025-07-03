@@ -1,0 +1,178 @@
+/* Global Dropdown Fixes - Sửa các vấn đề dropdown hover */
+
+/* Radix UI Dropdown fixes */
+[data-radix-popper-content-wrapper] {
+  z-index: 9999 !important;
+}
+
+[data-radix-dropdown-menu-content] {
+  z-index: 9999 !important;
+  animation-duration: 150ms !important;
+  animation-timing-function: ease-out !important;
+}
+
+/* Fix hover trigger for Radix dropdowns */
+[data-radix-dropdown-menu-trigger] {
+  position: relative;
+}
+
+[data-radix-dropdown-menu-trigger]:hover {
+  z-index: 1000;
+}
+
+/* Antd Dropdown global fixes */
+.ant-dropdown {
+  z-index: 9999 !important;
+}
+
+.ant-dropdown-menu {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}
+
+.ant-dropdown-trigger {
+  position: relative;
+}
+
+.ant-dropdown-trigger:hover {
+  z-index: 1000;
+}
+
+/* Fix hover delays and timing */
+.ant-dropdown {
+  animation-duration: 0.15s !important;
+  animation-timing-function: ease-out !important;
+}
+
+/* Prevent dropdown flicker */
+.ant-dropdown-menu-item {
+  transition: background-color 0.1s ease !important;
+}
+
+/* Custom dropdown hover area extension */
+.dropdown-hover-area {
+  position: relative;
+}
+
+.dropdown-hover-area::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  z-index: -1;
+  pointer-events: auto;
+}
+
+/* Fix for editor dropdowns */
+.editor-dropdown-content {
+  pointer-events: auto !important;
+  user-select: none;
+}
+
+.editor-dropdown-content [data-radix-dropdown-menu-item] {
+  pointer-events: auto !important;
+  outline: none !important;
+}
+
+.editor-dropdown-content [data-radix-dropdown-menu-item]:hover {
+  background-color: rgba(156, 163, 175, 0.1) !important;
+}
+
+.editor-dropdown-content [data-radix-dropdown-menu-item]:focus {
+  background-color: rgba(156, 163, 175, 0.15) !important;
+  outline: none !important;
+}
+
+/* Fix z-index conflicts with other components */
+.ant-drawer {
+  z-index: 10000 !important;
+}
+
+.ant-modal-wrap {
+  z-index: 10001 !important;
+}
+
+.ant-notification {
+  z-index: 10002 !important;
+}
+
+/* Mobile dropdown fixes */
+@media (max-width: 768px) {
+  [data-radix-dropdown-menu-content] {
+    max-width: calc(100vw - 32px) !important;
+    margin: 0 16px !important;
+  }
+  
+  .ant-dropdown-menu {
+    max-width: calc(100vw - 32px) !important;
+    margin: 0 16px !important;
+  }
+}
+
+/* Fix for dropdown positioning issues */
+.dropdown-position-fix {
+  position: relative !important;
+  z-index: 9999 !important;
+}
+
+/* Ensure dropdown content is always clickable */
+[role="menu"],
+[role="menuitem"] {
+  pointer-events: auto !important;
+}
+
+/* Profile dropdown overlay styling */
+.profile-dropdown-overlay {
+  z-index: 9999 !important;
+}
+
+.profile-dropdown-overlay .ant-dropdown {
+  z-index: 9999 !important;
+}
+
+/* Dashboard user dropdown overlay styling */
+.dashboard-user-dropdown {
+  z-index: 9999 !important;
+}
+
+.dashboard-user-dropdown .ant-dropdown {
+  z-index: 9999 !important;
+}
+
+/* Service package dropdown overlay styling */
+.service-package-dropdown {
+  z-index: 9999 !important;
+}
+
+.service-package-dropdown .ant-dropdown {
+  z-index: 9999 !important;
+}
+
+/* Service management dropdown overlay styling */
+.service-management-dropdown {
+  z-index: 9999 !important;
+}
+
+.service-management-dropdown .ant-dropdown {
+  z-index: 9999 !important;
+}
+
+/* Filter dropdown overlay styling */
+.filter-dropdown-overlay {
+  z-index: 9999 !important;
+}
+
+.filter-dropdown-overlay .ant-dropdown {
+  z-index: 9999 !important;
+}
+
+/* Test dropdown overlay styling */
+.test-dropdown-overlay {
+  z-index: 9999 !important;
+}
+
+.test-dropdown-overlay .ant-dropdown {
+  z-index: 9999 !important;
+} 

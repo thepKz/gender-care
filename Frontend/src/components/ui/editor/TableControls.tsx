@@ -71,7 +71,7 @@ const TableControls: React.FC<Props> = ({ editor }) => {
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 text-sm z-50 min-w-[200px]">
+        <DropdownMenu.Content className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 text-sm z-50 min-w-[200px] editor-dropdown-content">
           {!isTableActive ? (
             <DropdownMenu.Item 
               onSelect={insertTable}

@@ -259,6 +259,8 @@ const ServicePackageCard: React.FC<ServicePackageCardProps> = ({
               menu={{ items: getActionMenuItems() }}
               placement="bottomRight"
               trigger={['click']}
+              overlayClassName="service-package-dropdown"
+              getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
             >
               <Button
                 size="small"

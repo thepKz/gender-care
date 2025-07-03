@@ -303,10 +303,12 @@ const Header: React.FC = () => {
                   <Dropdown 
                     menu={{ items: profile }} 
                     placement="bottomRight"
-                    className="profile-dropdown"
+                    className="profile-dropdown dropdown-hover-area"
                     trigger={['hover']}
                     mouseEnterDelay={0.1}
                     mouseLeaveDelay={0.3}
+                    overlayClassName="profile-dropdown-overlay"
+                    getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
                     dropdownRender={(menu) => (
                       <div className="profile-dropdown-container">
                         <motion.div

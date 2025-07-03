@@ -172,4 +172,48 @@ span.ant-dropdown-menu-title-content {
 .ant-dropdown-menu-item:hover .dropdown-item::before,
 .ant-dropdown-menu-item:hover .dropdown-profile-item::before {
   transform: scaleY(0);
+}
+
+/* Profile dropdown overlay styling */
+.profile-dropdown-overlay {
+  z-index: 9999 !important;
+}
+
+.profile-dropdown-overlay .ant-dropdown {
+  z-index: 9999 !important;
+}
+
+/* Fix hover trigger issues */
+.profile-dropdown .ant-dropdown-trigger {
+  position: relative;
+}
+
+.profile-dropdown .ant-dropdown-trigger:hover {
+  z-index: 1000;
+}
+
+/* Ensure dropdown stays visible during hover */
+.ant-dropdown-menu {
+  pointer-events: auto !important;
+}
+
+.ant-dropdown-menu-item {
+  pointer-events: auto !important;
+}
+
+/* Fix transition issues that might cause hover problems */
+.ant-dropdown {
+  transition: opacity 0.15s ease-in-out !important;
+}
+
+/* Custom hover area extension for better UX */
+.profile-dropdown-container::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  right: -10px;
+  bottom: -10px;
+  z-index: -1;
+  pointer-events: auto;
 } 

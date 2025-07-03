@@ -43,7 +43,7 @@ const FontSizeDropdown: React.FC<Props> = ({ setFontSize, getCurrentFontSize }) 
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 text-sm z-50 min-w-[120px]">
+        <DropdownMenu.Content className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 text-sm z-50 min-w-[120px] editor-dropdown-content">
           <div className="text-xs text-gray-500 px-3 py-1 mb-1">Kích thước</div>
           {fontSizes.map((size) => (
             <DropdownMenu.Item 

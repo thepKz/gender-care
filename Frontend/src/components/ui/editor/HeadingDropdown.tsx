@@ -47,7 +47,7 @@ const HeadingDropdown: React.FC<Props> = ({ setHeading, editorIsActive }) => {
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 text-sm z-50">
+        <DropdownMenu.Content className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 text-sm z-50 editor-dropdown-content">
           {[1, 2, 3, 4].map(level => (
             <DropdownMenu.Item 
               key={level} 

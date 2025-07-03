@@ -38,7 +38,7 @@ const FontFamilyDropdown: React.FC<Props> = ({ setFontFamily, getCurrentFontFami
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
-        <DropdownMenu.Content className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 text-sm z-50 min-w-[200px]">
+        <DropdownMenu.Content className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 text-sm z-50 min-w-[200px] editor-dropdown-content">
           <div className="text-xs text-gray-500 px-3 py-1 mb-1">Font Family</div>
           {fontFamilies.map((font) => (
             <DropdownMenu.Item 

@@ -122,6 +122,8 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
       dropdownRender={() => dropdownContent}
       trigger={['click']}
       placement="bottomRight"
+      overlayClassName="filter-dropdown-overlay"
+      getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
     >
       <Button
         size="large"
