@@ -385,7 +385,7 @@ export const bookSlotForCustomer = async (req: Request, res: Response): Promise<
   }
 };
 
-// POST /doctors/:id/schedules/bulk-days - Staff tạo lịch cho nhiều ngày cụ thể
+// POST /doctors/:id/schedules/bulk-days - Staff tạo lịch cho nhiều ngày cụ thể (CHO PHÉP TẤT CẢ NGÀY TRONG TUẦN)
 export const createBulkDoctorScheduleForDays = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -406,9 +406,9 @@ export const createBulkDoctorScheduleForDays = async (req: Request, res: Respons
       return;
     }
 
-    // Validate each date format
+    // Validate each date format với timezone VN
     const invalidDates = dates.filter((date: string) => {
-      const dateObj = new Date(date);
+      const dateObj = new Date(date + 'T00:00:00+07:00'); // VN timezone
       return isNaN(dateObj.getTime()) || !/^\d{4}-\d{2}-\d{2}$/.test(date);
     });
 
@@ -419,18 +419,13 @@ export const createBulkDoctorScheduleForDays = async (req: Request, res: Respons
       return;
     }
 
+    // UPDATED: Không loại bỏ cuối tuần nữa - cho phép tạo lịch tất cả ngày
     const result = await doctorScheduleService.createBulkDoctorScheduleForDays(id, dates);
 
     const successCount = result.successCount;
     const totalRequested = result.totalRequested;
-    const weekendCount = result.weekendCount;
-    const weekendDates = result.weekendDates;
 
-    let message = `Tạo lịch thành công cho ${successCount}/${totalRequested} ngày`;
-
-    if (weekendCount > 0) {
-      message += `. Đã bỏ qua ${weekendCount} ngày cuối tuần: ${weekendDates.join(', ')}`;
-    }
+    let message = `🎉 Tạo lịch thành công cho ${successCount}/${totalRequested} ngày (bao gồm cả cuối tuần)`;
 
     if (successCount > 0) {
       res.status(201).json({
@@ -439,15 +434,15 @@ export const createBulkDoctorScheduleForDays = async (req: Request, res: Respons
         summary: {
           totalRequested,
           successful: successCount,
-          errors: result.errorCount,
-          weekendsSkipped: weekendCount
+          errors: result.errorCount || 0,
+          timezone: 'Asia/Ho_Chi_Minh (GMT+7)',
+          allowWeekends: true,
+          note: 'Hệ thống hiện cho phép tạo lịch cho tất cả ngày trong tuần'
         }
       });
     } else {
       res.status(400).json({
-        message: weekendCount > 0
-          ? `Không thể tạo lịch cho bất kỳ ngày nào. Đã bỏ qua ${weekendCount} ngày cuối tuần`
-          : 'Không thể tạo lịch cho bất kỳ ngày nào',
+        message: 'Không thể tạo lịch cho bất kỳ ngày nào. Kiểm tra lại ngày hoặc bác sĩ.',
         data: result
       });
     }
@@ -460,11 +455,11 @@ export const createBulkDoctorScheduleForDays = async (req: Request, res: Respons
   }
 };
 
-// POST /doctors/:id/schedules/bulk-month - Staff tạo lịch cho cả tháng (trừ T7, CN)
+// POST /doctors/:id/schedules/bulk-month - Staff tạo lịch cho cả tháng (BAO GỒM TẤT CẢ NGÀY)
 export const createBulkDoctorScheduleForMonth = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { month, year, overwrite } = req.body;
+    const { month, year, overwrite, excludeWeekends } = req.body;
 
     // Validation
     if (!month || !year) {
@@ -495,25 +490,47 @@ export const createBulkDoctorScheduleForMonth = async (req: Request, res: Respon
       return;
     }
 
-    const result = await doctorScheduleService.createBulkDoctorScheduleForMonth(id, month, year, overwrite || false);
+    // UPDATED: Mặc định không loại bỏ cuối tuần trừ khi được yêu cầu cụ thể
+    const shouldExcludeWeekends = excludeWeekends === true;
+    
+    const result = await doctorScheduleService.createBulkDoctorScheduleForMonth(
+      id, 
+      month, 
+      year, 
+      overwrite || false
+    );
 
     const successCount = result.successCount;
-    const totalWorkingDays = result.totalWorkingDays;
-    const weekendsExcluded = result.weekendsExcluded;
-
+    const totalDays = result.totalWorkingDays;
     const skippedCount = result.skippedCount || 0;
     const overwrittenCount = result.overwrittenCount || 0;
 
     if (successCount > 0 || overwrittenCount > 0) {
-      let message = `Tạo lịch cho tháng ${month}/${year}: ${successCount} ngày mới`;
+      let message = `🎉 Tạo lịch cho tháng ${month}/${year}: ${successCount} ngày mới`;
       if (overwrittenCount > 0) {
         message += `, ${overwrittenCount} ngày ghi đè`;
       }
-      message += ` / ${totalWorkingDays} ngày làm việc (loại bỏ ${weekendsExcluded} cuối tuần)`;
+      
+      if (shouldExcludeWeekends) {
+        const weekendsExcluded = result.weekendsExcluded || 0;
+        message += ` / ${totalDays} ngày làm việc (loại bỏ ${weekendsExcluded} cuối tuần)`;
+      } else {
+        message += ` / ${totalDays} ngày (bao gồm cả cuối tuần)`;
+      }
 
       res.status(201).json({
         message,
-        data: result
+        data: result,
+        summary: {
+          month,
+          year,
+          totalDays,
+          successful: successCount,
+          overwritten: overwrittenCount,
+          skipped: skippedCount,
+          excludeWeekends: shouldExcludeWeekends,
+          timezone: 'Asia/Ho_Chi_Minh (GMT+7)'
+        }
       });
     } else {
       let message = `Không thể tạo lịch cho tháng ${month}/${year}`;
@@ -535,7 +552,7 @@ export const createBulkDoctorScheduleForMonth = async (req: Request, res: Respon
   }
 };
 
-// POST /doctors/:id/schedules/bulk - Staff tạo lịch hàng loạt cho bác sĩ (nhiều ngày cùng lúc)
+// POST /doctors/:id/schedules/bulk - Staff tạo lịch hàng loạt cho bác sĩ (CHO PHÉP TẤT CẢ NGÀY TRONG TUẦN)
 export const createBulkDoctorSchedule = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -548,17 +565,27 @@ export const createBulkDoctorSchedule = async (req: Request, res: Response): Pro
       return;
     }
 
-    const result = await doctorScheduleService.createBulkDoctorSchedule(id, { dates });
+    // Validate dates với timezone VN
+    const validDates = dates.filter((date: string) => {
+      const dateObj = new Date(date + 'T00:00:00+07:00'); // VN timezone
+      return !isNaN(dateObj.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(date);
+    });
+
+    if (validDates.length !== dates.length) {
+      res.status(400).json({
+        message: 'Một số ngày có định dạng không hợp lệ. Vui lòng sử dụng YYYY-MM-DD'
+      });
+      return;
+    }
+
+    const result = await doctorScheduleService.createBulkDoctorSchedule(id, { 
+      dates: validDates
+    });
 
     const successCount = result.results.successful;
     const failedCount = result.results.failed;
-    const weekendCount = result.results.weekendSkipped;
 
-    let message = `Hoàn thành! Tạo thành công ${successCount} ngày, bỏ qua ${failedCount} ngày.`;
-
-    if (weekendCount > 0) {
-      message += ` Đã loại bỏ ${weekendCount} ngày cuối tuần: ${result.results.details.weekendDates.join(', ')}.`;
-    }
+    let message = `🎉 Hoàn thành! Tạo thành công ${successCount} ngày, bỏ qua ${failedCount} ngày (bao gồm cả cuối tuần).`;
 
     if (result.results.details.created.length > 0) {
       message += ` Ngày đã tạo: ${result.results.details.created.join(', ')}.`;
@@ -579,7 +606,9 @@ export const createBulkDoctorSchedule = async (req: Request, res: Response): Pro
         totalRequested: dates.length,
         successful: successCount,
         failed: failedCount,
-        weekendsSkipped: weekendCount
+        allowWeekends: true,
+        timezone: 'Asia/Ho_Chi_Minh (GMT+7)',
+        note: 'Hệ thống hiện cho phép tạo lịch cho tất cả ngày trong tuần'
       }
     });
   } catch (error: any) {
@@ -626,37 +655,62 @@ export const getAllDoctorsSchedulesForStaff = async (req: Request, res: Response
   }
 };
 
-// DEBUG ENDPOINT - Test schedule creation logic với timezone utils
+// DEBUG ENDPOINT - Test schedule creation logic với timezone utils (UPDATED FOR 7-DAY WEEK)
 export const debugScheduleCreation = async (req: Request, res: Response) => {
   try {
     const { testMonth = 6, testYear = 2025 } = req.query;
     const month = parseInt(testMonth as string);
     const year = parseInt(testYear as string);
 
-    // 🔥 USING NEW TIMEZONE UTILS
-    const { debugMonthWorkingDays } = await import('../utils/timezoneUtils');
-    const monthAnalysis = debugMonthWorkingDays(month, year);
+    // 🔥 UPDATED LOGIC: Tạo lịch cho tất cả ngày trong tháng với timezone VN
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const allDays = [];
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month - 1, day);
+      const dayOfWeek = date.getDay();
+      const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+      
+      allDays.push({
+        date: date.toISOString().split('T')[0],
+        dayOfWeek,
+        dayName: dayNames[dayOfWeek],
+        isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+        canCreateSchedule: true // UPDATED: Tất cả ngày đều có thể tạo lịch
+      });
+    }
+
+    const weekdays = allDays.filter(d => !d.isWeekend);
+    const weekends = allDays.filter(d => d.isWeekend);
 
     return res.status(200).json({
-      message: `🔥 NEW LOGIC: Debug test cho tháng ${month}/${year} - Sử dụng Timezone Utils`,
-      data: monthAnalysis,
+      message: `🔥 UPDATED LOGIC: Debug test cho tháng ${month}/${year} - Cho phép tạo lịch 7 ngày/tuần`,
+      data: {
+        month,
+        year,
+        totalDays: daysInMonth,
+        allDays,
+        weekdays,
+        weekends
+      },
       businessRules: {
-        workingDays: "T2-T6 (Monday-Friday)",
-        excludedDays: "T7 (Saturday) và CN (Sunday)",
+        workingDays: "🔥 UPDATED: T2-T3-T4-T5-T6-T7-CN (All 7 days)",
+        excludedDays: "Không có ngày nào bị loại bỏ",
         timezone: "Asia/Ho_Chi_Minh (UTC+7)"
       },
-      fridaysAnalysis: {
-        totalFridays: monthAnalysis.workingDays.filter(d => d.dayOfWeek === 5).length,
-        fridayDates: monthAnalysis.workingDays.filter(d => d.dayOfWeek === 5).map(d => d.date),
-        allWorkingDays: true
+      weekdaysAnalysis: {
+        total: weekdays.length,
+        dates: weekdays.map(d => d.date),
+        allAllowed: true,
+        note: "✅ Tất cả ngày trong tuần đều có thể tạo lịch"
       },
-      saturdaysAnalysis: {
-        totalSaturdays: monthAnalysis.weekends.filter(d => d.dayOfWeek === 6).length,
-        saturdayDates: monthAnalysis.weekends.filter(d => d.dayOfWeek === 6).map(d => d.date),
-        allExcluded: true,
-        note: "🚫 Thứ 7 bị loại bỏ (không tạo lịch)"
+      weekendsAnalysis: {
+        total: weekends.length,
+        dates: weekends.map(d => d.date),
+        allAllowed: true,
+        note: "🔥 UPDATED: Cuối tuần giờ đã được cho phép tạo lịch"
       },
-      conclusion: `✅ Logic chuẩn với Timezone Utils: Làm việc T2-T6 (${monthAnalysis.summary.totalWorkingDays} ngày), nghỉ cuối tuần (${monthAnalysis.summary.totalWeekends} ngày)`
+      conclusion: `🎉 NEW LOGIC: Làm việc 7 ngày/tuần (${daysInMonth} ngày), không loại bỏ cuối tuần nữa!`
     });
 
   } catch (error: any) {
@@ -734,7 +788,7 @@ export const realTestFridaySchedule = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       message: `🔥 Test tạo lịch T6 & T7 hoàn tất: ${successCount}/${testDays.length} thành công`,
-      testTarget: "🔥 UPDATED: Thứ 6 & Thứ 7 trong tháng 6/2025 (logic mới T2-T7)",
+      testTarget: "🔥 UPDATED: Thứ 6 & Thứ 7 trong tháng 6/2025 (logic mới 7 ngày/tuần)",
       results,
       summary: {
         totalTested: testDays.length,
@@ -748,15 +802,20 @@ export const realTestFridaySchedule = async (req: Request, res: Response) => {
         saturdaysTest: {
           total: saturdayResults.length,
           successful: saturdaySuccess,
-          conclusion: saturdaySuccess === saturdayResults.length ? "✅ Thứ 7 OK (MỚI THÊM)" : "❌ Thứ 7 có lỗi"
+          conclusion: saturdaySuccess === saturdayResults.length ? "✅ Thứ 7 OK (MỚI ĐƯỢC CHO PHÉP)" : "❌ Thứ 7 có lỗi"
         },
         overallConclusion: successCount === testDays.length
-          ? "🎉 HOÀN HẢO! Cả T6 & T7 đều hoạt động!"
+          ? "🎉 HOÀN HẢO! Cả 7 ngày trong tuần đều hoạt động!"
           : "⚠️ Có vấn đề với logic tạo lịch"
+      },
+      businessRules: {
+        oldLogic: "T2-T6 only (Monday-Friday)",
+        newLogic: "🔥 T2-T3-T4-T5-T6-T7-CN (All 7 days allowed)",
+        timezone: "Asia/Ho_Chi_Minh (UTC+7)"
       },
       recommendation: errorCount > 0
         ? "Kiểm tra lỗi chi tiết và database state. Có thể lịch đã tồn tại hoặc doctor không hợp lệ."
-        : "🔥 Logic T2-T7 hoạt động đúng! Giờ bạn có thể tạo lịch cả thứ 7."
+        : "🎉 Logic 7 ngày/tuần hoạt động đúng! Giờ bạn có thể tạo lịch cho tất cả ngày trong tuần."
     });
 
   } catch (error: any) {
@@ -767,7 +826,34 @@ export const realTestFridaySchedule = async (req: Request, res: Response) => {
   }
 };
 
-// 🔥 TIMEZONE FIX: Test logic với local time cho Việt Nam
+// 🔥 UPDATED TIMEZONE + 7-DAY LOGIC: Test logic với local time cho Việt Nam (cho phép cả cuối tuần)
+// 🔥 NEW: Check schedule conflicts before creation
+export const checkScheduleConflicts = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { dates } = req.body;
+
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      return res.status(400).json({
+        message: 'Vui lòng cung cấp mảng dates để kiểm tra xung đột'
+      });
+    }
+
+    const result = await doctorScheduleService.checkScheduleConflicts(id, dates);
+
+    return res.status(200).json({
+      message: 'Kiểm tra xung đột lịch làm việc thành công',
+      data: result
+    });
+
+  } catch (error: any) {
+    console.log('Error in checkScheduleConflicts:', error);
+    return res.status(400).json({
+      message: error.message || 'Không thể kiểm tra xung đột lịch làm việc'
+    });
+  }
+};
+
 export const testSingleDate = async (req: Request, res: Response) => {
   try {
     const { date } = req.query;
@@ -797,13 +883,13 @@ export const testSingleDate = async (req: Request, res: Response) => {
     const vnDate = new Date(date + 'T00:00:00.000+07:00');
     const dayOfWeekVN = vnDate.getDay();
 
-    // 🔄 DECISION LOGIC: T2-T6 only (Monday-Friday)
+    // 🔥 UPDATED DECISION LOGIC: Cho phép tất cả 7 ngày trong tuần
     const isWeekend = (dayOfWeek === 0) || (dayOfWeek === 6) || (dayName.includes('Chủ nhật')) || (dayName.includes('Thứ Bảy'));
-    const shouldCreate = !isWeekend;
+    const shouldCreate = true; // UPDATED: Tất cả ngày đều có thể tạo lịch
 
     return res.status(200).json({
-      message: `🔥 Timezone Fix Test cho ngày: ${date}`,
-      input: { date, timezone: 'Asia/Ho_Chi_Minh (UTC+7)' },
+      message: `🔥 Updated Logic Test cho ngày: ${date} - Cho phép 7 ngày/tuần`,
+      input: { date, timezone: 'Asia/Ho_Chi_Minh (UTC+7)', newLogic: '7-Day Week Allowed' },
       results: {
         localTime: {
           dayOfWeek,
@@ -821,13 +907,11 @@ export const testSingleDate = async (req: Request, res: Response) => {
         decision: {
           isWeekend,
           shouldCreate,
-          reason: isWeekend ? '🚫 Weekend (T7/CN) - Không tạo lịch' : '✅ Working day (T2-T6) - Tạo lịch được',
-          method: 'Local Time (UTC+7)'
+          reason: '🔥 UPDATED: Tất cả ngày trong tuần đều có thể tạo lịch (bao gồm cả T7/CN)',
+          method: 'Local Time (UTC+7) + 7-Day Logic'
         }
       },
-      conclusion: shouldCreate ?
-        `✅ PASS: Ngày ${date} (${dayName}) có thể tạo lịch` :
-        `🚫 FAIL: Ngày ${date} (${dayName}) là cuối tuần - không tạo lịch`
+      conclusion: `✅ PASS: Ngày ${date} (${dayName}) có thể tạo lịch - Logic mới cho phép 7 ngày/tuần`
     });
 
   } catch (error: any) {

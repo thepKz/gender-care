@@ -32,7 +32,8 @@ interface Service {
 }
 
 interface Doctor {
-  id: string;
+  id: string; // userId
+  doctorId: string; // id của bảng Doctor
   name: string;
   specialization: string;
   experience: number;
@@ -41,6 +42,8 @@ interface Doctor {
   avatar: string;
   isAvailable: boolean;
   bio?: string;
+  availableSlots?: any[];
+  totalAvailableSlots?: number;
 }
 
 interface TimeSlot {
@@ -729,6 +732,12 @@ const BookingPageNew: React.FC = () => {
       return;
     }
 
+    // Validate description length
+    if (values.description && values.description.length > 25) {
+      message.error('Mô tả không được vượt quá 25 ký tự');
+      return;
+    }
+
     // 🎯 FIX: Determine bookingType based on selection
     let backendBookingType: 'service_only' | 'new_package' | 'purchased_package';
     let packagePurchaseId: string | undefined;
@@ -797,12 +806,12 @@ const BookingPageNew: React.FC = () => {
       profileId: selectedProfile,
       appointmentDate: selectedDate.format('YYYY-MM-DD'),
       appointmentTime: selectedTimeSlot,
-      appointmentType: 'consultation',
+      appointmentType: getSelectedService()?.serviceType || 'consultation',
       typeLocation,
       description: values.description || '',
       notes: values.notes || '',
-      bookingType: backendBookingType, // 🎯 FIX: Add bookingType
-      packagePurchaseId // 🎯 FIX: Add packagePurchaseId if needed
+      bookingType: backendBookingType,
+      packagePurchaseId
     };
 
     // Add service/package specific data
@@ -817,13 +826,19 @@ const BookingPageNew: React.FC = () => {
     // Add doctor and address if available
     if (assignedDoctorId) {
       appointmentData.doctorId = assignedDoctorId;
+      console.log('👨‍⚕️ [Booking Debug] Doctor assigned to appointment:', {
+        doctorId: assignedDoctorId,
+        doctorName: assignedDoctorName
+      });
+    } else {
+      console.log('⚠️ [Booking Debug] No doctor assigned to appointment');
     }
 
     if (typeLocation === 'home' && values.address) {
       appointmentData.address = values.address;
     }
 
-    console.log('🔍 [Booking Debug] Final appointment data:', appointmentData);
+    console.log('🔍 [Booking Debug] Final appointment data:', JSON.stringify(appointmentData, null, 2));
 
     try {
       setIsSubmitting(true);
@@ -1902,25 +1917,22 @@ const BookingPageNew: React.FC = () => {
                           size="large"
                           disabled={doctors.length === 0}
                         >
-                          {doctors.filter(d => d.isAvailable && d.id).map((doctor, index) => {
-                            const doctorKey = doctor.id || `doctor-${index}`;
-                            return (
-                              <Option key={doctorKey} value={doctor.id}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
-                                  <img
-                                    src={doctor.avatar}
-                                    alt={doctor.name}
-                                    style={{ width: '24px', height: '24px', borderRadius: '50%' }}
-                                  />
-                                  <div>
-                                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
-                                      {doctor.name}
-                                    </div>
+                          {doctors.filter(d => d.isAvailable && d.doctorId).map((doctor, index) => (
+                            <Option key={doctor.doctorId} value={doctor.doctorId}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
+                                <img
+                                  src={doctor.avatar}
+                                  alt={doctor.name}
+                                  style={{ width: '24px', height: '24px', borderRadius: '50%' }}
+                                />
+                                <div>
+                                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                                    {doctor.name}
                                   </div>
                                 </div>
-                              </Option>
-                            );
-                          })}
+                              </div>
+                            </Option>
+                          ))}
                 </Select>
                         {doctors.length > 0 && (
                           <div style={{ marginTop: '8px' }}>
@@ -1962,11 +1974,14 @@ const BookingPageNew: React.FC = () => {
                       label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Triệu chứng</span>}
                       name="description"
                       style={{ marginBottom: '16px' }}
+                      rules={[
+                        { max: 25, message: 'Mô tả không được vượt quá 25 ký tự' }
+                      ]}
                     >
                       <Input.TextArea
-                        placeholder="Mô tả triệu chứng hoặc lý do khám (tùy chọn)"
-                        rows={3}
-                        maxLength={200}
+                        placeholder="Mô tả triệu chứng hoặc lý do khám (tối đa 25 ký tự)"
+                        rows={2}
+                        maxLength={25}
                         showCount
                         size="large"
                       />

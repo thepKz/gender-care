@@ -27,10 +27,12 @@ const medicalApi = {
   createMedicalRecord: (data: {
     profileId: string;
     appointmentId: string;
-    diagnosis: string;
+    conclusion: string;
     symptoms: string;
     treatment: string;
     notes?: string;
+    medicines?: any[];
+    status?: string;
     pictures?: string[];
   }) => {
     return axiosInstance.post('/medical-records', data);
@@ -38,12 +40,14 @@ const medicalApi = {
   
   // Cập nhật hồ sơ y tế
   updateMedicalRecord: (id: string, data: {
-    diagnosis?: string;
+    conclusion?: string;
     symptoms?: string;
     treatment?: string;
     notes?: string;
-    pictures?: string[];
+    medicines?: any[];
+    status?: string;
   }) => {
+    console.log('🔧 API updateMedicalRecord called with:', { id, data });
     return axiosInstance.put(`/medical-records/${id}`, data);
   },
   

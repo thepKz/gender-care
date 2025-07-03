@@ -22,6 +22,8 @@ interface ConsultationInfo {
   _id: string;
   fullName: string;
   phone: string;
+  age?: number;
+  gender?: string;
   question: string;
   notes?: string;
   status: string;
@@ -306,79 +308,141 @@ const PaymentSuccessPage: React.FC = () => {
           </Steps>
         </motion.div>
 
-        <Row gutter={[24, 24]}>
-          {/* Main Success Card */}
-          <Col xs={24} lg={14}>
+        {/* Row 1: Consultation Summary - Compact 2-column layout */}
+        <Row gutter={[24, 24]} className="mb-8">
+          <Col xs={24} lg={16}>
             <motion.div variants={itemVariants}>
               <Card className="border-0 shadow-xl rounded-2xl">
-                <Title level={3} className="text-gray-900 mb-6 flex items-center gap-3">
-                  <Award size={24} color="#10B981" variant="Bold" />
-                  Bước tiếp theo
+                <Title level={4} className="text-gray-900 mb-4">
+                  Chi tiết tư vấn
                 </Title>
                 
-                <div className="space-y-6">
-                  <div className="flex items-start gap-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                      1
-                    </div>
-                    <div>
-                      <Text className="font-semibold text-blue-900 block mb-1">
-                        Bác sĩ xem xét yêu cầu
-                      </Text>
-                      <Text className="text-blue-700 text-sm">
-                        Bác sĩ sẽ đánh giá câu hỏi và chuẩn bị nội dung tư vấn phù hợp
-                      </Text>
-                    </div>
-                  </div>
+                {consultation && (
+                  <Row gutter={[16, 16]}>
+                    {/* Left Column */}
+                    <Col xs={24} md={12}>
+                      <div className="space-y-3">
+                        <div>
+                          <Text className="text-gray-500 text-xs block mb-1">Mã tư vấn:</Text>
+                          <Text className="font-mono text-xs bg-gray-100 px-2 py-1 rounded block truncate">
+                            {consultation._id}
+                          </Text>
+                        </div>
 
-                  <div className="flex items-start gap-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                    <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                      2
-                    </div>
-                    <div>
-                      <Text className="font-semibold text-orange-900 block mb-1">
-                        Nhận link Google Meet
-                      </Text>
-                      <Text className="text-orange-700 text-sm">
-                        Link tư vấn sẽ được gửi qua email và SMS trong vòng 24 giờ
-                      </Text>
-                    </div>
-                  </div>
+                        <div>
+                          <Text className="text-gray-500 text-xs block mb-1">Khách hàng:</Text>
+                          <div className="flex items-center gap-2">
+                            <Profile size={14} color="#6B7280" />
+                            <Text className="font-semibold text-sm">{consultation.fullName}</Text>
+                          </div>
+                        </div>
 
-                  <div className="flex items-start gap-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                      3
-                    </div>
-                    <div>
-                      <Text className="font-semibold text-green-900 block mb-1">
-                        Tham gia tư vấn trực tuyến
-                      </Text>
-                      <Text className="text-green-700 text-sm">
-                        Click vào link để bắt đầu cuộc tư vấn với bác sĩ chuyên khoa
-                      </Text>
-                    </div>
-                  </div>
-                </div>
+                        <div>
+                          <Text className="text-gray-500 text-xs block mb-1">Số điện thoại:</Text>
+                          <div className="flex items-center gap-2">
+                            <Call size={14} color="#6B7280" />
+                            <Text className="font-semibold text-sm">{consultation.phone}</Text>
+                          </div>
+                        </div>
 
-                <Divider />
+                        {consultation.age && (
+                          <div>
+                            <Text className="text-gray-500 text-xs block mb-1">Tuổi:</Text>
+                            <div className="flex items-center gap-2">
+                              <Profile size={14} color="#6B7280" />
+                              <Text className="font-semibold text-sm">{consultation.age}</Text>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </Col>
 
-                {/* Important Notes */}
-                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-6">
-                  <Title level={5} className="text-yellow-800 mb-2 flex items-center gap-2">
-                    <Clock size={16} />
-                    Lưu ý quan trọng
-                  </Title>
-                  <ul className="text-yellow-700 text-sm space-y-1 mb-0">
-                    <li>• Kiểm tra email và SMS thường xuyên để nhận link tư vấn</li>
-                    <li>• Chuẩn bị sẵn câu hỏi bổ sung nếu cần</li>
-                    <li>• Đảm bảo kết nối internet ổn định khi tư vấn</li>
-                    <li>• Tìm nơi riêng tư để bảo đảm tính bảo mật</li>
-                  </ul>
-                </div>
+                    {/* Right Column */}
+                    <Col xs={24} md={12}>
+                      <div className="space-y-3">
+                        {consultation.gender && (
+                          <div>
+                            <Text className="text-gray-500 text-xs block mb-1">Giới tính:</Text>
+                            <div className="flex items-center gap-2">
+                              <Profile size={14} color="#6B7280" />
+                              <Text className="font-semibold text-sm capitalize">{consultation.gender}</Text>
+                            </div>
+                          </div>
+                        )}
 
-                {/* Note: Removed countdown display as per user request */}
+                        {consultation.appointmentDate && (
+                          <div>
+                            <Text className="text-gray-500 text-xs block mb-1">Ngày khám:</Text>
+                            <div className="flex items-center gap-2">
+                              <Calendar size={14} color="#6B7280" />
+                              <Tag color="green" className="px-2 py-1 text-xs">
+                                {new Date(consultation.appointmentDate).toLocaleDateString('vi-VN')}
+                              </Tag>
+                            </div>
+                          </div>
+                        )}
 
-                {/* Action Buttons */}
+                        {consultation.appointmentSlot && (
+                          <div>
+                            <Text className="text-gray-500 text-xs block mb-1">Khung giờ:</Text>
+                            <div className="flex items-center gap-2">
+                              <Clock size={14} color="#6B7280" />
+                              <Tag color="blue" className="px-2 py-1 text-xs font-semibold">
+                                {consultation.appointmentSlot}
+                              </Tag>
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <Text className="text-gray-500 text-xs block mb-1">Trạng thái:</Text>
+                          <Tag color="green" className="px-2 py-1 text-xs">
+                            Đã thanh toán - Chờ bác sĩ xử lý
+                          </Tag>
+                        </div>
+
+                        <div>
+                          <Text className="text-gray-500 text-xs block mb-1">Giá dịch vụ:</Text>
+                          <Text className="font-bold text-green-primary text-lg">
+                            {consultation.consultationFee?.toLocaleString('vi-VN')} VND
+                          </Text>
+                        </div>
+                      </div>
+                    </Col>
+
+                    {/* Full width for question */}
+                    <Col span={24}>
+                      <Divider style={{ margin: '12px 0' }} />
+                      <div>
+                        <Text className="text-gray-500 text-xs block mb-2">Câu hỏi tư vấn:</Text>
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                          <Text className="text-sm">{consultation.question}</Text>
+                        </div>
+                      </div>
+
+                      {consultation.notes && (
+                        <div className="mt-3">
+                          <Text className="text-gray-500 text-xs block mb-2">Ghi chú:</Text>
+                          <div className="bg-blue-50 p-3 rounded-lg">
+                            <Text className="text-sm">{consultation.notes}</Text>
+                          </div>
+                        </div>
+                      )}
+                    </Col>
+                  </Row>
+                )}
+              </Card>
+            </motion.div>
+          </Col>
+
+          {/* Quick Actions Card */}
+          <Col xs={24} lg={8}>
+            <motion.div variants={itemVariants}>
+              <Card className="border-0 shadow-xl rounded-2xl">
+                <Title level={5} className="text-gray-900 mb-4 text-center">
+                  Thao tác nhanh
+                </Title>
+                
                 <Space className="w-full" direction="vertical" size="middle">
                   <Button
                     type="primary"
@@ -399,104 +463,108 @@ const PaymentSuccessPage: React.FC = () => {
                      Về trang chủ
                   </Button>
                 </Space>
+
+                {/* Security Note - Compact */}
+                <div className="mt-6 bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <Shield size={20} color="#10B981" className="mt-1 flex-shrink-0" />
+                    <div>
+                      <Text className="font-semibold text-gray-800 block mb-1 text-sm">
+                        Cam kết bảo mật
+                      </Text>
+                      <Text className="text-gray-600 text-xs">
+                        Thông tin tư vấn được bảo mật tuyệt đối.
+                      </Text>
+                    </div>
+                  </div>
+                </div>
               </Card>
             </motion.div>
           </Col>
+        </Row>
 
-          {/* Consultation Details */}
-          <Col xs={24} lg={10}>
+        {/* Row 2: Process Steps */}
+        <Row gutter={[24, 24]}>
+          <Col span={24}>
             <motion.div variants={itemVariants}>
               <Card className="border-0 shadow-xl rounded-2xl">
-                <Title level={4} className="text-gray-900 mb-4">
-                  Chi tiết tư vấn
+                <Title level={4} className="text-gray-900 mb-6 flex items-center gap-3">
+                  <Award size={24} color="#10B981" variant="Bold" />
+                  Bước tiếp theo
                 </Title>
                 
-                {consultation && (
-                  <div className="space-y-4">
-                    <div>
-                      <Text className="text-gray-500 block mb-1">Mã tư vấn:</Text>
-                      <Text className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
-                        {consultation._id}
-                      </Text>
-                    </div>
-
-                    <div>
-                      <Text className="text-gray-500 block mb-1">Khách hàng:</Text>
-                      <div className="flex items-center gap-2">
-                        <Profile size={16} color="#6B7280" />
-                        <Text className="font-semibold">{consultation.fullName}</Text>
+                <Row gutter={[24, 16]}>
+                  <Col xs={24} md={8}>
+                    <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200 h-full">
+                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        1
                       </div>
-                    </div>
-
-                    <div>
-                      <Text className="text-gray-500 block mb-1">Số điện thoại:</Text>
-                      <div className="flex items-center gap-2">
-                        <Call size={16} color="#6B7280" />
-                        <Text className="font-semibold">{consultation.phone}</Text>
-                      </div>
-                    </div>
-
-                    <Divider />
-
-                    <div>
-                      <Text className="text-gray-500 block mb-2">Câu hỏi tư vấn:</Text>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <Text className="text-sm">{consultation.question}</Text>
-                      </div>
-                    </div>
-
-                    {consultation.notes && (
                       <div>
-                        <Text className="text-gray-500 block mb-2">Ghi chú:</Text>
-                        <div className="bg-blue-50 p-3 rounded-lg">
-                          <Text className="text-sm">{consultation.notes}</Text>
-                        </div>
+                        <Text className="font-semibold text-blue-900 block mb-1">
+                          Bác sĩ xem xét yêu cầu
+                        </Text>
+                        <Text className="text-blue-700 text-sm">
+                          Bác sĩ sẽ đánh giá câu hỏi và chuẩn bị nội dung tư vấn phù hợp
+                        </Text>
                       </div>
-                    )}
-
-                    <Divider />
-
-                    <div>
-                      <Text className="text-gray-500 block mb-2">Trạng thái:</Text>
-                      <Tag color="green" className="px-3 py-1">
-                        Đã thanh toán - Chờ bác sĩ xử lý
-                      </Tag>
                     </div>
+                  </Col>
 
-                    <div>
-                      <Text className="text-gray-500 block mb-2">Thời gian tạo:</Text>
-                      <Text className="text-sm">
-                        {new Date(consultation.createdAt).toLocaleString('vi-VN')}
-                      </Text>
+                  <Col xs={24} md={8}>
+                    <div className="flex items-start gap-3 p-4 bg-orange-50 rounded-lg border border-orange-200 h-full">
+                      <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        2
+                      </div>
+                      <div>
+                        <Text className="font-semibold text-orange-900 block mb-1">
+                          Nhận link Google Meet
+                        </Text>
+                        <Text className="text-orange-700 text-sm">
+                          Link tư vấn sẽ được gửi qua email và SMS trong vòng 24 giờ
+                        </Text>
+                      </div>
                     </div>
+                  </Col>
 
-                    <div>
-                      <Text className="text-gray-500 block mb-2">Giá dịch vụ:</Text>
-                      <Text className="font-bold text-green-primary text-lg">
-                        {consultation.consultationFee?.toLocaleString('vi-VN')} VND
-                      </Text>
+                  <Col xs={24} md={8}>
+                    <div className="flex items-start gap-3 p-4 bg-green-50 rounded-lg border border-green-200 h-full">
+                      <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        3
+                      </div>
+                      <div>
+                        <Text className="font-semibold text-green-900 block mb-1">
+                          Tham gia tư vấn trực tuyến
+                        </Text>
+                        <Text className="text-green-700 text-sm">
+                          Click vào link để bắt đầu cuộc tư vấn với bác sĩ chuyên khoa
+                        </Text>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  </Col>
+                </Row>
+
+                {/* Important Notes - Compact */}
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mt-6">
+                  <Title level={5} className="text-yellow-800 mb-2 flex items-center gap-2">
+                    <Clock size={16} />
+                    Lưu ý quan trọng
+                  </Title>
+                  <Row gutter={[16, 8]}>
+                    <Col xs={24} md={12}>
+                      <Text className="text-yellow-700 text-sm">• Kiểm tra email và SMS thường xuyên</Text>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text className="text-yellow-700 text-sm">• Chuẩn bị sẵn câu hỏi bổ sung nếu cần</Text>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text className="text-yellow-700 text-sm">• Đảm bảo kết nối internet ổn định</Text>
+                    </Col>
+                    <Col xs={24} md={12}>
+                      <Text className="text-yellow-700 text-sm">• Tìm nơi riêng tư để bảo đảm tính bảo mật</Text>
+                    </Col>
+                  </Row>
+                </div>
               </Card>
-
-              {/* Security Note */}
-              <motion.div variants={itemVariants} className="mt-6">
-                <Card className="border-0 shadow-lg rounded-2xl bg-gradient-to-r from-green-50 to-blue-50">
-                  <div className="flex items-start gap-3">
-                    <Shield size={24} color="#10B981" className="mt-1" />
-                    <div>
-                      <Text className="font-semibold text-gray-800 block mb-2">
-                        Cam kết bảo mật
-                      </Text>
-                      <Text className="text-gray-600 text-sm">
-                        Mọi thông tin tư vấn được bảo mật tuyệt đối. 
-                        Chúng tôi không chia sẻ dữ liệu cá nhân với bên thứ ba.
-                      </Text>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
             </motion.div>
           </Col>
         </Row>

@@ -35,7 +35,7 @@ interface TestResultData {
     appointmentId: string;
     profileId: string;
     doctorId: string;
-    conclusion?: string;
+    diagnosis?: string;
     recommendations?: string;
     testResultItemsId: string[];
 }
@@ -202,7 +202,7 @@ export const appointmentApi = {
     },
 
     // Cập nhật test result
-    updateTestResult: async (testResultId: string, data: { conclusion?: string; recommendations?: string }) => {
+    updateTestResult: async (testResultId: string, data: { diagnosis?: string; recommendations?: string }) => {
         const response = await axiosInstance.put(`/test-results/${testResultId}`, data);
         return response.data;
     },
@@ -225,6 +225,24 @@ export const appointmentApi = {
     getTestResultStats: async (year: number, month: number) => {
         const response = await axiosInstance.get(`/test-results/stats/${year}/${month}`);
         return response.data;
+    },
+
+    // ➕ NEW: Lấy danh sách appointments của user hiện tại (chỉ appointments)
+    getUserAppointments: (filters?: AppointmentFilters) => {
+        return axiosInstance.get('/appointments/user', { params: filters });
+    },
+
+    // ➕ NEW: Lấy toàn bộ lịch sử đặt lịch của user (appointments + consultations)
+    getUserBookingHistory: (filters?: AppointmentFilters & { serviceType?: 'appointment' | 'consultation' | 'all' }) => {
+        return axiosInstance.get('/appointments/booking-history', { params: filters });
+    },
+
+    // Fast confirm payment (for PayOS return URLs)
+    fastConfirmPayment: async (data: { appointmentId: string; orderCode: string; status: string }) => {
+        return axiosInstance.post(`/payments/appointments/${data.appointmentId}/fast-confirm`, {
+            orderCode: data.orderCode,
+            status: data.status
+        });
     }
 };
 

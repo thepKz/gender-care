@@ -4,7 +4,7 @@ export interface ITestResults {
   appointmentId: mongoose.Types.ObjectId;
   profileId: mongoose.Types.ObjectId;
   doctorId: mongoose.Types.ObjectId;
-  conclusion?: string;
+  diagnosis?: string;
   recommendations?: string;
   createdAt?: Date;
   testResultItemsId?: mongoose.Types.ObjectId[];
@@ -26,7 +26,7 @@ const TestResultsSchema = new mongoose.Schema<ITestResults>({
     ref: 'Doctor', 
     required: true 
   },
-  conclusion: { 
+  diagnosis: { 
     type: String 
   },
   recommendations: { 

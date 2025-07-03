@@ -6,8 +6,14 @@ import mongoose from 'mongoose';
 // Tạo medical record (Doctor/Staff)
 export const createMedicalRecord = async (req: AuthRequest, res: Response) => {
   try {
-    const { profileId, appointmentId, diagnosis, symptoms, treatment, medicines, notes, pictures } = req.body;
-    const doctorId = req.user?._id;
+    const { profileId, appointmentId, conclusion, symptoms, treatment, medicines, notes, status } = req.body;
+    // Lấy đúng _id của Doctor từ userId
+    const Doctor = mongoose.model('Doctor');
+    const doctor = await Doctor.findOne({ userId: req.user?._id });
+    if (!doctor) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin bác sĩ' });
+    }
+    const doctorId = doctor._id;
 
     // Validate required fields
     if (!profileId || !appointmentId) {
@@ -16,17 +22,25 @@ export const createMedicalRecord = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Lấy profileId từ appointment
+    const Appointment = mongoose.model('Appointments');
+    const appointment = await Appointment.findById(appointmentId);
+    if (!appointment) {
+      return res.status(404).json({ message: 'Không tìm thấy lịch hẹn' });
+    }
+    const realProfileId = appointment.profileId;
+
     // Create medical record
     const medicalRecord = new MedicalRecords({
-      doctorId,
-      profileId,
+      doctorId, // Đúng _id Doctor
+      profileId: realProfileId, // Lấy từ appointment
       appointmentId,
-      diagnosis,
+      conclusion,
       symptoms,
       treatment,
       medicines: medicines || [],
       notes,
-      pictures: pictures || []
+      status: status || "draft"
     });
 
     await medicalRecord.save();
@@ -41,7 +55,6 @@ export const createMedicalRecord = async (req: AuthRequest, res: Response) => {
       data: medicalRecord
     });
   } catch (error) {
-    console.error('Error creating medical record:', error);
     res.status(500).json({
       message: 'Lỗi server khi tạo hồ sơ khám bệnh'
     });
@@ -52,7 +65,7 @@ export const createMedicalRecord = async (req: AuthRequest, res: Response) => {
 export const updateMedicalRecord = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { diagnosis, symptoms, treatment, medicines, notes, pictures } = req.body;
+    const { conclusion, symptoms, treatment, medicines, notes, status } = req.body;
     const currentUserId = req.user?._id;
     const userRole = req.user?.role;
 
@@ -74,33 +87,84 @@ export const updateMedicalRecord = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Validate medicines array if provided
+    if (medicines && Array.isArray(medicines)) {
+      for (const medicine of medicines) {
+        // Check required fields for IMedicalRecordMedicines
+        if (!medicine.name || !medicine.dosage) {
+          return res.status(400).json({
+            message: 'Thuốc phải có tên và liều dùng'
+          });
+        }
+
+        // Set default values for required fields if missing
+        if (!medicine.type) medicine.type = 'other';
+        if (!medicine.frequency) medicine.frequency = 1;
+        if (!medicine.timingInstructions) medicine.timingInstructions = 'Theo chỉ định';
+        if (!medicine.instructions) medicine.instructions = medicine.dosage;
+      }
+    }
+
     // Update medical record
     const updateData: Partial<IMedicalRecords> = {};
-    if (diagnosis !== undefined) updateData.diagnosis = diagnosis;
+    if (conclusion !== undefined) updateData.conclusion = conclusion;
     if (symptoms !== undefined) updateData.symptoms = symptoms;
     if (treatment !== undefined) updateData.treatment = treatment;
     if (medicines !== undefined) updateData.medicines = medicines;
     if (notes !== undefined) updateData.notes = notes;
-    if (pictures !== undefined) updateData.pictures = pictures;
+    if (status !== undefined) updateData.status = status;
 
-    const updatedRecord = await MedicalRecords.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    ).populate([
-      { path: 'doctorId', select: 'userId', populate: { path: 'userId', select: 'fullName email' } },
-      { path: 'profileId', select: 'fullName gender phone' },
-      { path: 'appointmentId', select: 'appointmentDate appointmentTime status' }
-    ]);
+    let updatedRecord: any;
+    try {
+      updatedRecord = await MedicalRecords.findByIdAndUpdate(
+        id,
+        { $set: updateData },
+        { new: true, runValidators: true }
+      ).populate([
+        { path: 'doctorId', select: 'userId', populate: { path: 'userId', select: 'fullName email' } },
+        { path: 'profileId', select: 'fullName gender phone' },
+        { path: 'appointmentId', select: 'appointmentDate appointmentTime status' }
+      ]);
+    } catch (updateError: any) {
+      // Thử update không dùng runValidators
+      try {
+        updatedRecord = await MedicalRecords.findByIdAndUpdate(
+          id,
+          { $set: updateData },
+          { new: true }
+        ).populate([
+          { path: 'doctorId', select: 'userId', populate: { path: 'userId', select: 'fullName email' } },
+          { path: 'profileId', select: 'fullName gender phone' },
+          { path: 'appointmentId', select: 'appointmentDate appointmentTime status' }
+        ]);
+      } catch (retryError: any) {
+        throw updateError; // Throw original error
+      }
+    }
 
     res.json({
       message: 'Cập nhật hồ sơ khám bệnh thành công',
       data: updatedRecord
     });
-  } catch (error) {
-    console.error('Error updating medical record:', error);
+  } catch (error: any) {
+    
+    // Check for specific Mongoose validation errors
+    if (error?.name === 'ValidationError') {
+      return res.status(400).json({
+        message: 'Lỗi validation: ' + Object.keys(error?.errors || {}).join(', ')
+      });
+    }
+    
+    // Check for cast errors (invalid ObjectId, etc.)
+    if (error?.name === 'CastError') {
+      return res.status(400).json({
+        message: 'Lỗi định dạng dữ liệu: ' + error?.message
+      });
+    }
+
     res.status(500).json({
-      message: 'Lỗi server khi cập nhật hồ sơ khám bệnh'
+      message: 'Lỗi server khi cập nhật hồ sơ khám bệnh',
+      error: process.env.NODE_ENV === 'development' ? error?.message : undefined
     });
   }
 };
@@ -146,7 +210,6 @@ export const getMedicalRecordById = async (req: AuthRequest, res: Response) => {
       data: medicalRecord
     });
   } catch (error) {
-    console.error('Error getting medical record:', error);
     res.status(500).json({
       message: 'Lỗi server khi lấy hồ sơ khám bệnh'
     });
@@ -201,7 +264,6 @@ export const getMyMedicalRecords = async (req: AuthRequest, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error getting my medical records:', error);
     res.status(500).json({
       message: 'Lỗi server khi lấy danh sách hồ sơ khám bệnh'
     });
@@ -248,7 +310,6 @@ export const getAllMedicalRecords = async (req: Request, res: Response) => {
       }
     });
   } catch (error) {
-    console.error('Error getting all medical records:', error);
     res.status(500).json({
       message: 'Lỗi server khi lấy tất cả hồ sơ khám bệnh'
     });
@@ -306,7 +367,6 @@ export const getMedicalRecordsByProfile = async (req: AuthRequest, res: Response
       }
     });
   } catch (error) {
-    console.error('Error getting medical records by profile:', error);
     res.status(500).json({
       message: 'Lỗi server khi lấy hồ sơ khám bệnh'
     });
@@ -317,7 +377,7 @@ export const getMedicalRecordsByProfile = async (req: AuthRequest, res: Response
 export const searchMyMedicalRecords = async (req: AuthRequest, res: Response) => {
   try {
     const currentUserId = req.user?._id;
-    const { diagnosis, patientName, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
+    const { conclusion, patientName, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
 
     // Find doctor record first
     const Doctor = mongoose.model('Doctor');
@@ -331,8 +391,8 @@ export const searchMyMedicalRecords = async (req: AuthRequest, res: Response) =>
     // Build search query
     const query: any = { doctorId: doctorRecord._id };
     
-    if (diagnosis) {
-      query.diagnosis = { $regex: diagnosis, $options: 'i' };
+    if (conclusion) {
+      query.conclusion = { $regex: conclusion, $options: 'i' };
     }
     
     if (dateFrom || dateTo) {
@@ -365,14 +425,13 @@ export const searchMyMedicalRecords = async (req: AuthRequest, res: Response) =>
       message: `Tìm kiếm hồ sơ khám bệnh thành công (${medicalRecords.length} kết quả)`,
       data: medicalRecords,
       searchCriteria: {
-        diagnosis,
+        conclusion,
         patientName,
         dateFrom,
         dateTo
       }
     });
   } catch (error) {
-    console.error('Error searching my medical records:', error);
     res.status(500).json({
       message: 'Lỗi server khi tìm kiếm hồ sơ khám bệnh'
     });
@@ -382,13 +441,13 @@ export const searchMyMedicalRecords = async (req: AuthRequest, res: Response) =>
 // Staff tìm kiếm trong tất cả medical records
 export const searchAllMedicalRecords = async (req: AuthRequest, res: Response) => {
   try {
-    const { diagnosis, doctorName, patientName, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
+    const { conclusion, doctorName, patientName, dateFrom, dateTo, page = 1, limit = 10 } = req.query;
 
     // Build search query
     const query: any = {};
     
-    if (diagnosis) {
-      query.diagnosis = { $regex: diagnosis, $options: 'i' };
+    if (conclusion) {
+      query.conclusion = { $regex: conclusion, $options: 'i' };
     }
     
     if (dateFrom || dateTo) {
@@ -434,7 +493,7 @@ export const searchAllMedicalRecords = async (req: AuthRequest, res: Response) =
       message: `Tìm kiếm tất cả hồ sơ khám bệnh thành công (${medicalRecords.length} kết quả)`,
       data: medicalRecords,
       searchCriteria: {
-        diagnosis,
+        conclusion,
         doctorName,
         patientName,
         dateFrom,
@@ -442,7 +501,6 @@ export const searchAllMedicalRecords = async (req: AuthRequest, res: Response) =
       }
     });
   } catch (error) {
-    console.error('Error searching all medical records:', error);
     res.status(500).json({
       message: 'Lỗi server khi tìm kiếm hồ sơ khám bệnh'
     });
@@ -476,11 +534,27 @@ export const checkMedicalRecordByAppointment = async (req: Request, res: Respons
     });
 
   } catch (error) {
-    console.error('Error in checkMedicalRecordByAppointment:', error);
     return res.status(500).json({
       success: false,
       message: 'Internal server error',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
+  }
+};
+
+export const getMedicalRecordsByAppointment = async (req: Request, res: Response) => {
+  try {
+    const { appointmentId } = req.params;
+    if (!appointmentId) {
+      return res.status(400).json({ message: 'appointmentId is required' });
+    }
+    const records = await MedicalRecords.find({ appointmentId }).populate([
+      { path: 'doctorId', select: 'userId', populate: { path: 'userId', select: 'fullName email' } },
+      { path: 'profileId', select: 'fullName gender phone' },
+      { path: 'appointmentId', select: 'appointmentDate appointmentTime status' }
+    ]);
+    return res.json(records);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
   }
 }; 

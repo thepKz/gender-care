@@ -511,7 +511,7 @@ export interface AppointmentTest {
 export interface TestResult {
   _id: string;
   appointmentTestId: string;
-  conclusion: string;
+  diagnosis: string;
   recommendations: string;
   createdAt: string;
   testResultItemsId: string[];

@@ -38,6 +38,7 @@ import { TestResultsForm } from '../../../components/feature/medical/TestResults
 import MedicalRecordModal from '../../../components/ui/forms/MedicalRecordModal';
 import ViewMedicalRecordModal from '../../../components/ui/forms/ViewMedicalRecordModal';
 import medicalApi from '../../../api/endpoints/medical';
+import { doctorApi } from '../../../api/endpoints/doctorApi';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -94,10 +95,20 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const [viewMedicalRecordModalVisible, setViewMedicalRecordModalVisible] = useState(false);
   const [hasMedicalRecord, setHasMedicalRecord] = useState<boolean | null>(null);
   const [medicalRecordId, setMedicalRecordId] = useState<string | null>(null);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.role === 'doctor' && user?._id) {
+      doctorApi.getAllDoctors().then(doctors => {
+        const found = doctors.find(doc => doc.userId?._id === user._id);
+        setDoctorId(found?._id || null);
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     loadMyAppointments();
-  }, [selectedDate]);
+  }, [selectedDate, doctorId]);
 
   useEffect(() => {
     filterAppointments();
@@ -130,14 +141,14 @@ const DoctorAppointmentSchedule: React.FC = () => {
       const response = await appointmentApi.getAllAppointments();
       let myAppointments;
       if (user?.role === 'staff') {
-        // Staff: chỉ xem lịch hẹn xét nghiệm
         myAppointments = response.data.appointments.filter((appointment: any) => appointment.serviceId?.serviceType === 'test');
-      } else {
-        // Bác sĩ: chỉ xem lịch hẹn xét nghiệm của mình
+      } else if (user?.role === 'doctor' && doctorId) {
         myAppointments = response.data.appointments.filter((appointment: any) => {
-          const doctorId = appointment.doctorId?._id || appointment.doctorId;
-          return doctorId === user?._id && appointment.serviceId?.serviceType === 'test';
+          const aptDoctorId = appointment.doctorId?._id || appointment.doctorId;
+          return aptDoctorId === doctorId && appointment.serviceId?.serviceType === 'test';
         });
+      } else {
+        myAppointments = [];
       }
 
       const convertedAppointments: DoctorAppointment[] = myAppointments.map((appointment: any) => ({
@@ -190,7 +201,10 @@ const DoctorAppointmentSchedule: React.FC = () => {
     const selectedDateStr = selectedDate?.format('YYYY-MM-DD');
     switch (activeTab) {
       case 'today':
-        filtered = filtered.filter(apt => dayjs(apt.appointmentDate).format('YYYY-MM-DD') === today && apt.status === 'confirmed');
+        filtered = filtered.filter(apt =>
+          dayjs(apt.appointmentDate).format('YYYY-MM-DD') === today &&
+          ['consulting', 'done_testResultItem', 'done_testResult', 'completed', 'confirmed'].includes(apt.status)
+        );
         break;
       case 'upcoming':
         filtered = filtered.filter(apt => dayjs(apt.appointmentDate).isSameOrAfter(dayjs(), 'day') && apt.status === 'confirmed');
@@ -220,10 +234,12 @@ const DoctorAppointmentSchedule: React.FC = () => {
       pending: 'orange',
       confirmed: 'blue',
       consulting: 'lime',
+      done_testResultItem: 'blue',
+      done_testResult: 'cyan',
       completed: 'green',
       cancelled: 'red'
     };
-    return colors[status];
+    return colors[status] || 'default';
   };
 
   const getStatusText = (status: DoctorAppointment['status']) => {
@@ -231,10 +247,12 @@ const DoctorAppointmentSchedule: React.FC = () => {
       pending: 'Chờ xác nhận',
       confirmed: 'Đã xác nhận',
       consulting: 'Đang khám',
+      done_testResultItem: 'Hoàn thành kết quả',
+      done_testResult: 'Hoàn thành hồ sơ',
       completed: 'Hoàn thành',
       cancelled: 'Đã hủy'
     };
-    return texts[status];
+    return texts[status] || status;
   };
 
   const handleCompleteAppointment = async (appointmentId: string) => {

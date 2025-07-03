@@ -15,7 +15,7 @@ import {
   Select,
   Spin
 } from 'antd';
-import { SearchOutlined, ExperimentOutlined, PlusCircleOutlined, EditOutlined } from '@ant-design/icons';
+import { SearchOutlined, ExperimentOutlined, PlusCircleOutlined, EditOutlined, FileTextOutlined, EyeOutlined, FileSearchOutlined, FileProtectOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { appointmentApi, testResultItemsApi, serviceTestCategoriesApi } from '../../../api/endpoints';
 import { useAuth } from '../../../hooks/useAuth';
@@ -41,7 +41,7 @@ interface Appointment {
   status: string;
 }
 
-const TestResultsEntryStaff: React.FC = () => {
+const TestResultsEntry: React.FC = () => {
   const { user } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -68,9 +68,16 @@ const TestResultsEntryStaff: React.FC = () => {
   const [createTargetAppointment, setCreateTargetAppointment] = useState<Appointment | null>(null);
   const [testResultItemsMap, setTestResultItemsMap] = useState<{ [appointmentId: string]: string[] }>({});
   const [createTestResultItems, setCreateTestResultItems] = useState<any[]>([]);
+  const [modalMode, setModalMode] = useState<'create' | 'view' | 'edit'>('create');
+  const [testResultItemIdMap, setTestResultItemIdMap] = useState<{ [testCategoryId: string]: string }>({});
+  const [testResultModalVisible, setTestResultModalVisible] = useState(false);
+  const [testResultModalMode, setTestResultModalMode] = useState<'view' | 'edit'>('view');
+  const [testResultModalItems, setTestResultModalItems] = useState<any[]>([]);
+  const [testResultModalId, setTestResultModalId] = useState<string | null>(null);
+  const [testResultModalTestCategories, setTestResultModalTestCategories] = useState([]);
 
   useEffect(() => {
-    if (user?.role === 'staff') {
+    if (user?.role === 'staff' || user?.role === 'doctor') {
       loadAppointments();
     }
   }, [selectedDate, user]);
@@ -209,22 +216,6 @@ const TestResultsEntryStaff: React.FC = () => {
       key: 'actions',
       render: (_: any, record: Appointment) => (
         <Space>
-          <Tooltip title={"Tạo hồ sơ xét nghiệm"}>
-            <Button
-              icon={<PlusCircleOutlined />}
-              disabled={
-                testResultStatus[record._id] === true ||
-                !(testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0 && record.status === 'done_testResultItem')
-              }
-              onClick={async () => {
-                setCreateTargetAppointment(record);
-                setCreateModalVisible(true);
-                testResultItemsApi.getByAppointment(record._id).then(items => setCreateTestResultItems(items || []));
-              }}
-              type="default"
-              shape="circle"
-            />
-          </Tooltip>
           <Tooltip title={
             record.status === 'consulting'
               ? 'Nhập kết quả xét nghiệm'
@@ -234,6 +225,7 @@ const TestResultsEntryStaff: React.FC = () => {
               icon={<ExperimentOutlined />}
               disabled={record.status !== 'consulting' || (testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0)}
               onClick={async () => {
+                setModalMode('create');
                 setTestItemModalVisible(true);
                 setTestItemLoading(true);
                 try {
@@ -253,6 +245,148 @@ const TestResultsEntryStaff: React.FC = () => {
                 } finally {
                   setTestItemLoading(false);
                 }
+              }}
+              type="default"
+              shape="circle"
+            />
+          </Tooltip>
+          <Tooltip title={"Xem chi tiết kết quả xét nghiệm"}>
+            <Button
+              icon={<EyeOutlined />}
+              disabled={!(testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0)}
+              onClick={async () => {
+                setModalMode('view');
+                setTestItemModalVisible(true);
+                setTestItemLoading(true);
+                try {
+                  setCurrentTestResultId(record._id);
+                  setCurrentServiceId(record.serviceId._id);
+                  const cats = await serviceTestCategoriesApi.getByService(record.serviceId._id);
+                  setTestCategories(cats || []);
+                  // Lấy dữ liệu testResultItem đã nhập
+                  const items = await testResultItemsApi.getByAppointment(record._id);
+                  const initial: any = {};
+                  (items || []).forEach(item => {
+                    initial[item.itemNameId?._id || item.itemNameId] = { value: item.value, flag: item.flag };
+                  });
+                  testItemForm.setFieldsValue({ testItemValues: initial });
+                } catch (e) {
+                  message.error('Không thể tải dữ liệu kết quả xét nghiệm');
+                  setTestItemModalVisible(false);
+                } finally {
+                  setTestItemLoading(false);
+                }
+              }}
+              type="default"
+              shape="circle"
+            />
+          </Tooltip>
+          <Tooltip title={"Chỉnh sửa kết quả xét nghiệm"}>
+            <Button
+              icon={<EditOutlined />}
+              disabled={!(testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0)}
+              onClick={async () => {
+                setModalMode('edit');
+                setTestItemModalVisible(true);
+                setTestItemLoading(true);
+                try {
+                  setCurrentTestResultId(record._id);
+                  setCurrentServiceId(record.serviceId._id);
+                  const cats = await serviceTestCategoriesApi.getByService(record.serviceId._id);
+                  console.log('cats', cats);
+                  setTestCategories(cats || []);
+                  if (!cats || cats.length === 0) {
+                    message.error('Không có chỉ số xét nghiệm nào cho dịch vụ này!');
+                    setTestItemModalVisible(false);
+                    setTestItemLoading(false);
+                    return;
+                  }
+                  // Lấy dữ liệu testResultItem đã nhập
+                  const items = await testResultItemsApi.getByAppointment(record._id);
+                  console.log('items', items);
+                  const initial: any = {};
+                  const idMap: { [testCategoryId: string]: string } = {};
+                  (items || []).forEach(item => {
+                    const key = item.itemNameId?._id || item.itemNameId;
+                    initial[key] = { value: item.value, flag: item.flag };
+                    idMap[key] = item._id;
+                  });
+                  setTestResultItemIdMap(idMap);
+                  testItemForm.resetFields();
+                  testItemForm.setFieldsValue({ testItemValues: initial });
+                } catch (e) {
+                  message.error('Không thể tải dữ liệu kết quả xét nghiệm');
+                  setTestItemModalVisible(false);
+                } finally {
+                  setTestItemLoading(false);
+                }
+              }}
+              type="default"
+              shape="circle"
+            />
+          </Tooltip>
+          <Tooltip title={"Tạo hồ sơ xét nghiệm"}>
+            <Button
+              icon={<FileTextOutlined />}
+              disabled={
+                testResultStatus[record._id] === true ||
+                !(testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0 && record.status === 'done_testResultItem')
+              }
+              onClick={async () => {
+                setCreateTargetAppointment(record);
+                setCreateModalVisible(true);
+                testResultItemsApi.getByAppointment(record._id).then(items => setCreateTestResultItems(items || []));
+              }}
+              type="default"
+              shape="circle"
+            />
+          </Tooltip>
+          <Tooltip title={"Xem chi tiết hồ sơ xét nghiệm"}>
+            <Button
+              icon={<FileSearchOutlined />}
+              disabled={!testResultStatus[record._id]}
+              onClick={async () => {
+                setTestResultModalMode('view');
+                setCreateTargetAppointment(record);
+                // Lấy testResultItems để hiển thị
+                const items = await testResultItemsApi.getByAppointment(record._id);
+                setTestResultModalItems(items || []);
+                // Lấy testCategories để lấy min/max
+                const cats = await serviceTestCategoriesApi.getByService(record.serviceId._id);
+                setTestResultModalTestCategories(cats || []);
+                setTestResultModalVisible(true);
+                // Lấy dữ liệu hồ sơ để fill form
+                const testResultsRes = await appointmentApi.getTestResultsByAppointment(record._id);
+                const testResult = Array.isArray(testResultsRes?.data) ? testResultsRes.data[0] : testResultsRes?.data || {};
+                setTestResultModalId(testResult?._id || null);
+                createForm.setFieldsValue({
+                  diagnosis: testResult?.diagnosis || '',
+                  recommendations: testResult?.recommendations || ''
+                });
+              }}
+              type="default"
+              shape="circle"
+            />
+          </Tooltip>
+          <Tooltip title={"Chỉnh sửa hồ sơ xét nghiệm"}>
+            <Button
+              icon={<FileProtectOutlined />}
+              disabled={!testResultStatus[record._id]}
+              onClick={async () => {
+                setTestResultModalMode('edit');
+                setCreateTargetAppointment(record);
+                // Lấy testResultItems để hiển thị
+                const items = await testResultItemsApi.getByAppointment(record._id);
+                setTestResultModalItems(items || []);
+                setTestResultModalVisible(true);
+                // Lấy dữ liệu hồ sơ để fill form
+                const testResultsRes = await appointmentApi.getTestResultsByAppointment(record._id);
+                const testResult = Array.isArray(testResultsRes?.data) ? testResultsRes.data[0] : testResultsRes?.data || {};
+                setTestResultModalId(testResult?._id || null);
+                createForm.setFieldsValue({
+                  diagnosis: testResult?.diagnosis || '',
+                  recommendations: testResult?.recommendations || ''
+                });
               }}
               type="default"
               shape="circle"
@@ -336,7 +470,7 @@ const TestResultsEntryStaff: React.FC = () => {
             const values = await editForm.validateFields();
             if (editTestResultId) {
               await appointmentApi.updateTestResult(editTestResultId, {
-                conclusion: values.conclusion,
+                diagnosis: values.diagnosis,
                 recommendations: values.recommendations
               });
               message.success('Cập nhật hồ sơ xét nghiệm thành công!');
@@ -354,8 +488,8 @@ const TestResultsEntryStaff: React.FC = () => {
         destroyOnClose
       >
         <Form form={editForm} layout="vertical">
-          <Form.Item name="conclusion" label="Kết luận" rules={[{ required: false }]}> 
-            <Input.TextArea rows={3} placeholder="Nhập kết luận" />
+          <Form.Item name="diagnosis" label="Chẩn đoán" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập chẩn đoán" />
           </Form.Item>
           <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: false }]}> 
             <Input.TextArea rows={3} placeholder="Nhập khuyến nghị" />
@@ -366,22 +500,44 @@ const TestResultsEntryStaff: React.FC = () => {
         open={testItemModalVisible}
         onCancel={() => setTestItemModalVisible(false)}
         onOk={async () => {
+          if (modalMode === 'view') {
+            setTestItemModalVisible(false);
+            return;
+          }
           try {
             const values = await testItemForm.validateFields(); // validate toàn bộ form
             const testItemValues = values.testItemValues || {};
             // Đảm bảo tất cả chỉ số đều có giá trị
-            const allFilled = testCategories.every(cat => !!testItemValues[cat._id]?.value);
+            const allFilled = testCategories.every(cat => !!testItemValues[(cat.testCategoryId?._id || cat.testCategoryId)]?.value);
             if (!allFilled) {
               // Nếu còn thiếu, không gọi API, không đóng modal
               return;
             }
             setTestItemLoading(true);
+            if (modalMode === 'edit') {
+              // Update từng testResultItem
+              for (const cat of testCategories) {
+                const key = cat.testCategoryId?._id || cat.testCategoryId;
+                const v = testItemValues[key]?.value;
+                const flag = testItemValues[key]?.flag;
+                const itemId = testResultItemIdMap[key];
+                if (itemId) {
+                  await testResultItemsApi.update(itemId, { value: v, flag });
+                }
+              }
+              message.success('Cập nhật kết quả xét nghiệm thành công!');
+              setTestItemModalVisible(false);
+              loadAppointments();
+              setTestResultItemIdMap({});
+              return;
+            }
             for (const cat of testCategories) {
-              const v = testItemValues[cat._id]?.value;
-              const flag = testItemValues[cat._id]?.flag;
+              const key = cat.testCategoryId?._id || cat.testCategoryId;
+              const v = testItemValues[key]?.value;
+              const flag = testItemValues[key]?.flag;
               await testResultItemsApi.create({
                 appointmentId: selectedAppointment?._id || currentTestResultId,
-                itemNameId: cat.testCategoryId?._id || cat.testCategoryId || cat._id,
+                itemNameId: key,
                 value: v,
                 unit: cat.customUnit || cat.unit,
                 flag: flag
@@ -401,9 +557,14 @@ const TestResultsEntryStaff: React.FC = () => {
           }
         }}
         confirmLoading={testItemLoading}
-        title="Nhập kết quả xét nghiệm"
+        title={modalMode === 'view' ? 'Chi tiết kết quả xét nghiệm' : modalMode === 'edit' ? 'Chỉnh sửa kết quả xét nghiệm' : 'Nhập kết quả xét nghiệm'}
         width={800}
         destroyOnClose
+        footer={modalMode === 'view' ? [
+          <Button key="ok" type="primary" onClick={() => setTestItemModalVisible(false)}>
+            OK
+          </Button>
+        ] : undefined}
       >
         <Form form={testItemForm} layout="vertical">
           {testCategories.map(cat => {
@@ -411,33 +572,48 @@ const TestResultsEntryStaff: React.FC = () => {
             const unit = cat.customUnit || cat.unit || '';
             const normal = cat.targetValue || cat.customNormalRange || cat.normalRange || '';
             const label = `${testName}${unit ? ` (${unit})` : ''}${(cat.minValue !== undefined && cat.maxValue !== undefined) ? `, giá trị dao động: ${cat.minValue} - ${cat.maxValue}` : (normal ? `, Bình thường: ${normal}` : '')}`;
+            const key = cat.testCategoryId?._id || cat.testCategoryId;
             return (
               <Form.Item
-                key={cat._id}
+                key={key}
                 label={label}
                 required
                 style={{ marginBottom: 16 }}
               >
                 <Form.Item
-                  name={['testItemValues', cat._id, 'value']}
+                  name={['testItemValues', key, 'value']}
                   rules={[{ required: true, message: 'Vui lòng nhập giá trị!' }]}
                   noStyle
                 >
                   <Input
                     style={{ width: 120, marginRight: 8 }}
                     placeholder="Giá trị"
+                    readOnly={modalMode === 'view'}
+                    disabled={modalMode !== 'view' && modalMode !== 'edit' ? false : undefined}
                   />
                 </Form.Item>
                 <Form.Item
-                  name={['testItemValues', cat._id, 'flag']}
+                  name={['testItemValues', key, 'flag']}
                   initialValue="normal"
                   noStyle
                 >
-                  <Select style={{ width: 120 }}>
-                    <Select.Option value="low">Thấp</Select.Option>
-                    <Select.Option value="normal">Bình thường</Select.Option>
-                    <Select.Option value="high">Cao</Select.Option>
-                  </Select>
+                  {modalMode === 'view' ? (
+                    <span style={{ display: 'inline-block', minWidth: 120, color: '#222', background: '#f5f5f5', borderRadius: 4, padding: '4px 12px' }}>
+                      {(() => {
+                        const v = testItemForm.getFieldValue(['testItemValues', key, 'flag']);
+                        if (v === 'low') return 'Thấp';
+                        if (v === 'normal') return 'Bình thường';
+                        if (v === 'high') return 'Cao';
+                        return v || '';
+                      })()}
+                    </span>
+                  ) : (
+                    <Select style={{ width: 120 }}>
+                      <Select.Option value="low">Thấp</Select.Option>
+                      <Select.Option value="normal">Bình thường</Select.Option>
+                      <Select.Option value="high">Cao</Select.Option>
+                    </Select>
+                  )}
                 </Form.Item>
               </Form.Item>
             );
@@ -456,7 +632,7 @@ const TestResultsEntryStaff: React.FC = () => {
               appointmentId: createTargetAppointment._id,
               profileId: createTargetAppointment.profileId._id,
               doctorId: user?._id || '',
-              conclusion: values.conclusion,
+              diagnosis: values.diagnosis,
               recommendations: values.recommendations,
               testResultItemsId: []
             });
@@ -478,8 +654,8 @@ const TestResultsEntryStaff: React.FC = () => {
         destroyOnClose
       >
         <Form form={createForm} layout="vertical">
-          <Form.Item name="conclusion" label="Kết luận" rules={[{ required: false }]}> 
-            <Input.TextArea rows={3} placeholder="Nhập kết luận" />
+          <Form.Item name="diagnosis" label="Chẩn đoán" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập chẩn đoán" />
           </Form.Item>
           <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: false }]}> 
             <Input.TextArea rows={3} placeholder="Nhập khuyến nghị" />
@@ -508,8 +684,74 @@ const TestResultsEntryStaff: React.FC = () => {
           )}
         </Form>
       </Modal>
+      <Modal
+        open={testResultModalVisible}
+        onCancel={() => setTestResultModalVisible(false)}
+        onOk={async () => {
+          if (testResultModalMode === 'view') {
+            setTestResultModalVisible(false);
+            return;
+          }
+          try {
+            const values = await createForm.validateFields();
+            if (!testResultModalId) return;
+            await appointmentApi.updateTestResult(testResultModalId, {
+              diagnosis: values.diagnosis,
+              recommendations: values.recommendations
+            });
+            message.success('Cập nhật hồ sơ xét nghiệm thành công!');
+            setTestResultModalVisible(false);
+            loadAppointments();
+          } catch (e) {
+            message.error('Cập nhật hồ sơ xét nghiệm thất bại!');
+          }
+        }}
+        title={testResultModalMode === 'view' ? 'Chi tiết hồ sơ xét nghiệm' : 'Chỉnh sửa hồ sơ xét nghiệm'}
+        width={600}
+        destroyOnClose
+        footer={testResultModalMode === 'view' ? [
+          <Button key="ok" type="primary" onClick={() => setTestResultModalVisible(false)}>
+            OK
+          </Button>
+        ] : undefined}
+      >
+        <Form form={createForm} layout="vertical">
+          <Form.Item name="diagnosis" label="Chẩn đoán" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập chẩn đoán" readOnly={testResultModalMode === 'view'} />
+          </Form.Item>
+          <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: false }]}> 
+            <Input.TextArea rows={3} placeholder="Nhập khuyến nghị" readOnly={testResultModalMode === 'view'} />
+          </Form.Item>
+          {testResultModalItems.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>Kết quả chỉ số đã nhập:</div>
+              <div>
+                {testResultModalItems.map((item, idx) => {
+                  const cat = testResultModalTestCategories.find(tc =>
+                    String(tc.testCategoryId?._id || tc.testCategoryId) === String(item.itemNameId?._id || item.itemNameId)
+                  );
+                  return (
+                    <div key={item._id} style={{ marginBottom: 10 }}>
+                      <div style={{ fontWeight: 500 }}>{item.itemNameId?.name}</div>
+                      <div style={{ marginLeft: 16, fontSize: 14 }}>
+                        {cat && cat.minValue !== undefined && cat.maxValue !== undefined && (
+                          <span style={{ marginRight: 8 }}>
+                            giá trị dao động: <b>{cat.minValue} - {cat.maxValue}</b>{item.itemNameId?.unit ? ` (${item.itemNameId.unit})` : ''}
+                          </span>
+                        )}
+                        <span>Kết quả: <b>{item.value}</b></span>
+                        <span style={{ marginLeft: 16 }}>Đánh giá: <b>{item.flag === 'normal' ? 'Bình thường' : item.flag === 'high' ? 'Cao' : item.flag === 'low' ? 'Thấp' : item.flag}</b></span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </Form>
+      </Modal>
     </div>
   );
 };
 
-export default TestResultsEntryStaff; 
+export default TestResultsEntry; 

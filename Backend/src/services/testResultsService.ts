@@ -21,7 +21,7 @@ export class TestResultsService {
     if (search) {
       filter = {
         $or: [
-          { conclusion: { $regex: search, $options: 'i' } },
+          { diagnosis: { $regex: search, $options: 'i' } },
           { recommendations: { $regex: search, $options: 'i' } }
         ]
       };
@@ -126,7 +126,7 @@ export class TestResultsService {
     appointmentId: string;
     profileId: string;
     doctorId: string;
-    conclusion?: string;
+    diagnosis?: string;
     recommendations?: string;
   }, createdByRole: string): Promise<ITestResults> {
     // Kiểm tra quyền hạn - chỉ doctor và staff
@@ -171,7 +171,7 @@ export class TestResultsService {
       appointmentId: data.appointmentId,
       profileId: data.profileId,
       doctorId: data.doctorId,
-      conclusion: data.conclusion?.trim(),
+      diagnosis: data.diagnosis?.trim(),
       recommendations: data.recommendations?.trim(),
       testResultItemsId
     });
@@ -181,7 +181,7 @@ export class TestResultsService {
 
   // Cập nhật test result (Doctor và Staff được phép)
   async updateTestResult(id: string, data: {
-    conclusion?: string;
+    diagnosis?: string;
     recommendations?: string;
   }, updatedByRole: string): Promise<ITestResults> {
     // Kiểm tra quyền hạn - chỉ doctor và staff
@@ -202,7 +202,7 @@ export class TestResultsService {
 
     // Prepare update data
     const updateData: any = {};
-    if (data.conclusion !== undefined) updateData.conclusion = data.conclusion?.trim();
+    if (data.diagnosis !== undefined) updateData.diagnosis = data.diagnosis?.trim();
     if (data.recommendations !== undefined) updateData.recommendations = data.recommendations?.trim();
 
     // Thực hiện update
@@ -317,7 +317,7 @@ export class TestResultsService {
   // Get test result statistics by month
   async getTestResultStatsByMonth(year: number, month: number): Promise<{
     totalResults: number;
-    resultsWithConclusion: number;
+    resultsWithDiagnosis: number;
     resultsWithRecommendations: number;
     completionRate: number;
   }> {
@@ -348,10 +348,10 @@ export class TestResultsService {
         $group: {
           _id: null,
           totalResults: { $sum: 1 },
-          resultsWithConclusion: {
+          resultsWithDiagnosis: {
             $sum: {
               $cond: [
-                { $and: [{ $ne: ["$conclusion", null] }, { $ne: ["$conclusion", ""] }] },
+                { $and: [{ $ne: ["$diagnosis", null] }, { $ne: ["$diagnosis", ""] }] },
                 1,
                 0
               ]
@@ -373,7 +373,7 @@ export class TestResultsService {
     if (stats.length === 0) {
       return {
         totalResults: 0,
-        resultsWithConclusion: 0,
+        resultsWithDiagnosis: 0,
         resultsWithRecommendations: 0,
         completionRate: 0
       };
@@ -381,12 +381,12 @@ export class TestResultsService {
 
     const result = stats[0];
     const completionRate = result.totalResults > 0 
-      ? ((result.resultsWithConclusion + result.resultsWithRecommendations) / (result.totalResults * 2)) * 100
+      ? ((result.resultsWithDiagnosis + result.resultsWithRecommendations) / (result.totalResults * 2)) * 100
       : 0;
 
     return {
       totalResults: result.totalResults,
-      resultsWithConclusion: result.resultsWithConclusion,
+      resultsWithDiagnosis: result.resultsWithDiagnosis,
       resultsWithRecommendations: result.resultsWithRecommendations,
       completionRate: Math.round(completionRate * 100) / 100
     };

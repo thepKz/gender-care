@@ -78,7 +78,7 @@ class TestResultsController {
   createTestResult = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       // Validate input data
-      const { appointmentId, profileId, doctorId, conclusion, recommendations } = req.body;
+      const { appointmentId, profileId, doctorId, diagnosis, recommendations } = req.body;
 
       if (!appointmentId) {
         res.status(400).json({
@@ -109,7 +109,7 @@ class TestResultsController {
         appointmentId: appointmentId.trim(),
         profileId: profileId.trim(),
         doctorId: doctorId.trim(),
-        conclusion: conclusion?.trim(),
+        diagnosis: diagnosis?.trim(),
         recommendations: recommendations?.trim()
       };
 
@@ -142,11 +142,11 @@ class TestResultsController {
   updateTestResult = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const { conclusion, recommendations } = req.body;
+      const { diagnosis, recommendations } = req.body;
 
       // Prepare update data
       const updateData: any = {};
-      if (conclusion !== undefined) updateData.conclusion = conclusion;
+      if (diagnosis !== undefined) updateData.diagnosis = diagnosis;
       if (recommendations !== undefined) updateData.recommendations = recommendations;
 
       // Gọi service để update

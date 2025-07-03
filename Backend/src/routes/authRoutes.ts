@@ -9,7 +9,9 @@ import {
     refreshAccessToken,
     register,
     sendNewVerifyEmail,
-    verifyEmail
+    sendOtpForNewEmail,
+    verifyEmail,
+    verifyNewEmailOtp
 } from "../controllers/authController";
 import { forgotPassword, resetPassword } from "../controllers/userController";
 
@@ -18,6 +20,8 @@ router.post("/register", register);
 router.post("/verify-email", verifyEmail);
 router.post("/verify-otp", verifyEmail);
 router.post("/new-verify", sendNewVerifyEmail);
+router.post("/send-otp-new-email", sendOtpForNewEmail);
+router.post("/verify-new-email-otp", verifyNewEmailOtp);
 router.post("/login", login);
 router.post("/login-google", loginWithGoogle);
 router.post("/login-admin", loginAdmin);

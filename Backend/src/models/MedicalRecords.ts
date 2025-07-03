@@ -15,12 +15,12 @@ export interface IMedicalRecords {
   doctorId: mongoose.Types.ObjectId;
   profileId: mongoose.Types.ObjectId;
   appointmentId: mongoose.Types.ObjectId;
-  diagnosis?: string;
+  conclusion?: string;
   symptoms?: string;
   treatment?: string;
   medicines?: IMedicalRecordMedicines[];
   notes?: string;
-  pictures?: string[];
+  status: "draft" | "completed";
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -75,7 +75,7 @@ const MedicalRecordsSchema = new mongoose.Schema<IMedicalRecords>({
     ref: 'Appointments', 
     required: true 
   },
-  diagnosis: { 
+  conclusion: { 
     type: String 
   },
   symptoms: { 
@@ -88,9 +88,11 @@ const MedicalRecordsSchema = new mongoose.Schema<IMedicalRecords>({
   notes: { 
     type: String 
   },
-  pictures: [{ 
-    type: String 
-  }]
+  status: {
+    type: String,
+    enum: ["draft", "completed"],
+    default: "draft"
+  }
 }, { timestamps: true });
 
 // Tạo index để tối ưu hóa truy vấn

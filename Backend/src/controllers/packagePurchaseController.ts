@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import Bills from '../models/Bills';
+import PaymentTracking, { IPaymentTracking } from '../models/PaymentTracking';
 import PackagePurchases from '../models/PackagePurchases';
 import ServicePackages from '../models/ServicePackages';
 import { LogAction, LogLevel } from '../models/SystemLogs';
@@ -161,21 +161,28 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
 
     // Create bill first
     const billNumber = `PKG-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    const billData = {
+    const paymentData = {
       userId: userId,
       billNumber: billNumber,
       packageId: packageId,
-      subtotal: basePrice,
-      discountAmount: discountAmount,
       totalAmount: finalAmount,
-      status: 'pending' // PayOS sẽ update thành 'paid' sau khi thanh toán
+      description: `Thanh toán gói dịch vụ: ${servicePackage.name}`,
+      customerName: user.fullName || 'Khách hàng',
+      customerEmail: user.email,
+      customerPhone: user.phone,
+      orderCode: Date.now(),
+      paymentGateway: 'payos',
+      status: 'pending',
+      serviceType: 'package',
+      recordId: packageId
     };
 
-    const bill = await Bills.create(billData);
+    const payment = await PaymentTracking.create(paymentData);
+    const paymentDoc = payment.toObject() as IPaymentTracking & { _id: mongoose.Types.ObjectId };
 
     // Tạo description ngắn gọn cho PayOS (<=25 ký tự)
     const shortPackageName = servicePackage.name.substring(0, 15); // Lấy 15 ký tự đầu
-    const description = `Goi: ${shortPackageName}`.substring(0, 25); // Đảm bảo <= 25 ký tự
+    const payosDescription = `Goi: ${shortPackageName}`.substring(0, 25); // Đảm bảo <= 25 ký tự
 
     // 🆕 Validate PayOS environment variables
     if (!process.env.PAYOS_CLIENT_ID || !process.env.PAYOS_API_KEY || !process.env.PAYOS_CHECKSUM_KEY) {
@@ -207,10 +214,10 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
       process.env.PAYOS_CHECKSUM_KEY
     );
 
-    const paymentData = {
-      orderCode: parseInt(bill._id.toString().slice(-6), 16), // Convert ObjectId to number
+    const paymentLinkData = {
+      orderCode: parseInt(paymentDoc._id.toString().slice(-6), 16),
       amount: finalAmount,
-      description: description,
+      description: payosDescription,
       buyerName: user.fullName || 'Khach hang',
       buyerEmail: user.email || '',
       buyerPhone: user.phone || '',
@@ -223,10 +230,10 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
       }]
     };
 
-    console.log('🔍 [Backend] PayOS payment data:', JSON.stringify(paymentData, null, 2));
-    console.log('🔍 [Backend] Description length:', description.length);
+    console.log('🔍 [Backend] PayOS payment data:', JSON.stringify(paymentLinkData, null, 2));
+    console.log('🔍 [Backend] Description length:', payosDescription.length);
 
-    const paymentLinkResponse = await payos.createPaymentLink(paymentData);
+    const paymentLinkResponse = await payos.createPaymentLink(paymentLinkData);
     console.log('🔍 [Backend] PayOS response:', paymentLinkResponse);
     
     // 🆕 Validate PayOS response
@@ -240,10 +247,10 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Update bill với payment info
-    await Bills.findByIdAndUpdate(bill._id, {
+    // Update payment với payment info
+    await PaymentTracking.findByIdAndUpdate(paymentDoc._id, {
       paymentUrl: paymentLinkResponse.checkoutUrl,
-      paymentData: paymentData
+      paymentData: paymentLinkData
     });
 
     const response = {
@@ -251,12 +258,12 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
       message: 'Payment link created successfully',
       data: {
         bill: {
-          ...bill.toObject(),
+          ...paymentDoc,
           paymentUrl: paymentLinkResponse.checkoutUrl
         },
         packagePurchase: null, // Sẽ tạo sau khi thanh toán thành công
         paymentUrl: paymentLinkResponse.checkoutUrl, // For easier frontend access
-        billId: bill._id,
+        billId: paymentDoc._id,
         packageId: packageId,
         packageName: servicePackage.name,
         pricing: {
@@ -1325,11 +1332,11 @@ export const handlePayOSWebhook = async (req: Request, res: Response) => {
     const { orderCode, amount, description, accountNumber, reference, transactionDateTime } = data;
     console.log('🔍 [Backend] Processing orderCode:', orderCode);
     
-    // Find bill by orderCode
+    // Find payment by orderCode
     const orderCodeNum = parseInt(orderCode);
-    console.log('🔍 [Backend] Searching for bill with orderCode:', orderCodeNum);
+    console.log('🔍 [Backend] Searching for payment with orderCode:', orderCodeNum);
     
-    const bill = await Bills.findOne({
+    const payment = await PaymentTracking.findOne({
       $expr: {
         $eq: [
           { $toInt: { $substr: [{ $toString: "$_id" }, -6, 6] } },
@@ -1339,35 +1346,37 @@ export const handlePayOSWebhook = async (req: Request, res: Response) => {
       status: 'pending'
     });
     
-    if (!bill) {
-      console.log('❌ [Backend] Bill not found for orderCode:', orderCode);
-      console.log('🔍 [Backend] Searching all pending bills...');
-      const allPendingBills = await Bills.find({ status: 'pending' }).select('_id packageId userId');
-      console.log('🔍 [Backend] All pending bills:', allPendingBills);
-      return res.status(404).json({ success: false, message: 'Bill not found' });
+    if (!payment) {
+      console.log('❌ [Backend] Payment not found for orderCode:', orderCode);
+      console.log('🔍 [Backend] Searching all pending payments...');
+      const allPendingPayments = await PaymentTracking.find({ status: 'pending' }).select('_id packageId userId');
+      console.log('🔍 [Backend] All pending payments:', allPendingPayments);
+      return res.status(404).json({ success: false, message: 'Payment not found' });
     }
     
-    console.log('✅ [Backend] Found bill:', {
-      billId: bill._id,
-      userId: bill.userId,
-      packageId: bill.packageId,
-      profileId: bill.profileId,
-      totalAmount: bill.totalAmount
+    console.log('✅ [Backend] Found payment:', {
+      paymentId: payment._id,
+      userId: payment.userId,
+      packageId: payment.packageId,
+      totalAmount: payment.totalAmount
     });
     
-    // Update bill status to paid
-    await Bills.findByIdAndUpdate(bill._id, {
+    // Update payment status
+    await PaymentTracking.findByIdAndUpdate(payment._id, {
       status: 'paid',
-      paymentReference: reference,
-      paymentDateTime: new Date(transactionDateTime)
+      paidAt: new Date(),
+      transactionInfo: {
+        reference: reference,
+        transactionDateTime: transactionDateTime
+      }
     });
     
-    console.log('✅ [Backend] Updated bill status to paid');
+    console.log('✅ [Backend] Updated payment status to paid');
     
     // Create PackagePurchase
-    const servicePackage = await ServicePackages.findById(bill.packageId);
+    const servicePackage = await ServicePackages.findById(payment.packageId);
     if (!servicePackage) {
-      console.log('❌ [Backend] Service package not found for packageId:', bill.packageId);
+      console.log('❌ [Backend] Service package not found for packageId:', payment.packageId);
       return res.status(404).json({ success: false, message: 'Service package not found' });
     }
     
@@ -1383,22 +1392,17 @@ export const handlePayOSWebhook = async (req: Request, res: Response) => {
     console.log('🔍 [Backend] Calculated total usages:', totalUsages);
     
     const packagePurchaseData: any = {
-      userId: bill.userId,
-      packageId: bill.packageId,
-      billId: bill._id,
+      userId: payment.userId,
+      packageId: payment.recordId, // Use recordId since it's the package ID for package payments
+      billId: payment._id,
       activatedAt: new Date(),
-      expiryDate: new Date(Date.now() + (servicePackage.durationInDays || 365) * 24 * 60 * 60 * 1000), // Default 1 year
+      expiryDate: new Date(Date.now() + (servicePackage.durationInDays || 365) * 24 * 60 * 60 * 1000),
       remainingUsages: totalUsages,
       totalAllowedUses: totalUsages,
       isActive: true,
-      purchasePrice: bill.totalAmount,
+      purchasePrice: payment.totalAmount,
       status: 'active'
     };
-    
-    // Add profileId only if it exists in bill
-    if (bill.profileId) {
-      packagePurchaseData.profileId = bill.profileId;
-    }
     
     console.log('🔍 [Backend] Creating PackagePurchase with data:', packagePurchaseData);
     
@@ -1415,7 +1419,7 @@ export const handlePayOSWebhook = async (req: Request, res: Response) => {
     res.status(200).json({ 
       success: true, 
       message: 'Payment processed successfully',
-      data: { packagePurchase, bill }
+      data: { packagePurchase, payment }
     });
     
   } catch (error: any) {

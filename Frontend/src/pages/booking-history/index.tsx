@@ -37,13 +37,16 @@ const { RangePicker } = DatePicker;
 
 interface Appointment {
   id: string;
+  type?: 'appointment' | 'consultation'; // ➕ Thêm để phân biệt loại
   serviceId: string;
   serviceName: string;
   packageName?: string;
   doctorName?: string;
   doctorAvatar?: string;
+  patientName?: string; // ➕ Thêm cho consultations
   appointmentDate: string;
   appointmentTime: string;
+  appointmentSlot?: string; // ➕ Thêm cho consultations
   typeLocation: string; // Backend có thể trả về bất kỳ string nào
   status: string; // Backend có thể trả về bất kỳ status nào
   price: number;
@@ -55,6 +58,12 @@ interface Appointment {
   canReschedule: boolean;
   rating?: number;
   feedback?: string;
+  // ➕ Consultation-specific fields
+  phone?: string;
+  age?: number;
+  gender?: string;
+  question?: string;
+  doctorNotes?: string;
 }
 
 const BookingHistory: React.FC = () => {
@@ -94,7 +103,8 @@ const BookingHistory: React.FC = () => {
         // Lấy tất cả appointments không phân trang
         response = await appointmentApi.getAllAppointments({ limit: 100 });
       } else {
-        response = await consultationApi.getUserAppointments({ createdByUserId: user._id });
+        // ✅ Customer sử dụng API mới để lấy cả appointments + consultations
+        response = await appointmentApi.getUserBookingHistory({ limit: 50 });
       }
       
       // Handle different response structures for different APIs
@@ -104,78 +114,40 @@ const BookingHistory: React.FC = () => {
         // appointmentApi.getAllAppointments() response structure: { success: true, data: { appointments, pagination } }
         appointmentsData = response.data?.appointments || [];
       } else {
-        // consultationApi.getUserAppointments() response structure  
-        appointmentsData = response.data?.data?.appointments || response.data?.appointments || [];
+        // ✅ API mới trả về structure khác
+        appointmentsData = response.data?.data?.bookings || response.data?.bookings || [];
       }
 
       if (appointmentsData && appointmentsData.length >= 0) {
-        const formattedAppointments = appointmentsData.map((apt: {
-          _id: string;
-          serviceId?: { _id: string; serviceName: string; price: number };
-          packageId?: { name: string; price: number };
-          doctorId?: { 
-            _id: string;
-            userId?: { fullName: string; avatar: string; email: string };
-            fullName?: string; 
-            avatar?: string; 
-          };
-          appointmentDate: string;
-          appointmentTime: string;
-          typeLocation: string;
-          status: string;
-          createdAt: string;
-          description?: string;
-          notes?: string;
-          address?: string;
-          rating?: number;
-          feedback?: string;
-        }) => ({
+        const formattedAppointments = appointmentsData.map((apt: any) => ({
           id: apt._id,
-          serviceId: apt.serviceId?._id || '',
-          serviceName: apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
-          packageName: apt.packageId?.name,
-          doctorName: (() => {
-            // Kiểm tra các trường hợp khác nhau
-            if (!apt.doctorId) {
-              return 'Chưa chỉ định bác sĩ';
-            }
-            
-            // Trường hợp doctorId là string (chưa populate)
-            if (typeof apt.doctorId === 'string') {
-              return 'Chưa chỉ định bác sĩ';
-            }
-            
-            // Trường hợp doctorId đã được populate
-            if (apt.doctorId.userId?.fullName) {
-              return apt.doctorId.userId.fullName;
-            }
-            
-            // Trường hợp fallback với fullName trực tiếp
-            if (apt.doctorId.fullName) {
-              return apt.doctorId.fullName;
-            }
-            
-            return 'Chưa chỉ định bác sĩ';
-          })(),
-          doctorAvatar: (() => {
-              if (!apt.doctorId || typeof apt.doctorId === 'string') {
-                return 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150';
-              }
-              return apt.doctorId.userId?.avatar || apt.doctorId.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150';
-            })(),
-          appointmentDate: new Date(apt.appointmentDate).toISOString().split('T')[0],
-          appointmentTime: apt.appointmentTime,
-          typeLocation: apt.typeLocation as string,
-          status: apt.status as string, // Giữ nguyên status từ database theo ERD
-          price: apt.packageId?.price || apt.serviceId?.price || 0,
+          type: apt.type || 'appointment', // ✅ Support API mới
+          serviceId: apt.serviceId || (apt.serviceId?._id) || '',
+          serviceName: apt.serviceName || apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
+          packageName: apt.packageName || apt.packageId?.name,
+          doctorName: apt.doctorName || apt.doctorId?.userId?.fullName || apt.doctorId?.fullName || 'Chưa chỉ định bác sĩ',
+          doctorAvatar: apt.doctorAvatar || apt.doctorId?.userId?.avatar || apt.doctorId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+          patientName: apt.patientName || apt.fullName, // ✅ Hỗ trợ consultations
+          appointmentDate: apt.appointmentDate ? new Date(apt.appointmentDate).toISOString().split('T')[0] : '',
+          appointmentTime: apt.appointmentTime || apt.appointmentSlot || '',
+          appointmentSlot: apt.appointmentSlot,
+          typeLocation: apt.typeLocation || 'clinic',
+          status: apt.status,
+          price: apt.price || apt.packageId?.price || apt.serviceId?.price || 0,
           createdAt: new Date(apt.createdAt).toISOString(),
-          description: apt.description,
+          description: apt.description || apt.question, // ✅ question cho consultations
           notes: apt.notes,
           address: apt.address,
-          canCancel: ['pending', 'confirmed'].includes(apt.status),
-          canReschedule: ['pending', 'confirmed'].includes(apt.status),
+          canCancel: apt.canCancel || ['pending', 'pending_payment', 'confirmed'].includes(apt.status),
+          canReschedule: apt.canReschedule || ['pending', 'confirmed'].includes(apt.status),
           rating: apt.rating,
-          feedback: apt.feedback
+          feedback: apt.feedback,
+          // ✅ Consultation-specific fields
+          phone: apt.phone,
+          age: apt.age,
+          gender: apt.gender,
+          question: apt.question,
+          doctorNotes: apt.doctorNotes
         }));
 
         setAppointments(formattedAppointments);
@@ -606,9 +578,42 @@ const BookingHistory: React.FC = () => {
     navigate(`/feedback?appointment=${appointment.id}`);
   };
 
-  const handlePayment = (appointment: Appointment) => {
-    // Redirect đến trang PaymentProcessPage để tạo PayOS link
-    navigate(`/payment/process?appointmentId=${appointment.id}`);
+  const handlePayment = async (appointment: Appointment) => {
+    try {
+      console.log('💳 [BookingHistory] Starting payment for appointment:', appointment.id);
+      
+      // ✅ FIX: Check existing payment trước khi tạo mới
+      try {
+        const statusResponse = await axiosInstance.get(`/payments/appointments/${appointment.id}/status`);
+        
+        if (statusResponse.data?.success && statusResponse.data?.data) {
+          const paymentData = statusResponse.data.data;
+          console.log('🔍 [BookingHistory] Found existing payment:', paymentData.status);
+          
+          // Nếu payment đã success thì không cần thanh toán lại
+          if (paymentData.status === 'success') {
+            message.info('Lịch hẹn này đã được thanh toán thành công');
+            return;
+          }
+          
+          // Nếu có pending payment với paymentUrl, reuse nó
+          if (paymentData.status === 'pending' && paymentData.paymentUrl) {
+            console.log('♻️ [BookingHistory] Reusing existing payment URL');
+            window.location.href = paymentData.paymentUrl;
+            return;
+          }
+        }
+      } catch (error) {
+        console.log('🔍 [BookingHistory] No existing payment found, creating new one...');
+      }
+      
+      // Nếu không có existing payment hoặc expired, tạo mới
+      navigate(`/payment/process?appointmentId=${appointment.id}`);
+      
+    } catch (error) {
+      console.error('❌ [BookingHistory] Error in handlePayment:', error);
+      message.error('Có lỗi xảy ra khi xử lý thanh toán');
+    }
   };
 
   const handleCancelPayment = async (appointment: Appointment) => {

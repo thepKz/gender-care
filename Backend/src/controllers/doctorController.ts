@@ -426,3 +426,333 @@ export const uploadDoctorImage = async (req: any, res: Response) => {
     });
   }
 };
+
+/**
+ * Doctor submit profile changes for approval - Create change requests instead of direct update
+ */
+export const updateMyProfile = async (req: any, res: Response) => {
+  try {
+    // Lấy userId từ JWT token
+    const userId = req.user?._id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized - No user ID found'
+      });
+    }
+
+    // Import models
+    const Doctor = require('../models/Doctor');
+    const ProfileChangeRequest = require('../models/ProfileChangeRequests');
+    
+    const doctorRecord = await Doctor.findOne({ userId: userId });
+    
+    if (!doctorRecord) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy thông tin bác sĩ của bạn'
+      });
+    }
+
+    const {
+      bio,
+      experience,
+      image,
+      specialization,
+      education,
+      certificate,
+    } = req.body;
+
+    // Validation data như function update gốc
+    if (experience !== undefined && (experience < 0 || experience > 50)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Kinh nghiệm phải từ 0 đến 50 năm',
+      });
+    }
+
+    const changeRequests = [];
+    
+    // Create change requests for each field that changed
+    if (bio !== undefined && bio !== doctorRecord.bio) {
+      changeRequests.push({
+        doctorId: doctorRecord._id,
+        requestedBy: userId,
+        changeType: 'bio',
+        currentValue: doctorRecord.bio,
+        proposedValue: bio,
+        status: 'pending'
+      });
+    }
+    
+    if (specialization !== undefined && specialization !== doctorRecord.specialization) {
+      changeRequests.push({
+        doctorId: doctorRecord._id,
+        requestedBy: userId,
+        changeType: 'specialization',
+        currentValue: doctorRecord.specialization,
+        proposedValue: specialization,
+        status: 'pending'
+      });
+    }
+    
+    if (education !== undefined && education !== doctorRecord.education) {
+      changeRequests.push({
+        doctorId: doctorRecord._id,
+        requestedBy: userId,
+        changeType: 'education',
+        currentValue: doctorRecord.education,
+        proposedValue: education,
+        status: 'pending'
+      });
+    }
+    
+    if (certificate !== undefined && certificate !== doctorRecord.certificate) {
+      changeRequests.push({
+        doctorId: doctorRecord._id,
+        requestedBy: userId,
+        changeType: 'certificate',
+        currentValue: doctorRecord.certificate,
+        proposedValue: certificate,
+        status: 'pending'
+      });
+    }
+    
+    if (image !== undefined && image !== doctorRecord.image) {
+      changeRequests.push({
+        doctorId: doctorRecord._id,
+        requestedBy: userId,
+        changeType: 'image',
+        currentValue: doctorRecord.image,
+        proposedValue: image,
+        status: 'pending'
+      });
+    }
+    
+    if (experience !== undefined && experience !== doctorRecord.experience) {
+      changeRequests.push({
+        doctorId: doctorRecord._id,
+        requestedBy: userId,
+        changeType: 'experiences',
+        currentValue: doctorRecord.experience,
+        proposedValue: experience,
+        status: 'pending'
+      });
+    }
+
+    if (changeRequests.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Không có thay đổi nào để gửi duyệt'
+      });
+    }
+
+    // Save all change requests
+    const createdRequests = await ProfileChangeRequest.insertMany(changeRequests);
+    
+    res.json({
+      success: true,
+      message: `Đã gửi ${changeRequests.length} yêu cầu thay đổi để chờ duyệt`,
+      data: {
+        requestCount: changeRequests.length,
+        requests: createdRequests,
+        status: 'pending_approval'
+      },
+    });
+  } catch (error: any) {
+    console.error('Error submitting profile changes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi gửi yêu cầu thay đổi',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Doctor get own change requests status
+ */
+export const getMyChangeRequests = async (req: any, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Unauthorized - No user ID found'
+      });
+    }
+
+    const Doctor = require('../models/Doctor');
+    const ProfileChangeRequest = require('../models/ProfileChangeRequests');
+    
+    const doctorRecord = await Doctor.findOne({ userId: userId });
+    
+    if (!doctorRecord) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy thông tin bác sĩ'
+      });
+    }
+
+    const changeRequests = await ProfileChangeRequest.find({ 
+      doctorId: doctorRecord._id 
+    }).sort({ submittedAt: -1 }).populate('reviewedBy', 'fullName email');
+
+    res.json({
+      success: true,
+      message: 'Lấy danh sách yêu cầu thay đổi thành công',
+      data: changeRequests
+    });
+  } catch (error: any) {
+    console.error('Error getting change requests:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy yêu cầu thay đổi',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Manager get all pending change requests
+ */
+export const getAllPendingRequests = async (req: any, res: Response) => {
+  try {
+    const ProfileChangeRequest = require('../models/ProfileChangeRequests');
+    
+    const pendingRequests = await ProfileChangeRequest.find({ 
+      status: 'pending' 
+    })
+    .sort({ submittedAt: -1 })
+    .populate('doctorId', 'bio specialization education')
+    .populate('requestedBy', 'fullName email')
+    .populate('reviewedBy', 'fullName email');
+
+    res.json({
+      success: true,
+      message: 'Lấy danh sách yêu cầu chờ duyệt thành công',
+      data: pendingRequests
+    });
+  } catch (error: any) {
+    console.error('Error getting pending requests:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi lấy yêu cầu chờ duyệt',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Manager approve change request
+ */
+export const approveChangeRequest = async (req: any, res: Response) => {
+  try {
+    const { requestId } = req.params;
+    const { comments } = req.body;
+    const managerId = req.user?._id;
+
+    const ProfileChangeRequest = require('../models/ProfileChangeRequests');
+    const Doctor = require('../models/Doctor');
+
+    const changeRequest = await ProfileChangeRequest.findById(requestId);
+    
+    if (!changeRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy yêu cầu thay đổi'
+      });
+    }
+
+    if (changeRequest.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Yêu cầu này đã được xử lý'
+      });
+    }
+
+    // Update the doctor record with approved changes
+    const updateData: any = {};
+    updateData[changeRequest.changeType] = changeRequest.proposedValue;
+    
+    await Doctor.findByIdAndUpdate(changeRequest.doctorId, updateData);
+
+    // Update change request status
+    changeRequest.status = 'approved';
+    changeRequest.reviewedBy = managerId;
+    changeRequest.reviewedAt = new Date();
+    changeRequest.reviewComments = comments;
+    await changeRequest.save();
+
+    res.json({
+      success: true,
+      message: 'Đã duyệt yêu cầu thay đổi thành công',
+      data: changeRequest
+    });
+  } catch (error: any) {
+    console.error('Error approving change request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi duyệt yêu cầu',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * Manager reject change request
+ */
+export const rejectChangeRequest = async (req: any, res: Response) => {
+  try {
+    const { requestId } = req.params;
+    const { reason } = req.body;
+    const managerId = req.user?._id;
+
+    if (!reason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng cung cấp lý do từ chối'
+      });
+    }
+
+    const ProfileChangeRequest = require('../models/ProfileChangeRequests');
+
+    const changeRequest = await ProfileChangeRequest.findById(requestId);
+    
+    if (!changeRequest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy yêu cầu thay đổi'
+      });
+    }
+
+    if (changeRequest.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Yêu cầu này đã được xử lý'
+      });
+    }
+
+    // Update change request status
+    changeRequest.status = 'rejected';
+    changeRequest.reviewedBy = managerId;
+    changeRequest.reviewedAt = new Date();
+    changeRequest.reviewComments = reason;
+    await changeRequest.save();
+
+    res.json({
+      success: true,
+      message: 'Đã từ chối yêu cầu thay đổi',
+      data: changeRequest
+    });
+  } catch (error: any) {
+    console.error('Error rejecting change request:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi server khi từ chối yêu cầu',
+      error: error.message
+    });
+  }
+};

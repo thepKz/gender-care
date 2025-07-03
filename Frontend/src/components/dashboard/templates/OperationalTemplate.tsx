@@ -18,9 +18,7 @@ import {
   FileTextOutlined,
   LogoutOutlined,
   VideoCameraOutlined,
-  CheckCircleOutlined,
-  TrophyOutlined,
-  ClockCircleOutlined,
+
   MedicineBoxOutlined,
   HistoryOutlined
 } from '@ant-design/icons';
@@ -28,7 +26,7 @@ import StatsCard from '../widgets/StatsCard';
 import ActivityFeed from '../widgets/ActivityFeed';
 import TableWidget from '../widgets/TableWidget';
 import DoctorScheduleCalendar from '../widgets/DoctorScheduleCalendar';
-import ScheduleOverview from '../widgets/ScheduleOverview';
+
 import AppointmentManagement from '../../../pages/dashboard/operational/AppointmentManagement';
 import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
 import ConsultationManagement from '../../../pages/dashboard/operational/ConsultationManagement';
@@ -36,6 +34,7 @@ import MeetingHistoryManagement from '../../../pages/dashboard/operational/Meeti
 import DoctorAppointmentSchedule from '../../../pages/dashboard/operational/DoctorAppointmentSchedule';
 import ServiceTestConfiguration from '../../../pages/dashboard/operational/ServiceTestConfiguration';
 import TestResultsEntryStaff from '../../../pages/dashboard/operational/TestResultsEntryStaff';
+import DoctorProfileManagement from '../../../pages/dashboard/operational/DoctorProfileManagement';
 
 import { 
   type DashboardStat,
@@ -87,6 +86,11 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
     // Bác sĩ: thêm các chức năng đặc biệt
     return [
       baseItems[0], // dashboard
+      {
+        key: 'profile',
+        icon: <UserOutlined />,
+        label: 'Thông tin cá nhân',
+      },
       baseItems[1], // my-appointments
       {
         key: 'appointments',
@@ -95,13 +99,13 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
       },
       {
         key: 'patients',
-        icon: <UserOutlined />,
+        icon: <ScheduleOutlined />,
         label: 'Bệnh nhân',
       },
       {
         key: 'medical-records',
         icon: <FileTextOutlined />,
-        label: 'Hồ sơ y tế',
+        label: 'Hồ sơ bệnh án',
       },
       {
         key: 'consultations',
@@ -252,19 +256,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
     if (result.success) navigate('/');
   };
 
-  // ✅ Helper để render icon components từ string
-  const getIconComponent = (iconName: string) => {
-    const icons: Record<string, React.ReactNode> = {
-      'UserOutlined': <UserOutlined />,
-      'CalendarOutlined': <CalendarOutlined />,
-      'CheckCircleOutlined': <CheckCircleOutlined />,
-      'TrophyOutlined': <TrophyOutlined />,
-      'ClockCircleOutlined': <ClockCircleOutlined />,
-      'MedicineBoxOutlined': <MedicineBoxOutlined />,
-      'ScheduleOutlined': <ScheduleOutlined />
-    };
-    return icons[iconName] || <CalendarOutlined />;
-  };
+
 
   const renderDashboard = () => (
     <div style={{ padding: '0' }}>
@@ -521,6 +513,11 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
       case 'meeting-history':
         if (userRole === 'doctor') return <MeetingHistoryManagement />;
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
+      
+      case 'profile':
+        if (userRole === 'doctor') return <DoctorProfileManagement />;
+        return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
+        
       default:
         return renderDashboard();
     }
@@ -536,6 +533,11 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         style={{
           background: '#fff',
           boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+          position: 'fixed',
+          height: '100vh',
+          left: 0,
+          top: 0,
+          zIndex: 100,
         }}
       >
         <div style={{ 
@@ -570,15 +572,30 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         />
       </Sider>
       
-      <Layout>
-        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
+      <Layout style={{ marginLeft: collapsed ? 80 : 250, transition: 'margin-left 0.2s' }}>
+        <Header style={{ 
+          background: '#fff', 
+          padding: '0 24px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          left: collapsed ? 80 : 250,
+          zIndex: 99,
+          transition: 'left 0.2s',
+        }}>
           <Button type="link" icon={<DashboardOutlined />} onClick={() => navigate('/')}>Trang chủ</Button>
           <Button type="link" icon={<LogoutOutlined />} onClick={onLogout}>Đăng xuất</Button>
         </Header>
         <Content style={{ 
           padding: '24px',
           background: '#f5f5f5',
-          overflow: 'auto'
+          overflow: 'auto',
+          marginTop: 64, // Header height
+          minHeight: 'calc(100vh - 64px)',
         }}>
           {renderContent()}
         </Content>

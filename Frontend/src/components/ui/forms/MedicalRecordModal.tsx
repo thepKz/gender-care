@@ -38,7 +38,7 @@ export interface MedicalRecordFormData {
   profileId: string;
   doctorId: string;
   appointmentId: string;
-  diagnosis: string;
+  conclusion: string;
   symptoms?: string;
   treatment: string;
   medications?: string;
@@ -56,7 +56,7 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [medicineList, setMedicineList] = useState<IMedicine[]>([]);
   const [prescriptions, setPrescriptions] = useState([
-    { medicineId: '', name: '', dosage: '', instructions: '', note: '' }
+    { medicineId: '', name: '', dosage: '', instructions: '', note: '', duration: '' }
   ]);
 
   useEffect(() => {
@@ -85,7 +85,7 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
   };
 
   const handleAddPrescription = () => {
-    setPrescriptions(prev => [...prev, { medicineId: '', name: '', dosage: '', instructions: '', note: '' }]);
+    setPrescriptions(prev => [...prev, { medicineId: '', name: '', dosage: '', instructions: '', note: '', duration: '' }]);
   };
 
   const handleRemovePrescription = (idx) => {
@@ -106,7 +106,7 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
         profileId: (appointment.originalData as any)?.profileId?._id || '',
         doctorId: (appointment.originalData as any)?.doctorId?._id || '',
         appointmentId: appointment._id,
-        diagnosis: values.diagnosis,
+        conclusion: values.conclusion,
         symptoms: values.symptoms,
         treatment: values.treatment,
         medications: JSON.stringify(prescriptions),
@@ -220,15 +220,15 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
             <Row gutter={16}>
               <Col span={24}>
                 <Form.Item
-                  label="Chẩn đoán"
-                  name="diagnosis"
+                  label="Kết luận"
+                  name="conclusion"
                   rules={[
-                    { required: true, message: 'Vui lòng nhập chẩn đoán' },
-                    { min: 5, message: 'Chẩn đoán phải có ít nhất 5 ký tự' }
+                    { required: true, message: 'Vui lòng nhập kết luận' },
+                    { min: 5, message: 'Kết luận phải có ít nhất 5 ký tự' }
                   ]}
                 >
                   <Input.TextArea
-                    placeholder="Nhập chẩn đoán của bác sĩ..."
+                    placeholder="Nhập kết luận của bác sĩ..."
                     rows={3}
                     showCount
                     maxLength={500}
@@ -278,6 +278,7 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
                       <div style={{ flex: 2, paddingLeft: 12 }}>Tên thuốc (autocomplete)</div>
                       <div style={{ flex: 1 }}>Liều dùng</div>
                       <div style={{ flex: 2 }}>Hướng dẫn sử dụng</div>
+                      <div style={{ flex: 1.5 }}>Thời gian dùng</div>
                       <div style={{ flex: 2 }}>Ghi chú thêm</div>
                       <div style={{ width: 40, textAlign: 'center' }}></div>
                     </div>
@@ -312,6 +313,13 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
                             placeholder="Hướng dẫn sử dụng"
                             value={item.instructions}
                             onChange={e => handlePrescriptionChange(idx, 'instructions', e.target.value)}
+                          />
+                        </div>
+                        <div style={{ flex: 1.5, padding: '0 4px' }}>
+                          <Input
+                            placeholder="Thời gian dùng (VD: 7 ngày, 2 tuần)"
+                            value={item.duration}
+                            onChange={e => handlePrescriptionChange(idx, 'duration', e.target.value)}
                           />
                         </div>
                         <div style={{ flex: 2, padding: '0 4px' }}>
