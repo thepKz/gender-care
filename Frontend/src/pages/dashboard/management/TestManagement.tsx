@@ -89,9 +89,7 @@ const TestManagement: React.FC = () => {
       const search = searchText.toLowerCase();
       filtered = filtered.filter(category =>
         category.name.toLowerCase().includes(search) ||
-        category.description?.toLowerCase().includes(search) ||
-        category.unit?.toLowerCase().includes(search) ||
-        category.normalRange?.toLowerCase().includes(search)
+        category.description?.toLowerCase().includes(search)
       );
     }
 
@@ -101,12 +99,9 @@ const TestManagement: React.FC = () => {
   // Calculate statistics
   const stats = useMemo(() => {
     const total = testCategories.length;
-    const withUnit = testCategories.filter(c => c.unit && c.unit.trim().length > 0).length;
-    const withNormalRange = testCategories.filter(c => c.normalRange && c.normalRange.trim().length > 0).length;
-    const complete = testCategories.filter(c => 
-      c.unit && c.unit.trim().length > 0 && 
-      c.normalRange && c.normalRange.trim().length > 0
-    ).length;
+    const withUnit = 0;
+    const withNormalRange = 0;
+    const complete = 0;
     
     const filteredTotal = filteredTestCategories.length;
 
@@ -198,8 +193,6 @@ const TestManagement: React.FC = () => {
     editForm.setFieldsValue({
       name: category.name,
       description: category.description,
-      unit: category.unit,
-      normalRange: category.normalRange
     });
     setIsEditModalVisible(true);
   };
@@ -225,51 +218,11 @@ const TestManagement: React.FC = () => {
       sorter: (a, b) => a.name.localeCompare(b.name),
     },
     {
-      title: 'Đơn vị đo',
-      dataIndex: 'unit',
-      key: 'unit',
-      width: 120,
-      render: (unit: string) => (
-        <div style={{ textAlign: 'center' }}>
-          {unit ? (
-            <Tag color="blue" style={{ borderRadius: '12px' }}>
-              📏 {unit}
-            </Tag>
-          ) : (
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              Chưa có
-            </Text>
-          )}
-        </div>
-      ),
-    },
-    {
-      title: 'Giá trị bình thường',
-      dataIndex: 'normalRange',
-      key: 'normalRange',
-      width: 160,
-      render: (normalRange: string) => (
-        <div>
-          {normalRange ? (
-            <Tag color="green" style={{ borderRadius: '12px', fontSize: '11px' }}>
-              📊 {normalRange.length > 15 ? `${normalRange.substring(0, 15)}...` : normalRange}
-            </Tag>
-          ) : (
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              Chưa có
-            </Text>
-          )}
-        </div>
-      ),
-    },
-    {
       title: 'Thông tin đầy đủ',
       key: 'complete',
       width: 120,
       render: (_, record) => {
-        const hasUnit = record.unit && record.unit.trim().length > 0;
-        const hasRange = record.normalRange && record.normalRange.trim().length > 0;
-        const isComplete = hasUnit && hasRange;
+        const isComplete = true;
         
         return (
           <div style={{ textAlign: 'center' }}>
@@ -284,9 +237,7 @@ const TestManagement: React.FC = () => {
         { text: 'Thiếu thông tin', value: 'incomplete' }
       ],
       onFilter: (value, record) => {
-        const hasUnit = record.unit && record.unit.trim().length > 0;
-        const hasRange = record.normalRange && record.normalRange.trim().length > 0;
-        const isComplete = hasUnit && hasRange;
+        const isComplete = true;
         
         return value === 'complete' ? isComplete : !isComplete;
       },
@@ -499,31 +450,6 @@ const TestManagement: React.FC = () => {
             />
           </Form.Item>
 
-          <Row gutter={16}>
-            <Col xs={24} sm={12}>
-              <Form.Item
-                name="unit"
-                label="Đơn vị đo"
-                rules={[
-                  { max: 20, message: 'Đơn vị đo không được vượt quá 20 ký tự' }
-                ]}
-              >
-                <Input placeholder="mg/dL, mmol/L, %, IU/L..." />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item
-                name="normalRange"
-                label="Giá trị bình thường"
-                rules={[
-                  { max: 50, message: 'Giá trị bình thường không được vượt quá 50 ký tự' }
-                ]}
-              >
-                <Input placeholder="70-100, <200, 4.0-5.7..." />
-              </Form.Item>
-            </Col>
-          </Row>
-
           <Form.Item style={{ marginTop: '24px', marginBottom: 0 }}>
             <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
               <Button
@@ -589,31 +515,6 @@ const TestManagement: React.FC = () => {
             />
           </Form.Item>
 
-          <Row gutter={16}>
-            <Col xs={24} sm={12}>
-              <Form.Item
-                name="unit"
-                label="Đơn vị đo"
-                rules={[
-                  { max: 20, message: 'Đơn vị đo không được vượt quá 20 ký tự' }
-                ]}
-              >
-                <Input placeholder="mg/dL, mmol/L, %, IU/L..." />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item
-                name="normalRange"
-                label="Giá trị bình thường"
-                rules={[
-                  { max: 50, message: 'Giá trị bình thường không được vượt quá 50 ký tự' }
-                ]}
-              >
-                <Input placeholder="70-100, <200, 4.0-5.7..." />
-              </Form.Item>
-            </Col>
-          </Row>
-
           <Form.Item style={{ marginTop: '24px', marginBottom: 0 }}>
             <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
               <Button
@@ -665,20 +566,6 @@ const TestManagement: React.FC = () => {
             <Descriptions.Item label="Mô tả">
               {selectedTestCategory.description || (
                 <Text type="secondary">Chưa có mô tả</Text>
-              )}
-            </Descriptions.Item>
-            <Descriptions.Item label="Đơn vị đo">
-              {selectedTestCategory.unit ? (
-                <Tag color="blue">📏 {selectedTestCategory.unit}</Tag>
-              ) : (
-                <Text type="secondary">Chưa có đơn vị đo</Text>
-              )}
-            </Descriptions.Item>
-            <Descriptions.Item label="Giá trị bình thường">
-              {selectedTestCategory.normalRange ? (
-                <Tag color="green">📊 {selectedTestCategory.normalRange}</Tag>
-              ) : (
-                <Text type="secondary">Chưa có giá trị bình thường</Text>
               )}
             </Descriptions.Item>
             <Descriptions.Item label="Ngày tạo">

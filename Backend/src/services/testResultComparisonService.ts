@@ -102,50 +102,84 @@ export class TestResultComparisonService {
     }
   }
 
-  // Auto-evaluate value dựa trên service test category
+  // So sánh giá trị với thresholdRules (ưu tiên), fallback min/max
+  static compareValueWithThresholdRules(value: number, thresholdRules?: Array<{ from: number | null, to: number | null, flag: string, message: string }>, minValue?: number, maxValue?: number): { flag: string | null, message: string | null } {
+    if (thresholdRules && Array.isArray(thresholdRules) && thresholdRules.length > 0) {
+      for (const rule of thresholdRules) {
+        if (rule.from === null && rule.to !== null && value <= rule.to) {
+          return { flag: rule.flag, message: rule.message };
+        }
+        if (rule.from !== null && rule.to === null && value >= rule.from) {
+          return { flag: rule.flag, message: rule.message };
+        }
+        if (rule.from !== null && rule.to !== null && value >= rule.from && value <= rule.to) {
+          return { flag: rule.flag, message: rule.message };
+        }
+      }
+      // Không khớp rule nào
+      return { flag: null, message: null };
+    }
+    // Fallback min/max
+    if (typeof minValue === 'number' && value < minValue) {
+      return { flag: 'low', message: null };
+    }
+    if (typeof maxValue === 'number' && value > maxValue) {
+      return { flag: 'high', message: null };
+    }
+    if (typeof minValue === 'number' && typeof maxValue === 'number' && value >= minValue && value <= maxValue) {
+      return { flag: 'normal', message: null };
+    }
+    return { flag: null, message: null };
+  }
+
+  // Auto-evaluate value dựa trên service test category (dùng thresholdRules nếu có)
   static async autoEvaluateTestResult(
     serviceId: string,
     testCategoryId: string,
     value: string
   ): Promise<{
-    flag: 'high' | 'low' | 'normal' | null;
-    effectiveRange: string;
-    effectiveUnit: string;
+    flag: string | null;
+    message: string | null;
+    effectiveRange: string | null;
+    effectiveUnit: string | null;
     targetValue?: string;
     notes?: string;
     evaluationNotes?: string;
   } | null> {
     try {
-      // Lấy effective range
-      const rangeInfo = await this.getEffectiveRangeForServiceTest(serviceId, testCategoryId);
-      
-      if (!rangeInfo) {
-        return null;
-      }
-
-      // Compare value với range
-      const flag = this.compareValueWithRange(value, rangeInfo.range);
-
-      // Tạo evaluation notes
+      // Lấy assignment
+      const serviceTestCategory = await ServiceTestCategories.findOne({
+        serviceId,
+        testCategoryId
+      });
+      if (!serviceTestCategory) return null;
+      // Lấy thresholdRules, minValue, maxValue, unit
+      const { thresholdRules, minValue, maxValue, unit, targetValue } = serviceTestCategory as any;
+      // Parse value
+      const numericValue = parseFloat(value.replace(/[^0-9.\-]/g, ''));
+      if (isNaN(numericValue)) return null;
+      // So sánh
+      const { flag, message } = this.compareValueWithThresholdRules(numericValue, thresholdRules, minValue, maxValue);
+      // Ghi chú đánh giá
       let evaluationNotes = '';
-      if (flag === 'high') {
-        evaluationNotes = `Giá trị cao hơn bình thường (${rangeInfo.range})`;
+      if (flag && message) {
+        evaluationNotes = message;
+      } else if (flag === 'high') {
+        evaluationNotes = `Giá trị cao hơn bình thường`;
       } else if (flag === 'low') {
-        evaluationNotes = `Giá trị thấp hơn bình thường (${rangeInfo.range})`;
+        evaluationNotes = `Giá trị thấp hơn bình thường`;
       } else if (flag === 'normal') {
-        evaluationNotes = `Giá trị trong khoảng bình thường (${rangeInfo.range})`;
+        evaluationNotes = `Giá trị trong khoảng bình thường`;
       }
-
-      if (rangeInfo.targetValue && flag === 'normal') {
-        evaluationNotes += `. Giá trị mục tiêu: ${rangeInfo.targetValue}`;
+      if (targetValue && flag === 'normal') {
+        evaluationNotes += `. Giá trị mục tiêu: ${targetValue}`;
       }
-
       return {
         flag,
-        effectiveRange: rangeInfo.range,
-        effectiveUnit: rangeInfo.unit,
-        targetValue: rangeInfo.targetValue,
-        notes: rangeInfo.notes,
+        message,
+        effectiveRange: null, // Không còn dùng customNormalRange/normalRange
+        effectiveUnit: unit || null,
+        targetValue,
         evaluationNotes
       };
     } catch (error) {

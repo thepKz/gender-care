@@ -288,75 +288,88 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
               const testItem = testItems.find(item => item.testCategoryId === category._id);
               if (!testItem) return null;
 
+              // Lấy thresholdRules từ category nếu có
+              const thresholdRules = (category as any).thresholdRules || [];
+              const minValue = (category as any).minValue;
+              const maxValue = (category as any).maxValue;
+              const unit = category.customUnit || category.unit || '';
+
+              // Đánh giá flag và message
+              let flag = form.getFieldValue(['flag', category._id]) || 'normal';
+              let messageText = '';
+              if (thresholdRules.length > 0 && testItem.value) {
+                const valueNum = parseFloat(testItem.value);
+                const rule = thresholdRules.find(rule => {
+                  const fromOk = rule.from == null || valueNum >= rule.from;
+                  const toOk = rule.to == null || valueNum <= rule.to;
+                  return fromOk && toOk;
+                });
+                if (rule) {
+                  flag = rule.flag;
+                  messageText = rule.message;
+                }
+              }
+
               return (
-                <Card 
-                  key={category._id}
-                  size="small" 
-                  style={{ marginBottom: 12, border: '1px solid #d9d9d9' }}
-                >
-                  <div style={{ marginBottom: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <Text strong style={{ fontSize: '14px' }}>
-                          {category.name}
-                          {category.isRequired && (
-                            <Tag color="red" style={{ marginLeft: 8 }}>Bắt buộc</Tag>
-                          )}
-                        </Text>
-                        <div style={{ marginTop: 4 }}>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
-                            Khoảng bình thường: <Text strong>
-                              {category.customNormalRange || category.normalRange}
-                              {' '}
-                              {category.customUnit || category.unit}
-                            </Text>
-                          </Text>
-                        </div>
-                        {category.targetValue && (
-                          <div style={{ marginTop: 2 }}>
-                            <Text type="secondary" style={{ fontSize: '12px' }}>
-                              Giá trị mục tiêu: <Text strong>{category.targetValue}</Text>
-                            </Text>
-                          </div>
+                <div key={category._id} style={{ marginBottom: 16, borderBottom: '1px solid #f0f0f0', paddingBottom: 12 }}>
+                  <Row align="middle" gutter={12}>
+                    <Col flex="220px">
+                      <div style={{ fontWeight: 500, fontSize: 15 }}>{category.name}</div>
+                      <div style={{ fontSize: 12, color: '#888' }}>{unit}</div>
+                      <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
+                        {minValue !== undefined && maxValue !== undefined && (
+                          <span>Giá trị dao động: {minValue} - {maxValue}</span>
                         )}
                       </div>
-                    </div>
-                  </div>
-
-                  <Row gutter={16}>
-                    <Col span={8}>
-                      <Form.Item
-                        label="Kết quả"
-                        required={category.isRequired}
-                      >
-                        <div style={{ display: 'flex', gap: 8 }}>
-                          <Input
-                            value={testItem.value}
-                            onChange={(e) => setTestItems(prev => prev.map(item => 
-                              item.testCategoryId === category._id 
-                                ? { ...item, value: e.target.value }
-                                : item
-                            ))}
-                            placeholder="Nhập kết quả"
-                          />
-                        </div>
-                      </Form.Item>
                     </Col>
-                    <Col span={8}>
-                      <Form.Item label="Đơn vị">
+                    <Col flex="180px">
+                      <Form.Item style={{ marginBottom: 0 }} required={category.isRequired}>
                         <Input
-                          value={testItem.unit || ''}
-                          onChange={(e) => setTestItems(prev => prev.map(item => 
-                            item.testCategoryId === category._id 
-                              ? { ...item, unit: e.target.value }
-                              : item
-                          ))}
-                          placeholder="Đơn vị"
+                          value={testItem.value}
+                          onChange={e => {
+                            const v = e.target.value;
+                            setTestItems(prev => prev.map(item =>
+                              item.testCategoryId === category._id ? { ...item, value: v } : item
+                            ));
+                            // Tự động set flag nếu có rule
+                            if (thresholdRules.length > 0 && v) {
+                              const valueNum = parseFloat(v);
+                              const rule = thresholdRules.find(rule => {
+                                const fromOk = rule.from == null || valueNum >= rule.from;
+                                const toOk = rule.to == null || valueNum <= rule.to;
+                                return fromOk && toOk;
+                              });
+                              if (rule) {
+                                form.setFieldValue(['flag', category._id], rule.flag);
+                              }
+                            }
+                          }}
+                          placeholder="Nhập kết quả"
                         />
                       </Form.Item>
                     </Col>
+                    <Col flex="140px">
+                      <Form.Item style={{ marginBottom: 0 }}>
+                        <Select
+                          value={form.getFieldValue(['flag', category._id]) || 'normal'}
+                          onChange={val => form.setFieldValue(['flag', category._id], val)}
+                          style={{ width: '100%' }}
+                        >
+                          <Option value="very_low">Rất thấp</Option>
+                          <Option value="low">Thấp</Option>
+                          <Option value="normal">Bình thường</Option>
+                          <Option value="mild_high">Hơi cao</Option>
+                          <Option value="high">Cao</Option>
+                          <Option value="critical">Nguy kịch</Option>
+                        </Select>
+                      </Form.Item>
+                    </Col>
                   </Row>
-                </Card>
+                  {/* Message đánh giá */}
+                  {messageText && (
+                    <div style={{ fontSize: 12, color: '#fa8c16', marginTop: 2 }}>{messageText}</div>
+                  )}
+                </div>
               );
             })}
           </div>

@@ -4,12 +4,16 @@ export interface IServiceTestCategories {
   serviceId: mongoose.Types.ObjectId;
   testCategoryId: mongoose.Types.ObjectId;
   isRequired: boolean;
-  customNormalRange?: string; // Range riêng cho service này (override TestCategories.normalRange)
-  customUnit?: string;        // Unit riêng cho service này (override TestCategories.unit)
-  targetValue?: string;       // Giá trị mục tiêu ideal cho service này
-  notes?: string;             // Ghi chú cho staff/doctor
-  minValue?: number;          // Giá trị tối thiểu cho khoảng dao động
-  maxValue?: number;          // Giá trị tối đa cho khoảng dao động
+  unit?: string; // Đơn vị đo
+  targetValue?: string; // Giá trị mục tiêu ideal cho service này
+  minValue?: number; // Giá trị tối thiểu cho khoảng dao động
+  maxValue?: number; // Giá trị tối đa cho khoảng dao động
+  thresholdRules?: Array<{
+    from: number | null;
+    to: number | null;
+    flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+    message: string;
+  }>;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -29,19 +33,11 @@ const ServiceTestCategoriesSchema = new mongoose.Schema<IServiceTestCategories>(
     type: Boolean,
     default: true
   },
-  customNormalRange: {
-    type: String,
-    trim: true
-  },
-  customUnit: {
+  unit: {
     type: String,
     trim: true
   },
   targetValue: {
-    type: String,
-    trim: true
-  },
-  notes: {
     type: String,
     trim: true
   },
@@ -52,7 +48,19 @@ const ServiceTestCategoriesSchema = new mongoose.Schema<IServiceTestCategories>(
   maxValue: {
     type: Number,
     min: 0
-  }
+  },
+  thresholdRules: [
+    {
+      from: { type: Number, default: null },
+      to: { type: Number, default: null },
+      flag: {
+        type: String,
+        enum: ['very_low', 'low', 'normal', 'mild_high', 'high', 'critical'],
+        required: true
+      },
+      message: { type: String, required: true }
+    }
+  ]
 }, {
   timestamps: true
 });

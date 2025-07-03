@@ -6,12 +6,16 @@ export interface ServiceTestCategory {
   serviceId: string;
   testCategoryId: string;
   isRequired: boolean;
-  customNormalRange?: string;
-  customUnit?: string;
+  unit?: string;
   targetValue?: string;
-  notes?: string;
   minValue?: number;
   maxValue?: number;
+  thresholdRules?: Array<{
+    from: number | null;
+    to: number | null;
+    flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+    message: string;
+  }>;
   createdAt?: string;
   updatedAt?: string;
   testCategory?: {
@@ -27,12 +31,16 @@ export interface CreateServiceTestCategoryData {
   serviceId: string;
   testCategoryId: string;
   isRequired: boolean;
-  customNormalRange?: string;
-  customUnit?: string;
+  unit?: string;
   targetValue?: string;
-  notes?: string;
   minValue?: number;
   maxValue?: number;
+  thresholdRules?: Array<{
+    from: number | null;
+    to: number | null;
+    flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+    message: string;
+  }>;
 }
 
 export interface BulkCreateServiceTestCategoryData {
@@ -91,7 +99,7 @@ export const serviceTestCategoriesApi = {
   },
 
   // Bulk create service test categories
-  bulkCreate: async (data: BulkCreateServiceTestCategoryData): Promise<ServiceTestCategory[]> => {
+  bulkCreate: async (data: { serviceId: string; testCategories: CreateServiceTestCategoryData[] }): Promise<ServiceTestCategory[]> => {
     const response = await axiosInstance.post(`/service-test-categories/bulk`, data);
     return response.data.data;
   },

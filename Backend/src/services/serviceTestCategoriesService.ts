@@ -74,7 +74,7 @@ export class ServiceTestCategoriesService {
       throw new Error('Only doctors and staff can assign test categories to services');
     }
 
-    const { serviceId, testCategoryId, isRequired, customNormalRange, customUnit, targetValue, notes, minValue, maxValue } = data;
+    const { serviceId, testCategoryId, isRequired, unit, targetValue, minValue, maxValue, thresholdRules } = data;
 
     // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(serviceId)) {
@@ -107,9 +107,18 @@ export class ServiceTestCategoriesService {
       throw new Error('Test category already assigned to this service');
     }
 
-    // Tự động tính targetValue từ minValue và maxValue
+    // Validate thresholdRules nếu có
+    if (thresholdRules && Array.isArray(thresholdRules)) {
+      for (const rule of thresholdRules) {
+        if (!rule.flag || !rule.message) {
+          throw new Error('Each thresholdRule must have flag and message');
+        }
+      }
+    }
+
+    // Tự động tính targetValue từ minValue và maxValue nếu chưa có
     let calculatedTargetValue = targetValue;
-    if (minValue !== undefined && maxValue !== undefined) {
+    if (minValue !== undefined && maxValue !== undefined && !targetValue) {
       calculatedTargetValue = ((minValue + maxValue) / 2).toString();
     }
 
@@ -118,12 +127,11 @@ export class ServiceTestCategoriesService {
       serviceId,
       testCategoryId,
       isRequired,
-      customNormalRange,
-      customUnit,
+      unit,
       targetValue: calculatedTargetValue,
-      notes,
       minValue,
-      maxValue
+      maxValue,
+      thresholdRules
     });
 
     const savedAssignment = await newAssignment.save();
@@ -209,30 +217,49 @@ export class ServiceTestCategoriesService {
   async updateServiceTestCategory(id: string, updateData: any, userRole: string) {
     // Check permissions
     if (!['doctor', 'staff', 'admin'].includes(userRole)) {
-      throw new Error('Only doctors and staff can update service test categories');
+      throw new Error('Only doctors and staff can update test categories for services');
     }
 
     // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new Error('Invalid service test category ID');
+      throw new Error('Invalid assignment ID');
     }
 
-    // Tự động tính targetValue từ minValue và maxValue nếu có
-    if (updateData.minValue !== undefined && updateData.maxValue !== undefined) {
-      updateData.targetValue = ((updateData.minValue + updateData.maxValue) / 2).toString();
+    const { isRequired, unit, targetValue, minValue, maxValue, thresholdRules } = updateData;
+
+    // Validate thresholdRules nếu có
+    if (thresholdRules && Array.isArray(thresholdRules)) {
+      for (const rule of thresholdRules) {
+        if (!rule.flag || !rule.message) {
+          throw new Error('Each thresholdRule must have flag and message');
+        }
+      }
     }
 
-    // Tìm và cập nhật
+    // Tự động tính targetValue từ minValue và maxValue nếu chưa có
+    let calculatedTargetValue = targetValue;
+    if (minValue !== undefined && maxValue !== undefined && !targetValue) {
+      calculatedTargetValue = ((minValue + maxValue) / 2).toString();
+    }
+
+    // Update assignment
     const updatedAssignment = await ServiceTestCategories.findByIdAndUpdate(
       id,
-      updateData,
-      { new: true, runValidators: true }
+      {
+        isRequired,
+        unit,
+        targetValue: calculatedTargetValue,
+        minValue,
+        maxValue,
+        thresholdRules
+      },
+      { new: true }
     )
       .populate('serviceId', 'serviceName serviceType')
       .populate('testCategoryId', 'name description unit normalRange');
 
     if (!updatedAssignment) {
-      throw new Error('Service test category not found');
+      throw new Error('Assignment not found');
     }
 
     return updatedAssignment;

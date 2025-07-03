@@ -29,7 +29,7 @@ export class TestResultItemsService {
     const [testResultItems, total] = await Promise.all([
       TestResultItems.find(filter)
         .populate('appointmentId', 'appointmentDate appointmentTime serviceId')
-        .populate('itemNameId', 'name description unit normalRange')
+        .populate('itemNameId', 'name description')
         .skip(skip)
         .limit(limit)
         .sort({ _id: -1 }),
@@ -52,7 +52,7 @@ export class TestResultItemsService {
     }
 
     const testResultItems = await TestResultItems.find({ appointmentId })
-      .populate('itemNameId', 'name description unit normalRange')
+      .populate('itemNameId', 'name description')
       .sort({ _id: 1 });
 
     return testResultItems;
@@ -84,7 +84,7 @@ export class TestResultItemsService {
           }
         ]
       })
-      .populate('itemNameId', 'name description unit normalRange');
+      .populate('itemNameId', 'name description');
     
     if (!testResultItem) {
       throw new Error('Test result item not found');
@@ -147,7 +147,7 @@ export class TestResultItemsService {
       appointmentId: data.appointmentId,
       itemNameId: data.itemNameId,
       value: data.value.trim(),
-      unit: data.unit?.trim() || testCategory.unit,
+      unit: data.unit?.trim(),
       flag: data.flag || 'normal'
     });
 
@@ -161,8 +161,10 @@ export class TestResultItemsService {
     );
 
     // Populate và return
-    return await TestResultItems.findById(savedItem._id)
-      .populate('itemNameId', 'name description unit normalRange') as ITestResultItems;
+    const result = await TestResultItems.findById(savedItem._id)
+      .populate('itemNameId', 'name description');
+    if (!result) throw new Error('Test result item not found');
+    return result;
   }
 
   // Tạo nhiều test result items cùng lúc
@@ -229,7 +231,7 @@ export class TestResultItemsService {
         appointmentId: data.appointmentId,
         itemNameId: item.itemNameId,
         value: item.value.trim(),
-        unit: item.unit?.trim() || testCategory.unit,
+        unit: item.unit?.trim(),
         flag: item.flag || 'normal'
       });
     }
@@ -241,7 +243,7 @@ export class TestResultItemsService {
     return await TestResultItems.find({ 
       _id: { $in: createdItems.map(item => item._id) } 
     })
-    .populate('itemNameId', 'name description unit normalRange');
+    .populate('itemNameId', 'name description');
   }
 
   // Cập nhật test result item
@@ -288,8 +290,10 @@ export class TestResultItemsService {
     const updatedItem = await testResultItem.save();
 
     // Populate và return
-    return await TestResultItems.findById(updatedItem._id)
-      .populate('itemNameId', 'name description unit normalRange') as ITestResultItems;
+    const result = await TestResultItems.findById(updatedItem._id)
+      .populate('itemNameId', 'name description');
+    if (!result) throw new Error('Test result item not found');
+    return result;
   }
 
   // Xóa test result item
@@ -387,7 +391,7 @@ export class TestResultItemsService {
 
     // Lấy test categories cho service
     const serviceTestCategories = await ServiceTestCategories.find({ serviceId })
-      .populate('testCategoryId', 'name description unit normalRange')
+      .populate('testCategoryId', 'name description')
       .sort({ 'testCategoryId.name': 1 });
 
     if (serviceTestCategories.length === 0) {
@@ -402,11 +406,6 @@ export class TestResultItemsService {
         return {
           _id: testCategory._id,
           name: testCategory.name,
-          normalRange: stc.customNormalRange || testCategory.normalRange,
-          unit: stc.customUnit || testCategory.unit,
-          isRequired: stc.isRequired,
-          customNormalRange: stc.customNormalRange,
-          customUnit: stc.customUnit,
           targetValue: stc.targetValue,
           minValue: stc.minValue,
           maxValue: stc.maxValue
