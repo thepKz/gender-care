@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { Request, Response } from "express";
 import { OAuth2Client } from "google-auth-library";
+import mongoose from "mongoose";
 import { ValidationError } from "../errors/validationError";
 import { AuthToken, LoginHistory, OtpCode, User } from "../models";
 import { sendVerificationEmail } from "../services/emails";
@@ -874,5 +875,110 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Lỗi khi refresh token:', error);
     return res.status(500).json({ message: "Đã xảy ra lỗi khi làm mới token" });
+  }
+};
+
+export const sendOtpForNewEmail = async (req: Request, res: Response) => {
+  const { email } = req.body;
+  try {
+    if (!email) {
+      return res.status(400).json({ message: "Email là bắt buộc" });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Email không hợp lệ" });
+    }
+
+    // Kiểm tra email đã được sử dụng chưa
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email này đã được sử dụng bởi tài khoản khác" });
+    }
+
+    // Tạo OTP cho xác thực email mới
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Thời gian hết hạn (15 phút)
+    const expiryDate = new Date();
+    expiryDate.setMinutes(expiryDate.getMinutes() + 15);
+
+    // Tạm thời lưu OTP với email thay vì userId (vì chưa có user cho email mới)
+    // Tạo ObjectId giả từ email hash để tương thích với schema
+    const emailHash = Buffer.from(email).toString('hex').substring(0, 24);
+    const tempUserId = new mongoose.Types.ObjectId(emailHash);
+
+    // Xóa OTP cũ cho email này nếu có
+    await OtpCode.deleteMany({
+      userId: tempUserId,
+      type: "email_verification"
+    });
+
+    // Lưu OTP mới vào database
+    await OtpCode.create({
+      userId: tempUserId,
+      type: "email_verification",
+      otp,
+      expires: expiryDate,
+      verified: false,
+      attempts: 0
+    });
+
+    // Gửi email xác thực (sử dụng tên mặc định)
+    await sendVerificationEmail(email, otp, "Người dùng");
+
+    return res.status(200).json({ 
+      message: "Mã OTP đã được gửi đến email mới của bạn",
+      expires: expiryDate 
+    });
+  } catch (error: any) {
+    console.log(error);
+    return res.status(500).json({ 
+      message: error.message || "Đã xảy ra lỗi khi gửi OTP" 
+    });
+  }
+};
+
+export const verifyNewEmailOtp = async (req: Request, res: Response) => {
+  const { email, otp } = req.body;
+  try {
+    if (!email || !otp) {
+      return res.status(400).json({ message: "Email và OTP là bắt buộc" });
+    }
+
+    // Tạo ObjectId giả từ email hash để tương thích với schema  
+    const emailHash = Buffer.from(email).toString('hex').substring(0, 24);
+    const tempUserId = new mongoose.Types.ObjectId(emailHash);
+
+    // Kiểm tra OTP
+    const otpRecord = await OtpCode.findOne({
+      userId: tempUserId as any,
+      type: "email_verification",
+      otp,
+      expires: { $gt: new Date() },
+      verified: false
+    });
+
+    if (!otpRecord) {
+      return res.status(400).json({ 
+        message: "Mã OTP không hợp lệ hoặc đã hết hạn" 
+      });
+    }
+
+    // Cập nhật OTP thành đã sử dụng
+    otpRecord.verified = true;
+    otpRecord.verifiedAt = new Date();
+    await otpRecord.save();
+
+    return res.status(200).json({ 
+      message: "Xác thực email mới thành công",
+      verified: true
+    });
+  } catch (error: any) {
+    console.log(error);
+    return res.status(500).json({ 
+      message: error.message || "Đã xảy ra lỗi khi xác thực OTP" 
+    });
   }
 };

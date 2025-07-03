@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import * as doctorController from '../controllers/doctorController';
+import * as profileChangeController from '../controllers/profileChangeController';
 import * as doctorScheduleController from '../controllers/doctorScheduleController';
 import { verifyToken, verifyAdmin, verifyStaff } from '../middleware/auth';
 import { roleMiddleware } from '../middleware/roleMiddleware';
@@ -23,8 +24,8 @@ router.get('/', doctorController.getAll);
 
 // ===== STATIC ROUTES FIRST (tránh conflict với /:id) =====
 
-// 🆕 STAFF/MANAGER/ADMIN: Upload doctor image với enhanced validation - Now with hierarchy
-router.post('/upload-image', verifyToken, requireRole('staff'), upload.single('image'), doctorController.uploadDoctorImage);
+// 🆕 DOCTOR/STAFF/MANAGER/ADMIN: Upload doctor image với enhanced validation - Doctor can upload their own images
+router.post('/upload-image', verifyToken, requireRole('doctor'), upload.single('image'), doctorController.uploadDoctorImage);
 
 // 🆕 STAFF/MANAGER/ADMIN: Lấy tất cả bác sĩ với feedback + status details - Now with hierarchy
 router.get('/details/all', verifyToken, requireRole('staff'), doctorController.getAllWithDetails);
@@ -61,7 +62,22 @@ router.put('/:id/status', verifyToken, roleMiddleware(['manager', 'admin']), doc
 // Tạo bác sĩ mới - chỉ admin và manager được phép (không bao gồm staff)
 router.post('/', verifyToken, roleMiddleware(['admin', 'manager']), doctorController.create);
 
-// Cập nhật thông tin bác sĩ - STAFF/MANAGER/ADMIN - Now with hierarchy
+// 🆕 DOCTOR: Update own profile (doctor can only update their own profile)
+router.put('/profile/me', verifyToken, requireRole('doctor'), doctorController.updateMyProfile);
+
+// 🆕 DOCTOR: Get own change requests status
+router.get('/profile/me/change-requests', verifyToken, requireRole('doctor'), profileChangeController.getMyChangeRequests);
+
+// 🆕 MANAGER/ADMIN: Get all pending change requests  
+router.get('/change-requests/pending', verifyToken, requireRole('manager'), profileChangeController.getAllPendingRequests);
+
+// 🆕 MANAGER/ADMIN: Approve change request
+router.put('/change-requests/:requestId/approve', verifyToken, requireRole('manager'), profileChangeController.approveChangeRequest);
+
+// 🆕 MANAGER/ADMIN: Reject change request
+router.put('/change-requests/:requestId/reject', verifyToken, requireRole('manager'), profileChangeController.rejectChangeRequest);
+
+// Cập nhật thông tin bác sĩ - STAFF/MANAGER/ADMIN - Now with hierarchy  
 router.put('/:id', verifyToken, requireRole('staff'), doctorController.update);
 
 // Xóa bác sĩ - chỉ admin và manager được phép (không bao gồm staff - high risk operation)

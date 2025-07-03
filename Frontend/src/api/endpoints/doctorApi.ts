@@ -304,6 +304,35 @@ export const doctorApi = {
     });
     return response.data;
   },
+
+  // 🆕 DOCTOR: Update own profile - Doctor can only update their own profile  
+  updateMyProfile: async (updateData: UpdateDoctorRequest): Promise<Doctor> => {
+    const response = await axiosInstance.put('/doctors/profile/me', updateData);
+    return response.data;
+  },
+
+  // 🆕 DOCTOR: Get own change requests status
+  getMyChangeRequests: async (): Promise<{
+    success: boolean;
+    message: string;
+    data: Array<{
+      _id: string;
+      changeType: 'bio' | 'specialization' | 'education' | 'certificate' | 'image' | 'experiences';
+      currentValue: any;
+      proposedValue: any;
+      status: 'pending' | 'approved' | 'rejected';
+      submittedAt: string;
+      reviewedAt?: string;
+      reviewComments?: string;
+      reviewedBy?: {
+        fullName: string;
+        email: string;
+      };
+    }>;
+  }> => {
+    const response = await axiosInstance.get('/doctors/profile/me/change-requests');
+    return response.data;
+  },
 };
 
 export default doctorApi; 

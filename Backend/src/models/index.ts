@@ -129,3 +129,5 @@ export type {
   IMedicinesData
 };
 
+export { default as ProfileChangeRequest } from './ProfileChangeRequests';
+
