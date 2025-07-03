@@ -740,7 +740,7 @@ const AppointmentManagement: React.FC = () => {
                 style={{ width: 180 }}
                 loading={doctorsLoading}
                 placeholder="Chọn bác sĩ..."
-                dropdownClassName="appointment-doctor-filter-dropdown"
+                popupClassName="appointment-doctor-filter-dropdown"
                 getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
               >
                 <Option value="all">Tất cả bác sĩ</Option>
@@ -757,7 +757,7 @@ const AppointmentManagement: React.FC = () => {
               onChange={setSelectedType}
               style={{ width: 150 }}
               placeholder="Loại dịch vụ"
-              dropdownClassName="appointment-type-filter-dropdown"
+              popupClassName="appointment-type-filter-dropdown"
               getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
             >
               <Option value="all">Tất cả loại</Option>
@@ -780,7 +780,7 @@ const AppointmentManagement: React.FC = () => {
               value={selectedLocation}
               onChange={setSelectedLocation}
               style={{ width: 130 }}
-              dropdownClassName="appointment-location-filter-dropdown"
+              popupClassName="appointment-location-filter-dropdown"
               getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
             >
               <Option value="all">Tất cả địa điểm</Option>
@@ -792,7 +792,7 @@ const AppointmentManagement: React.FC = () => {
               onChange={setSelectedStatus}
               style={{ width: 170 }}
               placeholder="Trạng thái"
-              dropdownClassName="appointment-status-filter-dropdown"
+              popupClassName="appointment-status-filter-dropdown"
               getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
             >
               <Option value="all">Tất cả trạng thái</Option>

@@ -210,7 +210,7 @@
   z-index: 9999 !important;
 }
 
-/* Appointment dropdown overlay styling */
+/* Appointment dropdown overlay styling - Updated for Antd v5 */
 .appointment-status-dropdown,
 .appointment-doctor-dropdown,
 .appointment-service-dropdown,
@@ -220,15 +220,19 @@
 .appointment-location-filter-dropdown,
 .appointment-status-filter-dropdown {
   z-index: 9999 !important;
+  pointer-events: auto !important;
 }
 
-.appointment-status-dropdown .ant-select-dropdown,
-.appointment-doctor-dropdown .ant-select-dropdown,
-.appointment-service-dropdown .ant-select-dropdown,
-.appointment-modal-status-dropdown .ant-select-dropdown,
-.appointment-doctor-filter-dropdown .ant-select-dropdown,
-.appointment-type-filter-dropdown .ant-select-dropdown,
-.appointment-location-filter-dropdown .ant-select-dropdown,
-.appointment-status-filter-dropdown .ant-select-dropdown {
-  z-index: 9999 !important;
+/* Antd v5 uses .ant-select-dropdown directly */
+.appointment-status-dropdown,
+.appointment-doctor-dropdown,
+.appointment-service-dropdown,
+.appointment-modal-status-dropdown,
+.appointment-doctor-filter-dropdown,
+.appointment-type-filter-dropdown,
+.appointment-location-filter-dropdown,
+.appointment-status-filter-dropdown {
+  background: white !important;
+  border-radius: 6px !important;
+  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05) !important;
 } 

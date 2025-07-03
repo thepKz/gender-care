@@ -309,7 +309,7 @@ const Header: React.FC = () => {
                     mouseLeaveDelay={0.3}
                     overlayClassName="profile-dropdown-overlay"
                     getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
-                    dropdownRender={(menu) => (
+                    popupRender={(menu) => (
                       <div className="profile-dropdown-container">
                         <motion.div
                           initial={{ opacity: 0, y: -10 }}

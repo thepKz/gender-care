@@ -10,8 +10,6 @@ import {
   Modal,
   Form,
   Typography,
-  Tooltip,
-  Popconfirm,
   DatePicker,
   TimePicker,
   message
@@ -19,15 +17,13 @@ import {
 import {
   SearchOutlined,
   PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
   EyeOutlined,
   CalendarOutlined,
-  UserOutlined,
-  MedicineBoxOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { appointmentApi } from '../../../api/endpoints';
+import { getServices } from '../../../api/endpoints/serviceApi';
+import { doctorApi } from '../../../api/endpoints';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -59,6 +55,12 @@ const AppointmentManagement: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [form] = Form.useForm();
+  
+  // State cho danh sách dịch vụ và bác sĩ
+  const [services, setServices] = useState<any[]>([]);
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [doctorsLoading, setDoctorsLoading] = useState(false);
 
   const loadData = async () => {
     try {
@@ -73,8 +75,55 @@ const AppointmentManagement: React.FC = () => {
     }
   };
 
+  // Load dịch vụ từ API
+  const loadServices = async () => {
+    try {
+      setServicesLoading(true);
+      const response = await getServices({ limit: 1000 });
+      console.log('🏥 [DEBUG] Services API response:', response);
+      
+      const servicesList = response.services || response.data || [];
+      setServices(servicesList);
+      
+      if (servicesList.length === 0) {
+        console.warn('⚠️ [WARNING] No services found');
+        message.warning('Không có dịch vụ nào trong hệ thống');
+      }
+    } catch (error: any) {
+      console.error('❌ [ERROR] Load services failed:', error);
+      message.error(`Không thể tải danh sách dịch vụ: ${error.message || 'Lỗi kết nối'}`);
+    } finally {
+      setServicesLoading(false);
+    }
+  };
+
+  // Load bác sĩ từ API
+  const loadDoctors = async () => {
+    try {
+      setDoctorsLoading(true);
+      const response = await doctorApi.getAllDoctors();
+      console.log('👨‍⚕️ [DEBUG] Doctors API response:', response);
+      
+      // doctorApi.getAllDoctors() trả về mảng trực tiếp, không có .data
+      const doctorsList = Array.isArray(response) ? response : response.data || [];
+      setDoctors(doctorsList);
+      
+      if (doctorsList.length === 0) {
+        console.warn('⚠️ [WARNING] No doctors found');
+        message.warning('Không có bác sĩ nào trong hệ thống');
+      }
+    } catch (error: any) {
+      console.error('❌ [ERROR] Load doctors failed:', error);
+      message.error(`Không thể tải danh sách bác sĩ: ${error.message || 'Lỗi kết nối'}`);
+    } finally {
+      setDoctorsLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadServices();
+    loadDoctors();
   }, []);
 
   const filteredAppointments = appointments.filter(appointment => {
@@ -310,7 +359,7 @@ const AppointmentManagement: React.FC = () => {
             style={{ width: 150 }}
             value={selectedStatus}
             onChange={setSelectedStatus}
-            dropdownClassName="appointment-status-dropdown"
+            popupClassName="appointment-status-dropdown"
             getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
           >
             <Option value="all">Tất cả trạng thái</Option>
@@ -392,12 +441,26 @@ const AppointmentManagement: React.FC = () => {
           >
             <Select 
               placeholder="Chọn bác sĩ"
-              dropdownClassName="appointment-doctor-dropdown"
+              popupClassName="appointment-doctor-dropdown"
               getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
+              loading={doctorsLoading}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+              }
             >
-              <Option value="Dr. Nguyễn Thị Hương">Dr. Nguyễn Thị Hương</Option>
-              <Option value="Dr. Trần Minh Đức">Dr. Trần Minh Đức</Option>
-              <Option value="Dr. Lê Thị Mai">Dr. Lê Thị Mai</Option>
+              {doctors.length > 0 ? doctors.map(doctor => {
+                const doctorName = doctor.userId?.fullName || doctor.name || `Doctor ${doctor._id}`;
+                return (
+                  <Option key={doctor._id} value={doctorName} label={doctorName}>
+                    {doctorName}
+                  </Option>
+                );
+              }) : [
+                <Option key="fallback-1" value="Dr. Nguyễn Thị Hương" label="Dr. Nguyễn Thị Hương">Dr. Nguyễn Thị Hương</Option>,
+                <Option key="fallback-2" value="Dr. Trần Minh Đức" label="Dr. Trần Minh Đức">Dr. Trần Minh Đức</Option>,
+                <Option key="fallback-3" value="Dr. Lê Thị Mai" label="Dr. Lê Thị Mai">Dr. Lê Thị Mai</Option>
+              ]}
             </Select>
           </Form.Item>
 
@@ -408,12 +471,23 @@ const AppointmentManagement: React.FC = () => {
           >
             <Select 
               placeholder="Chọn dịch vụ"
-              dropdownClassName="appointment-service-dropdown"
+              popupClassName="appointment-service-dropdown"
               getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
+              loading={servicesLoading}
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+              }
             >
-              <Option value="Tư vấn sức khỏe sinh sản">Tư vấn sức khỏe sinh sản</Option>
-              <Option value="Xét nghiệm STI cơ bản">Xét nghiệm STI cơ bản</Option>
-              <Option value="Tư vấn tâm lý tình dục">Tư vấn tâm lý tình dục</Option>
+              {services.length > 0 ? services.map(service => (
+                <Option key={service._id} value={service.serviceName} label={service.serviceName}>
+                  {service.serviceName}
+                </Option>
+              )) : [
+                <Option key="fallback-1" value="Tư vấn sức khỏe sinh sản" label="Tư vấn sức khỏe sinh sản">Tư vấn sức khỏe sinh sản</Option>,
+                <Option key="fallback-2" value="Xét nghiệm STI cơ bản" label="Xét nghiệm STI cơ bản">Xét nghiệm STI cơ bản</Option>,
+                <Option key="fallback-3" value="Tư vấn tâm lý tình dục" label="Tư vấn tâm lý tình dục">Tư vấn tâm lý tình dục</Option>
+              ]}
             </Select>
           </Form.Item>
 
@@ -444,7 +518,7 @@ const AppointmentManagement: React.FC = () => {
           >
             <Select 
               placeholder="Chọn trạng thái"
-              dropdownClassName="appointment-modal-status-dropdown"
+              popupClassName="appointment-modal-status-dropdown"
               getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
             >
               <Option value="pending">Chờ xác nhận</Option>
