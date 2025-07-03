@@ -38,6 +38,39 @@
   z-index: 1000;
 }
 
+/* Antd Select dropdown fixes */
+.ant-select-dropdown {
+  z-index: 9999 !important;
+  pointer-events: auto !important;
+}
+
+.ant-select-item {
+  pointer-events: auto !important;
+  transition: background-color 0.1s ease !important;
+}
+
+.ant-select-item:hover {
+  background-color: rgba(12, 60, 84, 0.05) !important;
+}
+
+.ant-select-item-option-selected {
+  background-color: rgba(12, 60, 84, 0.1) !important;
+}
+
+/* Fix Select trigger hover */
+.ant-select-selector {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.ant-select:hover .ant-select-selector {
+  border-color: #0C3C54 !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  border-color: #0C3C54 !important;
+  box-shadow: 0 0 0 2px rgba(12, 60, 84, 0.2) !important;
+}
+
 /* Fix hover delays and timing */
 .ant-dropdown {
   animation-duration: 0.15s !important;
@@ -174,5 +207,28 @@
 }
 
 .test-dropdown-overlay .ant-dropdown {
+  z-index: 9999 !important;
+}
+
+/* Appointment dropdown overlay styling */
+.appointment-status-dropdown,
+.appointment-doctor-dropdown,
+.appointment-service-dropdown,
+.appointment-modal-status-dropdown,
+.appointment-doctor-filter-dropdown,
+.appointment-type-filter-dropdown,
+.appointment-location-filter-dropdown,
+.appointment-status-filter-dropdown {
+  z-index: 9999 !important;
+}
+
+.appointment-status-dropdown .ant-select-dropdown,
+.appointment-doctor-dropdown .ant-select-dropdown,
+.appointment-service-dropdown .ant-select-dropdown,
+.appointment-modal-status-dropdown .ant-select-dropdown,
+.appointment-doctor-filter-dropdown .ant-select-dropdown,
+.appointment-type-filter-dropdown .ant-select-dropdown,
+.appointment-location-filter-dropdown .ant-select-dropdown,
+.appointment-status-filter-dropdown .ant-select-dropdown {
   z-index: 9999 !important;
 } 

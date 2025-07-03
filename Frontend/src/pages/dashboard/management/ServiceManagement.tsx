@@ -605,6 +605,7 @@ const ServiceManagement: React.FC = () => {
             style={{ width: 150 }}
             value={selectedType}
             onChange={setSelectedType}
+            getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
           >
             <Option value="all">Tất cả loại</Option>
             <Option value="consultation">Tư vấn</Option>
@@ -617,6 +618,7 @@ const ServiceManagement: React.FC = () => {
             style={{ width: 150 }}
             value={selectedLocation}
             onChange={setSelectedLocation}
+            getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
           >
             <Option value="all">Tất cả hình thức</Option>
             <Option value="Online">Trực tuyến</Option>
@@ -629,6 +631,7 @@ const ServiceManagement: React.FC = () => {
             style={{ width: 150 }}
             value={selectedStatus}
             onChange={setSelectedStatus}
+            getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
           >
             <Option value="all">Tất cả trạng thái</Option>
             <Option value="active">Hoạt động</Option>
@@ -641,6 +644,7 @@ const ServiceManagement: React.FC = () => {
             style={{ width: 200 }}
             value={sortOption}
             onChange={setSortOption}
+            getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
           >
             <Option value="default">Mặc định</Option>
             <Option value="name-asc">Tên: A → Z</Option>
@@ -693,7 +697,10 @@ const ServiceManagement: React.FC = () => {
             label="Loại dịch vụ"
             rules={[{ required: true, message: 'Vui lòng chọn loại dịch vụ!' }]}
           >
-            <Select placeholder="Chọn loại dịch vụ">
+            <Select 
+              placeholder="Chọn loại dịch vụ"
+              getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
+            >
               <Option value="consultation">Tư vấn</Option>
               <Option value="test">Xét nghiệm</Option>
               <Option value="treatment">Điều trị</Option>
@@ -731,6 +738,7 @@ const ServiceManagement: React.FC = () => {
               mode="multiple"
               placeholder="Chọn hình thức cung cấp (có thể chọn nhiều)"
               style={{ minHeight: '40px' }}
+              getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
             >
               <Option value="Online">Trực tuyến</Option>
               <Option value="Center">Tại trung tâm</Option>

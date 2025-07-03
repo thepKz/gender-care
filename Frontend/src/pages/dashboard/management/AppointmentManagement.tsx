@@ -310,6 +310,8 @@ const AppointmentManagement: React.FC = () => {
             style={{ width: 150 }}
             value={selectedStatus}
             onChange={setSelectedStatus}
+            dropdownClassName="appointment-status-dropdown"
+            getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
           >
             <Option value="all">Tất cả trạng thái</Option>
             <Option value="pending">Chờ xác nhận</Option>
@@ -388,7 +390,11 @@ const AppointmentManagement: React.FC = () => {
             label="Bác sĩ"
             rules={[{ required: true, message: 'Vui lòng chọn bác sĩ!' }]}
           >
-            <Select placeholder="Chọn bác sĩ">
+            <Select 
+              placeholder="Chọn bác sĩ"
+              dropdownClassName="appointment-doctor-dropdown"
+              getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
+            >
               <Option value="Dr. Nguyễn Thị Hương">Dr. Nguyễn Thị Hương</Option>
               <Option value="Dr. Trần Minh Đức">Dr. Trần Minh Đức</Option>
               <Option value="Dr. Lê Thị Mai">Dr. Lê Thị Mai</Option>
@@ -400,7 +406,11 @@ const AppointmentManagement: React.FC = () => {
             label="Dịch vụ"
             rules={[{ required: true, message: 'Vui lòng chọn dịch vụ!' }]}
           >
-            <Select placeholder="Chọn dịch vụ">
+            <Select 
+              placeholder="Chọn dịch vụ"
+              dropdownClassName="appointment-service-dropdown"
+              getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
+            >
               <Option value="Tư vấn sức khỏe sinh sản">Tư vấn sức khỏe sinh sản</Option>
               <Option value="Xét nghiệm STI cơ bản">Xét nghiệm STI cơ bản</Option>
               <Option value="Tư vấn tâm lý tình dục">Tư vấn tâm lý tình dục</Option>
@@ -432,7 +442,11 @@ const AppointmentManagement: React.FC = () => {
             label="Trạng thái"
             rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
           >
-            <Select placeholder="Chọn trạng thái">
+            <Select 
+              placeholder="Chọn trạng thái"
+              dropdownClassName="appointment-modal-status-dropdown"
+              getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
+            >
               <Option value="pending">Chờ xác nhận</Option>
               <Option value="confirmed">Đã xác nhận</Option>
               <Option value="completed">Hoàn thành</Option>

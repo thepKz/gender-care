@@ -166,6 +166,7 @@ const ServiceModal: React.FC<ServiceModalProps> = ({
           <Select
             placeholder="Chọn loại dịch vụ"
             className="rounded-lg"
+            getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
           >
             <Option value="consultation">
               <span className="flex items-center gap-2">

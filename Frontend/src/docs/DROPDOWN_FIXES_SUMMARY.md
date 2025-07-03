@@ -51,7 +51,28 @@ Tất cả đã được thêm `overlayClassName` và `getPopupContainer`:
 - **`Frontend/src/components/ui/FilterDropdown.tsx`**
   - `overlayClassName="filter-dropdown-overlay"`
 
-### 5. Test Component
+### 5. Service Management Components
+Tất cả Select components đã được thêm `getPopupContainer`:
+- **`Frontend/src/pages/dashboard/management/ServiceManagement.tsx`**
+  - 4 Select filters: Loại dịch vụ, Hình thức, Trạng thái, Sắp xếp
+  - 2 Select trong Modal form: Loại dịch vụ, Hình thức cung cấp
+  
+- **`Frontend/src/components/ui/forms/ServiceModal.tsx`**
+  - Select "Loại dịch vụ"
+  
+- **`Frontend/src/pages/services/PublicServicePackagesPage.tsx`**
+  - Select "Sắp xếp theo"
+
+### 6. Appointment Management Components
+Tất cả Select components đã được thêm `getPopupContainer` và `dropdownClassName`:
+- **`Frontend/src/pages/dashboard/management/AppointmentManagement.tsx`**
+  - 1 Select filter: Trạng thái lịch hẹn
+  - 3 Select trong Modal form: Bác sĩ, Dịch vụ, Trạng thái
+  
+- **`Frontend/src/pages/dashboard/operational/AppointmentManagement.tsx`**
+  - 4 Select filters: Bác sĩ, Loại dịch vụ, Địa điểm, Trạng thái
+
+### 7. Test Component
 - **`Frontend/src/components/ui/DropdownTestComponent.tsx`** (TẠO MỚI)
   - Component để test các dropdown fixes
   - Demo cả Antd và Radix UI dropdowns
@@ -121,11 +142,13 @@ getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
 - ✅ Pointer events hoạt động đúng
 
 ### 📊 Thống kê fixes:
-- **9 files** đã được sửa đổi
+- **14 files** đã được sửa đổi
 - **2 files** được tạo mới
-- **7 dropdown components** được fix
+- **7 dropdown components** được fix (Antd Dropdown + Radix UI)
+- **15 select components** được fix (Antd Select)
 - **2 loại dropdown**: Antd Dropdown + Radix UI DropdownMenu
-- **5 overlay classes** cho z-index management
+- **1 loại select**: Antd Select
+- **13 overlay classes** cho z-index management
 
 ## 🧪 Testing
 Sử dụng `DropdownTestComponent` để kiểm tra:
@@ -138,10 +161,11 @@ import DropdownTestComponent from './components/ui/DropdownTestComponent';
 
 ## 📝 Lưu ý cho Developer
 1. **Antd Dropdown**: Luôn thêm `overlayClassName` và `getPopupContainer`
-2. **Radix UI**: Luôn thêm class `editor-dropdown-content` cho Content
-3. **Hover dropdowns**: Sử dụng class `dropdown-hover-area`
-4. **Z-index**: Tuân theo hierarchy đã định sẵn
-5. **Mobile**: Kiểm tra responsive trên mobile devices
+2. **Antd Select**: Luôn thêm `getPopupContainer` để fix positioning
+3. **Radix UI**: Luôn thêm class `editor-dropdown-content` cho Content
+4. **Hover dropdowns**: Sử dụng class `dropdown-hover-area`
+5. **Z-index**: Tuân theo hierarchy đã định sẵn
+6. **Mobile**: Kiểm tra responsive trên mobile devices
 
 ## 🔄 Maintenance
 - CSS fixes được tập trung trong `dropdown-fixes.css`

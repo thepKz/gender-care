@@ -179,6 +179,7 @@ const PublicServicePackagesPage: React.FC = () => {
                 }}
                 className="rounded-xl"
                 size="large"
+                getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
               >
                 <Option value="createdAt-desc">🕒 Mới nhất</Option>
                 <Option value="createdAt-asc">🕐 Cũ nhất</Option>

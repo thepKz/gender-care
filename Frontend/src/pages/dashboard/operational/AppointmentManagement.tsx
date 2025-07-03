@@ -740,6 +740,8 @@ const AppointmentManagement: React.FC = () => {
                 style={{ width: 180 }}
                 loading={doctorsLoading}
                 placeholder="Chọn bác sĩ..."
+                dropdownClassName="appointment-doctor-filter-dropdown"
+                getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
               >
                 <Option value="all">Tất cả bác sĩ</Option>
                 {doctors.map(doctor => (
@@ -755,6 +757,8 @@ const AppointmentManagement: React.FC = () => {
               onChange={setSelectedType}
               style={{ width: 150 }}
               placeholder="Loại dịch vụ"
+              dropdownClassName="appointment-type-filter-dropdown"
+              getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
             >
               <Option value="all">Tất cả loại</Option>
 
@@ -776,6 +780,8 @@ const AppointmentManagement: React.FC = () => {
               value={selectedLocation}
               onChange={setSelectedLocation}
               style={{ width: 130 }}
+              dropdownClassName="appointment-location-filter-dropdown"
+              getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
             >
               <Option value="all">Tất cả địa điểm</Option>
               <Option value="online">Trực tuyến</Option>
@@ -786,6 +792,8 @@ const AppointmentManagement: React.FC = () => {
               onChange={setSelectedStatus}
               style={{ width: 170 }}
               placeholder="Trạng thái"
+              dropdownClassName="appointment-status-filter-dropdown"
+              getPopupContainer={(triggerNode) => triggerNode.parentElement || document.body}
             >
               <Option value="all">Tất cả trạng thái</Option>
               <Option value="pending_payment">Chờ thanh toán</Option>
