@@ -1183,6 +1183,7 @@ const BookingPageNew: React.FC = () => {
                       placeholder="Chọn dịch vụ cần khám"
                       style={{ fontSize: '14px' }}
                       size="large"
+                      getPopupContainer={triggerNode => document.body}
                     >
                       {services.filter(service => service.id).map(service => (
                         <Option key={service.id} value={service.id}>
@@ -1208,6 +1209,7 @@ const BookingPageNew: React.FC = () => {
                         style={{ fontSize: '14px' }}
                         disabled={!selectedService}
                         size="large"
+                        getPopupContainer={triggerNode => document.body}
                       >
                         {availableLocations.filter(location => location).map(location => (
                           <Option key={location} value={location}>
@@ -1873,6 +1875,7 @@ const BookingPageNew: React.FC = () => {
                       </div>
                     </div>
                   )}
+                  getPopupContainer={triggerNode => document.body}
                 >
                         {userProfiles.filter(profile => profile.id || (profile as any)._id).map((profile, index) => {
                           const profileKey = profile.id || (profile as any)._id || `profile-${index}`;
@@ -1910,6 +1913,7 @@ const BookingPageNew: React.FC = () => {
                           style={{ fontSize: '14px' }}
                           size="large"
                           disabled={doctors.length === 0}
+                          getPopupContainer={triggerNode => document.body}
                         >
                           {doctors.filter(d => d.isAvailable && d.doctorId).map((doctor, index) => (
                             <Option key={doctor.doctorId} value={doctor.doctorId}>
@@ -2268,6 +2272,7 @@ const BookingPageNew: React.FC = () => {
               <Select 
                 placeholder="Chọn giới tính"
                 style={{ fontSize: '14px' }}
+                getPopupContainer={triggerNode => document.body}
               >
                 <Option value="male">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2293,6 +2298,7 @@ const BookingPageNew: React.FC = () => {
               <Select 
                 placeholder="Chọn mối quan hệ với bạn"
                 style={{ fontSize: '14px' }}
+                getPopupContainer={triggerNode => document.body}
               >
                 <Option value="self">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

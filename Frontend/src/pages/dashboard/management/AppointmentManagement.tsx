@@ -82,7 +82,7 @@ const AppointmentManagement: React.FC = () => {
       const response = await getServices({ limit: 1000 });
       console.log('🏥 [DEBUG] Services API response:', response);
       
-      const servicesList = response.services || response.data || [];
+      const servicesList = response.data?.services || [];
       setServices(servicesList);
       
       if (servicesList.length === 0) {
@@ -104,8 +104,7 @@ const AppointmentManagement: React.FC = () => {
       const response = await doctorApi.getAllDoctors();
       console.log('👨‍⚕️ [DEBUG] Doctors API response:', response);
       
-      // doctorApi.getAllDoctors() trả về mảng trực tiếp, không có .data
-      const doctorsList = Array.isArray(response) ? response : response.data || [];
+      const doctorsList = Array.isArray(response) ? response : [];
       setDoctors(doctorsList);
       
       if (doctorsList.length === 0) {

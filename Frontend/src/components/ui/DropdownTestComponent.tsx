@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dropdown, Button } from 'antd';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { MoreOutlined, Settings, User, LogOut } from 'lucide-react';
+import { MoreHorizontal, Settings, User, LogOut } from 'lucide-react';
 
 const DropdownTestComponent: React.FC = () => {
   // Test data cho Antd dropdown
@@ -43,7 +43,7 @@ const DropdownTestComponent: React.FC = () => {
           className="dropdown-hover-area"
           overlayClassName="test-dropdown-overlay"
         >
-          <Button icon={<MoreOutlined />}>
+          <Button icon={<MoreHorizontal />}>
             Hover để xem dropdown
           </Button>
         </Dropdown>
@@ -57,7 +57,7 @@ const DropdownTestComponent: React.FC = () => {
           placement="bottomLeft"
           trigger={['click']}
         >
-          <Button icon={<MoreOutlined />}>
+          <Button icon={<MoreHorizontal />}>
             Click để xem dropdown
           </Button>
         </Dropdown>

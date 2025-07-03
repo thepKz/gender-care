@@ -2257,7 +2257,7 @@ const Booking: React.FC = () => {
               label="Giới tính"
               rules={[{ required: true, message: 'Vui lòng chọn giới tính' }]}
             >
-              <Select placeholder="Chọn giới tính">
+              <Select placeholder="Chọn giới tính" getPopupContainer={triggerNode => document.body}>
                 <Select.Option value="male">Nam</Select.Option>
                 <Select.Option value="female">Nữ</Select.Option>
               </Select>

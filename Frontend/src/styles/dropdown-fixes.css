@@ -21,8 +21,13 @@
 }
 
 /* Antd Dropdown global fixes */
-.ant-dropdown {
-  z-index: 9999 !important;
+.ant-dropdown,
+.ant-select-dropdown,
+.ant-picker-dropdown,
+.ant-modal,
+.ant-popover,
+.ant-tooltip {
+  z-index: 3000 !important;
 }
 
 .ant-dropdown-menu {
@@ -235,4 +240,6 @@
   background: white !important;
   border-radius: 6px !important;
   box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05) !important;
-} 
+}
+
+/* Nếu có custom class cho dropdown, thêm vào đây */ 

@@ -361,7 +361,7 @@ const DoctorProfileManagement: React.FC = () => {
         duration: 5
       });
       
-      console.log('✅ Profile change requests submitted:', response.data);
+      console.log('✅ Profile change requests submitted:', response);
       
       // Exit edit mode and refresh data
       setEditing(false);
