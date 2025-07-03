@@ -65,6 +65,35 @@ const getPerformanceLevel = (value: number) => {
   return 'critical';
 };
 
+/**
+ * Safe division helper to prevent division by zero errors
+ * @param numerator - The dividend
+ * @param denominator - The divisor
+ * @param fallback - The value to return if division is not safe (default: 0)
+ * @returns The result of division or fallback value
+ */
+const safeDivision = (numerator: number | null | undefined, denominator: number | null | undefined, fallback: number = 0): number => {
+  if (denominator === null || denominator === undefined || denominator === 0 || !isFinite(denominator)) {
+    return fallback;
+  }
+  if (numerator === null || numerator === undefined || !isFinite(numerator)) {
+    return fallback;
+  }
+  const result = numerator / denominator;
+  return isFinite(result) ? result : fallback;
+};
+
+/**
+ * Format percentage value safely, handling NaN and Infinity
+ * @param value - The percentage value
+ * @returns Formatted percentage string or "N/A" for invalid values
+ */
+const formatSafePercentage = (value: number): string => {
+  if (!isFinite(value)) {
+    return "N/A";
+  }
+  return `${value.toFixed(1)}%`;
+};
 
 const ReportsPage: React.FC = () => {
   // State for overview charts
@@ -202,42 +231,71 @@ const ReportsPage: React.FC = () => {
     value: typeof count === 'number' ? count : 0 
   })) : [];
 
-  // Calculate additional metrics for enhanced analytics
-  const totalRevenue = revenueData.reduce((sum, item) => sum + item.total, 0);
-  const totalAppointments = appointments7d.reduce((sum, item) => sum + item.count, 0);
-  const avgRevenuePerMonth = totalRevenue / 12;
-  const avgAppointmentsPerDay = totalAppointments / 7;
+  // Calculate additional metrics for enhanced analytics with safe division
+  const totalRevenue = revenueData.reduce((sum, item) => sum + (item.total || 0), 0);
+  const totalAppointments = appointments7d.reduce((sum, item) => sum + (item.count || 0), 0);
+  const avgRevenuePerMonth = revenueData.length > 0 ? safeDivision(totalRevenue, 12) : 0;
+  const avgAppointmentsPerDay = appointments7d.length > 0 ? safeDivision(totalAppointments, 7) : 0;
   
-  // Calculate growth trends
+  // Calculate growth trends with safe division
   const revenueGrowth = revenueData.length >= 2 ? 
-    ((revenueData[revenueData.length - 1]?.total - revenueData[revenueData.length - 2]?.total) / revenueData[revenueData.length - 2]?.total * 100) : 0;
+    safeDivision(
+      (revenueData[revenueData.length - 1]?.total || 0) - (revenueData[revenueData.length - 2]?.total || 0),
+      revenueData[revenueData.length - 2]?.total || 0
+    ) * 100 : 0;
   
   const appointmentGrowth = appointments7d.length >= 2 ?
-    ((appointments7d[appointments7d.length - 1]?.count - appointments7d[appointments7d.length - 2]?.count) / appointments7d[appointments7d.length - 2]?.count * 100) : 0;
+    safeDivision(
+      (appointments7d[appointments7d.length - 1]?.count || 0) - (appointments7d[appointments7d.length - 2]?.count || 0),
+      appointments7d[appointments7d.length - 2]?.count || 0
+    ) * 100 : 0;
 
   // Map data for charts from analyticsData
   const systemStats = analyticsData?.systemStats || {};
 
-  // Prepare enhanced data for advanced charts
+  // Prepare enhanced data for advanced charts with safe division
   const revenueWithGrowth = revenueData.map((item, index) => ({
     ...item,
-    growth: index > 0 ? ((item.total - revenueData[index - 1].total) / revenueData[index - 1].total * 100) : 0,
-    cumulative: revenueData.slice(0, index + 1).reduce((sum, r) => sum + r.total, 0)
+    growth: index > 0 ? 
+      safeDivision(
+        (item.total || 0) - (revenueData[index - 1]?.total || 0),
+        revenueData[index - 1]?.total || 0
+      ) * 100 : 0,
+    cumulative: revenueData.slice(0, index + 1).reduce((sum, r) => sum + (r.total || 0), 0)
+  }));
+
+  // Prepare satisfaction data with proper analytics instead of random data
+  const satisfactionData = appointments7d.map((item, index) => ({
+    ...item,
+    // Use analytics data if available, fallback to realistic static values
+    satisfactionRate: analyticsData?.patientSatisfaction?.[index]?.satisfaction || (85 + (index % 3) * 2),
+    averageRating: analyticsData?.patientSatisfaction?.[index]?.rating || (4.2 + (index % 3) * 0.2)
   }));
 
   const appointmentTrends = appointments7d.map((item, index) => ({
     ...item,
     moving_avg: index >= 2 ? 
-      appointments7d.slice(Math.max(0, index - 2), index + 1).reduce((sum, a) => sum + a.count, 0) / 3 : item.count,
-    trend: index > 0 ? (item.count > appointments7d[index - 1].count ? 'up' : 'down') : 'stable'
+      safeDivision(
+        appointments7d.slice(Math.max(0, index - 2), index + 1).reduce((sum, a) => sum + (a.count || 0), 0),
+        3,
+        item.count || 0
+      ) : (item.count || 0),
+    trend: index > 0 ? ((item.count || 0) > (appointments7d[index - 1]?.count || 0) ? 'up' : 'down') : 'stable'
   }));
 
-  // Performance metrics
+  // Performance metrics with safe division
+  const totalStatusCount = statusCounts.reduce((sum, s) => sum + (s.value || 0), 0);
   const completionRate = statusCounts.length > 0 ? 
-    ((statusCounts.find(s => s.name === 'completed')?.value || 0) / statusCounts.reduce((sum, s) => sum + s.value, 0) * 100) : 0;
+    safeDivision(
+      statusCounts.find(s => s.name === 'completed')?.value || 0,
+      totalStatusCount
+    ) * 100 : 0;
 
   const cancellationRate = statusCounts.length > 0 ?
-    ((statusCounts.find(s => s.name === 'cancelled')?.value || 0) / statusCounts.reduce((sum, s) => sum + s.value, 0) * 100) : 0;
+    safeDivision(
+      statusCounts.find(s => s.name === 'cancelled')?.value || 0,
+      totalStatusCount
+    ) * 100 : 0;
 
   return (
     <div className="analytics-dashboard">
@@ -268,7 +326,7 @@ const ReportsPage: React.FC = () => {
                 <FallOutlined style={{ color: '#cf1322' }} />
               )}
               <Text type="secondary">
-                {revenueGrowth.toFixed(1)}% so với tháng trước
+                {formatSafePercentage(revenueGrowth)} so với tháng trước
               </Text>
             </div>
           </Card>
@@ -290,7 +348,7 @@ const ReportsPage: React.FC = () => {
                   <FallOutlined style={{ color: '#cf1322' }} />
                 )}
                 <Text type="secondary">
-                  {appointmentGrowth.toFixed(1)}% so với ngày trước
+                  {formatSafePercentage(appointmentGrowth)} so với ngày trước
                 </Text>
               </div>
            </Card>
@@ -323,7 +381,7 @@ const ReportsPage: React.FC = () => {
                suffix="cuộc hẹn"
              />
              <div className="kpi-trend">
-               <Text type="secondary">Hủy: {cancellationRate.toFixed(1)}%</Text>
+               <Text type="secondary">Hủy: {formatSafePercentage(cancellationRate)}</Text>
              </div>
            </Card>
          </Col>
@@ -372,9 +430,9 @@ const ReportsPage: React.FC = () => {
                  <Text strong>Tỷ lệ hoàn thành</Text>
                  <Progress 
                    className="enhanced-progress"
-                   percent={completionRate} 
+                   percent={isFinite(completionRate) ? completionRate : 0} 
                    strokeColor={{ '0%': '#108ee9', '100%': '#87d068' }}
-                   format={() => `${completionRate.toFixed(1)}%`}
+                   format={() => formatSafePercentage(completionRate)}
                  />
                </div>
                
@@ -382,9 +440,9 @@ const ReportsPage: React.FC = () => {
                  <Text strong>Tỷ lệ hủy bỏ</Text>
                  <Progress 
                    className="enhanced-progress"
-                   percent={cancellationRate} 
+                   percent={isFinite(cancellationRate) ? cancellationRate : 0} 
                    strokeColor="#ff4d4f"
-                   format={() => `${cancellationRate.toFixed(1)}%`}
+                   format={() => formatSafePercentage(cancellationRate)}
                  />
                </div>
                
@@ -392,9 +450,9 @@ const ReportsPage: React.FC = () => {
                  <Text strong>Hiệu suất tổng thể</Text>
                  <Progress 
                    className="enhanced-progress"
-                   percent={100 - cancellationRate} 
+                   percent={isFinite(100 - cancellationRate) ? (100 - cancellationRate) : 0} 
                    strokeColor="#722ed1"
-                   format={() => `${(100 - cancellationRate).toFixed(1)}%`}
+                   format={() => formatSafePercentage(100 - cancellationRate)}
                  />
                </div>
                
@@ -403,11 +461,11 @@ const ReportsPage: React.FC = () => {
                <div className="performance-stats">
                  <div className="stat-row">
                    <span className="stat-label">Doanh thu TB/tháng:</span>
-                   <span className="stat-value">{avgRevenuePerMonth.toLocaleString('vi-VN')} VND</span>
+                   <span className="stat-value">{isFinite(avgRevenuePerMonth) ? avgRevenuePerMonth.toLocaleString('vi-VN') : '0'} VND</span>
                  </div>
                  <div className="stat-row">
                    <span className="stat-label">Lịch hẹn TB/ngày:</span>
-                   <span className="stat-value">{avgAppointmentsPerDay.toFixed(1)}</span>
+                   <span className="stat-value">{isFinite(avgAppointmentsPerDay) ? avgAppointmentsPerDay.toFixed(1) : '0.0'}</span>
                  </div>
                  <div className="stat-row">
                    <span className="stat-label">Tổng người dùng:</span>
@@ -702,7 +760,7 @@ const ReportsPage: React.FC = () => {
                 <Text strong>Thời gian chờ trung bình</Text>
                 <Progress 
                   className="enhanced-progress"
-                  percent={(30 - systemStats.averageWaitTime || 15) / 30 * 100}
+                  percent={Math.max(0, Math.min(100, safeDivision((30 - (systemStats.averageWaitTime || 15)), 30) * 100))}
                   strokeColor="#52c41a"
                   size="small"
                 />
@@ -718,7 +776,7 @@ const ReportsPage: React.FC = () => {
                 </div>
                 <div className="stat-row">
                   <span className="stat-label">Doanh thu/Bệnh nhân:</span>
-                  <span className="stat-value">{formatCurrency(systemStats.revenuePerPatient || (totalRevenue / totalAppointments || 0))}</span>
+                  <span className="stat-value">{formatCurrency(systemStats.revenuePerPatient || safeDivision(totalRevenue, totalAppointments))}</span>
                 </div>
                 <div className="stat-row">
                   <span className="stat-label">Tỷ lệ hoàn thành:</span>
@@ -762,7 +820,7 @@ const ReportsPage: React.FC = () => {
                       fill="url(#revenueHeatmap)" name="Doanh thu" />
                 <Area type="monotone" dataKey={(item: any) => item.total * 1.2} stroke="#52c41a" 
                       fill="url(#targetGradient)" name="Mục tiêu" strokeDasharray="5 5" />
-                <ReferenceLine y={totalRevenue / revenueData.length} stroke="#ff4d4f" strokeDasharray="8 4" 
+                <ReferenceLine y={safeDivision(totalRevenue, revenueData.length)} stroke="#ff4d4f" strokeDasharray="8 4" 
                                label="Trung bình" />
               </AreaChart>
             </ResponsiveContainer>
@@ -773,7 +831,7 @@ const ReportsPage: React.FC = () => {
         <Col xs={24} lg={12}>
           <Card className="chart-card fade-in-up" title="😊 Xu Hướng Hài Lòng Bệnh Nhân" extra={<Text type="secondary">Theo tuần</Text>}>
             <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={appointments7d} margin={CHART_CONFIG.margin}>
+              <ComposedChart data={satisfactionData} margin={CHART_CONFIG.margin}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" fontSize={CHART_CONFIG.fontSize} />
                 <YAxis yAxisId="left" orientation="left" fontSize={CHART_CONFIG.fontSize} />
@@ -781,14 +839,15 @@ const ReportsPage: React.FC = () => {
                 <Tooltip 
                   formatter={(value: any, name: string) => {
                     if (name === 'Hài lòng') return [`${Number(value).toFixed(1)}%`, name];
+                    if (name === 'Đánh giá TB') return [`${Number(value).toFixed(1)}/5`, name];
                     return [`${value} cuộc hẹn`, name];
                   }}
                 />
                 <Legend />
                 <Bar yAxisId="left" dataKey="count" fill="#e6f7ff" stroke="#1890ff" name="Số lịch hẹn" />
-                <Line yAxisId="right" type="monotone" dataKey={(item: any) => 85 + Math.random() * 10} 
+                <Line yAxisId="right" type="monotone" dataKey="satisfactionRate" 
                       stroke="#52c41a" strokeWidth={3} name="Hài lòng (%)" />
-                <Line yAxisId="right" type="monotone" dataKey={(item: any) => 75 + Math.random() * 15} 
+                <Line yAxisId="right" type="monotone" dataKey={(item: any) => (item.averageRating / 5) * 100} 
                       stroke="#fa8c16" strokeWidth={2} name="Đánh giá TB" strokeDasharray="3 3" />
               </ComposedChart>
             </ResponsiveContainer>
@@ -855,11 +914,11 @@ const ReportsPage: React.FC = () => {
                 <Text strong>Công suất phòng khám</Text>
                 <Progress 
                   className="enhanced-progress"
-                  percent={82}
+                  percent={analyticsData?.resourceUtilization?.clinicCapacity || 82}
                   strokeColor="#1890ff"
                   size="small"
                 />
-                <Text type="secondary">82% (Tốt)</Text>
+                <Text type="secondary">{analyticsData?.resourceUtilization?.clinicCapacity || 82}% (Tốt)</Text>
               </div>
 
               <Divider />
@@ -868,7 +927,7 @@ const ReportsPage: React.FC = () => {
                 <Text strong>Hiệu quả đặt lịch</Text>
                 <Progress 
                   className="enhanced-progress"
-                  percent={76}
+                  percent={analyticsData?.resourceUtilization?.bookingEfficiency || 76}
                   strokeColor={{
                     '0%': '#ff4d4f',
                     '50%': '#faad14',
@@ -876,7 +935,7 @@ const ReportsPage: React.FC = () => {
                   }}
                   size="small"
                 />
-                <Text type="secondary">76% (Trung bình)</Text>
+                <Text type="secondary">{analyticsData?.resourceUtilization?.bookingEfficiency || 76}% (Trung bình)</Text>
               </div>
 
               <Divider />
@@ -885,11 +944,11 @@ const ReportsPage: React.FC = () => {
                 <Text strong>Tỷ lệ tái khám</Text>
                 <Progress 
                   className="enhanced-progress"
-                  percent={68}
+                  percent={analyticsData?.resourceUtilization?.returnRate || 68}
                   strokeColor="#722ed1"
                   size="small"
                 />
-                <Text type="secondary">68% (Cải thiện được)</Text>
+                <Text type="secondary">{analyticsData?.resourceUtilization?.returnRate || 68}% (Cải thiện được)</Text>
               </div>
 
               <Divider />
@@ -897,19 +956,19 @@ const ReportsPage: React.FC = () => {
               <div className="performance-stats">
                 <div className="stat-row">
                   <span className="stat-label">Chi phí/Lịch hẹn:</span>
-                  <span className="stat-value">{formatCurrency(125000)}</span>
+                  <span className="stat-value">{formatCurrency(analyticsData?.costs?.averageCostPerAppointment || 125000)}</span>
                 </div>
                 <div className="stat-row">
                   <span className="stat-label">ROI Marketing:</span>
-                  <span className="stat-value">285%</span>
+                  <span className="stat-value">{analyticsData?.marketing?.roi || 285}%</span>
                 </div>
                 <div className="stat-row">
                   <span className="stat-label">Thời gian TB/Bệnh nhân:</span>
-                  <span className="stat-value">45 phút</span>
+                  <span className="stat-value">{analyticsData?.performance?.averageTimePerPatient || 45} phút</span>
                 </div>
                 <div className="stat-row">
                   <span className="stat-label">Tỷ lệ no-show:</span>
-                  <span className="stat-value">8.5%</span>
+                  <span className="stat-value">{analyticsData?.performance?.noShowRate || 8.5}%</span>
                 </div>
               </div>
             </div>
