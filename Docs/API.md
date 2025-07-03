@@ -1,28 +1,34 @@
-# API Documentation - Gender Healthcare Service Management
+# API Documentation - Gender Healthcare Service Management System
 
-## Tổng quan
-Hệ thống Gender Healthcare Service Management cung cấp API RESTful cho quản lý dịch vụ chăm sóc sức khỏe giới tính.
+## 📋 Tổng quan
+Hệ thống Gender Healthcare Service Management cung cấp API RESTful toàn diện cho quản lý dịch vụ chăm sóc sức khỏe giới tính.
 
-**Base URL**: `http://localhost:5000/api`
+**Base URL**: `http://localhost:5000/api`  
+**Version**: v1.0  
+**Content-Type**: `application/json`
 
-## Phân quyền (Role Hierarchy)
+---
+
+## 🔐 Phân quyền (Role Hierarchy)
 
 ### Cấu trúc phân quyền
 ```
-admin (level 100)     → Tất cả quyền
+admin (level 100)     → Tất cả quyền hệ thống
   ↓
-manager (level 80)    → Quyền staff + manager
+manager (level 80)    → Quyền staff + quản lý cấp cao
   ↓  
-staff (level 60)      → Quyền cơ bản nhân viên
-doctor (level 60)     → Quyền bác sĩ (song song staff)
+staff (level 60)      → Quyền cơ bản nhân viên y tế
+doctor (level 60)     → Quyền bác sĩ/tư vấn viên (song song staff)
   ↓
-customer (level 20)   → Quyền khách hàng
+customer (level 20)   → Quyền người dùng đã đăng ký
+  ↓
+guest (level 0)       → Khách truy cập (chưa đăng ký)
 ```
 
 ### Ký hiệu phân quyền
 - 🔓 **Public**: Không cần authentication
 - 🔐 **Auth**: Cần authentication
-- 👤 **Customer+**: Customer trở lên
+- 👤 **Customer+**: Customer trở lên  
 - 👨‍⚕️ **Doctor+**: Doctor trở lên
 - 👩‍💼 **Staff+**: Staff, Manager, Admin
 - 👨‍💼 **Manager+**: Manager, Admin
@@ -30,14 +36,14 @@ customer (level 20)   → Quyền khách hàng
 
 ---
 
-## 1. Authentication & Authorization
+## 1. 🔑 Authentication & Authorization
 
 ### `/api/auth` - Authentication Endpoints
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `POST` | `/register` | 🔓 | Đăng ký người dùng mới |
-| `POST` | `/verify-email` | 🔓 | Xác thực email |
+| `POST` | `/verify-email` | 🔓 | Xác thực email sau đăng ký |
 | `POST` | `/verify-otp` | 🔓 | Xác thực OTP |
 | `POST` | `/new-verify` | 🔓 | Gửi lại email xác thực |
 | `POST` | `/login` | 🔓 | Đăng nhập thường |
@@ -50,7 +56,7 @@ customer (level 20)   → Quyền khách hàng
 | `POST` | `/forgot-password` | 🔓 | Quên mật khẩu |
 | `POST` | `/reset-password` | 🔓 | Đặt lại mật khẩu |
 
-### Sample Request/Response
+### 🔍 Sample Request/Response
 
 ```javascript
 // POST /api/auth/login
@@ -76,7 +82,7 @@ customer (level 20)   → Quyền khách hàng
 
 ---
 
-## 2. User Management
+## 2. 👥 User Management
 
 ### `/api/users` - User Management
 
@@ -105,7 +111,7 @@ customer (level 20)   → Quyền khách hàng
 
 ---
 
-## 3. Doctor Management
+## 3. 👨‍⚕️ Doctor Management
 
 ### `/api/doctors` - Doctor Management
 
@@ -148,15 +154,9 @@ customer (level 20)   → Quyền khách hàng
 | `PUT` | `/:id/schedules` | 👩‍💼 | Cập nhật booking status |
 | `DELETE` | `/:id/schedules/:scheduleId` | 👨‍💼 | Xóa lịch bác sĩ |
 
-#### Statistics
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/statistics/all` | 👩‍💼 | Thống kê tất cả bác sĩ |
-| `GET` | `/:id/statistics` | 👩‍💼 | Thống kê bác sĩ |
-
 ---
 
-## 4. Service Management
+## 4. 🏥 Service Management
 
 ### `/api/services` - Services
 
@@ -188,7 +188,7 @@ customer (level 20)   → Quyền khách hàng
 
 ---
 
-## 5. Appointment Management
+## 5. 📅 Appointment Management
 
 ### `/api/appointments` - Appointments
 
@@ -199,266 +199,410 @@ customer (level 20)   → Quyền khách hàng
 | `GET` | `/:id` | 👤 | Chi tiết cuộc hẹn |
 | `POST` | `/` | 👤 | Đặt lịch hẹn |
 | `PUT` | `/:id` | 👩‍💼 | Cập nhật cuộc hẹn |
-| `PUT` | `/:id/status` | 👩‍💼 | Cập nhật trạng thái |
-| `DELETE` | `/:id` | 👨‍💼 | Hủy cuộc hẹn |
+| `DELETE` | `/:id` | 👩‍💼 | Hủy cuộc hẹn |
+| `POST` | `/:id/confirm` | 👩‍💼 | Xác nhận cuộc hẹn |
+| `POST` | `/:id/complete` | 👩‍💼 | Hoàn thành cuộc hẹn |
+| `POST` | `/:id/cancel` | 👤 | Hủy cuộc hẹn (customer) |
 
 ---
 
-## 6. Medical Management
+## 6. 💳 Payment Management
 
-### `/api/medical-records` - Medical Records
+### `/api/payments` - Payment Processing
 
+#### Appointment Payments
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/` | 👩‍💼 | Danh sách hồ sơ y tế |
-| `GET` | `/patient/:patientId` | 👨‍⚕️ | Hồ sơ của bệnh nhân |
-| `GET` | `/:id` | 👨‍⚕️ | Chi tiết hồ sơ |
-| `POST` | `/` | 👨‍⚕️ | Tạo hồ sơ y tế |
-| `PUT` | `/:id` | 👨‍⚕️ | Cập nhật hồ sơ |
-| `DELETE` | `/:id` | 👨‍💼 | Xóa hồ sơ |
+| `POST` | `/appointments/:appointmentId/create` | 🔐 | Tạo link thanh toán appointment |
+| `GET` | `/appointments/:appointmentId/status` | 🔐 | Kiểm tra trạng thái thanh toán |
+| `POST` | `/appointments/:appointmentId/cancel` | 🔐 | Hủy thanh toán appointment |
+| `POST` | `/appointments/:appointmentId/fast-confirm` | 🔐 | Xác nhận nhanh thanh toán |
+| `POST` | `/appointments/:appointmentId/force-check` | 🔐 | Force check và assign doctor |
 
-### `/api/medicines` - Medicines
-
+#### Consultation Payments
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/` | 👨‍⚕️ | Danh sách thuốc |
-| `GET` | `/:id` | 👨‍⚕️ | Chi tiết thuốc |
-| `POST` | `/` | 👨‍💼 | Thêm thuốc mới |
-| `PUT` | `/:id` | 👨‍💼 | Cập nhật thuốc |
-| `DELETE` | `/:id` | 👨‍💼 | Xóa thuốc |
+| `POST` | `/consultations/:doctorQAId/create` | 🔐 | Tạo link thanh toán consultation |
+| `GET` | `/consultations/:doctorQAId/status` | 🔐 | Kiểm tra trạng thái thanh toán |
+| `POST` | `/consultations/:doctorQAId/cancel` | 🔐 | Hủy thanh toán consultation |
+| `POST` | `/consultations/:qaId/fast-confirm` | 🔐 | Xác nhận nhanh thanh toán |
 
-### `/api/medication-reminders` - Medication Reminders
-
+#### Webhook & System
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/` | 👨‍⚕️ | Danh sách nhắc nhở |
-| `GET` | `/patient/:patientId` | 👨‍⚕️ | Nhắc nhở của bệnh nhân |
-| `GET` | `/:id` | 👨‍⚕️ | Chi tiết nhắc nhở |
-| `POST` | `/` | 👨‍⚕️ | Tạo nhắc nhở |
-| `PUT` | `/:id` | 👨‍⚕️ | Cập nhật nhắc nhở |
-| `DELETE` | `/:id` | 👨‍⚕️ | Xóa nhắc nhở |
+| `POST` | `/webhook` | 🔓 | PayOS webhook (no auth) |
 
 ---
 
-## 7. Test Management
-
-### `/api/test-categories` - Test Categories
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/` | 🔓 | Danh sách loại xét nghiệm |
-| `GET` | `/:id` | 🔓 | Chi tiết loại xét nghiệm |
-| `POST` | `/` | 👨‍💼 | Tạo loại xét nghiệm |
-| `PUT` | `/:id` | 👨‍💼 | Cập nhật loại xét nghiệm |
-| `DELETE` | `/:id` | 👨‍💼 | Xóa loại xét nghiệm |
-
-### `/api/appointment-tests` - Appointment Tests
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/` | 👩‍💼 | Danh sách xét nghiệm |
-| `GET` | `/appointment/:appointmentId` | 👨‍⚕️ | Xét nghiệm của cuộc hẹn |
-| `GET` | `/:id` | 👨‍⚕️ | Chi tiết xét nghiệm |
-| `POST` | `/` | 👨‍⚕️ | Tạo xét nghiệm |
-| `PUT` | `/:id` | 👨‍⚕️ | Cập nhật xét nghiệm |
-| `DELETE` | `/:id` | 👨‍💼 | Xóa xét nghiệm |
+## 7. 🧪 Test Results Management
 
 ### `/api/test-results` - Test Results
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `GET` | `/` | 👩‍💼 | Danh sách kết quả xét nghiệm |
-| `GET` | `/test/:testId` | 👨‍⚕️ | Kết quả của xét nghiệm |
-| `GET` | `/:id` | 👨‍⚕️ | Chi tiết kết quả |
-| `POST` | `/` | 👨‍⚕️ | Tạo kết quả |
-| `PUT` | `/:id` | 👨‍⚕️ | Cập nhật kết quả |
-| `DELETE` | `/:id` | 👨‍💼 | Xóa kết quả |
+| `GET` | `/my-results` | 👤 | Kết quả xét nghiệm của tôi |
+| `GET` | `/:id` | 👤 | Chi tiết kết quả xét nghiệm |
+| `POST` | `/` | 👩‍💼 | Tạo kết quả xét nghiệm |
+| `PUT` | `/:id` | 👩‍💼 | Cập nhật kết quả |
+| `DELETE` | `/:id` | 👩‍💼 | Xóa kết quả xét nghiệm |
 
 ### `/api/test-result-items` - Test Result Items
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/` | 👩‍💼 | Danh sách chi tiết kết quả |
-| `GET` | `/result/:resultId` | 👨‍⚕️ | Chi tiết của kết quả |
-| `GET` | `/:id` | 👨‍⚕️ | Chi tiết item |
-| `POST` | `/` | 👨‍⚕️ | Tạo chi tiết kết quả |
-| `PUT` | `/:id` | 👨‍⚕️ | Cập nhật chi tiết |
-| `DELETE` | `/:id` | 👨‍💼 | Xóa chi tiết |
+| `GET` | `/` | 👩‍💼 | Danh sách chi tiết items |
+| `GET` | `/:id` | 👩‍💼 | Chi tiết item |
+| `POST` | `/` | 👩‍💼 | Tạo test result item |
+| `PUT` | `/:id` | 👩‍💼 | Cập nhật item |
+| `DELETE` | `/:id` | 👩‍💼 | Xóa item |
 
----
-
-## 8. Communication
-
-### `/api/doctor-qa` - Doctor Q&A
+### `/api/test-categories` - Test Categories
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `GET` | `/questions` | 👩‍💼 | Danh sách câu hỏi |
-| `GET` | `/questions/:id` | 👨‍⚕️ | Chi tiết câu hỏi |
-| `POST` | `/questions` | 👤 | Đặt câu hỏi |
-| `POST` | `/questions/:id/answer` | 👨‍⚕️ | Trả lời câu hỏi |
-| `PUT` | `/questions/:id` | 👤 | Cập nhật câu hỏi |
-| `DELETE` | `/questions/:id` | 👨‍💼 | Xóa câu hỏi |
+| `GET` | `/` | 🔓 | Danh sách danh mục xét nghiệm |
+| `GET` | `/:id` | 🔓 | Chi tiết danh mục |
+| `POST` | `/` | 👨‍💼 | Tạo danh mục mới |
+| `PUT` | `/:id` | 👨‍💼 | Cập nhật danh mục |
+| `DELETE` | `/:id` | 👨‍💼 | Xóa danh mục |
+
+### `/api/service-test-categories` - Service Test Categories
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | 🔓 | Danh sách service test categories |
+| `GET` | `/:id` | 🔓 | Chi tiết category |
+| `POST` | `/` | 👨‍💼 | Tạo category mới |
+| `PUT` | `/:id` | 👨‍💼 | Cập nhật category |
+| `DELETE` | `/:id` | 👨‍💼 | Xóa category |
+
+---
+
+## 8. 🩸 Menstrual Cycle Tracking
+
+### `/api/menstrual-cycles` - Menstrual Cycles
+
+#### Basic CRUD
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/menstrual-cycles` | 🔐 | Tạo chu kỳ mới |
+| `GET` | `/menstrual-cycles` | 🔐 | Danh sách chu kỳ |
+| `GET` | `/menstrual-cycles/calendar` | 🔐 | Dữ liệu lịch chu kỳ |
+| `GET` | `/menstrual-cycles/:id` | 🔐 | Chi tiết chu kỳ |
+| `PUT` | `/menstrual-cycles/:id` | 🔐 | Cập nhật chu kỳ |
+| `DELETE` | `/menstrual-cycles/:id` | 🔐 | Xóa chu kỳ |
+
+#### Advanced Reports & Analysis
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/menstrual-cycles/three-cycle-comparison` | 🔐♀️ | So sánh 3 chu kỳ gần nhất |
+| `GET` | `/menstrual-cycles/predictive-analysis` | 🔐♀️ | Phân tích dự đoán |
+| `GET` | `/menstrual-cycles/health-assessment` | 🔐♀️ | Đánh giá sức khỏe |
+| `GET` | `/menstrual-cycles/:id/detailed-report` | 🔐♀️ | Báo cáo chi tiết chu kỳ |
+| `GET` | `/menstrual-cycles/:id/analysis` | 🔐 | Phân tích chu kỳ |
+| `GET` | `/menstrual-cycles/:id/guidance` | 🔐 | Hướng dẫn chăm sóc |
+| `POST` | `/menstrual-cycles/:id/auto-complete` | 🔐 | Tự động hoàn thành chu kỳ |
+
+#### Cycle Days Management
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/cycle-days` | 🔐 | Tạo/cập nhật ngày chu kỳ |
+| `GET` | `/menstrual-cycles/:id/cycle-days` | 🔐 | Danh sách ngày trong chu kỳ |
+| `GET` | `/cycle-days/:id` | 🔐 | Chi tiết ngày chu kỳ |
+| `PUT` | `/cycle-days/:id` | 🔐 | Cập nhật ngày chu kỳ |
+| `DELETE` | `/cycle-days/:id` | 🔐 | Xóa ngày chu kỳ |
+
+#### Reports & Comparison
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/reports/generate/:cycleId` | 🔐 | Tạo báo cáo chu kỳ |
+| `GET` | `/reports/:cycleId` | 🔐 | Xem báo cáo chu kỳ |
+| `GET` | `/reports/comparison` | 🔐 | So sánh 3 chu kỳ |
+
+#### Reminders Management
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/reminders` | 🔐 | Cài đặt nhắc nhở |
+| `PUT` | `/reminders` | 🔐 | Cập nhật cài đặt nhắc nhở |
+| `POST` | `/reminders/notify` | 🔓 | Trigger nhắc nhở (cronjob) |
+| `GET` | `/reminders/stats` | 🔐 | Thống kê nhắc nhở |
+| `POST` | `/reminders/test-email` | 🔐 | Test gửi email nhắc nhở |
+
+#### Advanced Logic & Analysis
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/logic/generate-post-peak` | 🔐 | Tạo ngày post-peak |
+| `POST` | `/logic/validate-day` | 🔐 | Validate dữ liệu ngày |
+| `GET` | `/logic/gender-prediction/:cycleId` | 🔐 | Dự đoán giới tính thai nhi |
+
+#### Data Management & Recovery
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/menstrual-cycles/auto-fix` | 🔐♀️ | Tự động sửa dữ liệu chu kỳ |
+| `POST` | `/menstrual-cycles/validate-advanced` | 🔐♀️ | Validate dữ liệu nâng cao |
+| `POST` | `/menstrual-cycles/reset-all` | 🔐♀️ | Reset tất cả chu kỳ |
+| `POST` | `/menstrual-cycles/create-flexible` | 🔐♀️ | Tạo chu kỳ linh hoạt |
+| `POST` | `/menstrual-cycles/clean-duplicates` | 🔐♀️ | Xóa dữ liệu trùng lặp |
+
+**Note**: 🔐♀️ = Yêu cầu authentication + giới tính nữ
+
+---
+
+## 9. 💬 Doctor Q&A System
+
+### `/api/doctor-qa` - Doctor Q&A
+
+#### Slot Checking & Availability
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/check-slot/:date/:slotTime` | 🔓 | Kiểm tra slot có sẵn không |
+| `GET` | `/available-slots-for-date/:date` | 🔓 | Lấy tất cả slots trong ngày |
+| `GET` | `/doctors-workload` | 👩‍💼 | Thống kê workload bác sĩ |
+| `GET` | `/best-assignment` | 👩‍💼 | Tìm assignment tốt nhất |
+| `GET` | `/least-booked-doctor` | 👩‍💼 | Tìm bác sĩ ít booking nhất |
+
+#### Q&A Management
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/` | 🔐 | Tạo yêu cầu tư vấn cơ bản |
+| `POST` | `/create-with-selected-slot` | 🔐 | Tạo QA với slot đã chọn |
+| `GET` | `/` | 👩‍💼 | Danh sách tất cả QA |
+| `GET` | `/my-requests` | 🔐 | QA của user hiện tại |
+| `GET` | `/my` | 👨‍⚕️ | QA của bác sĩ hiện tại |
+| `GET` | `/live` | 👨‍⚕️ | Consultation đang LIVE |
+| `GET` | `/today` | 👨‍⚕️ | Consultation hôm nay |
+| `GET` | `/:id` | 🔐 | Chi tiết QA theo ID |
+| `GET` | `/doctor/:doctorId` | 🔐 | QA của bác sĩ cụ thể |
+
+#### QA Status & Workflow
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `PUT` | `/:id/confirm` | 👨‍⚕️ | Bác sĩ confirm/reject QA |
+| `PUT` | `/:id/confirm-consultation` | 🔐 | Xác nhận consultation đã thanh toán |
+| `PUT` | `/:id/schedule` | 👩‍💼 | Staff xếp lịch cụ thể |
+| `PUT` | `/:id/status` | 👩‍💼 | Cập nhật trạng thái tổng quát |
+| `PUT` | `/:id/cancel-by-doctor` | 👨‍⚕️ | Bác sĩ hủy consultation |
+| `PUT` | `/:id/cancel-by-user` | 🔐 | User hủy consultation |
+| `DELETE` | `/:id` | 👩‍💼 | Xóa QA |
+
+#### Meeting Integration
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/:id/check-meeting` | 👨‍⚕️ | Kiểm tra có Meeting record chưa |
+| `POST` | `/:id/create-meeting` | 👨‍⚕️ | Tạo hồ sơ Meeting |
+| `PUT` | `/:id/complete-consultation` | 👨‍⚕️ | Hoàn thành consultation & meeting |
+| `PUT` | `/:id/update-meeting` | 👨‍⚕️ | Cập nhật meeting notes |
+| `GET` | `/:id/meeting-details` | 👨‍⚕️ | Chi tiết meeting |
+| `GET` | `/:id/meeting` | 🔐 | Lấy meeting info |
+| `POST` | `/:id/join-meeting` | 🔐 | Join meeting |
+| `PUT` | `/:id/complete-meeting` | 👨‍⚕️ | Hoàn thành meeting |
+
+#### Payment Integration
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `PUT` | `/:id/payment` | 🔓 | Cập nhật trạng thái thanh toán (webhook) |
+
+#### Manual Triggers & Batch Processing
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `PUT` | `/:id/manual-schedule` | 👩‍💼 | Manually trigger auto-scheduling |
+| `POST` | `/batch-process-paid` | 👩‍💼 | Batch process tất cả paid QAs |
+
+---
+
+## 10. 📋 Medical Records
+
+### `/api/medical-records` - Medical Records
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | 👩‍💼 | Danh sách hồ sơ y tế |
+| `GET` | `/my-records` | 👤 | Hồ sơ y tế của tôi |
+| `GET` | `/:id` | 👤 | Chi tiết hồ sơ y tế |
+| `POST` | `/` | 👩‍💼 | Tạo hồ sơ y tế mới |
+| `PUT` | `/:id` | 👩‍💼 | Cập nhật hồ sơ y tế |
+| `DELETE` | `/:id` | 👩‍💼 | Xóa hồ sơ y tế |
+
+---
+
+## 11. 💊 Medication Management
+
+### `/api/medicines` - Medicines
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | 🔓 | Danh sách thuốc |
+| `GET` | `/:id` | 🔓 | Chi tiết thuốc |
+| `POST` | `/` | 👨‍💼 | Thêm thuốc mới |
+| `PUT` | `/:id` | 👨‍💼 | Cập nhật thông tin thuốc |
+| `DELETE` | `/:id` | 👨‍💼 | Xóa thuốc |
+
+### `/api/medication-reminders` - Medication Reminders
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/` | 👤 | Tạo nhắc nhở uống thuốc |
+| `GET` | `/my` | 👤 | Nhắc nhở của tôi |
+| `GET` | `/:id` | 🔐 | Chi tiết nhắc nhở |
+| `PUT` | `/:id` | 👤 | Cập nhật nhắc nhở |
+| `PATCH` | `/:id/status` | 👤 | Tạm dừng/kích hoạt nhắc nhở |
+| `DELETE` | `/:id` | 👤 | Xóa nhắc nhở |
+| `GET` | `/staff/all` | 👩‍💼 | Tất cả nhắc nhở (staff view) |
+
+---
+
+## 12. 📝 Blog Management
+
+### `/api/blog-posts` - Blog Posts
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | 🔓 | Danh sách bài blog |
+| `GET` | `/:id` | 🔓 | Chi tiết bài blog |
+| `POST` | `/` | 👩‍💼 | Tạo bài blog mới |
+| `PUT` | `/:id` | 👩‍💼 | Cập nhật bài blog |
+| `DELETE` | `/:id` | 👩‍💼 | Xóa bài blog |
+
+---
+
+## 13. 📊 Dashboard & Reports
+
+### `/api/dashboard` - Dashboard
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/stats` | 👩‍💼 | Thống kê tổng quan dashboard |
+
+### `/api/reports` - Reports
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/management` | 👨‍💼 | Báo cáo quản lý (admin/manager) |
+| `POST` | `/detailed` | 👨‍💼 | Báo cáo chi tiết có filter |
+| `POST` | `/export` | 👨‍💼 | Export báo cáo ra Excel |
+| `POST` | `/seed-sample-data` | 🔒 | Tạo dữ liệu mẫu (Admin only) |
+| `GET` | `/analytics` | 🔐 | Báo cáo phân tích |
+
+---
+
+## 14. 🔧 System Management
+
+### `/api/system-logs` - System Logs
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | 👩‍💼 | Danh sách system logs |
+| `GET` | `/:id` | 👩‍💼 | Chi tiết system log |
+| `POST` | `/` | 👩‍💼 | Tạo system log |
+| `DELETE` | `/:id` | 🔒 | Xóa system log |
+
+### `/api/login-history` - Login History
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | 👩‍💼 | Lịch sử đăng nhập |
+| `GET` | `/my-history` | 🔐 | Lịch sử đăng nhập của tôi |
+
+### `/api/google-auth` - Google Authentication
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/login` | 🔓 | Đăng nhập Google OAuth |
+| `GET` | `/callback` | 🔓 | Callback Google OAuth |
+
+---
+
+## 15. 🔔 Notifications
+
+### `/api/notification-days` - Notification Days
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | 🔐 | Danh sách ngày thông báo |
+| `GET` | `/:id` | 🔐 | Chi tiết ngày thông báo |
+| `POST` | `/` | 🔐 | Tạo ngày thông báo |
+| `PUT` | `/:id` | 🔐 | Cập nhật ngày thông báo |
+| `DELETE` | `/:id` | 🔐 | Xóa ngày thông báo |
+
+---
+
+## 16. 🎥 Meeting Management
 
 ### `/api/meetings` - Meetings
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | `GET` | `/` | 👩‍💼 | Danh sách cuộc họp |
-| `GET` | `/:id` | 👤 | Chi tiết cuộc họp |
-| `POST` | `/` | 👩‍💼 | Tạo cuộc họp |
-| `PUT` | `/:id` | 👩‍💼 | Cập nhật cuộc họp |
-| `DELETE` | `/:id` | 👨‍💼 | Xóa cuộc họp |
+| `GET` | `/:id` | 🔐 | Chi tiết cuộc họp |
+| `POST` | `/` | 👨‍⚕️ | Tạo cuộc họp mới |
+| `PUT` | `/:id` | 👨‍⚕️ | Cập nhật cuộc họp |
+| `DELETE` | `/:id` | 👨‍⚕️ | Xóa cuộc họp |
 
 ---
 
-## 9. Payment
+## 17. 🏃 Consultation Management
 
-### `/api/payments` - Payments
+### `/api/consultations` - Consultations
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/create-payment-link` | 👤 | Tạo link thanh toán |
-| `GET` | `/payment-info/:orderCode` | 👤 | Thông tin thanh toán |
-| `POST` | `/confirm-webhook` | 🔓 | Webhook xác nhận |
+| `GET` | `/` | 👩‍💼 | Danh sách consultation |
+| `GET` | `/:id` | 🔐 | Chi tiết consultation |
+| `POST` | `/` | 👤 | Tạo consultation mới |
+| `PUT` | `/:id` | 👨‍⚕️ | Cập nhật consultation |
 
 ---
 
-## 10. System Logs
+## 🔗 Common Error Codes
 
-### `/api/system-logs` - System Logs ⭐ NEW
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/` | 👨‍💼 | Danh sách system logs |
-| `GET` | `/stats` | 👨‍💼 | Thống kê logs |
-| `POST` | `/cleanup` | 🔒 | Xóa logs cũ |
-| `POST` | `/test-log` | 👨‍💼 | Tạo test log |
-| `POST` | `/export` | 👨‍💼 | Export logs |
-
-#### Log Levels & Permissions
-- **public**: Manager + Admin có thể xem
-- **manager**: Manager + Admin có thể xem  
-- **admin**: Chỉ Admin có thể xem
-
-#### Log Actions
-- Authentication: `login`, `logout`, `register`, `password_change`
-- User Management: `user_create`, `user_update`, `user_delete`, `role_change`
-- Appointments: `appointment_create`, `appointment_update`, `appointment_cancel`
-- Medical: `medical_record_create`, `prescription_create`
-- System: `system_error`, `security_violation`, `data_export`
+| Status Code | Description | Example Response |
+|-------------|-------------|------------------|
+| `200` | Success | `{"success": true, "data": {...}}` |
+| `201` | Created | `{"success": true, "message": "Created successfully"}` |
+| `400` | Bad Request | `{"success": false, "message": "Invalid input"}` |
+| `401` | Unauthorized | `{"success": false, "message": "Authentication required"}` |
+| `403` | Forbidden | `{"success": false, "message": "Access denied"}` |
+| `404` | Not Found | `{"success": false, "message": "Resource not found"}` |
+| `422` | Validation Error | `{"success": false, "errors": [...]}` |
+| `500` | Server Error | `{"success": false, "message": "Internal server error"}` |
 
 ---
 
-## 11. Dashboard & Reports
+## 📝 Request/Response Format
 
-### `/api/dashboard` - Dashboard
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/management` | 👨‍💼 | Dashboard cho management |
-| `GET` | `/operational` | 👩‍💼 | Dashboard cho operations |
-
-### `/api/login-history` - Login History
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/:userId` | 👩‍💼 | Lịch sử đăng nhập |
-| `POST` | `/` | 🔐 | Tạo log đăng nhập |
-
-### `/api/notification-days` - Notification Days
-
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `GET` | `/` | 👤 | Danh sách ngày thông báo |
-| `GET` | `/:id` | 👤 | Chi tiết ngày thông báo |
-| `POST` | `/` | 👤 | Tạo ngày thông báo |
-| `PUT` | `/:id` | 👤 | Cập nhật ngày thông báo |
-| `DELETE` | `/:id` | 👤 | Xóa ngày thông báo |
-
----
-
-## Common Response Format
-
-### Success Response
+### Standard Response Format
 ```javascript
 {
-  "success": true,
-  "message": "Thao tác thành công",
-  "data": {
-    // Response data
-  },
-  "pagination": { // Khi có phân trang
-    "page": 1,
-    "limit": 10,
-    "total": 100,
-    "totalPages": 10
+  "success": boolean,
+  "message": string,
+  "data": object | array,
+  "errors": array, // Only for validation errors
+  "pagination": { // Only for paginated responses
+    "page": number,
+    "limit": number,
+    "total": number,
+    "totalPages": number
   }
 }
 ```
 
-### Error Response
+### Authentication Header
 ```javascript
 {
-  "success": false,
-  "message": "Mô tả lỗi",
-  "error": "Chi tiết lỗi (chỉ trong development)",
-  "code": "ERROR_CODE" // Optional
+  "Authorization": "Bearer <jwt_token>"
 }
 ```
 
-### Common Error Codes
-- `401` - Unauthorized (chưa đăng nhập)
-- `403` - Forbidden (không có quyền)
-- `404` - Not Found (không tìm thấy)
-- `422` - Validation Error (dữ liệu không hợp lệ)
-- `500` - Internal Server Error
-
----
-
-## Authentication
-
-### Headers Required
+### Pagination Query Parameters
 ```javascript
-{
-  "Authorization": "Bearer <access_token>",
-  "Content-Type": "application/json"
-}
+?page=1&limit=10&sort=createdAt&order=desc&search=keyword
 ```
 
-### Token Management
-- **Access Token**: Hết hạn sau 1 giờ
-- **Refresh Token**: Hết hạn sau 7 ngày
-- **Auto Refresh**: Frontend tự động refresh khi access token hết hạn
-
 ---
 
-## Rate Limiting
-- **Auth endpoints**: 5 requests/minute
-- **File upload**: 3 requests/minute
-- **General APIs**: 100 requests/minute
+**Last Updated**: 2024-01-20  
+**API Version**: v1.0  
+**Documentation Maintainer**: Development Team
 
----
-
-## API Changelog
-
-### v2.5.0 (2025-01-25)
-- ✅ Added System Logs Management API
-- ✅ Added role hierarchy support cho tất cả endpoints
-- ✅ Enhanced permission system with level-based access
-
-### v2.4.0 (2024-01-20)
-- ✅ Added Doctor schedule bulk operations
-- ✅ Enhanced appointment management
-- ✅ Added test management APIs
-
-### v2.3.0 (2024-01-15)
-- ✅ Added medical records API
-- ✅ Enhanced user management
-- ✅ Added medication reminders
-
----
-
-**Tài liệu này được cập nhật thường xuyên. Vui lòng kiểm tra changelog để biết các thay đổi mới nhất.**
-
-**Liên hệ**: Team phát triển Gender Healthcare Service Management 
+Trả lời bằng tiếng Việt 
