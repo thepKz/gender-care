@@ -299,6 +299,24 @@ export const seedSampleData = async (req: AuthRequest, res: Response) => {
   }
 };
 
+/**
+ * GET /reports/analytics
+ * Trả về dữ liệu analytics thật cho dashboard (doctor performance, service popularity, demographics, hourly, system stats)
+ */
+export const getAnalyticsReports = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role || !['admin', 'manager'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    const data = await reportService.getAnalyticsReports();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching analytics reports:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 // Helper to format month label YYYY-MM
 const formatMonthLabel = (date: Date) => {
   const m = date.getMonth() + 1;

@@ -1,5 +1,5 @@
 import express from 'express';
-import { getManagementReports, getDetailedReport, exportDetailedReport, seedSampleData } from '../controllers/reportsController';
+import { getManagementReports, getDetailedReport, exportDetailedReport, seedSampleData, getAnalyticsReports } from '../controllers/reportsController';
 import { authMiddleware } from '../middleware/authMiddleware';
 import { roleMiddleware } from '../middleware/roleMiddleware';
 
@@ -16,5 +16,7 @@ router.post('/export', authMiddleware, roleMiddleware(['admin', 'manager']), exp
 
 // POST /reports/seed-sample-data - Generate sample data for dashboard (Admin only)
 router.post('/seed-sample-data', authMiddleware, roleMiddleware(['admin']), seedSampleData);
+
+router.get('/analytics', authMiddleware, getAnalyticsReports);
 
 export default router;

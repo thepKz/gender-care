@@ -138,6 +138,143 @@ class ReportService {
         createdAt: appt.createdAt?.toISOString() || new Date().toISOString()
     }));
   }
+
+  /**
+   * Trả về dữ liệu analytics thật cho dashboard (doctor performance, service popularity, demographics, hourly, system stats)
+   */
+  public async getAnalyticsReports(): Promise<any> {
+    // Doctor performance
+    const doctorAgg = await Appointments.aggregate([
+      {
+        $group: {
+          _id: '$doctorId',
+          totalAppointments: { $sum: 1 },
+          completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
+          cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
+          revenue: { $sum: '$totalAmount' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'doctors',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'doctorInfo'
+        }
+      },
+      { $unwind: { path: '$doctorInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          name: { $ifNull: ['$doctorInfo.name', 'N/A'] },
+          totalAppointments: 1,
+          completed: 1,
+          cancelled: 1,
+          revenue: 1,
+          completionRate: {
+            $cond: [
+              { $eq: ['$totalAppointments', 0] },
+              0,
+              { $divide: ['$completed', '$totalAppointments'] }
+            ]
+          }
+        }
+      }
+    ]);
+
+    // Service popularity
+    const serviceAgg = await Appointments.aggregate([
+      {
+        $group: {
+          _id: '$serviceId',
+          totalBookings: { $sum: 1 },
+          revenue: { $sum: '$totalAmount' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'services',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'serviceInfo'
+        }
+      },
+      { $unwind: { path: '$serviceInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          name: { $ifNull: ['$serviceInfo.name', 'N/A'] },
+          totalBookings: 1,
+          revenue: 1
+        }
+      }
+    ]);
+
+    // Patient demographics (age, gender)
+    const patientAgg = await User.aggregate([
+      {
+        $match: { role: 'customer', dateOfBirth: { $exists: true } }
+      },
+      {
+        $project: {
+          gender: 1,
+          age: {
+            $dateDiff: {
+              startDate: '$dateOfBirth',
+              endDate: new Date(),
+              unit: 'year'
+            }
+          }
+        }
+      }
+    ]);
+    const ageGroups = [
+      { label: '0-18', min: 0, max: 18 },
+      { label: '19-30', min: 19, max: 30 },
+      { label: '31-45', min: 31, max: 45 },
+      { label: '46-60', min: 46, max: 60 },
+      { label: '60+', min: 61, max: 200 }
+    ];
+    const demographics = ageGroups.map(group => ({
+      ageGroup: group.label,
+      male: patientAgg.filter(p => p.age >= group.min && p.age <= group.max && p.gender === 'male').length,
+      female: patientAgg.filter(p => p.age >= group.min && p.age <= group.max && p.gender === 'female').length,
+      other: patientAgg.filter(p => p.age >= group.min && p.age <= group.max && !['male','female'].includes(p.gender)).length,
+      total: patientAgg.filter(p => p.age >= group.min && p.age <= group.max).length
+    }));
+
+    // Hourly distribution
+    const hourlyAgg = await Appointments.aggregate([
+      {
+        $project: {
+          hour: { $hour: '$appointmentDate' }
+        }
+      },
+      {
+        $group: {
+          _id: '$hour',
+          totalAppointments: { $sum: 1 }
+        }
+      }
+    ]);
+    const hourlyDistribution = Array.from({ length: 24 }, (_, i) => {
+      const found = hourlyAgg.find(h => h._id === i);
+      return { hour: i, totalAppointments: found ? found.totalAppointments : 0 };
+    });
+
+    // System stats (mocked for now, cần bổ sung nếu có bảng log/monitoring)
+    const systemStats = {
+      uptime: 99.8,
+      avgWaitTime: 15,
+      resourceUtilization: 78.3
+    };
+
+    return {
+      doctorPerformance: doctorAgg,
+      servicePopularity: serviceAgg,
+      patientDemographics: demographics,
+      hourlyDistribution,
+      systemStats
+    };
+  }
 }
 
 export const reportService = new ReportService(); 

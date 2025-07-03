@@ -539,6 +539,53 @@
   min-height: 280px !important;
 }
 
+/* Advanced Healthcare Charts */
+.advanced-analytics-row {
+  margin-bottom: 32px !important;
+}
+
+.advanced-analytics-row .ant-col {
+  margin-bottom: 20px !important;
+}
+
+.advanced-chart-card .recharts-responsive-container {
+  min-height: 350px !important;
+}
+
+.funnel-chart-card .recharts-responsive-container {
+  min-height: 350px !important;
+}
+
+.hourly-chart-card .recharts-responsive-container {
+  min-height: 350px !important;
+}
+
+/* Enhanced chart tooltips */
+.recharts-tooltip-wrapper {
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+  border: 1px solid #e8e8e8 !important;
+}
+
+.recharts-tooltip-content {
+  background: white !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+}
+
+/* Healthcare-specific chart styling */
+.healthcare-gradient-1 {
+  background: linear-gradient(135deg, #2E86AB 0%, #A23B72 100%);
+}
+
+.healthcare-gradient-2 {
+  background: linear-gradient(135deg, #F18F01 0%, #C73E1D 100%);
+}
+
+.healthcare-gradient-3 {
+  background: linear-gradient(135deg, #0F4C75 0%, #3282B8 100%);
+}
+
 /* Grid container fixes */
 .ant-row[data-charts] {
   display: flex;
@@ -556,5 +603,4 @@
   flex: 1;
   height: auto;
   min-height: 400px;
-} 
-} 
+}
