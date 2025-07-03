@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { NextFunction, Response, RequestHandler } from "express";
+import { NextFunction, Response, Request, RequestHandler } from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../models";
 import { AuthRequest } from "../types";
@@ -10,27 +9,24 @@ export const verifyToken: RequestHandler = async (
   res,
   next
 ) => {
-  const authReq = req as AuthRequest;
   try {
     // Ưu tiên lấy token từ header Authorization
     let token: string | undefined | null = undefined;
-    const authHeader = authReq.headers.authorization;
+    const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1];
-    } else if (req.cookies && req.cookies.access_token) {
-      token = req.cookies.access_token;
+    } else if ((req as any).cookies && (req as any).cookies.access_token) {
+      token = (req as any).cookies.access_token;
     }
 
     if (!token) {
-      res.status(401).json({ message: "Không có token xác thực" });
-      return;
+      return res.status(401).json({ message: "Không có token xác thực" });
     }
 
     // Kiểm tra token có đúng format JWT không (3 phần ngăn cách bởi dấu chấm)
     const tokenParts = token.split('.');
     if (tokenParts.length !== 3) {
-      res.status(401).json({ message: "Token không đúng định dạng JWT" });
-      return;
+      return res.status(401).json({ message: "Token không đúng định dạng JWT" });
     }
 
     if (!process.env.SECRET_KEY) {
@@ -47,32 +43,28 @@ export const verifyToken: RequestHandler = async (
     // Kiểm tra user có tồn tại và đang hoạt động
     const user = await User.findById(decoded._id);
     if (!user || !user.isActive) {
-      res.status(401).json({ message: "Token không hợp lệ hoặc tài khoản đã bị khóa" });
-      return;
+      return res.status(401).json({ message: "Token không hợp lệ hoặc tài khoản đã bị khóa" });
     }
 
-    authReq.user = decoded;
+    // Gán user vào req (ép kiểu an toàn)
+    (req as AuthRequest).user = decoded;
     next();
   } catch (error) {
-    // Chỉ log khi có lỗi thật sự không phải 401 thông thường
     if (process.env.NODE_ENV === 'development') {
       console.error('[verifyToken] Auth error:', error);
     }
 
     if (error instanceof jwt.JsonWebTokenError) {
       if (error.message === 'jwt malformed') {
-        res.status(401).json({ message: "Token không đúng định dạng" });
-        return;
+        return res.status(401).json({ message: "Token không đúng định dạng" });
       } else if (error.message === 'jwt expired') {
-        res.status(401).json({ message: "Token đã hết hạn" });
-        return;
+        return res.status(401).json({ message: "Token đã hết hạn" });
       } else if (error.message === 'invalid signature') {
-        res.status(401).json({ message: "Chữ ký token không hợp lệ" });
-        return;
+        return res.status(401).json({ message: "Chữ ký token không hợp lệ" });
       }
     }
 
-    res.status(401).json({ message: "Token không hợp lệ" });
+    return res.status(401).json({ message: "Token không hợp lệ" });
   }
 };
 
