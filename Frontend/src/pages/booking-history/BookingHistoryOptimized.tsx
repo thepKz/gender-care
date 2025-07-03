@@ -23,13 +23,16 @@ const { Option } = Select;
 
 interface Appointment {
   id: string;
+  type?: 'appointment' | 'consultation';
   serviceId: string;
   serviceName: string;
   packageName?: string;
   doctorName?: string;
   doctorAvatar?: string;
+  patientName?: string;
   appointmentDate: string;
   appointmentTime: string;
+  appointmentSlot?: string;
   typeLocation: string;
   status: string;
   price: number;
@@ -41,6 +44,11 @@ interface Appointment {
   canReschedule: boolean;
   rating?: number;
   feedback?: string;
+  phone?: string;
+  age?: number;
+  gender?: string;
+  question?: string;
+  doctorNotes?: string;
 }
 
 const BookingHistoryOptimized: React.FC = () => {
@@ -78,44 +86,66 @@ const BookingHistoryOptimized: React.FC = () => {
       if (isManagementRole) {
         response = await appointmentApi.getAllAppointments({ limit: 100 });
       } else {
-        response = await consultationApi.getUserAppointments({ createdByUserId: user._id });
+        response = await appointmentApi.getUserBookingHistory({ limit: 50 });
       }
       
       let appointmentsData = [];
       if (isManagementRole) {
         appointmentsData = response.data?.appointments || [];
       } else {
-        appointmentsData = response.data?.data?.appointments || response.data?.appointments || [];
+        appointmentsData = response.data?.data?.bookings || response.data?.bookings || [];
       }
+
+      console.log('📋 [BookingHistory] Fetched data:', { 
+        isManagementRole, 
+        dataLength: appointmentsData.length,
+        responseStructure: Object.keys(response.data || {}),
+        sampleItem: appointmentsData[0] 
+      });
 
       if (appointmentsData && appointmentsData.length >= 0) {
         const formattedAppointments = appointmentsData.map((apt: any) => ({
           id: apt._id,
-          serviceId: apt.serviceId?._id || '',
-          serviceName: apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
-          packageName: apt.packageId?.name,
-          doctorName: apt.doctorId?.userId?.fullName || apt.doctorId?.fullName || 'Chưa chỉ định bác sĩ',
-          doctorAvatar: apt.doctorId?.userId?.avatar || apt.doctorId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-          appointmentDate: new Date(apt.appointmentDate).toISOString().split('T')[0],
-          appointmentTime: apt.appointmentTime,
-          typeLocation: apt.typeLocation,
+          type: apt.type || 'appointment',
+          serviceId: apt.serviceId || '',
+          serviceName: apt.serviceName || 'Dịch vụ không xác định',
+          packageName: apt.packageName,
+          doctorName: apt.doctorName || 'Chưa chỉ định bác sĩ',
+          doctorAvatar: apt.doctorAvatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+          patientName: apt.patientName || apt.fullName,
+          appointmentDate: apt.appointmentDate ? new Date(apt.appointmentDate).toISOString().split('T')[0] : '',
+          appointmentTime: apt.appointmentTime || apt.appointmentSlot || '',
+          appointmentSlot: apt.appointmentSlot,
+          typeLocation: apt.typeLocation || 'clinic',
           status: apt.status,
-          price: apt.packageId?.price || apt.serviceId?.price || 0,
+          price: apt.price || 0,
           createdAt: new Date(apt.createdAt).toISOString(),
-          description: apt.description,
+          description: apt.description || apt.question,
           notes: apt.notes,
           address: apt.address,
-          canCancel: ['pending', 'confirmed'].includes(apt.status),
-          canReschedule: ['pending', 'confirmed'].includes(apt.status),
+          canCancel: apt.canCancel || false,
+          canReschedule: apt.canReschedule || false,
           rating: apt.rating,
-          feedback: apt.feedback
+          feedback: apt.feedback,
+          phone: apt.phone,
+          age: apt.age,
+          gender: apt.gender,
+          question: apt.question,
+          doctorNotes: apt.doctorNotes
         }));
+
+        console.log('✅ [BookingHistory] Formatted appointments:', {
+          total: formattedAppointments.length,
+          appointments: formattedAppointments.filter(a => a.type === 'appointment').length,
+          consultations: formattedAppointments.filter(a => a.type === 'consultation').length,
+          sampleFormatted: formattedAppointments[0]
+        });
 
         setAppointments(formattedAppointments);
         setFilteredAppointments(formattedAppointments);
       }
     } catch (error) {
-      console.error('Error fetching appointments:', error);
+      console.error('❌ [BookingHistory] Error fetching appointments:', error);
       message.error('Không thể tải danh sách lịch hẹn');
       setAppointments([]);
       setFilteredAppointments([]);
@@ -148,12 +178,13 @@ const BookingHistoryOptimized: React.FC = () => {
     setCurrentPage(1); // Reset to first page when filtering
   }, [searchText, statusFilter, appointments]);
 
-  // Status configuration
+  // Status configuration - ✅ Updated với consultation statuses
   const statusConfig = {
     pending: { color: '#faad14', text: 'Chờ xác nhận', icon: <Timer size={16} /> },
     pending_payment: { color: '#ff7f00', text: 'Chờ thanh toán', icon: <Clock size={16} /> },
+    scheduled: { color: '#1890ff', text: 'Đã lên lịch', icon: <Calendar size={16} /> }, // ➕ Consultation status
     confirmed: { color: '#52c41a', text: 'Đã xác nhận', icon: <TickCircle size={16} /> },
-    consulting: { color: '#a3e635', text: 'Đang khám', icon: <MonitorMobbile size={16} /> },
+    consulting: { color: '#a3e635', text: 'Đang tư vấn', icon: <MonitorMobbile size={16} /> }, // ✅ Updated text
     done_testResultItem: { color: '#2563eb', text: 'Hoàn thành kết quả', icon: <TickCircle size={16} /> },
     done_testResult: { color: '#06b6d4', text: 'Hoàn thành hồ sơ', icon: <TickCircle size={16} /> },
     completed: { color: '#22c55e', text: 'Hoàn thành', icon: <TickCircle size={16} /> },
@@ -187,10 +218,16 @@ const BookingHistoryOptimized: React.FC = () => {
     try {
       const loadingMessage = message.loading('Đang hủy lịch hẹn...', 0);
       
-      await appointmentApi.deleteAppointment(appointment.id);
+      if (appointment.type === 'consultation') {
+        // ✅ Sử dụng API cancel consultation
+        await consultationApi.cancelConsultationByUser(appointment.id, 'Hủy bởi người dùng');
+      } else {
+        // ✅ Sử dụng API cancel appointment
+        await appointmentApi.deleteAppointment(appointment.id);
+      }
       
       loadingMessage();
-      message.success('Hủy lịch hẹn thành công!');
+      message.success(`Hủy ${appointment.type === 'consultation' ? 'tư vấn' : 'lịch hẹn'} thành công!`);
       
       // Update local state
       const updatedAppointments = appointments.map(apt => 
@@ -201,7 +238,7 @@ const BookingHistoryOptimized: React.FC = () => {
       setShowDetailModal(false);
     } catch (error) {
       console.error('Error cancelling appointment:', error);
-      message.error('Không thể hủy lịch hẹn');
+      message.error(`Không thể hủy ${appointment.type === 'consultation' ? 'tư vấn' : 'lịch hẹn'}`);
     }
   };
 
@@ -270,7 +307,9 @@ const BookingHistoryOptimized: React.FC = () => {
                 <Option value="all">Tất cả</Option>
                 <Option value="pending">Chờ xác nhận</Option>
                 <Option value="pending_payment">Chờ thanh toán</Option>
+                <Option value="scheduled">Đã lên lịch</Option>
                 <Option value="confirmed">Đã xác nhận</Option>
+                <Option value="consulting">Đang tư vấn</Option>
                 <Option value="completed">Hoàn thành</Option>
                 <Option value="cancelled">Đã hủy</Option>
               </Select>
@@ -328,6 +367,15 @@ const BookingHistoryOptimized: React.FC = () => {
                         <h3 className="text-lg font-semibold text-gray-900">
                           {appointment.serviceName}
                         </h3>
+                        
+                        {/* ➕ Service Type Badge */}
+                        <Tag 
+                          color={appointment.type === 'consultation' ? '#1890ff' : '#52c41a'}
+                          className="text-xs"
+                        >
+                          {appointment.type === 'consultation' ? ' Tư vấn online' : ' Dịch vụ khám'}
+                        </Tag>
+
                         <Tag
                           color={statusConfig[appointment.status as keyof typeof statusConfig]?.color}
                           className="flex items-center gap-1"
@@ -340,7 +388,11 @@ const BookingHistoryOptimized: React.FC = () => {
                       <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-600">
                         <div className="flex items-center gap-2">
                           <Calendar size={16} className="text-blue-500" />
-                          <span>{formatDate(appointment.appointmentDate)} • {appointment.appointmentTime}</span>
+                          <span>
+                            {appointment.appointmentDate ? formatDate(appointment.appointmentDate) : 'Chưa xác định'}
+                            {appointment.appointmentTime && ` • ${appointment.appointmentTime}`}
+                            {!appointment.appointmentTime && appointment.appointmentSlot && ` • ${appointment.appointmentSlot}`}
+                          </span>
                         </div>
                         
                         <div className="flex items-center gap-2">
@@ -362,6 +414,15 @@ const BookingHistoryOptimized: React.FC = () => {
                             {formatPrice(appointment.price)}
                           </span>
                         </div>
+
+                        {/* ➕ Hiển thị thông tin bệnh nhân cho consultations */}
+                        {appointment.type === 'consultation' && appointment.patientName && (
+                          <div className="flex items-center gap-2 col-span-2">
+                            <span className="text-gray-500"> Bệnh nhân:</span>
+                            <span>{appointment.patientName}</span>
+                            {appointment.phone && <span className="text-gray-400">• {appointment.phone}</span>}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -381,7 +442,7 @@ const BookingHistoryOptimized: React.FC = () => {
                     <div className="pt-4 border-t border-gray-100">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-orange-600 font-medium">
-                          ⏰ Cần thanh toán để xác nhận lịch hẹn
+                           Cần thanh toán để xác nhận lịch hẹn
                         </span>
                         <button
                           onClick={() => navigate(`/payment/process?appointmentId=${appointment.id}`)}
@@ -476,12 +537,53 @@ const BookingHistoryOptimized: React.FC = () => {
                 </div>
               </div>
 
-              {/* Description */}
+              {/* Description/Question */}
               {selectedAppointment.description && (
                 <div>
-                  <label className="text-sm font-medium text-gray-500 block mb-2">Mô tả triệu chứng</label>
+                  <label className="text-sm font-medium text-gray-500 block mb-2">
+                    {selectedAppointment.type === 'consultation' ? 'Câu hỏi tư vấn' : 'Mô tả triệu chứng'}
+                  </label>
                   <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedAppointment.description}</p>
                 </div>
+              )}
+
+              {/* ➕ Consultation-specific info */}
+              {selectedAppointment.type === 'consultation' && (
+                <>
+                  {/* Patient Info */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Tên bệnh nhân</label>
+                      <p className="text-gray-900">{selectedAppointment.patientName || 'Không xác định'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Số điện thoại</label>
+                      <p className="text-gray-900">{selectedAppointment.phone || 'Không có'}</p>
+                    </div>
+                    {selectedAppointment.age && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Tuổi</label>
+                        <p className="text-gray-900">{selectedAppointment.age}</p>
+                      </div>
+                    )}
+                    {selectedAppointment.gender && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Giới tính</label>
+                        <p className="text-gray-900">{selectedAppointment.gender === 'male' ? 'Nam' : 'Nữ'}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Doctor Notes */}
+                  {selectedAppointment.doctorNotes && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 block mb-2">Ghi chú của bác sĩ</label>
+                      <p className="text-gray-900 bg-blue-50 p-3 rounded-lg border-l-4 border-blue-400">
+                        {selectedAppointment.doctorNotes}
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Notes */}
