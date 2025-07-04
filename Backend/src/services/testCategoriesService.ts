@@ -155,7 +155,7 @@ export class TestCategoriesService {
 
     // Kiểm tra có đang được sử dụng trong TestResultItems không
     const TestResultItems = (await import('../models/TestResultItems')).default;
-    const usageCount = await TestResultItems.countDocuments({ itemNameId: id });
+    const usageCount = await TestResultItems.countDocuments({ testCategoryId: id });
 
     if (usageCount > 0) {
       throw new Error('Cannot delete test category as it is being used in test results');

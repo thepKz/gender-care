@@ -111,7 +111,7 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
       await testResultItemsApi.bulkCreate({
         appointmentId: testResultId,
         items: validItems.map(item => ({
-          itemNameId: item.testCategoryId,
+          testCategoryId: item.testCategoryId,
           value: item.value.trim(),
           unit: item.unit,
           flag: form.getFieldValue(['flag', item.testCategoryId]) || 'normal'
@@ -294,20 +294,62 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
               const maxValue = (category as any).maxValue;
               const unit = category.customUnit || category.unit || '';
 
-              // Đánh giá flag và message
-              let flag = form.getFieldValue(['flag', category._id]) || 'normal';
-              let messageText = '';
-              if (thresholdRules.length > 0 && testItem.value) {
-                const valueNum = parseFloat(testItem.value);
-                const rule = thresholdRules.find(rule => {
-                  const fromOk = rule.from == null || valueNum >= rule.from;
-                  const toOk = rule.to == null || valueNum <= rule.to;
-                  return fromOk && toOk;
+              // Hàm đánh giá threshold
+              const evaluateThreshold = (value: string) => {
+                if (!thresholdRules.length || !value) return { flag: 'normal', message: '' };
+                
+                const valueNum = parseFloat(value);
+                if (isNaN(valueNum)) return { flag: 'normal', message: '' };
+                
+                // Sắp xếp rules theo thứ tự from tăng dần để kiểm tra từ thấp đến cao
+                const sortedRules = [...thresholdRules].sort((a, b) => {
+                  if (a.from === null) return -1;
+                  if (b.from === null) return 1;
+                  return a.from - b.from;
                 });
-                if (rule) {
-                  flag = rule.flag;
-                  messageText = rule.message;
+                
+                let foundRule = null;
+                for (const rule of sortedRules) {
+                  if (rule.from === null && rule.to === null) {
+                    // Rule mặc định (nếu có)
+                    foundRule = rule;
+                    break;
+                  } else if (rule.from !== null && rule.to === null) {
+                    // Rule "từ X trở lên"
+                    if (valueNum >= rule.from) {
+                      foundRule = rule;
+                    }
+                  } else if (rule.from === null && rule.to !== null) {
+                    // Rule "đến X"
+                    if (valueNum <= rule.to) {
+                      foundRule = rule;
+                      break;
+                    }
+                  } else if (rule.from !== null && rule.to !== null) {
+                    // Rule "từ X đến Y"
+                    if (valueNum >= rule.from && valueNum <= rule.to) {
+                      foundRule = rule;
+                      break;
+                    }
+                  }
                 }
+                
+                return foundRule ? { flag: foundRule.flag, message: foundRule.message } : { flag: 'normal', message: '' };
+              };
+
+              // Đánh giá flag và message hiện tại
+              const evaluation = evaluateThreshold(testItem.value);
+              let flag = evaluation.flag;
+              let messageText = evaluation.message;
+
+              // Debug log để kiểm tra
+              if (testItem.value) {
+                console.log('=== THRESHOLD DEBUG ===');
+                console.log('Category:', category.name);
+                console.log('Value:', testItem.value, '→ Parsed:', parseFloat(testItem.value));
+                console.log('ThresholdRules:', thresholdRules);
+                console.log('Evaluation result:', evaluation);
+                console.log('========================');
               }
 
               return (
@@ -331,17 +373,10 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
                             setTestItems(prev => prev.map(item =>
                               item.testCategoryId === category._id ? { ...item, value: v } : item
                             ));
-                            // Tự động set flag nếu có rule
-                            if (thresholdRules.length > 0 && v) {
-                              const valueNum = parseFloat(v);
-                              const rule = thresholdRules.find(rule => {
-                                const fromOk = rule.from == null || valueNum >= rule.from;
-                                const toOk = rule.to == null || valueNum <= rule.to;
-                                return fromOk && toOk;
-                              });
-                              if (rule) {
-                                form.setFieldValue(['flag', category._id], rule.flag);
-                              }
+                            // Tự động set flag nếu có rule - sử dụng lại hàm evaluateThreshold
+                            const evaluation = evaluateThreshold(v);
+                            if (evaluation.flag !== 'normal') {
+                              form.setFieldValue(['flag', category._id], evaluation.flag);
                             }
                           }}
                           placeholder="Nhập kết quả"
@@ -349,20 +384,29 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
                       </Form.Item>
                     </Col>
                     <Col flex="140px">
-                      <Form.Item style={{ marginBottom: 0 }}>
-                        <Select
-                          value={form.getFieldValue(['flag', category._id]) || 'normal'}
-                          onChange={val => form.setFieldValue(['flag', category._id], val)}
-                          style={{ width: '100%' }}
-                        >
-                          <Option value="very_low">Rất thấp</Option>
-                          <Option value="low">Thấp</Option>
-                          <Option value="normal">Bình thường</Option>
-                          <Option value="mild_high">Hơi cao</Option>
-                          <Option value="high">Cao</Option>
-                          <Option value="critical">Nguy kịch</Option>
-                        </Select>
-                      </Form.Item>
+                      <div style={{ 
+                        padding: '4px 11px', 
+                        border: '1px solid #d9d9d9', 
+                        borderRadius: '6px',
+                        backgroundColor: flag === 'normal' ? '#f6ffed' : 
+                                      flag === 'low' || flag === 'very_low' ? '#fff2e8' :
+                                      flag === 'mild_high' ? '#fff7e6' :
+                                      flag === 'high' ? '#fff1f0' : '#ffe7e7',
+                        color: flag === 'normal' ? '#52c41a' : 
+                               flag === 'low' || flag === 'very_low' ? '#fa8c16' :
+                               flag === 'mild_high' ? '#fa8c16' :
+                               flag === 'high' ? '#f5222d' : '#a8071a',
+                        fontWeight: 500,
+                        fontSize: 13,
+                        textAlign: 'center' as const
+                      }}>
+                        {flag === 'very_low' ? 'Rất thấp' :
+                         flag === 'low' ? 'Thấp' :
+                         flag === 'normal' ? 'Bình thường' :
+                         flag === 'mild_high' ? 'Hơi cao' :
+                         flag === 'high' ? 'Cao' :
+                         flag === 'critical' ? 'Nguy kịch' : 'Bình thường'}
+                      </div>
                     </Col>
                   </Row>
                   {/* Message đánh giá */}

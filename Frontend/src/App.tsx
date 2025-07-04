@@ -1,4 +1,4 @@
-import { ConfigProvider, notification, App as AntApp } from 'antd';
+import { ConfigProvider, notification } from 'antd';
 import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
@@ -123,9 +123,7 @@ const App: React.FC = () => {
         },
       }}
     >
-      <AntApp>
-        <AppRoutes />
-      </AntApp>
+      <AppRoutes />
     </ConfigProvider>
   );
 };

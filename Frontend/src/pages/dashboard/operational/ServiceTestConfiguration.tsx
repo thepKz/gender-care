@@ -247,7 +247,8 @@ const ServiceTestConfigurationInner: React.FC = () => {
             targetValue,
             minValue,
             maxValue,
-            thresholdRules: values[`${tc._id}_thresholdRules`] || []
+            thresholdRules: values[`${tc._id}_thresholdRules`] || [],
+            unit: values[`${tc._id}_unit`] || ''
           };
           
           if (existingItem) {
@@ -283,7 +284,10 @@ const ServiceTestConfigurationInner: React.FC = () => {
       testCategoryId: item.testCategoryId, // Use ID for edit mode
       targetValue: item.targetValue,
       minValue: item.minValue,
-      maxValue: item.maxValue
+      maxValue: item.maxValue,
+      thresholdRules: item.thresholdRules || [],
+      unit: item.unit || '',
+      isRequired: item.isRequired || false,
     });
     setIsModalVisible(true);
   };
@@ -320,7 +324,8 @@ const ServiceTestConfigurationInner: React.FC = () => {
           targetValue: values.targetValue,
           minValue: values.minValue,
           maxValue: values.maxValue,
-          thresholdRules: values.thresholdRules || []
+          thresholdRules: values.thresholdRules || [],
+          unit: values.unit || ''
         };
 
         await serviceTestCategoriesApi.update(editingItem._id, data);
@@ -355,7 +360,8 @@ const ServiceTestConfigurationInner: React.FC = () => {
           targetValue: values.targetValue,
           minValue: values.minValue,
           maxValue: values.maxValue,
-          thresholdRules: values.thresholdRules || []
+          thresholdRules: values.thresholdRules || [],
+          unit: values.unit || ''
         };
 
         await serviceTestCategoriesApi.create(data);
@@ -872,14 +878,16 @@ const ServiceTestConfigurationInner: React.FC = () => {
               </Form.Item>
             </>
           ) : (
-            // Hiển thị thông tin test category khi edit (read-only)
-            <Alert
-              message={`Chỉnh sửa cấu hình cho chỉ số: ${getTestCategoryDetails(editingItem.testCategoryId)?.name || 'N/A'}`}
-              description="Bạn chỉ có thể thay đổi cấu hình riêng của chỉ số này cho dịch vụ hiện tại. Chỉ số gốc có thể được sử dụng bởi nhiều dịch vụ khác."
-              type="info"
-              showIcon
-              className="mb-4"
-            />
+            // Hiển thị khi edit
+            <>
+              <Alert
+                message={`Chỉnh sửa cấu hình cho chỉ số: ${getTestCategoryDetails(editingItem.testCategoryId)?.name || 'N/A'}`}
+                description="Bạn chỉ có thể thay đổi cấu hình riêng của chỉ số này cho dịch vụ hiện tại. Chỉ số gốc có thể được sử dụng bởi nhiều dịch vụ khác."
+                type="info"
+                showIcon
+                className="mb-4"
+              />
+            </>
           )}
 
           <Row gutter={16}>
@@ -892,16 +900,11 @@ const ServiceTestConfigurationInner: React.FC = () => {
                 <Checkbox>Bắt buộc</Checkbox>
               </Form.Item>
             </Col>
-            {!editingItem && (
-              <Col span={12}>
-                <Form.Item
-                  name="customUnit"
-                  label="Đơn vị tùy chỉnh"
-                >
-                  <Input placeholder="Ví dụ: mg/dL, IU/mL..." />
-                </Form.Item>
-              </Col>
-            )}
+            <Col span={12}>
+              <Form.Item name="unit" label="Đơn vị">
+                <Input placeholder="VD: mg/dL" />
+              </Form.Item>
+            </Col>
           </Row>
 
           <div className="bg-blue-50 p-4 rounded mb-4">
