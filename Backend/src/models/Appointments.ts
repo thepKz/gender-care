@@ -22,7 +22,7 @@ export interface IAppointments extends Document {
   packagePurchaseId?: mongoose.Types.ObjectId; // Reference đến package đã mua (cho purchased_package)
   expiresAt?: Date; // Thời gian hết hạn cho pending appointments (15 phút)
   paymentLinkId?: string; // PayOS order code/payment link ID
-  billId?: mongoose.Types.ObjectId;
+  paymentTrackingId?: mongoose.Types.ObjectId; // ✅ REPLACE: billId → paymentTrackingId
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -112,9 +112,9 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   paymentLinkId: {
     type: String
   },
-  billId: {
+  paymentTrackingId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Bills',
+    ref: 'PaymentTracking',
     default: null
   }
 }, { timestamps: true });

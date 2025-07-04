@@ -1,13 +1,13 @@
-import { NextFunction, Response } from "express";
+import { NextFunction, Response, Request, RequestHandler } from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../models";
 import { AuthRequest } from "../types";
 
 // Middleware xác thực token
-export const verifyToken = async (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
+export const verifyToken: RequestHandler = async (
+  req,
+  res,
+  next
 ) => {
   try {
     // Ưu tiên lấy token từ header Authorization
@@ -15,8 +15,8 @@ export const verifyToken = async (
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1];
-    } else if (req.cookies && req.cookies.access_token) {
-      token = req.cookies.access_token;
+    } else if ((req as any).cookies && (req as any).cookies.access_token) {
+      token = (req as any).cookies.access_token;
     }
 
     if (!token) {
@@ -46,10 +46,10 @@ export const verifyToken = async (
       return res.status(401).json({ message: "Token không hợp lệ hoặc tài khoản đã bị khóa" });
     }
 
-    req.user = decoded;
+    // Gán user vào req (ép kiểu an toàn)
+    (req as AuthRequest).user = decoded;
     next();
   } catch (error) {
-    // Chỉ log khi có lỗi thật sự không phải 401 thông thường
     if (process.env.NODE_ENV === 'development') {
       console.error('[verifyToken] Auth error:', error);
     }

@@ -37,7 +37,18 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
+import 'dayjs/locale/vi';
+import weekday from 'dayjs/plugin/weekday';
 import React, { useEffect, useMemo, useState } from 'react';
+
+// Setup dayjs for Vietnam timezone
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(weekday);
+dayjs.locale('vi');
+dayjs.tz.setDefault('Asia/Ho_Chi_Minh');
 import doctorScheduleApi, {
     type CreateScheduleByDatesRequest,
     type CreateScheduleByMonthRequest,
@@ -157,38 +168,255 @@ interface ScheduleViewData {
 
 const DoctorSchedulePage: React.FC = () => {
   const [schedules, setSchedules] = useState<IDoctorSchedule[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs());
+  const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs().tz('Asia/Ho_Chi_Minh'));
   const [loading, setLoading] = useState(false);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [createMode, setCreateMode] = useState<CreateMode>('dates');
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [form] = Form.useForm();
 
-  // Add unique calendar styles to prevent conflicts
-  React.useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      .schedule-creation-calendar .ant-picker-calendar {
-        background: white !important;
-        border: none !important;
-      }
-      .schedule-creation-calendar .ant-picker-cell-inner {
-        position: relative;
-        z-index: 1;
-      }
-      .schedule-creation-calendar .ant-picker-cell:hover .ant-picker-cell-inner {
-        background: #e6f7ff !important;
-      }
-      .main-schedule-calendar {
-        isolation: isolate;
-      }
-    `;
-    document.head.appendChild(style);
+  // Custom Calendar Component for Date Selection
+  // Calendar handlers for Ant Design Calendar
+  const onCalendarSelect = (date: Dayjs) => {
+    // Đảm bảo sử dụng timezone VN
+    const vnDate = date.tz('Asia/Ho_Chi_Minh');
+    const vnNow = dayjs().tz('Asia/Ho_Chi_Minh');
     
-    return () => {
-      document.head.removeChild(style);
+    if (vnDate.isBefore(vnNow, 'day')) {
+      message.warning('Không thể chọn ngày trong quá khứ');
+      return;
+    }
+    
+    const dateStr = vnDate.format('YYYY-MM-DD');
+    if (selectedDates.includes(dateStr)) {
+      // Unselect date
+      setSelectedDates(prev => prev.filter(d => d !== dateStr));
+    } else {
+      // Select date - CHO PHÉP TẤT CẢ CÁC NGÀY TRONG TUẦN (kể cả T7, CN)
+      setSelectedDates(prev => [...prev, dateStr].sort());
+    }
+  };
+
+  const dateRender = (date: Dayjs) => {
+    const vnDate = date.tz('Asia/Ho_Chi_Minh');
+    const vnNow = dayjs().tz('Asia/Ho_Chi_Minh');
+    const isSelected = selectedDates.includes(vnDate.format('YYYY-MM-DD'));
+    const isPast = vnDate.isBefore(vnNow, 'day');
+    const isToday = vnDate.isSame(vnNow, 'day');
+    
+    let backgroundColor = '';
+    let textColor = '';
+    let borderColor = '';
+    
+    if (isSelected) {
+      backgroundColor = '#1890ff';
+      textColor = 'white';
+      borderColor = '#1890ff';
+    } else if (isToday) {
+      backgroundColor = '#e6f7ff';
+      textColor = '#1890ff';
+      borderColor = '#1890ff';
+    } else if (isPast) {
+      backgroundColor = '#f5f5f5';
+      textColor = '#bfbfbf';
+    } else {
+      backgroundColor = 'white';
+      textColor = '#262626';
+    }
+    
+    return (
+      <div
+        style={{
+          backgroundColor,
+          color: textColor,
+          border: borderColor ? `1px solid ${borderColor}` : '1px solid transparent',
+          borderRadius: '4px',
+          width: '100%',
+          height: '30px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: isPast ? 'not-allowed' : 'pointer',
+          fontWeight: isToday ? 'bold' : 'normal',
+          transition: 'all 0.2s ease'
+        }}
+      >
+        {date.date()}
+      </div>
+    );
+  };
+
+  const CustomCalendar = () => {
+    const monthNames = [
+      'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+      'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+    ];
+
+    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    
+    const [currentCalendarMonth, setCurrentCalendarMonth] = useState<Dayjs>(dayjs().tz('Asia/Ho_Chi_Minh'));
+    
+    const startOfMonth = currentCalendarMonth.startOf('month');
+    const endOfMonth = currentCalendarMonth.endOf('month');
+    
+    // Calculate calendar grid - start from Sunday of the week containing first day
+    const firstDay = startOfMonth;
+    const firstDayOfWeek = firstDay.day(); // 0=Sunday, 1=Monday, etc.
+    
+    const startOfWeek = firstDay.subtract(firstDayOfWeek, 'day');
+    const endOfWeek = endOfMonth.add(6 - endOfMonth.day(), 'day');
+    
+    const days = [];
+    let day = startOfWeek;
+    
+    while (day.isBefore(endOfWeek) || day.isSame(endOfWeek, 'day')) {
+      days.push(day);
+      day = day.add(1, 'day');
+    }
+
+    const goToPrevMonth = () => setCurrentCalendarMonth(prev => prev.subtract(1, 'month'));
+    const goToNextMonth = () => setCurrentCalendarMonth(prev => prev.add(1, 'month'));
+
+    const isToday = (date: Dayjs) => date.isSame(dayjs().tz('Asia/Ho_Chi_Minh'), 'day');
+    const isSelected = (date: Dayjs) => selectedDates.includes(date.format('YYYY-MM-DD'));
+    const isCurrentMonth = (date: Dayjs) => date.isSame(currentCalendarMonth, 'month');
+    const isPast = (date: Dayjs) => date.isBefore(dayjs().tz('Asia/Ho_Chi_Minh'), 'day');
+
+    const handleDateClick = (date: Dayjs) => {
+      // Sử dụng timezone VN
+      const vnDate = date.tz('Asia/Ho_Chi_Minh');
+      const vnNow = dayjs().tz('Asia/Ho_Chi_Minh');
+      
+      if (vnDate.isBefore(vnNow, 'day')) {
+        message.warning('Không thể chọn ngày trong quá khứ');
+        return;
+      }
+      
+      const dateStr = vnDate.format('YYYY-MM-DD');
+      if (selectedDates.includes(dateStr)) {
+        // Unselect date
+        setSelectedDates(prev => prev.filter(d => d !== dateStr));
+      } else {
+        // Select date - CHO PHÉP TẤT CẢ CÁC NGÀY (kể cả thứ 7, chủ nhật)
+        setSelectedDates(prev => [...prev, dateStr].sort());
+      }
     };
-  }, []);
+
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-[#0C3C54] to-[#2A7F9E] text-white p-6">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={goToPrevMonth}
+              className="p-2 rounded-lg hover:bg-white/20 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            <div className="text-center">
+              <h3 className="text-xl font-bold">
+                {monthNames[currentCalendarMonth.month()]} {currentCalendarMonth.year()}
+              </h3>
+              <p className="text-white/80 text-sm mt-1">Chọn ngày để tạo lịch làm việc</p>
+            </div>
+            
+            <button
+              onClick={goToNextMonth}
+              className="p-2 rounded-lg hover:bg-white/20 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Calendar Grid */}
+        <div className="p-6">
+          {/* Day Headers */}
+          <div className="grid grid-cols-7 gap-2 mb-4">
+            {dayNames.map(dayName => (
+              <div
+                key={dayName}
+                className="text-center text-sm font-semibold text-gray-600 py-2"
+              >
+                {dayName}
+              </div>
+            ))}
+          </div>
+
+          {/* Days Grid */}
+          <div className="grid grid-cols-7 gap-2">
+            {days.map(day => {
+              const isDisabled = isPast(day);
+              const isCurrentMonthDay = isCurrentMonth(day);
+              const isTodayDay = isToday(day);
+              const isSelectedDay = isSelected(day);
+
+              return (
+                <button
+                  key={day.format('YYYY-MM-DD')}
+                  onClick={() => !isDisabled && handleDateClick(day)}
+                  disabled={isDisabled}
+                  className={`
+                    aspect-square rounded-xl text-sm font-medium transition-all duration-200 relative
+                    ${isSelectedDay 
+                      ? 'bg-[#0C3C54] text-white shadow-lg scale-105' 
+                      : isDisabled
+                        ? 'text-gray-300 cursor-not-allowed bg-gray-50'
+                        : isTodayDay
+                        ? 'bg-blue-100 text-[#0C3C54] font-bold border-2 border-[#0C3C54]'
+                        : isCurrentMonthDay
+                        ? 'text-gray-700 hover:bg-[#0C3C54]/10 hover:text-[#0C3C54] hover:scale-105'
+                        : 'text-gray-400'
+                    }
+                  `}
+                >
+                  {day.date()}
+                  {isTodayDay && !isSelectedDay && (
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Selected Dates Display */}
+          {selectedDates.length > 0 && (
+            <div className="mt-6 p-4 bg-[#0C3C54]/5 rounded-xl border border-[#0C3C54]/20">
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-2">Đã chọn {selectedDates.length} ngày</p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {selectedDates.slice(0, 5).map(date => (
+                    <span
+                      key={date}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-[#0C3C54] text-white text-xs rounded-md"
+                    >
+                      {dayjs(date).format('DD/MM')}
+                      <button
+                        onClick={() => setSelectedDates(prev => prev.filter(d => d !== date))}
+                        className="hover:bg-white/20 rounded-full p-0.5"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+                  {selectedDates.length > 5 && (
+                    <span className="text-xs text-gray-500">+{selectedDates.length - 5} ngày khác</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
   
   // Calendar view state
   const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
@@ -203,16 +431,20 @@ const DoctorSchedulePage: React.FC = () => {
     try {
       setLoading(true);
       
+      // Sử dụng timezone VN để đảm bảo tính đúng tháng
+      const vnMonth = selectedMonth.tz('Asia/Ho_Chi_Minh');
+      
       // Debug logs
-      console.log('🔍 [Debug] Loading schedules for:', {
-        month: selectedMonth.month() + 1,
-        year: selectedMonth.year()
+      console.log('🔍 [Debug] Loading schedules for (VN timezone):', {
+        month: vnMonth.month() + 1,
+        year: vnMonth.year(),
+        timezone: 'Asia/Ho_Chi_Minh'
       });
       
       // Lấy lịch theo tháng được chọn
       const data = await doctorScheduleApi.getSchedulesByMonth(
-        selectedMonth.month() + 1,
-        selectedMonth.year()
+        vnMonth.month() + 1,
+        vnMonth.year()
       );
       
       console.log('✅ [Debug] Schedules loaded successfully:', data);
@@ -220,9 +452,9 @@ const DoctorSchedulePage: React.FC = () => {
       
       // Show success message nếu có data
       if (data.length > 0) {
-        console.log(`✅ [Success] Loaded ${data.length} schedules for ${selectedMonth.format('MM/YYYY')}`);
+        console.log(`✅ [Success] Loaded ${data.length} schedules for ${vnMonth.format('MM/YYYY')} (VN timezone)`);
       } else {
-        console.log(`ℹ️ [Info] No schedules found for ${selectedMonth.format('MM/YYYY')}`);
+        console.log(`ℹ️ [Info] No schedules found for ${vnMonth.format('MM/YYYY')} (VN timezone)`);
         // Không hiển thị message để tránh spam user
       }
       
@@ -355,40 +587,50 @@ const DoctorSchedulePage: React.FC = () => {
     try {
       setLoading(true);
       
-      const { doctorId, timeSlots } = values;
-      const selectedTimeSlots = timeSlots || DEFAULT_TIME_SLOTS;
+      const { doctorId } = values;
 
       if (createMode === 'dates') {
-        // Tạo lịch theo ngày cụ thể
+        // Tạo lịch theo ngày cụ thể - CHO PHÉP TẤT CẢ NGÀY TRONG TUẦN
         if (selectedDates.length === 0) {
           message.warning('⚠️ Vui lòng chọn ít nhất một ngày để tạo lịch làm việc!');
           setLoading(false);
           return;
         }
 
+        // Đảm bảo tất cả ngày được chọn sử dụng timezone VN
+        const vnDates = selectedDates.map(date => {
+          return dayjs(date).tz('Asia/Ho_Chi_Minh').format('YYYY-MM-DD');
+        });
+
         const createData: CreateScheduleByDatesRequest = {
           doctorId,
-          dates: selectedDates,
-          timeSlots: selectedTimeSlots
+          dates: vnDates,
+          timeSlots: DEFAULT_TIME_SLOTS // Sử dụng 8 slot mặc định
         };
 
         await doctorScheduleApi.createScheduleByDates(createData);
-        message.success(`🎉 Tạo lịch thành công cho ${selectedDates.length} ngày được chọn! Hệ thống sẽ tự động cập nhật.`);
+        message.success(`🎉 Tạo lịch thành công cho ${selectedDates.length} ngày được chọn (bao gồm cả cuối tuần) với 8 khung giờ!`);
         
       } else {
-        // Tạo lịch theo tháng
+        // Tạo lịch theo tháng - TẠO HẾT TẤT CẢ NGÀY TRONG THÁNG
         const { month, year } = values;
+        
+        // Sử dụng timezone VN để tính toán
+        const vnNow = dayjs().tz('Asia/Ho_Chi_Minh');
+        const selectedMonthVN = dayjs().tz('Asia/Ho_Chi_Minh').year(year!).month(month! - 1);
         
         const createData: CreateScheduleByMonthRequest = {
           doctorId,
           month: month!,
           year: year!,
-          timeSlots: selectedTimeSlots,
-          excludeWeekends: values.excludeWeekends !== false // default true
+          timeSlots: DEFAULT_TIME_SLOTS, // Sử dụng 8 slot mặc định
+          excludeWeekends: false // KHÔNG loại bỏ cuối tuần - làm việc cả 7 ngày/tuần
         };
 
         await doctorScheduleApi.createScheduleByMonth(createData);
-        message.success(`📅 Tạo lịch thành công cho tháng ${month}/${year}! Hệ thống sẽ tự động cập nhật.`);
+        
+        const totalDays = selectedMonthVN.daysInMonth();
+        message.success(`📅 Tạo lịch thành công cho toàn bộ tháng ${month}/${year} (${totalDays} ngày bao gồm cả cuối tuần) với 8 khung giờ mỗi ngày!`);
       }
 
       setIsCreateModalVisible(false);
@@ -483,112 +725,7 @@ const DoctorSchedulePage: React.FC = () => {
     }
   };
 
-  // Calendar date cell render for date selection
-  const dateRender = (current: Dayjs) => {
-    const dateStr = current.format('YYYY-MM-DD');
-    const isSelected = selectedDates.includes(dateStr);
-    const isPast = current.isBefore(dayjs(), 'day');
-    const dayOfWeek = current.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Thứ 7 hoặc Chủ nhật
-    
-    // Prevent rendering if not in create mode
-    if (!isCreateModalVisible) {
-      return null;
-    }
-    
-    if (isSelected) {
-      return (
-        <div 
-          className="ant-picker-cell-inner" 
-          style={{ 
-            backgroundColor: '#1890ff', 
-            color: 'white', 
-            borderRadius: '4px',
-            fontWeight: '600'
-          }}
-        >
-          {current.date()}
-        </div>
-      );
-    }
-    
-    if (isPast) {
-      return (
-        <div 
-          className="ant-picker-cell-inner" 
-          style={{ 
-            color: '#d9d9d9',
-            cursor: 'not-allowed',
-            textDecoration: 'line-through'
-          }}
-        >
-          {current.date()}
-        </div>
-      );
-    }
-    
-    if (isWeekend) {
-      return (
-        <div 
-          className="ant-picker-cell-inner" 
-          style={{ 
-            color: '#ff4d4f', 
-            backgroundColor: '#fff2f0',
-            borderRadius: '4px',
-            cursor: 'not-allowed',
-            border: '1px dashed #ff4d4f'
-          }}
-        >
-          {current.date()}
-        </div>
-      );
-    }
-    
-    return (
-      <div 
-        className="ant-picker-cell-inner" 
-        style={{ 
-          cursor: 'pointer',
-          borderRadius: '4px',
-          transition: 'all 0.2s ease'
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = '#e6f7ff';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = 'transparent';
-        }}
-      >
-        {current.date()}
-      </div>
-    );
-  };
 
-  const onCalendarSelect = (date: Dayjs) => {
-    const dateStr = date.format('YYYY-MM-DD');
-    const isPast = date.isBefore(dayjs(), 'day');
-    const dayOfWeek = date.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    
-    if (isPast) {
-      message.warning('Không thể chọn ngày trong quá khứ');
-      return;
-    }
-    
-    if (isWeekend) {
-      const dayName = dayOfWeek === 0 ? 'Chủ nhật' : 'Thứ 7';
-      message.warning(`Không thể tạo lịch vào ${dayName}. Chỉ cho phép tạo lịch từ thứ 2 đến thứ 6.`);
-      return;
-    }
-    
-    if (selectedDates.includes(dateStr)) {
-      // Unselect date
-      setSelectedDates(prev => prev.filter(d => d !== dateStr));
-    } else {
-      // Select date
-      setSelectedDates(prev => [...prev, dateStr].sort());
-    }
-  };
 
   const columns: ColumnsType<ScheduleViewData> = [
     {
@@ -861,7 +998,7 @@ const DoctorSchedulePage: React.FC = () => {
           <Col>
             <DatePicker.MonthPicker
               value={selectedMonth}
-              onChange={(date) => setSelectedMonth(date || dayjs())}
+              onChange={(date) => setSelectedMonth(date ? date.tz('Asia/Ho_Chi_Minh') : dayjs().tz('Asia/Ho_Chi_Minh'))}
               format="MM/YYYY"
               placeholder="Chọn tháng"
               getPopupContainer={trigger => trigger.parentNode as HTMLElement}
@@ -1050,10 +1187,6 @@ const DoctorSchedulePage: React.FC = () => {
           form={form}
           layout="vertical"
           onFinish={handleCreateSchedule}
-          initialValues={{
-            excludeWeekends: true,
-            timeSlots: DEFAULT_TIME_SLOTS
-          }}
         >
           <Form.Item
             label="Chọn bác sĩ"
@@ -1083,8 +1216,18 @@ const DoctorSchedulePage: React.FC = () => {
                 setSelectedDates([]);
               }}
             >
-              <Radio value="dates">Tạo theo ngày cụ thể</Radio>
-              <Radio value="month">Tạo theo tháng</Radio>
+              <Radio value="dates">
+                <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '8px' }}>
+                  <span>Tạo theo ngày cụ thể</span>
+                  <Text type="secondary" style={{ fontSize: '12px' }}>Chọn từng ngày muốn tạo lịch</Text>
+                </div>
+              </Radio>
+              <Radio value="month">
+                <div style={{ display: 'flex', flexDirection: 'column', marginLeft: '8px' }}>
+                  <span>Tạo theo tháng</span>
+                  <Text type="secondary" style={{ fontSize: '12px' }}>Tự động tạo lịch cho toàn bộ tháng (bao gồm cả cuối tuần)</Text>
+                </div>
+              </Radio>
             </Radio.Group>
           </Form.Item>
 
@@ -1092,152 +1235,73 @@ const DoctorSchedulePage: React.FC = () => {
             <Form.Item label="Chọn ngày làm việc">
               <div style={{ marginBottom: '12px' }}>
                 <Text type="secondary" style={{ fontSize: '13px' }}>
-                  💡 <strong>Lưu ý:</strong> Chỉ có thể tạo lịch từ <strong>thứ 2 đến thứ 6</strong>. 
-                  Các ngày cuối tuần (thứ 7, chủ nhật) sẽ được đánh dấu màu đỏ và không thể chọn.
+                  💡 <strong>Hướng dẫn:</strong> Chọn những ngày bạn muốn tạo lịch làm việc. 
+                  Có thể chọn <strong>tất cả các ngày trong tuần</strong>, bao gồm cả thứ 7 và chủ nhật. 
+                  Hệ thống sử dụng múi giờ Việt Nam (GMT+7).
                 </Text>
               </div>
-              <div style={{ 
-                border: '1px solid #d9d9d9', 
-                borderRadius: '6px', 
-                padding: '8px',
-                backgroundColor: '#fafafa'
-              }}>
-                <div style={{ 
-                  maxHeight: '280px', 
-                  overflowY: 'auto',
-                  backgroundColor: 'white',
-                  borderRadius: '4px'
-                }}>
-                  <Calendar
-                    key="schedule-creation-calendar"
-                    className="schedule-creation-calendar"
-                    fullscreen={false}
-                    onSelect={onCalendarSelect}
-                    dateCellRender={dateRender}
-                    style={{
-                      backgroundColor: 'white'
-                    }}
-                  />
-                </div>
-                {selectedDates.length > 0 && (
-                  <div style={{ 
-                    marginTop: '8px', 
-                    borderTop: '1px solid #f0f0f0',
-                    paddingTop: '8px',
-                    maxHeight: '50px',
-                    overflowY: 'auto'
-                  }}>
-                    <Text strong style={{ fontSize: '12px' }}>Đã chọn {selectedDates.length} ngày:</Text>
-                    <div style={{ marginTop: '4px' }}>
-                      {selectedDates.map(date => (
-                        <Tag 
-                          key={date} 
-                          closable 
-                          onClose={() => setSelectedDates(prev => prev.filter(d => d !== date))}
-                          style={{ marginBottom: '2px', marginRight: '4px', fontSize: '11px' }}
-                          color="blue"
-                        >
-                          {dayjs(date).format('DD/MM')}
-                        </Tag>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Calendar Legend */}
-                <div style={{ 
-                  marginTop: '12px', 
-                  padding: '8px', 
-                  backgroundColor: '#fafafa', 
-                  borderRadius: '4px',
-                  fontSize: '12px'
-                }}>
-                  <Text strong style={{ fontSize: '12px' }}>Chú thích:</Text>
-                  <div style={{ display: 'flex', gap: '16px', marginTop: '4px', flexWrap: 'wrap' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <div style={{ 
-                        width: '12px', 
-                        height: '12px', 
-                        backgroundColor: '#1890ff', 
-                        borderRadius: '2px' 
-                      }}></div>
-                      <Text style={{ fontSize: '12px' }}>Đã chọn</Text>
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <div style={{ 
-                        width: '12px', 
-                        height: '12px', 
-                        backgroundColor: '#fff2f0',
-                        border: '1px solid #ff4d4f', 
-                        borderRadius: '2px' 
-                      }}></div>
-                      <Text style={{ fontSize: '12px', color: '#ff4d4f' }}>Cuối tuần (không thể chọn)</Text>
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <div style={{ 
-                        width: '12px', 
-                        height: '12px', 
-                        backgroundColor: '#f5f5f5',
-                        border: '1px solid #d9d9d9', 
-                        borderRadius: '2px' 
-                      }}></div>
-                      <Text style={{ fontSize: '12px', color: '#999' }}>Quá khứ (không thể chọn)</Text>
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <CustomCalendar />
             </Form.Item>
           )}
 
           {createMode === 'month' && (
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  label="Tháng"
-                  name="month"
-                  rules={[{ required: true, message: 'Vui lòng chọn tháng!' }]}
-                >
-                  <Select placeholder="Chọn tháng">
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <Option key={i + 1} value={i + 1}>
-                        Tháng {i + 1}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  label="Năm"
-                  name="year"
-                  rules={[{ required: true, message: 'Vui lòng chọn năm!' }]}
-                >
-                  <Select placeholder="Chọn năm">
-                    {Array.from({ length: 5 }, (_, i) => {
-                      const year = dayjs().year() + i;
-                      return (
-                        <Option key={year} value={year}>
-                          {year}
-                        </Option>
-                      );
-                    })}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
+            <div>
+              <div style={{ marginBottom: '12px' }}>
+                <Text type="secondary" style={{ fontSize: '13px' }}>
+                  📅 <strong>Thông tin:</strong> Sẽ tự động tạo lịch cho toàn bộ ngày trong tháng được chọn, 
+                  bao gồm cả thứ 7 và chủ nhật với 8 khung giờ mặc định.
+                </Text>
+              </div>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    label="Tháng"
+                    name="month"
+                    rules={[{ required: true, message: 'Vui lòng chọn tháng!' }]}
+                  >
+                    <Select placeholder="Chọn tháng">
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const currentVN = dayjs().tz('Asia/Ho_Chi_Minh');
+                        const monthValue = i + 1;
+                        const isCurrentYear = currentVN.year() === currentVN.year();
+                        const isPastMonth = isCurrentYear && monthValue < currentVN.month() + 1;
+                        
+                        return (
+                          <Option 
+                            key={monthValue} 
+                            value={monthValue}
+                            disabled={isPastMonth}
+                          >
+                            Tháng {monthValue}
+                            {isPastMonth && ' (Đã qua)'}
+                          </Option>
+                        );
+                      })}
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label="Năm"
+                    name="year"
+                    rules={[{ required: true, message: 'Vui lòng chọn năm!' }]}
+                  >
+                    <Select placeholder="Chọn năm">
+                      {Array.from({ length: 5 }, (_, i) => {
+                        const currentVN = dayjs().tz('Asia/Ho_Chi_Minh');
+                        const year = currentVN.year() + i;
+                        return (
+                          <Option key={year} value={year}>
+                            {year}
+                          </Option>
+                        );
+                      })}
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+            </div>
           )}
-
-          <Form.Item label="Khung giờ làm việc" name="timeSlots">
-            <Select
-              mode="tags"
-              placeholder="Sử dụng 8 slot mặc định hoặc chỉnh sửa"
-              style={{ width: '100%' }}
-            >
-              {DEFAULT_TIME_SLOTS.map(slot => (
-                <Option key={slot} value={slot}>{slot}</Option>
-              ))}
-            </Select>
-          </Form.Item>
 
           <div style={{ 
             fontSize: '12px', 
@@ -1248,7 +1312,9 @@ const DoctorSchedulePage: React.FC = () => {
             borderRadius: '4px',
             border: '1px solid #d0d7de'
           }}>
-            💡 <strong>Lưu ý:</strong> Mỗi ngày sẽ được tạo 8 slot thời gian. Cuối tuần (T7, CN) sẽ được loại bỏ tự động.
+            💡 <strong>Thông tin:</strong> Hệ thống sẽ tự động tạo 8 khung giờ mặc định (07:00-17:00) cho mỗi ngày. 
+            Có thể tạo lịch cho tất cả các ngày trong tuần, bao gồm cả thứ 7 và chủ nhật.
+            Múi giờ: Việt Nam (GMT+7).
           </div>
 
           <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>

@@ -1138,6 +1138,30 @@ export const assignDoctorToSelectedSlot = async (qaData: any, selectedDate: stri
       appointmentSlot: selectedSlot,
       slotId: assignedSlotId
     });
+
+    // Create PaymentTracking
+    const PaymentTracking = require('../models/PaymentTracking').default;
+    const payment = await PaymentTracking.create({
+        serviceType: 'consultation',
+        recordId: newQA._id,
+        doctorQAId: newQA._id,
+        userId: qaData.userId,
+        amount: consultationService.price,
+        totalAmount: consultationService.price,
+        billNumber: `CONS-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+        description: `Thanh toán tư vấn online: ${consultationService.serviceName}`,
+        customerName: qaData.fullName || 'Khách hàng',
+        customerEmail: qaData.email || '',
+        customerPhone: qaData.phone || '',
+        orderCode: Date.now(),
+        paymentGateway: 'payos',
+        status: 'pending'
+    });
+
+    // Update DoctorQA with paymentTrackingId
+    await DoctorQA.findByIdAndUpdate(newQA._id, {
+        paymentTrackingId: payment._id
+    });
     
     // 8. Set 15min timeout để auto-release
     setTimeout(async () => {

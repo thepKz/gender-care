@@ -38,6 +38,50 @@ const PaymentProcessPage = () => {
         return;
       }
 
+      // ✅ FIX: Check existing payment trước khi tạo mới
+      try {
+        console.log('🔍 [PaymentProcess] Checking for existing payment...');
+        const statusResponse = await paymentApi.checkPaymentStatus(appointmentId);
+        
+        if (statusResponse.success && statusResponse.data) {
+          const paymentData = statusResponse.data;
+          console.log('🔍 [PaymentProcess] Found existing payment:', paymentData.status);
+          
+          // Nếu payment đã success, redirect về booking history
+          if (paymentData.status === 'success') {
+            setErrorMessage('Lịch hẹn này đã được thanh toán thành công');
+            setStatus('error');
+            return;
+          }
+          
+          // Nếu có pending payment với paymentUrl valid, reuse nó
+          if (paymentData.status === 'pending' && paymentData.paymentUrl) {
+            console.log('♻️ [PaymentProcess] Reusing existing payment URL');
+            setPaymentData({
+              checkoutUrl: paymentData.paymentUrl,
+              orderCode: paymentData.orderCode,
+              amount: paymentData.amount
+            });
+            setStatus('redirecting');
+            
+            const countdownTimer = setInterval(() => {
+              setCountdown(prev => {
+                if (prev <= 1) {
+                  clearInterval(countdownTimer);
+                  window.location.href = paymentData.paymentUrl;
+                  return 0;
+                }
+                return prev - 1;
+              });
+            }, 1000);
+            return;
+          }
+        }
+      } catch (error) {
+        console.log('🔍 [PaymentProcess] No valid existing payment found, creating new one...');
+      }
+
+      // Tạo payment link mới
       const result = await paymentApi.createPaymentLink({ 
         appointmentId,
         returnUrl: `${window.location.origin}/payment/success`,

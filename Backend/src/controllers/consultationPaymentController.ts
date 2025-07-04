@@ -71,6 +71,7 @@ export class ConsultationPaymentController {
       if (existingPayment) {
         existingPayment.orderCode = paymentData.orderCode;
         existingPayment.amount = amount;
+        existingPayment.totalAmount = amount;
         existingPayment.description = description;
         existingPayment.status = 'pending';
         existingPayment.paymentUrl = paymentData.checkoutUrl;
@@ -81,10 +82,13 @@ export class ConsultationPaymentController {
         paymentTracking = await PaymentTracking.create({
           serviceType: 'consultation',
           recordId: doctorQAId,
+          userId: userId,
           orderCode: paymentData.orderCode,
           paymentLinkId: paymentData.paymentLinkId,
           paymentGateway: 'payos',
           amount,
+          totalAmount: amount,
+          billNumber: `CONS-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
           description,
           customerName: req.user?.fullName || consultation.fullName,
           customerEmail: req.user?.email,

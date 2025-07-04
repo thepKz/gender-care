@@ -649,6 +649,7 @@ export const updateUserProfile = async (req: any, res: Response) => {
       gender,
       address,
       year,
+      email,
     } = req.body;
 
     // Kiểm tra các trường hợp lệ
@@ -659,6 +660,26 @@ export const updateUserProfile = async (req: any, res: Response) => {
         return res.status(400).json({ message: "Họ tên phải có độ dài từ 2 đến 50 ký tự" });
       }
       updateData.fullName = fullName;
+    }
+
+    if (email !== undefined && email !== '') {
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ message: "Email không hợp lệ" });
+      }
+      
+      // Check if email already exists (for other users)
+      const existingEmailUser = await User.findOne({ 
+        email: email,
+        _id: { $ne: userId } // Exclude current user
+      });
+      
+      if (existingEmailUser) {
+        return res.status(400).json({ message: "Email này đã được sử dụng bởi tài khoản khác" });
+      }
+      
+      updateData.email = email;
     }
 
     if (phone !== undefined && phone !== '') {

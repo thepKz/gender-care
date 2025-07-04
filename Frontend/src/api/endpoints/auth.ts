@@ -70,6 +70,16 @@ const authApi = {
     return axiosInstance.post('/auth/verify-email', { email, otp });
   },
 
+  // Gửi OTP cho email mới (không cần kiểm tra user tồn tại)
+  sendOtpForNewEmail: (email: string) => {
+    return axiosInstance.post('/auth/send-otp-new-email', { email });
+  },
+
+  // Xác thực OTP cho email mới
+  verifyNewEmailOtp: (email: string, otp: string) => {
+    return axiosInstance.post('/auth/verify-new-email-otp', { email, otp });
+  },
+
   // Endpoint kiểm tra trạng thái email đã xác thực hay chưa
   checkEmailVerification: () => {
     return axiosInstance.get('/auth/check-email-verification');

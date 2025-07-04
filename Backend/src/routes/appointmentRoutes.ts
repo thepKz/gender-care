@@ -11,7 +11,9 @@ import {
     getMyAppointments,
     confirmAppointment,
     cancelAppointmentByDoctor,
-    getStaffAppointments
+    getStaffAppointments,
+    getUserAppointments,
+    getUserBookingHistory
 } from '../controllers/appointmentController';
 import { verifyToken, verifyAdmin, verifyCustomer, verifyStaff, verifyDoctor } from '../middleware';
 import { requireRole, requireAnyRole } from '../middleware/roleHierarchy';
@@ -31,6 +33,20 @@ router.get('/', getAllAppointments);
  * @access  Private (Customer, Staff)
  */
 router.post('/', verifyToken, createAppointment);
+
+/**
+ * @route   GET /api/appointments/user
+ * @desc    Lấy danh sách appointments của user hiện tại (chỉ appointments)
+ * @access  Private (Customer)
+ */
+router.get('/user', verifyToken, getUserAppointments);
+
+/**
+ * @route   GET /api/appointments/booking-history
+ * @desc    Lấy toàn bộ lịch sử đặt lịch của user (appointments + consultations)
+ * @access  Private (Customer)
+ */
+router.get('/booking-history', verifyToken, getUserBookingHistory);
 
 /**
  * @route   GET /api/appointments/my
