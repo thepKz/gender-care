@@ -42,6 +42,7 @@ interface TestResultsFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
   visible?: boolean;
+  serviceTestCategories?: any[];
 }
 
 interface TestItemInput {
@@ -56,7 +57,8 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
   patientName,
   onSuccess,
   onCancel,
-  visible = true
+  visible = true,
+  serviceTestCategories = []
 }) => {
   const [template, setTemplate] = useState<TestResultTemplate | null>(null);
   const [testItems, setTestItems] = useState<TestItemInput[]>([]);
@@ -288,11 +290,12 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
               const testItem = testItems.find(item => item.testCategoryId === category._id);
               if (!testItem) return null;
 
-              // Lấy thresholdRules từ category nếu có
-              const thresholdRules = (category as any).thresholdRules || [];
-              const minValue = (category as any).minValue;
-              const maxValue = (category as any).maxValue;
-              const unit = category.customUnit || category.unit || '';
+              // Lấy serviceTestCategory để có min-max values
+              const serviceTestCategory = serviceTestCategories.find(sc => sc.testCategoryId === category._id);
+              const thresholdRules = serviceTestCategory?.thresholdRules || [];
+              const minValue = serviceTestCategory?.minValue;
+              const maxValue = serviceTestCategory?.maxValue;
+              const unit = serviceTestCategory?.unit || category.customUnit || category.unit || '';
 
               // Hàm đánh giá threshold
               const evaluateThreshold = (value: string) => {
@@ -343,25 +346,24 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
               let messageText = evaluation.message;
 
               // Debug log để kiểm tra
-              if (testItem.value) {
-                console.log('=== THRESHOLD DEBUG ===');
-                console.log('Category:', category.name);
-                console.log('Value:', testItem.value, '→ Parsed:', parseFloat(testItem.value));
-                console.log('ThresholdRules:', thresholdRules);
-                console.log('Evaluation result:', evaluation);
-                console.log('========================');
-              }
+              console.log('=== MIN-MAX DEBUG ===');
+              console.log('Category:', category.name);
+              console.log('ServiceTestCategory:', serviceTestCategory);
+              console.log('MinValue:', minValue, 'MaxValue:', maxValue);
+              console.log('Unit:', unit);
+              console.log('========================');
 
               return (
                 <div key={category._id} style={{ marginBottom: 16, borderBottom: '1px solid #f0f0f0', paddingBottom: 12 }}>
                   <Row align="middle" gutter={12}>
                     <Col flex="220px">
                       <div style={{ fontWeight: 500, fontSize: 15 }}>{category.name}</div>
-                      <div style={{ fontSize: 12, color: '#888' }}>{unit}</div>
                       <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
-                        {minValue !== undefined && maxValue !== undefined && (
-                          <span>Giá trị dao động: {minValue} - {maxValue}</span>
-                        )}
+                        {minValue !== undefined && maxValue !== undefined ? (
+                          <span>Giá trị dao động: {minValue} - {maxValue}{unit ? ` (${unit})` : ''}</span>
+                        ) : unit ? (
+                          <span>({unit})</span>
+                        ) : null}
                       </div>
                     </Col>
                     <Col flex="180px">

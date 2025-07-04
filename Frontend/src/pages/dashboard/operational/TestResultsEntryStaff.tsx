@@ -39,6 +39,7 @@ interface Appointment {
   appointmentDate: string;
   appointmentTime: string;
   status: string;
+  doctorId?: string | { _id: string };
 }
 
 const TestResultsEntry: React.FC = () => {
@@ -288,7 +289,7 @@ const TestResultsEntry: React.FC = () => {
           <Tooltip title={"Chỉnh sửa kết quả xét nghiệm"}>
             <Button
               icon={<EditOutlined />}
-              disabled={!(testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0)}
+              disabled={!(testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0) || record.status === 'completed'}
               onClick={async () => {
                 setModalMode('edit');
                 setTestItemModalVisible(true);
@@ -381,7 +382,7 @@ const TestResultsEntry: React.FC = () => {
           <Tooltip title={"Chỉnh sửa hồ sơ xét nghiệm"}>
             <Button
               icon={<FileProtectOutlined />}
-              disabled={!testResultStatus[record._id]}
+              disabled={!testResultStatus[record._id] || record.status === 'completed'}
               onClick={async () => {
                 setTestResultModalMode('edit');
                 setCreateTargetAppointment(record);
@@ -650,7 +651,7 @@ const TestResultsEntry: React.FC = () => {
               loadAppointments();
             } else {
               // CREATE: Gọi API create như cũ, KHÔNG truyền _id cho từng item
-              const items = testCategories.map(cat => {
+             const items = testCategories.map(cat => {
                 const key = cat.testCategoryId?._id || cat.testCategoryId;
                 const v = testItemValues[key]?.value;
                 const thresholdRules = cat.thresholdRules || [];
@@ -808,7 +809,9 @@ const TestResultsEntry: React.FC = () => {
             await appointmentApi.createTestResult({
               appointmentId: createTargetAppointment._id,
               profileId: createTargetAppointment.profileId._id,
-              doctorId: user?._id || '',
+              doctorId: typeof createTargetAppointment.doctorId === 'object'
+                ? createTargetAppointment.doctorId._id
+                : createTargetAppointment.doctorId || '',
               diagnosis: values.diagnosis,
               recommendations: values.recommendations,
               testResultItemsId: []
@@ -920,7 +923,7 @@ const TestResultsEntry: React.FC = () => {
           }
         }}
         title={testResultModalMode === 'view' ? 'Chi tiết hồ sơ xét nghiệm' : 'Chỉnh sửa hồ sơ xét nghiệm'}
-        width={900}
+        width={600}
         destroyOnClose
         footer={testResultModalMode === 'view' ? [
           <Button key="ok" type="primary" onClick={() => setTestResultModalVisible(false)}>
@@ -958,37 +961,64 @@ const TestResultsEntry: React.FC = () => {
                     critical: 'Nguy kịch'
                   };
                   return (
-                    <div key={cat._id || idx} style={{ marginBottom: 18, borderBottom: '1px solid #f0f0f0', padding: '18px 0 8px 0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                    <React.Fragment key={cat._id || idx}>
+                      <div style={{
+                        borderBottom: '1px solid #f0f0f0',
+                        padding: '14px 0 6px 0',
+                        marginBottom: 6,
+                        display: 'flex',
+                        alignItems: 'center',
+                        minHeight: 44,
+                        height: 'auto',
+                        fontSize: 13
+                      }}>
                         {/* Tên chỉ số */}
-                        <div style={{ flex: 1.5, minWidth: 0, fontWeight: 700, fontSize: 17, color: '#222', lineHeight: '36px', marginBottom: 0, wordBreak: 'break-word', whiteSpace: 'normal', marginRight: 0 }}>{cat.testCategoryId?.name || cat.name || item.testCategoryId?.name || item.itemNameId?.name || 'Chỉ số'}</div>
-                        {/* min-max (unit) */}
-                        <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 0, marginLeft: 0, display: 'block', wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                          {minValue !== undefined && maxValue !== undefined ? (
-                            <span>{minValue} - {maxValue}{unit ? ` (${unit})` : ''}</span>
-                          ) : cat.targetValue ? (
-                            <span>{cat.targetValue}{unit ? ` (${unit})` : ''}</span>
-                          ) : (unit ? <span>({unit})</span> : null)}
-                        </div>
-                        {/* value */}
-                        <div style={{ flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center' }}>
-                          <input
-                            style={{ width: 90, textAlign: 'center', fontSize: 16, fontWeight: 600, color: '#222', background: '#f5f5f5', borderRadius: 8, border: '1.5px solid #d9d9d9', padding: '4px 0', marginRight: 18 }}
-                            value={item.value}
-                            readOnly={testResultModalMode !== 'edit'}
-                            type="number"
-                          />
-                        </div>
-                        {/* đánh giá */}
-                        <div style={{ flex: 1, minWidth: 0, fontWeight: 700, color, fontSize: 17, textAlign: 'right', lineHeight: '36px', marginRight: 0, wordBreak: 'break-word', whiteSpace: 'normal' }}>
-                          {flagTextMap[item.flag] || item.flag || ''}
+                        <div style={{ width: 180, flexShrink: 0, fontWeight: 700, color: '#222', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat.testCategoryId?.name || cat.name || item.testCategoryId?.name || item.itemNameId?.name || 'Chỉ số'}</div>
+                        {/* Các cột còn lại */}
+                        <div style={{ display: 'flex', flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          {/* min-max (unit) */}
+                          <div style={{ width: 80, flexShrink: 0, color: '#888', fontWeight: 500, fontSize: 12, textAlign: 'left' }}>
+                            {minValue !== undefined && maxValue !== undefined ? (
+                              <span>{minValue} - {maxValue}{unit ? ` (${unit})` : ''}</span>
+                            ) : cat.targetValue ? (
+                              <span>{cat.targetValue}{unit ? ` (${unit})` : ''}</span>
+                            ) : (unit ? <span>({unit})</span> : null)}
+                          </div>
+                          {/* value */}
+                          <div style={{ width: 60, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <input
+                              style={{
+                                width: 48,
+                                height: 32,
+                                textAlign: 'center',
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: '#222',
+                                background: '#f5f5f5',
+                                borderRadius: 8,
+                                border: '1.5px solid #d9d9d9',
+                                padding: 0,
+                                margin: 0,
+                                boxSizing: 'border-box',
+                                display: 'block',
+                                lineHeight: '32px',
+                              }}
+                              value={item.value}
+                              readOnly={testResultModalMode !== 'edit'}
+                              type="number"
+                            />
+                          </div>
+                          {/* đánh giá */}
+                          <div style={{ width: 80, flexShrink: 0, fontWeight: 700, color, fontSize: 13, textAlign: 'left', paddingLeft: 8, display: 'flex', alignItems: 'center' }}>
+                            {flagTextMap[item.flag] || item.flag || ''}
+                          </div>
                         </div>
                       </div>
-                      {/* message */}
+                      {/* message kéo dài toàn bộ phần còn lại, bắt đầu từ min-max */}
                       {item.message && (
-                        <div style={{ fontSize: 14, color, marginTop: 2, fontWeight: 500, paddingLeft: '37%' }}>{item.message}</div>
+                        <div style={{ marginLeft: 260, width: 'calc(100% - 260px)', fontSize: 12, color, marginTop: 2, textAlign: 'left', wordBreak: 'break-word' }}>{item.message}</div>
                       )}
-                    </div>
+                    </React.Fragment>
                   );
                 })}
               </div>
