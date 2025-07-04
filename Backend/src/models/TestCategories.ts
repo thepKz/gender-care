@@ -3,28 +3,24 @@ import mongoose from 'mongoose';
 export interface ITestCategories {
   name: string;
   description?: string;
-  unit?: string;
-  normalRange?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 const TestCategoriesSchema = new mongoose.Schema<ITestCategories>({
-  name: { 
-    type: String, 
+  name: {
+    type: String,
     required: true,
-    unique: true 
+    unique: true,
+    trim: true
   },
-  description: { 
-    type: String 
-  },
-  unit: { 
-    type: String 
-  },
-  normalRange: { 
-    type: String 
+  description: {
+    type: String,
+    trim: true
   }
-}, { timestamps: true });
+}, {
+  timestamps: true
+});
 
 // Tạo index để tối ưu hóa truy vấn
 TestCategoriesSchema.index({ name: 1 });

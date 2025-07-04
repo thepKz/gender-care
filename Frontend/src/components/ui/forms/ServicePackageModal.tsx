@@ -311,7 +311,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                     <Row key={key} gutter={8} className="mb-3">
                       <Col span={14}>
                         <Form.Item
-                          {...restField}
+                          key={`serviceId-${key}`}
                           name={[name, 'serviceId']}
                           label="Dịch vụ"
                           rules={[{ required: true, message: 'Chọn dịch vụ' }]}
@@ -359,7 +359,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                       </Col>
                       <Col span={6}>
                         <Form.Item
-                          {...restField}
+                          key={`quantity-${key}`}
                           name={[name, 'quantity']}
                           label="Số lượng"
                           rules={[
@@ -387,19 +387,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                         <Button
                           type="link"
                           danger
-                          onClick={() => {
-                            remove(name);
-                            
-                            // After removal, if only 1 service left, enable quantity editing
-                            setTimeout(() => {
-                              const currentServices = form.getFieldValue('services');
-                              
-                              // Force re-render to update disabled state
-                              form.setFieldsValue({ services: [...currentServices] });
-                              
-                              handleServicesChange(currentServices);
-                            }, 100);
-                          }}
+                          onClick={() => remove(name)}
                         >
                           Xóa
                         </Button>

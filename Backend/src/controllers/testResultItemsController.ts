@@ -68,55 +68,21 @@ class TestResultItemsController {
     }
   };
 
-  // GET /api/test-result-items/:id - Lấy test result item theo ID
-  getTestResultItemById = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const { id } = req.params;
-      const testResultItem = await this.testResultItemsService.getTestResultItemById(id);
-
-      res.status(200).json({
-        success: true,
-        message: 'Test result item retrieved successfully',
-        data: testResultItem
-      });
-    } catch (error: any) {
-      if (error.message.includes('Invalid') || error.message.includes('not found')) {
-        res.status(404).json({
-          success: false,
-          message: error.message
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Failed to retrieve test result item',
-          error: error.message
-        });
-      }
-    }
-  };
-
   // POST /api/test-result-items - Tạo test result item mới
   createTestResultItem = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { appointmentId, itemNameId, value, unit, flag } = req.body;
+      const { appointmentId, items } = req.body;
       const userRole = req.user?.role || '';
 
-      if (!appointmentId || !itemNameId || !value) {
+      if (!appointmentId || !items || !Array.isArray(items) || items.length === 0) {
         res.status(400).json({
           success: false,
-          message: 'Appointment ID, item name ID, and value are required'
+          message: 'Appointment ID và mảng items là bắt buộc'
         });
         return;
       }
 
-      const data = {
-        appointmentId,
-        itemNameId,
-        value,
-        unit,
-        flag
-      };
-
+      const data = { appointmentId, items };
       const newTestResultItem = await this.testResultItemsService.createTestResultItem(data, userRole);
 
       res.status(201).json({
@@ -180,20 +146,26 @@ class TestResultItemsController {
     }
   };
 
-  // PUT /api/test-result-items/:id - Cập nhật test result item
-  updateTestResultItem = async (req: AuthRequest, res: Response): Promise<void> => {
+  // PUT /api/test-result-items/:appointmentId/:testCategoryId - Cập nhật test result item theo appointmentId và testCategoryId
+  updateTestResultItemByCategory = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { id } = req.params;
-      const { value, unit, flag } = req.body;
+      const { appointmentId, testCategoryId } = req.params;
+      const { value, unit, flag, message } = req.body;
       const userRole = req.user?.role || '';
 
       const updateData = {
         value,
         unit,
-        flag
+        flag,
+        message
       };
 
-      const updatedTestResultItem = await this.testResultItemsService.updateTestResultItem(id, updateData, userRole);
+      const updatedTestResultItem = await this.testResultItemsService.updateTestResultItemByCategory(
+        appointmentId, 
+        testCategoryId, 
+        updateData, 
+        userRole
+      );
 
       res.status(200).json({
         success: true,
@@ -211,39 +183,6 @@ class TestResultItemsController {
         res.status(500).json({
           success: false,
           message: 'Failed to update test result item',
-          error: error.message
-        });
-      }
-    }
-  };
-
-  // DELETE /api/test-result-items/:id - Xóa test result item
-  deleteTestResultItem = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
-      const { id } = req.params;
-      const userRole = req.user?.role || '';
-
-      await this.testResultItemsService.deleteTestResultItem(id, userRole);
-
-      res.status(200).json({
-        success: true,
-        message: 'Test result item deleted successfully'
-      });
-    } catch (error: any) {
-      if (error.message.includes('Only')) {
-        res.status(403).json({
-          success: false,
-          message: error.message
-        });
-      } else if (error.message.includes('Invalid') || error.message.includes('not found')) {
-        res.status(404).json({
-          success: false,
-          message: error.message
-        });
-      } else {
-        res.status(500).json({
-          success: false,
-          message: 'Failed to delete test result item',
           error: error.message
         });
       }

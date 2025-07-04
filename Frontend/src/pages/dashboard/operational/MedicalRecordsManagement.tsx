@@ -14,7 +14,9 @@ import {
   Popconfirm,
   DatePicker,
   message,
-  Tabs
+  Tabs,
+  Row,
+  Col
 } from 'antd';
 import {
   SearchOutlined,
@@ -31,6 +33,7 @@ import { appointmentApi } from '../../../api/endpoints/appointment';
 import type { ApiAppointment } from '../../../types/appointment';
 import dayjs from 'dayjs';
 import medicalApi from '../../../api/endpoints/medical';
+import { testResultItemsApi, serviceTestCategoriesApi, testCategoriesApi } from '../../../api/endpoints/testManagementApi';
 // import './medical-records-view.css';
 
 const { Title, Text } = Typography;
@@ -41,12 +44,14 @@ const { TextArea } = Input;
 interface AppointmentTableItem {
   key: string;
   id: string;
+  appointmentId?: string;
   patientName: string;
   patientPhone: string;
   doctorName: string;
   appointmentDate: string;
   appointmentTime: string;
   serviceName: string;
+  serviceId?: any;
   appointmentType: string;
   status: string;
   paymentStatus: string;
@@ -83,6 +88,10 @@ const MedicalRecordsManagement: React.FC = () => {
   const [medicinesOptions, setMedicinesOptions] = useState<any[]>([]);
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view'>('create');
   const [currentMedicalRecord, setCurrentMedicalRecord] = useState<any>(null);
+  const [testResultItems, setTestResultItems] = useState<any[]>([]);
+  const [testCategories, setTestCategories] = useState<any[]>([]);
+  const [activeTabKey, setActiveTabKey] = useState('1');
+  const [serviceTestCategoriesMap, setServiceTestCategoriesMap] = useState({});
 
   const loadData = async () => {
     try {
@@ -90,14 +99,15 @@ const MedicalRecordsManagement: React.FC = () => {
       const response = await appointmentApi.getAllAppointments({});
       const data: ApiAppointment[] = response.data.appointments;
       const mapped = data.map((item) => ({
+        ...item,
         key: item._id,
         id: item._id,
+        appointmentId: item._id,
         patientName: item.profileId?.fullName || 'N/A',
         patientPhone: item.profileId?.phone || 'N/A',
         doctorName: item.doctorId?.userId?.fullName || 'N/A',
-        appointmentDate: item.appointmentDate,
-        appointmentTime: item.appointmentTime,
         serviceName: item.serviceId?.serviceName || '',
+        serviceId: item.serviceId,
         appointmentType: item.appointmentType,
         status: item.status,
         paymentStatus: item.paymentStatus,
@@ -145,6 +155,57 @@ const MedicalRecordsManagement: React.FC = () => {
       });
     }
   }, [medicalModalOpen]);
+
+  useEffect(() => {
+    if (medicalModalOpen && selectedAppointment && activeTabKey === '2') {
+      // Lấy toàn bộ test categories
+      testCategoriesApi.getAll().then(cats => setTestCategories(cats || []));
+      appointmentApi.getTestResultsByAppointment(selectedAppointment.appointmentId || selectedAppointment.id).then(res => {
+        const testResult = Array.isArray(res?.data) ? res.data[0] : res?.data;
+        setCurrentMedicalRecord(testResult); // Lưu testResult để lấy diagnosis, recommendations
+        const testResultItemsId = testResult?.testResultItemsId || [];
+        if (!testResultItemsId || testResultItemsId.length === 0) {
+          setTestResultItems([]);
+          return;
+        }
+        testResultItemsApi.getByAppointment(selectedAppointment.appointmentId || selectedAppointment.id)
+          .then(itemsArr => {
+            const allItems = Array.isArray(itemsArr)
+              ? itemsArr.flatMap(item => item.items || [])
+              : [];
+            setTestResultItems(allItems);
+          });
+      });
+      
+      // Fetch serviceTestCategories cho appointment hiện tại nếu chưa có
+      const serviceId = selectedAppointment?.serviceId?._id || selectedAppointment?.serviceId;
+      if (serviceId && !serviceTestCategoriesMap[serviceId]) {
+        console.log('Fetching serviceTestCategories for serviceId:', serviceId);
+        fetchServiceTestCategoriesByServiceId(serviceId).then(cats => {
+          console.log('Fetched serviceTestCategories:', cats);
+          setServiceTestCategoriesMap(prev => ({
+            ...prev,
+            [serviceId]: cats
+          }));
+        });
+      }
+    }
+  }, [medicalModalOpen, selectedAppointment, activeTabKey]);
+
+  // Tự động fetch serviceTestCategories cho tất cả serviceId khi load appointments
+  useEffect(() => {
+    const fetchAllServiceTestCategories = async () => {
+      const uniqueServiceIds = Array.from(new Set(appointments.map(a => a.serviceId?._id || a.serviceId).filter(Boolean)));
+      const map = {};
+      for (const serviceId of uniqueServiceIds) {
+        if (!serviceId) continue;
+        const cats = await fetchServiceTestCategoriesByServiceId(serviceId);
+        map[serviceId] = cats;
+      }
+      setServiceTestCategoriesMap(map);
+    };
+    if (appointments.length) fetchAllServiceTestCategories();
+  }, [appointments]);
 
   const filteredRecords = appointments.filter(record => {
     const matchesSearch = record.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -444,6 +505,7 @@ const MedicalRecordsManagement: React.FC = () => {
         message.success('Cập nhật hồ sơ bệnh án thành công!');
       } else {
         await medicalApi.createMedicalRecord(data);
+        await appointmentApi.updateAppointmentStatus(selectedAppointment.id, 'completed');
         message.success('Tạo hồ sơ bệnh án thành công!');
       }
       setMedicalModalOpen(false);
@@ -457,30 +519,153 @@ const MedicalRecordsManagement: React.FC = () => {
   // Thêm component chi tiết hồ sơ xét nghiệm
   const TestRecordDetail = () => (
     <div style={{ padding: 16 }}>
-      <h3 style={{ fontWeight: 600, marginBottom: 12 }}>Chi tiết hồ sơ xét nghiệm</h3>
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 500 }}>Chẩn đoán</div>
-        <div style={{ width: '100%', minHeight: 48, marginBottom: 8, border: '1px solid #d9d9d9', borderRadius: 4, padding: 8, background: '#fafafa' }}>Nam</div>
+      <div style={{ marginBottom: 16 }}>
+        <b>Chẩn đoán:</b>
+        <div style={{ width: '100%', minHeight: 32, border: '1px solid #d9d9d9', borderRadius: 4, padding: 8, background: '#fafafa', marginBottom: 8 }}>
+          {currentMedicalRecord?.diagnosis || 'Chưa có'}
+        </div>
+        <b>Khuyến nghị:</b>
+        <div style={{ width: '100%', minHeight: 32, border: '1px solid #d9d9d9', borderRadius: 4, padding: 8, background: '#fafafa' }}>
+          {currentMedicalRecord?.recommendations || 'Chưa có'}
+        </div>
       </div>
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontWeight: 500 }}>Khuyến nghị</div>
-        <div style={{ width: '100%', minHeight: 48, marginBottom: 8, border: '1px solid #d9d9d9', borderRadius: 4, padding: 8, background: '#fafafa' }}>Thắng</div>
-      </div>
-      <div style={{ fontWeight: 500, marginBottom: 8 }}>Kết quả chỉ số đã nhập:</div>
-      <div style={{ marginBottom: 8 }}>
-        <b>HBeAg (Hepatitis B e Antigen)</b><br />
-        giá trị dao động: <b>0 - 0.05</b> (IU/mL)  Kết quả: <b>0.025</b>  Đánh giá: <b>Bình thường</b>
-      </div>
-      <div style={{ marginBottom: 8 }}>
-        <b>Anti-HBs (Hepatitis B surface Antibody)</b><br />
-        giá trị dao động: <b>10 - 1000</b> (mIU/mL)  Kết quả: <b>501</b>  Đánh giá: <b>Bình thường</b>
-      </div>
-      <div style={{ marginBottom: 8 }}>
-        <b>HBsAg (Hepatitis B surface Antigen)</b><br />
-        giá trị dao động: <b>0 - 0.05</b> (IU/mL)  Kết quả: <b>0.025</b>  Đánh giá: <b>Bình thường</b>
+      <div style={{ marginTop: 12, marginBottom: 12 }}>
+        <b>Kết quả chỉ số đã nhập:</b>
+        <div>
+          {testResultItems && testResultItems.length > 0 ? (
+            testResultItems.map((item, idx) => {
+              const serviceId = selectedAppointment?.serviceId?._id || selectedAppointment?.serviceId;
+              const serviceCats = serviceTestCategoriesMap[serviceId] || [];
+              const cat = serviceCats.find(sc => sc.testCategoryId === item.testCategoryId) ||
+                          serviceCats.find(sc => sc.testCategoryId?._id === item.testCategoryId) ||
+                          serviceCats.find(sc => sc.testCategoryId === item.testCategoryId?._id) ||
+                          serviceCats.find(sc => String(sc.testCategoryId) === String(item.testCategoryId)); 
+              const testCat = testCategories.find(tc => tc._id === cat?.testCategoryId || tc._id === item.testCategoryId);
+              const displayName = testCat?.name || item.testCategoryId;
+              
+              // Debug log để kiểm tra min-max data
+              console.log('=== MIN-MAX DEBUG ===');
+              console.log('Item:', item);
+              console.log('Item.testCategoryId:', item.testCategoryId, 'Type:', typeof item.testCategoryId);
+              console.log('ServiceId:', serviceId);
+              console.log('ServiceCats:', serviceCats);
+              console.log('ServiceCats testCategoryIds:', serviceCats.map(sc => ({ id: sc.testCategoryId, type: typeof sc.testCategoryId })));
+              console.log('ServiceTestCategoriesMap:', serviceTestCategoriesMap);
+              console.log('Cat found:', cat);
+              console.log('MinValue:', cat?.minValue, 'MaxValue:', cat?.maxValue);
+              console.log('Unit:', cat?.unit);
+              console.log('TestCat name:', testCat?.name);
+              console.log('SelectedAppointment:', selectedAppointment);
+              console.log('========================');
+              
+              const flagTextMap = {
+                very_low: 'Rất thấp',
+                low: 'Thấp',
+                normal: 'Bình thường',
+                mild_high: 'Hơi cao',
+                high: 'Cao',
+                critical: 'Nguy kịch'
+              };
+              const flagColor = {
+                normal: '#52c41a',
+                mild_high: '#faad14',
+                high: '#ff4d4f',
+                very_low: '#ff4d4f',
+                low: '#faad14',
+                critical: '#d32029'
+              }[item.flag] || '#1677ff';
+              return (
+                <>
+                  <div key={idx} style={{
+                    borderBottom: '1px solid #f0f0f0',
+                    padding: '14px 0 6px 0',
+                    marginBottom: 6,
+                    display: 'flex',
+                    alignItems: 'center',
+                    minHeight: 44,
+                    height: 'auto',
+                    fontSize: 13
+                  }}>
+                    {/* Tên chỉ số */}
+                    <div style={{ width: 320, flexShrink: 0, fontWeight: 700, color: '#222', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</div>
+                    {/* Các cột còn lại */}
+                    <div style={{ display: 'flex', flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+                      {/* min-max (unit) */}
+                      <div style={{ width: 120, flexShrink: 0, color: '#888', fontWeight: 500, fontSize: 12, textAlign: 'center' }}>
+                        {cat && (cat.minValue != null || cat.maxValue != null) ? (
+                          <span>
+                            {cat.minValue != null && cat.maxValue != null ? 
+                              `${cat.minValue} - ${cat.maxValue}` :
+                              cat.minValue != null ? `≥${cat.minValue}` :
+                              cat.maxValue != null ? `≤${cat.maxValue}` : ''
+                            }
+                            {(cat.unit || testCat?.unit || item.unit) ? ` (${cat.unit || testCat?.unit || item.unit})` : ''}
+                          </span>
+                        ) : (
+                          <span>
+                            {(cat?.unit || testCat?.unit || item.unit) ? `(${cat?.unit || testCat?.unit || item.unit})` : 
+                             <span style={{ color: '#ccc', fontSize: '8px' }}>Chưa có ngưỡng</span>}
+                          </span>
+                        )}
+                      </div>
+                      {/* Value */}
+                      <div style={{ width: 80, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <input
+                          style={{
+                            width: 60,
+                            height: 32,
+                            textAlign: 'center',
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: '#222',
+                            background: '#f5f5f5',
+                            borderRadius: 8,
+                            border: '1.5px solid #d9d9d9',
+                            padding: 0,
+                            margin: 0,
+                            boxSizing: 'border-box',
+                            display: 'block',
+                            lineHeight: '32px',
+                          }}
+                          value={item.value}
+                          readOnly
+                          type="number"
+                        />
+                      </div>
+                      {/* Đánh giá */}
+                      <div style={{ width: 110, flexShrink: 0, fontWeight: 700, color: flagColor, fontSize: 13, textAlign: 'left', paddingLeft: 8, display: 'flex', alignItems: 'center' }}>
+                        {flagTextMap[item.flag] || item.flag || ''}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Message kéo dài toàn bộ phần còn lại, bắt đầu từ min-max */}
+                  {item.message && (
+                    <div style={{ marginLeft: 320, width: 'calc(100% - 320px)', fontSize: 12, color: flagColor, marginTop: 2, textAlign: 'left', wordBreak: 'break-word' }}>{item.message}</div>
+                  )}
+                </>
+              );
+            })
+          ) : (
+            <div>Không có dữ liệu chỉ số!</div>
+          )}
+        </div>
       </div>
     </div>
   );
+
+  // Hàm lấy serviceTestCategories theo serviceId
+  const fetchServiceTestCategoriesByServiceId = async (serviceId) => {
+    if (!serviceId) return [];
+    try {
+      const res = await serviceTestCategoriesApi.getByService(serviceId);
+      return res || [];
+    } catch (err) {
+      console.error('Lỗi khi fetch serviceTestCategories:', err);
+      return [];
+    }
+  };
+
+  const isFinalStatus = (status: string) => ['completed', 'done_testResult'].includes(status);
 
   return (
     <div style={{ padding: '24px' }}>
@@ -568,7 +753,7 @@ const MedicalRecordsManagement: React.FC = () => {
         footer={null}
         width={700}
       >
-        <Tabs defaultActiveKey="1">
+        <Tabs activeKey={activeTabKey} onChange={setActiveTabKey}>
           <Tabs.TabPane tab="Tạo hồ sơ bệnh án" key="1">
             {selectedAppointment && (
               <div

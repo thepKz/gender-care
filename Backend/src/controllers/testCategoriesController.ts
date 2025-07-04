@@ -108,7 +108,7 @@ class TestCategoriesController {
       console.log('🔍 [TestCategoryController] User:', req.user);
 
       // Validate input data
-      const { name, description, unit, normalRange } = req.body;
+      const { name, description } = req.body;
 
       if (!name) {
         console.log('❌ [TestCategoryController] Name is required');
@@ -122,9 +122,7 @@ class TestCategoriesController {
       // Prepare data để pass vào service
       const data = {
         name: name.trim(),
-        description: description?.trim(),
-        unit: unit?.trim(),
-        normalRange: normalRange?.trim()
+        description: description?.trim()
       };
 
       console.log('🔍 [TestCategoryController] Calling service with data:', data);
@@ -164,14 +162,12 @@ class TestCategoriesController {
   updateTestCategory = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const { name, description, unit, normalRange } = req.body;
+      const { name, description } = req.body;
 
       // Prepare update data
       const updateData: any = {};
       if (name !== undefined) updateData.name = name;
       if (description !== undefined) updateData.description = description;
-      if (unit !== undefined) updateData.unit = unit;
-      if (normalRange !== undefined) updateData.normalRange = normalRange;
 
       // Gọi service để update
       const updatedTestCategory = await this.testCategoriesService.updateTestCategory(id, updateData);

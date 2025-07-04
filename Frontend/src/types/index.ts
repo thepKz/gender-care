@@ -530,10 +530,11 @@ export interface TestCategory {
 export interface TestResultItem {
   _id: string;
   appointmentId: string;
-  itemNameId: string;
+  testCategoryId: string;
   value: string;
   unit: string;
-  flag: 'high' | 'low' | 'normal';
+  flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+  message?: string;
 }
 
 // Blog types

@@ -6,12 +6,16 @@ export interface ServiceTestCategory {
   serviceId: string;
   testCategoryId: string;
   isRequired: boolean;
-  customNormalRange?: string;
-  customUnit?: string;
+  unit?: string;
   targetValue?: string;
-  notes?: string;
   minValue?: number;
   maxValue?: number;
+  thresholdRules?: Array<{
+    from: number | null;
+    to: number | null;
+    flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+    message: string;
+  }>;
   createdAt?: string;
   updatedAt?: string;
   testCategory?: {
@@ -27,12 +31,16 @@ export interface CreateServiceTestCategoryData {
   serviceId: string;
   testCategoryId: string;
   isRequired: boolean;
-  customNormalRange?: string;
-  customUnit?: string;
+  unit?: string;
   targetValue?: string;
-  notes?: string;
   minValue?: number;
   maxValue?: number;
+  thresholdRules?: Array<{
+    from: number | null;
+    to: number | null;
+    flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+    message: string;
+  }>;
 }
 
 export interface BulkCreateServiceTestCategoryData {
@@ -43,7 +51,6 @@ export interface BulkCreateServiceTestCategoryData {
     customNormalRange?: string;
     customUnit?: string;
     targetValue?: string;
-    notes?: string;
   }[];
 }
 
@@ -60,20 +67,27 @@ export interface TestResultTemplate {
     customNormalRange?: string;
     customUnit?: string;
     targetValue?: string;
-    notes?: string;
   }[];
 }
 
 export interface TestResultItemData {
   appointmentId: string;
+  items?: Array<{
+    testCategoryId: string;
+    value: string;
+    unit?: string;
+    flag?: string;
+    message?: string;
+  }>;
   testCategoryId?: string;
   itemNameId?: string;
-  value: string;
+  value?: string;
   unit?: string;
   isHigh?: boolean;
   isLow?: boolean;
   isNormal?: boolean;
   flag?: string;
+  message?: string;
 }
 
 // ServiceTestCategories API
@@ -91,7 +105,7 @@ export const serviceTestCategoriesApi = {
   },
 
   // Bulk create service test categories
-  bulkCreate: async (data: BulkCreateServiceTestCategoryData): Promise<ServiceTestCategory[]> => {
+  bulkCreate: async (data: { serviceId: string; testCategories: CreateServiceTestCategoryData[] }): Promise<ServiceTestCategory[]> => {
     const response = await axiosInstance.post(`/service-test-categories/bulk`, data);
     return response.data.data;
   },
@@ -126,10 +140,11 @@ export const testResultItemsApi = {
   bulkCreate: async (data: {
     appointmentId: string;
     items: Array<{
-      itemNameId: string;
+      testCategoryId: string;
       value: string;
       unit?: string;
       flag?: string;
+      message?: string;
     }>;
   }): Promise<any> => {
     const response = await axiosInstance.post(`/test-result-items/bulk`, data);
@@ -142,25 +157,15 @@ export const testResultItemsApi = {
     return response.data.data;
   },
 
-  // Get test result item by ID
-  getById: async (id: string): Promise<any> => {
-    const response = await axiosInstance.get(`/test-result-items/${id}`);
-    return response.data.data;
-  },
-
-  // Update test result item
-  update: async (id: string, data: {
+  // Update test result item by appointmentId and testCategoryId
+  updateByCategory: async (appointmentId: string, testCategoryId: string, data: {
     value?: string;
     unit?: string;
     flag?: string;
+    message?: string;
   }): Promise<any> => {
-    const response = await axiosInstance.put(`/test-result-items/${id}`, data);
+    const response = await axiosInstance.put(`/test-result-items/${appointmentId}/${testCategoryId}`, data);
     return response.data.data;
-  },
-
-  // Delete test result item
-  delete: async (id: string): Promise<void> => {
-    await axiosInstance.delete(`/test-result-items/${id}`);
   },
 
   // Get summary by appointment ID

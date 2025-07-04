@@ -39,6 +39,7 @@ interface Appointment {
   appointmentDate: string;
   appointmentTime: string;
   status: string;
+  doctorId?: string | { _id: string };
 }
 
 const TestResultsEntry: React.FC = () => {
@@ -69,12 +70,13 @@ const TestResultsEntry: React.FC = () => {
   const [testResultItemsMap, setTestResultItemsMap] = useState<{ [appointmentId: string]: string[] }>({});
   const [createTestResultItems, setCreateTestResultItems] = useState<any[]>([]);
   const [modalMode, setModalMode] = useState<'create' | 'view' | 'edit'>('create');
-  const [testResultItemIdMap, setTestResultItemIdMap] = useState<{ [testCategoryId: string]: string }>({});
   const [testResultModalVisible, setTestResultModalVisible] = useState(false);
   const [testResultModalMode, setTestResultModalMode] = useState<'view' | 'edit'>('view');
   const [testResultModalItems, setTestResultModalItems] = useState<any[]>([]);
   const [testResultModalId, setTestResultModalId] = useState<string | null>(null);
   const [testResultModalTestCategories, setTestResultModalTestCategories] = useState([]);
+  // State để theo dõi giá trị input realtime
+  const [inputValues, setInputValues] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     if (user?.role === 'staff' || user?.role === 'doctor') {
@@ -91,15 +93,12 @@ const TestResultsEntry: React.FC = () => {
           appointments.map(async (apt) => {
             try {
               const res = await appointmentApi.checkTestResultsByAppointment(apt._id);
-              console.log('[DEBUG] checkTestResultsByAppointment FULL RESPONSE', res);
               statusObj[apt._id] = res.exists || false;
             } catch (e) {
-              console.log('[DEBUG] checkTestResultsByAppointment ERROR', apt._id, e);
               statusObj[apt._id] = false;
             }
           })
         );
-        console.log('[DEBUG] setTestResultStatus', statusObj);
         setTestResultStatus(statusObj);
       };
       checkAll();
@@ -264,12 +263,18 @@ const TestResultsEntry: React.FC = () => {
                   const cats = await serviceTestCategoriesApi.getByService(record.serviceId._id);
                   setTestCategories(cats || []);
                   // Lấy dữ liệu testResultItem đã nhập
-                  const items = await testResultItemsApi.getByAppointment(record._id);
+                  const items: any = await testResultItemsApi.getByAppointment(record._id);
+                  const responseData = Array.isArray(items) ? items[0] : items;
+                  const itemsData = responseData?.items || [];
                   const initial: any = {};
-                  (items || []).forEach(item => {
-                    initial[item.itemNameId?._id || item.itemNameId] = { value: item.value, flag: item.flag };
+                  const newInputValues: { [key: string]: string } = {};
+                  (itemsData || []).forEach(item => {
+                    const key = item.testCategoryId?._id || item.testCategoryId;
+                    initial[key] = { value: item.value, flag: item.flag };
+                    newInputValues[key] = item.value;
                   });
                   testItemForm.setFieldsValue({ testItemValues: initial });
+                  setInputValues(newInputValues);
                 } catch (e) {
                   message.error('Không thể tải dữ liệu kết quả xét nghiệm');
                   setTestItemModalVisible(false);
@@ -284,7 +289,7 @@ const TestResultsEntry: React.FC = () => {
           <Tooltip title={"Chỉnh sửa kết quả xét nghiệm"}>
             <Button
               icon={<EditOutlined />}
-              disabled={!(testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0)}
+              disabled={!(testResultItemsMap[record._id] && testResultItemsMap[record._id].length > 0) || record.status === 'completed'}
               onClick={async () => {
                 setModalMode('edit');
                 setTestItemModalVisible(true);
@@ -302,18 +307,19 @@ const TestResultsEntry: React.FC = () => {
                     return;
                   }
                   // Lấy dữ liệu testResultItem đã nhập
-                  const items = await testResultItemsApi.getByAppointment(record._id);
-                  console.log('items', items);
+                  const items: any = await testResultItemsApi.getByAppointment(record._id);
+                  const responseData = Array.isArray(items) ? items[0] : items;
+                  const itemsData = responseData?.items || [];
                   const initial: any = {};
-                  const idMap: { [testCategoryId: string]: string } = {};
-                  (items || []).forEach(item => {
-                    const key = item.itemNameId?._id || item.itemNameId;
+                  const newInputValues: { [key: string]: string } = {};
+                  (itemsData || []).forEach(item => {
+                    const key = item.testCategoryId?._id || item.testCategoryId;
                     initial[key] = { value: item.value, flag: item.flag };
-                    idMap[key] = item._id;
+                    newInputValues[key] = item.value;
                   });
-                  setTestResultItemIdMap(idMap);
                   testItemForm.resetFields();
                   testItemForm.setFieldsValue({ testItemValues: initial });
+                  setInputValues(newInputValues);
                 } catch (e) {
                   message.error('Không thể tải dữ liệu kết quả xét nghiệm');
                   setTestItemModalVisible(false);
@@ -335,7 +341,12 @@ const TestResultsEntry: React.FC = () => {
               onClick={async () => {
                 setCreateTargetAppointment(record);
                 setCreateModalVisible(true);
-                testResultItemsApi.getByAppointment(record._id).then(items => setCreateTestResultItems(items || []));
+                // Lấy testResultItems để hiển thị
+                const items = await testResultItemsApi.getByAppointment(record._id);
+                setCreateTestResultItems((items[0]?.items) || []);
+                // Lấy testCategories để lấy min/max
+                const cats = await serviceTestCategoriesApi.getByService(record.serviceId._id);
+                setTestCategories(cats || []);
               }}
               type="default"
               shape="circle"
@@ -349,8 +360,8 @@ const TestResultsEntry: React.FC = () => {
                 setTestResultModalMode('view');
                 setCreateTargetAppointment(record);
                 // Lấy testResultItems để hiển thị
-                const items = await testResultItemsApi.getByAppointment(record._id);
-                setTestResultModalItems(items || []);
+                const items: any = await testResultItemsApi.getByAppointment(record._id);
+                setTestResultModalItems(Array.isArray(items) ? (items[0]?.items || []) : (items?.items || []));
                 // Lấy testCategories để lấy min/max
                 const cats = await serviceTestCategoriesApi.getByService(record.serviceId._id);
                 setTestResultModalTestCategories(cats || []);
@@ -371,13 +382,13 @@ const TestResultsEntry: React.FC = () => {
           <Tooltip title={"Chỉnh sửa hồ sơ xét nghiệm"}>
             <Button
               icon={<FileProtectOutlined />}
-              disabled={!testResultStatus[record._id]}
+              disabled={!testResultStatus[record._id] || record.status === 'completed'}
               onClick={async () => {
                 setTestResultModalMode('edit');
                 setCreateTargetAppointment(record);
                 // Lấy testResultItems để hiển thị
-                const items = await testResultItemsApi.getByAppointment(record._id);
-                setTestResultModalItems(items || []);
+                const items: any = await testResultItemsApi.getByAppointment(record._id);
+                setTestResultModalItems(Array.isArray(items) ? (items[0]?.items || []) : (items?.items || []));
                 setTestResultModalVisible(true);
                 // Lấy dữ liệu hồ sơ để fill form
                 const testResultsRes = await appointmentApi.getTestResultsByAppointment(record._id);
@@ -399,9 +410,114 @@ const TestResultsEntry: React.FC = () => {
 
   const filteredAppointments = appointments.filter(apt =>
     apt.profileId.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
-    apt.profileId.phoneNumber.includes(searchText) ||
     apt.serviceId.serviceName.toLowerCase().includes(searchText.toLowerCase())
   );
+
+  // Hàm xử lý thay đổi input
+  const handleInputChange = (key: string, value: string) => {
+    setInputValues(prev => ({
+      ...prev,
+      [key]: value
+    }));
+    
+    // Tìm test category để lấy threshold rules
+    const testCategory = testCategories.find(cat => 
+      String(cat.testCategoryId?._id || cat.testCategoryId) === String(key)
+    );
+    const thresholdRules = testCategory?.thresholdRules || [];
+    
+    // Tính toán đánh giá tự động
+    const evaluation = getAutoEvaluation(value, thresholdRules);
+    
+    // Cập nhật form value với cả value, flag và message
+    testItemForm.setFieldsValue({
+      testItemValues: {
+        ...testItemForm.getFieldValue('testItemValues'),
+        [key]: { 
+          value,
+          flag: evaluation.flag,
+          message: evaluation.message
+        }
+      }
+    });
+  };
+
+  // Hàm đánh giá tự động dựa trên thresholdRules
+  const getAutoEvaluation = (value: string, thresholdRules: any[]) => {
+    if (!value || !thresholdRules || thresholdRules.length === 0) {
+      return { flag: undefined, message: '', color: '#1677ff' };
+    }
+    
+    const num = Number(value);
+    if (isNaN(num)) {
+      return { flag: undefined, message: '', color: '#1677ff' };
+    }
+
+    // Sắp xếp rules theo thứ tự from tăng dần để kiểm tra từ thấp đến cao
+    const sortedRules = [...thresholdRules].sort((a, b) => {
+      if (a.from === null) return -1;
+      if (b.from === null) return 1;
+      return a.from - b.from;
+    });
+
+    // Hàm so sánh số với tolerance cho floating point
+    const isEqual = (a: number, b: number) => Math.abs(a - b) < 0.000001;
+    const isGreaterOrEqual = (a: number, b: number) => a > b || isEqual(a, b);
+    const isLessOrEqual = (a: number, b: number) => a < b || isEqual(a, b);
+
+    let foundRule = null;
+    for (const rule of sortedRules) {
+      const ruleMatches = (() => {
+        if (rule.from === null && rule.to === null) {
+          return true; // Rule mặc định
+        } else if (rule.from !== null && rule.to === null) {
+          // Rule "từ X trở lên"
+          return isGreaterOrEqual(num, rule.from);
+        } else if (rule.from === null && rule.to !== null) {
+          // Rule "đến X"
+          return isLessOrEqual(num, rule.to);
+        } else if (rule.from !== null && rule.to !== null) {
+          // Rule "từ X đến Y"
+          return isGreaterOrEqual(num, rule.from) && isLessOrEqual(num, rule.to);
+        }
+        return false;
+      })();
+      
+      if (ruleMatches) {
+        foundRule = rule;
+        // Đối với rule có khoảng cụ thể (from-to), break ngay
+        // Đối với rule "từ X trở lên", tiếp tục để tìm rule cao hơn
+        if (rule.to !== null) {
+          break;
+        }
+      }
+    }
+
+    if (foundRule) {
+      let color = '#1677ff';
+      if (foundRule.flag === 'normal') color = '#52c41a';
+      else if (foundRule.flag === 'low' || foundRule.flag === 'mild_high') color = '#faad14';
+      else if (foundRule.flag === 'very_low' || foundRule.flag === 'high' || foundRule.flag === 'critical') color = '#ff4d4f';
+      
+      const flagTextMap: Record<string, string> = {
+        very_low: 'Rất thấp',
+        low: 'Thấp',
+        normal: 'Bình thường',
+        mild_high: 'Hơi cao',
+        high: 'Cao',
+        critical: 'Nguy kịch'
+      };
+      
+      return {
+        flag: foundRule.flag,
+        message: foundRule.message,
+        color,
+        text: flagTextMap[foundRule.flag] || foundRule.flag
+      };
+    }
+    
+    return { flag: undefined, message: '', color: '#1677ff' };
+  };
 
   return (
     <div style={{ padding: 24 }}>
@@ -515,39 +631,49 @@ const TestResultsEntry: React.FC = () => {
             }
             setTestItemLoading(true);
             if (modalMode === 'edit') {
-              // Update từng testResultItem
-              for (const cat of testCategories) {
+              // EDIT: Gọi API update từng item theo appointmentId + testCategoryId
+              const updatePromises = testCategories.map(cat => {
                 const key = cat.testCategoryId?._id || cat.testCategoryId;
                 const v = testItemValues[key]?.value;
-                const flag = testItemValues[key]?.flag;
-                const itemId = testResultItemIdMap[key];
-                if (itemId) {
-                  await testResultItemsApi.update(itemId, { value: v, flag });
-                }
-              }
+                const thresholdRules = cat.thresholdRules || [];
+                const evaluation = getAutoEvaluation(v, thresholdRules);
+                // Gọi API update theo appointmentId + testCategoryId
+                return testResultItemsApi.updateByCategory(currentTestResultId, key, {
+                  value: v,
+                  unit: cat.customUnit || cat.unit,
+                  flag: evaluation.flag,
+                  message: evaluation.message
+                });
+              });
+              await Promise.all(updatePromises);
               message.success('Cập nhật kết quả xét nghiệm thành công!');
               setTestItemModalVisible(false);
               loadAppointments();
-              setTestResultItemIdMap({});
-              return;
-            }
-            for (const cat of testCategories) {
-              const key = cat.testCategoryId?._id || cat.testCategoryId;
-              const v = testItemValues[key]?.value;
-              const flag = testItemValues[key]?.flag;
-              await testResultItemsApi.create({
-                appointmentId: selectedAppointment?._id || currentTestResultId,
-                itemNameId: key,
-                value: v,
-                unit: cat.customUnit || cat.unit,
-                flag: flag
+            } else {
+              // CREATE: Gọi API create như cũ, KHÔNG truyền _id cho từng item
+             const items = testCategories.map(cat => {
+                const key = cat.testCategoryId?._id || cat.testCategoryId;
+                const v = testItemValues[key]?.value;
+                const thresholdRules = cat.thresholdRules || [];
+                const evaluation = getAutoEvaluation(v, thresholdRules);
+                // Không có _id
+                return {
+                  testCategoryId: key,
+                  value: v,
+                  unit: cat.customUnit || cat.unit,
+                  flag: evaluation.flag,
+                  message: evaluation.message
+                };
               });
+              await testResultItemsApi.create({
+                appointmentId: currentTestResultId,
+                items
+              });
+              await appointmentApi.updateAppointmentStatus(currentTestResultId, 'done_testResultItem');
+              message.success('Lưu kết quả xét nghiệm thành công!');
+              setTestItemModalVisible(false);
+              loadAppointments();
             }
-            // Sau khi nhập xong, chuyển trạng thái appointment sang done_testResultItem
-            await appointmentApi.updateAppointmentStatus(selectedAppointment?._id || currentTestResultId, 'done_testResultItem');
-            message.success('Lưu kết quả xét nghiệm thành công!');
-            setTestItemModalVisible(false);
-            loadAppointments();
           } catch (e) {
             // Nếu validate lỗi, không làm gì cả
             if (e && e.errorFields) return;
@@ -567,57 +693,109 @@ const TestResultsEntry: React.FC = () => {
         ] : undefined}
       >
         <Form form={testItemForm} layout="vertical">
-          {testCategories.map(cat => {
-            const testName = cat.testCategoryId?.name || cat.testCategory?.name || cat.name || cat.testCategoryName || cat.label || cat.title || '';
-            const unit = cat.customUnit || cat.unit || '';
-            const normal = cat.targetValue || cat.customNormalRange || cat.normalRange || '';
-            const label = `${testName}${unit ? ` (${unit})` : ''}${(cat.minValue !== undefined && cat.maxValue !== undefined) ? `, giá trị dao động: ${cat.minValue} - ${cat.maxValue}` : (normal ? `, Bình thường: ${normal}` : '')}`;
-            const key = cat.testCategoryId?._id || cat.testCategoryId;
-            return (
-              <Form.Item
-                key={key}
-                label={label}
-                required
-                style={{ marginBottom: 16 }}
-              >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {testCategories.map(cat => {
+              const testName = cat.testCategoryId?.name || cat.testCategory?.name || cat.name || cat.testCategoryName || cat.label || cat.title || '';
+              const unit = cat.unit || cat.testCategory?.unit || cat.testCategoryId?.unit || '';
+              const min = cat.minValue;
+              const max = cat.maxValue;
+              const normal = cat.targetValue || cat.normalRange || '';
+              const key = cat.testCategoryId?._id || cat.testCategoryId;
+              const thresholdRules = cat.thresholdRules || [];
+              const currentValue = inputValues[key] || '';
+              const evaluation = getAutoEvaluation(currentValue, thresholdRules);
+              return (
                 <Form.Item
-                  name={['testItemValues', key, 'value']}
-                  rules={[{ required: true, message: 'Vui lòng nhập giá trị!' }]}
-                  noStyle
+                  key={key}
+                  required
+                  style={{ marginBottom: 0, padding: '18px 0 8px 0', borderBottom: '1px solid #f0f0f0' }}
                 >
-                  <Input
-                    style={{ width: 120, marginRight: 8 }}
-                    placeholder="Giá trị"
-                    readOnly={modalMode === 'view'}
-                    disabled={modalMode !== 'view' && modalMode !== 'edit' ? false : undefined}
-                  />
-                </Form.Item>
-                <Form.Item
-                  name={['testItemValues', key, 'flag']}
-                  initialValue="normal"
-                  noStyle
-                >
-                  {modalMode === 'view' ? (
-                    <span style={{ display: 'inline-block', minWidth: 120, color: '#222', background: '#f5f5f5', borderRadius: 4, padding: '4px 12px' }}>
-                      {(() => {
-                        const v = testItemForm.getFieldValue(['testItemValues', key, 'flag']);
-                        if (v === 'low') return 'Thấp';
-                        if (v === 'normal') return 'Bình thường';
-                        if (v === 'high') return 'Cao';
-                        return v || '';
-                      })()}
+                  <div style={{ display: 'flex', alignItems: 'center', minHeight: 60 }}>
+                    {/* Tên chỉ số */}
+                    <div style={{
+                      flex: 1.5,
+                      minWidth: 0,
+                      fontWeight: 700,
+                      fontSize: 16,
+                      color: '#222',
+                      lineHeight: '36px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      marginRight: 0
+                    }}>
+                      {cat.testCategoryId?.name || cat.name || testName}
+                    </div>
+                    {/* Min-max + unit nhỏ phía trên input */}
+                    <div style={{
+                      flex: '0 0 120px',
+                      maxWidth: 120,
+                      fontSize: 13,
+                      color: '#888',
+                      fontWeight: 500,
+                      textAlign: 'right',
+                      marginRight: 18
+                    }}>
+                      {min !== undefined && max !== undefined ? (
+                        <span>{min} - {max}{unit ? ` (${unit})` : ''}</span>
+                      ) : normal ? (
+                        <span>{normal}{unit ? ` (${unit})` : ''}</span>
+                      ) : unit ? (
+                        <span>({unit})</span>
+                      ) : null}
+                    </div>
+                    {/* Input kết quả */}
+                    <Form.Item
+                      name={['testItemValues', key, 'value']}
+                      rules={[{ required: true, message: 'Vui lòng nhập kết quả!' }]}
+                      noStyle
+                    >
+                      <Input
+                        style={{ width: 140, height: 38, fontSize: 16, borderRadius: 8, border: '1.5px solid #d9d9d9', padding: '4px 12px', marginRight: 0 }}
+                        placeholder="Kết quả"
+                        readOnly={modalMode === 'view'}
+                        type="number"
+                        value={testItemForm.getFieldValue(['testItemValues', key, 'value'])}
+                        onChange={(e) => handleInputChange(key, e.target.value)}
+                      />
+                    </Form.Item>
+                    {/* Đánh giá text tự động */}
+                    <span style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontWeight: 700,
+                      color: evaluation.color,
+                      fontSize: 17,
+                      lineHeight: '36px',
+                      letterSpacing: 0.2,
+                      textShadow: evaluation.flag === 'normal' ? '0 1px 0 #e6ffe6' : evaluation.flag ? '0 1px 0 #fff1f0' : undefined,
+                      marginRight: 0
+                    }}>
+                      {evaluation.text || ''}
                     </span>
-                  ) : (
-                    <Select style={{ width: 120 }}>
-                      <Select.Option value="low">Thấp</Select.Option>
-                      <Select.Option value="normal">Bình thường</Select.Option>
-                      <Select.Option value="high">Cao</Select.Option>
-                    </Select>
-                  )}
+                  </div>
+                  {/* Message đánh giá nằm bên dưới min-max, kéo dài tới cuối modal */}
+                  <div style={{
+                    width: '100%',
+                    gridColumn: '2 / span 3',
+                    fontSize: 14,
+                    color: evaluation.color,
+                    marginTop: 2,
+                    minHeight: 20,
+                    fontStyle: evaluation.message ? 'normal' : 'italic',
+                    opacity: evaluation.message ? 1 : 0.6,
+                    fontWeight: 500,
+                    letterSpacing: 0.1,
+                    paddingLeft: 1.5 * 160 + 18, // căn lề trái đúng vị trí min-max
+                    boxSizing: 'border-box',
+                    wordBreak: 'break-word'
+                  }}>
+                    {evaluation.message || ''}
+                  </div>
                 </Form.Item>
-              </Form.Item>
-            );
-          })}
+              );
+            })}
+          </div>
         </Form>
       </Modal>
       <Modal
@@ -631,7 +809,9 @@ const TestResultsEntry: React.FC = () => {
             await appointmentApi.createTestResult({
               appointmentId: createTargetAppointment._id,
               profileId: createTargetAppointment.profileId._id,
-              doctorId: user?._id || '',
+              doctorId: typeof createTargetAppointment.doctorId === 'object'
+                ? createTargetAppointment.doctorId._id
+                : createTargetAppointment.doctorId || '',
               diagnosis: values.diagnosis,
               recommendations: values.recommendations,
               testResultItemsId: []
@@ -652,33 +832,69 @@ const TestResultsEntry: React.FC = () => {
         confirmLoading={!!creatingTestResultId}
         title="Tạo hồ sơ xét nghiệm"
         destroyOnClose
+        width={700}
       >
         <Form form={createForm} layout="vertical">
-          <Form.Item name="diagnosis" label="Chẩn đoán" rules={[{ required: false }]}> 
+          <Form.Item name="diagnosis" label="Chẩn đoán" rules={[{ required: true, message: 'Vui lòng nhập chẩn đoán!' }]}> 
             <Input.TextArea rows={3} placeholder="Nhập chẩn đoán" />
           </Form.Item>
-          <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: false }]}> 
+          <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: true, message: 'Vui lòng nhập khuyến nghị!' }]}> 
             <Input.TextArea rows={3} placeholder="Nhập khuyến nghị" />
           </Form.Item>
-          {createTestResultItems.length > 0 && (
+          {createTestResultItems && createTestResultItems.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>Kết quả chỉ số đã nhập:</div>
               <div>
-                {createTestResultItems.map((item, idx) => (
-                  <div key={item._id} style={{ marginBottom: 10 }}>
-                    <div style={{ fontWeight: 500 }}>{item.itemNameId?.name}</div>
-                    <div style={{ marginLeft: 16, fontSize: 14 }}>
-                      <span>{item.itemNameId?.unit ? `(${item.itemNameId.unit})` : ''}</span>
-                      {item.itemNameId?.normalRange && (
-                        <span style={{ marginLeft: 8 }}>
-                          Bình thường: <span style={{ fontWeight: 400 }}>{item.itemNameId.normalRange}</span>
+                {createTestResultItems.map((item, idx) => {
+                  const cat = testCategories.find(tc =>
+                    String(tc.testCategoryId?._id || tc.testCategoryId) === String(item.testCategoryId?._id || item.testCategoryId || item.itemNameId?._id || item.itemNameId)
+                  );
+                  if (!item || !cat) return null;
+                  let color = '#1677ff';
+                  if (item.flag === 'normal') color = '#52c41a';
+                  else if (item.flag === 'low' || item.flag === 'mild_high') color = '#faad14';
+                  else if (item.flag === 'very_low' || item.flag === 'high' || item.flag === 'critical') color = '#ff4d4f';
+                  const flagTextMap = {
+                    very_low: 'Rất thấp',
+                    low: 'Thấp',
+                    normal: 'Bình thường',
+                    mild_high: 'Hơi cao',
+                    high: 'Cao',
+                    critical: 'Nguy kịch'
+                  };
+                  return (
+                    <div key={item._id || idx} style={{ marginBottom: 18, borderBottom: '1px solid #f0f0f0', padding: '18px 0 8px 0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', minHeight: 60 }}>
+                        {/* Tên chỉ số + min-max */}
+                        <div style={{ flex: '0 0 320px', maxWidth: 320, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginRight: 18 }}>
+                          <span style={{ fontWeight: 700, fontSize: 17, color: '#222', lineHeight: '36px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 0 }}>{cat.testCategoryId?.name || cat.name || item.testCategoryId?.name || item.itemNameId?.name || 'Chỉ số'}</span>
+                          <span style={{ fontSize: 13, color: '#888', fontWeight: 500, marginBottom: 0 }}>
+                            {cat && cat.minValue !== undefined && cat.maxValue !== undefined ? (
+                              <span>{cat.minValue} - {cat.maxValue}{cat.unit ? ` (${cat.unit})` : ''}</span>
+                            ) : cat && cat.targetValue ? (
+                              <span>{cat.targetValue}{cat.unit ? ` (${cat.unit})` : ''}</span>
+                            ) : (item.unit ? <span>({item.unit})</span> : null)}
+                          </span>
+                        </div>
+                        {/* Giá trị */}
+                        <input
+                          style={{ width: 90, textAlign: 'center', fontSize: 16, fontWeight: 600, color: '#222', background: '#f5f5f5', borderRadius: 8, border: '1.5px solid #d9d9d9', padding: '4px 0', marginRight: 18 }}
+                          value={item.value}
+                          readOnly
+                          type="number"
+                        />
+                        {/* Đánh giá */}
+                        <span style={{ minWidth: 110, fontWeight: 700, color, fontSize: 17, lineHeight: '36px', letterSpacing: 0.2, textShadow: item.flag === 'normal' ? '0 1px 0 #e6ffe6' : item.flag ? '0 1px 0 #fff1f0' : undefined, marginRight: 12, textAlign: 'right' }}>
+                          {flagTextMap[item.flag] || item.flag || ''}
                         </span>
-                      )}
-                      <span style={{ marginLeft: 16 }}>Giá trị: <b>{item.value}</b></span>
-                      <span style={{ marginLeft: 16 }}>Đánh giá: <b>{item.flag === 'normal' ? 'Bình thường' : item.flag === 'high' ? 'Cao' : item.flag === 'low' ? 'Thấp' : item.flag}</b></span>
+                      </div>
+                      {/* Message đánh giá nằm bên dưới min-max, kéo dài tới cuối modal */}
+                      <div style={{ width: '100%', fontSize: 14, color, marginTop: 2, minHeight: 20, fontStyle: item.message ? 'normal' : 'italic', opacity: item.message ? 1 : 0.6, fontWeight: 500, letterSpacing: 0.1, paddingLeft: 320 + 18, boxSizing: 'border-box', wordBreak: 'break-word' }}>
+                        {item.message || ''}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -722,27 +938,87 @@ const TestResultsEntry: React.FC = () => {
           <Form.Item name="recommendations" label="Khuyến nghị" rules={[{ required: false }]}> 
             <Input.TextArea rows={3} placeholder="Nhập khuyến nghị" readOnly={testResultModalMode === 'view'} />
           </Form.Item>
-          {testResultModalItems.length > 0 && (
+          {testResultModalItems && testResultModalItems.length > 0 && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>Kết quả chỉ số đã nhập:</div>
               <div>
-                {testResultModalItems.map((item, idx) => {
-                  const cat = testResultModalTestCategories.find(tc =>
-                    String(tc.testCategoryId?._id || tc.testCategoryId) === String(item.itemNameId?._id || item.itemNameId)
-                  );
+                {testResultModalTestCategories.map((cat, idx) => {
+                  const item = testResultModalItems.find(i => String(i.testCategoryId?._id || i.testCategoryId || i.itemNameId?._id || i.itemNameId) === String(cat.testCategoryId?._id || cat.testCategoryId || cat._id));
+                  if (!item) return null;
+                  const minValue = cat.minValue;
+                  const maxValue = cat.maxValue;
+                  const unit = cat.customUnit || cat.unit || '';
+                  let color = '#1677ff';
+                  if (item.flag === 'normal') color = '#52c41a';
+                  else if (item.flag === 'low' || item.flag === 'mild_high') color = '#faad14';
+                  else if (item.flag === 'very_low' || item.flag === 'high' || item.flag === 'critical') color = '#ff4d4f';
+                  const flagTextMap = {
+                    very_low: 'Rất thấp',
+                    low: 'Thấp',
+                    normal: 'Bình thường',
+                    mild_high: 'Hơi cao',
+                    high: 'Cao',
+                    critical: 'Nguy kịch'
+                  };
                   return (
-                    <div key={item._id} style={{ marginBottom: 10 }}>
-                      <div style={{ fontWeight: 500 }}>{item.itemNameId?.name}</div>
-                      <div style={{ marginLeft: 16, fontSize: 14 }}>
-                        {cat && cat.minValue !== undefined && cat.maxValue !== undefined && (
-                          <span style={{ marginRight: 8 }}>
-                            giá trị dao động: <b>{cat.minValue} - {cat.maxValue}</b>{item.itemNameId?.unit ? ` (${item.itemNameId.unit})` : ''}
-                          </span>
-                        )}
-                        <span>Kết quả: <b>{item.value}</b></span>
-                        <span style={{ marginLeft: 16 }}>Đánh giá: <b>{item.flag === 'normal' ? 'Bình thường' : item.flag === 'high' ? 'Cao' : item.flag === 'low' ? 'Thấp' : item.flag}</b></span>
+                    <React.Fragment key={cat._id || idx}>
+                      <div style={{
+                        borderBottom: '1px solid #f0f0f0',
+                        padding: '14px 0 6px 0',
+                        marginBottom: 6,
+                        display: 'flex',
+                        alignItems: 'center',
+                        minHeight: 44,
+                        height: 'auto',
+                        fontSize: 13
+                      }}>
+                        {/* Tên chỉ số */}
+                        <div style={{ width: 180, flexShrink: 0, fontWeight: 700, color: '#222', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat.testCategoryId?.name || cat.name || item.testCategoryId?.name || item.itemNameId?.name || 'Chỉ số'}</div>
+                        {/* Các cột còn lại */}
+                        <div style={{ display: 'flex', flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          {/* min-max (unit) */}
+                          <div style={{ width: 80, flexShrink: 0, color: '#888', fontWeight: 500, fontSize: 12, textAlign: 'left' }}>
+                            {minValue !== undefined && maxValue !== undefined ? (
+                              <span>{minValue} - {maxValue}{unit ? ` (${unit})` : ''}</span>
+                            ) : cat.targetValue ? (
+                              <span>{cat.targetValue}{unit ? ` (${unit})` : ''}</span>
+                            ) : (unit ? <span>({unit})</span> : null)}
+                          </div>
+                          {/* value */}
+                          <div style={{ width: 60, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <input
+                              style={{
+                                width: 48,
+                                height: 32,
+                                textAlign: 'center',
+                                fontSize: 13,
+                                fontWeight: 600,
+                                color: '#222',
+                                background: '#f5f5f5',
+                                borderRadius: 8,
+                                border: '1.5px solid #d9d9d9',
+                                padding: 0,
+                                margin: 0,
+                                boxSizing: 'border-box',
+                                display: 'block',
+                                lineHeight: '32px',
+                              }}
+                              value={item.value}
+                              readOnly={testResultModalMode !== 'edit'}
+                              type="number"
+                            />
+                          </div>
+                          {/* đánh giá */}
+                          <div style={{ width: 80, flexShrink: 0, fontWeight: 700, color, fontSize: 13, textAlign: 'left', paddingLeft: 8, display: 'flex', alignItems: 'center' }}>
+                            {flagTextMap[item.flag] || item.flag || ''}
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                      {/* message kéo dài toàn bộ phần còn lại, bắt đầu từ min-max */}
+                      {item.message && (
+                        <div style={{ marginLeft: 260, width: 'calc(100% - 260px)', fontSize: 12, color, marginTop: 2, textAlign: 'left', wordBreak: 'break-word' }}>{item.message}</div>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </div>
