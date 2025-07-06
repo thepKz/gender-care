@@ -307,7 +307,7 @@ const Header: React.FC = () => {
                     trigger={['hover']}
                     mouseEnterDelay={0.1}
                     mouseLeaveDelay={0.3}
-                    dropdownRender={(menu) => (
+                    popupRender={(menu) => (
                       <div className="profile-dropdown-container">
                         <motion.div
                           initial={{ opacity: 0, y: -10 }}

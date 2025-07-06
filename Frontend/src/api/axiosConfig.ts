@@ -1,5 +1,5 @@
 import axios, { AxiosRequestHeaders } from 'axios';
-import { getValidTokenFromStorage } from '../utils/helpers';
+import { forceLogout, getValidTokenFromStorage } from '../utils/helpers';
 
 // Create axios instance with base URL from environment
 const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -58,7 +58,7 @@ axiosInstance.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
+  async (error) => {
     // Nếu request bị cancel bởi interceptor
     if (axios.isCancel(error)) {
       return Promise.reject(new Error('Request cancelled'));
@@ -69,6 +69,46 @@ axiosInstance.interceptors.response.use(
       const token = localStorage.getItem('access_token');
       if (token && import.meta.env.DEV) {
         console.log('401 Error detected, token exists but invalid');
+      }
+
+      /**
+       * Thử refresh token 1 lần rồi retry request
+       */
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const originalRequest = error.config as any;
+
+      // Tránh lặp vô hạn
+      if (!originalRequest?._retry) {
+        originalRequest._retry = true;
+
+        try {
+          const refreshToken = localStorage.getItem('refresh_token');
+          if (refreshToken) {
+            // Gọi API refresh token
+            const response = await axiosInstance.post('/auth/refresh-token', { refreshToken });
+
+            const { accessToken: newAccessToken, refreshToken: newRefreshToken } = response.data.data || response.data;
+
+            if (newAccessToken && newRefreshToken) {
+              // Lưu token mới
+              localStorage.setItem('access_token', newAccessToken);
+              localStorage.setItem('refresh_token', newRefreshToken);
+
+              // Cập nhật header mặc định và header của request gốc
+              axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+              originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+
+              // Retry request gốc
+              return axiosInstance(originalRequest);
+            }
+          }
+        } catch (refreshError) {
+          if (import.meta.env.DEV) {
+            console.error('[axiosConfig] Refresh token failed:', refreshError);
+          }
+          // Nếu refresh cũng fail, force logout
+          forceLogout();
+        }
       }
     }
 

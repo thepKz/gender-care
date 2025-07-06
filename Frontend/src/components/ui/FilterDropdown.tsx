@@ -119,7 +119,7 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
     <Dropdown
       open={visible}
       onOpenChange={setVisible}
-      dropdownRender={() => dropdownContent}
+      popupRender={() => dropdownContent}
       trigger={['click']}
       placement="bottomRight"
     >

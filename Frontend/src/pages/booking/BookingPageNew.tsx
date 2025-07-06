@@ -1856,7 +1856,7 @@ const BookingPageNew: React.FC = () => {
                         style={{ fontSize: '14px' }}
                         size="large"
                         optionLabelProp="label"
-                  dropdownRender={(menu) => (
+                  popupRender={(menu) => (
                     <div>
                       {menu}
                             <div style={{ padding: '8px', borderTop: '1px solid #e5e7eb' }}>
