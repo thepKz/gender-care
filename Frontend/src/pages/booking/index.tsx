@@ -58,7 +58,7 @@ interface Doctor {
   id: string;
   name: string;
   specialization: string;
-  experience: number;
+  experience: string | number;
   rating: number;
   reviewCount: number;
   avatar: string;

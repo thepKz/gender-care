@@ -8,7 +8,6 @@ import {
   Button,
   Form,
   Input,
-  InputNumber,
   Upload,
   message,
   Statistic,
@@ -22,18 +21,13 @@ import {
 } from 'antd';
 import {
   UserOutlined,
-  EditOutlined,
-  SaveOutlined,
   CameraOutlined,
   StarOutlined,
   MessageOutlined,
   BookOutlined,
   LockOutlined,
   KeyOutlined,
-  UploadOutlined,
   PhoneOutlined,
-  PlusOutlined,
-  DeleteOutlined,
   BankOutlined,
   MedicineBoxOutlined,
   CarryOutOutlined,
@@ -41,6 +35,7 @@ import {
 } from '@ant-design/icons';
 import { doctorApi, type Doctor, type UpdateDoctorRequest } from '../../../api/endpoints/doctorApi';
 import authApi from '../../../api/endpoints/auth';
+import userApi from '../../../api/endpoints/userApi';
 import useAuth from '../../../hooks/useAuth';
 
 const { Title, Text, Paragraph } = Typography;
@@ -82,14 +77,11 @@ const DoctorProfileManagement: React.FC = () => {
   // States
   const [doctorData, setDoctorData] = useState<DoctorProfileData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [basicEditing, setBasicEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState<string>('');
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [certificateImages, setCertificateImages] = useState<string[]>([]);
-  const [certificateUploading, setCertificateUploading] = useState(false);
   const [experiences, setExperiences] = useState<Array<{
     startYear: number;
     endYear: number | null;
@@ -195,6 +187,26 @@ const DoctorProfileManagement: React.FC = () => {
             education: currentDoctor.education || '',
             certificate: currentDoctor.certificate || ''
           });
+
+          // Xử lý kinh nghiệm làm việc
+          if (typeof currentDoctor.experience === 'string' && currentDoctor.experience) {
+            console.log('🔄 [EXPERIENCE] Found string experience:', currentDoctor.experience);
+            // Đã có kinh nghiệm dạng chuỗi, không cần tạo experiences array
+            setExperiences([]);
+          } else if (typeof currentDoctor.experience === 'number' && currentDoctor.experience > 0) {
+            // Tạo mảng experiences giả lập từ số năm kinh nghiệm
+            console.log('🔄 [EXPERIENCE] Converting numeric experience to array:', currentDoctor.experience);
+            const currentYear = new Date().getFullYear();
+            setExperiences([{
+              startYear: currentYear - (currentDoctor.experience as number),
+              endYear: currentYear,
+              workplace: 'Chưa cập nhật',
+              position: 'Bác sĩ'
+            }]);
+          } else {
+            // Không có kinh nghiệm
+            setExperiences([]);
+          }
 
           // Set basic form values
           basicForm.setFieldsValue({
@@ -325,59 +337,42 @@ const DoctorProfileManagement: React.FC = () => {
   // Handle form submit
   const handleUpdateProfile = async (values: {
     bio: string;
-    experience: number;
+    experience: string | number;
     specialization: string;
     education: string;
     certificate: string;
   }) => {
+    if (!doctorData) return;
+    
     try {
       setLoading(true);
       
-      const updateData = {
+      // Prepare update data
+      const updateData: UpdateDoctorRequest = {
         bio: values.bio,
+        experience: values.experience,
         specialization: values.specialization,
         education: values.education,
         certificate: Array.isArray(certificateImages) ? certificateImages.join(', ') : certificateImages,
-        experience: values.experience,
         // Include image if it was uploaded
         ...(imageUrl !== doctorData.image && { image: imageUrl })
       };
 
-      console.log('🔄 Updating doctor profile:', updateData);
+      // Submit update to API
+      await doctorApi.updateMyProfile(updateData);
       
-      // Use new updateMyProfile API
-      const response = await doctorApi.updateMyProfile(updateData);
+      message.success('Cập nhật hồ sơ thành công!');
       
-      message.success({
-        content: (
-          <div>
-            <strong>🕐 Đã gửi yêu cầu thay đổi thành công!</strong>
-            <br />
-            <span style={{fontSize: '12px', color: '#666'}}>
-              Thông tin sẽ được cập nhật sau khi manager duyệt
-            </span>
-          </div>
-        ),
-        duration: 5
-      });
-      
-      
-      // Exit edit mode and refresh data
-      setEditing(false);
-      loadDoctorProfile();
-      
-    } catch (error: any) {
-      console.error('❌ Profile update error:', error);
-      
-      let errorMessage = 'Có lỗi xảy ra khi gửi yêu cầu thay đổi';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
+      // Reload data to show updated profile
+      await loadDoctorProfile();
+    } catch (error: unknown) {
+      console.error('Error updating profile:', error);
+      if (typeof error === 'object' && error !== null && 'response' in error) {
+        const apiError = error as { response?: { data?: { message?: string } } };
+        message.error(apiError.response?.data?.message || 'Không thể cập nhật hồ sơ');
+      } else {
+        message.error('Không thể cập nhật hồ sơ');
       }
-      
-      message.error({
-        content: errorMessage,
-        duration: 4
-      });
     } finally {
       setLoading(false);
     }
@@ -387,17 +382,16 @@ const DoctorProfileManagement: React.FC = () => {
   const handleImageUpload = async (file: File) => {
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-
-      console.log('📸 Uploading doctor image...');
+      console.log('📸 Uploading avatar image...');
       
-      const response = await doctorApi.uploadImage(formData);
+      const response = await userApi.uploadAvatarImage(file);
       
-      if (response.success && response.data.imageUrl) {
-        setImageUrl(response.data.imageUrl);
-        message.success('Tải ảnh lên thành công!');
-        console.log('✅ Image uploaded:', response.data.imageUrl);
+      if (response.success && response.data.url) {
+        // Also update the avatar in user profile
+        await userApi.updateAvatar(response.data.url);
+        setImageUrl(response.data.url);
+        message.success('Tải ảnh đại diện lên thành công!');
+        console.log('✅ Avatar uploaded:', response.data.url);
       } else {
         throw new Error('Upload response invalid');
       }
@@ -474,7 +468,6 @@ const DoctorProfileManagement: React.FC = () => {
       console.log('✅ Update response:', response);
       
       message.success('Cập nhật thông tin cá nhân thành công!');
-      setBasicEditing(false);
       
       // Reload profile to reflect changes
       await loadDoctorProfile();
@@ -566,7 +559,6 @@ const DoctorProfileManagement: React.FC = () => {
       setOtpCode('');
       setOtpSent(false);
       setPendingEmail('');
-      setBasicEditing(false);
       
       // Reload data
       await loadDoctorProfile();
@@ -588,17 +580,14 @@ const DoctorProfileManagement: React.FC = () => {
 
   // Handle certificate image upload
   const handleCertificateUpload = async (file: File) => {
-    setCertificateUploading(true);
+    setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('image', file);
-
       console.log('📄 Uploading certificate image...');
       
-      const response = await doctorApi.uploadImage(formData);
+      const response = await userApi.uploadAvatarImage(file);
       
-      if (response.success && response.data.imageUrl) {
-        const newImageUrl = response.data.imageUrl;
+      if (response.success && response.data.url) {
+        const newImageUrl = response.data.url;
         setCertificateImages(prev => [...prev, newImageUrl]);
         message.success('Tải ảnh chứng chỉ lên thành công!');
         console.log('✅ Certificate image uploaded:', newImageUrl);
@@ -610,7 +599,7 @@ const DoctorProfileManagement: React.FC = () => {
       console.error('❌ Error uploading certificate image:', error);
       message.error('Không thể tải ảnh chứng chỉ lên. Vui lòng thử lại.');
     } finally {
-      setCertificateUploading(false);
+      setUploading(false);
     }
   };
 
@@ -800,11 +789,20 @@ const DoctorProfileManagement: React.FC = () => {
             <div style={{ marginBottom: '16px' }}>
               <Text strong>
                 <CarryOutOutlined style={{ marginRight: '8px' }} />
-                Kinh nghiệm: {experiences.length > 0 ? 
+                Kinh nghiệm: 
+              </Text>
+              {typeof doctorData.experience === 'string' ? (
+                <div style={{ whiteSpace: 'pre-line', marginTop: '8px', marginLeft: '24px' }}>
+                  {doctorData.experience}
+                </div>
+              ) : (
+                <Text> {experiences.length > 0 ? 
                   `${experiences.length} vị trí làm việc` : 
                   'Chưa có thông tin'}
-              </Text>
+                </Text>
+              )}
             </div>
+            
           </Card>
 
           {/* Feedback Summary */}
@@ -845,30 +843,7 @@ const DoctorProfileManagement: React.FC = () => {
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Thông Tin Cơ Bản</span>
-                {!basicEditing ? (
-                  <Button 
-                    size="small"
-                    icon={<EditOutlined />}
-                    onClick={() => setBasicEditing(true)}
-                  >
-                    Chỉnh sửa
-                  </Button>
-                ) : (
-                  <Space>
-                    <Button size="small" onClick={() => setBasicEditing(false)}>
-                      Hủy
-                    </Button>
-                    <Button 
-                      size="small"
-                      type="primary" 
-                      icon={<SaveOutlined />}
-                      onClick={() => basicForm.submit()}
-                      loading={loading}
-                    >
-                      Lưu
-                    </Button>
-                  </Space>
-                )}
+                {/* Ẩn nút chỉnh sửa */}
               </div>
             }
             style={{ marginBottom: '16px' }}
@@ -877,7 +852,7 @@ const DoctorProfileManagement: React.FC = () => {
               form={basicForm}
               layout="vertical"
               onFinish={handleBasicInfoUpdate}
-              disabled={!basicEditing}
+              disabled={true}
             >
               <Row gutter={16}>
                 <Col xs={24} sm={12}>
@@ -938,7 +913,7 @@ const DoctorProfileManagement: React.FC = () => {
                   >
                     <Select 
                       placeholder="Chọn giới tính"
-                      disabled={!basicEditing}
+                      disabled={true}
                     >
                       <Select.Option value="male">Nam</Select.Option>
                       <Select.Option value="female">Nữ</Select.Option>
@@ -954,30 +929,7 @@ const DoctorProfileManagement: React.FC = () => {
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>Thông Tin Chi Tiết</span>
-                {!editing ? (
-                  <Button 
-                    size="small"
-                    icon={<EditOutlined />}
-                    onClick={() => setEditing(true)}
-                  >
-                    Chỉnh sửa
-                  </Button>
-                ) : (
-                  <Space>
-                    <Button size="small" onClick={() => setEditing(false)}>
-                      Hủy
-                    </Button>
-                    <Button 
-                      size="small"
-                      type="primary" 
-                      icon={<SaveOutlined />}
-                      onClick={() => form.submit()}
-                      loading={loading}
-                    >
-                      Lưu
-                    </Button>
-                  </Space>
-                )}
+                {/* Ẩn nút chỉnh sửa */}
               </div>
             }
           >
@@ -985,9 +937,9 @@ const DoctorProfileManagement: React.FC = () => {
               form={form}
               layout="vertical"
               onFinish={handleUpdateProfile}
-              disabled={!editing}
+              disabled={true}
             >
-                            <Form.Item
+              <Form.Item
                 label={
                   <span>
                     Chuyên khoa
@@ -1051,78 +1003,46 @@ const DoctorProfileManagement: React.FC = () => {
                   </Text>
                 </div>
 
-                {experiences.map((exp, index) => (
-                  <Card 
-                    key={index}
-                    size="small" 
-                    style={{ marginBottom: '12px', border: '1px dashed #d9d9d9' }}
-                    extra={editing && (
-                      <Button 
-                        type="text" 
-                        danger 
-                        icon={<DeleteOutlined />}
-                        onClick={() => removeExperience(index)}
-                        size="small"
-                      />
-                    )}
-                  >
-                    <Row gutter={12}>
-                      <Col xs={24} sm={8}>
-                        <div style={{ marginBottom: '8px' }}>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>Năm bắt đầu</Text>
-                          <InputNumber
-                            value={exp.startYear}
-                            min={1950}
-                            max={new Date().getFullYear()}
-                            style={{ width: '100%', marginTop: '4px' }}
-                            onChange={(value) => updateExperience(index, 'startYear', value || 2020)}
-                            disabled={!editing}
-                          />
-                        </div>
-                      </Col>
-                      <Col xs={24} sm={8}>
-                        <div style={{ marginBottom: '8px' }}>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>Năm kết thúc</Text>
-                          <InputNumber
-                            value={exp.endYear}
-                            min={exp.startYear}
-                            max={new Date().getFullYear()}
-                            style={{ width: '100%', marginTop: '4px' }}
-                            placeholder="Hiện tại"
-                            onChange={(value) => updateExperience(index, 'endYear', value)}
-                            disabled={!editing}
-                          />
-                        </div>
-                      </Col>
-                      <Col xs={24} sm={8}>
-                        <div style={{ marginBottom: '8px' }}>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>Vị trí</Text>
-                          <Input
-                            value={exp.position}
-                            placeholder="VD: Bác sĩ nội trú"
-                            style={{ marginTop: '4px' }}
-                            onChange={(e) => updateExperience(index, 'position', e.target.value)}
-                            disabled={!editing}
-                          />
-                        </div>
-                      </Col>
-                      <Col xs={24}>
-                        <div>
-                          <Text type="secondary" style={{ fontSize: '12px' }}>Nơi làm việc</Text>
-                          <Input
-                            value={exp.workplace}
-                            placeholder="VD: Bệnh viện Bạch Mai"
-                            style={{ marginTop: '4px' }}
-                            onChange={(e) => updateExperience(index, 'workplace', e.target.value)}
-                            disabled={!editing}
-                          />
-                        </div>
-                      </Col>
-                    </Row>
-                  </Card>
-                ))}
-
-                {experiences.length === 0 && (
+                {typeof doctorData.experience === 'string' ? (
+                  <div style={{ whiteSpace: 'pre-line', padding: '12px', border: '1px solid #f0f0f0', borderRadius: '6px' }}>
+                    {doctorData.experience}
+                  </div>
+                ) : experiences.length > 0 ? (
+                  experiences.map((exp, index) => (
+                    <Card 
+                      key={index}
+                      size="small" 
+                      style={{ marginBottom: '12px', border: '1px dashed #d9d9d9' }}
+                    >
+                      <Row gutter={12}>
+                        <Col xs={24} sm={8}>
+                          <div style={{ marginBottom: '8px' }}>
+                            <Text type="secondary" style={{ fontSize: '12px' }}>Năm bắt đầu</Text>
+                            <div style={{ marginTop: '4px' }}>{exp.startYear}</div>
+                          </div>
+                        </Col>
+                        <Col xs={24} sm={8}>
+                          <div style={{ marginBottom: '8px' }}>
+                            <Text type="secondary" style={{ fontSize: '12px' }}>Năm kết thúc</Text>
+                            <div style={{ marginTop: '4px' }}>{exp.endYear || 'Hiện tại'}</div>
+                          </div>
+                        </Col>
+                        <Col xs={24} sm={8}>
+                          <div style={{ marginBottom: '8px' }}>
+                            <Text type="secondary" style={{ fontSize: '12px' }}>Vị trí</Text>
+                            <div style={{ marginTop: '4px' }}>{exp.position}</div>
+                          </div>
+                        </Col>
+                        <Col xs={24}>
+                          <div>
+                            <Text type="secondary" style={{ fontSize: '12px' }}>Nơi làm việc</Text>
+                            <div style={{ marginTop: '4px' }}>{exp.workplace}</div>
+                          </div>
+                        </Col>
+                      </Row>
+                    </Card>
+                  ))
+                ) : (
                   <div style={{ 
                     textAlign: 'center', 
                     padding: '20px', 
@@ -1132,35 +1052,7 @@ const DoctorProfileManagement: React.FC = () => {
                   }}>
                     <BankOutlined style={{ fontSize: '24px', marginBottom: '8px' }} />
                     <div>Chưa có thông tin kinh nghiệm làm việc</div>
-                    {editing && (
-                      <Button 
-                        type="dashed" 
-                        icon={<PlusOutlined />}
-                        onClick={addExperience}
-                        style={{ marginTop: '12px' }}
-                      >
-                        Thêm kinh nghiệm đầu tiên
-                      </Button>
-                    )}
                   </div>
-                )}
-
-                {/* Add experience button when there are existing experiences */}
-                {editing && experiences.length > 0 && (
-                  <Button 
-                    type="dashed" 
-                    icon={<PlusOutlined />}
-                    onClick={addExperience}
-                    style={{ 
-                      width: '100%',
-                      marginTop: '12px',
-                      height: '40px',
-                      border: '2px dashed #1890ff',
-                      color: '#1890ff'
-                    }}
-                  >
-                    Thêm kinh nghiệm mới
-                  </Button>
                 )}
               </div>
 
@@ -1197,79 +1089,15 @@ const DoctorProfileManagement: React.FC = () => {
                                 border: '1px solid #d9d9d9'
                               }}
                             />
-                            {editing && (
-                              <Button
-                                type="primary"
-                                danger
-                                size="small"
-                                style={{
-                                  position: 'absolute',
-                                  top: '4px',
-                                  right: '4px',
-                                  minWidth: '24px',
-                                  height: '24px',
-                                  padding: '0'
-                                }}
-                                onClick={() => removeCertificateImage(imageUrl)}
-                              >
-                                ×
-                              </Button>
-                            )}
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
-
-                  {/* Upload button for certificate images - Beautiful design */}
-                  <div style={{ 
-                    border: '2px dashed #1890ff', 
-                    borderRadius: '8px', 
-                    padding: '20px', 
-                    textAlign: 'center',
-                    backgroundColor: '#f8f9ff',
-                    marginBottom: '16px',
-                    transition: 'all 0.3s ease'
-                  }}>
-                    <Upload
-                      beforeUpload={(file: File) => {
-                        const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png';
-                        if (!isJpgOrPng) {
-                          message.error('Chỉ có thể tải lên file JPG/PNG!');
-                          return false;
-                        }
-                        const isLt5M = file.size / 1024 / 1024 < 5;
-                        if (!isLt5M) {
-                          message.error('Ảnh phải nhỏ hơn 5MB!');
-                          return false;
-                        }
-                        
-                        handleCertificateUpload(file);
-                        return false;
-                      }}
-                      showUploadList={false}
-                      multiple={false}
-                      style={{ width: '100%' }}
-                    >
-                      <div style={{ cursor: 'pointer' }}>
-                        <UploadOutlined style={{ fontSize: '32px', color: '#1890ff', marginBottom: '8px' }} />
-                        <div style={{ fontSize: '16px', fontWeight: '500', color: '#1890ff', marginBottom: '4px' }}>
-                          {certificateUploading ? 'Đang tải lên...' : 'Kéo thả hoặc click để tải ảnh chứng chỉ'}
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#999' }}>
-                          Hỗ trợ JPG, PNG • Tối đa 5MB
-                        </div>
-                      </div>
-                    </Upload>
-                  </div>
-
-
                 </div>
               </Form.Item>
             </Form>
           </Card>
-
-
         </Col>
       </Row>
 

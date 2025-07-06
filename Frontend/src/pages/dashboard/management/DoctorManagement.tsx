@@ -44,6 +44,10 @@ import {
   canCreateDoctor, 
   canUpdateDoctor, 
   canDeleteDoctor, 
+  canCreateDoctorAccount,
+  canEditDoctorProfile,
+  canViewDoctorProfiles,
+  canManageDoctorAccounts,
   getCurrentUserRole,
   getCurrentUser
 } from '../../../utils/permissions';
@@ -65,7 +69,7 @@ interface DisplayDoctor {
   gender?: string;
   address?: string;
   specialization: string;
-  experience: number;
+  experience: number | string;
   rating: number;
   education: string;
   certificate: string;
@@ -333,8 +337,41 @@ const DoctorManagement: React.FC = () => {
         
         message.success(`Cập nhật bác sĩ "${values.fullName || editingDoctor.fullName}" thành công!`);
       } else {
-        const result = await doctorApi.createDoctor(values);
-        message.success(`Tạo bác sĩ "${values.fullName}" thành công!`);
+        // Tạo doctor mới với đầy đủ thông tin (backend sẽ tự tạo user account)
+        console.log('🔄 [FRONTEND] Creating new doctor with data:', values);
+        
+        // Validate required fields
+        if (!values.fullName || !values.specialization || !values.education || !values.certificate) {
+          message.error('Vui lòng điền đầy đủ thông tin bắt buộc!');
+          return;
+        }
+        
+        // Set default values for optional fields
+        const doctorData = {
+          ...values,
+          experience: values.experience || 0,
+          rating: values.rating || 0,
+          bio: values.bio || '',
+          image: values.avatar || '',
+        };
+        
+        const result = await doctorApi.createDoctor(doctorData);
+        console.log('✅ [FRONTEND] Created doctor:', result);
+        
+        message.success({
+          content: (
+            <div>
+              <div>Tạo tài khoản bác sĩ "{values.fullName}" thành công!</div>
+              <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                Email: bs.{values.fullName.toLowerCase().replace(/\s+/g, '')}@genderhealthcare.com
+              </div>
+              <div style={{ fontSize: '12px', color: '#666' }}>
+                Mật khẩu mặc định: doctor123
+              </div>
+            </div>
+          ),
+          duration: 6
+        });
       }
       
       setIsModalVisible(false);
@@ -401,7 +438,13 @@ const DoctorManagement: React.FC = () => {
           <p><strong>Email:</strong> {doctor.email}</p>
           <p><strong>Số điện thoại:</strong> {doctor.phone}</p>
           <p><strong>Chuyên khoa:</strong> {doctor.specialization}</p>
-          <p><strong>Kinh nghiệm:</strong> {doctor.experience} năm</p>
+          <p><strong>Kinh nghiệm:</strong> {typeof doctor.experience === 'string' ? (
+            <div style={{ whiteSpace: 'pre-line', marginTop: '8px', marginLeft: '24px' }}>
+              {doctor.experience}
+            </div>
+          ) : (
+            `${doctor.experience} năm`
+          )}</p>
           <p><strong>Đánh giá:</strong> <Rate disabled value={doctor.rating} /></p>
           <p><strong>Học vấn:</strong> {doctor.education}</p>
           <p><strong>Chứng chỉ:</strong> {doctor.certificate}</p>
@@ -560,10 +603,23 @@ const DoctorManagement: React.FC = () => {
       dataIndex: 'experience',
       key: 'experience',
       width: 100,
-      render: (experience: number) => (
-        <Text>{experience} năm</Text>
+      render: (experience: number | string) => (
+        typeof experience === 'string' ? (
+          <Tooltip title={experience}>
+            <Text ellipsis style={{ maxWidth: 100 }}>
+              {experience.split('\n')[0]}...
+            </Text>
+          </Tooltip>
+        ) : (
+          <Text>{experience} năm</Text>
+        )
       ),
-      sorter: (a, b) => a.experience - b.experience
+      sorter: (a, b) => {
+        if (typeof a.experience === 'number' && typeof b.experience === 'number') {
+          return a.experience - b.experience;
+        }
+        return 0;
+      }
     },
     {
       title: 'Đánh giá',
@@ -602,8 +658,8 @@ const DoctorManagement: React.FC = () => {
               onClick={() => showDoctorDetails(record)}
             />
           </Tooltip>
-          {canUpdateDoctor(userRole) && (
-            <Tooltip title="Chỉnh sửa">
+          {userRole === 'admin' && canEditDoctorProfile(userRole) && (
+            <Tooltip title="Chỉnh sửa tài khoản & hồ sơ">
               <Button 
                 type="text" 
                 icon={<EditOutlined />} 
@@ -611,10 +667,10 @@ const DoctorManagement: React.FC = () => {
               />
             </Tooltip>
           )}
-          {canDeleteDoctor(userRole) && (
-            <Tooltip title="Xóa">
+          {canDeleteDoctor(userRole) && userRole === 'admin' && (
+            <Tooltip title="Xóa tài khoản">
               <Popconfirm
-                title="Bạn có chắc chắn muốn xóa bác sĩ này?"
+                title="Bạn có chắc chắn muốn xóa tài khoản bác sĩ này? Hành động này không thể hoàn tác."
                 onConfirm={() => handleDelete(record.id)}
                 okText="Có"
                 cancelText="Không"
@@ -636,19 +692,29 @@ const DoctorManagement: React.FC = () => {
     <div style={{ padding: '24px' }}>
       <Card>
         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
-            <MedicineBoxOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-            Quản lý bác sĩ
-          </Title>
-          {canCreateDoctor(userRole) && (
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />}
-              onClick={() => setIsModalVisible(true)}
-            >
-              Thêm bác sĩ mới
-            </Button>
-          )}
+          <div>
+            <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
+              <MedicineBoxOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+              {userRole === 'admin' ? 'Quản lý tài khoản bác sĩ' : 'Danh sách bác sĩ'}
+            </Title>
+            <Text type="secondary">
+              {userRole === 'admin' 
+                ? 'Tạo tài khoản, cập nhật hồ sơ và quản lý toàn bộ thông tin bác sĩ'
+                : 'Xem thông tin và hồ sơ của các bác sĩ trong hệ thống'
+              }
+            </Text>
+          </div>
+          <Space>
+            {canCreateDoctorAccount(userRole) && (
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />}
+                onClick={() => setIsModalVisible(true)}
+              >
+                Tạo tài khoản bác sĩ
+              </Button>
+            )}
+          </Space>
         </div>
 
         <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -704,12 +770,15 @@ const DoctorManagement: React.FC = () => {
       </Card>
 
       <Modal
-        title={editingDoctor ? 'Chỉnh sửa bác sĩ' : 'Thêm bác sĩ mới'}
+        title={editingDoctor 
+          ? 'Chỉnh sửa tài khoản & hồ sơ bác sĩ'
+          : 'Tạo tài khoản bác sĩ mới'
+        }
         open={isModalVisible}
         onOk={handleModalOk}
         onCancel={handleModalCancel}
-        width={700}
-        okText={editingDoctor ? 'Cập nhật' : 'Tạo mới'}
+        width={800}
+        okText={editingDoctor ? 'Cập nhật' : 'Tạo tài khoản & hồ sơ'}
         cancelText="Hủy"
         confirmLoading={submitting}
       >
@@ -718,44 +787,99 @@ const DoctorManagement: React.FC = () => {
           layout="vertical"
           style={{ marginTop: 16 }}
         >
-          <Form.Item
-            name="fullName"
-            label="Họ tên"
-            rules={[{ required: true, message: 'Vui lòng nhập họ tên!' }]}
-          >
-            <Input placeholder="Nhập họ tên bác sĩ" />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={24}>
+              <Title level={5} style={{ margin: '0 0 16px 0', color: '#1890ff' }}>
+                🔒 Thông tin tài khoản
+              </Title>
+            </Col>
+          </Row>
+          
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="fullName"
+                label="Họ tên"
+                rules={[{ required: true, message: 'Vui lòng nhập họ tên!' }]}
+              >
+                <Input placeholder="Nhập họ tên bác sĩ" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="email"
+                label="Email"
+                rules={[
+                  { required: true, message: 'Vui lòng nhập email!' },
+                  { type: 'email', message: 'Email không hợp lệ!' }
+                ]}
+              >
+                <Input placeholder="Nhập địa chỉ email" />
+              </Form.Item>
+            </Col>
+          </Row>
 
-          <Form.Item
-            name="email"
-            label="Email"
-            rules={[
-              { required: true, message: 'Vui lòng nhập email!' },
-              { type: 'email', message: 'Email không hợp lệ!' }
-            ]}
-          >
-            <Input placeholder="Nhập địa chỉ email" />
-          </Form.Item>
+          {!editingDoctor && (
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  name="password"
+                  label="Mật khẩu"
+                  rules={[
+                    { required: true, message: 'Vui lòng nhập mật khẩu!' },
+                    { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự!' }
+                  ]}
+                >
+                  <Input.Password placeholder="Nhập mật khẩu cho tài khoản" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="confirmPassword"
+                  label="Xác nhận mật khẩu"
+                  dependencies={['password']}
+                  rules={[
+                    { required: true, message: 'Vui lòng xác nhận mật khẩu!' },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        if (!value || getFieldValue('password') === value) {
+                          return Promise.resolve();
+                        }
+                        return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
+                      },
+                    }),
+                  ]}
+                >
+                  <Input.Password placeholder="Nhập lại mật khẩu" />
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
 
-          <Form.Item
-            name="phone"
-            label="Số điện thoại"
-            rules={[{ required: true, message: 'Vui lòng nhập số điện thoại!' }]}
-          >
-            <Input placeholder="Nhập số điện thoại" />
-          </Form.Item>
-
-          <Form.Item
-            name="gender"
-            label="Giới tính"
-            rules={[{ required: true, message: 'Vui lòng chọn giới tính!' }]}
-          >
-            <Select placeholder="Chọn giới tính">
-              <Option value="male">Nam</Option>
-              <Option value="female">Nữ</Option>
-              <Option value="other">Khác</Option>
-            </Select>
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="phone"
+                label="Số điện thoại"
+                rules={[{ required: true, message: 'Vui lòng nhập số điện thoại!' }]}
+              >
+                <Input placeholder="Nhập số điện thoại" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="gender"
+                label="Giới tính"
+                rules={[{ required: true, message: 'Vui lòng chọn giới tính!' }]}
+              >
+                <Select placeholder="Chọn giới tính">
+                  <Option value="male">Nam</Option>
+                  <Option value="female">Nữ</Option>
+                  <Option value="other">Khác</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
 
           <Form.Item
             name="address"
@@ -765,49 +889,56 @@ const DoctorManagement: React.FC = () => {
             <Input placeholder="Nhập địa chỉ" />
           </Form.Item>
 
-          <Form.Item
-            name="specialization"
-            label="Chuyên khoa"
-            rules={[{ required: true, message: 'Vui lòng chọn chuyên khoa!' }]}
-          >
-            <Select placeholder="Chọn chuyên khoa">
-              <Option value="Phụ sản">Phụ sản</Option>
-              <Option value="Nội tiết sinh sản">Nội tiết sinh sản</Option>
-              <Option value="Tâm lý học lâm sàng">Tâm lý học lâm sàng</Option>
-              <Option value="Dinh dưỡng & Sức khỏe sinh sản">Dinh dưỡng & Sức khỏe sinh sản</Option>
-            </Select>
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={24}>
+              <Title level={5} style={{ margin: '24px 0 16px 0', color: '#52c41a' }}>
+                🩺 Thông tin chuyên môn
+              </Title>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="specialization"
+                label="Chuyên khoa"
+                rules={[{ required: true, message: 'Vui lòng chọn chuyên khoa!' }]}
+              >
+                <Select placeholder="Chọn chuyên khoa">
+                  <Option value="Phụ sản">Phụ sản</Option>
+                  <Option value="Nội tiết sinh sản">Nội tiết sinh sản</Option>
+                  <Option value="Tâm lý học lâm sàng">Tâm lý học lâm sàng</Option>
+                  <Option value="Dinh dưỡng & Sức khỏe sinh sản">Dinh dưỡng & Sức khỏe sinh sản</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="status"
+                label="Trạng thái"
+                rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
+              >
+                <Select placeholder="Chọn trạng thái">
+                  <Option value="active">Hoạt động</Option>
+                  <Option value="inactive">Tạm dừng</Option>
+                  <Option value="suspended">Bị khóa</Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
 
           <div style={{ display: 'flex', gap: 16 }}>
             <Form.Item
               name="experience"
-              label="Kinh nghiệm (năm)"
+              label="Kinh nghiệm làm việc"
               rules={[
-                { required: true, message: 'Vui lòng nhập số năm kinh nghiệm!' },
-                { 
-                  validator: (_, value) => {
-                    if (!value) return Promise.resolve();
-                    const exp = Number(value);
-                    if (isNaN(exp)) {
-                      return Promise.reject(new Error('Kinh nghiệm phải là số hợp lệ!'));
-                    }
-                    if (exp < 0) {
-                      return Promise.reject(new Error('Kinh nghiệm không thể âm!'));
-                    }
-                    if (exp > 50) {
-                      return Promise.reject(new Error('Kinh nghiệm không thể vượt quá 50 năm!'));
-                    }
-                    return Promise.resolve();
-                  }
-                }
+                { required: true, message: 'Vui lòng nhập thông tin kinh nghiệm làm việc!' }
               ]}
               style={{ flex: 1 }}
             >
-              <Input 
-                type="number" 
-                placeholder="Nhập số năm kinh nghiệm (0-50)" 
-                max={50}
-                min={0}
+              <Input.TextArea 
+                placeholder="Nhập chi tiết kinh nghiệm làm việc (VD: 2012-2016: Bệnh viện Phụ sản Trung Ương)" 
+                rows={4}
               />
             </Form.Item>
 
@@ -831,39 +962,36 @@ const DoctorManagement: React.FC = () => {
             </Form.Item>
           </div>
 
-          <Form.Item
-            name="education"
-            label="Học vấn"
-            rules={[{ required: true, message: 'Vui lòng nhập thông tin học vấn!' }]}
-          >
-            <Input placeholder="Nhập thông tin học vấn" />
-          </Form.Item>
-
-          <Form.Item
-            name="certificate"
-            label="Chứng chỉ"
-            rules={[{ required: true, message: 'Vui lòng nhập mã chứng chỉ!' }]}
-          >
-            <Input placeholder="Nhập mã chứng chỉ hành nghề" />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="education"
+                label="Học vấn"
+                rules={[{ required: true, message: 'Vui lòng nhập thông tin học vấn!' }]}
+              >
+                <Input placeholder="VD: Bác sĩ đa khoa, Đại học Y Hà Nội" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="certificate"
+                label="Chứng chỉ hành nghề"
+                rules={[{ required: true, message: 'Vui lòng nhập mã chứng chỉ!' }]}
+              >
+                <Input placeholder="Nhập mã chứng chỉ hành nghề" />
+              </Form.Item>
+            </Col>
+          </Row>
 
           <Form.Item
             name="bio"
-            label="Tiểu sử"
+            label="Tiểu sử & Kinh nghiệm"
+            rules={[{ required: true, message: 'Vui lòng nhập tiểu sử!' }]}
           >
-            <Input.TextArea rows={3} placeholder="Nhập tiểu sử và kinh nghiệm của bác sĩ" />
-          </Form.Item>
-
-          <Form.Item
-            name="status"
-            label="Trạng thái"
-            rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
-          >
-            <Select placeholder="Chọn trạng thái">
-              <Option value="active">Hoạt động</Option>
-              <Option value="inactive">Tạm dừng</Option>
-              <Option value="suspended">Bị khóa</Option>
-            </Select>
+            <Input.TextArea 
+              rows={4} 
+              placeholder="Nhập tiểu sử, kinh nghiệm làm việc và các thành tích chuyên môn của bác sĩ..." 
+            />
           </Form.Item>
 
           <Form.Item

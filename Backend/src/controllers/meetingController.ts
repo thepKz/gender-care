@@ -297,8 +297,10 @@ export const getMyMeetings = async (req: AuthRequest, res: Response): Promise<vo
     const currentDoctor = await Doctor.findOne({ userId: currentUser._id });
     
     if (!currentDoctor) {
-      res.status(403).json({ 
-        message: 'Không tìm thấy thông tin bác sĩ của bạn trong hệ thống' 
+      console.log(`⚠️ [INFO] Doctor record not found for user ${currentUser.email} - returning empty list`);
+      res.status(200).json({ 
+        message: 'Chưa có thông tin bác sĩ trong hệ thống. Vui lòng liên hệ admin để thiết lập hồ sơ.',
+        data: []
       });
       return;
     }
@@ -345,8 +347,10 @@ export const getMeetingsByDoctorId = async (req: AuthRequest, res: Response): Pr
     const currentDoctor = await Doctor.findOne({ userId: currentUser._id });
     
     if (!currentDoctor) {
-      res.status(403).json({ 
-        message: 'Không tìm thấy thông tin bác sĩ của bạn trong hệ thống' 
+      console.log(`⚠️ [INFO] Doctor record not found for user ${currentUser.email} - returning empty list`);
+      res.status(200).json({ 
+        message: 'Chưa có thông tin bác sĩ trong hệ thống. Vui lòng liên hệ admin để thiết lập hồ sơ.',
+        data: []
       });
       return;
     }
