@@ -150,36 +150,63 @@ const BookingHistoryOptimized: React.FC = () => {
       });
 
       if (appointmentsData && appointmentsData.length >= 0) {
-        const formattedAppointments = appointmentsData.map((apt: RawAppointmentData) => ({
-          id: apt._id,
-          type: (apt.type as 'appointment' | 'consultation') || 'appointment',
-          serviceId: apt.serviceId || '',
-          serviceName: apt.serviceName || 'Dịch vụ không xác định',
-          packageName: apt.packageName,
-          doctorName: apt.doctorName || 'Chưa chỉ định bác sĩ',
-          doctorAvatar: apt.doctorAvatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-          patientName: apt.patientName || apt.fullName,
-          appointmentDate: apt.appointmentDate ? new Date(apt.appointmentDate).toISOString().split('T')[0] : '',
-          appointmentTime: apt.appointmentTime || apt.appointmentSlot || '',
-          appointmentSlot: apt.appointmentSlot,
-          typeLocation: apt.typeLocation || 'clinic',
-          status: apt.status,
-          price: apt.price || 0,
-          createdAt: new Date(apt.createdAt).toISOString(),
-          description: apt.description || apt.question,
-          notes: apt.notes,
-          address: apt.address,
-          canCancel: apt.canCancel || false,
-          canReschedule: apt.canReschedule || false,
-          rating: apt.rating,
-          feedback: apt.feedback,
-          phone: apt.phone,
-          age: apt.age,
-          gender: apt.gender,
-          question: apt.question,
-          doctorNotes: apt.doctorNotes,
-          paymentStatus: apt.paymentStatus
-        }));
+        const formattedAppointments = appointmentsData.map((apt: RawAppointmentData) => {
+          // ✅ Infer paymentStatus từ status nếu không có sẵn
+          let paymentStatus = apt.paymentStatus;
+          const originalPaymentStatus = apt.paymentStatus;
+          
+          if (!paymentStatus) {
+            // Logic infer paymentStatus từ appointment status
+            if (['confirmed', 'scheduled', 'consulting', 'completed', 'done_testResultItem', 'done_testResult'].includes(apt.status)) {
+              paymentStatus = 'paid';
+            } else if (apt.status === 'pending_payment') {
+              paymentStatus = 'unpaid';
+            } else if (apt.status === 'cancelled') {
+              paymentStatus = 'refunded'; // Assume cancelled means refunded
+            } else {
+              paymentStatus = 'unpaid'; // Default fallback
+            }
+            
+            console.log('💰 [PaymentStatus Inferred]:', {
+              appointmentId: apt._id,
+              serviceName: apt.serviceName,
+              status: apt.status,
+              originalPaymentStatus: originalPaymentStatus,
+              inferredPaymentStatus: paymentStatus
+            });
+          }
+
+          return {
+            id: apt._id,
+            type: (apt.type as 'appointment' | 'consultation') || 'appointment',
+            serviceId: apt.serviceId || '',
+            serviceName: apt.serviceName || 'Dịch vụ không xác định',
+            packageName: apt.packageName,
+            doctorName: apt.doctorName || 'Chưa chỉ định bác sĩ',
+            doctorAvatar: apt.doctorAvatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+            patientName: apt.patientName || apt.fullName,
+            appointmentDate: apt.appointmentDate ? new Date(apt.appointmentDate).toISOString().split('T')[0] : '',
+            appointmentTime: apt.appointmentTime || apt.appointmentSlot || '',
+            appointmentSlot: apt.appointmentSlot,
+            typeLocation: apt.typeLocation || 'clinic',
+            status: apt.status,
+            price: apt.price || 0,
+            createdAt: new Date(apt.createdAt).toISOString(),
+            description: apt.description || apt.question,
+            notes: apt.notes,
+            address: apt.address,
+            canCancel: apt.canCancel || false,
+            canReschedule: apt.canReschedule || false,
+            rating: apt.rating,
+            feedback: apt.feedback,
+            phone: apt.phone,
+            age: apt.age,
+            gender: apt.gender,
+            question: apt.question,
+            doctorNotes: apt.doctorNotes,
+            paymentStatus: paymentStatus
+          };
+        });
 
         console.log('✅ [BookingHistory] Formatted appointments:', {
           total: formattedAppointments.length,
@@ -261,22 +288,49 @@ const BookingHistoryOptimized: React.FC = () => {
     setShowDetailModal(true);
   };
 
+  // Helper function to check if appointment can be cancelled (ALWAYS except cancelled/completed)
+  const canCancel = (appointment: Appointment): boolean => {
+    return !['cancelled', 'completed'].includes(appointment.status);
+  };
+
   // Helper function to check if appointment can be cancelled with refund (24h rule)
   const canCancelWithRefund = (appointment: Appointment): boolean => {
-    if (!appointment.appointmentDate || appointment.status === 'cancelled' || appointment.status === 'completed') {
-      return false;
-    }
-
-    // Chỉ cho phép hủy nếu đã thanh toán
+    // Chỉ cho phép hoàn tiền nếu đã thanh toán
     if (appointment.paymentStatus !== 'paid') {
       return false;
     }
 
-    const appointmentDateTime = new Date(appointment.appointmentDate + ' ' + appointment.appointmentTime);
+    if (!appointment.appointmentDate) {
+      return false;
+    }
+
+    // Sử dụng appointmentTime hoặc appointmentSlot, fallback về "00:00" nếu không có
+    const timeSlot = appointment.appointmentTime || appointment.appointmentSlot || "00:00";
+    
+    // Parse date more robustly
+    let appointmentDateTime: Date;
+    try {
+      // Nếu appointmentDate đã là ISO string, parse trực tiếp
+      if (appointment.appointmentDate.includes('T')) {
+        appointmentDateTime = new Date(appointment.appointmentDate);
+      } else {
+        // Nếu là date string đơn giản, nối với time
+        const dateTimeString = appointment.appointmentDate + 'T' + timeSlot;
+        appointmentDateTime = new Date(dateTimeString);
+      }
+    } catch {
+      return false;
+    }
+    
+    // Kiểm tra xem date có hợp lệ không
+    if (isNaN(appointmentDateTime.getTime())) {
+      return false;
+    }
+
     const currentTime = new Date();
     const hoursDifference = (appointmentDateTime.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
 
-    // Cho phép hủy nếu còn hơn 24 giờ
+    // CHỈ cho phép hoàn tiền nếu còn hơn 24 giờ (không ảnh hưởng đến việc hủy)
     return hoursDifference > 24;
   };
 
@@ -284,7 +338,28 @@ const BookingHistoryOptimized: React.FC = () => {
   const getHoursUntilAppointment = (appointment: Appointment): number => {
     if (!appointment.appointmentDate) return 0;
     
-    const appointmentDateTime = new Date(appointment.appointmentDate + ' ' + appointment.appointmentTime);
+    // Sử dụng appointmentTime hoặc appointmentSlot, fallback về "00:00" nếu không có
+    const timeSlot = appointment.appointmentTime || appointment.appointmentSlot || "00:00";
+    
+    // Parse date more robustly
+    let appointmentDateTime: Date;
+    try {
+      // Nếu appointmentDate đã là ISO string, parse trực tiếp
+      if (appointment.appointmentDate.includes('T')) {
+        appointmentDateTime = new Date(appointment.appointmentDate);
+      } else {
+        // Nếu là date string đơn giản, nối với time
+        appointmentDateTime = new Date(appointment.appointmentDate + 'T' + timeSlot);
+      }
+    } catch {
+      return 0;
+    }
+    
+    // Kiểm tra xem date có hợp lệ không
+    if (isNaN(appointmentDateTime.getTime())) {
+      return 0;
+    }
+    
     const currentTime = new Date();
     return (appointmentDateTime.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
   };
@@ -679,23 +754,31 @@ const BookingHistoryOptimized: React.FC = () => {
               </div>
 
               {/* Cancellation Info */}
-              {canCancelWithRefund(selectedAppointment) && (
-                <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
-                  <p className="text-sm text-green-700">
-                    <TickCircle size={16} className="inline mr-1" />
-                    Còn {Math.floor(getHoursUntilAppointment(selectedAppointment))} giờ. Bạn có thể hủy lịch hẹn và được hoàn tiền.
-                  </p>
+              {canCancel(selectedAppointment) && (
+                <div>
+                  {canCancelWithRefund(selectedAppointment) ? (
+                    <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                      <p className="text-sm text-green-700">
+                        <TickCircle size={16} className="inline mr-1" />
+                        Còn {Math.floor(getHoursUntilAppointment(selectedAppointment))} giờ. Bạn có thể hủy lịch hẹn và được hoàn tiền.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg">
+                      <p className="text-sm text-orange-700">
+                        <Warning2 size={16} className="inline mr-1" />
+                        Bạn có thể hủy lịch hẹn này, nhưng không được hoàn tiền (cần hủy trước 24 giờ để hoàn tiền).
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {!canCancelWithRefund(selectedAppointment) && 
-               selectedAppointment.paymentStatus === 'paid' && 
-               selectedAppointment.status !== 'cancelled' && 
-               selectedAppointment.status !== 'completed' && (
-                <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg">
-                  <p className="text-sm text-orange-700">
+              {!canCancel(selectedAppointment) && (
+                <div className="bg-gray-50 border border-gray-200 p-3 rounded-lg">
+                  <p className="text-sm text-gray-700">
                     <Warning2 size={16} className="inline mr-1" />
-                    Không thể hủy lịch hẹn này. Chỉ có thể hủy trước 24 giờ khi bắt đầu.
+                    Không thể hủy lịch hẹn này (đã hoàn thành hoặc đã bị hủy).
                   </p>
                 </div>
               )}
@@ -783,9 +866,7 @@ const BookingHistoryOptimized: React.FC = () => {
                 
                 <div className="flex gap-2">
                   {/* Hiển thị button hủy cho tất cả appointment có thể hủy */}
-                  {selectedAppointment.canCancel && 
-                   selectedAppointment.status !== 'cancelled' && 
-                   selectedAppointment.status !== 'completed' && (
+                  {canCancel(selectedAppointment) && (
                     <button
                       onClick={() => handleCancelAppointment(selectedAppointment)}
                       disabled={cancelLoading}
@@ -944,18 +1025,7 @@ const BookingHistoryOptimized: React.FC = () => {
               </div>
             )}
 
-            {/* Warning message */}
-            {selectedAppointment && (
-              <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded">
-                <p className="text-sm text-orange-700">
-                  <strong>Lưu ý:</strong> 
-                  {canCancelWithRefund(selectedAppointment) 
-                    ? ` Lịch hẹn này có thể được hoàn tiền nếu bạn chọn "Yêu cầu hoàn tiền" (hủy trước 24 giờ). Nếu không chọn hoàn tiền, lịch hẹn sẽ bị hủy mà không hoàn tiền.`
-                    : ` Lịch hẹn này không đủ điều kiện hoàn tiền (cần hủy trước 24 giờ khi bắt đầu). Lịch hẹn sẽ được hủy mà không hoàn tiền.`
-                  } Việc hủy lịch hẹn không thể hoàn tác.
-                </p>
-              </div>
-            )}
+
           </div>
         </Modal>
       </div>
