@@ -4,7 +4,6 @@ import {
     Calendar,
     Clock,
     CloseCircle,
-    Eye,
     Location,
     MonitorMobbile,
     Refresh,
@@ -580,7 +579,7 @@ const BookingHistoryOptimized: React.FC = () => {
                 className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="p-6">
-                  <div className="flex justify-between items-start mb-4">
+                  <div className="flex justify-between items-center mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-semibold text-gray-900">
@@ -590,14 +589,14 @@ const BookingHistoryOptimized: React.FC = () => {
                         {/* ➕ Service Type Badge */}
                         <Tag 
                           color={appointment.type === 'consultation' ? '#1890ff' : '#52c41a'}
-                          className="text-xs"
+                          className="text-xs px-2 py-1"
                         >
                           {appointment.type === 'consultation' ? ' Tư vấn online' : ' Dịch vụ khám'}
                         </Tag>
 
                         <Tag
                           color={statusConfig[appointment.status as keyof typeof statusConfig]?.color}
-                          className="flex items-center gap-1"
+                          className="flex items-center gap-1 text-xs px-2 py-1"
                         >
                           {statusConfig[appointment.status as keyof typeof statusConfig]?.icon}
                           {statusConfig[appointment.status as keyof typeof statusConfig]?.text}
@@ -648,10 +647,9 @@ const BookingHistoryOptimized: React.FC = () => {
                     <div className="flex items-center gap-2 ml-4">
                       <button
                         onClick={() => handleViewDetail(appointment)}
-                        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Xem chi tiết"
+                        className="px-3 py-2 text-sm bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors font-medium"
                       >
-                        <Eye size={18} />
+                        Xem chi tiết
                       </button>
                     </div>
                   </div>
@@ -687,10 +685,24 @@ const BookingHistoryOptimized: React.FC = () => {
               pageSize={pageSize}
               onChange={setCurrentPage}
               showSizeChanger={false}
-              showQuickJumper
-              showTotal={(total, range) => 
-                `${range[0]}-${range[1]} trong ${total} lịch hẹn`
-              }
+              showQuickJumper={false}
+              itemRender={(page, type, originalElement) => {
+                if (type === 'prev') {
+                  return (
+                    <span className="px-3 py-2 text-gray-600 hover:text-blue-600 cursor-pointer">
+                      Trước
+                    </span>
+                  );
+                }
+                if (type === 'next') {
+                  return (
+                    <span className="px-3 py-2 text-gray-600 hover:text-blue-600 cursor-pointer">
+                      Sau
+                    </span>
+                  );
+                }
+                return originalElement;
+              }}
             />
           </div>
         )}
