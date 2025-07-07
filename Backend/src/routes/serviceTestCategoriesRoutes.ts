@@ -7,19 +7,17 @@ const router = Router();
 
 // Routes cho ServiceTestCategories
 
-// GET /api/service-test-categories/service/:serviceId - Lấy test categories cho service (Doctor, Staff)
+// GET /api/service-test-categories/service/:serviceId - Lấy test categories cho service (BỎ KIỂM TRA ROLE)
 router.get(
   '/service/:serviceId',
   authMiddleware,
-  roleMiddleware(['doctor', 'staff', 'admin']),
   serviceTestCategoriesController.getTestCategoriesByServiceId
 );
 
-// GET /api/service-test-categories - Lấy tất cả service test categories (Doctor, Staff, Admin)
+// GET /api/service-test-categories - Lấy tất cả service test categories (BỎ KIỂM TRA ROLE)
 router.get(
   '/',
   authMiddleware,
-  roleMiddleware(['doctor', 'staff', 'admin']),
   serviceTestCategoriesController.getAllServiceTestCategories
 );
 
