@@ -196,38 +196,31 @@ const ServiceTestConfigurationInner: React.FC = () => {
 
   const handleBulkEdit = () => {
     if (!selectedService) return;
-    
-    console.log('handleBulkEdit - testCategories:', testCategories);
-    console.log('testCategories length:', testCategories.length);
-    
     setBulkEditMode(true);
-    // Chuẩn bị form với các test categories hiện có
-    const initialValues: any = {};
-    serviceTestCategories.forEach(stc => {
-      const testCategory = getTestCategoryDetails(stc.testCategoryId);
-      if (testCategory) {
-        initialValues[`${stc.testCategoryId}_isRequired`] = stc.isRequired;
-        initialValues[`${stc.testCategoryId}_customNormalRange`] = stc.customNormalRange;
-        initialValues[`${stc.testCategoryId}_customUnit`] = stc.customUnit;
-        initialValues[`${stc.testCategoryId}_targetValue`] = stc.targetValue;
-        initialValues[`${stc.testCategoryId}_notes`] = stc.notes;
-      }
-    });
-    
-    // Thêm các test categories chưa có
-    testCategories.forEach(tc => {
-      const exists = serviceTestCategories.find(stc => stc.testCategoryId === tc._id);
-      if (!exists) {
-        initialValues[`${tc._id}_isRequired`] = false;
-        initialValues[`${tc._id}_customNormalRange`] = tc.normalRange || '';
-        initialValues[`${tc._id}_customUnit`] = tc.unit || '';
-        initialValues[`${tc._id}_targetValue`] = '';
-        initialValues[`${tc._id}_notes`] = '';
-      }
-    });
-    
-    bulkForm.setFieldsValue(initialValues);
   };
+
+  useEffect(() => {
+    if (bulkEditMode && selectedService) {
+      const initialValues: any = {};
+      serviceTestCategories.forEach(stc => {
+        initialValues[`${stc.testCategoryId}_isRequired`] = stc.isRequired;
+        initialValues[`${stc.testCategoryId}_targetValue`] = stc.targetValue;
+        initialValues[`${stc.testCategoryId}_minValue`] = stc.minValue;
+        initialValues[`${stc.testCategoryId}_maxValue`] = stc.maxValue;
+      });
+      testCategories.forEach(tc => {
+        const exists = serviceTestCategories.find(stc => stc.testCategoryId === tc._id);
+        if (!exists) {
+          initialValues[`${tc._id}_isRequired`] = false;
+          initialValues[`${tc._id}_targetValue`] = '';
+          initialValues[`${tc._id}_minValue`] = '';
+          initialValues[`${tc._id}_maxValue`] = '';
+        }
+      });
+      bulkForm.setFieldsValue(initialValues);
+    }
+    // eslint-disable-next-line
+  }, [bulkEditMode, selectedService, serviceTestCategories, testCategories]);
 
   const handleBulkSave = async () => {
     try {
@@ -239,23 +232,23 @@ const ServiceTestConfigurationInner: React.FC = () => {
       // Xử lý từng test category
       testCategories.forEach(tc => {
         const isRequired = values[`${tc._id}_isRequired`];
-        const customNormalRange = values[`${tc._id}_customNormalRange`];
-        const customUnit = values[`${tc._id}_customUnit`];
         const targetValue = values[`${tc._id}_targetValue`];
-        const notes = values[`${tc._id}_notes`];
+        const minValue = values[`${tc._id}_minValue`];
+        const maxValue = values[`${tc._id}_maxValue`];
         
         // Chỉ tạo/cập nhật nếu có ít nhất một field được điền
-        if (isRequired || customNormalRange || customUnit || targetValue || notes) {
+        if (isRequired || targetValue || minValue || maxValue) {
           const existingItem = serviceTestCategories.find(stc => stc.testCategoryId === tc._id);
           
           const data: CreateServiceTestCategoryData = {
             serviceId: selectedService._id,
             testCategoryId: tc._id,
             isRequired: isRequired || false,
-            customNormalRange,
-            customUnit,
             targetValue,
-            notes
+            minValue,
+            maxValue,
+            thresholdRules: values[`${tc._id}_thresholdRules`] || [],
+            unit: values[`${tc._id}_unit`] || ''
           };
           
           if (existingItem) {
@@ -287,17 +280,14 @@ const ServiceTestConfigurationInner: React.FC = () => {
 
   const handleEditTestCategory = (item: ServiceTestCategory) => {
     setEditingItem(item);
-    const testCategory = getTestCategoryDetails(item.testCategoryId);
     form.setFieldsValue({
       testCategoryId: item.testCategoryId, // Use ID for edit mode
-      description: testCategory?.description || '',
-      isRequired: item.isRequired,
-      customNormalRange: item.customNormalRange,
-      customUnit: item.customUnit,
       targetValue: item.targetValue,
-      notes: item.notes,
       minValue: item.minValue,
-      maxValue: item.maxValue
+      maxValue: item.maxValue,
+      thresholdRules: item.thresholdRules || [],
+      unit: item.unit || '',
+      isRequired: item.isRequired || false,
     });
     setIsModalVisible(true);
   };
@@ -331,12 +321,11 @@ const ServiceTestConfigurationInner: React.FC = () => {
           serviceId: selectedService._id,
           testCategoryId: editingItem.testCategoryId,
           isRequired: values.isRequired || false,
-          customNormalRange: values.customNormalRange,
-          customUnit: values.customUnit,
           targetValue: values.targetValue,
-          notes: values.notes,
           minValue: values.minValue,
-          maxValue: values.maxValue
+          maxValue: values.maxValue,
+          thresholdRules: values.thresholdRules || [],
+          unit: values.unit || ''
         };
 
         await serviceTestCategoriesApi.update(editingItem._id, data);
@@ -368,12 +357,11 @@ const ServiceTestConfigurationInner: React.FC = () => {
           serviceId: selectedService._id,
           testCategoryId: testCategoryId,
           isRequired: values.isRequired || false,
-          customNormalRange: values.customNormalRange,
-          customUnit: values.customUnit,
           targetValue: values.targetValue,
-          notes: values.notes,
           minValue: values.minValue,
-          maxValue: values.maxValue
+          maxValue: values.maxValue,
+          thresholdRules: values.thresholdRules || [],
+          unit: values.unit || ''
         };
 
         await serviceTestCategoriesApi.create(data);
@@ -686,7 +674,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <Form form={bulkForm} layout="vertical">
+                    <Form form={bulkForm} layout="vertical" preserve={false}>
                       <Alert
                         message="Cấu hình nhiều chỉ số cùng lúc"
                         description="Điền thông tin cho các chỉ số bạn muốn cấu hình. Các chỉ số để trống sẽ không được tạo/cập nhật."
@@ -760,50 +748,39 @@ const ServiceTestConfigurationInner: React.FC = () => {
                               <Row gutter={12}>
                                 <Col span={12}>
                                   <Form.Item
-                                    name={`${tc._id}_customNormalRange`}
-                                    label="Khoảng chuẩn"
+                                    name={`${tc._id}_targetValue`}
+                                    label="Giá trị bình thường"
                                     style={{ marginBottom: 12 }}
                                   >
                                     <Input 
-                                      placeholder={tc.normalRange || "Ví dụ: 3.5-5.0"}
-                                      size="small"
-                                    />
-                                  </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                  <Form.Item
-                                    name={`${tc._id}_customUnit`}
-                                    label="Đơn vị"
-                                    style={{ marginBottom: 12 }}
-                                  >
-                                    <Input 
-                                      placeholder={tc.unit || "mg/dL"}
+                                      placeholder="Ví dụ: 4.5, <5.0"
                                       size="small"
                                     />
                                   </Form.Item>
                                 </Col>
                               </Row>
                               
-                                            <Form.Item
-                name={`${tc._id}_targetValue`}
-                label="Giá trị bình thường"
-                style={{ marginBottom: 12 }}
-              >
-                <Input 
-                  placeholder="Ví dụ: 4.5, <5.0"
-                  size="small"
-                />
-              </Form.Item>
+                              <Form.Item
+                                name={`${tc._id}_minValue`}
+                                label="Giá trị thấp nhất"
+                                style={{ marginBottom: 12 }}
+                              >
+                                <InputNumber 
+                                  placeholder="VD: 3.5" 
+                                  style={{ width: '100%' }}
+                                  step={0.1}
+                                />
+                              </Form.Item>
                               
                               <Form.Item
-                                name={`${tc._id}_notes`}
-                                label="Ghi chú"
-                                style={{ marginBottom: 0 }}
+                                name={`${tc._id}_maxValue`}
+                                label="Giá trị cao nhất"
+                                style={{ marginBottom: 12 }}
                               >
-                                <Input.TextArea 
-                                  rows={2}
-                                  placeholder="Ghi chú cho chỉ số này..."
-                                  size="small"
+                                <InputNumber 
+                                  placeholder="VD: 5.0" 
+                                  style={{ width: '100%' }}
+                                  step={0.1}
                                 />
                               </Form.Item>
                             </Card>
@@ -831,7 +808,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
         cancelText="Hủy"
         confirmLoading={loading}
       >
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" preserve={false}>
           <Alert
             message={`Tạo chỉ số xét nghiệm cho dịch vụ: ${selectedService?.serviceName}`}
             type="info"
@@ -901,14 +878,16 @@ const ServiceTestConfigurationInner: React.FC = () => {
               </Form.Item>
             </>
           ) : (
-            // Hiển thị thông tin test category khi edit (read-only)
-            <Alert
-              message={`Chỉnh sửa cấu hình cho chỉ số: ${getTestCategoryDetails(editingItem.testCategoryId)?.name || 'N/A'}`}
-              description="Bạn chỉ có thể thay đổi cấu hình riêng của chỉ số này cho dịch vụ hiện tại. Chỉ số gốc có thể được sử dụng bởi nhiều dịch vụ khác."
-              type="info"
-              showIcon
-              className="mb-4"
-            />
+            // Hiển thị khi edit
+            <>
+              <Alert
+                message={`Chỉnh sửa cấu hình cho chỉ số: ${getTestCategoryDetails(editingItem.testCategoryId)?.name || 'N/A'}`}
+                description="Bạn chỉ có thể thay đổi cấu hình riêng của chỉ số này cho dịch vụ hiện tại. Chỉ số gốc có thể được sử dụng bởi nhiều dịch vụ khác."
+                type="info"
+                showIcon
+                className="mb-4"
+              />
+            </>
           )}
 
           <Row gutter={16}>
@@ -921,16 +900,11 @@ const ServiceTestConfigurationInner: React.FC = () => {
                 <Checkbox>Bắt buộc</Checkbox>
               </Form.Item>
             </Col>
-            {!editingItem && (
-              <Col span={12}>
-                <Form.Item
-                  name="customUnit"
-                  label="Đơn vị tùy chỉnh"
-                >
-                  <Input placeholder="Ví dụ: mg/dL, IU/mL..." />
-                </Form.Item>
-              </Col>
-            )}
+            <Col span={12}>
+              <Form.Item name="unit" label="Đơn vị">
+                <Input placeholder="VD: mg/dL" />
+              </Form.Item>
+            </Col>
           </Row>
 
           <div className="bg-blue-50 p-4 rounded mb-4">
@@ -972,6 +946,71 @@ const ServiceTestConfigurationInner: React.FC = () => {
             </Row>
           </div>
 
+          <Form.Item label="Threshold Rules">
+            <Form.List
+              name="thresholdRules"
+              initialValue={editingItem?.thresholdRules || [{ from: null, to: null, flag: 'normal', message: '' }]}
+              rules={[{ validator: async (_, rules) => {
+                if (!rules || rules.length < 1) {
+                  return Promise.reject(new Error('Phải có ít nhất 1 rule!'));
+                }
+              }}]}
+            >
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map((field) => (
+                    <div key={field.key} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                      <Form.Item
+                        key={`from-${field.key}`}
+                        name={[field.name, 'from']}
+                        style={{ flex: 1 }}
+                      >
+                        <InputNumber placeholder="From" style={{ width: '100%' }} />
+                      </Form.Item>
+                      <Form.Item
+                        key={`to-${field.key}`}
+                        name={[field.name, 'to']}
+                        style={{ flex: 1 }}
+                      >
+                        <InputNumber placeholder="To" style={{ width: '100%' }} />
+                      </Form.Item>
+                      <Form.Item
+                        key={`flag-${field.key}`}
+                        name={[field.name, 'flag']}
+                        style={{ flex: 1 }}
+                        rules={[{ required: true, message: 'Chọn flag!' }]}
+                      >
+                        <Select placeholder="Flag">
+                          <Select.Option value="very_low">very_low</Select.Option>
+                          <Select.Option value="low">low</Select.Option>
+                          <Select.Option value="normal">normal</Select.Option>
+                          <Select.Option value="mild_high">mild_high</Select.Option>
+                          <Select.Option value="high">high</Select.Option>
+                          <Select.Option value="critical">critical</Select.Option>
+                        </Select>
+                      </Form.Item>
+                      <Form.Item
+                        key={`msg-${field.key}`}
+                        name={[field.name, 'message']}
+                        style={{ flex: 2 }}
+                        rules={[{ required: true, message: 'Nhập message!' }]}
+                      >
+                        <Input placeholder="Message" />
+                      </Form.Item>
+                      {fields.length > 1 && (
+                        <Button danger onClick={() => remove(field.name)}>
+                          Xóa
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button type="dashed" onClick={() => add({ from: null, to: null, flag: 'normal', message: '' })} block>
+                    Thêm dòng
+                  </Button>
+                </>
+              )}
+            </Form.List>
+          </Form.Item>
 
         </Form>
       </Modal>

@@ -117,7 +117,7 @@ export interface Doctor {
   _id: string;
   userId: DoctorInfo;
   bio?: string;
-  experience?: number;
+  experience?: string | number;
   rating?: number;
   image?: string;
   specialization?: string;
@@ -530,10 +530,11 @@ export interface TestCategory {
 export interface TestResultItem {
   _id: string;
   appointmentId: string;
-  itemNameId: string;
+  testCategoryId: string;
   value: string;
   unit: string;
-  flag: 'high' | 'low' | 'normal';
+  flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+  message?: string;
 }
 
 // Blog types

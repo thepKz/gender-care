@@ -29,7 +29,7 @@ export class TestResultItemsService {
     const [testResultItems, total] = await Promise.all([
       TestResultItems.find(filter)
         .populate('appointmentId', 'appointmentDate appointmentTime serviceId')
-        .populate('itemNameId', 'name description unit normalRange')
+        .populate('testCategoryId', 'name description unit')
         .skip(skip)
         .limit(limit)
         .sort({ _id: -1 }),
@@ -52,7 +52,7 @@ export class TestResultItemsService {
     }
 
     const testResultItems = await TestResultItems.find({ appointmentId })
-      .populate('itemNameId', 'name description unit normalRange')
+      .populate('testCategoryId', 'name description unit')
       .sort({ _id: 1 });
 
     return testResultItems;
@@ -84,7 +84,7 @@ export class TestResultItemsService {
           }
         ]
       })
-      .populate('itemNameId', 'name description unit normalRange');
+      .populate('testCategoryId', 'name description unit');
     
     if (!testResultItem) {
       throw new Error('Test result item not found');
@@ -93,13 +93,16 @@ export class TestResultItemsService {
     return testResultItem;
   }
 
-  // Tạo test result item mới
+  // Tạo test result item mới (dạng mới: lưu 1 document với mảng items)
   async createTestResultItem(data: {
     appointmentId: string;
-    itemNameId: string;
-    value: string;
-    unit?: string;
-    flag?: "high" | "low" | "normal";
+    items: Array<{
+      testCategoryId: string;
+      value: string;
+      unit?: string;
+      flag?: "very_low" | "low" | "normal" | "mild_high" | "high" | "critical";
+      message?: string;
+    }>;
   }, createdByRole: string): Promise<ITestResultItems> {
     // Kiểm tra quyền hạn - cho phép doctor, nursing staff, staff
     if (!['doctor', 'nursing_staff', 'staff'].includes(createdByRole)) {
@@ -110,13 +113,8 @@ export class TestResultItemsService {
     if (!data.appointmentId || !mongoose.Types.ObjectId.isValid(data.appointmentId)) {
       throw new Error('Valid appointment ID is required');
     }
-
-    if (!data.itemNameId || !mongoose.Types.ObjectId.isValid(data.itemNameId)) {
-      throw new Error('Valid item name ID is required');
-    }
-
-    if (!data.value || data.value.trim().length === 0) {
-      throw new Error('Value is required');
+    if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
+      throw new Error('At least one test result item is required');
     }
 
     // Kiểm tra appointment có tồn tại không
@@ -125,30 +123,31 @@ export class TestResultItemsService {
       throw new Error('Appointment not found');
     }
 
-    // Kiểm tra test category có tồn tại không
+    // Validate từng item
     const TestCategories = (await import('../models/TestCategories')).default;
-    const testCategory = await TestCategories.findById(data.itemNameId);
-    if (!testCategory) {
-      throw new Error('Test category not found');
+    for (const item of data.items) {
+      if (!item.testCategoryId || !mongoose.Types.ObjectId.isValid(item.testCategoryId)) {
+        throw new Error(`Invalid test category ID: ${item.testCategoryId}`);
+      }
+      if (!item.value || item.value.trim().length === 0) {
+        throw new Error(`Value is required for item: ${item.testCategoryId}`);
+      }
+      const testCategory = await TestCategories.findById(item.testCategoryId);
+      if (!testCategory) {
+        throw new Error(`Test category not found: ${item.testCategoryId}`);
+      }
     }
 
-    // Kiểm tra duplicate
-    const existingItem = await TestResultItems.findOne({
-      appointmentId: data.appointmentId,
-      itemNameId: data.itemNameId
-    });
-
-    if (existingItem) {
-      throw new Error(`Test result item already exists for item: ${testCategory.name}`);
-    }
-
-    // Tạo test result item mới
+    // Tạo test result item mới (1 document, mảng items)
     const testResultItem = new TestResultItems({
       appointmentId: data.appointmentId,
-      itemNameId: data.itemNameId,
-      value: data.value.trim(),
-      unit: data.unit?.trim() || testCategory.unit,
-      flag: data.flag || 'normal'
+      items: data.items.map(item => ({
+        testCategoryId: item.testCategoryId,
+        value: item.value.trim(),
+        unit: item.unit?.trim(),
+        flag: item.flag || 'normal',
+        message: item.message?.trim()
+      }))
     });
 
     const savedItem = await testResultItem.save();
@@ -161,18 +160,21 @@ export class TestResultItemsService {
     );
 
     // Populate và return
-    return await TestResultItems.findById(savedItem._id)
-      .populate('itemNameId', 'name description unit normalRange') as ITestResultItems;
+    const result = await TestResultItems.findById(savedItem._id)
+      .populate('items.testCategoryId', 'name description unit');
+    if (!result) throw new Error('Test result item not found');
+    return result;
   }
 
   // Tạo nhiều test result items cùng lúc
   async createMultipleTestResultItems(data: {
     appointmentId: string;
     items: Array<{
-      itemNameId: string;
+      testCategoryId: string;
       value: string;
       unit?: string;
-      flag?: "high" | "low" | "normal";
+      flag?: "very_low" | "low" | "normal" | "mild_high" | "high" | "critical";
+      message?: string;
     }>;
   }, createdByRole: string): Promise<ITestResultItems[]> {
     // Kiểm tra quyền hạn - cho phép doctor, nursing staff, staff
@@ -201,24 +203,24 @@ export class TestResultItemsService {
 
     for (const item of data.items) {
       // Validate item
-      if (!item.itemNameId || !mongoose.Types.ObjectId.isValid(item.itemNameId)) {
-        throw new Error(`Invalid item name ID: ${item.itemNameId}`);
+      if (!item.testCategoryId || !mongoose.Types.ObjectId.isValid(item.testCategoryId)) {
+        throw new Error(`Invalid test category ID: ${item.testCategoryId}`);
       }
 
       if (!item.value || item.value.trim().length === 0) {
-        throw new Error(`Value is required for item: ${item.itemNameId}`);
+        throw new Error(`Value is required for item: ${item.testCategoryId}`);
       }
 
       // Kiểm tra test category
-      const testCategory = await TestCategories.findById(item.itemNameId);
+      const testCategory = await TestCategories.findById(item.testCategoryId);
       if (!testCategory) {
-        throw new Error(`Test category not found: ${item.itemNameId}`);
+        throw new Error(`Test category not found: ${item.testCategoryId}`);
       }
 
       // Check duplicate
       const existingItem = await TestResultItems.findOne({
         appointmentId: data.appointmentId,
-        itemNameId: item.itemNameId
+        testCategoryId: item.testCategoryId
       });
 
       if (existingItem) {
@@ -227,10 +229,11 @@ export class TestResultItemsService {
 
       preparedItems.push({
         appointmentId: data.appointmentId,
-        itemNameId: item.itemNameId,
+        testCategoryId: item.testCategoryId,
         value: item.value.trim(),
-        unit: item.unit?.trim() || testCategory.unit,
-        flag: item.flag || 'normal'
+        unit: item.unit?.trim(),
+        flag: item.flag || 'normal',
+        message: item.message?.trim()
       });
     }
 
@@ -241,55 +244,59 @@ export class TestResultItemsService {
     return await TestResultItems.find({ 
       _id: { $in: createdItems.map(item => item._id) } 
     })
-    .populate('itemNameId', 'name description unit normalRange');
+    .populate('testCategoryId', 'name description unit');
   }
 
-  // Cập nhật test result item
-  async updateTestResultItem(id: string, data: {
-    value?: string;
-    unit?: string;
-    flag?: "high" | "low" | "normal";
-  }, updatedByRole: string): Promise<ITestResultItems> {
-    // Kiểm tra quyền hạn
+  // Cập nhật test result item theo appointmentId và testCategoryId
+  async updateTestResultItemByCategory(
+    appointmentId: string, 
+    testCategoryId: string, 
+    data: {
+      value?: string;
+      unit?: string;
+      flag?: "very_low" | "low" | "normal" | "mild_high" | "high" | "critical";
+      message?: string;
+    }, 
+    updatedByRole: string
+  ): Promise<any> {
+    // Kiểm tra quyền hạn - cho phép doctor, nursing staff, staff
     if (!['doctor', 'nursing_staff', 'staff'].includes(updatedByRole)) {
       throw new Error('Only doctors, nursing staff, and staff can update test result items');
     }
 
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new Error('Invalid test result item ID format');
+    // Validate ObjectId formats
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      throw new Error('Invalid appointment ID format');
+    }
+    if (!mongoose.Types.ObjectId.isValid(testCategoryId)) {
+      throw new Error('Invalid test category ID format');
     }
 
-    // Tìm test result item
-    const testResultItem = await TestResultItems.findById(id);
-    if (!testResultItem) {
+    // Prepare update data
+    const updateFields: any = {};
+    if (data.value !== undefined) updateFields['items.$.value'] = data.value.trim();
+    if (data.unit !== undefined) updateFields['items.$.unit'] = data.unit?.trim();
+    if (data.flag !== undefined) updateFields['items.$.flag'] = data.flag;
+    if (data.message !== undefined) updateFields['items.$.message'] = data.message?.trim();
+
+    // Update item trong mảng items theo appointmentId và testCategoryId
+    const result = await TestResultItems.updateOne(
+      { 
+        appointmentId: new mongoose.Types.ObjectId(appointmentId),
+        'items.testCategoryId': new mongoose.Types.ObjectId(testCategoryId)
+      },
+      { $set: updateFields }
+    );
+
+    if (result.matchedCount === 0) {
       throw new Error('Test result item not found');
     }
 
-    // Cập nhật các field được cung cấp
-    if (data.value !== undefined) {
-      if (!data.value || data.value.trim().length === 0) {
-        throw new Error('Value cannot be empty');
-      }
-      testResultItem.value = data.value.trim();
-    }
+    // Lấy lại document đã update để return
+    const updatedDocument = await TestResultItems.findOne({ appointmentId })
+      .populate('items.testCategoryId', 'name description unit');
 
-    if (data.unit !== undefined) {
-      testResultItem.unit = data.unit?.trim();
-    }
-
-    if (data.flag !== undefined) {
-      if (!['high', 'low', 'normal'].includes(data.flag)) {
-        throw new Error('Invalid flag value');
-      }
-      testResultItem.flag = data.flag;
-    }
-
-    const updatedItem = await testResultItem.save();
-
-    // Populate và return
-    return await TestResultItems.findById(updatedItem._id)
-      .populate('itemNameId', 'name description unit normalRange') as ITestResultItems;
+    return updatedDocument;
   }
 
   // Xóa test result item
@@ -342,10 +349,10 @@ export class TestResultItemsService {
             $sum: { $cond: [{ $eq: ['$flag', 'normal'] }, 1, 0] }
           },
           highCount: {
-            $sum: { $cond: [{ $eq: ['$flag', 'high'] }, 1, 0] }
+            $sum: { $cond: [{ $in: ['$flag', ['high', 'mild_high', 'critical']] }, 1, 0] }
           },
           lowCount: {
-            $sum: { $cond: [{ $eq: ['$flag', 'low'] }, 1, 0] }
+            $sum: { $cond: [{ $in: ['$flag', ['low', 'very_low']] }, 1, 0] }
           }
         }
       }
@@ -358,6 +365,7 @@ export class TestResultItemsService {
       lowCount: 0
     };
 
+    // Tính abnormal percentage (bao gồm cả high và low)
     const abnormalCount = result.highCount + result.lowCount;
     const abnormalPercentage = result.totalItems > 0 
       ? Math.round((abnormalCount / result.totalItems) * 100 * 100) / 100
@@ -387,7 +395,7 @@ export class TestResultItemsService {
 
     // Lấy test categories cho service
     const serviceTestCategories = await ServiceTestCategories.find({ serviceId })
-      .populate('testCategoryId', 'name description unit normalRange')
+      .populate('testCategoryId', 'name description unit')
       .sort({ 'testCategoryId.name': 1 });
 
     if (serviceTestCategories.length === 0) {
@@ -402,14 +410,11 @@ export class TestResultItemsService {
         return {
           _id: testCategory._id,
           name: testCategory.name,
-          normalRange: stc.customNormalRange || testCategory.normalRange,
-          unit: stc.customUnit || testCategory.unit,
-          isRequired: stc.isRequired,
-          customNormalRange: stc.customNormalRange,
-          customUnit: stc.customUnit,
           targetValue: stc.targetValue,
           minValue: stc.minValue,
-          maxValue: stc.maxValue
+          maxValue: stc.maxValue,
+          thresholdRules: stc.thresholdRules,
+          unit: stc.unit || testCategory.unit
         };
       })
     };

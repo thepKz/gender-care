@@ -226,10 +226,16 @@ export interface IServiceTestCategories {
   serviceId: string;
   testCategoryId: string;
   isRequired: boolean;
-  customNormalRange?: string;
-  customUnit?: string;
+  unit?: string;
   targetValue?: string;
-  notes?: string;
+  minValue?: number;
+  maxValue?: number;
+  thresholdRules?: Array<{
+    from: number | null;
+    to: number | null;
+    flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+    message: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -237,9 +243,7 @@ export interface IServiceTestCategories {
 export interface ITestCategory {
   _id: string;
   name: string;
-  description: string;
-  unit: string;
-  normalRange: string;
+  description?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -247,10 +251,11 @@ export interface ITestCategory {
 export interface ITestResultItem {
   _id: string;
   appointmentId: string;
-  itemNameId: string;
+  testCategoryId: string;
   value: string;
   unit: string;
-  flag: 'high' | 'low' | 'normal';
+  flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+  message?: string;
 }
 
 // Blog types

@@ -60,8 +60,6 @@ export class TestCategoriesService {
   async createTestCategory(data: {
     name: string;
     description?: string;
-    unit?: string;
-    normalRange?: string;
   }): Promise<ITestCategories> {
     console.log('🔍 [TestCategoriesService] createTestCategory called with data:', data);
 
@@ -91,9 +89,7 @@ export class TestCategoriesService {
     // Tạo test category mới
     const testCategory = new TestCategories({
       name: data.name.trim(),
-      description: data.description?.trim(),
-      unit: data.unit?.trim(),
-      normalRange: data.normalRange?.trim()
+      description: data.description?.trim()
     });
 
     console.log('🔍 [TestCategoriesService] Saving test category...');
@@ -107,8 +103,6 @@ export class TestCategoriesService {
   async updateTestCategory(id: string, data: {
     name?: string;
     description?: string;
-    unit?: string;
-    normalRange?: string;
   }): Promise<ITestCategories> {
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -137,8 +131,6 @@ export class TestCategoriesService {
     const updateData: any = {};
     if (data.name) updateData.name = data.name.trim();
     if (data.description !== undefined) updateData.description = data.description?.trim();
-    if (data.unit !== undefined) updateData.unit = data.unit?.trim();
-    if (data.normalRange !== undefined) updateData.normalRange = data.normalRange?.trim();
 
     // Thực hiện update
     const updatedCategory = await TestCategories.findByIdAndUpdate(
@@ -163,7 +155,7 @@ export class TestCategoriesService {
 
     // Kiểm tra có đang được sử dụng trong TestResultItems không
     const TestResultItems = (await import('../models/TestResultItems')).default;
-    const usageCount = await TestResultItems.countDocuments({ itemNameId: id });
+    const usageCount = await TestResultItems.countDocuments({ testCategoryId: id });
 
     if (usageCount > 0) {
       throw new Error('Cannot delete test category as it is being used in test results');
@@ -200,17 +192,13 @@ export class TestCategoriesService {
   async getTestCategoriesForDropdown(): Promise<Array<{
     id: string;
     name: string;
-    unit?: string;
-    normalRange?: string;
   }>> {
-    const categories = await TestCategories.find({}, 'name unit normalRange')
+    const categories = await TestCategories.find({}, 'name')
       .sort({ name: 1 });
 
     return categories.map(cat => ({
       id: cat._id!.toString(),
-      name: cat.name,
-      unit: cat.unit,
-      normalRange: cat.normalRange
+      name: cat.name
     }));
   }
 } 

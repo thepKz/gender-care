@@ -31,14 +31,6 @@ router.get(
   testResultItemsController.getTestResultItemsByAppointmentId
 );
 
-// GET /api/test-result-items/:id - Lấy test result item theo ID
-router.get(
-  '/:id',
-  authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'staff', 'customer']),
-  testResultItemsController.getTestResultItemById
-);
-
 // POST /api/test-result-items/bulk - Tạo nhiều test result items cùng lúc (Doctor, Nursing Staff, Staff)
 router.post(
   '/bulk',
@@ -55,20 +47,12 @@ router.post(
   testResultItemsController.createTestResultItem
 );
 
-// PUT /api/test-result-items/:id - Cập nhật test result item (Doctor, Nursing Staff, Staff)
+// PUT /api/test-result-items/:appointmentId/:testCategoryId - Cập nhật test result item theo appointmentId và testCategoryId
 router.put(
-  '/:id',
+  '/:appointmentId/:testCategoryId',
   authMiddleware,
   roleMiddleware(['admin', 'doctor', 'nursing_staff', 'staff']),
-  testResultItemsController.updateTestResultItem
-);
-
-// DELETE /api/test-result-items/:id - Xóa test result item (Doctor, Nursing Staff, Staff)
-router.delete(
-  '/:id',
-  authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'staff']),
-  testResultItemsController.deleteTestResultItem
+  testResultItemsController.updateTestResultItemByCategory
 );
 
 // GET /api/test-result-items/template/:serviceId - Lấy template cho việc nhập kết quả xét nghiệm (Doctor, Nursing Staff, Staff)

@@ -21,6 +21,7 @@ import { Avatar, Badge, Button, Dropdown, Layout, Menu, Space, Typography } from
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { filterMenuItemsByPermissions, type MenuItem } from '../utils/permissions';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -37,7 +38,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
   const { user, handleLogout } = useAuth();
 
   // Menu items cho Admin
-  const adminMenuItems = [
+  const adminMenuItems: MenuItem[] = [
     {
       key: 'users',
       icon: <TeamOutlined />,
@@ -71,7 +72,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
   ];
 
   // Menu items cho Manager
-  const managerMenuItems = [
+  const managerMenuItems: MenuItem[] = [
     {
       key: 'overview',
       icon: <DashboardOutlined />,
@@ -137,7 +138,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
   ];
 
   // Menu items cho Staff
-  const staffMenuItems = [
+  const staffMenuItems: MenuItem[] = [
     {
       key: 'overview',
       icon: <DashboardOutlined />,
@@ -157,6 +158,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
       onClick: () => navigate('/dashboard/staff/appointments'),
     },
     {
+      key: 'test-results',
+      icon: <MedicineBoxOutlined />,
+      label: 'Nhập kết quả xét nghiệm',
+      onClick: () => navigate('/dashboard/staff/test-results'),
+    },
+    {
       key: 'daily-tasks',
       icon: <ClockCircleOutlined />,
       label: 'Công việc hàng ngày',
@@ -165,24 +172,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
   ];
 
   // Menu items cho Doctor
-  const doctorMenuItems = [
+  const doctorMenuItems: MenuItem[] = [
     {
       key: 'overview',
       icon: <DashboardOutlined />,
       label: 'Tổng quan',
       onClick: () => navigate('/dashboard/operational'),
-    },
-    {
-      key: 'schedule',
-      icon: <CalendarOutlined />,
-      label: 'Lịch hẹn của tôi',
-      onClick: () => navigate('/dashboard/operational/appointments'),
-    },
-    {
-      key: 'consultations',
-      icon: <VideoCameraOutlined />,
-      label: 'Tư vấn trực tuyến',
-      onClick: () => navigate('/dashboard/operational/consultations'),
     },
     {
       key: 'profile',
@@ -191,14 +186,32 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
       onClick: () => navigate('/dashboard/operational/profile'),
     },
     {
+      key: 'my-appointments',
+      icon: <CalendarOutlined />,
+      label: 'Lịch hẹn của tôi',
+      onClick: () => navigate('/dashboard/operational/appointments'),
+    },
+    {
+      key: 'appointments',
+      icon: <CalendarOutlined />,
+      label: 'Quản lý tất cả lịch hẹn',
+      onClick: () => navigate('/dashboard/operational/all-appointments'),
+    },
+    {
       key: 'medical-records',
       icon: <FileTextOutlined />,
       label: 'Hồ sơ bệnh án',
       onClick: () => navigate('/dashboard/operational/medical-records'),
     },
     {
-      key: 'meetings',
+      key: 'consultations',
       icon: <VideoCameraOutlined />,
+      label: 'Tư vấn trực tuyến',
+      onClick: () => navigate('/dashboard/operational/consultations'),
+    },
+    {
+      key: 'meeting-history',
+      icon: <HistoryOutlined />,
       label: 'Lịch sử Meeting',
       onClick: () => navigate('/dashboard/operational/meetings'),
     },
@@ -211,18 +224,28 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
   ];
 
   const getMenuItems = () => {
+    let baseMenuItems: MenuItem[];
+    
     switch (userRole) {
       case 'admin':
-        return adminMenuItems;
+        baseMenuItems = adminMenuItems;
+        break;
       case 'manager':
-        return managerMenuItems;
+        baseMenuItems = managerMenuItems;
+        break;
       case 'staff':
-        return staffMenuItems;
+        baseMenuItems = staffMenuItems;
+        break;
       case 'doctor':
-        return doctorMenuItems;
+        baseMenuItems = doctorMenuItems;
+        break;
       default:
-        return staffMenuItems;
+        baseMenuItems = staffMenuItems;
+        break;
     }
+    
+    // Apply permission filtering to only show items the user has access to
+    return filterMenuItemsByPermissions(baseMenuItems, userRole);
   };
 
   const menuItems = getMenuItems();

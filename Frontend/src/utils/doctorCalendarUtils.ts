@@ -85,8 +85,9 @@ export interface IDoctorSchedule {
     const events: DoctorCalendarEvent[] = [];
 
     schedules.forEach(schedule => {
-      const doctorName = schedule.doctorId.userId.fullName;
-      const doctorId = schedule.doctorId._id;
+      // Kiểm tra xem doctor có tồn tại không (có thể đã bị xóa)
+      const doctorName = schedule.doctorId?.userId?.fullName || 'Bác sĩ đã bị xóa';
+      const doctorId = schedule.doctorId?._id || 'deleted-doctor';
       const scheduleId = schedule._id;
 
       schedule.weekSchedule.forEach(week => {

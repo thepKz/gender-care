@@ -77,7 +77,7 @@ interface DoctorWithDetails extends Doctor {
 interface FormValues {
   userId: string;
   bio: string;
-  experience: number;
+  experience: string | number;
   specialization: string;
   education: string;
   certificate: string;
@@ -325,8 +325,22 @@ const ManagerDoctorProfilesPage: React.FC = () => {
       title: 'Kinh nghiệm',
       dataIndex: 'experience',
       key: 'experience',
-      render: (experience: number) => experience ? `${experience} năm` : 'N/A',
-      sorter: (a: DoctorWithDetails, b: DoctorWithDetails) => (a.experience || 0) - (b.experience || 0),
+      render: (experience: string | number) => {
+        if (typeof experience === 'number') {
+          return experience ? `${experience} năm` : 'N/A';
+        } else if (typeof experience === 'string') {
+          return experience || 'N/A';
+        }
+        return 'N/A';
+      },
+      sorter: (a: DoctorWithDetails, b: DoctorWithDetails) => {
+        // Nếu cả hai là số, so sánh số
+        if (typeof a.experience === 'number' && typeof b.experience === 'number') {
+          return (a.experience || 0) - (b.experience || 0);
+        }
+        // Nếu một trong hai là chuỗi, chuyển về string để so sánh
+        return String(a.experience || '').localeCompare(String(b.experience || ''));
+      },
     },
     {
       title: 'Đánh giá',

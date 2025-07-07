@@ -46,6 +46,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { fetchOperationalDashboard } from '../../../api/endpoints/dashboard';
+import { filterMenuItemsByPermissions, type MenuItem } from '../../../utils/permissions';
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
@@ -56,51 +57,32 @@ interface OperationalTemplateProps {
   welcomeMessage?: string;
 }
 
-// Xây dựng menu động theo vai trò Staff / Doctor
-const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
-  // Mục chung cho cả doctor và staff
-  const baseItems = [
-    {
-      key: 'dashboard',
-      icon: <DashboardOutlined />,
-      label: 'Tổng quan',
-    },
-    {
-      key: 'my-appointments',
-      icon: <CalendarOutlined />,
-      label: 'Lịch hẹn của tôi',
-    },
-    {
-      key: 'test-results',
-      icon: <MedicineBoxOutlined />,
-      label: 'Nhập kết quả xét nghiệm',
-    },
-    {
-      key: 'test-config',
-      icon: <ScheduleOutlined />,
-      label: 'Cấu hình xét nghiệm',
-    },
-  ];
+// Xây dựng menu động theo vai trò Staff / Doctor với permission filtering
+const getMenuItemsOperational = (role: 'staff' | 'doctor'): MenuItem[] => {
+  let baseMenuItems: MenuItem[];
 
   if (role === 'doctor') {
     // Bác sĩ: thêm các chức năng đặc biệt
-    return [
-      baseItems[0], // dashboard
+    baseMenuItems = [
+      {
+        key: 'dashboard',
+        icon: <DashboardOutlined />,
+        label: 'Tổng quan',
+      },
       {
         key: 'profile',
         icon: <UserOutlined />,
         label: 'Thông tin cá nhân',
       },
-      baseItems[1], // my-appointments
+      {
+        key: 'my-appointments',
+        icon: <CalendarOutlined />,
+        label: 'Lịch hẹn của tôi',
+      },
       {
         key: 'appointments',
         icon: <CalendarOutlined />,
         label: 'Quản lý tất cả lịch hẹn',
-      },
-      {
-        key: 'patients',
-        icon: <ScheduleOutlined />,
-        label: 'Bệnh nhân',
       },
       {
         key: 'medical-records',
@@ -117,23 +99,37 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
         icon: <HistoryOutlined />,
         label: 'Lịch sử Meeting',
       },
+      // Removed 'reports' for doctor - not needed for patient care focus
+    ];
+  } else {
+    // Staff: menu cơ bản
+    baseMenuItems = [
       {
-        key: 'reports',
-        icon: <BarChartOutlined />,
-        label: 'Báo cáo',
+        key: 'dashboard',
+        icon: <DashboardOutlined />,
+        label: 'Tổng quan',
       },
+      {
+        key: 'my-appointments',
+        icon: <CalendarOutlined />,
+        label: 'Lịch hẹn của tôi',
+      },
+      {
+        key: 'test-results',
+        icon: <MedicineBoxOutlined />,
+        label: 'Nhập kết quả xét nghiệm',
+      },
+      {
+        key: 'test-config',
+        icon: <ScheduleOutlined />,
+        label: 'Cấu hình xét nghiệm',
+      },
+      // Removed 'reports' for staff - focus on operational tasks, not management reports
     ];
   }
 
-  // Staff: menu cơ bản
-  return [
-    ...baseItems,
-    {
-      key: 'reports',
-      icon: <BarChartOutlined />,
-      label: 'Báo cáo',
-    },
-  ];
+  // Apply permission filtering to only show items the user has access to
+  return filterMenuItemsByPermissions(baseMenuItems, role);
 };
 
 const OperationalTemplate: React.FC<OperationalTemplateProps> = ({

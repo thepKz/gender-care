@@ -25,6 +25,7 @@ import {
     servicePackageRoutes,
     serviceRoutes,
     serviceTestCategoriesRoutes,
+    staffRoutes,
     systemLogRoutes,
     testCategoriesRoutes,
     testResultItemsRoutes,
@@ -33,6 +34,7 @@ import {
     userRoutes
 } from "./routes";
 import consultationRoutes from './routes/consultationRoutes';
+import reportsRoutes from './routes/reportsRoutes';
 
 import { runAllSeeds } from "./seeds";
 import { startAutoTransitionService } from './services/appointmentAutoTransitionService';
@@ -234,6 +236,7 @@ apiRouter.use('/users', userRoutes);
 apiRouter.use('/login-history', loginHistoryRoutes);
 apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/doctors', doctorRoutes);
+apiRouter.use('/staff', staffRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
 apiRouter.use('/service-test-categories', serviceTestCategoriesRoutes);
@@ -255,14 +258,18 @@ apiRouter.use('/medicines', medicinesRoutes);
 apiRouter.use('/medication-reminders', medicationRemindersRoutes);
 apiRouter.use('/notification-days', notificationDaysRoutes);
 apiRouter.use('/user-profiles', userProfileRoutes);
+
+
+// ✅ FIX: Đặt reportsRoutes TRƯỚC menstrualCycleRoutes để tránh xung đột
+// route /reports/management với /reports/:cycleId
+apiRouter.use('/reports', reportsRoutes);
+
+
 // Menstrual Cycle routes
 apiRouter.use('/', menstrualCycleRoutes);
 apiRouter.use('/appointments', appointmentRoutes);
 apiRouter.use('/payments', paymentRoutes);
 apiRouter.use('/system-logs', systemLogRoutes);
-
-// ✅ NEW: Consultation transfer routes
-apiRouter.use('/consultations', consultationRoutes);
 
 // Middleware xử lý lỗi
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

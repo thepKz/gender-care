@@ -4,10 +4,8 @@ export interface ITestCategory {
   _id: string;
   name: string;
   description?: string;
-  unit?: string;
-  normalRange?: string;
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateTestCategoryRequest {
@@ -144,8 +142,8 @@ const testCategoriesApi = {
       const categories = await testCategoriesApi.getAllTestCategories();
       
       const total = categories.length;
-      const withUnit = categories.filter(c => c.unit && c.unit.trim().length > 0).length;
-      const withNormalRange = categories.filter(c => c.normalRange && c.normalRange.trim().length > 0).length;
+      const withUnit = 0; // Không còn trường unit
+      const withNormalRange = 0; // Không còn trường normalRange
 
       return {
         total,
