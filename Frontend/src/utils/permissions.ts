@@ -184,6 +184,10 @@ export const canAccessServicePackageManagement = (userRole: string): boolean => 
   return ['admin', 'manager'].includes(userRole);
 };
 
+export const canAccessRefundManagement = (userRole: string): boolean => {
+  return ['admin', 'manager'].includes(userRole);
+};
+
 // ===== DOCTOR APPROVAL WORKFLOW PERMISSIONS =====
 export const canViewDoctorChangeRequests = (userRole: string): boolean => {
   // Manager có thể xem các yêu cầu thay đổi hồ sơ bác sĩ
@@ -215,6 +219,7 @@ export const MenuPermissions = {
   'service-packages': canAccessServicePackageManagement,
   'medicines': canAccessMedicineManagement,
   'test-categories': canAccessTestCategoriesManagement,
+  'refunds': canAccessRefundManagement,
   'login-history': canViewLoginHistory,
   'system-logs': canAccessSystemLogs,
   'reports': canAccessReports,

@@ -243,6 +243,20 @@ export const appointmentApi = {
             orderCode: data.orderCode,
             status: data.status
         });
+    },
+
+    // Cancel appointment with refund (24h rule)
+    cancelAppointmentWithRefund: async (id: string, reason: string, refundInfo?: {
+        accountNumber: string;
+        accountHolderName: string;
+        bankName: string;
+        reason?: string;
+    }) => {
+        const response = await axiosInstance.put(`/appointments/${id}/cancel-with-refund`, { 
+            reason,
+            refundInfo 
+        });
+        return response.data;
     }
 };
 

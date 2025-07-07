@@ -8,8 +8,7 @@ import {
   Row,
   Col,
   Card,
-  List,
-  Statistic
+  List
 } from 'antd';
 import {
   DashboardOutlined,
@@ -26,7 +25,6 @@ import {
   TrophyOutlined,
   CheckCircleOutlined,
   FileTextOutlined,
-  ExperimentOutlined,
   HomeOutlined
 } from '@ant-design/icons';
 import EnhancedStatsCard from '../widgets/EnhancedStatsCard';
@@ -37,10 +35,10 @@ import ServiceManagement from '../../../pages/dashboard/management/ServiceManage
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import SystemLogManagement from '../../../pages/dashboard/management/SystemLogManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
+import RefundManagement from '../../../pages/dashboard/management/RefundManagement';
 
 import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedulePage';
 import MedicineManagement from '../../../pages/dashboard/management/MedicineManagement';
-import TestManagement from '../../../pages/dashboard/management/TestManagement';
 
 import TestCategoriesManagement from '../../../pages/dashboard/management/TestCategoriesManagement';
 
@@ -164,6 +162,11 @@ const getMenuItems = (role: 'admin' | 'manager'): MenuItem[] => {
         key: 'test-categories',
         icon: <FileTextOutlined />,
         label: 'Quản lý danh mục xét nghiệm',
+      },
+      {
+        key: 'refunds',
+        icon: <DollarOutlined />,
+        label: 'Quản lý yêu cầu hoàn tiền',
       },
       {
         key: 'login-history',
@@ -663,6 +666,9 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
 
       case 'test-categories':
         return <TestCategoriesManagement />;
+
+      case 'refunds':
+        return <RefundManagement />;
 
       case 'login-history':
         return <LoginHistoryManagement />;

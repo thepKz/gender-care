@@ -35,6 +35,7 @@ import {
 } from "./routes";
 import consultationRoutes from './routes/consultationRoutes';
 import reportsRoutes from './routes/reportsRoutes';
+import refundRoutes from './routes/refundRoutes';
 
 import { runAllSeeds } from "./seeds";
 import { startAutoTransitionService } from './services/appointmentAutoTransitionService';
@@ -263,6 +264,9 @@ apiRouter.use('/user-profiles', userProfileRoutes);
 // ✅ FIX: Đặt reportsRoutes TRƯỚC menstrualCycleRoutes để tránh xung đột
 // route /reports/management với /reports/:cycleId
 apiRouter.use('/reports', reportsRoutes);
+
+// Refund Management routes
+apiRouter.use('/refunds', refundRoutes);
 
 
 // Menstrual Cycle routes

@@ -6,6 +6,7 @@ import {
     ClockCircleOutlined,
     CustomerServiceOutlined,
     DashboardOutlined,
+
     FileTextOutlined,
     HeartOutlined,
     HistoryOutlined,
@@ -128,6 +129,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
           onClick: () => navigate('/dashboard/manager/service-packages'),
         },
       ],
+    },
+    {
+      key: 'refunds',
+      icon: <BellOutlined />,
+      label: 'Quản lý yêu cầu hoàn tiền',
+      onClick: () => navigate('/dashboard/manager/refunds'),
     },
     {
       key: 'reports',

@@ -64,8 +64,6 @@ Table Doctors {
   updatedAt        DateTime
 }
 
-
-
 Table DoctorSchedules { 
   _id ObjectId [pk] 
   doctorId Object [ref: > Doctors._id] 
@@ -284,7 +282,8 @@ Table Payments {
   paymentGateway String 
   transactionId String 
   status String // "pending", "completed", "failed", "refunded" 
-  failureReason String 
+  failureReason String
+  refund Json  
   createdAt DateTime 
   updatedAt DateTime 
   paymentAt DateTime 

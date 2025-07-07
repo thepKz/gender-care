@@ -2169,3 +2169,330 @@ export const getUserBookingHistory = async (req: AuthRequest, res: Response) => 
         });
     }
 }; 
+
+/**
+ * Hủy cuộc hẹn và hoàn tiền (điều kiện 24h trước khi bắt đầu)
+ * Chỉ cho phép customer hủy appointment của chính mình
+ */
+export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { reason, refundInfo } = req.body;
+        const userId = req.user?._id;
+
+        console.log('🔄 [CancelWithRefund] Starting cancel with refund for appointment:', id, 'user:', userId);
+
+        // Kiểm tra ID có hợp lệ không
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            throw new ValidationError({ id: 'ID cuộc hẹn không hợp lệ' });
+        }
+
+        if (!userId) {
+            throw new UnauthorizedError('Không tìm thấy thông tin user từ token');
+        }
+
+        // Validate refund info if provided
+        if (refundInfo) {
+            if (!refundInfo.accountNumber || !refundInfo.accountHolderName || !refundInfo.bankName) {
+                throw new ValidationError({ 
+                    refundInfo: 'Thông tin hoàn tiền không đầy đủ. Cần có: số tài khoản, tên chủ tài khoản, tên ngân hàng' 
+                });
+            }
+        }
+
+        // Tìm cuộc hẹn
+        const appointment = await Appointments.findOne({
+            _id: id,
+            createdByUserId: userId // Chỉ cho phép user hủy appointment của mình
+        });
+
+        if (!appointment) {
+            throw new NotFoundError('Không tìm thấy cuộc hẹn hoặc bạn không có quyền hủy cuộc hẹn này');
+        }
+
+        console.log('✅ [CancelWithRefund] Found appointment:', {
+            id: appointment._id,
+            status: appointment.status,
+            paymentStatus: appointment.paymentStatus,
+            appointmentDate: appointment.appointmentDate,
+            appointmentTime: appointment.appointmentTime
+        });
+
+        // Kiểm tra trạng thái cuộc hẹn
+        if (appointment.status === 'cancelled') {
+            return res.status(400).json({
+                success: false,
+                message: 'Cuộc hẹn đã được hủy trước đó'
+            });
+        }
+
+        if (appointment.status === 'completed') {
+            return res.status(400).json({
+                success: false,
+                message: 'Không thể hủy cuộc hẹn đã hoàn thành'
+            });
+        }
+
+        // Kiểm tra đã thanh toán chưa
+        if (appointment.paymentStatus !== 'paid') {
+            return res.status(400).json({
+                success: false,
+                message: 'Chỉ có thể hoàn tiền cho cuộc hẹn đã thanh toán'
+            });
+        }
+
+        // Kiểm tra điều kiện 24h
+        if (!appointment.appointmentDate || !appointment.appointmentTime) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cuộc hẹn không có thông tin ngày giờ hẹn'
+            });
+        }
+
+        const appointmentDateTime = new Date(appointment.appointmentDate + ' ' + appointment.appointmentTime);
+        const currentTime = new Date();
+        const hoursDifference = (appointmentDateTime.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
+
+        console.log('⏰ [CancelWithRefund] Time check:', {
+            appointmentDateTime: appointmentDateTime.toISOString(),
+            currentTime: currentTime.toISOString(),
+            hoursDifference: hoursDifference
+        });
+
+        if (hoursDifference <= 24) {
+            return res.status(400).json({
+                success: false,
+                message: `Chỉ có thể hủy lịch hẹn trước 24 giờ. Hiện tại còn ${Math.floor(hoursDifference)} giờ.`
+            });
+        }
+
+        // PACKAGE REFUND INTEGRATION: Hoàn lại usage nếu appointment sử dụng package
+        let packageRefundPerformed = false;
+        let packagePurchase: any = null;
+        let originalRemainingUsages = 0;
+
+        try {
+            // 🔍 STEP 1: Nếu appointment sử dụng package, hoàn lại +1 usage
+            if (appointment.packageId) {
+                console.log('🔍 [Package Refund] Appointment uses package, processing refund...', {
+                    appointmentId: id,
+                    packageId: appointment.packageId,
+                    userId: appointment.createdByUserId,
+                    profileId: appointment.profileId
+                });
+
+                // Tìm package purchase tương ứng
+                packagePurchase = await PackagePurchases.findOne({
+                    userId: appointment.createdByUserId,
+                    profileId: appointment.profileId,
+                    packageId: appointment.packageId,
+                    // Note: Chúng ta không lọc theo isActive ở đây vì chúng ta muốn hoàn tiền ngay cả khi package đã hết hạn
+                    expiredAt: { $gt: new Date() } // Chỉ hoàn tiền nếu package chưa hết hạn
+                });
+
+                if (!packagePurchase) {
+                    console.log('⚠️ [Package Refund] No package purchase found or package expired', {
+                        appointmentId: id,
+                        packageId: appointment.packageId,
+                        userId: appointment.createdByUserId,
+                        profileId: appointment.profileId
+                    });
+                    // Tiếp tục với việc hủy nhưng không hoàn package
+                } else {
+                    console.log('✅ [Package Refund] Found package purchase, refunding usage...', {
+                        packagePurchaseId: packagePurchase._id?.toString() || 'unknown',
+                        currentRemainingUsages: packagePurchase.remainingUsages,
+                        totalAllowedUses: packagePurchase.totalAllowedUses
+                    });
+
+                    // Lưu giá trị gốc để rollback nếu cần
+                    originalRemainingUsages = packagePurchase.remainingUsages;
+
+                    // Tính toán giá trị mới
+                    const newRemainingUsages = packagePurchase.remainingUsages + 1;
+
+                    // Validate chúng ta không hoàn nhiều hơn tổng số lượt được phép
+                    if (newRemainingUsages > packagePurchase.totalAllowedUses) {
+                        console.log('⚠️ [Package Refund] Package already at maximum usage, skipping refund', {
+                            currentUsages: packagePurchase.remainingUsages,
+                            totalAllowed: packagePurchase.totalAllowedUses,
+                            wouldBe: newRemainingUsages
+                        });
+                        // Tiếp tục với việc hủy nhưng không hoàn package
+                    } else {
+                        const now = new Date();
+                        const newIsActive = (packagePurchase.expiredAt > now && newRemainingUsages > 0);
+
+                        // Cập nhật package purchase
+                        const updateResult = await PackagePurchases.findByIdAndUpdate(
+                            packagePurchase._id,
+                            {
+                                $set: {
+                                    remainingUsages: newRemainingUsages,
+                                    isActive: newIsActive
+                                }
+                            },
+                            { new: true }
+                        );
+
+                        if (!updateResult) {
+                            console.log('❌ [Package Refund] Failed to update package purchase, continuing with cancellation');
+                        } else {
+                            packageRefundPerformed = true;
+
+                            console.log('✅ [Package Refund] Successfully refunded package usage', {
+                                packagePurchaseId: packagePurchase._id?.toString() || 'unknown',
+                                oldRemainingUsages: originalRemainingUsages,
+                                newRemainingUsages: newRemainingUsages,
+                                isNowActive: newIsActive
+                            });
+                        }
+                    }
+                }
+            }
+
+            // 🔍 STEP 2: Cập nhật Payment status thành 'refunded'
+            const { Payments } = await import('../models');
+            const payment = await Payments.findOne({
+                userId: userId,
+                // Sử dụng appointment data để tìm payment
+                amount: appointment.totalAmount || 0
+            }).sort({ createdAt: -1 }); // Lấy payment mới nhất
+
+            if (payment && payment.status === 'completed') {
+                await Payments.findByIdAndUpdate(
+                    payment._id,
+                    {
+                        status: 'refunded',
+                        refund: {
+                            refundReason: reason || 'Hủy lịch hẹn theo yêu cầu của khách hàng (24h rule)',
+                            processingStatus: 'pending',
+                            // Thêm thông tin hoàn tiền từ form
+                            refundInfo: refundInfo ? {
+                                accountNumber: refundInfo.accountNumber,
+                                accountHolderName: refundInfo.accountHolderName,
+                                bankName: refundInfo.bankName,
+                                submittedAt: new Date()
+                            } : undefined
+                        },
+                        updatedAt: new Date()
+                    }
+                );
+                console.log('✅ [Payment Refund] Updated payment status to refunded with bank info');
+            }
+
+            // 🔍 STEP 3: Cập nhật Appointment status thành 'cancelled'
+            const updatedAppointment = await Appointments.findByIdAndUpdate(
+                id,
+                {
+                    $set: {
+                        status: 'cancelled',
+                        paymentStatus: 'refunded',
+                        notes: (appointment.notes || '') + (reason ? `\n[Hủy]: ${reason}` : '\n[Hủy]: Hủy theo yêu cầu của khách hàng với hoàn tiền'),
+                        updatedAt: new Date()
+                    }
+                },
+                { new: true }
+            );
+
+            // 🔍 STEP 4: Giải phóng slot nếu có
+            if (appointment.slotId) {
+                try {
+                    const releaseResult = await DoctorSchedules.findOneAndUpdate(
+                        { "weekSchedule.slots._id": appointment.slotId, "weekSchedule.slots.status": "Booked" },
+                        { $set: { "weekSchedule.$[].slots.$[slot].status": "Free" } },
+                        { 
+                            arrayFilters: [{ "slot._id": appointment.slotId }],
+                            new: true 
+                        }
+                    );
+                    if (releaseResult) {
+                        console.log(`✅ [Slot Release] Slot ${appointment.slotId} released due to cancellation with refund`);
+                    }
+                } catch (releaseError) {
+                    console.error(`❌ [Slot Release Error] Error releasing slot ${appointment.slotId}:`, releaseError);
+                }
+            }
+
+            console.log('✅ [CancelWithRefund] Successfully cancelled appointment with refund', {
+                appointmentId: id,
+                packageRefunded: packageRefundPerformed,
+                paymentRefunded: !!payment,
+                slotReleased: !!appointment.slotId
+            });
+
+            return res.status(200).json({
+                success: true,
+                message: packageRefundPerformed
+                    ? 'Hủy cuộc hẹn thành công. Thông tin hoàn tiền đã được ghi nhận, tiền sẽ được chuyển khoản trong 3-5 ngày làm việc và đã hoàn trả lượt sử dụng gói dịch vụ.'
+                    : 'Hủy cuộc hẹn thành công. Thông tin hoàn tiền đã được ghi nhận, tiền sẽ được chuyển khoản trong 3-5 ngày làm việc.',
+                data: {
+                    appointment: updatedAppointment,
+                    refund: {
+                        packageRefunded: packageRefundPerformed,
+                        paymentRefunded: !!payment,
+                        refundInfoReceived: !!refundInfo,
+                        estimatedRefundDays: '3-5 ngày làm việc',
+                        refundMethod: 'Chuyển khoản ngân hàng'
+                    }
+                }
+            });
+
+        } catch (error: any) {
+            console.error('❌ [Error] Error in appointment cancellation + refund:', error);
+            
+            // Manual rollback cho package refund nếu appointment cancellation thất bại
+            if (packageRefundPerformed && packagePurchase && originalRemainingUsages >= 0) {
+                console.log('🔄 [Rollback] Attempting to rollback package refund...');
+                try {
+                    const now = new Date();
+                    const rollbackIsActive = (packagePurchase.expiredAt > now && originalRemainingUsages > 0);
+                    
+                    await PackagePurchases.findByIdAndUpdate(
+                        packagePurchase._id,
+                        {
+                            $set: {
+                                remainingUsages: originalRemainingUsages,
+                                isActive: rollbackIsActive
+                            }
+                        }
+                    );
+                    console.log('✅ [Rollback] Package refund rolled back successfully');
+                } catch (rollbackError) {
+                    console.error('❌ [Rollback] Failed to rollback package refund:', rollbackError);
+                    console.error('🚨 [Critical] Manual intervention required for package refund rollback:', {
+                        packagePurchaseId: packagePurchase._id?.toString(),
+                        shouldBeRemainingUsages: originalRemainingUsages
+                    });
+                }
+            }
+            
+            // Re-throw original error
+            throw error;
+        }
+    } catch (error) {
+        console.error('Error in cancelAppointmentWithRefund:', error);
+        if (error instanceof NotFoundError) {
+            return res.status(404).json({
+                success: false,
+                message: error.message
+            });
+        }
+        if (error instanceof ValidationError) {
+            return res.status(400).json({
+                success: false,
+                errors: error.errors
+            });
+        }
+        if (error instanceof UnauthorizedError) {
+            return res.status(403).json({
+                success: false,
+                message: error.message
+            });
+        }
+        return res.status(500).json({
+            success: false,
+            message: 'Đã xảy ra lỗi khi hủy cuộc hẹn và hoàn tiền'
+        });
+    }
+}; 

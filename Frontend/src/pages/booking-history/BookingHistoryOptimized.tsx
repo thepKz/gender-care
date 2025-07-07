@@ -1,4 +1,4 @@
-import { Input, message, Modal, Pagination, Select, Tag } from 'antd';
+import { Input, message, Modal, Pagination, Select, Tag, Form, Checkbox } from 'antd';
 import { motion } from 'framer-motion';
 import {
     Calendar,
@@ -10,7 +10,8 @@ import {
     Refresh,
     SearchNormal1,
     TickCircle,
-    Timer
+    Timer,
+    Warning2
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +21,38 @@ import { useAuth } from '../../hooks/useAuth';
 
 const { Search } = Input;
 const { Option } = Select;
+
+interface RawAppointmentData {
+  _id: string;
+  type?: string;
+  serviceId?: string;
+  serviceName?: string;
+  packageName?: string;
+  doctorName?: string;
+  doctorAvatar?: string;
+  patientName?: string;
+  fullName?: string;
+  appointmentDate?: string;
+  appointmentTime?: string;
+  appointmentSlot?: string;
+  typeLocation?: string;
+  status: string;
+  price?: number;
+  createdAt: string;
+  description?: string;
+  question?: string;
+  notes?: string;
+  address?: string;
+  canCancel?: boolean;
+  canReschedule?: boolean;
+  rating?: number;
+  feedback?: string;
+  phone?: string;
+  age?: number;
+  gender?: string;
+  doctorNotes?: string;
+  paymentStatus?: string;
+}
 
 interface Appointment {
   id: string;
@@ -49,6 +82,14 @@ interface Appointment {
   gender?: string;
   question?: string;
   doctorNotes?: string;
+  paymentStatus?: string;
+}
+
+interface RefundInfo {
+  accountNumber: string;
+  accountHolderName: string;
+  bankName: string;
+  reason?: string;
 }
 
 const BookingHistoryOptimized: React.FC = () => {
@@ -61,6 +102,11 @@ const BookingHistoryOptimized: React.FC = () => {
   const [filteredAppointments, setFilteredAppointments] = useState<Appointment[]>([]);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showRefundForm, setShowRefundForm] = useState(false);
+  const [requestRefund, setRequestRefund] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [refundForm] = Form.useForm();
   
   // Filter states
   const [searchText, setSearchText] = useState('');
@@ -104,9 +150,9 @@ const BookingHistoryOptimized: React.FC = () => {
       });
 
       if (appointmentsData && appointmentsData.length >= 0) {
-        const formattedAppointments = appointmentsData.map((apt: any) => ({
+        const formattedAppointments = appointmentsData.map((apt: RawAppointmentData) => ({
           id: apt._id,
-          type: apt.type || 'appointment',
+          type: (apt.type as 'appointment' | 'consultation') || 'appointment',
           serviceId: apt.serviceId || '',
           serviceName: apt.serviceName || 'Dịch vụ không xác định',
           packageName: apt.packageName,
@@ -131,7 +177,8 @@ const BookingHistoryOptimized: React.FC = () => {
           age: apt.age,
           gender: apt.gender,
           question: apt.question,
-          doctorNotes: apt.doctorNotes
+          doctorNotes: apt.doctorNotes,
+          paymentStatus: apt.paymentStatus
         }));
 
         console.log('✅ [BookingHistory] Formatted appointments:', {
@@ -214,32 +261,129 @@ const BookingHistoryOptimized: React.FC = () => {
     setShowDetailModal(true);
   };
 
-  const handleCancel = async (appointment: Appointment) => {
+  // Helper function to check if appointment can be cancelled with refund (24h rule)
+  const canCancelWithRefund = (appointment: Appointment): boolean => {
+    if (!appointment.appointmentDate || appointment.status === 'cancelled' || appointment.status === 'completed') {
+      return false;
+    }
+
+    // Chỉ cho phép hủy nếu đã thanh toán
+    if (appointment.paymentStatus !== 'paid') {
+      return false;
+    }
+
+    const appointmentDateTime = new Date(appointment.appointmentDate + ' ' + appointment.appointmentTime);
+    const currentTime = new Date();
+    const hoursDifference = (appointmentDateTime.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
+
+    // Cho phép hủy nếu còn hơn 24 giờ
+    return hoursDifference > 24;
+  };
+
+  // Function to calculate hours remaining until appointment
+  const getHoursUntilAppointment = (appointment: Appointment): number => {
+    if (!appointment.appointmentDate) return 0;
+    
+    const appointmentDateTime = new Date(appointment.appointmentDate + ' ' + appointment.appointmentTime);
+    const currentTime = new Date();
+    return (appointmentDateTime.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
+  };
+
+  // Handle cancel appointment - show cancel modal first
+  const handleCancelAppointment = async (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setRequestRefund(false);
+    setShowRefundForm(false);
+    setShowCancelModal(true);
+  };
+
+  // Handle refund checkbox change
+  const handleRefundCheckboxChange = (checked: boolean) => {
+    setRequestRefund(checked);
+    setShowRefundForm(checked);
+    if (!checked) {
+      refundForm.resetFields();
+    }
+  };
+
+  // Handle final cancellation
+  const handleFinalCancel = async (refundInfo?: RefundInfo) => {
+    if (!selectedAppointment) return;
+
     try {
-      const loadingMessage = message.loading('Đang hủy lịch hẹn...', 0);
+      setCancelLoading(true);
       
-      if (appointment.type === 'consultation') {
-        // ✅ Sử dụng API cancel consultation
-        await consultationApi.cancelConsultationByUser(appointment.id, 'Hủy bởi người dùng');
+      if (selectedAppointment.type === 'consultation') {
+        await consultationApi.cancelConsultationByUser(
+          selectedAppointment.id, 
+          `Hủy bởi người dùng. ${refundInfo?.reason || ''}`
+        );
       } else {
-        // ✅ Sử dụng API cancel appointment
-        await appointmentApi.deleteAppointment(appointment.id);
+        if (requestRefund && refundInfo) {
+          // Call API with refund information
+          await appointmentApi.cancelAppointmentWithRefund(
+            selectedAppointment.id, 
+            refundInfo.reason || 'Hủy bởi người dùng',
+            refundInfo
+          );
+        } else {
+          // Call regular cancel API (no refund)
+          await appointmentApi.deleteAppointment(selectedAppointment.id);
+        }
       }
       
-      loadingMessage();
-      message.success(`Hủy ${appointment.type === 'consultation' ? 'tư vấn' : 'lịch hẹn'} thành công!`);
+      const successMessage = requestRefund 
+        ? 'Hủy lịch hẹn thành công! Tiền sẽ được hoàn lại trong 3-5 ngày làm việc.'
+        : 'Hủy lịch hẹn thành công!';
+      
+      message.success(successMessage);
       
       // Update local state
       const updatedAppointments = appointments.map(apt => 
-        apt.id === appointment.id ? { ...apt, status: 'cancelled', canCancel: false, canReschedule: false } : apt
+        apt.id === selectedAppointment.id 
+          ? { 
+              ...apt, 
+              status: 'cancelled', 
+              canCancel: false, 
+              canReschedule: false, 
+              paymentStatus: requestRefund ? 'refunded' : apt.paymentStatus
+            } 
+          : apt
       );
       setAppointments(updatedAppointments);
+      setFilteredAppointments(prev => prev.map(apt => 
+        apt.id === selectedAppointment.id 
+          ? { 
+              ...apt, 
+              status: 'cancelled', 
+              canCancel: false, 
+              canReschedule: false, 
+              paymentStatus: requestRefund ? 'refunded' : apt.paymentStatus
+            } 
+          : apt
+      ));
       
       setShowDetailModal(false);
+      setShowCancelModal(false);
+      setShowRefundForm(false);
+      setRequestRefund(false);
+      refundForm.resetFields();
     } catch (error) {
       console.error('Error cancelling appointment:', error);
-      message.error(`Không thể hủy ${appointment.type === 'consultation' ? 'tư vấn' : 'lịch hẹn'}`);
+      message.error('Không thể hủy lịch hẹn. Vui lòng thử lại sau.');
+    } finally {
+      setCancelLoading(false);
     }
+  };
+
+  // Handle refund form submission
+  const handleRefundFormSubmit = async (refundInfo: RefundInfo) => {
+    handleFinalCancel(refundInfo);
+  };
+
+  // Handle cancel without refund
+  const handleCancelWithoutRefund = () => {
+    handleFinalCancel();
   };
 
   // Get current page appointments
@@ -503,6 +647,10 @@ const BookingHistoryOptimized: React.FC = () => {
               {/* Appointment Details */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
+                  <label className="text-sm font-medium text-gray-500">Ngày đặt lịch</label>
+                  <p className="text-gray-900">{formatDate(selectedAppointment.createdAt)}</p>
+                </div>
+                <div>
                   <label className="text-sm font-medium text-gray-500">Ngày hẹn</label>
                   <p className="text-gray-900">{formatDate(selectedAppointment.appointmentDate)}</p>
                 </div>
@@ -520,7 +668,37 @@ const BookingHistoryOptimized: React.FC = () => {
                   <label className="text-sm font-medium text-gray-500">Chi phí</label>
                   <p className="text-gray-900 font-semibold">{formatPrice(selectedAppointment.price)}</p>
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Trạng thái thanh toán</label>
+                  <p className="text-gray-900">
+                    {selectedAppointment.paymentStatus === 'paid' ? 'Đã thanh toán' : 
+                     selectedAppointment.paymentStatus === 'refunded' ? 'Đã hoàn tiền' : 
+                     'Chưa thanh toán'}
+                  </p>
+                </div>
               </div>
+
+              {/* Cancellation Info */}
+              {canCancelWithRefund(selectedAppointment) && (
+                <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                  <p className="text-sm text-green-700">
+                    <TickCircle size={16} className="inline mr-1" />
+                    Còn {Math.floor(getHoursUntilAppointment(selectedAppointment))} giờ. Bạn có thể hủy lịch hẹn và được hoàn tiền.
+                  </p>
+                </div>
+              )}
+
+              {!canCancelWithRefund(selectedAppointment) && 
+               selectedAppointment.paymentStatus === 'paid' && 
+               selectedAppointment.status !== 'cancelled' && 
+               selectedAppointment.status !== 'completed' && (
+                <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg">
+                  <p className="text-sm text-orange-700">
+                    <Warning2 size={16} className="inline mr-1" />
+                    Không thể hủy lịch hẹn này. Chỉ có thể hủy trước 24 giờ khi bắt đầu.
+                  </p>
+                </div>
+              )}
 
               {/* Doctor Info */}
               <div>
@@ -603,17 +781,182 @@ const BookingHistoryOptimized: React.FC = () => {
                   Đóng
                 </button>
                 
-                {selectedAppointment.canCancel && (
-                  <button
-                    onClick={() => handleCancel(selectedAppointment)}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    Hủy lịch hẹn
-                  </button>
-                )}
+                <div className="flex gap-2">
+                  {/* Hiển thị button hủy cho tất cả appointment có thể hủy */}
+                  {selectedAppointment.canCancel && 
+                   selectedAppointment.status !== 'cancelled' && 
+                   selectedAppointment.status !== 'completed' && (
+                    <button
+                      onClick={() => handleCancelAppointment(selectedAppointment)}
+                      disabled={cancelLoading}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {cancelLoading ? 'Đang xử lý...' : 'Hủy lịch hẹn'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
+        </Modal>
+
+        {/* Cancel Modal */}
+        <Modal
+          title="Hủy lịch hẹn"
+          open={showCancelModal}
+          onCancel={() => {
+            setShowCancelModal(false);
+            setShowRefundForm(false);
+            setRequestRefund(false);
+            refundForm.resetFields();
+          }}
+          footer={null}
+          width={600}
+        >
+          <div className="space-y-4">
+            <p className="text-gray-600">
+              Bạn có chắc chắn muốn hủy lịch hẹn này không?
+            </p>
+
+            {/* Refund option for eligible appointments */}
+            {selectedAppointment && canCancelWithRefund(selectedAppointment) && (
+              <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+                <Checkbox
+                  checked={requestRefund}
+                  onChange={(e) => handleRefundCheckboxChange(e.target.checked)}
+                  className="mb-3"
+                >
+                  <span className="text-green-700 font-medium">
+                    Yêu cầu hoàn tiền (còn {Math.floor(getHoursUntilAppointment(selectedAppointment))} giờ)
+                  </span>
+                </Checkbox>
+                <p className="text-sm text-green-600 ml-6">
+                  Lịch hẹn này đủ điều kiện hoàn tiền vì được hủy trước 24 giờ.
+                </p>
+              </div>
+            )}
+
+            {/* Refund form */}
+            {showRefundForm && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-3">Thông tin hoàn tiền</h4>
+                <Form
+                  form={refundForm}
+                  layout="vertical"
+                  onFinish={handleRefundFormSubmit}
+                >
+                  <div className="grid grid-cols-2 gap-4">
+                    <Form.Item
+                      label="Số tài khoản"
+                      name="accountNumber"
+                      rules={[
+                        { required: true, message: 'Vui lòng nhập số tài khoản' }
+                      ]}
+                    >
+                      <Input placeholder="Nhập số tài khoản" />
+                    </Form.Item>
+
+                    <Form.Item
+                      label="Tên chủ tài khoản"
+                      name="accountHolderName"
+                      rules={[
+                        { required: true, message: 'Vui lòng nhập tên chủ tài khoản' },
+                        { min: 2, message: 'Tên phải có ít nhất 2 ký tự' }
+                      ]}
+                    >
+                      <Input placeholder="Nhập họ và tên người thụ hưởng" />
+                    </Form.Item>
+                  </div>
+
+                  <Form.Item
+                    label="Ngân hàng"
+                    name="bankName"
+                    rules={[{ required: true, message: 'Vui lòng chọn ngân hàng' }]}
+                  >
+                    <Select placeholder="Chọn ngân hàng">
+                      <Option value="Vietcombank">Vietcombank</Option>
+                      <Option value="BIDV">BIDV</Option>
+                      <Option value="VietinBank">VietinBank</Option>
+                      <Option value="Agribank">Agribank</Option>
+                      <Option value="ACB">ACB</Option>
+                      <Option value="Techcombank">Techcombank</Option>
+                      <Option value="MB Bank">MB Bank</Option>
+                      <Option value="VPBank">VPBank</Option>
+                      <Option value="Sacombank">Sacombank</Option>
+                      <Option value="Khác">Khác</Option>
+                    </Select>
+                  </Form.Item>
+
+                  <Form.Item label="Lý do hủy (tùy chọn)" name="reason">
+                    <Input.TextArea 
+                      placeholder="Ví dụ: Có việc đột xuất, thay đổi kế hoạch..."
+                      rows={2}
+                      maxLength={200}
+                    />
+                  </Form.Item>
+
+                  <div className="flex justify-between">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCancelModal(false);
+                        setShowRefundForm(false);
+                        setRequestRefund(false);
+                        refundForm.resetFields();
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Hủy bỏ
+                    </button>
+                    
+                    <button
+                      type="submit"
+                      disabled={cancelLoading}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                    >
+                      {cancelLoading ? 'Đang xử lý...' : 'Xác nhận hủy và hoàn tiền'}
+                    </button>
+                  </div>
+                </Form>
+              </div>
+            )}
+
+            {/* Action buttons when no refund form */}
+            {!showRefundForm && (
+              <div className="flex justify-between pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setShowCancelModal(false);
+                    setRequestRefund(false);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Hủy bỏ
+                </button>
+                
+                <button
+                  onClick={handleCancelWithoutRefund}
+                  disabled={cancelLoading}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {cancelLoading ? 'Đang xử lý...' : 'Xác nhận hủy lịch hẹn'}
+                </button>
+              </div>
+            )}
+
+            {/* Warning message */}
+            {selectedAppointment && (
+              <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded">
+                <p className="text-sm text-orange-700">
+                  <strong>Lưu ý:</strong> 
+                  {canCancelWithRefund(selectedAppointment) 
+                    ? ` Lịch hẹn này có thể được hoàn tiền nếu bạn chọn "Yêu cầu hoàn tiền" (hủy trước 24 giờ). Nếu không chọn hoàn tiền, lịch hẹn sẽ bị hủy mà không hoàn tiền.`
+                    : ` Lịch hẹn này không đủ điều kiện hoàn tiền (cần hủy trước 24 giờ khi bắt đầu). Lịch hẹn sẽ được hủy mà không hoàn tiền.`
+                  } Việc hủy lịch hẹn không thể hoàn tác.
+                </p>
+              </div>
+            )}
+          </div>
         </Modal>
       </div>
     </div>

@@ -13,7 +13,8 @@ import {
     cancelAppointmentByDoctor,
     getStaffAppointments,
     getUserAppointments,
-    getUserBookingHistory
+    getUserBookingHistory,
+    cancelAppointmentWithRefund
 } from '../controllers/appointmentController';
 import { verifyToken, verifyAdmin, verifyCustomer, verifyStaff, verifyDoctor } from '../middleware';
 import { requireRole, requireAnyRole } from '../middleware/roleHierarchy';
@@ -113,5 +114,12 @@ router.put('/:id/confirm', verifyToken, confirmAppointment);
 
 // PUT /api/appointments/:id/cancel-by-doctor - Hủy cuộc hẹn bởi bác sĩ với lý do (DOCTOR ONLY)
 router.put('/:id/cancel-by-doctor', verifyToken, cancelAppointmentByDoctor);
+
+/**
+ * @route   PUT /api/appointments/:id/cancel-with-refund
+ * @desc    Hủy cuộc hẹn và hoàn tiền (điều kiện 24h)
+ * @access  Private (Customer - chỉ hủy appointment của mình)
+ */
+router.put('/:id/cancel-with-refund', verifyToken, verifyCustomer, cancelAppointmentWithRefund);
 
 export default router; 
