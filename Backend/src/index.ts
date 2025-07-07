@@ -25,6 +25,7 @@ import {
     servicePackageRoutes,
     serviceRoutes,
     serviceTestCategoriesRoutes,
+    staffRoutes,
     systemLogRoutes,
     testCategoriesRoutes,
     testResultItemsRoutes,
@@ -235,6 +236,7 @@ apiRouter.use('/users', userRoutes);
 apiRouter.use('/login-history', loginHistoryRoutes);
 apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/doctors', doctorRoutes);
+apiRouter.use('/staff', staffRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
 apiRouter.use('/service-test-categories', serviceTestCategoriesRoutes);

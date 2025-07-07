@@ -20,7 +20,25 @@ import {
   SaveOutlined,
   ExclamationCircleOutlined
 } from '@ant-design/icons';
-import { DoctorMeetingFormData, MeetingInputForm } from '../../../shared/mockData/consultationMockData';
+
+// Định nghĩa các interface thay thế cho mockData
+export interface MeetingInputForm {
+  patientName: string;
+  appointmentTime: string;
+  meetingLink: string;
+  status: string;
+  participantCount: number;
+  scheduledTime: string;
+  notes?: string;
+  maxParticipants?: number;
+  actualStartTime?: string;
+}
+
+export interface DoctorMeetingFormData {
+  notes: string;
+  maxParticipants: number;
+  actualStartTime: string;
+}
 
 const { TextArea } = Input;
 

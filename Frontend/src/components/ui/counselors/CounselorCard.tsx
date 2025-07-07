@@ -17,7 +17,11 @@ const CounselorCard: React.FC<Props> = ({ doctor, onBook, onView }) => {
   const workplace = doctor.workplace || 'Bệnh viện Đa khoa';
 
   // Xác định chức vụ dựa vào kinh nghiệm thực tế
-  const getTitle = (exp: number): string => {
+  const getTitle = (exp: string | number): string => {
+    // Nếu experience là string, trả về BS.
+    if (typeof exp === 'string') return 'BS.';
+    
+    // Nếu là số, xác định chức vụ dựa vào số năm kinh nghiệm
     if (exp >= 20) return 'GS. TS.';
     if (exp >= 15) return 'PGS. TS.';
     if (exp >= 10) return 'TS.';
@@ -66,11 +70,11 @@ const CounselorCard: React.FC<Props> = ({ doctor, onBook, onView }) => {
         </div>
 
         {/* Experience */}
-        {experience > 0 && (
+        {experience && (
           <div className="flex items-center justify-center gap-2 mb-4">
             <Calendar size={16} className="text-[#0C3C54]" />
             <span className="text-sm font-semibold text-[#0C3C54]">
-              {experience} năm kinh nghiệm
+              {typeof experience === 'string' ? experience : `${experience} năm kinh nghiệm`}
             </span>
           </div>
         )}

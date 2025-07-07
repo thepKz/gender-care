@@ -53,6 +53,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { fetchManagementDashboard } from '../../../api/endpoints/dashboard';
 import ReportsPage from '../../../pages/dashboard/management/ReportsPage';
+import { filterMenuItemsByPermissions, type MenuItem } from '../../../utils/permissions';
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
@@ -88,11 +89,13 @@ interface ManagementTemplateProps {
   welcomeMessage?: string;
 }
 
-// Xây dựng menu động theo vai trò
-const getMenuItems = (role: 'admin' | 'manager') => {
+// Xây dựng menu động theo vai trò với permission filtering
+const getMenuItems = (role: 'admin' | 'manager'): MenuItem[] => {
+  let baseMenuItems: MenuItem[];
+  
   // Menu cho Admin - chỉ 5 mục như yêu cầu
   if (role === 'admin') {
-    return [
+    baseMenuItems = [
       {
         key: 'users',
         icon: <UserOutlined />,
@@ -119,71 +122,69 @@ const getMenuItems = (role: 'admin' | 'manager') => {
         label: 'Cài đặt',
       },
     ];
+  } else {
+    // Menu cho Manager - đầy đủ chức năng quản lý
+    baseMenuItems = [
+      {
+        key: 'dashboard',
+        icon: <DashboardOutlined />,
+        label: 'Tổng quan',
+      },
+      {
+        key: 'users',
+        icon: <UserOutlined />,
+        label: 'Quản lý người dùng',
+      },
+      {
+        key: 'doctors',
+        icon: <MedicineBoxOutlined />,
+        label: 'Quản lý bác sĩ',
+      },
+      {
+        key: 'schedule',
+        icon: <CalendarOutlined />,
+        label: 'Quản lý lịch làm việc',
+      },
+      {
+        key: 'services',
+        icon: <SettingOutlined />,
+        label: 'Quản lý dịch vụ',
+      },
+      {
+        key: 'service-packages',
+        icon: <AppstoreOutlined />,
+        label: 'Quản lý gói dịch vụ',
+      },
+      {
+        key: 'medicines',
+        icon: <MedicineBoxOutlined />,
+        label: 'Quản lý thuốc',
+      },
+      {
+        key: 'test-categories',
+        icon: <FileTextOutlined />,
+        label: 'Quản lý danh mục xét nghiệm',
+      },
+      {
+        key: 'login-history',
+        icon: <HistoryOutlined />,
+        label: 'Lịch sử đăng nhập',
+      },
+      {
+        key: 'system-logs',
+        icon: <SecurityScanOutlined />,
+        label: 'System Logs',
+      },
+      {
+        key: 'reports',
+        icon: <BarChartOutlined />,
+        label: 'Báo cáo',
+      },
+    ];
   }
 
-  // Menu cho Manager - đầy đủ chức năng quản lý
-  const managerItems = [
-    {
-      key: 'dashboard',
-      icon: <DashboardOutlined />,
-      label: 'Tổng quan',
-    },
-    {
-      key: 'users',
-      icon: <UserOutlined />,
-      label: 'Quản lý người dùng',
-    },
-    {
-      key: 'doctors',
-      icon: <MedicineBoxOutlined />,
-      label: 'Quản lý bác sĩ',
-    },
-    {
-      key: 'schedule',
-      icon: <CalendarOutlined />,
-      label: 'Quản lý lịch làm việc',
-    },
-    {
-      key: 'services',
-      icon: <SettingOutlined />,
-      label: 'Quản lý dịch vụ',
-    },
-    {
-      key: 'service-packages',
-      icon: <AppstoreOutlined />,
-      label: 'Quản lý gói dịch vụ',
-    },
-    {
-
-      key: 'medicines',
-      icon: <MedicineBoxOutlined />,
-      label: 'Quản lý thuốc',
-    },
-    {
-
-      key: 'test-categories',
-      icon: <FileTextOutlined />,
-      label: 'Quản lý danh mục xét nghiệm',
-
-    },
-    {
-      key: 'login-history',
-      icon: <HistoryOutlined />,
-      label: 'Lịch sử đăng nhập',
-    },
-    {
-      key: 'system-logs',
-      icon: <SecurityScanOutlined />,
-      label: 'System Logs',
-    },
-    {
-      key: 'reports',
-      icon: <BarChartOutlined />,
-      label: 'Báo cáo',
-    },
-  ];
-
-  return managerItems;
+  // Apply permission filtering to only show items the user has access to
+  return filterMenuItemsByPermissions(baseMenuItems, role);
 };
 
 const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
@@ -666,7 +667,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
       case 'login-history':
         return <LoginHistoryManagement />;
       case 'system-logs':
-        if (userRole === 'admin' || userRole === 'manager') return <SystemLogManagement />;
+        if (userRole === 'admin') return <SystemLogManagement />;
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
       case 'reports':
         return <ReportsPage />;

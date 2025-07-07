@@ -9,7 +9,7 @@ export interface IAppointments extends Document {
   slotId?: mongoose.Types.ObjectId; // embedded document reference
   appointmentDate: Date;
   appointmentTime: string; // "8:00", "9:00"
-  appointmentType: "consultation" | "test" | "other";
+  appointmentType: "consultation" | "test" | "examination" | "followup" | "other";
   typeLocation: "clinic" | "home" | "Online";
   address?: string;
   description?: string;
@@ -63,7 +63,7 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   appointmentType: {
     type: String,
-    enum: ["consultation", "test", "other"],
+    enum: ["consultation", "test", "examination", "followup", "other"],
     required: true
   },
   typeLocation: {

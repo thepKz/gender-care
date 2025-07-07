@@ -182,11 +182,11 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
     }
 
     // Validate appointmentType
-    if (!appointmentType || !['consultation', 'examination', 'followup'].includes(appointmentType)) {
+    if (!appointmentType || !['consultation', 'examination', 'followup', 'test'].includes(appointmentType)) {
         console.error('[createAppointment] appointmentType không hợp lệ:', appointmentType);
         return res.status(400).json({ 
             success: false, 
-            message: 'Loại cuộc hẹn không hợp lệ. Phải là một trong: consultation, examination, followup' 
+            message: 'Loại cuộc hẹn không hợp lệ. Phải là một trong: consultation, examination, followup, test' 
         });
     }
 

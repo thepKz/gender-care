@@ -117,7 +117,7 @@ export interface Doctor {
   _id: string;
   userId: DoctorInfo;
   bio?: string;
-  experience?: number;
+  experience?: string | number;
   rating?: number;
   image?: string;
   specialization?: string;

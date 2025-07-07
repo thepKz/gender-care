@@ -67,10 +67,10 @@ class ReportService {
     worksheet.addRows(data);
 
     // Auto-adjust column widths based on content
-    worksheet.columns.forEach(column => {
+    worksheet.columns.forEach((column: any) => {
         let maxColumnLength = 0;
         if(column.eachCell) {
-            column.eachCell({ includeEmpty: true }, (cell) => {
+            column.eachCell({ includeEmpty: true }, (cell: any) => {
                 const columnLength = cell.value ? cell.value.toString().length : 10;
                 if (columnLength > maxColumnLength) {
                     maxColumnLength = columnLength;

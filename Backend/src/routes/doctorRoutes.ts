@@ -10,7 +10,7 @@ import multer from 'multer';
 const router = Router();
 
 // ✅ Setup multer cho file upload
-const upload = multer({ 
+const upload = multer({
   dest: 'uploads/',
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
@@ -78,7 +78,7 @@ router.put('/change-requests/:requestId/approve', verifyToken, requireRole('mana
 router.put('/change-requests/:requestId/reject', verifyToken, requireRole('manager'), profileChangeController.rejectChangeRequest);
 
 // Cập nhật thông tin bác sĩ - STAFF/MANAGER/ADMIN - Now with hierarchy  
-router.put('/:id', verifyToken, requireRole('staff'), doctorController.update);
+router.put('/:id', verifyToken, requireRole('manager'), doctorController.update);
 
 // Xóa bác sĩ - chỉ admin và manager được phép (không bao gồm staff - high risk operation)
 router.delete('/:id', verifyToken, roleMiddleware(['admin', 'manager']), doctorController.remove);
