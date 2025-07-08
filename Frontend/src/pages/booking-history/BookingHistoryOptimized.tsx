@@ -1,4 +1,4 @@
-import { Input, message, Modal, Pagination, Select, Tag, Form, Checkbox } from 'antd';
+import { Input, message, Modal, Pagination, Select, Tag, Form } from 'antd';
 import { motion } from 'framer-motion';
 import {
     Calendar,
@@ -14,8 +14,8 @@ import {
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { consultationApi } from '../../api';
-import { appointmentApi } from '../../api/endpoints';
+import { appointmentApi } from '../../api/endpoints/appointment';
+import consultationApi from '../../api/endpoints/consultation';
 import { useAuth } from '../../hooks/useAuth';
 import { safeCombineDateTime } from '../../utils/dateTimeUtils';
 
@@ -52,6 +52,19 @@ interface RawAppointmentData {
   gender?: string;
   doctorNotes?: string;
   paymentStatus?: string;
+  refund?: {
+    refundReason?: string;
+    processingStatus?: 'pending' | 'completed' | 'rejected';
+    refundInfo?: {
+      accountNumber: string;
+      accountHolderName: string;
+      bankName: string;
+      submittedAt: string;
+    };
+    processedBy?: string;
+    processedAt?: string;
+    processingNotes?: string;
+  };
 }
 
 interface Appointment {
@@ -83,6 +96,19 @@ interface Appointment {
   question?: string;
   doctorNotes?: string;
   paymentStatus?: string;
+  refund?: {
+    refundReason?: string;
+    processingStatus?: 'pending' | 'completed' | 'rejected';
+    refundInfo?: {
+      accountNumber: string;
+      accountHolderName: string;
+      bankName: string;
+      submittedAt: string;
+    };
+    processedBy?: string;
+    processedAt?: string;
+    processingNotes?: string;
+  };
 }
 
 interface RefundInfo {
@@ -103,7 +129,7 @@ const BookingHistoryOptimized: React.FC = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showRefundForm, setShowRefundForm] = useState(false);
+
   const [requestRefund, setRequestRefund] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [refundForm] = Form.useForm();
@@ -142,18 +168,12 @@ const BookingHistoryOptimized: React.FC = () => {
         appointmentsData = response.data?.data?.bookings || response.data?.bookings || [];
       }
 
-      console.log('📋 [BookingHistory] Fetched data:', { 
-        isManagementRole, 
-        dataLength: appointmentsData.length,
-        responseStructure: Object.keys(response.data || {}),
-        sampleItem: appointmentsData[0] 
-      });
+
 
       if (appointmentsData && appointmentsData.length >= 0) {
         const formattedAppointments = appointmentsData.map((apt: RawAppointmentData) => {
           // ✅ Infer paymentStatus từ status nếu không có sẵn
           let paymentStatus = apt.paymentStatus;
-          const originalPaymentStatus = apt.paymentStatus;
           
           if (!paymentStatus) {
             // Logic infer paymentStatus từ appointment status
@@ -167,13 +187,7 @@ const BookingHistoryOptimized: React.FC = () => {
               paymentStatus = 'unpaid'; // Default fallback
             }
             
-            console.log('💰 [PaymentStatus Inferred]:', {
-              appointmentId: apt._id,
-              serviceName: apt.serviceName,
-              status: apt.status,
-              originalPaymentStatus: originalPaymentStatus,
-              inferredPaymentStatus: paymentStatus
-            });
+
           }
 
           return {
@@ -204,16 +218,12 @@ const BookingHistoryOptimized: React.FC = () => {
           gender: apt.gender,
           question: apt.question,
             doctorNotes: apt.doctorNotes,
-            paymentStatus: paymentStatus
+            paymentStatus: paymentStatus,
+            refund: apt.refund // Include refund info từ raw data
           };
         });
 
-        console.log('✅ [BookingHistory] Formatted appointments:', {
-          total: formattedAppointments.length,
-          appointments: formattedAppointments.filter(a => a.type === 'appointment').length,
-          consultations: formattedAppointments.filter(a => a.type === 'consultation').length,
-          sampleFormatted: formattedAppointments[0]
-        });
+
 
         setAppointments(formattedAppointments);
         setFilteredAppointments(formattedAppointments);
@@ -352,18 +362,11 @@ const BookingHistoryOptimized: React.FC = () => {
   // Handle cancel appointment - show cancel modal first
   const handleCancelAppointment = async (appointment: Appointment) => {
     setSelectedAppointment(appointment);
-    setRequestRefund(false);
-    setShowRefundForm(false);
+    
+    // Luôn bắt buộc hoàn tiền cho tất cả lịch hẹn
+    setRequestRefund(true);
+    
     setShowCancelModal(true);
-  };
-
-  // Handle refund checkbox change
-  const handleRefundCheckboxChange = (checked: boolean) => {
-    setRequestRefund(checked);
-    setShowRefundForm(checked);
-    if (!checked) {
-      refundForm.resetFields();
-    }
   };
 
   // Handle final cancellation
@@ -372,7 +375,6 @@ const BookingHistoryOptimized: React.FC = () => {
 
     try {
       setCancelLoading(true);
-      
       if (selectedAppointment.type === 'consultation') {
         await consultationApi.cancelConsultationByUser(
           selectedAppointment.id, 
@@ -380,16 +382,14 @@ const BookingHistoryOptimized: React.FC = () => {
         );
       } else {
         if (requestRefund && refundInfo) {
-          // Call API with refund information
           await appointmentApi.cancelAppointmentWithRefund(
             selectedAppointment.id, 
             refundInfo.reason || 'Hủy bởi người dùng',
             refundInfo
           );
         } else {
-          // Call regular cancel API (no refund)
           await appointmentApi.deleteAppointment(selectedAppointment.id);
-      }
+        }
       }
       
       const successMessage = requestRefund 
@@ -398,39 +398,17 @@ const BookingHistoryOptimized: React.FC = () => {
       
       message.success(successMessage);
       
-      // Update local state
-      const updatedAppointments = appointments.map(apt => 
-        apt.id === selectedAppointment.id 
-          ? { 
-              ...apt, 
-              status: 'cancelled', 
-              canCancel: false, 
-              canReschedule: false, 
-              paymentStatus: requestRefund ? 'refunded' : apt.paymentStatus
-            } 
-          : apt
-      );
-      setAppointments(updatedAppointments);
-      setFilteredAppointments(prev => prev.map(apt => 
-        apt.id === selectedAppointment.id 
-          ? { 
-              ...apt, 
-              status: 'cancelled', 
-              canCancel: false, 
-              canReschedule: false, 
-              paymentStatus: requestRefund ? 'refunded' : apt.paymentStatus
-            } 
-          : apt
-      ));
+      // Refresh appointments list instead of updating local state
+      await fetchAppointments();
       
       setShowDetailModal(false);
       setShowCancelModal(false);
-      setShowRefundForm(false);
       setRequestRefund(false);
       refundForm.resetFields();
     } catch (error) {
       console.error('Error cancelling appointment:', error);
-      message.error('Không thể hủy lịch hẹn. Vui lòng thử lại sau.');
+      const errorMessage = error instanceof Error ? error.message : 'Không thể hủy lịch hẹn. Vui lòng thử lại sau.';
+      message.error(errorMessage);
     } finally {
       setCancelLoading(false);
     }
@@ -441,9 +419,28 @@ const BookingHistoryOptimized: React.FC = () => {
     handleFinalCancel(refundInfo);
   };
 
-  // Handle cancel without refund
-  const handleCancelWithoutRefund = () => {
-    handleFinalCancel();
+  // ✅ NEW: Parse notes để tách ghi chú gốc và lý do hủy
+  const parseNotes = (notes: string) => {
+    if (!notes) return { originalNotes: '', cancellationReason: '' };
+    
+    // ✅ SIMPLE APPROACH: Tách bằng indexOf để đơn giản
+    const cancelIndex = notes.indexOf('[Hủy]:');
+    const doctorCancelIndex = notes.indexOf('[DOCTOR CANCELLED]');
+    
+    if (cancelIndex !== -1) {
+      const originalNotes = notes.substring(0, cancelIndex).trim();
+      const cancellationReason = notes.substring(cancelIndex + 6).trim(); // 6 = length of '[Hủy]:'
+      return { originalNotes, cancellationReason };
+    }
+    
+    if (doctorCancelIndex !== -1) {
+      const originalNotes = notes.substring(0, doctorCancelIndex).trim();
+      const cancellationReason = notes.substring(doctorCancelIndex + 18).trim(); // 18 = length of '[DOCTOR CANCELLED]'
+      return { originalNotes, cancellationReason };
+    }
+    
+    // Nếu không có pattern cancel nào, trả về toàn bộ làm originalNotes
+    return { originalNotes: notes, cancellationReason: '' };
   };
 
   // Get current page appointments
@@ -699,7 +696,7 @@ const BookingHistoryOptimized: React.FC = () => {
           open={showDetailModal}
           onCancel={() => setShowDetailModal(false)}
           footer={null}
-          width={600}
+          width={800}
         >
           {selectedAppointment && (
             <div className="space-y-6">
@@ -744,12 +741,123 @@ const BookingHistoryOptimized: React.FC = () => {
                 <div>
                   <label className="text-sm font-medium text-gray-500">Trạng thái thanh toán</label>
                   <p className="text-gray-900">
-                    {selectedAppointment.paymentStatus === 'paid' ? 'Đã thanh toán' : 
-                     selectedAppointment.paymentStatus === 'refunded' ? 'Đã hoàn tiền' : 
+                    {(selectedAppointment.paymentStatus === 'paid' || selectedAppointment.paymentStatus === 'refunded') ? 'Đã thanh toán' : 
                      'Chưa thanh toán'}
                   </p>
                 </div>
               </div>
+
+              {/* Hiển thị trạng thái hoàn tiền nếu có - Full Width */}
+              {(() => {
+                // Check if this is a cancelled appointment that should show refund tracking
+                const shouldShowRefundTracking = (
+                  selectedAppointment.status === 'cancelled' && 
+                  (selectedAppointment.paymentStatus === 'paid' || selectedAppointment.paymentStatus === 'refunded') && 
+                  selectedAppointment.notes?.includes('[Hủy]')
+                );
+                
+                return shouldShowRefundTracking;
+              })() && (
+                <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-base font-semibold text-amber-800">Trạng thái hoàn tiền</h4>
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        // Parse refund data nếu nó là string JSON
+                        let refundData = selectedAppointment.refund;
+                        if (typeof refundData === 'string') {
+                                                      try {
+                              refundData = JSON.parse(refundData);
+                            } catch {
+                              // JSON parsing failed, use as is
+                            }
+                        }
+                        
+
+                        
+                        const refundStatus = refundData?.processingStatus || 'pending';
+                        switch (refundStatus) {
+                          case 'pending':
+                            return <span className="px-3 py-1 bg-yellow-200 text-yellow-800 text-sm rounded-full font-medium">Chờ xử lý</span>;
+                          case 'completed':
+                            return <span className="px-3 py-1 bg-green-200 text-green-800 text-sm rounded-full font-medium">Đã hoàn tiền</span>;
+                          case 'rejected':
+                            return <span className="px-3 py-1 bg-red-200 text-red-800 text-sm rounded-full font-medium">Từ chối hoàn tiền</span>;
+                          default:
+                            return <span className="px-3 py-1 bg-gray-200 text-gray-800 text-sm rounded-full font-medium">Không xác định</span>;
+                        }
+                      })()}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                                          {(() => {
+                      // Parse refund data
+                      let refundData = selectedAppointment.refund;
+                      if (typeof refundData === 'string') {
+                        try {
+                          refundData = JSON.parse(refundData);
+                        } catch {
+                          refundData = null;
+                        }
+                      }
+                      
+                      return (
+                        <>
+                          {refundData?.refundReason && (
+                            <div className="bg-amber-100 p-3 rounded border">
+                              <div className="text-sm">
+                                <span className="font-medium text-amber-800">Lý do hủy:</span>
+                                <div className="mt-1 text-amber-700">{refundData.refundReason}</div>
+                              </div>
+                            </div>
+                          )}
+                          
+
+                          
+                          {(refundData?.refundInfo || ((refundData as any)?.accountNumber && (refundData as any)?.bankName)) ? (
+                            <div className="bg-amber-100 p-3 rounded border">
+                              <div className="font-medium text-amber-800 mb-2">Thông tin tài khoản nhận hoàn tiền:</div>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <div className="text-sm">
+                                  <span className="font-medium text-amber-700">Ngân hàng:</span>
+                                  <div className="text-amber-600">
+                                    {refundData?.refundInfo?.bankName || (refundData as any)?.bankName || 'Chưa có thông tin'}
+                                  </div>
+                                </div>
+                                <div className="text-sm">
+                                  <span className="font-medium text-amber-700">Số tài khoản:</span>
+                                  <div className="text-amber-600">
+                                    {refundData?.refundInfo?.accountNumber || (refundData as any)?.accountNumber || 'Chưa có thông tin'}
+                                  </div>
+                                </div>
+                                <div className="text-sm">
+                                  <span className="font-medium text-amber-700">Chủ tài khoản:</span>
+                                  <div className="text-amber-600">
+                                    {refundData?.refundInfo?.accountHolderName || (refundData as any)?.accountHolderName || 'Chưa có thông tin'}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-amber-100 p-3 rounded border text-center">
+                              <div className="text-sm text-amber-600">
+                                Đang chờ xử lý yêu cầu hoàn tiền. Thông tin chi tiết sẽ được cập nhật sau.
+                              </div>
+                            </div>
+                          )}
+                          
+                          {refundData?.processedAt && (
+                            <div className="text-xs text-amber-600 text-center border-t border-amber-200 pt-2">
+                              <span className="font-medium">Cập nhật lần cuối:</span> {formatDate(refundData.processedAt)}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
 
               {/* Cancellation Info */}
               {canCancel(selectedAppointment) && (
@@ -769,15 +877,6 @@ const BookingHistoryOptimized: React.FC = () => {
                       </p>
                     </div>
                   )}
-                </div>
-              )}
-
-              {!canCancel(selectedAppointment) && (
-                <div className="bg-gray-50 border border-gray-200 p-3 rounded-lg">
-                  <p className="text-sm text-gray-700">
-                    <Warning2 size={16} className="inline mr-1" />
-                    Không thể hủy lịch hẹn này (đã hoàn thành hoặc đã bị hủy).
-                  </p>
                 </div>
               )}
 
@@ -845,13 +944,18 @@ const BookingHistoryOptimized: React.FC = () => {
                 </>
               )}
 
-              {/* Notes */}
-              {selectedAppointment.notes && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500 block mb-2">Ghi chú</label>
-                  <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedAppointment.notes}</p>
-                </div>
-              )}
+              {/* Notes - Only show original notes */}
+              {selectedAppointment.notes && (() => {
+                const { originalNotes } = parseNotes(selectedAppointment.notes);
+                
+                // Chỉ hiển thị ghi chú gốc (nếu có), lý do hủy đã hiển thị ở trên
+                return originalNotes ? (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 block mb-2">Ghi chú</label>
+                    <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{originalNotes}</p>
+                  </div>
+                ) : null;
+              })()}
 
               {/* Actions */}
               <div className="flex justify-between pt-4 border-t border-gray-200">
@@ -885,7 +989,6 @@ const BookingHistoryOptimized: React.FC = () => {
           open={showCancelModal}
           onCancel={() => {
             setShowCancelModal(false);
-            setShowRefundForm(false);
             setRequestRefund(false);
             refundForm.resetFields();
           }}
@@ -893,32 +996,18 @@ const BookingHistoryOptimized: React.FC = () => {
           width={600}
         >
           <div className="space-y-4">
-            <p className="text-gray-600">
-              Bạn có chắc chắn muốn hủy lịch hẹn này không?
-            </p>
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4">
+              <p className="text-blue-800 font-medium mb-2">
+                Hủy lịch hẹn và hoàn tiền
+              </p>
+              <p className="text-sm text-blue-600">
+                Khi hủy lịch hẹn, tiền sẽ được hoàn lại vào tài khoản ngân hàng của bạn trong 3-5 ngày làm việc.
+              </p>
+            </div>
 
-            {/* Refund option for eligible appointments */}
-            {selectedAppointment && canCancelWithRefund(selectedAppointment) && (
-              <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
-                <Checkbox
-                  checked={requestRefund}
-                  onChange={(e) => handleRefundCheckboxChange(e.target.checked)}
-                  className="mb-3"
-                >
-                  <span className="text-green-700 font-medium">
-                    Yêu cầu hoàn tiền (còn {Math.floor(getHoursUntilAppointment(selectedAppointment))} giờ)
-                  </span>
-                </Checkbox>
-                <p className="text-sm text-green-600 ml-6">
-                  Lịch hẹn này đủ điều kiện hoàn tiền vì được hủy trước 24 giờ.
-                </p>
-              </div>
-            )}
-
-            {/* Refund form */}
-            {showRefundForm && (
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-3">Thông tin hoàn tiền</h4>
+            {/* Refund form - Always show */}
+            <div>
+                <h4 className="font-medium mb-3">Thông tin tài khoản nhận hoàn tiền</h4>
                 <Form
                   form={refundForm}
                   layout="vertical"
@@ -953,16 +1042,46 @@ const BookingHistoryOptimized: React.FC = () => {
                     rules={[{ required: true, message: 'Vui lòng chọn ngân hàng' }]}
                   >
                     <Select placeholder="Chọn ngân hàng">
-                      <Option value="Vietcombank">Vietcombank</Option>
-                      <Option value="BIDV">BIDV</Option>
-                      <Option value="VietinBank">VietinBank</Option>
-                      <Option value="Agribank">Agribank</Option>
-                      <Option value="ACB">ACB</Option>
-                      <Option value="Techcombank">Techcombank</Option>
-                      <Option value="MB Bank">MB Bank</Option>
-                      <Option value="VPBank">VPBank</Option>
-                      <Option value="Sacombank">Sacombank</Option>
-                      <Option value="Khác">Khác</Option>
+                      <Option value="VietinBank">VietinBank - Ngân hàng TMCP Công thương Việt Nam</Option>
+                      <Option value="Vietcombank">Vietcombank - Ngân hàng TMCP Ngoại Thương Việt Nam</Option>
+                      <Option value="BIDV">BIDV - Ngân hàng TMCP Đầu tư và Phát triển Việt Nam</Option>
+                      <Option value="Agribank">Agribank - Ngân hàng Nông nghiệp và Phát triển Nông thôn Việt Nam</Option>
+                      <Option value="OCB">OCB - Ngân hàng TMCP Phương Đông</Option>
+                      <Option value="MBBank">MBBank - Ngân hàng TMCP Quân đội</Option>
+                      <Option value="Techcombank">Techcombank - Ngân hàng TMCP Kỹ thương Việt Nam</Option>
+                      <Option value="ACB">ACB - Ngân hàng TMCP Á Châu</Option>
+                      <Option value="VPBank">VPBank - Ngân hàng TMCP Việt Nam Thịnh Vượng</Option>
+                      <Option value="TPBank">TPBank - Ngân hàng TMCP Tiên Phong</Option>
+                      <Option value="Sacombank">Sacombank - Ngân hàng TMCP Sài Gòn Thương Tín</Option>
+                      <Option value="HDBank">HDBank - Ngân hàng TMCP Phát triển Thành phố Hồ Chí Minh</Option>
+                      <Option value="VietCapitalBank">VietCapitalBank - Ngân hàng TMCP Bản Việt</Option>
+                      <Option value="SCB">SCB - Ngân hàng TMCP Sài Gòn</Option>
+                      <Option value="VIB">VIB - Ngân hàng TMCP Quốc tế Việt Nam</Option>
+                      <Option value="SHB">SHB - Ngân hàng TMCP Sài Gòn - Hà Nội</Option>
+                      <Option value="Eximbank">Eximbank - Ngân hàng TMCP Xuất Nhập khẩu Việt Nam</Option>
+                      <Option value="MSB">MSB - Ngân hàng TMCP Hàng Hải</Option>
+                      <Option value="CAKE">CAKE - TMCP Việt Nam Thịnh Vượng - Ngân hàng số CAKE by VPBank</Option>
+                      <Option value="Ubank">Ubank - TMCP Việt Nam Thịnh Vượng - Ngân hàng số Ubank by VPBank</Option>
+                      <Option value="Timo">Timo - Ngân hàng số Timo by Ban Viet Bank (Timo by Ban Viet Bank)</Option>
+                      <Option value="SaigonBank">SaigonBank - Ngân hàng TMCP Sài Gòn Công Thương</Option>
+                      <Option value="BacABank">BacABank - Ngân hàng TMCP Bắc Á</Option>
+                      <Option value="PVcomBank">PVcomBank - Ngân hàng TMCP Đại Chúng Việt Nam</Option>
+                      <Option value="Oceanbank">Oceanbank - Ngân hàng Thương mại TNHH MTV Đại Dương</Option>
+                      <Option value="NCB">NCB - Ngân hàng TMCP Quốc Dân</Option>
+                      <Option value="ShinhanBank">ShinhanBank - Ngân hàng TNHH MTV Shinhan Việt Nam</Option>
+                      <Option value="ABBANK">ABBANK - Ngân hàng TMCP An Bình</Option>
+                      <Option value="VietABank">VietABank - Ngân hàng TMCP Việt Á</Option>
+                      <Option value="NamABank">NamABank - Ngân hàng TMCP Nam Á</Option>
+                      <Option value="PGBank">PGBank - Ngân hàng TMCP Xăng dầu Petrolimex</Option>
+                      <Option value="VietBank">VietBank - Ngân hàng TMCP Việt Nam Thương Tín</Option>
+                      <Option value="BaoVietBank">BaoVietBank - Ngân hàng TMCP Bảo Việt</Option>
+                      <Option value="SeABank">SeABank - Ngân hàng TMCP Đông Nam Á</Option>
+                      <Option value="COOPBANK">COOPBANK - Ngân hàng Hợp tác xã Việt Nam</Option>
+                      <Option value="LienVietPostBank">LienVietPostBank - Ngân hàng TMCP Bưu Điện Liên Việt</Option>
+                      <Option value="KienLongBank">KienLongBank - Ngân hàng TMCP Kiên Long</Option>
+                      <Option value="KBank">KBank - Ngân hàng Đại chúng TNHH Kasikornbank</Option>
+                      <Option value="Woori">Woori - Ngân hàng TNHH MTV Woori Việt Nam</Option>
+                      <Option value="CIMB">CIMB - Ngân hàng TNHH MTV CIMB Việt Nam</Option>
                     </Select>
                   </Form.Item>
 
@@ -979,7 +1098,6 @@ const BookingHistoryOptimized: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setShowCancelModal(false);
-                        setShowRefundForm(false);
                         setRequestRefund(false);
                         refundForm.resetFields();
                       }}
@@ -997,32 +1115,7 @@ const BookingHistoryOptimized: React.FC = () => {
                     </button>
                   </div>
                 </Form>
-              </div>
-            )}
-
-            {/* Action buttons when no refund form */}
-            {!showRefundForm && (
-              <div className="flex justify-between pt-4 border-t">
-                <button
-                  onClick={() => {
-                    setShowCancelModal(false);
-                    setRequestRefund(false);
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Hủy bỏ
-                </button>
-                
-                <button
-                  onClick={handleCancelWithoutRefund}
-                  disabled={cancelLoading}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                >
-                  {cancelLoading ? 'Đang xử lý...' : 'Xác nhận hủy lịch hẹn'}
-                </button>
-              </div>
-            )}
-
+            </div>
 
           </div>
         </Modal>

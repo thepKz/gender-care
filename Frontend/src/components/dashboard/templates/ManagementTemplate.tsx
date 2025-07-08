@@ -47,7 +47,7 @@ import {
   type ActivityItem,
   type AppointmentItem
 } from '../../../types/dashboard';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { fetchManagementDashboard } from '../../../api/endpoints/dashboard';
 import ReportsPage from '../../../pages/dashboard/management/ReportsPage';
@@ -195,10 +195,70 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
   userName = 'Admin',
   welcomeMessage
 }) => {
-  const [selectedKey, setSelectedKey] = useState(userRole === 'admin' ? 'users' : 'dashboard');
-  const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const { handleLogout } = useAuth();
+  const location = useLocation();
+
+  // ✅ UPDATED: Get initial selectedKey from URL params or default
+  const getInitialSelectedKey = (): string => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    
+    // Validate tab param against allowed menu items
+    const allowedKeys = getMenuItems(userRole).map(item => item.key);
+    
+    if (tabParam && allowedKeys.includes(tabParam)) {
+      return tabParam;
+    }
+    
+    // Return default based on role
+    return userRole === 'admin' ? 'users' : 'dashboard';
+  };
+
+  const [selectedKey, setSelectedKey] = useState(getInitialSelectedKey());
+  const [collapsed, setCollapsed] = useState(false);
+
+  // ✅ NEW: Update URL when selectedKey changes
+  const updateSelectedKey = (key: string) => {
+    setSelectedKey(key);
+    
+    // Update URL with tab parameter
+    const searchParams = new URLSearchParams(location.search);
+    if (key === (userRole === 'admin' ? 'users' : 'dashboard')) {
+      // Remove tab param for default pages
+      searchParams.delete('tab');
+    } else {
+      searchParams.set('tab', key);
+    }
+    
+    const newUrl = searchParams.toString() 
+      ? `${location.pathname}?${searchParams.toString()}`
+      : location.pathname;
+      
+    // Use replace to avoid adding to history stack
+    navigate(newUrl, { replace: true });
+  };
+
+  // ✅ NEW: Sync selectedKey when URL changes (back/forward navigation)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    
+    // Validate tab param against allowed menu items
+    const allowedKeys = getMenuItems(userRole).map(item => item.key);
+    
+    let newSelectedKey: string;
+    if (tabParam && allowedKeys.includes(tabParam)) {
+      newSelectedKey = tabParam;
+    } else {
+      // Return default based on role
+      newSelectedKey = userRole === 'admin' ? 'users' : 'dashboard';
+    }
+    
+    if (newSelectedKey !== selectedKey) {
+      setSelectedKey(newSelectedKey);
+    }
+  }, [location.search, userRole, selectedKey]);
 
   // Customize stats based on role
   const [stats, setStats] = useState<DashboardStat[]>([]);
@@ -526,7 +586,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                       icon={<UserOutlined />} 
                       size="middle"
                       block
-                      onClick={() => setSelectedKey('doctors')}
+                      onClick={() => updateSelectedKey('doctors')}
                     >
                       Quản lý bác sĩ
                     </Button>
@@ -537,7 +597,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                       icon={<MedicineBoxOutlined />} 
                       size="middle"
                       block
-                      onClick={() => setSelectedKey('schedule')}
+                      onClick={() => updateSelectedKey('schedule')}
                     >
                       Dịch vụ
                     </Button>
@@ -548,7 +608,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                       icon={<CalendarOutlined />} 
                       size="small"
                       block
-                      onClick={() => setSelectedKey('schedule')}
+                      onClick={() => updateSelectedKey('schedule')}
                     >
                       Lịch làm việc
                     </Button>
@@ -560,7 +620,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                           icon={<SettingOutlined />} 
                           size="small"
                           block
-                          onClick={() => setSelectedKey('users')}
+                          onClick={() => updateSelectedKey('users')}
                         >
                           Người dùng
                         </Button>
@@ -570,7 +630,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                           icon={<BarChartOutlined />} 
                           size="small"
                           block
-                          onClick={() => setSelectedKey('reports')}
+                          onClick={() => updateSelectedKey('reports')}
                         >
                           Báo cáo
                         </Button>
@@ -605,7 +665,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                   <Button 
                     icon={<SettingOutlined />} 
                     block
-                    onClick={() => setSelectedKey('users')}
+                    onClick={() => updateSelectedKey('users')}
                   >
                     Quản lý người dùng
                   </Button>
@@ -614,7 +674,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                   <Button 
                     icon={<BarChartOutlined />} 
                     block
-                    onClick={() => setSelectedKey('reports')}
+                    onClick={() => updateSelectedKey('reports')}
                   >
                     Báo cáo & Thống kê
                   </Button>
@@ -623,7 +683,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                   <Button 
                     icon={<SettingOutlined />} 
                     block
-                    onClick={() => setSelectedKey('settings')}
+                    onClick={() => updateSelectedKey('settings')}
                   >
                     Cấu hình hệ thống
                   </Button>
@@ -632,7 +692,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                   <Button 
                     icon={<FileTextOutlined />} 
                     block
-                    onClick={() => setSelectedKey('logs')}
+                    onClick={() => updateSelectedKey('logs')}
                   >
                     Nhật ký hệ thống
                   </Button>
@@ -741,9 +801,9 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
             // Nếu manager chọn mục không có quyền (phòng trường hợp hard reload)
             const allowedKeys = menuItems.map(item => item.key);
             if (allowedKeys.includes(key)) {
-              setSelectedKey(key);
+              updateSelectedKey(key);
             } else {
-              setSelectedKey('dashboard');
+              updateSelectedKey('dashboard');
             }
           }}
           style={{ 

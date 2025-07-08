@@ -1,5 +1,22 @@
 import mongoose from 'mongoose';
 
+export interface IRefundInfo {
+  accountNumber: string;
+  accountHolderName: string;
+  bankName: string;
+  phoneNumber?: string;
+  submittedAt: Date;
+}
+
+export interface IRefund {
+  refundInfo?: IRefundInfo;
+  refundReason?: string;
+  processingStatus?: "pending" | "completed" | "rejected";
+  processedBy?: string;
+  processedAt?: Date;
+  processingNotes?: string;
+}
+
 export interface IPaymentTracking extends mongoose.Document {
   // Service identification
   serviceType: 'appointment' | 'consultation' | 'package';
@@ -27,7 +44,7 @@ export interface IPaymentTracking extends mongoose.Document {
   customerPhone?: string;
   
   // Status & tracking
-  status: 'pending' | 'success' | 'failed' | 'cancelled' | 'expired';
+  status: 'pending' | 'success' | 'failed' | 'cancelled' | 'expired' | 'refunded';
   transactionInfo?: {
     reference?: string;
     transactionDateTime?: string;
@@ -36,6 +53,9 @@ export interface IPaymentTracking extends mongoose.Document {
   };
   webhookReceived?: boolean;
   webhookProcessedAt?: Date;
+  
+  // Refund info
+  refund?: IRefund;
   
   // TTL cleanup
   expiresAt?: Date;
@@ -129,7 +149,7 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   },
   status: {
     type: String,
-    enum: ['pending', 'success', 'failed', 'cancelled', 'expired'],
+    enum: ['pending', 'success', 'failed', 'cancelled', 'expired', 'refunded'],
     default: 'pending'
   },
   transactionInfo: {
@@ -144,6 +164,24 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   },
   webhookProcessedAt: {
     type: Date
+  },
+  refund: {
+    refundInfo: {
+      accountNumber: { type: String },
+      accountHolderName: { type: String },
+      bankName: { type: String },
+      phoneNumber: { type: String },
+      submittedAt: { type: Date }
+    },
+    refundReason: { type: String },
+    processingStatus: { 
+      type: String, 
+      enum: ["pending", "completed", "rejected"],
+      default: "pending"
+    },
+    processedBy: { type: String },
+    processedAt: { type: Date },
+    processingNotes: { type: String }
   },
   expiresAt: {
     type: Date,
@@ -224,7 +262,7 @@ PaymentTrackingSchema.methods.updatePaymentStatus = function(
     this.webhookProcessedAt = new Date();
   }
   
-  if (status === 'success' || status === 'failed' || status === 'cancelled') {
+  if (status === 'success' || status === 'failed' || status === 'cancelled' || status === 'refunded') {
     this.expiresAt = null;
   }
   

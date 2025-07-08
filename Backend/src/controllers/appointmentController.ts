@@ -685,7 +685,37 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
                 id,
                 { $set: { status: 'cancelled' } },
                 { new: true }
-            );
+            ).populate('profileId', 'fullName', undefined, { strictPopulate: false })
+             .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
+             .populate('packageId', 'name', undefined, { strictPopulate: false })
+             .populate('createdByUserId', 'email fullName', undefined, { strictPopulate: false });
+
+            // ✅ NEW: Send cancellation email notification (no refund)
+            try {
+                const customerEmail = (updatedAppointment?.createdByUserId as any)?.email;
+                const customerName = (updatedAppointment?.profileId as any)?.fullName || 
+                                   (updatedAppointment?.createdByUserId as any)?.fullName || 
+                                   'Khách hàng';
+                const serviceName = (updatedAppointment?.packageId as any)?.name || 
+                                  (updatedAppointment?.serviceId as any)?.serviceName || 
+                                  'Dịch vụ không xác định';
+
+                if (customerEmail && updatedAppointment?.appointmentDate) {
+                    const { sendAppointmentCancelledNoRefundEmail } = await import('../services/emails');
+                    
+                    await sendAppointmentCancelledNoRefundEmail(
+                        customerEmail,
+                        customerName,
+                        serviceName,
+                        updatedAppointment.appointmentDate,
+                        updatedAppointment.appointmentTime || 'Chưa xác định',
+                        'Hủy lịch hẹn theo yêu cầu của khách hàng'
+                    );
+                }
+            } catch (emailError) {
+                // Email failure shouldn't block cancellation
+                console.error('❌ [Email Error] Failed to send cancellation email:', emailError);
+            }
 
             console.log('✅ [Success] Appointment cancellation completed successfully', {
                 appointmentId: id,
@@ -1956,7 +1986,7 @@ export const getUserBookingHistory = async (req: AuthRequest, res: Response) => 
             });
         }
 
-        console.log('🔍 [getUserBookingHistory] Fetching for user:', userId);
+
 
         // Tính toán skip value cho phân trang
         const pageNumber = parseInt(page as string, 10);
@@ -2015,37 +2045,78 @@ export const getUserBookingHistory = async (req: AuthRequest, res: Response) => 
                         options: { strictPopulate: false }
                     });
 
-                // Transform appointments thành unified format
-                const transformedAppointments = appointments.map((apt: any) => ({
-                    _id: apt._id,
-                    type: 'appointment', // Phân biệt loại
-                    serviceId: apt.serviceId?._id || null,
-                    serviceName: apt.packageId?.name || apt.serviceId?.serviceName || 'Dịch vụ không xác định',
-                    packageName: apt.packageId?.name || null,
-                    doctorId: apt.doctorId?._id || null,
-                    doctorName: apt.doctorId?.userId?.fullName || 'Chưa chỉ định bác sĩ',
-                    doctorAvatar: apt.doctorId?.userId?.avatar || null,
-                    patientName: apt.profileId?.fullName || 'Không xác định',
-                    appointmentDate: apt.appointmentDate,
-                    appointmentTime: apt.appointmentTime,
-                    appointmentSlot: apt.appointmentTime, // Alias cho consistency
-                    typeLocation: apt.typeLocation,
-                    status: apt.status,
-                    price: apt.packageId?.price || apt.serviceId?.price || 0,
-                    createdAt: apt.createdAt,
-                    description: apt.description,
-                    notes: apt.notes,
-                    address: apt.address,
-                    canCancel: ['pending', 'pending_payment', 'confirmed'].includes(apt.status),
-                    canReschedule: ['pending', 'confirmed'].includes(apt.status),
-                    // Appointment-specific fields
-                    appointmentType: apt.appointmentType,
-                    billId: apt.billId,
-                    slotId: apt.slotId
+                // Transform appointments thành unified format với refund info
+                const transformedAppointments = await Promise.all(appointments.map(async (apt: any) => {
+                    // Lấy thông tin refund từ PaymentTracking - ✅ UPDATED LOGIC
+                    let refundInfo = null;
+                    try {
+                        // ✅ TÌM PaymentTracking có refund object, không phụ thuộc vào status
+                        const paymentTracking = await PaymentTracking.findOne({
+                            $or: [
+                                { appointmentId: apt._id },           // Standard way
+                                { recordId: apt._id, serviceType: 'appointment' }  // Fallback way
+                            ],
+                            userId: userId,
+                            'refund.refundInfo': { $exists: true } // Có yêu cầu hoàn tiền
+                        }).sort({ createdAt: -1 });
+                        
+                        if (paymentTracking && paymentTracking.refund) {
+                            // ✅ Lấy thông tin refund đầy đủ từ PaymentTracking
+                            refundInfo = {
+                                refundReason: paymentTracking.refund.refundReason,
+                                processingStatus: paymentTracking.refund.processingStatus || 'pending',
+                                processedBy: paymentTracking.refund.processedBy,
+                                processedAt: paymentTracking.refund.processedAt,
+                                processingNotes: paymentTracking.refund.processingNotes,
+                                refundInfo: paymentTracking.refund.refundInfo
+                            };
+                            
+                            console.log('✅ [RefundInfo] Found refund data:', {
+                                appointmentId: apt._id.toString(),
+                                processingStatus: refundInfo.processingStatus,
+                                processedBy: refundInfo.processedBy
+                            });
+                        } else {
+                            console.log('ℹ️ [RefundInfo] No refund data found for appointment:', apt._id.toString());
+                        }
+                    } catch (error) {
+                        console.error('❌ [RefundInfo] Error fetching refund info:', error);
+                    }
+
+                    return {
+                        _id: apt._id,
+                        type: 'appointment', // Phân biệt loại
+                        serviceId: apt.serviceId?._id || null,
+                        serviceName: apt.packageId?.name || apt.serviceId?.serviceName || 'Dịch vụ không xác định',
+                        packageName: apt.packageId?.name || null,
+                        doctorId: apt.doctorId?._id || null,
+                        doctorName: apt.doctorId?.userId?.fullName || 'Chưa chỉ định bác sĩ',
+                        doctorAvatar: apt.doctorId?.userId?.avatar || null,
+                        patientName: apt.profileId?.fullName || 'Không xác định',
+                        appointmentDate: apt.appointmentDate,
+                        appointmentTime: apt.appointmentTime,
+                        appointmentSlot: apt.appointmentTime, // Alias cho consistency
+                        typeLocation: apt.typeLocation,
+                        status: apt.status,
+                        price: apt.packageId?.price || apt.serviceId?.price || 0,
+                        createdAt: apt.createdAt,
+                        description: apt.description,
+                        notes: apt.notes,
+                        address: apt.address,
+                        canCancel: ['pending', 'pending_payment', 'confirmed'].includes(apt.status),
+                        canReschedule: ['pending', 'confirmed'].includes(apt.status),
+                        // Appointment-specific fields
+                        appointmentType: apt.appointmentType,
+                        billId: apt.billId,
+                        slotId: apt.slotId,
+                        paymentStatus: apt.paymentStatus,
+                        // Include refund info nếu có
+                        refund: refundInfo
+                    };
                 }));
 
                 allBookings.push(...transformedAppointments);
-                console.log(`✅ [getUserBookingHistory] Found ${transformedAppointments.length} appointments`);
+
             } catch (error) {
                 console.error('❌ [getUserBookingHistory] Error fetching appointments:', error);
             }
@@ -2125,7 +2196,7 @@ export const getUserBookingHistory = async (req: AuthRequest, res: Response) => 
                 }));
 
                 allBookings.push(...transformedConsultations);
-                console.log(`✅ [getUserBookingHistory] Found ${transformedConsultations.length} consultations`);
+
             } catch (error) {
                 console.error('❌ [getUserBookingHistory] Error fetching consultations:', error);
             }
@@ -2142,7 +2213,7 @@ export const getUserBookingHistory = async (req: AuthRequest, res: Response) => 
         const total = allBookings.length;
         const paginatedBookings = allBookings.slice(skip, skip + limitNumber);
 
-        console.log(`✅ [getUserBookingHistory] Total: ${total}, Page: ${pageNumber}, Returning: ${paginatedBookings.length}`);
+
 
         return res.status(200).json({
             success: true,
@@ -2180,7 +2251,7 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
         const { reason, refundInfo } = req.body;
         const userId = req.user?._id;
 
-        console.log('🔄 [CancelWithRefund] Starting cancel with refund for appointment:', id, 'user:', userId);
+
 
         // Kiểm tra ID có hợp lệ không
         if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -2210,13 +2281,7 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
             throw new NotFoundError('Không tìm thấy cuộc hẹn hoặc bạn không có quyền hủy cuộc hẹn này');
         }
 
-        console.log('✅ [CancelWithRefund] Found appointment:', {
-            id: appointment._id,
-            status: appointment.status,
-            paymentStatus: appointment.paymentStatus,
-            appointmentDate: appointment.appointmentDate,
-            appointmentTime: appointment.appointmentTime
-        });
+
 
         // Kiểm tra trạng thái cuộc hẹn
         if (appointment.status === 'cancelled') {
@@ -2249,15 +2314,41 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
             });
         }
 
-        const appointmentDateTime = new Date(appointment.appointmentDate + ' ' + appointment.appointmentTime);
+        // Xử lý datetime an toàn
+        let appointmentDateTime: Date;
+        try {
+            // Lấy phần thời gian bắt đầu (loại bỏ phần kết thúc nếu có dạng "07:00-08:00")
+            const startTime = appointment.appointmentTime.split('-')[0]?.trim() || 
+                             appointment.appointmentTime.split(' - ')[0]?.trim() || 
+                             appointment.appointmentTime.trim();
+
+            // appointmentDate từ model luôn là Date type
+            const dateStr = appointment.appointmentDate.toISOString().split('T')[0];
+
+            // Combine date and time safely với ISO format
+            const combinedDateTimeStr = `${dateStr}T${startTime}:00.000Z`;
+            appointmentDateTime = new Date(combinedDateTimeStr);
+
+            // Validate parsed datetime
+            if (isNaN(appointmentDateTime.getTime())) {
+                throw new Error('Invalid datetime after parsing');
+            }
+
+        } catch (parseError) {
+            console.error('❌ [CancelWithRefund] Error parsing appointment datetime:', parseError, {
+                appointmentDate: appointment.appointmentDate,
+                appointmentTime: appointment.appointmentTime
+            });
+            return res.status(400).json({
+                success: false,
+                message: 'Định dạng ngày giờ hẹn không hợp lệ'
+            });
+        }
+
         const currentTime = new Date();
         const hoursDifference = (appointmentDateTime.getTime() - currentTime.getTime()) / (1000 * 60 * 60);
 
-        console.log('⏰ [CancelWithRefund] Time check:', {
-            appointmentDateTime: appointmentDateTime.toISOString(),
-            currentTime: currentTime.toISOString(),
-            hoursDifference: hoursDifference
-        });
+
 
         if (hoursDifference <= 24) {
             return res.status(400).json({
@@ -2351,23 +2442,24 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                 }
             }
 
-            // 🔍 STEP 2: Cập nhật Payment status thành 'refunded'
-            const { Payments } = await import('../models');
-            const payment = await Payments.findOne({
+            // 🔍 STEP 2: Cập nhật PaymentTracking - CHỈ GHI NHẬN YÊU CẦU, CHƯA HOÀN TIỀN
+            const paymentTracking = await PaymentTracking.findOne({
+                $or: [
+                    { appointmentId: id },
+                    { recordId: id, serviceType: 'appointment' }
+                ],
                 userId: userId,
-                // Sử dụng appointment data để tìm payment
-                amount: appointment.totalAmount || 0
-            }).sort({ createdAt: -1 }); // Lấy payment mới nhất
+                status: 'success'
+            }).sort({ createdAt: -1 });
 
-            if (payment && payment.status === 'completed') {
-                await Payments.findByIdAndUpdate(
-                    payment._id,
+            if (paymentTracking) {
+                await PaymentTracking.findByIdAndUpdate(
+                    paymentTracking._id,
                     {
-                        status: 'refunded',
+                        // ✅ GIỮ NGUYÊN STATUS 'success' - chỉ set 'refunded' khi manager approve
                         refund: {
                             refundReason: reason || 'Hủy lịch hẹn theo yêu cầu của khách hàng (24h rule)',
-                            processingStatus: 'pending',
-                            // Thêm thông tin hoàn tiền từ form
+                            processingStatus: 'pending', // Manager chưa xử lý
                             refundInfo: refundInfo ? {
                                 accountNumber: refundInfo.accountNumber,
                                 accountHolderName: refundInfo.accountHolderName,
@@ -2378,7 +2470,6 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                         updatedAt: new Date()
                     }
                 );
-                console.log('✅ [Payment Refund] Updated payment status to refunded with bank info');
             }
 
             // 🔍 STEP 3: Cập nhật Appointment status thành 'cancelled'
@@ -2393,7 +2484,10 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                     }
                 },
                 { new: true }
-            );
+            ).populate('profileId', 'fullName', undefined, { strictPopulate: false })
+             .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
+             .populate('packageId', 'name', undefined, { strictPopulate: false })
+             .populate('createdByUserId', 'email fullName', undefined, { strictPopulate: false });
 
             // 🔍 STEP 4: Giải phóng slot nếu có
             if (appointment.slotId) {
@@ -2414,12 +2508,38 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                 }
             }
 
-            console.log('✅ [CancelWithRefund] Successfully cancelled appointment with refund', {
-                appointmentId: id,
-                packageRefunded: packageRefundPerformed,
-                paymentRefunded: !!payment,
-                slotReleased: !!appointment.slotId
-            });
+            // ✅ NEW: Send cancellation with refund email notification
+            try {
+                const customerEmail = (updatedAppointment?.createdByUserId as any)?.email;
+                const customerName = (updatedAppointment?.profileId as any)?.fullName || 
+                                   (updatedAppointment?.createdByUserId as any)?.fullName || 
+                                   'Khách hàng';
+                const serviceName = (updatedAppointment?.packageId as any)?.name || 
+                                  (updatedAppointment?.serviceId as any)?.serviceName || 
+                                  'Dịch vụ không xác định';
+
+                if (customerEmail && updatedAppointment?.appointmentDate && refundInfo && paymentTracking) {
+                    const { sendAppointmentCancelledWithRefundEmail } = await import('../services/emails');
+                    
+                    await sendAppointmentCancelledWithRefundEmail(
+                        customerEmail,
+                        customerName,
+                        serviceName,
+                        updatedAppointment.appointmentDate,
+                        updatedAppointment.appointmentTime || 'Chưa xác định',
+                        paymentTracking.amount || 0,
+                        {
+                            accountNumber: refundInfo.accountNumber,
+                            accountHolderName: refundInfo.accountHolderName,
+                            bankName: refundInfo.bankName
+                        },
+                        reason
+                    );
+                }
+            } catch (emailError) {
+                // Email failure shouldn't block cancellation
+                console.error('❌ [Email Error] Failed to send cancellation with refund email:', emailError);
+            }
 
             return res.status(200).json({
                 success: true,
@@ -2430,7 +2550,7 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                     appointment: updatedAppointment,
                     refund: {
                         packageRefunded: packageRefundPerformed,
-                        paymentRefunded: !!payment,
+                        paymentRefunded: !!paymentTracking,
                         refundInfoReceived: !!refundInfo,
                         estimatedRefundDays: '3-5 ngày làm việc',
                         refundMethod: 'Chuyển khoản ngân hàng'
@@ -2496,3 +2616,4 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
         });
     }
 }; 
+

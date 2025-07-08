@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import Payments from '../models/Payments';
+import PaymentTracking from '../models/PaymentTracking';
 import Appointments from '../models/Appointments';
 import { AuthRequest } from '../types/auth';
 import { NotFoundError } from '../errors/notFoundError';
@@ -10,7 +10,7 @@ import { UnauthorizedError } from '../errors/unauthorizedError';
 export class RefundController {
     
     /**
-     * Lấy danh sách tất cả yêu cầu hoàn tiền cho Manager
+     * Lấy danh sách tất cả yêu cầu hoàn tiền cho Manager (từ PaymentTracking)
      */
     getAllRefundRequests = async (req: AuthRequest, res: Response) => {
         try {
@@ -33,8 +33,8 @@ export class RefundController {
             }
 
             const matchStage: any = {
-                status: 'refunded',
-                'refund.refundInfo': { $exists: true, $ne: null }
+                'refund.refundInfo': { $exists: true, $ne: null },
+                'refund.processingStatus': { $exists: true }
             };
 
             // Lọc theo trạng thái refund processing
@@ -59,7 +59,7 @@ export class RefundController {
             const limitNumber = parseInt(limit as string, 10);
             const skip = (pageNumber - 1) * limitNumber;
 
-            // Aggregate pipeline để join với Appointments và Users
+            // Aggregate pipeline để join với Appointments và Users từ PaymentTracking
             const pipeline: any[] = [
                 { $match: matchStage },
                 
@@ -67,18 +67,14 @@ export class RefundController {
                 {
                     $lookup: {
                         from: 'appointments',
-                        let: { userId: '$userId' },
+                        localField: 'appointmentId',
+                        foreignField: '_id',
+                        as: 'appointment',
                         pipeline: [
-                            {
-                                $match: {
-                                    $expr: { $eq: ['$createdByUserId', '$$userId'] },
-                                    paymentStatus: 'refunded'
-                                }
-                            },
                             {
                                 $lookup: {
                                     from: 'services',
-                                    localField: 'serviceId',
+                                    localField: 'serviceId', 
                                     foreignField: '_id',
                                     as: 'service'
                                 }
@@ -87,12 +83,11 @@ export class RefundController {
                                 $lookup: {
                                     from: 'servicepackages',
                                     localField: 'packageId',
-                                    foreignField: '_id',
+                                    foreignField: '_id', 
                                     as: 'package'
                                 }
                             }
-                        ],
-                        as: 'appointment'
+                        ]
                     }
                 },
                 
@@ -115,7 +110,7 @@ export class RefundController {
                 // Project final structure
                 {
                     $project: {
-                        _id: 1,
+                        id: '$_id',
                         appointmentId: '$appointment._id',
                         customerName: '$user.fullName',
                         customerEmail: '$user.email',
@@ -128,7 +123,12 @@ export class RefundController {
                         },
                         appointmentDate: '$appointment.appointmentDate',
                         appointmentTime: '$appointment.appointmentTime',
+                        appointmentType: '$appointment.appointmentType',
+                        appointmentStatus: '$appointment.status',
+                        bookingDate: '$appointment.createdAt',
+                        originalPaymentStatus: '$status',
                         refundAmount: '$amount',
+                        totalAmount: '$totalAmount',
                         accountNumber: '$refund.refundInfo.accountNumber',
                         accountHolderName: '$refund.refundInfo.accountHolderName',
                         bankName: '$refund.refundInfo.bankName',
@@ -147,7 +147,7 @@ export class RefundController {
 
             // Đếm tổng số bản ghi
             const countPipeline = [...pipeline, { $count: 'total' }];
-            const countResult = await Payments.aggregate(countPipeline);
+            const countResult = await PaymentTracking.aggregate(countPipeline);
             const total = countResult.length > 0 ? countResult[0].total : 0;
 
             // Lấy dữ liệu với phân trang
@@ -157,14 +157,7 @@ export class RefundController {
                 { $limit: limitNumber }
             ];
 
-            const refundRequests = await Payments.aggregate(resultPipeline);
-
-            console.log('✅ [RefundController] Retrieved refund requests:', {
-                total,
-                page: pageNumber,
-                limit: limitNumber,
-                returned: refundRequests.length
-            });
+            const refundRequests = await PaymentTracking.aggregate(resultPipeline);
 
             return res.status(200).json({
                 success: true,
@@ -195,7 +188,7 @@ export class RefundController {
     };
 
     /**
-     * Cập nhật trạng thái xử lý yêu cầu hoàn tiền
+     * Cập nhật trạng thái xử lý yêu cầu hoàn tiền (PaymentTracking)
      */
     updateRefundStatus = async (req: AuthRequest, res: Response) => {
         try {
@@ -222,14 +215,14 @@ export class RefundController {
                 throw new ValidationError({ status: 'Trạng thái không hợp lệ' });
             }
 
-            // Tìm payment record
-            const payment = await Payments.findOne({
+            // Tìm PaymentTracking record
+            const paymentTracking = await PaymentTracking.findOne({
                 _id: paymentId,
-                status: 'refunded',
-                'refund.refundInfo': { $exists: true }
+                'refund.refundInfo': { $exists: true, $ne: null },
+                'refund.processingStatus': { $exists: true }
             });
 
-            if (!payment) {
+            if (!paymentTracking) {
                 throw new NotFoundError('Không tìm thấy yêu cầu hoàn tiền này');
             }
 
@@ -241,17 +234,88 @@ export class RefundController {
                 updatedAt: new Date()
             };
 
+            // ✅ CHỈ SET STATUS 'refunded' KHI MANAGER APPROVE (completed)
+            // Khi khách hàng submit yêu cầu → PaymentTracking.status = 'success' + refund.processingStatus = 'pending'
+            // Khi manager approve → PaymentTracking.status = 'refunded' + refund.processingStatus = 'completed'
+            if (status === 'completed') {
+                updateData.status = 'refunded';
+            }
+
             if (notes) {
                 updateData['refund.processingNotes'] = notes;
             }
 
-            const updatedPayment = await Payments.findByIdAndUpdate(
+            const updatedPaymentTracking = await PaymentTracking.findByIdAndUpdate(
                 paymentId,
                 { $set: updateData },
                 { new: true }
-            );
+            ).populate('userId', 'email fullName', undefined, { strictPopulate: false })
+             .populate('appointmentId', 'appointmentDate appointmentTime', undefined, { strictPopulate: false });
 
-            console.log('✅ [RefundController] Updated refund status:', {
+            // ✅ NEW: Send refund completion/rejection email notification
+            try {
+                if (updatedPaymentTracking && (status === 'completed' || status === 'rejected')) {
+                    const customerEmail = (updatedPaymentTracking.userId as any)?.email;
+                    const customerName = (updatedPaymentTracking.userId as any)?.fullName || 'Khách hàng';
+                    const refundAmount = updatedPaymentTracking.amount || 0;
+                    const processedBy = req.user?.fullName || 'Manager';
+
+                    // Get service name from appointment
+                    let serviceName = 'Dịch vụ không xác định';
+                    if (updatedPaymentTracking.appointmentId) {
+                        try {
+                            const appointmentWithService = await import('../models/Appointments');
+                            const appointment = await appointmentWithService.default.findById(updatedPaymentTracking.appointmentId)
+                                .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
+                                .populate('packageId', 'name', undefined, { strictPopulate: false });
+                            
+                            if (appointment) {
+                                serviceName = (appointment.packageId as any)?.name || 
+                                            (appointment.serviceId as any)?.serviceName || 
+                                            'Dịch vụ không xác định';
+                            }
+                        } catch (serviceError) {
+                            console.error('Error fetching service name:', serviceError);
+                        }
+                    }
+
+                    if (customerEmail) {
+                        const { sendRefundCompletedEmail, sendRefundRejectedEmail } = await import('../services/emails');
+                        
+                        if (status === 'completed') {
+                            // Send success email
+                            await sendRefundCompletedEmail(
+                                customerEmail,
+                                customerName,
+                                serviceName,
+                                refundAmount,
+                                {
+                                    accountNumber: updatedPaymentTracking.refund?.refundInfo?.accountNumber || '',
+                                    accountHolderName: updatedPaymentTracking.refund?.refundInfo?.accountHolderName || '',
+                                    bankName: updatedPaymentTracking.refund?.refundInfo?.bankName || ''
+                                },
+                                processedBy,
+                                notes
+                            );
+                        } else if (status === 'rejected') {
+                            // Send rejection email
+                            await sendRefundRejectedEmail(
+                                customerEmail,
+                                customerName,
+                                serviceName,
+                                refundAmount,
+                                processedBy,
+                                notes || 'Không đủ điều kiện hoàn tiền theo chính sách'
+                            );
+                        }
+                    }
+                }
+            } catch (emailError) {
+                // Email failure shouldn't block refund processing
+                console.error('❌ [Email Error] Failed to send refund notification email:', emailError);
+            }
+
+            console.log('[RefundController] Updated PaymentTracking refund status:', {
                 paymentId,
                 newStatus: status,
                 processedBy: req.user?.fullName
@@ -296,7 +360,7 @@ export class RefundController {
     };
 
     /**
-     * Lấy chi tiết một yêu cầu hoàn tiền
+     * Lấy chi tiết một yêu cầu hoàn tiền (PaymentTracking)
      */
     getRefundRequestDetail = async (req: AuthRequest, res: Response) => {
         try {
@@ -320,22 +384,18 @@ export class RefundController {
             const pipeline: any[] = [
                 { $match: { 
                     _id: new mongoose.Types.ObjectId(paymentId),
-                    status: 'refunded',
-                    'refund.refundInfo': { $exists: true, $ne: null }
+                    'refund.refundInfo': { $exists: true, $ne: null },
+                    'refund.processingStatus': { $exists: true }
                 }},
                 
                 // Lookup appointment info
                 {
                     $lookup: {
                         from: 'appointments',
-                        let: { userId: '$userId' },
+                        localField: 'appointmentId',
+                        foreignField: '_id',
+                        as: 'appointment',
                         pipeline: [
-                            {
-                                $match: {
-                                    $expr: { $eq: ['$createdByUserId', '$$userId'] },
-                                    paymentStatus: 'refunded'
-                                }
-                            },
                             {
                                 $lookup: {
                                     from: 'services',
@@ -352,8 +412,7 @@ export class RefundController {
                                     as: 'package'
                                 }
                             }
-                        ],
-                        as: 'appointment'
+                        ]
                     }
                 },
                 
@@ -374,7 +433,7 @@ export class RefundController {
                 { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } }
             ];
 
-            const result = await Payments.aggregate(pipeline);
+            const result = await PaymentTracking.aggregate(pipeline);
             
             if (result.length === 0) {
                 throw new NotFoundError('Không tìm thấy yêu cầu hoàn tiền này');
@@ -393,7 +452,12 @@ export class RefundController {
                     serviceName: refundRequest.appointment?.package?.[0]?.name || refundRequest.appointment?.service?.[0]?.serviceName,
                     appointmentDate: refundRequest.appointment?.appointmentDate,
                     appointmentTime: refundRequest.appointment?.appointmentTime,
+                    appointmentType: refundRequest.appointment?.appointmentType,
+                    appointmentStatus: refundRequest.appointment?.status,
+                    bookingDate: refundRequest.appointment?.createdAt,
+                    originalPaymentStatus: refundRequest.status,
                     refundAmount: refundRequest.amount,
+                    totalAmount: refundRequest.totalAmount,
                     accountNumber: refundRequest.refund?.refundInfo?.accountNumber,
                     accountHolderName: refundRequest.refund?.refundInfo?.accountHolderName,
                     bankName: refundRequest.refund?.refundInfo?.bankName,

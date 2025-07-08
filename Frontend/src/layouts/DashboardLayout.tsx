@@ -19,8 +19,8 @@ import {
     VideoCameraOutlined
 } from '@ant-design/icons';
 import { Avatar, Badge, Button, Dropdown, Layout, Menu, Space, Typography } from 'antd';
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { filterMenuItemsByPermissions, type MenuItem } from '../utils/permissions';
 
@@ -36,6 +36,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
   const [collapsed, setCollapsed] = useState(false);
   const [openKeys, setOpenKeys] = useState<string[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, handleLogout } = useAuth();
 
   // Menu items cho Admin
@@ -303,6 +304,106 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
 
   const pageTitle = getPageTitle();
 
+  // ✅ NEW: Function để determine selected keys từ current URL
+  const getSelectedKeys = (): string[] => {
+    const path = location.pathname;
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    
+    // Map URL paths với menu keys cho manager
+    if (userRole === 'manager') {
+      // Check if we're in management dashboard
+      if (path === '/dashboard/management') {
+        if (tabParam) {
+          // Map tab params to menu keys
+          if (tabParam === 'refunds') return ['refunds'];
+          if (tabParam === 'users') return ['users'];
+          if (tabParam === 'doctors') return ['doctors'];
+          if (tabParam === 'schedule') return ['schedule'];
+          if (tabParam === 'services') return ['services'];
+          if (tabParam === 'service-packages') return ['service-packages'];
+          if (tabParam === 'medicines') return ['medicines'];
+          if (tabParam === 'test-categories') return ['test-categories'];
+          if (tabParam === 'login-history') return ['login-history'];
+          if (tabParam === 'system-logs') return ['system-logs'];
+          if (tabParam === 'reports') return ['reports'];
+        }
+        return ['overview']; // Default dashboard
+      }
+      
+      // Legacy URL mappings (if any)
+      if (path.includes('/dashboard/manager/refunds')) return ['refunds'];
+      if (path.includes('/dashboard/manager/users')) return ['users'];
+      if (path.includes('/dashboard/manager/doctors')) {
+        if (path.includes('/profiles')) return ['doctors-profiles'];
+        if (path.includes('/schedule')) return ['doctors-schedule'];
+        if (path.includes('/performance')) return ['doctors-performance'];
+        if (path.includes('/specialties')) return ['doctors-specialties'];
+        return ['doctors'];
+      }
+      if (path.includes('/dashboard/manager/services')) return ['services-management'];
+      if (path.includes('/dashboard/manager/service-packages')) return ['service-packages-management'];
+      if (path.includes('/dashboard/manager/reports')) return ['reports'];
+      return ['overview'];
+    }
+    
+    // Map URL paths với menu keys cho admin
+    if (userRole === 'admin') {
+      if (path.includes('/login-history')) return ['login-history'];
+      if (path.includes('/system-logs')) return ['system-logs'];
+      if (path.includes('/reports')) return ['reports'];
+      if (path.includes('/settings')) return ['settings'];
+      return ['users']; // Default for admin
+    }
+    
+    // Map URL paths với menu keys cho staff
+    if (userRole === 'staff') {
+      if (path.includes('/schedule')) return ['schedule'];
+      if (path.includes('/appointments')) return ['appointments'];
+      if (path.includes('/test-results')) return ['test-results'];
+      if (path.includes('/tasks')) return ['daily-tasks'];
+      return ['overview'];
+    }
+    
+    // Map URL paths với menu keys cho doctor
+    if (userRole === 'doctor') {
+      if (path.includes('/profile')) return ['profile'];
+      if (path.includes('/my-appointments')) return ['my-appointments'];
+      if (path.includes('/all-appointments')) return ['appointments'];
+      if (path.includes('/medical-records')) return ['medical-records'];
+      if (path.includes('/consultations')) return ['consultations'];
+      if (path.includes('/meetings')) return ['meeting-history'];
+      if (path.includes('/reports')) return ['reports'];
+      return ['overview'];
+    }
+    
+    // Default
+    return ['overview'];
+  };
+
+  // ✅ NEW: Function để determine open keys cho submenus
+  const getOpenKeys = (): string[] => {
+    const path = location.pathname;
+    const openKeys: string[] = [];
+    
+    if (userRole === 'manager') {
+      if (path.includes('/dashboard/manager/doctors')) {
+        openKeys.push('doctors');
+      }
+      if (path.includes('/dashboard/manager/service')) {
+        openKeys.push('services');
+      }
+    }
+    
+    return openKeys;
+  };
+
+  useEffect(() => {
+    // Sync open keys with current URL để expand submenus
+    const newOpenKeys = getOpenKeys();
+    setOpenKeys(newOpenKeys);
+  }, [location.pathname, userRole]);
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       {/* Sidebar */}
@@ -523,7 +624,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, userRole })
         </style>
         <Menu
           mode="inline"
-          defaultSelectedKeys={userRole === 'admin' ? ['users'] : ['overview']}
+          selectedKeys={getSelectedKeys()}
           openKeys={openKeys}
           onOpenChange={setOpenKeys}
           inlineCollapsed={collapsed}

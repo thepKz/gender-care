@@ -32,13 +32,6 @@ import MedicalRecordModal, { MedicalRecordFormData } from '../forms/MedicalRecor
 
 const { Text } = Typography;
 
-interface DetailData {
-  profileId?: string;
-  serviceId?: string;
-  packageId?: string;
-  doctorNotes?: string;
-}
-
 interface AppointmentDetailModalProps {
   visible: boolean;
   appointment: UnifiedAppointment | null;
@@ -98,7 +91,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
         loading: false
       });
       
-      console.log('✅ [Record Status] Updated:', { hasMedicalRecord, hasTestResults });
+
     } catch (error) {
       console.error('❌ [Record Status] Error checking records:', error);
       setRecordStatus(prev => ({ ...prev, loading: false }));
@@ -108,7 +101,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   useEffect(() => {
     if (visible && appointment) {
       // ✅ SIMPLIFIED: Không cần load thêm data, dùng data có sẵn từ list
-      console.log('✅ [DETAIL] Using data from list:', appointment);
+  
     } else {
       // Reset state when modal closes
       setRecordStatus({
@@ -147,6 +140,42 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       paid: 'Đã thanh toán'
     };
     return texts[status] || status;
+  };
+
+  // Check if appointment is paid but cancelled (highlight with yellow)
+  const isPaidButCancelled = () => {
+    // ✅ UPDATED: Bao gồm các appointment có refund request 
+    return appointment?.status === 'cancelled' && 
+           (appointment?.paymentStatus === 'paid' || 
+            appointment?.paymentStatus === 'refunded' ||
+            appointment?.refund?.refundInfo); // Có yêu cầu hoàn tiền
+  };
+
+  // Get enhanced status color with yellow highlight for paid but cancelled
+  const getEnhancedStatusColor = (status: string) => {
+    if (isPaidButCancelled()) {
+      return 'gold'; // Yellow highlight for paid but cancelled appointments
+    }
+    return getStatusColor(status);
+  };
+
+  // Get enhanced status text with payment info
+  const getEnhancedStatusText = (status: string) => {
+    if (isPaidButCancelled()) {
+      return 'Đã thanh toán - Đã hủy';
+    }
+    return getStatusText(status);
+  };
+
+  // Check refund eligibility
+  const isRefundEligible = () => {
+    if (!appointment) return false;
+    
+    // ✅ UPDATED: Eligible nếu đã thanh toán và đã hủy, hoặc đã có yêu cầu hoàn tiền
+    return appointment.status === 'cancelled' && 
+           (appointment.paymentStatus === 'paid' || 
+            appointment.paymentStatus === 'refunded' ||
+            appointment.refund?.refundInfo);
   };
 
   const getTypeColor = (type: string) => {
@@ -189,22 +218,14 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
   // Check if staff should see the action buttons
   const shouldShowActionButtons = () => {
-    console.log('🔍 [DEBUG] shouldShowActionButtons called with:', {
-      userRole,
-      appointment: appointment ? {
-        _id: appointment._id,
-        appointmentType: appointment.appointmentType,
-        status: appointment.status,
-        type: appointment.type
-      } : null
-    });
+
 
     if (userRole !== 'staff') {
-      console.log('🚫 [UI] No buttons - User role is not staff:', userRole);
+
       return false;
     }
     if (!appointment) {
-      console.log('🚫 [UI] No buttons - No appointment data');
+
       return false;
     }
     
@@ -213,14 +234,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const allowedStatuses = ['confirmed', 'consulting', 'completed'];
     const isValidStatus = allowedStatuses.includes(appointment.status);
     
-    console.log('🎯 [UI] Button visibility check:', {
-      appointmentId: appointment._id,
-      appointmentType: appointment.appointmentType,
-      status: appointment.status,
-      userRole: userRole,
-      isValidStatus,
-      shouldShowButtons: isValidStatus
-    });
+
     
     return isValidStatus;
   };
@@ -245,7 +259,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
   const handleMedicalRecordSubmit = async (medicalRecordData: MedicalRecordFormData): Promise<boolean> => {
     try {
-      console.log('🏥 [MEDICAL] Creating medical record:', medicalRecordData);
+
       
       // Call API to create medical record
       const response = await medicalApi.createMedicalRecord({
@@ -258,7 +272,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       });
 
       if (response.status === 201 || response.status === 200) {
-        console.log('✅ [MEDICAL] Medical record created successfully');
+
         
         // Update record status to reflect the new medical record
         setRecordStatus(prev => ({
@@ -296,12 +310,22 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     }
   };
 
-  const formatDate = (dateString: string) => {
-    // 🔍 DEBUG: Log input để kiểm tra format
-    console.log('🔍 [DEBUG] Format date input:', dateString);
+  // Phân tích cancellationReason để tách notes và lý do hủy
+  const parseNotes = (cancellationReason: string): { reason: string, note: string } => {
+    if (!cancellationReason) return { reason: '', note: '' };
     
+    const noteMatch = cancellationReason.match(/Note:\s*(.*)$/);
+    if (noteMatch) {
+      const note = noteMatch[1].trim();
+      const reason = cancellationReason.replace(/\s*Note:\s*.*$/, '').trim();
+      return { reason, note };
+    }
+    
+    return { reason: cancellationReason, note: '' };
+  };
+
+  const formatDate = (dateString: string) => {
     if (!dateString) {
-      console.log('⚠️ [WARN] Empty date string');
       return 'Chưa có thông tin';
     }
     
@@ -310,7 +334,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       
       // Kiểm tra date có hợp lệ không
       if (isNaN(date.getTime())) {
-        console.log('⚠️ [WARN] Invalid date:', dateString);
         return dateString; // Trả về original string nếu không parse được
       }
       
@@ -319,7 +342,6 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       const year = date.getFullYear();
       const formatted = `${day}/${month}/${year}`;
       
-      console.log('✅ [DEBUG] Date formatted:', { input: dateString, output: formatted });
       return formatted;
     } catch (error) {
       console.error('❌ [ERROR] Date formatting error:', error);
@@ -328,10 +350,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   };
 
   const renderActionButtons = () => {
-    console.log('🔍 [DEBUG] renderActionButtons called');
-    
     if (!shouldShowActionButtons()) {
-      console.log('🚫 [DEBUG] shouldShowActionButtons returned false, no buttons will render');
       return null;
     }
 
@@ -340,14 +359,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     const showMedicalButton = true; // Staff luôn có thể tạo bệnh án
     const showTestButton = appointment?.appointmentType === 'test';
 
-    console.log('🎯 [DEBUG] Button rendering logic:', {
-      appointmentType: appointment?.appointmentType,
-      showMedicalButton,
-      showTestButton,
-      hasMedicalRecord: recordStatus.hasMedicalRecord,
-      hasTestResults: recordStatus.hasTestResults,
-      loading: recordStatus.loading
-    });
+
 
     return (
       <div style={{ marginTop: 16, textAlign: 'center' }}>
@@ -414,19 +426,7 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
   if (!appointment) return null;
 
-  // 🔍 DEBUG: Log toàn bộ appointment data để debug
-  console.log('🔍 [DEBUG] AppointmentDetailModal received appointment:', {
-    id: appointment._id,
-    patientName: appointment.patientName,
-    serviceName: appointment.serviceName,
-    appointmentDate: appointment.appointmentDate,
-    appointmentTime: appointment.appointmentTime,
-    appointmentType: appointment.appointmentType,
-    typeLocation: appointment.typeLocation,
-    status: appointment.status,
-    type: appointment.type,
-    fullData: appointment
-  });
+
 
   return (
     <Modal
@@ -495,9 +495,118 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
                   {appointment.patientPhone}
                 </Descriptions.Item>
                 <Descriptions.Item label="Trạng thái">
-                  <Tag color={getStatusColor(appointment.status)}>
-                    {getStatusText(appointment.status)}
+                  <Tag 
+                    color={getEnhancedStatusColor(appointment.status)}
+                    style={isPaidButCancelled() ? { 
+                      backgroundColor: '#fff7e6', 
+                      borderColor: '#ffd666',
+                      color: '#d48806'
+                    } : {}}
+                  >
+                    {getEnhancedStatusText(appointment.status)}
                   </Tag>
+                  {isPaidButCancelled() && (
+                    <div style={{ 
+                      marginTop: '4px', 
+                      padding: '4px 8px', 
+                      backgroundColor: '#fff7e6', 
+                      border: '1px solid #ffd666',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      color: '#d48806'
+                    }}>
+                      {isRefundEligible() ? 
+                        'Đủ điều kiện hoàn tiền' : 
+                        'Không đủ điều kiện hoàn tiền'
+                      }
+                    </div>
+                  )}
+                </Descriptions.Item>
+                <Descriptions.Item label="Trạng thái thanh toán">
+                  <div>
+                    <Tag color="green">
+                      Đã thanh toán
+                    </Tag>
+                    {/* Hiển thị trạng thái hoàn tiền nếu có */}
+                    {appointment.refund && (
+                      <div style={{ marginTop: '8px' }}>
+                        <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                          Tracking hoàn tiền:
+                        </div>
+                        {(() => {
+                          const refundStatus = appointment.refund?.processingStatus || 'pending';
+                          
+
+                          
+                          const getRefundStatusColor = (status: string) => {
+                            switch (status) {
+                              case 'pending': return '#faad14';
+                              case 'completed': return '#52c41a';
+                              case 'rejected': return '#ff4d4f';
+                              default: return '#d9d9d9';
+                            }
+                          };
+                          const getRefundStatusText = (status: string) => {
+                            switch (status) {
+                              case 'pending': return 'Chờ xử lý';
+                              case 'completed': return 'Đã hoàn tiền';
+                              case 'rejected': return 'Từ chối hoàn tiền';
+                              default: return 'Không xác định';
+                            }
+                          };
+                          return (
+                            <Tag color={getRefundStatusColor(refundStatus)}>
+                              {getRefundStatusText(refundStatus)}
+                            </Tag>
+                          );
+                        })()}
+                        {appointment.refund?.processedAt && (
+                          <div style={{ 
+                            fontSize: '11px', 
+                            color: '#999', 
+                            marginTop: '4px' 
+                          }}>
+                            Cập nhật: {formatDate(appointment.refund.processedAt)}
+                          </div>
+                        )}
+                        {appointment.refund?.refundReason && (
+                          <div style={{ 
+                            fontSize: '11px', 
+                            color: '#666', 
+                            marginTop: '4px',
+                            fontStyle: 'italic'
+                          }}>
+                            Lý do: {appointment.refund.refundReason}
+                          </div>
+                        )}
+                        {appointment.refund?.processingNotes && (
+                          <div style={{ 
+                            fontSize: '11px', 
+                            color: '#666', 
+                            marginTop: '4px',
+                            fontStyle: 'italic'
+                          }}>
+                            Ghi chú: {appointment.refund.processingNotes}
+                          </div>
+                        )}
+                        {appointment.refund?.refundInfo && (
+                          <div style={{ 
+                            fontSize: '11px', 
+                            color: '#666', 
+                            marginTop: '6px',
+                            padding: '6px',
+                            backgroundColor: '#f5f5f5',
+                            borderRadius: '4px'
+                          }}>
+                            <div><strong>Thông tin hoàn tiền:</strong></div>
+                            <div>Ngân hàng: {appointment.refund.refundInfo.bankName}</div>
+                            <div>Tài khoản: {appointment.refund.refundInfo.accountNumber}</div>
+                            <div>Chủ TK: {appointment.refund.refundInfo.accountHolderName}</div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </Descriptions.Item>
                 {/* ✅ SIMPLIFIED: Lấy thông tin từ originalData nếu có */}
                 {appointment.originalData && 'profileId' in appointment.originalData && (
@@ -621,20 +730,47 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
               </div>
             )}
             
-            {appointment.notes && (
-              <div style={{ 
-                padding: '12px', 
-                backgroundColor: '#f6ffed', 
-                borderRadius: '8px',
-                border: '1px solid #b7eb8f',
-                marginBottom: '12px'
-              }}>
-                <div style={{ fontWeight: 500, marginBottom: '4px', color: '#52c41a' }}>
-                  Ghi chú:
-                </div>
-                <Text>{appointment.notes}</Text>
-              </div>
-            )}
+            {appointment.notes && (() => {
+              const { reason, note } = parseNotes(appointment.notes);
+              
+              return (
+                <>
+                  {/* Ghi chú gốc */}
+                  {reason && (
+                    <div style={{ 
+                      padding: '12px', 
+                      backgroundColor: '#f6ffed', 
+                      borderRadius: '8px',
+                      border: '1px solid #b7eb8f',
+                      marginBottom: '12px'
+                    }}>
+                      <div style={{ fontWeight: 500, marginBottom: '4px', color: '#52c41a' }}>
+                        Ghi chú:
+                      </div>
+                      <Text>{reason}</Text>
+                    </div>
+                  )}
+                  
+                  {/* Lý do hủy - chỉ hiển thị cho appointment đã hủy */}
+                  {note && appointment.status === 'cancelled' && (
+                    <div style={{ 
+                      padding: '12px', 
+                      backgroundColor: '#fff2f0', 
+                      borderRadius: '8px',
+                      border: '1px solid #ffccc7',
+                      marginBottom: '12px'
+                    }}>
+                      <div style={{ fontWeight: 500, marginBottom: '4px', color: '#cf1322' }}>
+                        Lý do hủy lịch hẹn:
+                      </div>
+                      <Text style={{ color: '#cf1322', fontStyle: 'italic' }}>
+                        {note}
+                      </Text>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             {/* ✅ FIX: Hiển thị doctorNotes từ originalData */}
             {appointment.originalData && 'doctorNotes' in appointment.originalData && 

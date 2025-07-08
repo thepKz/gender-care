@@ -49,6 +49,8 @@ router.get('/user', verifyToken, getUserAppointments);
  */
 router.get('/booking-history', verifyToken, getUserBookingHistory);
 
+
+
 /**
  * @route   GET /api/appointments/my
  * @desc    Lấy danh sách cuộc hẹn của bác sĩ hiện tại hoặc tất cả appointments cho staff

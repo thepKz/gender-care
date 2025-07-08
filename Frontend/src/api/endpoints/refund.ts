@@ -9,7 +9,12 @@ export interface RefundRequest {
   serviceName: string;
   appointmentDate: string;
   appointmentTime: string;
+  appointmentType?: string;
+  appointmentStatus?: string;
+  bookingDate?: string;
+  originalPaymentStatus?: string;
   refundAmount: number;
+  totalAmount?: number;
   accountNumber: string;
   accountHolderName: string;
   bankName: string;
@@ -74,7 +79,7 @@ export const getAllRefundRequests = async (filters: RefundFilters = {}): Promise
 
     const response = await axiosConfig.get(`/refunds?${params.toString()}`);
     
-    console.log('✅ [RefundAPI] Fetched refund requests:', {
+    console.log('[RefundAPI] Fetched refund requests:', {
       total: response.data.data.pagination.total,
       page: response.data.data.pagination.page
     });
@@ -93,7 +98,7 @@ export const getRefundRequestDetail = async (paymentId: string): Promise<RefundD
   try {
     const response = await axiosConfig.get(`/refunds/${paymentId}`);
     
-    console.log('✅ [RefundAPI] Fetched refund detail:', paymentId);
+    console.log('[RefundAPI] Fetched refund detail:', paymentId);
     
     return response.data;
   } catch (error) {
@@ -116,7 +121,7 @@ export const updateRefundStatus = async (
 
     const response = await axiosConfig.put(`/refunds/${paymentId}/status`, payload);
     
-    console.log('✅ [RefundAPI] Updated refund status:', {
+    console.log('[RefundAPI] Updated refund status:', {
       paymentId,
       newStatus: status,
       processedBy: response.data.data.processedBy

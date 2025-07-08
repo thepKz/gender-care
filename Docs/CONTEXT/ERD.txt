@@ -283,7 +283,8 @@ Table Payments {
   transactionId String 
   status String // "pending", "completed", "failed", "refunded" 
   failureReason String
-  refund Json  
+  refund Json // Contains: refundInfo, refundReason, processingStatus, processedBy, processedAt, processingNotes
+  // refund.processingStatus: "pending", "processing", "completed", "rejected"
   createdAt DateTime 
   updatedAt DateTime 
   paymentAt DateTime 

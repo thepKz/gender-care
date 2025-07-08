@@ -49,6 +49,19 @@ export interface ApiAppointment {
   totalAmount?: number;
   paymentStatus: 'unpaid' | 'paid' | 'partial' | 'refunded';
   paidAt?: string;
+  refund?: {
+    refundReason?: string;
+    processingStatus?: 'pending' | 'completed' | 'rejected';
+    refundInfo?: {
+      accountNumber: string;
+      accountHolderName: string;
+      bankName: string;
+      submittedAt: string;
+    };
+    processedBy?: string;
+    processedAt?: string;
+    processingNotes?: string;
+  };
   bookingType: 'new_package' | 'purchased_package' | 'service_only';
   packagePurchaseId?: string;
   expiresAt?: string;
@@ -102,6 +115,19 @@ export interface UnifiedAppointment {
   status: UnifiedStatus;
   totalAmount?: number;
   paymentStatus?: 'unpaid' | 'paid' | 'partial' | 'refunded';
+  refund?: {
+    refundReason?: string;
+    processingStatus?: 'pending' | 'completed' | 'rejected';
+    refundInfo?: {
+      accountNumber: string;
+      accountHolderName: string;
+      bankName: string;
+      submittedAt: string;
+    };
+    processedBy?: string;
+    processedAt?: string;
+    processingNotes?: string;
+  };
   bookingType?: 'new_package' | 'purchased_package' | 'service_only';
   createdAt: string;
   updatedAt: string;

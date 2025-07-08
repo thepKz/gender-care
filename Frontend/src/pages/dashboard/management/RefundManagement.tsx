@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import {
     Calendar,
     Clock,
-    Eye,
     MoneyRecive,
     Profile2User,
     SearchNormal1,
@@ -13,7 +12,7 @@ import {
 } from 'iconsax-react';
 import { getAllRefundRequests, updateRefundStatus, RefundRequest } from '../../../api/endpoints/refund';
 
-const { Search } = Input;
+const { Search, TextArea } = Input;
 const { Option } = Select;
 
 // RefundRequest interface is imported from API endpoint
@@ -27,6 +26,7 @@ const RefundManagement: React.FC = () => {
   const [selectedRequest, setSelectedRequest] = useState<RefundRequest | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [managerNotes, setManagerNotes] = useState('');
   
   // Filter states
   const [searchText, setSearchText] = useState('');
@@ -49,9 +49,8 @@ const RefundManagement: React.FC = () => {
       
       setRefundRequests(response.data.refundRequests);
       setFilteredRequests(response.data.refundRequests);
-    } catch (error) {
-      console.error('Error fetching refund requests:', error);
-      message.error('Không thể tải danh sách yêu cầu hoàn tiền');
+          } catch {
+        message.error('Không thể tải danh sách yêu cầu hoàn tiền');
     } finally {
       setLoading(false);
     }
@@ -96,24 +95,65 @@ const RefundManagement: React.FC = () => {
     }).format(price);
   };
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('vi-VN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const formatDate = (dateString: string) => {
+    if (!dateString || dateString === 'null' || dateString === 'undefined') {
+      return 'Chưa có thông tin';
+    }
+    try {
+      const parsedDate = new Date(dateString);
+      if (isNaN(parsedDate.getTime())) {
+        return 'Chưa có thông tin';
+      }
+      return parsedDate.toLocaleDateString('vi-VN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Chưa có thông tin';
+    }
+  };
+
+  const formatAppointmentDateTime = (appointmentDate: string, appointmentTime: string) => {
+    if (!appointmentDate || !appointmentTime || 
+        appointmentDate === 'null' || appointmentTime === 'null' ||
+        appointmentDate === 'undefined' || appointmentTime === 'undefined') {
+      return 'Chưa có thông tin lịch hẹn';
+    }
+    try {
+      // Combine date and time properly
+      const dateTimeString = `${appointmentDate} ${appointmentTime}`;
+      const parsedDate = new Date(dateTimeString);
+      if (isNaN(parsedDate.getTime())) {
+        return 'Chưa có thông tin lịch hẹn';
+      }
+      return parsedDate.toLocaleDateString('vi-VN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return 'Chưa có thông tin lịch hẹn';
+    }
   };
 
   const handleViewDetail = (request: RefundRequest) => {
     setSelectedRequest(request);
+    setManagerNotes(request.notes || '');
     setShowDetailModal(true);
   };
 
   const handleUpdateStatus = async (requestId: string, newStatus: 'processing' | 'completed' | 'rejected', notes?: string) => {
     try {
       setProcessing(true);
+      
+      if (!requestId) {
+        throw new Error('Request ID is missing');
+      }
       
       await updateRefundStatus(requestId, newStatus, notes);
       
@@ -124,8 +164,8 @@ const RefundManagement: React.FC = () => {
       message.success(`Đã cập nhật trạng thái thành "${statusText}"`);
       
       setShowDetailModal(false);
-    } catch (error) {
-      console.error('Error updating refund status:', error);
+      setManagerNotes('');
+    } catch {
       message.error('Không thể cập nhật trạng thái');
     } finally {
       setProcessing(false);
@@ -266,12 +306,6 @@ const RefundManagement: React.FC = () => {
                       Dịch vụ
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Số tiền
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ngân hàng
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Trạng thái
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -301,17 +335,8 @@ const RefundManagement: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{request.serviceName}</div>
                         <div className="text-sm text-gray-500">
-                          {formatDate(request.appointmentDate + ' ' + request.appointmentTime)}
+                          {formatAppointmentDateTime(request.appointmentDate, request.appointmentTime)}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-blue-600">
-                          {formatPrice(request.refundAmount)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{request.bankName}</div>
-                        <div className="text-sm text-gray-500">{request.accountNumber}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Tag
@@ -328,10 +353,10 @@ const RefundManagement: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <button
                           onClick={() => handleViewDetail(request)}
-                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                          title="Xem chi tiết"
+                          className="px-3 py-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-sm font-medium"
+                          title="Xem chi tiết và xử lí"
                         >
-                          <Eye size={18} />
+                          Xem chi tiết và xử lí
                         </button>
                       </td>
                     </motion.tr>
@@ -365,83 +390,191 @@ const RefundManagement: React.FC = () => {
           open={showDetailModal}
           onCancel={() => setShowDetailModal(false)}
           footer={null}
-          width={700}
+          width={900}
         >
           {selectedRequest && (
-            <div className="space-y-6">
-              {/* Request Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Mã yêu cầu</label>
-                  <p className="text-gray-900">{selectedRequest.id}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Mã lịch hẹn</label>
-                  <p className="text-gray-900">{selectedRequest.appointmentId}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Khách hàng</label>
-                  <p className="text-gray-900">{selectedRequest.customerName}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Email</label>
-                  <p className="text-gray-900">{selectedRequest.customerEmail}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Dịch vụ</label>
-                  <p className="text-gray-900">{selectedRequest.serviceName}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Số tiền hoàn</label>
-                  <p className="text-gray-900 font-semibold text-blue-600">{formatPrice(selectedRequest.refundAmount)}</p>
-                </div>
-              </div>
+            <div className="space-y-4">
+              {/* Customer & Appointment Info - Combined */}
+              <div className="grid grid-cols-2 gap-6">
+                {/* Left Column - Customer Info */}
+                <div className="space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                      <Profile2User size={18} className="text-gray-600" />
+                      Thông tin khách hàng
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Tên khách hàng</label>
+                        <p className="text-sm text-gray-900">{selectedRequest.customerName}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Email</label>
+                        <p className="text-sm text-gray-900">{selectedRequest.customerEmail}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Số điện thoại</label>
+                        <p className="text-sm text-gray-900">{selectedRequest.customerPhone || 'Chưa có'}</p>
+                      </div>
+                    </div>
+                  </div>
 
-              {/* Bank Info */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-900 mb-3">Thông tin tài khoản nhận tiền</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Số tài khoản</label>
-                    <p className="text-gray-900">{selectedRequest.accountNumber}</p>
+                  {/* Bank Info */}
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-3">Thông tin tài khoản nhận tiền</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Số tài khoản</label>
+                        <p className="text-sm text-gray-900 font-mono">{selectedRequest.accountNumber}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Chủ tài khoản</label>
+                        <p className="text-sm text-gray-900">{selectedRequest.accountHolderName}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Ngân hàng</label>
+                        <p className="text-sm text-gray-900">{selectedRequest.bankName}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Chủ tài khoản</label>
-                    <p className="text-gray-900">{selectedRequest.accountHolderName}</p>
+                </div>
+
+                {/* Right Column - Appointment Info */}
+                <div className="space-y-4">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                      <Calendar size={18} className="text-gray-600" />
+                      Chi tiết lịch hẹn
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Mã lịch hẹn</label>
+                        <p className="text-sm text-gray-900 font-mono">{selectedRequest.appointmentId}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Dịch vụ</label>
+                        <p className="text-sm text-gray-900 font-medium">{selectedRequest.serviceName}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-gray-500">Ngày hẹn</label>
+                          <p className="text-sm text-gray-900">{formatDate(selectedRequest.appointmentDate)}</p>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-500">Giờ hẹn</label>
+                          <p className="text-sm text-gray-900">{selectedRequest.appointmentTime || 'Chưa có'}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-gray-500">Hình thức</label>
+                          <p className="text-sm text-gray-900">{
+                            selectedRequest.appointmentType === 'online' ? 'Trực tuyến' : 
+                            selectedRequest.appointmentType === 'offline' ? 'Phòng khám' : 
+                            'Chưa rõ'
+                          }</p>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-500">Ngày đặt</label>
+                          <p className="text-sm text-gray-900">{formatDate(selectedRequest.bookingDate || '')}</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Ngân hàng</label>
-                    <p className="text-gray-900">{selectedRequest.bankName}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Số điện thoại</label>
-                    <p className="text-gray-900">{selectedRequest.phoneNumber}</p>
+
+                  {/* Payment Info */}
+                  <div className="bg-yellow-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                      <MoneyRecive size={18} className="text-gray-600" />
+                      Thông tin thanh toán
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs font-medium text-gray-500">Chi phí ban đầu</label>
+                          <p className="text-sm text-gray-900">{formatPrice(selectedRequest.totalAmount || selectedRequest.refundAmount)}</p>
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-gray-500">Số tiền hoàn</label>
+                          <p className="text-sm text-blue-600 font-semibold">{formatPrice(selectedRequest.refundAmount)}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Trạng thái thanh toán ban đầu</label>
+                        <p className="text-sm text-gray-900">{
+                          selectedRequest.originalPaymentStatus === 'success' ? 'Đã thanh toán' :
+                          selectedRequest.originalPaymentStatus === 'refunded' ? 'Đã hoàn tiền' :
+                          selectedRequest.originalPaymentStatus || 'Chưa rõ'
+                        }</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Reason */}
-              <div>
-                <label className="text-sm font-medium text-gray-500 block mb-2">Lý do hủy</label>
-                <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{selectedRequest.reason}</p>
+              <div className="bg-red-50 p-4 rounded-lg">
+                <h4 className="font-medium text-gray-900 mb-2">Lý do hủy lịch hẹn</h4>
+                <p className="text-sm text-gray-700 italic">"{selectedRequest.reason}"</p>
               </div>
 
-              {/* Status and Processing Info */}
-              <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-                <div>
-                  <p className="text-sm text-gray-600">Trạng thái hiện tại</p>
+              {/* Status and Processing */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-3">Trạng thái xử lý</h4>
                   <Tag
                     color={statusConfig[selectedRequest.status as keyof typeof statusConfig]?.color}
-                    className="flex items-center gap-1 w-fit mt-1"
+                    className="flex items-center gap-1 w-fit mb-2"
                   >
                     {statusConfig[selectedRequest.status as keyof typeof statusConfig]?.icon}
                     {statusConfig[selectedRequest.status as keyof typeof statusConfig]?.text}
                   </Tag>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500">Yêu cầu lúc</label>
+                    <p className="text-sm text-gray-900">{formatDate(selectedRequest.requestedAt)}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">Yêu cầu lúc</p>
-                  <p className="text-sm font-medium">{formatDate(selectedRequest.requestedAt)}</p>
+                
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-900 mb-3">Thông tin xử lý</h4>
+                  {selectedRequest.processedBy ? (
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500">Xử lý bởi</label>
+                        <p className="text-sm font-medium text-green-700">{selectedRequest.processedBy}</p>
+                      </div>
+                      {selectedRequest.processedAt && (
+                        <div>
+                          <label className="text-xs font-medium text-gray-500">Thời gian xử lý</label>
+                          <p className="text-sm text-gray-900">{formatDate(selectedRequest.processedAt)}</p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">Chưa được xử lý</p>
+                  )}
                 </div>
+              </div>
+
+              {/* Manager Notes */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Ghi chú của Manager</h4>
+                {selectedRequest.notes && (
+                  <div className="mb-3 p-3 bg-yellow-100 border-l-4 border-yellow-500 rounded">
+                    <p className="text-sm text-gray-700">{selectedRequest.notes}</p>
+                  </div>
+                )}
+                
+                {/* Chỉ hiển thị ô nhập khi chưa xử lý xong */}
+                {(selectedRequest.status === 'pending' || selectedRequest.status === 'processing') && (
+                  <TextArea
+                    value={managerNotes}
+                    onChange={(e) => setManagerNotes(e.target.value)}
+                    placeholder={selectedRequest.notes ? "Cập nhật ghi chú..." : "Nhập ghi chú xử lý..."}
+                    rows={3}
+                    className="w-full"
+                  />
+                )}
               </div>
 
               {/* Actions */}
@@ -454,33 +587,23 @@ const RefundManagement: React.FC = () => {
                 </button>
                 
                 <div className="flex gap-2">
-                  {selectedRequest.status === 'pending' && (
+                  {(selectedRequest.status === 'pending' || selectedRequest.status === 'processing') && (
                     <>
                       <Button
-                        onClick={() => handleUpdateStatus(selectedRequest.id, 'processing')}
+                        onClick={() => handleUpdateStatus(selectedRequest.id, 'completed', managerNotes)}
                         loading={processing}
-                        className="bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                        className="bg-green-600 text-white border-green-600 hover:bg-green-700"
                       >
-                        Bắt đầu xử lý
+                        Hoàn tất xử lí
                       </Button>
                       <Button
-                        onClick={() => handleUpdateStatus(selectedRequest.id, 'rejected', 'Không đủ điều kiện hoàn tiền')}
+                        onClick={() => handleUpdateStatus(selectedRequest.id, 'rejected', managerNotes || 'Không đủ điều kiện hoàn tiền')}
                         loading={processing}
                         danger
                       >
                         Từ chối
                       </Button>
                     </>
-                  )}
-                  
-                  {selectedRequest.status === 'processing' && (
-                    <Button
-                      onClick={() => handleUpdateStatus(selectedRequest.id, 'completed')}
-                      loading={processing}
-                      className="bg-green-600 text-white border-green-600 hover:bg-green-700"
-                    >
-                      Hoàn thành
-                    </Button>
                   )}
                 </div>
               </div>
