@@ -196,6 +196,18 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
     return new Intl.NumberFormat('vi-VN').format(price);
   };
 
+  // Thêm useEffect ở cấp component để đồng bộ quantity khi có >=2 dịch vụ
+  useEffect(() => {
+    const services = form.getFieldValue('services') || [];
+    if (services.length >= 2) {
+      const updated = services.map((item: any) => ({ ...item, quantity: 1 }));
+      // Chỉ set lại nếu có item nào quantity khác 1
+      if (services.some((item: any) => item.quantity !== 1)) {
+        form.setFieldsValue({ services: updated });
+      }
+    }
+  }, [form, form.getFieldValue('services')?.length]);
+
   return (
     <Modal
       title={
@@ -246,8 +258,8 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
         </Form.Item>
 
         {/* Duration and Status Row */}
-        <Row gutter={16}>
-          <Col span={12}>
+        <Row gutter={8} style={{ marginBottom: 0, paddingBottom: 0 }}>
+          <Col span={12} style={{ marginBottom: 0, paddingBottom: 0 }}>
             <Form.Item
               name="durationInDays"
               label="Thời hạn sử dụng (ngày)"
@@ -255,6 +267,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                 { required: true, message: 'Vui lòng nhập thời hạn' },
                 { type: 'number', min: 1, max: 365, message: 'Thời hạn từ 1-365 ngày' }
               ]}
+              style={{ marginBottom: 0, paddingBottom: 0 }}
             >
               <InputNumber
                 placeholder="Ví dụ: 30"
@@ -265,13 +278,14 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
               />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col span={12} style={{ marginBottom: 0, paddingBottom: 0 }}>
             <Form.Item
               name="isActive"
               label="Trạng thái"
               rules={[
                 { required: true, message: 'Vui lòng chọn trạng thái' }
               ]}
+              style={{ marginBottom: 0, paddingBottom: 0 }}
             >
               <Select placeholder="Chọn trạng thái">
                 <Option value={true}>Hoạt động</Option>
@@ -282,21 +296,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
         </Row>
 
         {/* Services with Quantities */}
-        <Form.Item
-          name="services"
-          label="Dịch vụ và số lượng"
-          rules={[
-            { required: true, message: 'Vui lòng chọn ít nhất một dịch vụ' },
-            {
-              validator: (_, value) => {
-                if (!value || value.length === 0) {
-                  return Promise.reject('Vui lòng chọn ít nhất một dịch vụ');
-                }
-                return Promise.resolve();
-              }
-            }
-          ]}
-        >
+        <Form.Item label="Dịch vụ và số lượng" required style={{ marginBottom: 0, paddingBottom: 0, marginTop: 0 }}>
           <Form.List 
             name="services"
             initialValue={[]}
@@ -306,58 +306,43 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                 {fields.map(({ key, name, ...restField }) => {
                   const isMultipleServices = fields.length >= 2;
                   const availableServicesForField = getAvailableServicesForField(name);
-                  
                   return (
-                    <Row key={key} gutter={8} className="mb-3">
-                      <Col span={14}>
+                    <Row key={key} gutter={8} align="middle" style={{ marginBottom: 0, paddingBottom: 0 }}>
+                      <Col flex="auto" style={{ marginBottom: 0, paddingBottom: 0 }}>
                         <Form.Item
                           key={`serviceId-${key}`}
                           name={[name, 'serviceId']}
                           label="Dịch vụ"
                           rules={[{ required: true, message: 'Chọn dịch vụ' }]}
+                          noStyle
+                          style={{ marginBottom: 0, paddingBottom: 0 }}
                         >
                           <Select
                             placeholder="Chọn dịch vụ"
                             loading={servicesLoading}
                             showSearch
                             filterOption={(input, option) => {
-                              // Find the service by option value to get serviceName
                               const service = availableServicesForField.find(s => s._id === option?.value);
                               if (!service) return false;
-                              
-                              // Case-insensitive search in serviceName
                               return service.serviceName.toLowerCase().includes(input.toLowerCase());
                             }}
                             onChange={() => {
-                              // Set default quantity to 1 for new service selection
                               const currentServices = form.getFieldValue('services');
-                              if (currentServices[name] && !currentServices[name].quantity) {
-                                currentServices[name].quantity = 1;
-                                form.setFieldsValue({ services: currentServices });
-                              }
-                              
-                              // Force re-render to update available services in other selects
-                              setTimeout(() => {
-                                const currentServices = form.getFieldValue('services');
-                                form.setFieldsValue({ services: [...currentServices] });
-                                handleServicesChange(currentServices);
-                              }, 0);
+                              handleServicesChange(currentServices);
                             }}
                           >
                             {availableServicesForField.map((service) => (
                               <Option key={service._id} value={service._id}>
                                 <div className="flex justify-between">
                                   <span>{service.serviceName}</span>
-                                  <span className="text-green-600">
-                                    {formatPrice(service.price)} VNĐ
-                                  </span>
+                                  <span className="text-green-600">{formatPrice(service.price)} VNĐ</span>
                                 </div>
                               </Option>
                             ))}
                           </Select>
                         </Form.Item>
                       </Col>
-                      <Col span={6}>
+                      <Col flex="120px" style={{ marginBottom: 0, paddingBottom: 0 }}>
                         <Form.Item
                           key={`quantity-${key}`}
                           name={[name, 'quantity']}
@@ -367,27 +352,33 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                             { type: 'number', min: 1, message: 'Số lượng phải >= 1' }
                           ]}
                           initialValue={1}
+                          noStyle
+                          style={{ marginBottom: 0, paddingBottom: 0 }}
                         >
                           <InputNumber
                             placeholder="Số lượng"
                             min={1}
                             max={99}
                             className="w-full"
+                            disabled={isMultipleServices}
                             onChange={() => {
-                              // Trigger price recalculation when quantity changes
-                              setTimeout(() => {
-                                const currentServices = form.getFieldValue('services');
-                                handleServicesChange(currentServices);
-                              }, 100);
+                              const currentServices = form.getFieldValue('services');
+                              handleServicesChange(currentServices);
                             }}
                           />
                         </Form.Item>
                       </Col>
-                      <Col span={4} className="flex items-center justify-center">
+                      <Col span={4} className="flex items-center justify-center" style={{ marginBottom: 0, paddingBottom: 0 }}>
                         <Button
                           type="link"
                           danger
-                          onClick={() => remove(name)}
+                          onClick={() => {
+                            remove(name);
+                            setTimeout(() => {
+                              const currentServices = form.getFieldValue('services');
+                              handleServicesChange(currentServices);
+                            }, 0);
+                          }}
                         >
                           Xóa
                         </Button>
@@ -409,8 +400,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                       handleServicesChange(currentServices);
                     }, 0);
                   }}
-                  style={{ width: '100%' }}
-                  className="mt-2"
+                  style={{ width: '100%', marginBottom: 0, paddingBottom: 0 }}
                 >
                   Thêm dịch vụ
                 </Button>
@@ -420,12 +410,13 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
         </Form.Item>
 
         {/* Pricing Section - Giá gốc (readonly) và Giá gói (user input) nằm ngang */}
-        <Row gutter={16}>
-          <Col span={12}>
+        <Row gutter={8} style={{ marginBottom: 0, paddingBottom: 0 }}>
+          <Col span={12} style={{ marginBottom: 0, paddingBottom: 0 }}>
             <Form.Item
               name="priceBeforeDiscount"
               label="Giá gốc (VNĐ)"
               tooltip="Giá gốc được tự động tính từ tổng giá các dịch vụ đã chọn"
+              style={{ marginBottom: 0, paddingBottom: 0 }}
             >
               <InputNumber
                 placeholder="Giá gốc tự động tính"
@@ -433,11 +424,11 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                 readOnly
                 disabled
                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
+                parser={(value) => value?.replace(/\$\s?|,*/g, '') as any}
               />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col span={12} style={{ marginBottom: 0, paddingBottom: 0 }}>
             <Form.Item
               name="price"
               label="Giá gói (VNĐ)"
@@ -454,13 +445,14 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                   }
                 }
               ]}
+              style={{ marginBottom: 0, paddingBottom: 0 }}
             >
               <InputNumber
                 placeholder="Nhập giá gói"
                 min={0}
                 className="w-full"
                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as any}
+                parser={(value) => value?.replace(/\$\s?|,*/g, '') as any}
               />
             </Form.Item>
           </Col>
