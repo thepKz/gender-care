@@ -2,6 +2,7 @@ import React from 'react';
 import { Button, Tooltip } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import { UnifiedAppointment } from '../../../types/appointment';
+import { safeCombineDateTime } from '../../../utils/dateTimeUtils';
 
 interface AppointmentCancelButtonProps {
   appointment: UnifiedAppointment;
@@ -25,11 +26,11 @@ const AppointmentCancelButton: React.FC<AppointmentCancelButtonProps> = ({
       
       const now = new Date();
       
-      // Parse appointment datetime
-      const appointmentDateTime = new Date(`${appointmentDate} ${appointmentTime}`);
+      // Parse appointment datetime safely
+      const appointmentDateTime = safeCombineDateTime(appointmentDate, appointmentTime);
       
       // Check if appointment datetime is valid
-      if (isNaN(appointmentDateTime.getTime())) {
+      if (!appointmentDateTime) {
         console.warn('Invalid appointment datetime:', { appointmentDate, appointmentTime });
         return false;
       }
@@ -82,7 +83,8 @@ const AppointmentCancelButton: React.FC<AppointmentCancelButtonProps> = ({
   const getHoursUntilAppointment = (): number => {
     try {
       const now = new Date();
-      const appointmentDateTime = new Date(`${appointment.appointmentDate} ${appointment.appointmentTime}`);
+      const appointmentDateTime = safeCombineDateTime(appointment.appointmentDate, appointment.appointmentTime);
+      if (!appointmentDateTime) return 0;
       return Math.round((appointmentDateTime.getTime() - now.getTime()) / (1000 * 60 * 60));
     } catch {
       return 0;

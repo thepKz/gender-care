@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { consultationApi } from '../../api';
 import { appointmentApi } from '../../api/endpoints';
 import { useAuth } from '../../hooks/useAuth';
+import { safeCombineDateTime } from '../../utils/dateTimeUtils';
 
 const { Search } = Input;
 const { Option } = Select;
@@ -176,32 +177,32 @@ const BookingHistoryOptimized: React.FC = () => {
           }
 
           return {
-            id: apt._id,
+          id: apt._id,
             type: (apt.type as 'appointment' | 'consultation') || 'appointment',
-            serviceId: apt.serviceId || '',
-            serviceName: apt.serviceName || 'Dịch vụ không xác định',
-            packageName: apt.packageName,
-            doctorName: apt.doctorName || 'Chưa chỉ định bác sĩ',
-            doctorAvatar: apt.doctorAvatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-            patientName: apt.patientName || apt.fullName,
-            appointmentDate: apt.appointmentDate ? new Date(apt.appointmentDate).toISOString().split('T')[0] : '',
-            appointmentTime: apt.appointmentTime || apt.appointmentSlot || '',
-            appointmentSlot: apt.appointmentSlot,
-            typeLocation: apt.typeLocation || 'clinic',
-            status: apt.status,
-            price: apt.price || 0,
-            createdAt: new Date(apt.createdAt).toISOString(),
-            description: apt.description || apt.question,
-            notes: apt.notes,
-            address: apt.address,
-            canCancel: apt.canCancel || false,
-            canReschedule: apt.canReschedule || false,
-            rating: apt.rating,
-            feedback: apt.feedback,
-            phone: apt.phone,
-            age: apt.age,
-            gender: apt.gender,
-            question: apt.question,
+          serviceId: apt.serviceId || '',
+          serviceName: apt.serviceName || 'Dịch vụ không xác định',
+          packageName: apt.packageName,
+          doctorName: apt.doctorName || 'Chưa chỉ định bác sĩ',
+          doctorAvatar: apt.doctorAvatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+          patientName: apt.patientName || apt.fullName,
+          appointmentDate: apt.appointmentDate ? new Date(apt.appointmentDate).toISOString().split('T')[0] : '',
+          appointmentTime: apt.appointmentTime || apt.appointmentSlot || '',
+          appointmentSlot: apt.appointmentSlot,
+          typeLocation: apt.typeLocation || 'clinic',
+          status: apt.status,
+          price: apt.price || 0,
+          createdAt: new Date(apt.createdAt).toISOString(),
+          description: apt.description || apt.question,
+          notes: apt.notes,
+          address: apt.address,
+          canCancel: apt.canCancel || false,
+          canReschedule: apt.canReschedule || false,
+          rating: apt.rating,
+          feedback: apt.feedback,
+          phone: apt.phone,
+          age: apt.age,
+          gender: apt.gender,
+          question: apt.question,
             doctorNotes: apt.doctorNotes,
             paymentStatus: paymentStatus
           };
@@ -306,23 +307,15 @@ const BookingHistoryOptimized: React.FC = () => {
     // Sử dụng appointmentTime hoặc appointmentSlot, fallback về "00:00" nếu không có
     const timeSlot = appointment.appointmentTime || appointment.appointmentSlot || "00:00";
     
-    // Parse date more robustly
-    let appointmentDateTime: Date;
-    try {
-      // Nếu appointmentDate đã là ISO string, parse trực tiếp
-      if (appointment.appointmentDate.includes('T')) {
-        appointmentDateTime = new Date(appointment.appointmentDate);
-      } else {
-        // Nếu là date string đơn giản, nối với time
-        const dateTimeString = appointment.appointmentDate + 'T' + timeSlot;
-        appointmentDateTime = new Date(dateTimeString);
-      }
-    } catch {
-      return false;
-    }
+    // Use safe datetime combination
+    const appointmentDateTime = safeCombineDateTime(appointment.appointmentDate, timeSlot);
     
-    // Kiểm tra xem date có hợp lệ không
-    if (isNaN(appointmentDateTime.getTime())) {
+    // Check if appointment datetime is valid
+    if (!appointmentDateTime) {
+      console.warn('Invalid appointment datetime for refund check:', { 
+        appointmentDate: appointment.appointmentDate, 
+        timeSlot 
+      });
       return false;
     }
 
@@ -340,22 +333,15 @@ const BookingHistoryOptimized: React.FC = () => {
     // Sử dụng appointmentTime hoặc appointmentSlot, fallback về "00:00" nếu không có
     const timeSlot = appointment.appointmentTime || appointment.appointmentSlot || "00:00";
     
-    // Parse date more robustly
-    let appointmentDateTime: Date;
-    try {
-      // Nếu appointmentDate đã là ISO string, parse trực tiếp
-      if (appointment.appointmentDate.includes('T')) {
-        appointmentDateTime = new Date(appointment.appointmentDate);
-      } else {
-        // Nếu là date string đơn giản, nối với time
-        appointmentDateTime = new Date(appointment.appointmentDate + 'T' + timeSlot);
-      }
-    } catch {
-      return 0;
-    }
+    // Use safe datetime combination
+    const appointmentDateTime = safeCombineDateTime(appointment.appointmentDate, timeSlot);
     
-    // Kiểm tra xem date có hợp lệ không
-    if (isNaN(appointmentDateTime.getTime())) {
+    // Check if appointment datetime is valid
+    if (!appointmentDateTime) {
+      console.warn('Invalid appointment datetime for hours calculation:', { 
+        appointmentDate: appointment.appointmentDate, 
+        timeSlot 
+      });
       return 0;
     }
     
@@ -403,7 +389,7 @@ const BookingHistoryOptimized: React.FC = () => {
         } else {
           // Call regular cancel API (no refund)
           await appointmentApi.deleteAppointment(selectedAppointment.id);
-        }
+      }
       }
       
       const successMessage = requestRefund 
@@ -879,14 +865,14 @@ const BookingHistoryOptimized: React.FC = () => {
                 <div className="flex gap-2">
                   {/* Hiển thị button hủy cho tất cả appointment có thể hủy */}
                   {canCancel(selectedAppointment) && (
-                    <button
+                  <button
                       onClick={() => handleCancelAppointment(selectedAppointment)}
                       disabled={cancelLoading}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
+                  >
                       {cancelLoading ? 'Đang xử lý...' : 'Hủy lịch hẹn'}
-                    </button>
-                  )}
+                  </button>
+                )}
                 </div>
               </div>
             </div>

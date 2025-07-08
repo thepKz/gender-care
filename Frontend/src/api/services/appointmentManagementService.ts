@@ -7,6 +7,7 @@ import {
   AppointmentFilters
 } from '../../types/appointment';
 import axiosInstance from '../axiosConfig';
+import { safeCombineDateTime } from '../../utils/dateTimeUtils';
 
 /**
  * Service để quản lý appointments của doctor
@@ -146,8 +147,14 @@ class AppointmentManagementService {
       
       // Sort by appointment date and time (newest first)
       allAppointments.sort((a, b) => {
-        const dateA = new Date(`${a.appointmentDate} ${a.appointmentTime}`);
-        const dateB = new Date(`${b.appointmentDate} ${b.appointmentTime}`);
+        const dateA = safeCombineDateTime(a.appointmentDate, a.appointmentTime);
+        const dateB = safeCombineDateTime(b.appointmentDate, b.appointmentTime);
+        
+        // Handle null dates (put them at the end)
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        
         return dateB.getTime() - dateA.getTime();
       });
 
