@@ -465,22 +465,6 @@ const ServiceManagement: React.FC = () => {
               />
             </Tooltip>
           )}
-          {canUpdateService(userRole) && (
-            <Tooltip title={record.isDeleted ? "Kích hoạt dịch vụ" : "Vô hiệu hóa dịch vụ"}>
-              <Popconfirm
-                title={`Bạn có chắc chắn muốn ${record.isDeleted ? 'kích hoạt' : 'vô hiệu hóa'} dịch vụ này?`}
-                onConfirm={() => handleStatusToggle(record.id)}
-                okText="Có"
-                cancelText="Không"
-              >
-                <Button 
-                  type="text" 
-                  icon={record.isDeleted ? <CheckOutlined /> : <StopOutlined />}
-                  style={{ color: record.isDeleted ? '#52c41a' : '#ff7a00' }}
-                />
-              </Popconfirm>
-            </Tooltip>
-          )}
           {canDeleteService(userRole) && !record.isDeleted && (
             <Tooltip title="Xóa">
               <Popconfirm
@@ -621,7 +605,6 @@ const ServiceManagement: React.FC = () => {
             <Option value="all">Tất cả hình thức</Option>
             <Option value="Online">Trực tuyến</Option>
             <Option value="Center">Tại trung tâm</Option>
-            <Option value="Athome">Tại nhà</Option>
           </Select>
 
           <Select
@@ -734,7 +717,6 @@ const ServiceManagement: React.FC = () => {
             >
               <Option value="Online">Trực tuyến</Option>
               <Option value="Center">Tại trung tâm</Option>
-              <Option value="Athome">Tại nhà</Option>
             </Select>
           </Form.Item>
 
