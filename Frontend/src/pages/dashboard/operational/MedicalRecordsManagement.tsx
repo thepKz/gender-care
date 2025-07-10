@@ -34,6 +34,7 @@ import type { ApiAppointment } from '../../../types/appointment';
 import dayjs from 'dayjs';
 import medicalApi from '../../../api/endpoints/medical';
 import { testResultItemsApi, serviceTestCategoriesApi, testCategoriesApi } from '../../../api/endpoints/testManagementApi';
+import servicePackageApi from '../../../api/endpoints/servicePackageApi';
 // import './medical-records-view.css';
 
 const { Title, Text } = Typography;
@@ -52,6 +53,8 @@ interface AppointmentTableItem {
   appointmentTime: string;
   serviceName: string;
   serviceId?: any;
+  packageId?: any; // Thêm dòng này
+  packageName?: string; // Thêm dòng này
   appointmentType: string;
   status: string;
   paymentStatus: string;
@@ -108,6 +111,8 @@ const MedicalRecordsManagement: React.FC = () => {
         doctorName: item.doctorId?.userId?.fullName || 'N/A',
         serviceName: item.serviceId?.serviceName || '',
         serviceId: item.serviceId,
+        packageId: item.packageId || undefined, // Thêm dòng này
+        packageName: item.packageId?.name || '', // Thêm dòng này
         appointmentType: item.appointmentType,
         status: item.status,
         paymentStatus: item.paymentStatus,
@@ -156,9 +161,27 @@ const MedicalRecordsManagement: React.FC = () => {
     }
   }, [medicalModalOpen]);
 
+  // Thêm hàm fetch serviceTestCategories cho package
+  const fetchServiceTestCategoriesForPackage = async (packageId) => {
+    try {
+      const pkgRes = await servicePackageApi.getServicePackageById(packageId);
+      // ServicePackageResponse: { success, data: { ...ServicePackage } }
+      const services = pkgRes.data?.services || [];
+      let allCats = [];
+      for (const s of services) {
+        const sid = typeof s.serviceId === 'object' ? s.serviceId._id : s.serviceId;
+        if (!sid) continue;
+        const res = await serviceTestCategoriesApi.getByService(sid);
+        if (Array.isArray(res)) allCats = allCats.concat(res);
+      }
+      return allCats;
+    } catch {
+      return [];
+    }
+  };
+
   useEffect(() => {
     if (medicalModalOpen && selectedAppointment && activeTabKey === '2') {
-      // Lấy toàn bộ test categories
       testCategoriesApi.getAll().then(cats => setTestCategories(cats || []));
       appointmentApi.getTestResultsByAppointment(selectedAppointment.appointmentId || selectedAppointment.id).then(res => {
         const testResult = Array.isArray(res?.data) ? res.data[0] : res?.data;
@@ -175,22 +198,24 @@ const MedicalRecordsManagement: React.FC = () => {
               : [];
             setTestResultItems(allItems);
           });
+    });
+    // Nếu là package, fetch tất cả serviceTestCategories của các service trong package
+    if (selectedAppointment.packageId?._id || selectedAppointment.packageId?.id) {
+      const pkgId = selectedAppointment.packageId._id || selectedAppointment.packageId.id;
+      fetchServiceTestCategoriesForPackage(pkgId).then(allCats => {
+        setServiceTestCategoriesMap(prev => ({ ...prev, [pkgId]: allCats }));
       });
-      
-      // Fetch serviceTestCategories cho appointment hiện tại nếu chưa có
+    } else {
+      // Nếu là dịch vụ lẻ
       const serviceId = selectedAppointment?.serviceId?._id || selectedAppointment?.serviceId;
       if (serviceId && !serviceTestCategoriesMap[serviceId]) {
-        console.log('Fetching serviceTestCategories for serviceId:', serviceId);
         fetchServiceTestCategoriesByServiceId(serviceId).then(cats => {
-          console.log('Fetched serviceTestCategories:', cats);
-          setServiceTestCategoriesMap(prev => ({
-            ...prev,
-            [serviceId]: cats
-          }));
+          setServiceTestCategoriesMap(prev => ({ ...prev, [serviceId]: cats }));
         });
       }
     }
-  }, [medicalModalOpen, selectedAppointment, activeTabKey]);
+  }
+}, [medicalModalOpen, selectedAppointment, activeTabKey]);
 
   // Tự động fetch serviceTestCategories cho tất cả serviceId khi load appointments
   useEffect(() => {
@@ -385,7 +410,7 @@ const MedicalRecordsManagement: React.FC = () => {
       dataIndex: 'serviceName',
       key: 'serviceName',
       width: 110,
-      render: (text: string) => <Text>{text}</Text>
+      render: (text: string, record: AppointmentTableItem) => <Text>{record.packageName || text}</Text>
     },
     {
       title: 'Trạng thái',
@@ -534,8 +559,9 @@ const MedicalRecordsManagement: React.FC = () => {
         <div>
           {testResultItems && testResultItems.length > 0 ? (
             testResultItems.map((item, idx) => {
+              const pkgId = selectedAppointment?.packageId?._id || selectedAppointment?.packageId?.id;
               const serviceId = selectedAppointment?.serviceId?._id || selectedAppointment?.serviceId;
-              const serviceCats = serviceTestCategoriesMap[serviceId] || [];
+              const serviceCats = pkgId ? (serviceTestCategoriesMap[pkgId] || []) : (serviceTestCategoriesMap[serviceId] || []);
               const cat = serviceCats.find(sc => sc.testCategoryId === item.testCategoryId) ||
                           serviceCats.find(sc => sc.testCategoryId?._id === item.testCategoryId) ||
                           serviceCats.find(sc => sc.testCategoryId === item.testCategoryId?._id) ||
@@ -671,10 +697,7 @@ const MedicalRecordsManagement: React.FC = () => {
     <div style={{ padding: '24px' }}>
       <Card>
         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
-            <FileTextOutlined style={{ marginRight: 8, color: '#1890ff' }} />
-            Quản lý cuộc hẹn
-          </Title>
+          <Title level={3} style={{ marginBottom: 24 }}>Quản lý hồ sơ bệnh án</Title>
         </div>
         <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <Search

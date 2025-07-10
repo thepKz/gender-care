@@ -26,8 +26,8 @@ router.post('/search', searchServicePackages);                   // POST /servic
 router.get('/:id/purchase', getPackagePurchase);                   // GET /service-packages/:id/purchase - Get purchase info with value metrics
 router.post('/:id/usage-projection', getUsageProjection);        // POST /service-packages/:id/usage-projection - Calculate usage projection for planning
 
-// NEW: Allow staff, doctor, manager, admin to get package details
-router.get('/:id', authMiddleware, authorizeStaffOrDoctorOrManager, getServicePackageById); // GET /service-packages/:id
+// NEW: Allow all roles (public) to get package details
+router.get('/:id', getServicePackageById); // GET /service-packages/:id
 
 // Protected routes - cần authentication và manager authorization
 router.use(authMiddleware);

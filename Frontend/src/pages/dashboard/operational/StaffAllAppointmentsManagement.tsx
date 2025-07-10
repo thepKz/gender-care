@@ -188,7 +188,7 @@ const StaffAllAppointmentsManagement: React.FC = () => {
               if (serviceTypeToCheck === 'test' || serviceTypeToCheck === 'treatment') {
                 match = true;
                 break;
-              }
+      }
             }
           } catch (e) {
             // Nếu lỗi lấy package thì bỏ qua
@@ -213,38 +213,38 @@ const StaffAllAppointmentsManagement: React.FC = () => {
           }
 
           filteredAppointments.push({
-            _id: appointment._id,
-            profileId: {
-              _id: appointment.profileId?._id || appointment.profileId || '',
-              fullName: appointment.profileId?.fullName || 'N/A',
+        _id: appointment._id,
+        profileId: {
+          _id: appointment.profileId?._id || appointment.profileId || '',
+          fullName: appointment.profileId?.fullName || 'N/A',
               phoneNumber: appointment.profileId?.phone || 'N/A',
-              dateOfBirth: appointment.profileId?.dateOfBirth,
-              gender: appointment.profileId?.gender
-            },
-            serviceId: {
-              _id: appointment.serviceId?._id || appointment.serviceId || '',
+          dateOfBirth: appointment.profileId?.dateOfBirth,
+          gender: appointment.profileId?.gender
+        },
+        serviceId: {
+          _id: appointment.serviceId?._id || appointment.serviceId || '',
               serviceName,
               serviceType
-            },
-            doctorId: appointment.doctorId ? {
-              _id: appointment.doctorId._id || appointment.doctorId || '',
-              userId: {
+        },
+        doctorId: appointment.doctorId ? {
+          _id: appointment.doctorId._id || appointment.doctorId || '',
+          userId: {
                 fullName: appointment.doctorId?.userId?.fullName || 'Chưa phân công'
-              }
-            } : {
-              _id: '',
-              userId: { fullName: 'Chưa phân công' }
-            },
-            appointmentDate: appointment.appointmentDate,
-            appointmentTime: appointment.appointmentTime,
-            appointmentType: appointment.appointmentType || 'consultation',
-            typeLocation: appointment.typeLocation || 'clinic',
-            address: appointment.address || '',
-            description: appointment.description || '',
-            notes: appointment.notes || '',
-            status: appointment.status,
-            createdAt: appointment.createdAt,
-            updatedAt: appointment.updatedAt
+          }
+        } : {
+          _id: '',
+          userId: { fullName: 'Chưa phân công' }
+        },
+        appointmentDate: appointment.appointmentDate,
+        appointmentTime: appointment.appointmentTime,
+        appointmentType: appointment.appointmentType || 'consultation',
+        typeLocation: appointment.typeLocation || 'clinic',
+        address: appointment.address || '',
+        description: appointment.description || '',
+        notes: appointment.notes || '',
+        status: appointment.status,
+        createdAt: appointment.createdAt,
+        updatedAt: appointment.updatedAt
           });
         }
       }

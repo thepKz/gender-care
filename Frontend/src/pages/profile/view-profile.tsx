@@ -274,13 +274,39 @@ const ViewProfilePage: React.FC = () => {
     } catch {}
   };
 
-  // 3. Hàm fetch service test categories theo serviceId
-  const fetchServiceTestCategories = async (serviceId: string) => {
-    try {
-      const res = await axiosInstance.get(`/service-test-categories?serviceId=${serviceId}`);
-      const data = res.data;
-      if (data && Array.isArray(data.data)) setServiceTestCategories(data.data);
-    } catch {}
+  // 3. Hàm fetch service test categories theo serviceId hoặc packageId
+  const fetchServiceTestCategoriesForAppointment = async (apt: any) => {
+    // Hàm phụ fetch cho serviceId lẻ
+    const fetchServiceTestCategories = async (serviceId: string) => {
+      try {
+        const res = await axiosInstance.get(`/service-test-categories?serviceId=${serviceId}`);
+        const data = res.data;
+        if (data && Array.isArray(data.data)) setServiceTestCategories(data.data);
+      } catch {
+        setServiceTestCategories([]);
+      }
+    };
+    if (apt.packageId?._id || apt.packageId?.id) {
+      // Nếu là package, lấy tất cả serviceId trong package
+      try {
+        const pkgId = apt.packageId._id || apt.packageId.id;
+        const pkgRes = await axiosInstance.get(`/service-packages/${pkgId}`);
+        const services = pkgRes.data?.data?.services || [];
+        let allCats: any[] = [];
+        for (const s of services) {
+          const sid = typeof s.serviceId === 'object' ? s.serviceId._id : s.serviceId;
+          if (!sid) continue;
+          const res = await axiosInstance.get(`/service-test-categories?serviceId=${sid}`);
+          if (Array.isArray(res.data?.data)) allCats = allCats.concat(res.data.data);
+        }
+        setServiceTestCategories(allCats);
+      } catch {
+        setServiceTestCategories([]);
+      }
+    } else if (apt.serviceId) {
+      // Nếu là dịch vụ lẻ
+      fetchServiceTestCategories(apt.serviceId);
+    }
   };
 
   // Hàm fetch testResultItems trực tiếp theo appointmentId
@@ -309,12 +335,7 @@ const ViewProfilePage: React.FC = () => {
   useEffect(() => {
     if (showMedicalRecordTabs && selectedAppointment) {
       if (testCategories.length === 0) fetchTestCategories();
-      if (
-        selectedAppointment.serviceId &&
-        (!serviceTestCategories.length || serviceTestCategories[0]?.serviceId !== selectedAppointment.serviceId)
-      ) {
-        fetchServiceTestCategories(selectedAppointment.serviceId);
-      }
+      fetchServiceTestCategoriesForAppointment(selectedAppointment);
       // Gọi fetchTestResultItemsByAppointment thay vì fetchTestResultByAppointment
       if (selectedAppointment._id) fetchTestResultItemsByAppointment(selectedAppointment._id);
     } else {
@@ -500,7 +521,7 @@ const ViewProfilePage: React.FC = () => {
                               <FileTextOutlined className="text-red-500 mt-1 flex-shrink-0" />
                               <div>
                                 <span className="font-semibold text-[#0C3C54]">Dịch vụ:</span>
-                                <p className="text-gray-700 mt-1">{apt.serviceId?.serviceName || 'N/A'}</p>
+                                <p className="text-gray-700 mt-1">{apt.packageId?.name || apt.serviceId?.serviceName || 'N/A'}</p>
                               </div>
                             </div>
                             
