@@ -7,11 +7,12 @@ import {
   recoverServicePackage,
   searchServicePackages,
   getPackagePurchase,
-  getUsageProjection
+  getUsageProjection,
+  getServicePackageById
 } from '../controllers/servicePackageController';
 import { authMiddleware } from '../middleware/authMiddleware';
 import { optionalAuthMiddleware } from '../middleware/optionalAuthMiddleware';
-import { authorizeManager } from '../middleware/authorizeManager';
+import { authorizeManager, authorizeStaffOrDoctorOrManager } from '../middleware/authorizeManager';
 
 const router = express.Router();
 
@@ -24,6 +25,9 @@ router.post('/search', searchServicePackages);                   // POST /servic
 // Public pricing and usage projection endpoints - không cần authentication vì là thông tin công khai
 router.get('/:id/purchase', getPackagePurchase);                   // GET /service-packages/:id/purchase - Get purchase info with value metrics
 router.post('/:id/usage-projection', getUsageProjection);        // POST /service-packages/:id/usage-projection - Calculate usage projection for planning
+
+// NEW: Allow staff, doctor, manager, admin to get package details
+router.get('/:id', authMiddleware, authorizeStaffOrDoctorOrManager, getServicePackageById); // GET /service-packages/:id
 
 // Protected routes - cần authentication và manager authorization
 router.use(authMiddleware);

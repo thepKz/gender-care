@@ -40,12 +40,12 @@ const PaymentProcessPage = () => {
 
       // ✅ FIX: Check existing payment trước khi tạo mới
       try {
-        console.log('🔍 [PaymentProcess] Checking for existing payment...');
+    
         const statusResponse = await paymentApi.checkPaymentStatus(appointmentId);
         
         if (statusResponse.success && statusResponse.data) {
           const paymentData = statusResponse.data;
-          console.log('🔍 [PaymentProcess] Found existing payment:', paymentData.status);
+  
           
           // Nếu payment đã success, redirect về booking history
           if (paymentData.status === 'success') {
@@ -56,7 +56,7 @@ const PaymentProcessPage = () => {
           
           // Nếu có pending payment với paymentUrl valid, reuse nó
           if (paymentData.status === 'pending' && paymentData.paymentUrl) {
-            console.log('♻️ [PaymentProcess] Reusing existing payment URL');
+    
             setPaymentData({
               checkoutUrl: paymentData.paymentUrl,
               orderCode: paymentData.orderCode,
@@ -78,7 +78,7 @@ const PaymentProcessPage = () => {
           }
         }
       } catch (error) {
-        console.log('🔍 [PaymentProcess] No valid existing payment found, creating new one...');
+
       }
 
       // Tạo payment link mới

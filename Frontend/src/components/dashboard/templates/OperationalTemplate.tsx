@@ -35,6 +35,7 @@ import DoctorAppointmentSchedule from '../../../pages/dashboard/operational/Doct
 import ServiceTestConfiguration from '../../../pages/dashboard/operational/ServiceTestConfiguration';
 import TestResultsEntryStaff from '../../../pages/dashboard/operational/TestResultsEntryStaff';
 import DoctorProfileManagement from '../../../pages/dashboard/operational/DoctorProfileManagement';
+import StaffAllAppointmentsManagement from '../../../pages/dashboard/operational/StaffAllAppointmentsManagement';
 
 import { 
   type DashboardStat,
@@ -58,7 +59,7 @@ interface OperationalTemplateProps {
 }
 
 // Xây dựng menu động theo vai trò Staff / Doctor với permission filtering
-const getMenuItemsOperational = (role: 'staff' | 'doctor'): MenuItem[] => {
+const getMenuItemsOperational = (role: 'staff' | 'doctor', navigate: (path: string) => void): MenuItem[] => {
   let baseMenuItems: MenuItem[];
 
   if (role === 'doctor') {
@@ -79,11 +80,7 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor'): MenuItem[] => {
         icon: <CalendarOutlined />,
         label: 'Lịch hẹn của tôi',
       },
-      {
-        key: 'appointments',
-        icon: <CalendarOutlined />,
-        label: 'Quản lý tất cả lịch hẹn',
-      },
+      // ĐÃ XÓA mục 'Quản lý tất cả lịch hẹn' khỏi menu bác sĩ
       {
         key: 'medical-records',
         icon: <FileTextOutlined />,
@@ -112,8 +109,9 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor'): MenuItem[] => {
       {
         key: 'my-appointments',
         icon: <CalendarOutlined />,
-        label: 'Lịch hẹn của tôi',
+        label: 'Quản lý tất cả lịch hẹn',
       },
+      // XÓA mục 'all-appointments' để tránh trùng label
       {
         key: 'test-results',
         icon: <MedicineBoxOutlined />,
@@ -159,7 +157,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
     : `Chào mừng ${userName}! Hôm nay có ${defaultAppointments.length} lịch hẹn cần xử lý và 5 nhiệm vụ đang chờ.`;
 
   const metrics = defaultPerformanceMetrics;
-  const menuItems = getMenuItemsOperational(userRole);
+  const menuItems = getMenuItemsOperational(userRole, navigate);
 
   useEffect(() => {
     (async () => {
@@ -447,9 +445,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
     switch (selectedKey) {
       case 'dashboard':
         return renderDashboard();
-        
-      // Lịch hẹn của tôi - cho cả doctor và staff
+      // Lịch hẹn của tôi - cho doctor, Quản lý tất cả lịch hẹn - cho staff
       case 'my-appointments':
+        if (userRole === 'staff') return <StaffAllAppointmentsManagement />;
         return <DoctorAppointmentSchedule />;
         
       // Quản lý tất cả lịch hẹn - chỉ cho doctor

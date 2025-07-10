@@ -155,3 +155,18 @@ export const toggleServiceStatus = async (id: string): Promise<ServiceResponse> 
     throw new Error(error.response?.data?.message || 'Lỗi khi thay đổi trạng thái dịch vụ');
   }
 }; 
+
+/**
+ * Lấy thông tin chi tiết service theo ID
+ */
+export const getServiceById = async (id: string): Promise<ServiceResponse> => {
+  try {
+    const response = await serviceApi.get(`/${id}`);
+    return response.data;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      throw new Error('Không tìm thấy dịch vụ');
+    }
+    throw new Error(error.response?.data?.message || 'Lỗi khi lấy thông tin dịch vụ');
+  }
+}; 
