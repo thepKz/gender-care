@@ -39,7 +39,7 @@ export interface ApiAppointment {
   slotId?: string;
   appointmentDate: string;
   appointmentTime: string;
-  appointmentType: 'consultation' | 'test' | 'other';
+  appointmentType: 'consultation' | 'test' | 'treatment' | 'other';
   typeLocation: 'clinic' | 'home' | 'Online';
   address?: string;
   description?: string;
@@ -106,7 +106,7 @@ export interface UnifiedAppointment {
   doctorSpecialization?: string;
   appointmentDate: string;
   appointmentTime: string;
-  appointmentType: 'consultation' | 'test' | 'online-consultation' | 'other';
+  appointmentType: 'consultation' | 'test' | 'treatment' | 'other';
   typeLocation: 'clinic' | 'home' | 'Online';
   address?: string;
   description: string;

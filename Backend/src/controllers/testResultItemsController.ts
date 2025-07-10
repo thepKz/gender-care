@@ -71,6 +71,7 @@ class TestResultItemsController {
   // POST /api/test-result-items - Tạo test result item mới
   createTestResultItem = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      console.log('[DEBUG] createTestResultItem req.body:', JSON.stringify(req.body, null, 2));
       const { appointmentId, items } = req.body;
       const userRole = req.user?.role || '';
 
@@ -82,6 +83,10 @@ class TestResultItemsController {
         return;
       }
 
+      items.forEach((item, idx) => {
+        console.log(`[DEBUG] Item #${idx}:`, JSON.stringify(item, null, 2));
+      });
+
       const data = { appointmentId, items };
       const newTestResultItem = await this.testResultItemsService.createTestResultItem(data, userRole);
 
@@ -91,6 +96,7 @@ class TestResultItemsController {
         data: newTestResultItem
       });
     } catch (error: any) {
+      console.error('[ERROR] createTestResultItem:', error, error?.stack);
       if (error.message.includes('Only') || error.message.includes('required') || 
           error.message.includes('not found') || error.message.includes('already exists')) {
         res.status(400).json({
@@ -110,6 +116,7 @@ class TestResultItemsController {
   // POST /api/test-result-items/bulk - Tạo nhiều test result items cùng lúc
   createMultipleTestResultItems = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
+      console.log('[DEBUG] createMultipleTestResultItems req.body:', JSON.stringify(req.body, null, 2));
       const { appointmentId, items } = req.body;
       const userRole = req.user?.role || '';
 
@@ -121,6 +128,10 @@ class TestResultItemsController {
         return;
       }
 
+      items.forEach((item, idx) => {
+        console.log(`[DEBUG] Bulk Item #${idx}:`, JSON.stringify(item, null, 2));
+      });
+
       const data = { appointmentId, items };
       const createdItems = await this.testResultItemsService.createMultipleTestResultItems(data, userRole);
 
@@ -130,6 +141,7 @@ class TestResultItemsController {
         data: createdItems
       });
     } catch (error: any) {
+      console.error('[ERROR] createMultipleTestResultItems:', error, error?.stack);
       if (error.message.includes('Only') || error.message.includes('required') || 
           error.message.includes('not found') || error.message.includes('already exists')) {
         res.status(400).json({

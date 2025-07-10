@@ -107,7 +107,7 @@ export class PackageAnalyticsService {
             break;
         }
 
-        stats.totalRevenue += purchase.purchasePrice;
+        stats.totalRevenue += purchase.purchasePrice || 0;
 
         // Tính usage cho từng service
         const serviceUsages = purchase.usedServices.map((usedService: any) => {
@@ -135,7 +135,9 @@ export class PackageAnalyticsService {
 
         // Tính số ngày còn lại
         const now = new Date();
-        const daysRemaining = Math.max(0, Math.ceil((purchase.expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+        const daysRemaining = purchase.expiryDate 
+          ? Math.max(0, Math.ceil((purchase.expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+          : 0;
 
         // Lấy thông tin user (có thể null nếu user bị xóa)
         const userInfo = purchase.userId ? {
@@ -157,9 +159,9 @@ export class PackageAnalyticsService {
           },
           purchaseId: purchase._id.toString(),
           purchaseDate: purchase.purchaseDate,
-          expiryDate: purchase.expiryDate,
+          expiryDate: purchase.expiryDate || new Date(),
           status: currentStatus as 'active' | 'expired' | 'used_up',
-          purchasePrice: purchase.purchasePrice,
+          purchasePrice: purchase.purchasePrice || 0,
           serviceUsages,
           totalUsagePercentage,
           daysRemaining

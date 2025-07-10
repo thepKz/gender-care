@@ -295,7 +295,7 @@ Table PackagePurchases {
   profileId ObjectId [ref: > UserProfiles._id] 
   userId ObjectId [ref: > Users._id] 
   packageId ObjectId [ref: > ServicePackages._id] 
-  billId ObjectId [ref: > Bills._id] 
+  paymentTrackingId ObjectId [ref: > PaymentTracking._id] 
   createdAt DateTime 
   updatedAt DateTime 
 } 

@@ -115,23 +115,19 @@ const ServicePackageDetailModal: React.FC<ServicePackageDetailModalProps> = ({
             </ul>
           </div>
         )}
-        {/* Nút Mua ngay */}
+        {/* Nút Đặt lịch ngay */}
         <div className="flex justify-center pt-2">
           <button
             type="button"
             className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-8 rounded-full transition-all duration-200 text-base"
-            onClick={handlePurchaseClick}
+            onClick={handleBooking}
           >
-            Mua ngay
+            Đặt lịch ngay
           </button>
         </div>
       </div>
       {/* Modal thanh toán */}
-      <PurchasePackageModal
-        visible={showPurchaseModal}
-        onClose={handleClosePurchaseModal}
-        servicePackage={servicePackage}
-      />
+      {/* Xoá hoặc comment phần modal PurchasePackageModal nếu không còn dùng. */}
     </Modal>
   );
 };

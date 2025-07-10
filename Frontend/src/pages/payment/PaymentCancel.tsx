@@ -20,7 +20,7 @@ const PaymentCancel: React.FC<PaymentCancelProps> = () => {
     const orderCode = searchParams.get('orderCode');
     const cancel = searchParams.get('cancel');
 
-    console.log('🔍 PayOS Cancel Callback:', { code, id, status, orderCode, cancel });
+
 
     setPaymentInfo({
       code,

@@ -36,7 +36,7 @@ export class PackageUsageService {
         };
       }
 
-      if (new Date() > packagePurchase.expiryDate) {
+      if (packagePurchase.expiryDate && new Date() > packagePurchase.expiryDate) {
         // Auto-expire the package
         packagePurchase.status = 'expired';
         await packagePurchase.save();

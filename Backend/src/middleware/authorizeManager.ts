@@ -11,3 +11,19 @@ export const authorizeManager = (req: AuthRequest, res: Response, next: NextFunc
 
   next();
 }; 
+
+export const authorizeStaffOrDoctorOrManager = (req: AuthRequest, res: Response, next: NextFunction) => {
+  const user = req.user;
+  
+  console.log('authorizeStaffOrDoctorOrManager - user:', user);
+  console.log('authorizeStaffOrDoctorOrManager - role:', user?.role);
+
+  // Allow staff, doctor, manager and admin to access
+  if (!user || !["staff", "doctor", "manager", "admin"].includes(user.role)) {
+    console.log('Access denied for role:', user?.role);
+    return res.status(403).json({ message: "Access denied. Staff, Doctor, Manager or Admin role required." });
+  }
+
+  console.log('Access granted for role:', user.role);
+  next();
+}; 

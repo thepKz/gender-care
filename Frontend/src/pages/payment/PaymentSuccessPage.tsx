@@ -73,29 +73,19 @@ const PaymentSuccessPage = () => {
         return;
       }
 
-      console.log('🔍 [PaymentSuccess] URL Parameters:', { 
-        appointmentId, 
-        code, 
-        cancel, 
-        status, 
-        orderCode,
-        originalOrderCode: searchParams.get('orderCode'),
-        originalId: searchParams.get('id'),
-        fullURL: window.location.href 
-      });
+
 
       const isPaid = code === '00' && cancel === 'false' && status === 'PAID';
       
       if (!isPaid) {
-        console.log('❌ [PaymentSuccess] Payment failed or cancelled');
+
         setConfirmError('Thanh toán không thành công hoặc đã bị hủy');
         setIsLoading(false);
         return;
       }
 
       try {
-        console.log('🚀 [PaymentSuccess] Fast confirming appointment payment...', { appointmentId, orderCode, status });
-        console.log('🔍 [PaymentSuccess] About to call fastConfirmPayment API');
+
         
         const confirmResponse = await appointmentApi.fastConfirmPayment({ 
           appointmentId, 
@@ -103,24 +93,23 @@ const PaymentSuccessPage = () => {
           status 
         });
         
-        console.log('📨 [PaymentSuccess] fastConfirmPayment response:', confirmResponse);
-        console.log('📨 [PaymentSuccess] fastConfirmPayment response.data:', confirmResponse.data);
+
         
         if (confirmResponse.data.success) {
-          console.log('✅ [PaymentSuccess] Appointment payment confirmed successfully');
+
           message.success('Thanh toán thành công! Lịch hẹn đã được xác nhận.');
         } else {
           console.error('❌ [PaymentSuccess] Fast confirm failed:', confirmResponse.data);
           throw new Error(confirmResponse.data.message || 'Không thể xác nhận thanh toán');
         }
         
-        console.log('🔍 [PaymentSuccess] Getting appointment details...');
+
         const response = await appointmentApi.getAppointmentById(appointmentId);
-        console.log('📨 [PaymentSuccess] getAppointmentById response:', response);
+
         
         if (response.success && response.data) {
           const appointment = response.data;
-          console.log('📋 [PaymentSuccess] Appointment data:', appointment);
+
           setAppointmentData({
             id: appointment.id || appointmentId,
             serviceName: appointment.serviceId?.serviceName || appointment.packageId?.name || 'Dịch vụ khám bệnh',

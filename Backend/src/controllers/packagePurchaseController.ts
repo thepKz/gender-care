@@ -18,8 +18,6 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
     const { packageId, promotionId } = req.body;
     const userId = req.user?._id;
 
-    console.log('🔍 [Backend] Purchase request:', { packageId, promotionId, userId });
-
     // Validation
     if (!userId) {
       return res.status(401).json({
@@ -55,11 +53,6 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    console.log('🔍 [Backend] Package found:', { 
-      name: servicePackage.name, 
-      price: servicePackage.price,
-      isFree: servicePackage.price === 0 
-    });
 
     // 🆕 Check if user already has an active package of this type
     const existingPurchase = await PackagePurchases.findOne({
@@ -71,7 +64,6 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
 
     if (existingPurchase) {
       const packageName = (existingPurchase.packageId as any)?.name || 'Gói dịch vụ';
-      console.log('❌ [Backend] User already owns this package:', packageName);
       return res.status(400).json({
         success: false,
         message: 'Bạn đã sở hữu gói dịch vụ này',
@@ -100,12 +92,9 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
     const discountAmount = promotionId ? Math.round(basePrice * 0.1) : 0;
     const finalAmount = basePrice - discountAmount;
 
-    console.log('🔍 [Backend] Pricing calculated:', { basePrice, discountAmount, finalAmount });
 
     // 🆕 Handle free packages differently
     if (finalAmount === 0) {
-      console.log('✅ [Backend] Free package detected, creating purchase directly');
-      
       // Create package purchase directly for free packages
       const packagePurchaseData = {
         userId: userId,
@@ -132,8 +121,6 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
         .populate('packageId', 'name description price validityPeriod')
         .populate('remainingServices.serviceId', 'serviceName price');
 
-      console.log('✅ [Backend] Free package purchase created successfully');
-
       return res.status(201).json({
         success: true,
         message: 'Gói miễn phí đã được kích hoạt thành công',
@@ -155,9 +142,6 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
         }
       });
     }
-
-    // For paid packages, create bill and payment link
-    console.log('💳 [Backend] Paid package detected, creating payment link');
 
     // Create bill first
     const billNumber = `PKG-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -230,11 +214,7 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
       }]
     };
 
-    console.log('🔍 [Backend] PayOS payment data:', JSON.stringify(paymentLinkData, null, 2));
-    console.log('🔍 [Backend] Description length:', payosDescription.length);
-
     const paymentLinkResponse = await payos.createPaymentLink(paymentLinkData);
-    console.log('🔍 [Backend] PayOS response:', paymentLinkResponse);
     
     // 🆕 Validate PayOS response
     if (!paymentLinkResponse || !paymentLinkResponse.checkoutUrl) {
@@ -263,7 +243,7 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
         },
         packagePurchase: null, // Sẽ tạo sau khi thanh toán thành công
         paymentUrl: paymentLinkResponse.checkoutUrl, // For easier frontend access
-        billId: paymentDoc._id,
+        paymentTrackingId: paymentDoc._id,
         packageId: packageId,
         packageName: servicePackage.name,
         pricing: {
@@ -274,7 +254,6 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
       }
     };
 
-    console.log('🔍 [Backend] Final response:', JSON.stringify(response, null, 2));
     res.status(201).json(response);
   } catch (error: any) {
     console.error('❌ [Backend] Error in purchasePackage:', error);
@@ -388,7 +367,7 @@ export const purchasePackageOriginal = async (req: AuthRequest, res: Response) =
       userId: userId,
       profileId: profileId,
       packageId: packageId,
-      billId: bill._id,
+      paymentTrackingId: bill._id,
       activatedAt: new Date(),
       expiredAt: new Date(),
       remainingUsages: 1,
@@ -401,7 +380,7 @@ export const purchasePackageOriginal = async (req: AuthRequest, res: Response) =
     // Populate thông tin để trả về
     const populatedPurchase = await PackagePurchases.findById(packagePurchase._id)
       .populate('packageId', 'name description price serviceIds durationInDays maxUsages')
-      .populate('billId', 'subtotal discountAmount totalAmount status');
+              .populate('paymentTrackingId', 'totalAmount status billNumber');
 
     const response: ApiResponse<any> = {
       success: true,
@@ -440,7 +419,6 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
       });
     }
 
-    console.log('🔍 [Backend] userId:', userId, 'profileId:', profileId);
 
     // Build query - userId from JWT is already correct type
     const query: any = { userId: userId };
@@ -456,7 +434,6 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
       if (isActiveStr === 'false') query.status = { $ne: 'active' };
     }
 
-    console.log('🔍 [Backend] Final query:', query);
 
     // Pagination
     const pageNum = parseInt(page as string) || 1;
@@ -469,8 +446,6 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
     let total = 0;
     
     try {
-      console.log('🔍 [Backend] Starting populate query...');
-      
       // Try populate with ServicePackages model (correct model name)
       packagePurchases = await PackagePurchases.find(query)
         .populate({
@@ -484,38 +459,31 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
           }
         })
         .populate({
-          path: 'billId',
-          model: 'Bills',
-          select: 'subtotal discountAmount totalAmount status createdAt'
+          path: 'paymentTrackingId',
+          model: 'PaymentTracking',
+          select: 'totalAmount status createdAt billNumber'
         })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
         .lean();
 
-      console.log('🔍 [Backend] Raw packagePurchases found:', packagePurchases.length);
-      console.log('🔍 [Backend] Sample raw purchase:', packagePurchases[0] ? JSON.stringify(packagePurchases[0], null, 2) : 'No purchases');
+
 
       // Filter out null packageId (deleted packages)
       packagePurchases = packagePurchases.filter(purchase => purchase.packageId);
-      console.log('🔍 [Backend] After filtering null packageId:', packagePurchases.length);
 
       // 🔹 Transform data to match frontend expectation
       transformedPurchases = packagePurchases.map((purchase: any) => {
-        console.log('🔍 [Backend] Processing purchase:', purchase._id);
-        console.log('🔍 [Backend] PackageId structure:', purchase.packageId);
-        console.log('🔍 [Backend] PackageId services:', purchase.packageId?.services);
         
         // Fix services mapping based on actual structure
         const services = (purchase.packageId?.services || []).map((service: any) => {
-          console.log('🔍 [Backend] Processing service item:', service);
+
           
           // Handle both populated and non-populated cases
           const serviceData = service.serviceId;
           const serviceId = serviceData?._id || serviceData || service.serviceId;
           const serviceName = serviceData?.serviceName || 'Tên dịch vụ không xác định';
-          
-          console.log('🔍 [Backend] Service data:', { serviceId, serviceName, quantity: service.quantity });
           
           return {
             serviceId: serviceId,
@@ -525,9 +493,7 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
             description: serviceData?.description || '',
             serviceType: serviceData?.serviceType || 'consultation'
           };
-        });
-        
-        console.log('🔍 [Backend] Transformed services:', services);
+        });        
         
         return {
           ...purchase,
@@ -554,9 +520,6 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
       });
 
       total = await PackagePurchases.countDocuments(query);
-      
-      console.log('✅ [Backend] Successfully found purchases:', transformedPurchases.length);
-      console.log('✅ [Backend] Sample purchase structure:', transformedPurchases[0] ? Object.keys(transformedPurchases[0]) : 'No purchases');
       
     } catch (populateError) {
       console.error('❌ [Backend] Populate error:', populateError);
@@ -599,7 +562,7 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
       }));
         
       total = await PackagePurchases.countDocuments(query);
-      console.log('✅ [Backend] Fallback query successful:', transformedPurchases.length);
+
     }
 
     const response: ApiResponse<any> = {
@@ -630,19 +593,19 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
 // GET /package-purchases/test - Test endpoint để kiểm tra data
 export const testPackagePurchases = async (req: AuthRequest, res: Response) => {
   try {
-    console.log('🔍 [Backend] Test endpoint called');
+
     
     // Đếm tất cả PackagePurchases trong database
     const totalCount = await PackagePurchases.countDocuments({});
-    console.log('🔍 [Backend] Total PackagePurchases in DB:', totalCount);
+
     
     // Lấy 5 records đầu tiên
     const allPurchases = await PackagePurchases.find({}).limit(5);
-    console.log('🔍 [Backend] First 5 PackagePurchases:', allPurchases);
+
     
     // Kiểm tra có user nào đã mua không
     const userIds = await PackagePurchases.distinct('userId');
-    console.log('🔍 [Backend] User IDs with purchases:', userIds);
+
     
     res.json({
       success: true,
@@ -694,7 +657,7 @@ export const getPackagePurchaseDetail = async (req: AuthRequest, res: Response) 
         }
       })
       .populate('profileId', 'fullName phone year gender', undefined, { strictPopulate: false })
-      .populate('billId', 'subtotal discountAmount totalAmount status createdAt');
+              .populate('paymentTrackingId', 'totalAmount status billNumber createdAt');
 
     if (!packagePurchase) {
       const response: ApiResponse<any> = {
@@ -785,7 +748,7 @@ export const getPackagePurchasesByProfile = async (req: AuthRequest, res: Respon
           select: 'serviceName price description serviceType availableAt'
         }
       })
-      .populate('billId', 'subtotal discountAmount totalAmount status createdAt')
+              .populate('paymentTrackingId', 'totalAmount status billNumber createdAt')
       .sort({ createdAt: -1 });
 
     const response: ApiResponse<any> = {
@@ -1041,7 +1004,7 @@ export const getPackagePurchaseById = async (req: AuthRequest, res: Response) =>
           totalServices: purchase.usedServices.length,
           totalUsed: purchase.usedServices.reduce((sum: number, s: any) => sum + s.usedQuantity, 0),
           totalMax: purchase.usedServices.reduce((sum: number, s: any) => sum + s.maxQuantity, 0),
-          daysRemaining: Math.max(0, Math.ceil((new Date(purchase.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+          daysRemaining: purchase.expiryDate ? Math.max(0, Math.ceil((new Date(purchase.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0
         }
       }
     };
@@ -1257,7 +1220,7 @@ export const getPackageUsageAnalytics = async (req: AuthRequest, res: Response) 
       return res.status(400).json(response);
     }
 
-    console.log('🔍 [Analytics] Getting usage analytics for package:', packageId);
+
 
     const analytics = await PackageAnalyticsService.getPackageUsageAnalytics(packageId);
 
@@ -1284,7 +1247,7 @@ export const getPackageUsageAnalytics = async (req: AuthRequest, res: Response) 
 // 🆕 GET /package-purchases/analytics - Lấy overview analytics cho tất cả gói dịch vụ  
 export const getAllPackagesAnalytics = async (req: AuthRequest, res: Response) => {
   try {
-    console.log('🔍 [Analytics] Getting analytics for all packages');
+
 
     const analytics = await PackageAnalyticsService.getAllPackagesAnalytics();
 
@@ -1316,25 +1279,92 @@ export const getAllPackagesAnalytics = async (req: AuthRequest, res: Response) =
   }
 };
 
+// Test endpoint để tạo PackagePurchase đơn giản
+export const testCreatePackagePurchase = async (req: AuthRequest, res: Response) => {
+  try {
+    const { packageId } = req.body;
+    const userId = req.user?._id;
+
+
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
+    if (!packageId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Package ID is required'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(packageId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid package ID format'
+      });
+    }
+
+    // Sử dụng hàm test để tạo PackagePurchase
+    const purchase = await PackagePurchaseService.createTestPackagePurchase(
+      userId.toString(),
+      packageId
+    );
+
+
+
+    res.status(201).json({
+      success: true,
+      message: 'Test package purchase created successfully',
+      data: {
+        purchaseId: purchase._id,
+        userId: purchase.userId,
+        packageId: purchase.packageId,
+        status: purchase.status,
+        purchaseDate: purchase.purchaseDate,
+        expiryDate: purchase.expiryDate
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ [Test] Error creating test package purchase:', error);
+    
+    // Log chi tiết lỗi
+    if (error.code === 11000) {
+      console.error('❌ [Test] Duplicate key error - unique constraint violation');
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Error creating test package purchase',
+      error: error.message,
+      code: error.code
+    });
+  }
+};
+
 // Webhook handler cho PayOS payment success
 export const handlePayOSWebhook = async (req: Request, res: Response) => {
   try {
-    console.log('🔍 [Backend] PayOS Webhook received:', req.body);
+
     
     const { code, desc, data } = req.body;
     
     // Check if payment is successful
     if (code !== '00' || !data) {
-      console.log('❌ [Backend] Payment not successful, code:', code);
+  
       return res.status(200).json({ success: false, message: 'Payment not successful' });
     }
     
     const { orderCode, amount, description, accountNumber, reference, transactionDateTime } = data;
-    console.log('🔍 [Backend] Processing orderCode:', orderCode);
+
     
     // Find payment by orderCode
     const orderCodeNum = parseInt(orderCode);
-    console.log('🔍 [Backend] Searching for payment with orderCode:', orderCodeNum);
+
     
     const payment = await PaymentTracking.findOne({
       $expr: {
@@ -1347,19 +1377,13 @@ export const handlePayOSWebhook = async (req: Request, res: Response) => {
     });
     
     if (!payment) {
-      console.log('❌ [Backend] Payment not found for orderCode:', orderCode);
-      console.log('🔍 [Backend] Searching all pending payments...');
+      
       const allPendingPayments = await PaymentTracking.find({ status: 'pending' }).select('_id packageId userId');
-      console.log('🔍 [Backend] All pending payments:', allPendingPayments);
+      
       return res.status(404).json({ success: false, message: 'Payment not found' });
     }
     
-    console.log('✅ [Backend] Found payment:', {
-      paymentId: payment._id,
-      userId: payment.userId,
-      packageId: payment.packageId,
-      totalAmount: payment.totalAmount
-    });
+
     
     // Update payment status
     await PaymentTracking.findByIdAndUpdate(payment._id, {
@@ -1371,30 +1395,25 @@ export const handlePayOSWebhook = async (req: Request, res: Response) => {
       }
     });
     
-    console.log('✅ [Backend] Updated payment status to paid');
+
     
     // Create PackagePurchase
     const servicePackage = await ServicePackages.findById(payment.packageId);
     if (!servicePackage) {
-      console.log('❌ [Backend] Service package not found for packageId:', payment.packageId);
+
       return res.status(404).json({ success: false, message: 'Service package not found' });
     }
     
-    console.log('✅ [Backend] Found service package:', {
-      packageId: servicePackage._id,
-      name: servicePackage.name,
-      services: servicePackage.services,
-      durationInDays: servicePackage.durationInDays
-    });
+
     
     // Tính total service quantity từ package
     const totalUsages = servicePackage.services.reduce((total, service) => total + service.quantity, 0);
-    console.log('🔍 [Backend] Calculated total usages:', totalUsages);
+
     
     const packagePurchaseData: any = {
       userId: payment.userId,
       packageId: payment.recordId, // Use recordId since it's the package ID for package payments
-      billId: payment._id,
+      paymentTrackingId: payment._id,
       activatedAt: new Date(),
       expiryDate: new Date(Date.now() + (servicePackage.durationInDays || 365) * 24 * 60 * 60 * 1000),
       remainingUsages: totalUsages,
@@ -1404,17 +1423,11 @@ export const handlePayOSWebhook = async (req: Request, res: Response) => {
       status: 'active'
     };
     
-    console.log('🔍 [Backend] Creating PackagePurchase with data:', packagePurchaseData);
+
     
     const packagePurchase = await PackagePurchases.create(packagePurchaseData);
     
-    console.log('✅ [Backend] Created PackagePurchase:', {
-      purchaseId: packagePurchase._id,
-      userId: packagePurchase.userId,
-      packageId: packagePurchase.packageId,
-      remainingUsages: (packagePurchase as any).remainingUsages,
-      expiryDate: (packagePurchase as any).expiryDate
-    });
+
     
     res.status(200).json({ 
       success: true, 
@@ -1441,7 +1454,7 @@ export const testPayOSWebhook = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'orderCode required' });
     }
     
-    console.log('🧪 [Test] Simulating PayOS webhook with orderCode:', orderCode);
+
     
     // Simulate PayOS webhook payload
     const mockWebhookPayload = {

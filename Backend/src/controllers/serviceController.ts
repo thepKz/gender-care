@@ -86,6 +86,49 @@ export const getAllServices = async (req: Request, res: Response) => {
   }
 };
 
+// GET /services/:id - Get service by ID
+export const getServiceById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: 'Invalid service ID format'
+      };
+      return res.status(400).json(response);
+    }
+
+    const service = await Service.findOne({ 
+      _id: id, 
+      isDeleted: 0 
+    }).lean();
+
+    if (!service) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: 'Service not found'
+      };
+      return res.status(404).json(response);
+    }
+
+    const response: ApiResponse<any> = {
+      success: true,
+      data: service
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    const response: ApiResponse<any> = {
+      success: false,
+      message: 'Error fetching service',
+      errors: { general: error.message }
+    };
+    res.status(500).json(response);
+  }
+};
+
 // POST /services/search - Search services (new endpoint)
 export const searchServices = async (req: Request, res: Response) => {
   try {
