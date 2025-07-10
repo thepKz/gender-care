@@ -972,7 +972,13 @@ export const sendAppointmentCancelledNoRefundEmail = async (
   serviceName: string,
   appointmentDate: Date,
   appointmentTime: string,
-  cancelReason?: string
+  cancelReason?: string,
+  profileInfo?: {
+    fullName?: string;
+    phone?: string;
+    age?: number;
+    gender?: string;
+  }
 ): Promise<void> => {
   const subject = "Xác nhận hủy lịch hẹn - Gender Healthcare";
   
@@ -1035,11 +1041,43 @@ export const sendAppointmentCancelledNoRefundEmail = async (
             </table>
           </div>
 
+          ${profileInfo ? `
+          <!-- Profile Information -->
+          <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="color: #0369a1; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">👤 Thông tin người đặt lịch</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              ${profileInfo.fullName ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">👤 Họ và tên:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.fullName}</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.phone ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">📞 Số điện thoại:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.phone}</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.age ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">🎂 Tuổi:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.age} tuổi</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.gender ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">⚧ Giới tính:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.gender === 'male' ? 'Nam' : profileInfo.gender === 'female' ? 'Nữ' : 'Khác'}</td>
+              </tr>
+              ` : ''}
+            </table>
+          </div>
+          ` : ''}
+
           <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
             <h4 style="color: #f59e0b; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">ℹ️ Thông tin quan trọng</h4>
             <ul style="margin: 0; padding-left: 20px; color: #92400e; line-height: 1.6;">
               <li>Lịch hẹn đã được hủy hoàn toàn khỏi hệ thống</li>
-              <li>Thời gian này đã được giải phóng cho khách hàng khác</li>
               <li>Bạn có thể đặt lịch hẹn mới bất kỳ lúc nào</li>
             </ul>
           </div>
@@ -1090,7 +1128,13 @@ export const sendAppointmentCancelledWithRefundEmail = async (
     accountHolderName: string;
     bankName: string;
   },
-  cancelReason?: string
+  cancelReason?: string,
+  profileInfo?: {
+    fullName?: string;
+    phone?: string;
+    age?: number;
+    gender?: string;
+  }
 ): Promise<void> => {
   const subject = "Xác nhận hủy lịch hẹn & thông tin hoàn tiền - Gender Healthcare";
   
@@ -1158,6 +1202,39 @@ export const sendAppointmentCancelledWithRefundEmail = async (
               ` : ''}
             </table>
           </div>
+
+          ${profileInfo ? `
+          <!-- Profile Information -->
+          <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="color: #0369a1; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">👤 Thông tin người đặt lịch</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              ${profileInfo.fullName ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">👤 Họ và tên:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.fullName}</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.phone ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">📞 Số điện thoại:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.phone}</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.age ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">🎂 Tuổi:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.age} tuổi</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.gender ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">⚧ Giới tính:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.gender === 'male' ? 'Nam' : profileInfo.gender === 'female' ? 'Nữ' : 'Khác'}</td>
+              </tr>
+              ` : ''}
+            </table>
+          </div>
+          ` : ''}
 
           <!-- Refund Information -->
           <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 24px; margin-bottom: 24px;">

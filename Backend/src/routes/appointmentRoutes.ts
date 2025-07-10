@@ -124,4 +124,6 @@ router.put('/:id/cancel-by-doctor', verifyToken, cancelAppointmentByDoctor);
  */
 router.put('/:id/cancel-with-refund', verifyToken, verifyCustomer, cancelAppointmentWithRefund);
 
+
+
 export default router; 

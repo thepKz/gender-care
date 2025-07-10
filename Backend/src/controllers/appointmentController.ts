@@ -600,7 +600,7 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
         const userRole = req.user?.role || '';
         const userId = req.user?._id || '';
 
-        // Nếu là customer, kiểm tra thêm điều kiện
+        // Nếu là customer, kiểm tra quyền sở hữu appointment
         if (userRole === 'customer') {
             // 1. Kiểm tra xem lịch hẹn có phải của customer này không
             if (appointment.createdByUserId?.toString() !== userId.toString()) {
@@ -608,32 +608,8 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
                 throw new UnauthorizedError('Không có quyền truy cập');
             }
 
-            // 2. Chỉ cho phép hủy sau khi đã đợi 10 phút kể từ khi đặt lịch
-            // Kiểm tra nếu createdAt tồn tại
-            if (!appointment.createdAt) {
-                console.log('❌ [Debug] Không tìm thấy thời gian tạo lịch');
-                throw new ValidationError({ time: 'Không thể xác định thời gian đặt lịch' });
-            }
-
-            // Đảm bảo createdAt là kiểu Date
-            const createdAt = appointment.createdAt instanceof Date
-                ? appointment.createdAt
-                : new Date(appointment.createdAt);
-
-            const now = new Date();
-            const diffMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
-
-            console.log('🔍 [Debug] Thời gian từ khi tạo lịch đến giờ:', {
-                createdAt,
-                now,
-                diffMinutes,
-                appointmentId: id
-            });
-
-            if (diffMinutes < 10) {
-                console.log('❌ [Debug] Không thể hủy lịch khi chưa đủ 10 phút:', { diffMinutes, appointmentId: id });
-                throw new ValidationError({ time: 'Bạn phải đợi ít nhất 10 phút sau khi đặt lịch mới có thể hủy' });
-            }
+            // ✅ REMOVED: Bỏ validation 10 phút - khách hàng có thể hủy lúc nào
+            console.log('✅ [Debug] Customer có thể hủy lịch bất kỳ lúc nào:', { appointmentId: id, userId });
         }
 
         // Chỉ cho phép hủy nếu trạng thái là pending, pending_payment, hoặc confirmed
@@ -743,7 +719,7 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
                 id,
                 { $set: { status: 'cancelled' } },
                 { new: true }
-            ).populate('profileId', 'fullName', undefined, { strictPopulate: false })
+            ).populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
              .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
              .populate('packageId', 'name', undefined, { strictPopulate: false })
              .populate('createdByUserId', 'email fullName', undefined, { strictPopulate: false });
@@ -758,16 +734,41 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
                                   (updatedAppointment?.serviceId as any)?.serviceName || 
                                   'Dịch vụ không xác định';
 
-                if (customerEmail && updatedAppointment?.appointmentDate) {
+                // ✅ FIX: Lấy email từ user account thay vì profile để đảm bảo có email
+                const userAccount = await User.findById(appointment.createdByUserId).select('email fullName');
+                const accountEmail = userAccount?.email;
+                const accountName = userAccount?.fullName || customerName || 'Khách hàng';
+
+                if (accountEmail && updatedAppointment?.appointmentDate) {
                     const { sendAppointmentCancelledNoRefundEmail } = await import('../services/emails');
                     
+                    // ✅ FIX: Phân biệt lý do hủy dựa trên paymentStatus để khách hàng hiểu rõ
+                    let cancelReason: string;
+                    if (appointment.paymentStatus === 'paid') {
+                        // Trường hợp 2: Đã thanh toán nhưng hủy muộn (<24h)
+                        cancelReason = 'Hủy lịch hẹn - không đủ điều kiện hoàn tiền do hủy muộn dưới 24 giờ theo chính sách trung tâm';
+                    } else {
+                        // Trường hợp 1: Chưa thanh toán
+                        cancelReason = 'Hủy lịch hẹn chưa thanh toán theo yêu cầu của khách hàng';
+                    }
+                    
+                    // ✅ NEW: Lấy thông tin profile để gửi trong email
+                    const profileInfo = updatedAppointment?.profileId ? {
+                        fullName: (updatedAppointment.profileId as any)?.fullName,
+                        phone: (updatedAppointment.profileId as any)?.phone,
+                        age: (updatedAppointment.profileId as any)?.year ? 
+                              new Date().getFullYear() - (updatedAppointment.profileId as any).year : undefined,
+                        gender: (updatedAppointment.profileId as any)?.gender
+                    } : undefined;
+                    
                     await sendAppointmentCancelledNoRefundEmail(
-                        customerEmail,
-                        customerName,
+                        accountEmail,
+                        accountName,
                         serviceName,
                         updatedAppointment.appointmentDate,
                         updatedAppointment.appointmentTime || 'Chưa xác định',
-                        'Hủy lịch hẹn theo yêu cầu của khách hàng'
+                        cancelReason,
+                        profileInfo
                     );
                 }
             } catch (emailError) {
@@ -2421,7 +2422,7 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                     }
                 },
                 { new: true }
-            ).populate('profileId', 'fullName', undefined, { strictPopulate: false })
+            ).populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
              .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
              .populate('packageId', 'name', undefined, { strictPopulate: false })
              .populate('createdByUserId', 'email fullName', undefined, { strictPopulate: false });
@@ -2447,9 +2448,11 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
 
             // ✅ NEW: Send cancellation with refund email notification
             try {
-                const customerEmail = (updatedAppointment?.createdByUserId as any)?.email;
-                const customerName = (updatedAppointment?.profileId as any)?.fullName || 
-                                   (updatedAppointment?.createdByUserId as any)?.fullName || 
+                // ✅ FIX: Lấy email từ user account thay vì populated field
+                const userAccount = await User.findById(appointment.createdByUserId).select('email fullName');
+                const customerEmail = userAccount?.email;
+                const customerName = userAccount?.fullName || 
+                                   (updatedAppointment?.profileId as any)?.fullName || 
                                    'Khách hàng';
                 const serviceName = (updatedAppointment?.packageId as any)?.name || 
                                   (updatedAppointment?.serviceId as any)?.serviceName || 
@@ -2457,6 +2460,15 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
 
                 if (customerEmail && updatedAppointment?.appointmentDate && refundInfo && paymentTracking) {
                     const { sendAppointmentCancelledWithRefundEmail } = await import('../services/emails');
+                    
+                    // ✅ NEW: Lấy thông tin profile để gửi trong email
+                    const profileInfo = updatedAppointment?.profileId ? {
+                        fullName: (updatedAppointment.profileId as any)?.fullName,
+                        phone: (updatedAppointment.profileId as any)?.phone,
+                        age: (updatedAppointment.profileId as any)?.year ? 
+                              new Date().getFullYear() - (updatedAppointment.profileId as any).year : undefined,
+                        gender: (updatedAppointment.profileId as any)?.gender
+                    } : undefined;
                     
                     await sendAppointmentCancelledWithRefundEmail(
                         customerEmail,
@@ -2470,7 +2482,8 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                             accountHolderName: refundInfo.accountHolderName,
                             bankName: refundInfo.bankName
                         },
-                        reason
+                        reason,
+                        profileInfo
                     );
                 }
             } catch (emailError) {

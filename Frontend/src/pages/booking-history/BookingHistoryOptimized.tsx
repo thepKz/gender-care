@@ -22,6 +22,25 @@ import { safeCombineDateTime } from '../../utils/dateTimeUtils';
 const { Search } = Input;
 const { Option } = Select;
 
+// ✅ FIX: Enhanced refund data interface to handle multiple data structures
+interface RefundData {
+  refundReason?: string;
+  processingStatus?: 'pending' | 'completed' | 'rejected';
+  refundInfo?: {
+    accountNumber: string;
+    accountHolderName: string;
+    bankName: string;
+    submittedAt: string;
+  };
+  processedBy?: string;
+  processedAt?: string;
+  processingNotes?: string;
+  // ✅ Additional fields for legacy/alternative data structure
+  accountNumber?: string;
+  accountHolderName?: string;
+  bankName?: string;
+}
+
 interface RawAppointmentData {
   _id: string;
   type?: string;
@@ -52,19 +71,7 @@ interface RawAppointmentData {
   gender?: string;
   doctorNotes?: string;
   paymentStatus?: string;
-  refund?: {
-    refundReason?: string;
-    processingStatus?: 'pending' | 'completed' | 'rejected';
-    refundInfo?: {
-      accountNumber: string;
-      accountHolderName: string;
-      bankName: string;
-      submittedAt: string;
-    };
-    processedBy?: string;
-    processedAt?: string;
-    processingNotes?: string;
-  };
+  refund?: RefundData;
 }
 
 interface Appointment {
@@ -96,19 +103,7 @@ interface Appointment {
   question?: string;
   doctorNotes?: string;
   paymentStatus?: string;
-  refund?: {
-    refundReason?: string;
-    processingStatus?: 'pending' | 'completed' | 'rejected';
-    refundInfo?: {
-      accountNumber: string;
-      accountHolderName: string;
-      bankName: string;
-      submittedAt: string;
-    };
-    processedBy?: string;
-    processedAt?: string;
-    processingNotes?: string;
-  };
+  refund?: RefundData;
 }
 
 interface RefundInfo {
@@ -363,10 +358,47 @@ const BookingHistoryOptimized: React.FC = () => {
   const handleCancelAppointment = async (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     
-    // Luôn bắt buộc hoàn tiền cho tất cả lịch hẹn
-    setRequestRefund(true);
-    
-    setShowCancelModal(true);
+    // ✅ FIX: Chỉ show form khi đã thanh toán VÀ đủ điều kiện hoàn tiền
+    if (appointment.paymentStatus === 'paid' && canCancelWithRefund(appointment)) {
+      // Đã thanh toán + đủ điều kiện hoàn tiền → Show form
+      setRequestRefund(true);
+      setShowCancelModal(true);
+    } else {
+      // Các trường hợp khác → Hủy thẳng
+      // - Chưa thanh toán 
+      // - Đã thanh toán nhưng không đủ điều kiện hoàn tiền
+      await handleDirectCancel(appointment);
+    }
+  };
+
+  // ✅ NEW: Function hủy thẳng cho lịch không cần form refund
+  const handleDirectCancel = async (appointment: Appointment) => {
+    try {
+      setCancelLoading(true);
+      
+      if (appointment.type === 'consultation') {
+        await consultationApi.cancelConsultationByUser(
+          appointment.id, 
+          'Hủy bởi người dùng'
+        );
+      } else {
+        // ✅ FIX: Dùng deleteAppointment (đã bỏ validation 10 phút ở backend)
+        await appointmentApi.deleteAppointment(appointment.id);
+      }
+      
+      message.success('Hủy lịch hẹn thành công!');
+      
+      // Refresh appointments list
+      await fetchAppointments();
+      
+      setShowDetailModal(false);
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Không thể hủy lịch hẹn. Vui lòng thử lại sau.';
+      message.error(errorMessage);
+    } finally {
+      setCancelLoading(false);
+    }
   };
 
   // Handle final cancellation
@@ -762,43 +794,44 @@ const BookingHistoryOptimized: React.FC = () => {
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-base font-semibold text-amber-800">Trạng thái hoàn tiền</h4>
                     <div className="flex items-center gap-2">
-                      {(() => {
-                        // Parse refund data nếu nó là string JSON
-                        let refundData = selectedAppointment.refund;
-                        if (typeof refundData === 'string') {
-                                                      try {
-                              refundData = JSON.parse(refundData);
-                            } catch {
-                              // JSON parsing failed, use as is
+                                                {(() => {
+                            // Parse refund data nếu nó là string JSON
+                            let refundData: RefundData | undefined = selectedAppointment.refund;
+                            if (typeof refundData === 'string') {
+                              try {
+                                refundData = JSON.parse(refundData) as RefundData;
+                              } catch {
+                                // JSON parsing failed, use as is
+                                refundData = undefined;
+                              }
                             }
-                        }
-                        
-
-                        
-                        const refundStatus = refundData?.processingStatus || 'pending';
-                        switch (refundStatus) {
-                          case 'pending':
-                            return <span className="px-3 py-1 bg-yellow-200 text-yellow-800 text-sm rounded-full font-medium">Chờ xử lý</span>;
-                          case 'completed':
-                            return <span className="px-3 py-1 bg-green-200 text-green-800 text-sm rounded-full font-medium">Đã hoàn tiền</span>;
-                          case 'rejected':
-                            return <span className="px-3 py-1 bg-red-200 text-red-800 text-sm rounded-full font-medium">Từ chối hoàn tiền</span>;
-                          default:
-                            return <span className="px-3 py-1 bg-gray-200 text-gray-800 text-sm rounded-full font-medium">Không xác định</span>;
-                        }
-                      })()}
+                            
+                            
+                            
+                            const refundStatus = refundData?.processingStatus || 'pending';
+                            switch (refundStatus) {
+                              case 'pending':
+                                return <span className="px-3 py-1 bg-yellow-200 text-yellow-800 text-sm rounded-full font-medium">Chờ xử lý</span>;
+                              case 'completed':
+                                return <span className="px-3 py-1 bg-green-200 text-green-800 text-sm rounded-full font-medium">Đã hoàn tiền</span>;
+                              case 'rejected':
+                                return <span className="px-3 py-1 bg-red-200 text-red-800 text-sm rounded-full font-medium">Từ chối hoàn tiền</span>;
+                              default:
+                                return <span className="px-3 py-1 bg-gray-200 text-gray-800 text-sm rounded-full font-medium">Không xác định</span>;
+                            }
+                          })()}
                     </div>
                   </div>
                   
                   <div className="space-y-3">
                                           {(() => {
                       // Parse refund data
-                      let refundData = selectedAppointment.refund;
+                      let refundData: RefundData | undefined = selectedAppointment.refund;
                       if (typeof refundData === 'string') {
                         try {
-                          refundData = JSON.parse(refundData);
+                          refundData = JSON.parse(refundData) as RefundData;
                         } catch {
-                          refundData = null;
+                          refundData = undefined;
                         }
                       }
                       
@@ -815,26 +848,26 @@ const BookingHistoryOptimized: React.FC = () => {
                           
 
                           
-                          {(refundData?.refundInfo || ((refundData as any)?.accountNumber && (refundData as any)?.bankName)) ? (
+                          {(refundData?.refundInfo || (refundData?.accountNumber && refundData?.bankName)) ? (
                             <div className="bg-amber-100 p-3 rounded border">
                               <div className="font-medium text-amber-800 mb-2">Thông tin tài khoản nhận hoàn tiền:</div>
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                                 <div className="text-sm">
                                   <span className="font-medium text-amber-700">Ngân hàng:</span>
                                   <div className="text-amber-600">
-                                    {refundData?.refundInfo?.bankName || (refundData as any)?.bankName || 'Chưa có thông tin'}
+                                    {refundData?.refundInfo?.bankName || refundData?.bankName || 'Chưa có thông tin'}
                                   </div>
                                 </div>
                                 <div className="text-sm">
                                   <span className="font-medium text-amber-700">Số tài khoản:</span>
                                   <div className="text-amber-600">
-                                    {refundData?.refundInfo?.accountNumber || (refundData as any)?.accountNumber || 'Chưa có thông tin'}
+                                    {refundData?.refundInfo?.accountNumber || refundData?.accountNumber || 'Chưa có thông tin'}
                                   </div>
                                 </div>
                                 <div className="text-sm">
                                   <span className="font-medium text-amber-700">Chủ tài khoản:</span>
                                   <div className="text-amber-600">
-                                    {refundData?.refundInfo?.accountHolderName || (refundData as any)?.accountHolderName || 'Chưa có thông tin'}
+                                    {refundData?.refundInfo?.accountHolderName || refundData?.accountHolderName || 'Chưa có thông tin'}
                                   </div>
                                 </div>
                               </div>
@@ -870,12 +903,23 @@ const BookingHistoryOptimized: React.FC = () => {
                       </p>
                     </div>
                   ) : (
-                    <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg">
-                      <p className="text-sm text-orange-700">
-                        <Warning2 size={16} className="inline mr-1" />
-                        Bạn có thể hủy lịch hẹn này, nhưng không được hoàn tiền (cần hủy trước 24 giờ để hoàn tiền).
-                      </p>
-                    </div>
+                    // ✅ FIX BUG 1: Chỉ hiển thị warning hoàn tiền khi đã thanh toán
+                    selectedAppointment.paymentStatus === 'paid' ? (
+                      <div className="bg-orange-50 border border-orange-200 p-3 rounded-lg">
+                        <p className="text-sm text-orange-700">
+                          <Warning2 size={16} className="inline mr-1" />
+                          Bạn có thể hủy lịch hẹn này, nhưng không được hoàn tiền (cần hủy trước 24 giờ để hoàn tiền).
+                        </p>
+                      </div>
+                    ) : (
+                      // Lịch chưa thanh toán - không hiển thị warning về hoàn tiền
+                      <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+                        <p className="text-sm text-blue-700">
+                          <TickCircle size={16} className="inline mr-1" />
+                          Bạn có thể hủy lịch hẹn này mà không mất phí (chưa thanh toán).
+                        </p>
+                      </div>
+                    )
                   )}
                 </div>
               )}
@@ -996,17 +1040,30 @@ const BookingHistoryOptimized: React.FC = () => {
           width={600}
         >
           <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-4">
-              <p className="text-blue-800 font-medium mb-2">
-                Hủy lịch hẹn và hoàn tiền
-              </p>
-              <p className="text-sm text-blue-600">
-                Khi hủy lịch hẹn, tiền sẽ được hoàn lại vào tài khoản ngân hàng của bạn trong 3-5 ngày làm việc.
-              </p>
-            </div>
+            {/* ✅ FIX: Hiển thị thông tin phù hợp với từng trường hợp */}
+            {selectedAppointment && canCancelWithRefund(selectedAppointment) ? (
+              <div className="bg-green-50 border border-green-200 p-4 rounded-lg mb-4">
+                <p className="text-green-800 font-medium mb-2">
+                  Hủy lịch hẹn và hoàn tiền
+                </p>
+                <p className="text-sm text-green-600">
+                  Khi hủy lịch hẹn, tiền sẽ được hoàn lại vào tài khoản ngân hàng của bạn trong 3-5 ngày làm việc.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-orange-50 border border-orange-200 p-4 rounded-lg mb-4">
+                <p className="text-orange-800 font-medium mb-2">
+                  Hủy lịch hẹn (không hoàn tiền)
+                </p>
+                <p className="text-sm text-orange-600">
+                  Do hủy muộn (dưới 24 giờ), tiền sẽ không được hoàn lại nhưng vẫn cần thông tin tài khoản để xử lý.
+                </p>
+              </div>
+            )}
 
-            {/* Refund form - Always show */}
-            <div>
+            {/* Refund form - Show when payment exists */}
+            {requestRefund && (
+              <div>
                 <h4 className="font-medium mb-3">Thông tin tài khoản nhận hoàn tiền</h4>
                 <Form
                   form={refundForm}
@@ -1115,7 +1172,8 @@ const BookingHistoryOptimized: React.FC = () => {
                     </button>
                   </div>
                 </Form>
-            </div>
+              </div>
+            )}
 
           </div>
         </Modal>
