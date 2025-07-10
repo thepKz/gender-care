@@ -6,6 +6,7 @@ import '../models/ServicePackages';
 import { PackagePurchaseService } from '../services/packagePurchaseService';
 import payosService from '../services/payosService';
 import { AuthRequest } from '../types/auth';
+import mongoose from 'mongoose';
 
 export class AppointmentPaymentController {
   
@@ -112,6 +113,19 @@ export class AppointmentPaymentController {
         
         paymentTracking = await existingPayment.save();
         console.log('✅ [AppointmentPayment] Updated existing payment record');
+        
+        // ✅ FIX: Lưu paymentTrackingId vào appointment
+        let paymentTrackingId: mongoose.Types.ObjectId;
+        if (typeof paymentTracking._id === 'string') {
+          paymentTrackingId = new mongoose.Types.ObjectId(paymentTracking._id);
+        } else {
+          paymentTrackingId = paymentTracking._id as mongoose.Types.ObjectId;
+        }
+        if (!appointment.paymentTrackingId || appointment.paymentTrackingId.toString() !== paymentTrackingId.toString()) {
+          appointment.paymentTrackingId = paymentTrackingId;
+          await appointment.save();
+          console.log('✅ [AppointmentPayment] Updated appointment with paymentTrackingId:', paymentTrackingId);
+        }
       } else {
         // ✅ FIX: Tạo PaymentTracking mới chỉ khi chưa có hoặc không reuse được
         console.log('🆕 [AppointmentPayment] Creating new payment record');
@@ -136,6 +150,11 @@ export class AppointmentPaymentController {
         });
         
         console.log('✅ [AppointmentPayment] Created new payment record:', paymentTracking._id);
+        
+        // ✅ FIX: Lưu paymentTrackingId vào appointment với proper type
+        appointment.paymentTrackingId = paymentTracking._id as mongoose.Types.ObjectId;
+        await appointment.save();
+        console.log('✅ [AppointmentPayment] Updated appointment with paymentTrackingId:', paymentTracking._id);
       }
 
       return res.status(200).json({
@@ -212,17 +231,79 @@ export class AppointmentPaymentController {
             // Tạo PackagePurchase nếu là new_package booking
             if (appointment.bookingType === 'new_package' && appointment.packageId && !appointment.packagePurchaseId) {
               try {
+                console.log(`🎯 [AppointmentPayment] Starting PackagePurchase creation for appointment ${appointment._id}`);
+                console.log(`🎯 [AppointmentPayment] Pre-creation state check:`);
+                console.log(`  - Appointment status: ${appointment.status}`);
+                console.log(`  - Payment status: ${appointment.paymentStatus}`);
+                console.log(`  - PaidAt: ${appointment.paidAt}`);
+                console.log(`  - BookingType: ${appointment.bookingType}`);
+                console.log(`  - PackageId exists: ${!!appointment.packageId}`);
+                console.log(`  - UserId: ${appointment.createdByUserId.toString()}`);
+                console.log(`  - Amount: ${appointment.totalAmount || 0}`);
+                
+                console.log(`🎯 [AppointmentPayment] Calling PackagePurchaseService.purchasePackage with:`);
+                console.log(`  - userId: ${appointment.createdByUserId.toString()}`);
+                console.log(`  - packageId: ${appointment.packageId.toString()}`);
+                console.log(`  - amount: ${appointment.totalAmount || 0}`);
+                
                 const packagePurchase = await PackagePurchaseService.purchasePackage(
                   appointment.createdByUserId.toString(),
                   appointment.packageId.toString(),
-                  appointment.totalAmount || 0
+                  appointment.totalAmount || 0,
+                  String(paymentTracking._id)
                 );
                 
+                console.log(`✅ [AppointmentPayment] PackagePurchase created successfully:`);
+                console.log(`  - PackagePurchase ID: ${packagePurchase._id}`);
+                console.log(`  - PackagePurchase status: ${(packagePurchase as any).status}`);
+                console.log(`  - PackagePurchase userId: ${(packagePurchase as any).userId}`);
+                console.log(`  - PackagePurchase packageId: ${(packagePurchase as any).packageId}`);
+                console.log(`  - PackagePurchase amount: ${(packagePurchase as any).amount}`);
+                
+                // Update appointment với packagePurchaseId reference
+                const oldPackagePurchaseId = appointment.packagePurchaseId;
                 appointment.packagePurchaseId = packagePurchase._id;
                 await appointment.save();
+                
+                console.log(`✅ [AppointmentPayment] Appointment updated successfully:`);
+                console.log(`  - Old packagePurchaseId: ${oldPackagePurchaseId}`);
+                console.log(`  - New packagePurchaseId: ${packagePurchase._id}`);
+                console.log(`  - Appointment status: ${appointment.status}`);
               } catch (packageError) {
-                console.error('❌ Error creating PackagePurchase:', packageError);
+                console.error('❌ [AppointmentPayment] Error creating PackagePurchase:', packageError);
+                console.error(`❌ [AppointmentPayment] Error type: ${typeof packageError}`);
+                console.error(`❌ [AppointmentPayment] Error name: ${packageError instanceof Error ? packageError.name : 'Unknown'}`);
+                console.error(`❌ [AppointmentPayment] Error message: ${packageError instanceof Error ? packageError.message : 'Unknown error'}`);
+                console.error(`❌ [AppointmentPayment] Error details:`, packageError);
+                console.error(`❌ [AppointmentPayment] Error stack:`, packageError instanceof Error ? packageError.stack : 'No stack trace');
+                
+                // Log appointment state khi có lỗi
+                console.error(`❌ [AppointmentPayment] Appointment state when error occurred:`);
+                console.error(`  - Appointment ID: ${appointment._id}`);
+                console.error(`  - BookingType: ${appointment.bookingType}`);
+                console.error(`  - PackageId: ${appointment.packageId}`);
+                console.error(`  - PackagePurchaseId: ${appointment.packagePurchaseId}`);
+                console.error(`  - TotalAmount: ${appointment.totalAmount}`);
+                console.error(`  - CreatedByUserId: ${appointment.createdByUserId}`);
+                console.error(`  - Status: ${appointment.status}`);
+                console.error(`  - PaymentStatus: ${appointment.paymentStatus}`);
               }
+            } else {
+              // Import log debug function từ paymentController
+              console.log(`\n[DEBUG][AppointmentPaymentController] Lý do không tạo được packagePurchase:`);
+              console.log(`  - bookingType:`, appointment.bookingType, `(type: ${typeof appointment.bookingType})`);
+              console.log(`  - packageId:`, appointment.packageId, `(type: ${typeof appointment.packageId})`);
+              console.log(`  - packagePurchaseId:`, appointment.packagePurchaseId, `(type: ${typeof appointment.packagePurchaseId})`);
+              if (appointment.bookingType !== 'new_package') {
+                console.log(`    => bookingType khác 'new_package' (giá trị: ${appointment.bookingType})`);
+              }
+              if (!appointment.packageId) {
+                console.log(`    => packageId bị thiếu/null/undefined (giá trị: ${appointment.packageId})`);
+              }
+              if (appointment.packagePurchaseId) {
+                console.log(`    => packagePurchaseId đã tồn tại (giá trị: ${appointment.packagePurchaseId})`);
+              }
+              console.log(`[DEBUG][AppointmentPaymentController] Kết thúc log lý do.\n`);
             }
           } else if (paymentInfo.status === 'CANCELLED') {
             await paymentTracking.updatePaymentStatus('cancelled');

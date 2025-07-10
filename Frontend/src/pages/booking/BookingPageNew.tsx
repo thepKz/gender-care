@@ -1,8 +1,8 @@
-import { Button, Calendar, Form, Input, message, Modal, notification, Select } from 'antd';
+import { Button, Calendar, Form, Input, message, Modal, notification, Select, Alert } from 'antd';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // APIs
 import { appointmentApi } from '../../api/endpoints';
@@ -72,6 +72,7 @@ interface ServicePackage {
   services: Array<{
     serviceId: string;
     serviceName: string;
+    quantity: number;
   }>;
   durationInDays: number;
   maxUsages: number;
@@ -103,6 +104,7 @@ interface PurchasedPackage {
 
 const BookingPageNew: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isAuthenticated } = useAuth();
   const [form] = Form.useForm();
 
@@ -118,6 +120,7 @@ const BookingPageNew: React.FC = () => {
   const [selectedProfile, setSelectedProfile] = useState('');
   const [typeLocation, setTypeLocation] = useState<'Online' | 'clinic' | 'home'>('clinic');
   const [availableLocations, setAvailableLocations] = useState<string[]>([]);
+  const [appointmentType, setAppointmentType] = useState<'consultation' | 'test' | 'treatment' | 'other'>('consultation');
 
   // Data states
   const [services, setServices] = useState<Service[]>([]);
@@ -137,6 +140,20 @@ const BookingPageNew: React.FC = () => {
   // Profile modal
   const [showCreateProfileModal, setShowCreateProfileModal] = useState(false);
   const [createProfileForm] = Form.useForm();
+
+  const [showPackageWarning, setShowPackageWarning] = useState(false);
+
+  // Thêm hàm refetch purchased packages
+  const refetchPurchasedPackages = useCallback(async () => {
+    try {
+      const response = await packagePurchaseApi.getUserPurchasedPackages();
+      if (response.success && response.data?.packagePurchases) {
+        setPurchasedPackages(response.data.packagePurchases);
+      }
+    } catch (err) {
+      // Không cần báo lỗi UI
+    }
+  }, []);
 
   // Fetch services
   const fetchServices = useCallback(async () => {
@@ -171,41 +188,84 @@ const BookingPageNew: React.FC = () => {
   const fetchServicePackages = useCallback(async () => {
     try {
       setNetworkError(false);
+      console.log('🔄 [ServicePackages] Starting fetch with services count:', services.length);
+      
       const response = await servicePackageApi.getServicePackages({ 
         isActive: true,
         limit: 100 
       });
       
+      console.log('📦 [ServicePackages] Raw API response:', response);
+      
       // Check response structure - API returns { success: boolean, data: { packages: ServicePackage[] } }
       if (!response.data || !response.data.packages) {
+        console.error('❌ [ServicePackages] Invalid API response structure:', response);
         throw new Error('Invalid API response structure: missing data.packages');
       }
       
-      const packagesData = response.data.packages || [];
+      const packagesData = response.data.packages;
+      console.log('📦 [ServicePackages] Packages data:', packagesData);
       
-      if (!Array.isArray(packagesData)) {
-        throw new Error('Invalid service packages data format: packages should be an array');
-      }
-      
-      const mappedPackages: ServicePackage[] = packagesData.map((pkg: any) => ({
-        _id: pkg._id || pkg.id,
-        name: pkg.name || pkg.packageName,
-        description: pkg.description || '',
-        price: pkg.price || 0,
-        priceBeforeDiscount: pkg.priceBeforeDiscount || pkg.price || 0,
-        services: pkg.services || [],
-        durationInDays: pkg.durationInDays || 30,
-        maxUsages: pkg.maxUsages || 1,
-        isActive: pkg.isActive !== false,
-      }));
+      const mappedPackages: ServicePackage[] = packagesData.map((pkg: any) => {
+        console.log('🔍 [PackageProcessing] Processing package:', pkg.name, 'with services:', pkg.services);
+        
+        // Map services and populate service names from services state
+        const packageServices = (pkg.services || []).map((service: any) => {
+          console.log('🔍 [ServiceMapping] Processing service:', service);
+          
+          // ServiceId có thể là object hoặc string
+          let serviceName = 'Dịch vụ không xác định';
+          let serviceId = '';
+          
+          if (service.serviceId) {
+            if (typeof service.serviceId === 'object' && service.serviceId.serviceName) {
+              // ServiceId là object với serviceName
+              serviceName = service.serviceId.serviceName;
+              serviceId = service.serviceId._id || service.serviceId.id;
+              console.log('✅ [ServiceMapping] Found service object:', { serviceId, serviceName });
+            } else if (typeof service.serviceId === 'string') {
+              // ServiceId là string, tìm trong services state
+              serviceId = service.serviceId;
+              const foundService = services.find(s => s.id === serviceId);
+              serviceName = foundService?.serviceName || 'Dịch vụ không xác định';
+              console.log('✅ [ServiceMapping] Found service by ID:', { serviceId, serviceName, foundService: !!foundService });
+            }
+          } else {
+            console.warn('⚠️ [ServiceMapping] No serviceId found in service:', service);
+          }
+          
+          console.log('✅ [ServiceMapping] Final mapped:', { serviceId, serviceName, quantity: service.quantity });
+          
+          return {
+            serviceId: serviceId,
+            serviceName: serviceName,
+            quantity: service.quantity || 1
+          };
+        });
 
+        console.log('📦 [PackageMapping] Package services for', pkg.name, ':', packageServices);
+
+        return {
+          _id: pkg._id || pkg.id,
+          name: pkg.name || pkg.packageName,
+          description: pkg.description || '',
+          price: pkg.price || 0,
+          priceBeforeDiscount: pkg.priceBeforeDiscount || pkg.price || 0,
+          services: packageServices,
+          durationInDays: pkg.durationInDays || 30,
+          maxUsages: pkg.maxUsages || 1,
+          isActive: pkg.isActive !== false,
+        };
+      });
+
+      console.log('✅ [ServicePackages] Final mapped packages:', mappedPackages);
       setServicePackages(mappedPackages);
     } catch (error) {
       console.error('Error fetching service packages:', error);
       setNetworkError(true);
       setServicePackages([]);
     }
-  }, []);
+  }, [services]);
 
   // 🆕 Fetch purchased packages
   const fetchPurchasedPackages = useCallback(async () => {
@@ -505,9 +565,11 @@ const BookingPageNew: React.FC = () => {
   // Initialize data
   useEffect(() => {
     const initializeData = async () => {
+      // Fetch services first, then packages will auto-fetch via dependency
+      await fetchServices();
+      
+      // Fetch other data in parallel
       await Promise.all([
-        fetchServices(),
-        fetchServicePackages(),
         fetchPurchasedPackages(), // 🆕 Fetch purchased packages
         fetchAvailableDoctors(), // Fetch all doctors initially
         fetchUserProfiles(),
@@ -535,6 +597,22 @@ const BookingPageNew: React.FC = () => {
     
     initializeData();
   }, []); // Empty dependency array to run only once
+
+  // 🆕 Separate useEffect to fetch service packages when services are ready
+  useEffect(() => {
+    if (services.length > 0) {
+      console.log('🔄 [ServicePackages] Services loaded, fetching service packages...');
+      fetchServicePackages();
+    }
+  }, [services, fetchServicePackages]);
+
+  // 🆕 Add debugging for servicePackages state
+  useEffect(() => {
+    console.log('🔍 [Debug] ServicePackages state updated:', {
+      count: servicePackages.length,
+      packages: servicePackages.map(p => ({ id: p._id, name: p.name }))
+    });
+  }, [servicePackages]);
 
   // Handle date selection
   const handleDateSelect = (date: Dayjs) => {
@@ -593,19 +671,16 @@ const BookingPageNew: React.FC = () => {
 
   // Handle service package change
   const handleServicePackageChange = (packageId: string) => {
+    // Kiểm tra purchasedPackages
+    const hasActive = purchasedPackages.some(
+      (pkg) => pkg.servicePackage._id === packageId && pkg.status === 'active'
+    );
+    if (hasActive) {
+      setShowPackageWarning(true);
+    } else {
+      setShowPackageWarning(false);
+    }
     setSelectedServicePackage(packageId);
-    setSelectedService(''); // Clear service selection
-    
-    // Set default location for packages (typically clinic)
-    setAvailableLocations(['clinic']);
-    setTypeLocation('clinic');
-    
-    // Reset form state
-    setSelectedDate(null);
-    setSelectedTimeSlot('');
-    setSelectedDoctor('');
-    setTimeSlots([]);
-    setDoctors([]);
   };
 
   // Handle booking type change
@@ -734,13 +809,19 @@ const BookingPageNew: React.FC = () => {
     }
   };
 
-  // Hàm ánh xạ serviceType thành appointmentType hợp lệ theo yêu cầu backend
-  const mapToValidAppointmentType = (serviceType?: string): string => {
-    console.log(`🔄 [Debug] Mapping serviceType: "${serviceType}" to appointmentType`);
+  // Helper function to map service types to valid appointment types
+  const mapToValidAppointmentType = (serviceType: string | undefined): 'consultation' | 'test' | 'treatment' | 'other' => {
+    if (!serviceType) return 'consultation';
     
-    // HACK: Ghi đè validation - gửi đúng serviceType để thỏa mãn điều kiện thứ hai
-    // dù rằng điều này vi phạm validation đầu tiên
-    return serviceType || 'examination';
+    const type = serviceType.toLowerCase();
+    
+    // Map known service types to appointment types
+    if (type.includes('consultation') || type.includes('tư vấn')) return 'consultation';
+    if (type.includes('test') || type.includes('xét nghiệm') || type.includes('analysis')) return 'test';
+    if (type.includes('treatment') || type.includes('điều trị') || type.includes('therapy')) return 'treatment';
+    
+    // Default to consultation for unknown types
+    return 'consultation';
   };
 
   // Handle form submission
@@ -843,7 +924,7 @@ const BookingPageNew: React.FC = () => {
         appointmentDate: selectedDate.format('YYYY-MM-DD'),
         appointmentTime: selectedTimeSlot,
         // Ánh xạ serviceType sang appointmentType hợp lệ cho API
-        appointmentType: mapToValidAppointmentType(getSelectedService()?.serviceType),
+        appointmentType: appointmentType,
         typeLocation,
         description: values.description || '',
         notes: values.notes || '',
@@ -890,6 +971,9 @@ const BookingPageNew: React.FC = () => {
                 console.log('🚀 [Redirecting] Found payment URL. Preparing to redirect...');
                 message.success('Đặt lịch thành công! Đang chuyển hướng đến trang thanh toán...', 2);
                 
+                // Refetch purchased packages trước khi redirect
+                await refetchPurchasedPackages();
+                
                 // Use setTimeout to ensure the redirect happens in a new execution context
                 setTimeout(() => {
                     console.log(`🚀 [Redirecting] Executing redirect to: ${response.data.paymentUrl}`);
@@ -899,13 +983,13 @@ const BookingPageNew: React.FC = () => {
             } 
             // Case 2: No payment required (Free service or completed)
             else {
+                // Refetch purchased packages trước khi reset/redirect
+                await refetchPurchasedPackages();
                 Modal.success({
                     title: 'Đặt lịch thành công!',
                     content: 'Lịch hẹn của bạn đã được xác nhận. Vui lòng kiểm tra email hoặc trang Lịch sử đặt lịch.',
                     onOk: () => {
                         navigate('/booking-history');
-                        // Reset state manually if needed, e.g., form.resetFields();
-                        // Or call a state reset function if you have one defined elsewhere.
                     },
                 });
             }
@@ -1089,6 +1173,34 @@ const BookingPageNew: React.FC = () => {
     return 0;
   };
 
+  // Auto-set appointmentType when bookingType changes
+  useEffect(() => {
+    if (bookingType === 'package') {
+      setAppointmentType('other');
+    } else if (selectedService && services.length > 0) {
+      const service = services.find(s => s.id === selectedService);
+      setAppointmentType(mapToValidAppointmentType(service?.serviceType));
+    } else {
+      setAppointmentType('consultation');
+    }
+  }, [bookingType, selectedService, services]);
+
+  // Auto-select tab và gói dịch vụ khi điều hướng từ modal chi tiết gói
+  React.useEffect(() => {
+    if (location.state?.bookingType === 'package') {
+      setBookingType('package');
+      if (location.state.selectedPackage?._id) {
+        setSelectedServicePackage(location.state.selectedPackage._id);
+      }
+    }
+    if (location.state?.bookingType === 'service') {
+      setBookingType('service');
+      if (location.state.selectedService?.id || location.state.selectedService?._id) {
+        setSelectedService(location.state.selectedService.id || location.state.selectedService._id);
+      }
+    }
+  }, [location.state]);
+
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -1164,7 +1276,7 @@ const BookingPageNew: React.FC = () => {
                 Chọn dịch vụ hoặc gói dịch vụ
               </h3>
 
-              {/* Booking Type Tabs - Chỉ hiển thị 2 tabs */}
+              {/* Booking Type Tabs - 3 tabs: dịch vụ đơn lẻ, gói dịch vụ mới, gói đã mua */}
               <div style={{ 
                 display: 'flex', 
                 marginBottom: '20px',
@@ -1177,7 +1289,7 @@ const BookingPageNew: React.FC = () => {
                   type="button"
                   onClick={() => handleBookingTypeChange('service')}
                   style={{
-          flex: 1,
+                    flex: 1,
                     padding: '12px 16px',
                     fontSize: '14px',
                     fontWeight: '600',
@@ -1192,7 +1304,26 @@ const BookingPageNew: React.FC = () => {
                 >
                   Dịch vụ đơn lẻ
                 </button>
-                {/* Chỉ hiển thị tab "Gói đã mua" cho user đã login */}
+                <button
+                  type="button"
+                  onClick={() => handleBookingTypeChange('package')}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    backgroundColor: bookingType === 'package' ? 'white' : 'transparent',
+                    color: bookingType === 'package' ? '#7c3aed' : '#64748b',
+                    boxShadow: bookingType === 'package' ? '0 2px 8px rgba(124, 58, 237, 0.15)' : 'none'
+                  }}
+                >
+                  Gói dịch vụ
+                </button>
+                {/* Tab "Gói đã mua" cho user đã login */}
                 {isAuthenticated && (
                   <button
                     type="button"
@@ -1263,6 +1394,145 @@ const BookingPageNew: React.FC = () => {
                         ))}
                       </Select>
                     </Form.Item>
+                  )}
+                </>
+              )}
+
+              {/* 🆕 New Package Selection */}
+              {bookingType === 'package' && (
+                <>
+                  <Form.Item
+                    label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Gói dịch vụ</span>}
+                    required
+                    style={{ marginBottom: '16px' }}
+                  >
+                    <Select
+                      value={selectedServicePackage}
+                      onChange={handleServicePackageChange}
+                      placeholder="Chọn gói dịch vụ"
+                      style={{ fontSize: '14px' }}
+                      size="large"
+                    >
+                      {servicePackages.filter(pkg => pkg._id && pkg.isActive).map(pkg => (
+                        <Option key={pkg._id} value={pkg._id}>
+                          {pkg.name}
+                        </Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+
+                  {/* Render Alert dưới dropdown nếu có cảnh báo */}
+                  {showPackageWarning && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      message="Bạn đã có gói này đang hoạt động, vui lòng sử dụng trước khi mua mới."
+                      style={{ margin: '12px 0' }}
+                    />
+                  )}
+
+                  {/* Package Details Display */}
+                  {selectedServicePackage && getSelectedServicePackage() && (
+                    <div style={{
+                      background: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
+                      borderRadius: '12px',
+                      padding: '20px',
+                      border: '1px solid #c4b5fd',
+                      marginBottom: '16px',
+                      maxWidth: '100%',
+                      overflow: 'hidden'
+                    }}>
+                      <h4 style={{ 
+                        fontSize: '16px', 
+                        fontWeight: '600', 
+                        color: '#6b21a8',
+                        marginBottom: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        flexWrap: 'wrap'
+                      }}>
+                        📦 {getSelectedServicePackage()?.name}
+                      </h4>
+                      <p style={{ 
+                        fontSize: '14px', 
+                        color: '#6b21a8',
+                        marginBottom: '16px',
+                        lineHeight: '1.5',
+                        wordBreak: 'break-word'
+                      }}>
+                        {getSelectedServicePackage()?.description}
+                      </p>
+                      
+                      {/* Services in Package */}
+                      <div style={{ marginBottom: '16px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: '#6b21a8', marginBottom: '8px' }}>
+                          Dịch vụ bao gồm:
+                        </div>
+                        <div style={{ 
+                          display: 'flex', 
+                          flexWrap: 'wrap', 
+                          gap: '8px',
+                          maxHeight: '120px',
+                          overflowY: 'auto'
+                        }}>
+                          {getSelectedServicePackage()?.services?.map((service, index) => (
+                            <span 
+                              key={index}
+                              style={{
+                                background: 'white',
+                                color: '#6b21a8',
+                                padding: '6px 12px',
+                                borderRadius: '20px',
+                                fontSize: '12px',
+                                fontWeight: '500',
+                                border: '1px solid #c4b5fd',
+                                whiteSpace: 'nowrap',
+                                maxWidth: '200px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                              title={`${service.serviceName} (${service.quantity} lượt)`}
+                            >
+                              {service.serviceName}
+                              <span style={{
+                                background: '#6b21a8',
+                                color: 'white',
+                                borderRadius: '10px',
+                                padding: '2px 6px',
+                                fontSize: '10px',
+                                fontWeight: '600',
+                                minWidth: '20px',
+                                textAlign: 'center'
+                              }}>
+                                {service.quantity}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Package Price */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        paddingTop: '12px',
+                        borderTop: '1px solid #c4b5fd',
+                        flexWrap: 'wrap',
+                        gap: '8px'
+                      }}>
+                        <span style={{ fontSize: '14px', color: '#6b21a8', fontWeight: '500' }}>
+                          Thời hạn: {getSelectedServicePackage()?.durationInDays} ngày
+                        </span>
+                        <span style={{ fontSize: '18px', color: '#6b21a8', fontWeight: '700' }}>
+                          {formatPrice(getSelectedServicePackage()?.price || 0)} VNĐ
+                        </span>
+                      </div>
+                    </div>
                   )}
                 </>
               )}
@@ -2164,12 +2434,21 @@ const BookingPageNew: React.FC = () => {
                       type="primary"
                       htmlType="submit"
                       loading={isSubmitting}
-                      disabled={!(selectedService || selectedServicePackage) || !selectedDate || !selectedTimeSlot || !selectedProfile}
-                  style={{
+                      disabled={
+                        !(
+                          selectedService ||
+                          selectedServicePackage ||
+                          (selectedPurchasedPackage && selectedServiceFromPackage)
+                        )
+                        || !selectedDate
+                        || !selectedTimeSlot
+                        || !selectedProfile
+                      }
+                      style={{
                         backgroundColor: '#10b981',
                         borderColor: '#10b981',
                         fontSize: '16px',
-                    fontWeight: '600',
+                        fontWeight: '600',
                         height: '48px',
                         padding: '0 40px',
                         borderRadius: '8px'
@@ -2368,6 +2647,31 @@ const BookingPageNew: React.FC = () => {
                     <span>Bạn bè</span>
                   </div>
                 </Option>
+              </Select>
+            </Form.Item>
+
+            {/* Appointment Type Selection */}
+            <Form.Item
+              label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Loại cuộc hẹn</span>}
+              required
+              style={{ marginBottom: '16px' }}
+            >
+              <Select
+                value={appointmentType}
+                onChange={setAppointmentType}
+                placeholder="Chọn loại cuộc hẹn"
+                style={{ fontSize: '14px' }}
+                size="large"
+              >
+                {bookingType === 'package' ? (
+                  <Option value="other">Gói dịch vụ</Option>
+                ) : (
+                  <>
+                    <Option value="consultation">Tư vấn</Option>
+                    <Option value="test">Xét nghiệm</Option>
+                    <Option value="treatment">Điều trị</Option>
+                  </>
+                )}
               </Select>
             </Form.Item>
           </Form>

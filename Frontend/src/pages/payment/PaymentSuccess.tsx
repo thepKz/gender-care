@@ -29,7 +29,7 @@ const PaymentSuccess: React.FC = () => {
     const orderCode = searchParams.get('orderCode');
     const cancel = searchParams.get('cancel');
 
-    console.log('🔍 PayOS Callback:', { code, id, status, orderCode, cancel });
+
 
     setPaymentInfo({
       code,
@@ -56,7 +56,7 @@ const PaymentSuccess: React.FC = () => {
   const handleCheckPurchases = async () => {
     try {
       const response = await packagePurchaseApi.getUserPurchasedPackages({ isActive: true });
-      console.log('🔍 [PaymentSuccess] Purchased packages:', response);
+  
       
       if (response.success && response.data?.packagePurchases?.length > 0) {
         message.success(`Tìm thấy ${response.data.packagePurchases.length} gói đã mua!`);

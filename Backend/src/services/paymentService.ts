@@ -46,12 +46,8 @@ export const createPaymentLinkForPayment = async (payment: any, user: any) => {
     }]
   };
 
-  console.log('🔍 [PaymentService] Creating PayOS payment link with data:', JSON.stringify(paymentData, null, 2));
-
   try {
     const paymentLinkResponse = await payos.createPaymentLink(paymentData);
-    console.log('✅ [PaymentService] PayOS response:', paymentLinkResponse);
-
     if (!paymentLinkResponse || !paymentLinkResponse.checkoutUrl) {
       console.error('❌ [PaymentService] PayOS returned an invalid response:', paymentLinkResponse);
       throw new Error('Failed to create payment link from payment provider.');
