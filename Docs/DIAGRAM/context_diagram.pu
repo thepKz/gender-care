@@ -1,0 +1,39 @@
+@startuml context_diagram
+
+skinparam backgroundColor #White
+skinparam actorBorderColor #Black
+skinparam usecaseBorderColor #Black
+skinparam arrowColor #Black
+skinparam stereotypeCBackgroundColor #LightBlue
+
+actor Guest as "Guest"
+actor Customer as "Customer"
+actor Consultant as "Consultant"
+actor Staff as "Staff"
+actor Manager as "Manager"
+actor Admin as "Admin"
+actor PayOs as "PayOs"
+
+usecase "Gender Healthcare Service Management System" as GMS
+
+Guest -> GMS : View Public Access (Service, Package, Doctor Rating, ...)
+
+Customer -> GMS : Account information update\nCreate family profiles\nManage Booking\nManage Consultation\nManage ServicePackage\nFeedback & Rating
+GMS -> Customer : Booking status\nConsultation Meeting\nService Package status\nMedical Recorded\nMedical Notifications
+
+Consultant -> GMS : Input Test Results\nInput Medical Report
+GMS -> Consultant : View Booking appointment\nJoining Meeting Consultation\nView Medical Records\nView Test Results
+
+Staff -> GMS : Input Test Results\nInput Medical Report\nSupporting Customer\nManage Feedback & Rating
+GMS -> Staff : View Medical Records\nView Test Results\nView Booking appointment
+
+Manager -> GMS : Manage Schedules\nManage doctor, staff profiles\nManage Dashboard and Report
+GMS -> Manager : Export Excel Report\nDisplay data (schedules, profiles)\nLogin History
+
+Admin -> GMS : Manager user in systems\nAudit system configs
+GMS -> Admin : Audit system configs
+
+PayOs -> GMS : Url, webhook status
+GMS -> PayOs : Appointment transaction\nConsultation transaction\nService Package transaction
+
+@enduml 
