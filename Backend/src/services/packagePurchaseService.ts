@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import PackagePurchases, { PackagePurchaseDocument } from '../models/PackagePurchases';
 import Service from '../models/Service';
 import ServicePackages, { IServicePackages } from '../models/ServicePackages';
+import User from '../models/User'; // Added missing import
 
 // 🔹 Service đơn giản hóa cho Package Purchase
 export class PackagePurchaseService {
@@ -67,94 +68,135 @@ export class PackagePurchaseService {
   }
 
   /**
-   * 🔹 Mua package - tạo PackagePurchase mới
+   * 🔹 Test function - Tạo PackagePurchase với dữ liệu tối thiểu
+   */
+  static async createTestPackagePurchase(
+    userId: string, 
+    packageId: string
+  ): Promise<any> {
+    try {
+      // Tạo purchase với dữ liệu tối thiểu
+      const purchaseData = {
+        userId: new mongoose.Types.ObjectId(userId),
+        packageId: new mongoose.Types.ObjectId(packageId),
+        purchasePrice: 0,
+        purchaseDate: new Date(),
+        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 ngày
+        status: 'active',
+        usedServices: [] // Empty array
+      };
+
+      // Thử tạo mới
+      let purchase: any;
+      try {
+        purchase = await PackagePurchases.create(purchaseData);
+      } catch (error: any) {
+        if (error.code === 11000) {
+          const existingPurchase = await PackagePurchases.findOne({
+            userId: new mongoose.Types.ObjectId(userId),
+            packageId: new mongoose.Types.ObjectId(packageId),
+            status: 'active'
+          });
+
+          if (existingPurchase) {
+            existingPurchase.purchasePrice = 0;
+            existingPurchase.purchaseDate = new Date();
+            existingPurchase.expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            existingPurchase.status = 'active';
+            
+            purchase = await existingPurchase.save();
+          } else {
+            throw new Error('Test duplicate purchase detected but existing purchase not found');
+          }
+        } else {
+          throw error;
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Test package purchase created successfully',
+        data: {
+          packagePurchase: purchase
+        }
+      };
+
+    } catch (error: any) {
+      throw error;
+    }
+  }
+
+  /**
+   * 🔹 Mua package - tạo PackagePurchase mới (cho phép null values)
    */
   static async purchasePackage(
     userId: string, 
     packageId: string,
-    paymentAmount: number
+    paymentAmount: number = 0,
+    paymentTrackingId?: string
   ): Promise<any> {
-    const session = await mongoose.startSession();
-    
     try {
-      session.startTransaction();
+      if (!userId) throw new Error('User ID is required');
+      if (!packageId) throw new Error('Package ID is required');
 
-      // Check duplicate active package với logic cải tiến
-      const now = new Date();
-      const existing = await PackagePurchases.findOne({ 
-        userId, 
-        packageId, 
-        status: 'active',
-        expiryDate: { $gt: now } // Chỉ kiểm tra gói còn hiệu lực (chưa hết hạn)
-      }).session(session);
-      
-      if (existing) {
-        // Kiểm tra thêm điều kiện gói đã sử dụng hết chưa
-        const packageDoc = await ServicePackages.findOne({ 
-          _id: packageId, 
-          isActive: true 
-        }).session(session);
-        
-        if (packageDoc) {
-          // Check xem gói có còn dịch vụ khả dụng không
-          const hasAvailableServices = existing.usedServices.some((usedService: any) => {
-            const packageService = packageDoc.services.find((s: any) => 
-              s.serviceId.toString() === usedService.serviceId.toString()
-            );
-            if (!packageService) return false;
-            return usedService.usedQuantity < (packageService.quantity || 1);
-          });
-          
-          if (hasAvailableServices) {
-            throw new Error('Bạn đã sở hữu gói này và vẫn còn hiệu lực với dịch vụ chưa sử dụng hết. Vui lòng sử dụng hết hoặc chờ hết hạn trước khi mua lại.');
-          }
-        }
-      }
+      const packageDoc = await ServicePackages.findById(packageId);
+      const userDoc = await User.findById(userId);
+      if (!userDoc) throw new Error('User not found');
 
-      // Validate package
-      const packageDoc = await ServicePackages.findOne({ 
-        _id: packageId, 
-        isActive: true 
-      }).session(session);
-
-      if (!packageDoc) {
-        throw new Error('Package not found or inactive');
-      }
-
-      // Validate payment amount
-      if (paymentAmount < packageDoc.price) {
-        throw new Error(`Insufficient payment. Required: ${packageDoc.price}, Paid: ${paymentAmount}`);
-      }
-
-      // Tính expiryDate
-      const duration = packageDoc.durationInDays || 30;
-      const currentTime = new Date();
-      const expiryDate = new Date(currentTime.getTime() + duration * 24 * 60 * 60 * 1000);
-
-      // Tạo purchase record
-      const purchase = new PackagePurchases({
-        userId: new mongoose.Types.ObjectId(userId),
-        packageId: new mongoose.Types.ObjectId(packageId),
-        purchasePrice: paymentAmount,
-        purchaseDate: currentTime,
-        expiryDate: expiryDate,
-        usedServices: (packageDoc.services || []).map((s: any) => ({
+      let usedServices: any[] = [];
+      if (packageDoc && Array.isArray(packageDoc.services)) {
+        usedServices = packageDoc.services.map((s: any) => ({
           serviceId: s.serviceId,
           usedQuantity: 0,
           maxQuantity: s.quantity || 1
-        }))
-      });
+        }));
+      }
 
-      await purchase.save({ session });
-      await session.commitTransaction();
+      const purchaseData: any = {
+        userId: new mongoose.Types.ObjectId(userId),
+        packageId: new mongoose.Types.ObjectId(packageId),
+        purchasePrice: paymentAmount || 0,
+        purchaseDate: new Date(),
+        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        status: 'active',
+        usedServices
+      };
+      if (paymentTrackingId) {
+        purchaseData.paymentTrackingId = new mongoose.Types.ObjectId(paymentTrackingId);
+      }
 
-      return purchase;
+      let purchase: any;
+      purchase = await PackagePurchases.create(purchaseData);
+      // --- TỰ ĐỘNG TRỪ 1 LƯỢT SAU KHI MUA GÓI MỚI ---
+      if (purchase && Array.isArray(purchase.usedServices) && purchase.usedServices.length > 0) {
+        if (purchase.usedServices.length === 1) {
+          purchase.useService(purchase.usedServices[0].serviceId.toString(), 1);
+        } else {
+          purchase.usedServices.forEach((s: any) => {
+            purchase.useService(s.serviceId.toString(), 1);
+          });
+        }
+        // Cập nhật trạng thái sau khi trừ lượt
+        purchase.checkAndUpdateStatus();
+        await purchase.save();
+      }
+      // --- END ---
 
-    } catch (error) {
-      await session.abortTransaction();
+      return {
+        success: true,
+        message: 'Package purchase created successfully',
+        data: {
+          packagePurchase: purchase,
+          packageName: packageDoc?.name || 'Unknown Package',
+          pricing: {
+            originalPrice: packageDoc?.price || 0,
+            discountedPrice: paymentAmount || 0
+          }
+        }
+      };
+    } catch (error: any) {
+      // Chỉ log lỗi nghiêm trọng
       throw error;
-    } finally {
-      session.endSession();
     }
   }
 

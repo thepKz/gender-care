@@ -19,11 +19,11 @@ export interface IPackagePurchasesMethods {
 export interface IPackagePurchases {
   userId: mongoose.Types.ObjectId;
   packageId: mongoose.Types.ObjectId;
-  billId?: mongoose.Types.ObjectId;  // Reference đến Bills
-  purchasePrice: number;           // Giá đã mua (có thể khác giá hiện tại)
+  paymentTrackingId?: mongoose.Types.ObjectId;  // ✅ REPLACE: billId → paymentTrackingId
+  purchasePrice?: number;           // ✅ ALLOW NULL: Cho phép null
   status: 'active' | 'expired' | 'used_up';
   purchaseDate: Date;
-  expiryDate: Date;               // purchaseDate + durationInDays
+  expiryDate?: Date;               // ✅ ALLOW NULL: Cho phép null
   usedServices: IUsedService[];   // Track usage của từng service
   createdAt: Date;
   updatedAt: Date;
@@ -66,13 +66,14 @@ const PackagePurchasesSchema = new mongoose.Schema<IPackagePurchases, PackagePur
     ref: 'ServicePackages', 
     required: true 
   },
-  billId: { 
+  paymentTrackingId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Bills' 
+    ref: 'PaymentTracking'  // ✅ REPLACE: billId → paymentTrackingId
   },
   purchasePrice: {
     type: Number,
-    required: true,
+    required: false, // ✅ ALLOW NULL: Cho phép null
+    default: 0,      // ✅ DEFAULT: Giá trị mặc định
     min: [0, 'Purchase price must be non-negative']
   },
   status: {
@@ -89,23 +90,17 @@ const PackagePurchasesSchema = new mongoose.Schema<IPackagePurchases, PackagePur
   },
   expiryDate: {
     type: Date,
-    required: true
+    required: false, // ✅ ALLOW NULL: Cho phép null
+    default: function() {
+      // ✅ DEFAULT: Tự động tính 30 ngày từ ngày tạo
+      return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    }
   },
   usedServices: {
     type: [UsedServiceSchema],
     default: []
   }
 }, { timestamps: true });
-
-// 🔒 DUPLICATE PREVENTION: Unique constraint để ngăn user mua cùng package nhiều lần khi còn active
-PackagePurchasesSchema.index(
-  { userId: 1, packageId: 1, status: 1 }, 
-  { 
-    unique: true, 
-    partialFilterExpression: { status: 'active' },
-    name: 'unique_active_user_package' 
-  }
-);
 
 // 🔒 Performance indexes
 PackagePurchasesSchema.index({ userId: 1, status: 1 });
@@ -115,8 +110,8 @@ PackagePurchasesSchema.index({ expiryDate: 1, status: 1 });
 PackagePurchasesSchema.methods.checkAndUpdateStatus = function(this: PackagePurchaseDocument) {
   const now = new Date();
   
-  // Check expiry
-  if (now > this.expiryDate) {
+  // Check expiry (chỉ check nếu expiryDate tồn tại và là Date)
+  if (this.expiryDate instanceof Date && !isNaN(this.expiryDate.getTime()) && now > this.expiryDate) {
     this.status = 'expired';
     return this.status;
   }

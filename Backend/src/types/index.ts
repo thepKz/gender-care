@@ -366,7 +366,7 @@ export interface IPackagePurchase {
   userId: string;              // Ai là người mua
   profileId: string;           // Hồ sơ bệnh án nào sử dụng gói này
   packageId: string;           // FK đến ServicePackages._id
-  billId: string;              // Liên kết hóa đơn thanh toán
+  paymentTrackingId: string;   // ✅ REPLACE: billId → paymentTrackingId
   activatedAt: Date;           // 🔹 Ngày bắt đầu sử dụng gói
   expiredAt: Date;             // 🔹 Ngày hết hạn (tính từ activatedAt + durationInDays)
   remainingUsages: number;     // 🔹 Số lượt còn lại có thể dùng

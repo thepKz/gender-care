@@ -60,11 +60,11 @@ const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
     if (onBookingClick) {
       onBookingClick(service);
     } else {
-      navigate('/booking', { 
-        state: { 
+      navigate('/booking', {
+        state: {
           selectedService: service,
-          serviceType: service.serviceType 
-        } 
+          bookingType: 'service'
+        }
       });
     }
     onClose();

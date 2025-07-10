@@ -263,7 +263,7 @@ export const purchasePackage = async (req: AuthRequest, res: Response) => {
         },
         packagePurchase: null, // Sẽ tạo sau khi thanh toán thành công
         paymentUrl: paymentLinkResponse.checkoutUrl, // For easier frontend access
-        billId: paymentDoc._id,
+        paymentTrackingId: paymentDoc._id,
         packageId: packageId,
         packageName: servicePackage.name,
         pricing: {
@@ -388,7 +388,7 @@ export const purchasePackageOriginal = async (req: AuthRequest, res: Response) =
       userId: userId,
       profileId: profileId,
       packageId: packageId,
-      billId: bill._id,
+      paymentTrackingId: bill._id,
       activatedAt: new Date(),
       expiredAt: new Date(),
       remainingUsages: 1,
@@ -401,7 +401,7 @@ export const purchasePackageOriginal = async (req: AuthRequest, res: Response) =
     // Populate thông tin để trả về
     const populatedPurchase = await PackagePurchases.findById(packagePurchase._id)
       .populate('packageId', 'name description price serviceIds durationInDays maxUsages')
-      .populate('billId', 'subtotal discountAmount totalAmount status');
+              .populate('paymentTrackingId', 'totalAmount status billNumber');
 
     const response: ApiResponse<any> = {
       success: true,
@@ -484,9 +484,9 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
           }
         })
         .populate({
-          path: 'billId',
-          model: 'Bills',
-          select: 'subtotal discountAmount totalAmount status createdAt'
+          path: 'paymentTrackingId',
+          model: 'PaymentTracking',
+          select: 'totalAmount status createdAt billNumber'
         })
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -694,7 +694,7 @@ export const getPackagePurchaseDetail = async (req: AuthRequest, res: Response) 
         }
       })
       .populate('profileId', 'fullName phone year gender', undefined, { strictPopulate: false })
-      .populate('billId', 'subtotal discountAmount totalAmount status createdAt');
+              .populate('paymentTrackingId', 'totalAmount status billNumber createdAt');
 
     if (!packagePurchase) {
       const response: ApiResponse<any> = {
@@ -785,7 +785,7 @@ export const getPackagePurchasesByProfile = async (req: AuthRequest, res: Respon
           select: 'serviceName price description serviceType availableAt'
         }
       })
-      .populate('billId', 'subtotal discountAmount totalAmount status createdAt')
+              .populate('paymentTrackingId', 'totalAmount status billNumber createdAt')
       .sort({ createdAt: -1 });
 
     const response: ApiResponse<any> = {
@@ -1041,7 +1041,7 @@ export const getPackagePurchaseById = async (req: AuthRequest, res: Response) =>
           totalServices: purchase.usedServices.length,
           totalUsed: purchase.usedServices.reduce((sum: number, s: any) => sum + s.usedQuantity, 0),
           totalMax: purchase.usedServices.reduce((sum: number, s: any) => sum + s.maxQuantity, 0),
-          daysRemaining: Math.max(0, Math.ceil((new Date(purchase.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+          daysRemaining: purchase.expiryDate ? Math.max(0, Math.ceil((new Date(purchase.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0
         }
       }
     };
@@ -1316,6 +1316,73 @@ export const getAllPackagesAnalytics = async (req: AuthRequest, res: Response) =
   }
 };
 
+// Test endpoint để tạo PackagePurchase đơn giản
+export const testCreatePackagePurchase = async (req: AuthRequest, res: Response) => {
+  try {
+    const { packageId } = req.body;
+    const userId = req.user?._id;
+
+    console.log('🧪 [Test] Creating test package purchase:', { userId, packageId });
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
+    if (!packageId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Package ID is required'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(packageId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid package ID format'
+      });
+    }
+
+    // Sử dụng hàm test để tạo PackagePurchase
+    const purchase = await PackagePurchaseService.createTestPackagePurchase(
+      userId.toString(),
+      packageId
+    );
+
+    console.log('✅ [Test] Package purchase created:', purchase._id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Test package purchase created successfully',
+      data: {
+        purchaseId: purchase._id,
+        userId: purchase.userId,
+        packageId: purchase.packageId,
+        status: purchase.status,
+        purchaseDate: purchase.purchaseDate,
+        expiryDate: purchase.expiryDate
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ [Test] Error creating test package purchase:', error);
+    
+    // Log chi tiết lỗi
+    if (error.code === 11000) {
+      console.error('❌ [Test] Duplicate key error - unique constraint violation');
+    }
+    
+    res.status(500).json({
+      success: false,
+      message: 'Error creating test package purchase',
+      error: error.message,
+      code: error.code
+    });
+  }
+};
+
 // Webhook handler cho PayOS payment success
 export const handlePayOSWebhook = async (req: Request, res: Response) => {
   try {
@@ -1394,7 +1461,7 @@ export const handlePayOSWebhook = async (req: Request, res: Response) => {
     const packagePurchaseData: any = {
       userId: payment.userId,
       packageId: payment.recordId, // Use recordId since it's the package ID for package payments
-      billId: payment._id,
+      paymentTrackingId: payment._id,
       activatedAt: new Date(),
       expiryDate: new Date(Date.now() + (servicePackage.durationInDays || 365) * 24 * 60 * 60 * 1000),
       remainingUsages: totalUsages,
