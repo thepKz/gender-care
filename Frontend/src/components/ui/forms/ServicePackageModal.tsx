@@ -17,6 +17,7 @@ import {
 import React, { useCallback, useEffect, useState } from 'react';
 import { getServices } from '../../../api/endpoints/serviceApi';
 import { CreateServicePackageRequest, Service, ServicePackage, UpdateServicePackageRequest, ServiceItem } from '../../../types';
+import { ExclamationCircleOutlined } from '@ant-design/icons';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -40,6 +41,8 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
   const [form] = Form.useForm();
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [pendingPackage, setPendingPackage] = useState<any>(null);
   
   const isEditMode = !!servicePackage;
 
@@ -145,18 +148,8 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
         return;
       }
 
-      const submitData: CreateServicePackageRequest | UpdateServicePackageRequest = {
-        name: values.name.trim(),
-        description: values.description?.trim() || '',
-        priceBeforeDiscount: values.priceBeforeDiscount ? Number(values.priceBeforeDiscount) : undefined,
-        price: Number(values.price),
-        services: values.services,
-        durationInDays: Number(values.durationInDays),
-        isActive: values.isActive
-      };
-
-      await onSubmit(submitData);
-      form.resetFields();
+      setPendingPackage(values);
+      setConfirmVisible(true);
     } catch (error: any) {
       if (error.errorFields) {
         console.log('Form validation failed:', error.errorFields);
@@ -166,6 +159,27 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
       console.error('Form submission error:', error);
       message.error('Có lỗi xảy ra khi gửi form');
     }
+  };
+
+  const handleConfirmOk = async () => {
+    if (!pendingPackage) return;
+    const submitData: CreateServicePackageRequest | UpdateServicePackageRequest = {
+      name: pendingPackage.name.trim(),
+      description: pendingPackage.description?.trim() || '',
+      priceBeforeDiscount: pendingPackage.priceBeforeDiscount ? Number(pendingPackage.priceBeforeDiscount) : undefined,
+      price: Number(pendingPackage.price),
+      services: pendingPackage.services,
+      durationInDays: Number(pendingPackage.durationInDays),
+      isActive: pendingPackage.isActive
+    };
+    await onSubmit(submitData);
+    setConfirmVisible(false);
+    setPendingPackage(null);
+    form.resetFields();
+  };
+
+  const handleConfirmCancel = () => {
+    setConfirmVisible(false);
   };
 
   // Handle cancel
@@ -401,6 +415,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                     }, 0);
                   }}
                   style={{ width: '100%', marginBottom: 0, paddingBottom: 0 }}
+                  disabled={fields.length >= 1}
                 >
                   Thêm dịch vụ
                 </Button>
@@ -473,6 +488,44 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
           </Button>
         </div>
       </Form>
+
+      {/* Modal xác nhận thông tin gói dịch vụ */}
+      <Modal
+        visible={confirmVisible}
+        title={<span><ExclamationCircleOutlined style={{ color: '#faad14', marginRight: 8 }} />Xác nhận thông tin gói dịch vụ</span>}
+        onOk={handleConfirmOk}
+        onCancel={handleConfirmCancel}
+        okText="OK"
+        cancelText="Cancel"
+        maskClosable={false}
+      >
+        {pendingPackage && (
+          <div>
+            <p><strong>Tên gói dịch vụ:</strong> {pendingPackage.name}</p>
+            <p><strong>Mô tả:</strong> {pendingPackage.description}</p>
+            <p><strong>Thời hạn sử dụng:</strong> {pendingPackage.durationInDays} ngày</p>
+            <p><strong>Trạng thái:</strong> {pendingPackage.isActive ? 'Hoạt động' : 'Ngưng hoạt động'}</p>
+            <p><strong>Dịch vụ:</strong></p>
+            <ul>
+              {pendingPackage.services.map((s: any, idx: number) => {
+                const service = availableServices.find(sv => sv._id === s.serviceId);
+                return (
+                  <li key={idx}>
+                    {service ? service.serviceName : 'Không xác định'} | Số lượng: {s.quantity}
+                  </li>
+                );
+              })}
+            </ul>
+            <p><strong>Giá gốc:</strong> {pendingPackage.priceBeforeDiscount?.toLocaleString('vi-VN')} VNĐ</p>
+            <p>
+              <strong>Giá gói:</strong>
+              <span style={{ color: '#1677ff', fontWeight: 'bold', fontSize: 22, marginLeft: 8 }}>
+                {pendingPackage.price?.toLocaleString('vi-VN')} VNĐ
+              </span>
+            </p>
+          </div>
+        )}
+      </Modal>
     </Modal>
   );
 };

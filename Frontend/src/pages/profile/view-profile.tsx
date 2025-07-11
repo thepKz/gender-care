@@ -704,40 +704,53 @@ const ViewProfilePage: React.FC = () => {
                   key: '1',
                   label: 'Hồ sơ bệnh án',
                   children: (
-                    <div>
+                    <div className="w-full">
                       {selectedMedicalRecord && typeof selectedMedicalRecord === 'object' && Object.keys(selectedMedicalRecord).length > 0 ? (
-                        <Descriptions bordered column={1} size="middle">
-                        <Descriptions.Item label="Tên bệnh nhân">{profile.fullName}</Descriptions.Item>
-                        <Descriptions.Item label="Số điện thoại">{profile.phone || '---'}</Descriptions.Item>
-                        <Descriptions.Item label="Bác sĩ">{selectedMedicalRecord.doctorId?.userId?.fullName || '---'}</Descriptions.Item>
-                        <Descriptions.Item label="Ngày khám">{selectedMedicalRecord.appointmentId?.appointmentDate ? dayjs(selectedMedicalRecord.appointmentId.appointmentDate).format('DD/MM/YYYY') : '---'}</Descriptions.Item>
-                        <Descriptions.Item label="Triệu chứng">{selectedMedicalRecord.symptoms || '---'}</Descriptions.Item>
-                        <Descriptions.Item label="Kết luận">{selectedMedicalRecord.conclusion || '---'}</Descriptions.Item>
-                        <Descriptions.Item label="Điều trị">{selectedMedicalRecord.treatment || '---'}</Descriptions.Item>
-                        <Descriptions.Item label="Thuốc">
-                          <List
-                            dataSource={selectedMedicalRecord.medicines || []}
-                            renderItem={item => {
-                              const med = item as any;
-                              const infoArr = [];
-                              if (med.dosage) infoArr.push(<span>Liều lượng: <span style={{fontWeight:600}}>{med.dosage}</span></span>);
-                              if (med.duration) infoArr.push(<span>Thời gian: <span style={{fontWeight:600}}>{med.duration} ngày</span></span>);
-                              if (med.timingInstructions) infoArr.push(<span>Thời điểm: <span style={{fontWeight:600}}>{med.timingInstructions}</span></span>);
-                              return (
-                                <List.Item style={{ display: 'block', padding: 0, border: 'none' }}>
-                                  <div style={{ fontWeight: 500, marginBottom: 2 }}>{med.name}</div>
-                                  {infoArr.length > 0 && (
-                                    <div style={{ marginBottom: 4, lineHeight: 1.7 }}>{infoArr.map((el, idx) => <span key={idx} style={{ marginRight: 8 }}>{el}{idx < infoArr.length - 1 && <span style={{ margin: '0 8px' }}>|</span>}</span>)}</div>
-                                  )}
-                                  {med.instructions && <div style={{ fontStyle: 'italic', color: '#888', marginTop: 4 }}>Hướng dẫn: {med.instructions}</div>}
-                                </List.Item>
-                              );
-                            }}
-                            locale={{ emptyText: 'Không có thuốc' }}
-                          />
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Ghi chú">{selectedMedicalRecord.notes || '---'}</Descriptions.Item>
-                      </Descriptions>
+                        <div className="flex flex-col md:flex-row gap-8 w-full">
+                          {/* Cột trái: Thông tin bệnh án */}
+                          <div className="flex-1 min-w-[220px] max-w-[380px]">
+                            <Descriptions bordered column={1} size="middle">
+                              <Descriptions.Item label="Tên bệnh nhân">{profile.fullName}</Descriptions.Item>
+                              <Descriptions.Item label="Số điện thoại">{profile.phone || '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Bác sĩ">{selectedMedicalRecord.doctorId?.userId?.fullName || '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Ngày khám">{selectedMedicalRecord.appointmentId?.appointmentDate ? dayjs(selectedMedicalRecord.appointmentId.appointmentDate).format('DD/MM/YYYY') : '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Triệu chứng">{selectedMedicalRecord.symptoms || '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Kết luận">{selectedMedicalRecord.conclusion || '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Điều trị">{selectedMedicalRecord.treatment || '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Ghi chú">{selectedMedicalRecord.notes || '---'}</Descriptions.Item>
+                            </Descriptions>
+                          </div>
+                          {/* Cột phải: Thuốc */}
+                          <div className="flex-1 min-w-[220px] max-w-[380px]">
+                            <div className="font-semibold text-lg mb-2 text-[#0C3C54]">Thuốc kê đơn</div>
+                            {selectedMedicalRecord.medicines && selectedMedicalRecord.medicines.length > 0 ? (
+                              <div className="flex flex-col gap-4">
+                                {selectedMedicalRecord.medicines.map((med, idx) => {
+                                  // Hiển thị thời gian dùng: nếu là số hoặc parse được số thì thêm ' ngày'
+                                  let durationStr = '---';
+                                  if (med.duration) {
+                                    const num = Number(med.duration);
+                                    if (!isNaN(num)) {
+                                      durationStr = `${num} ngày`;
+                                    } else {
+                                      durationStr = med.duration;
+                                    }
+                                  }
+                                  return (
+                                    <div key={idx} className="border border-gray-200 rounded-lg p-3 bg-[#f8fafc]">
+                                      <div className="font-semibold mb-1">{med.name}</div>
+                                      <div className="text-sm mb-1"><b>Liều lượng:</b> {med.dosage || '---'}</div>
+                                      <div className="text-sm mb-1"><b>Thời gian dùng:</b> {durationStr}</div>
+                                      {med.instructions && <div className="italic text-xs text-gray-500 mt-1">Hướng dẫn: {med.instructions}</div>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div>Không có thuốc kê đơn</div>
+                            )}
+                          </div>
+                        </div>
                       ) : (
                         <div className="text-center text-gray-500 py-8">Chưa có hồ sơ bệnh án cho lịch này</div>
                       )}
