@@ -480,11 +480,12 @@ const ServiceTestConfigurationInner: React.FC = () => {
   
     {
       title: 'Đơn vị',
-      dataIndex: 'customUnit',
-      key: 'customUnit',
-      render: (value, record) => {
-        const defaultUnit = getTestCategoryDetails(record.testCategoryId)?.unit;
-        return value || <span className="text-gray-500">{defaultUnit}</span>;
+      dataIndex: 'unit',
+      key: 'unit',
+      render: (_, record) => {
+        // Ưu tiên unit của ServiceTestCategory, nếu không có thì lấy từ testCategory
+        const unit = record.unit || record.testCategory?.unit;
+        return unit ? <span>{unit}</span> : <span className="text-gray-500">Chưa thiết lập</span>;
       },
     },
     {
@@ -890,38 +891,32 @@ const ServiceTestConfigurationInner: React.FC = () => {
             </>
           )}
 
-          <Row gutter={16}>
-            <Col span={12}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <div style={{ flex: 1 }}>
               <Form.Item
                 name="isRequired"
                 label="Loại xét nghiệm"
                 valuePropName="checked"
+                style={{ marginBottom: 8 }}
               >
                 <Checkbox>Bắt buộc</Checkbox>
               </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="unit" label="Đơn vị">
+            </div>
+            <div style={{ flex: 1 }}>
+              <Form.Item name="unit" label="Đơn vị" style={{ marginBottom: 8 }}>
                 <Input placeholder="VD: mg/dL" />
               </Form.Item>
-            </Col>
-          </Row>
+            </div>
+          </div>
 
           <div className="bg-blue-50 p-4 rounded mb-4">
-            <Title level={5}>Giá trị dao động cho dịch vụ này</Title>
-            <Alert
-              message="Giá trị bình thường sẽ được tự động tính"
-              description="Hệ thống sẽ tự động tính giá trị bình thường = (giá trị thấp nhất + giá trị cao nhất) / 2"
-              type="info"
-              showIcon
-              className="mb-4"
-            />
-            <Row gutter={16}>
-              <Col span={12}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}>
                 <Form.Item
                   name="minValue"
                   label="Giá trị thấp nhất"
                   rules={[{ type: 'number', message: 'Vui lòng nhập số' }]}
+                  style={{ marginBottom: 8 }}
                 >
                   <InputNumber 
                     placeholder="VD: 3.5" 
@@ -929,12 +924,13 @@ const ServiceTestConfigurationInner: React.FC = () => {
                     step={0.1}
                   />
                 </Form.Item>
-              </Col>
-              <Col span={12}>
+              </div>
+              <div style={{ flex: 1 }}>
                 <Form.Item
                   name="maxValue"
                   label="Giá trị cao nhất"
                   rules={[{ type: 'number', message: 'Vui lòng nhập số' }]}
+                  style={{ marginBottom: 8 }}
                 >
                   <InputNumber 
                     placeholder="VD: 5.0" 
@@ -942,68 +938,95 @@ const ServiceTestConfigurationInner: React.FC = () => {
                     step={0.1}
                   />
                 </Form.Item>
-              </Col>
-            </Row>
+              </div>
+            </div>
           </div>
 
-          <Form.Item label="Threshold Rules">
+          <Form.Item label="Thiết lập ngưỡng">
             <Form.List
               name="thresholdRules"
               initialValue={editingItem?.thresholdRules || [{ from: null, to: null, flag: 'normal', message: '' }]}
-              rules={[{ validator: async (_, rules) => {
-                if (!rules || rules.length < 1) {
-                  return Promise.reject(new Error('Phải có ít nhất 1 rule!'));
+              rules={[{
+                validator: async (_, rules) => {
+                  if (!rules || rules.length < 1) {
+                    return Promise.reject(new Error('Vui lòng thiết lập ít nhất một ngưỡng đánh giá.'));
+                  }
+                  for (let i = 0; i < rules.length; i++) {
+                    const { from, to } = rules[i] || {};
+                    if (i === 0) {
+                      if (to !== null && to !== undefined && from !== null && from !== undefined && from >= to) {
+                        return Promise.reject(new Error('Giá trị bắt đầu phải nhỏ hơn giá trị kết thúc trong mỗi ngưỡng.'));
+                      }
+                    } else {
+                      if (from === null || from === undefined) {
+                        return Promise.reject(new Error('Chỉ ngưỡng đầu tiên được phép để trống giá trị bắt đầu (Từ).'));
+                      }
+                      if (rules[i - 1].to === null || rules[i - 1].to === undefined) {
+                        return Promise.reject(new Error('Chỉ ngưỡng cuối cùng được phép để trống giá trị kết thúc (Đến).'));
+                      }
+                      if (from !== rules[i - 1].to) {
+                        return Promise.reject(new Error('Các ngưỡng phải liền kề nhau, không được bỏ trống giữa các khoảng.'));
+                      }
+                      if (to !== null && to !== undefined && from >= to) {
+                        return Promise.reject(new Error('Giá trị bắt đầu phải nhỏ hơn giá trị kết thúc trong mỗi ngưỡng.'));
+                      }
+                    }
+                  }
+                  return Promise.resolve();
                 }
-              }}]}
+              }]}
             >
-              {(fields, { add, remove }) => (
+              {(fields, { add, remove }, { errors }) => (
                 <>
                   {fields.map((field) => (
-                    <div key={field.key} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <div key={field.key} style={{ display: 'flex', gap: 4, marginBottom: 2, alignItems: 'center', minHeight: 40 }}>
                       <Form.Item
                         key={`from-${field.key}`}
                         name={[field.name, 'from']}
-                        style={{ flex: 1 }}
+                        style={{ flex: 1, marginBottom: 0 }}
                       >
                         <InputNumber placeholder="From" style={{ width: '100%' }} />
                       </Form.Item>
                       <Form.Item
                         key={`to-${field.key}`}
                         name={[field.name, 'to']}
-                        style={{ flex: 1 }}
+                        style={{ flex: 1, marginBottom: 0 }}
                       >
                         <InputNumber placeholder="To" style={{ width: '100%' }} />
                       </Form.Item>
                       <Form.Item
                         key={`flag-${field.key}`}
                         name={[field.name, 'flag']}
-                        style={{ flex: 1 }}
+                        style={{ flex: 1, marginBottom: 0 }}
                         rules={[{ required: true, message: 'Chọn flag!' }]}
                       >
-                        <Select placeholder="Flag">
-                          <Select.Option value="very_low">very_low</Select.Option>
-                          <Select.Option value="low">low</Select.Option>
-                          <Select.Option value="normal">normal</Select.Option>
-                          <Select.Option value="mild_high">mild_high</Select.Option>
-                          <Select.Option value="high">high</Select.Option>
-                          <Select.Option value="critical">critical</Select.Option>
+                        <Select placeholder="Chọn mức ngưỡng">
+                          <Select.Option value="very_low">Rất thấp</Select.Option>
+                          <Select.Option value="low">Thấp</Select.Option>
+                          <Select.Option value="normal">Bình thường</Select.Option>
+                          <Select.Option value="mild_high">Hơi cao</Select.Option>
+                          <Select.Option value="high">Cao</Select.Option>
+                          <Select.Option value="critical">Nguy kịch</Select.Option>
                         </Select>
                       </Form.Item>
                       <Form.Item
                         key={`msg-${field.key}`}
                         name={[field.name, 'message']}
-                        style={{ flex: 2 }}
+                        style={{ flex: 2, marginBottom: 0 }}
                         rules={[{ required: true, message: 'Nhập message!' }]}
                       >
                         <Input placeholder="Message" />
                       </Form.Item>
                       {fields.length > 1 && (
-                        <Button danger onClick={() => remove(field.name)}>
-                          Xóa
-                        </Button>
+                        <Form.Item style={{ flex: 'none', marginBottom: 0 }}>
+                          <Button danger size="small" onClick={() => remove(field.name)}>
+                            Xóa
+                          </Button>
+                        </Form.Item>
                       )}
                     </div>
                   ))}
+                  <Form.ErrorList errors={errors} />
                   <Button type="dashed" onClick={() => add({ from: null, to: null, flag: 'normal', message: '' })} block>
                     Thêm dòng
                   </Button>
