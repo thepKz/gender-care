@@ -11,22 +11,13 @@ import {
   Form,
   Typography,
   Tooltip,
-  Popconfirm,
-  DatePicker,
-  message,
-  Tabs,
-  Row,
-  Col
+  message
 } from 'antd';
 import {
   SearchOutlined,
-  PlusOutlined,
   EditOutlined,
-  DeleteOutlined,
   EyeOutlined,
-  FileTextOutlined,
-  UserOutlined,
-  MedicineBoxOutlined
+  FileTextOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { appointmentApi } from '../../../api/endpoints/appointment';
@@ -776,8 +767,34 @@ const MedicalRecordsManagement: React.FC = () => {
         footer={null}
         width={700}
       >
-        <Tabs activeKey={activeTabKey} onChange={setActiveTabKey}>
-          <Tabs.TabPane tab="Tạo hồ sơ bệnh án" key="1">
+        {/* --- Custom Tab Buttons (replaces Ant Design Tabs) --- */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            flexWrap: 'wrap',
+            marginBottom: 16,
+          }}
+        >
+          <Button
+            type={activeTabKey === '1' ? 'primary' : 'default'}
+            onClick={() => setActiveTabKey('1')}
+            style={{ borderRadius: 6, height: 40, minWidth: 160 }}
+          >
+            Tạo hồ sơ bệnh án
+          </Button>
+          <Button
+            type={activeTabKey === '2' ? 'primary' : 'default'}
+            onClick={() => setActiveTabKey('2')}
+            style={{ borderRadius: 6, height: 40, minWidth: 200 }}
+          >
+            Chi tiết hồ sơ xét nghiệm
+          </Button>
+        </div>
+
+        {/* --- Tab Content --- */}
+        {activeTabKey === '1' && (
+          <>
             {selectedAppointment && (
               <div
                 style={{
@@ -901,11 +918,12 @@ const MedicalRecordsManagement: React.FC = () => {
                 <Button type="primary" onClick={() => setMedicalModalOpen(false)} style={{ width: 120 }}>OK</Button>
               </div>
             )}
-          </Tabs.TabPane>
-          <Tabs.TabPane tab="Chi tiết hồ sơ xét nghiệm" key="2">
-            <TestRecordDetail />
-          </Tabs.TabPane>
-        </Tabs>
+          </>
+        )}
+
+        {activeTabKey === '2' && (
+          <TestRecordDetail />
+        )}
       </Modal>
     </div>
   );

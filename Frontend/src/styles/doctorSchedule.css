@@ -1,0 +1,82 @@
+/* ✅ Clean Doctor Schedule Styles - Basic & Professional */
+
+.doctorAppointmentSchedule {
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+/* Simple card styling */
+.ant-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid #e8e8e8;
+}
+
+/* Clean table styling */
+.ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: #f5f5f5;
+}
+
+/* Simple tabs */
+.ant-tabs-tab {
+  font-weight: 500;
+}
+
+.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: #1890ff;
+  font-weight: 600;
+}
+
+/* Clean buttons */
+.ant-btn {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.ant-btn-primary {
+  background: #1890ff;
+  border-color: #1890ff;
+}
+
+/* Simple modal */
+.ant-modal-content {
+  border-radius: 8px;
+}
+
+.ant-modal-header {
+  border-bottom: 1px solid #e8e8e8;
+}
+
+/* Clean tags */
+.ant-tag {
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Simple statistics */
+.ant-statistic-title {
+  font-size: 14px;
+  color: #666;
+}
+
+.ant-statistic-content {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .ant-table {
+    font-size: 14px;
+  }
+  
+  .ant-modal {
+    margin: 16px;
+  }
+} 

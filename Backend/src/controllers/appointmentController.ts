@@ -132,6 +132,19 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
                 };
             }
             
+            // 🔄 Sync phone & phoneNumber for FE compatibility
+            if (appointmentObj.profileId) {
+                // Nếu BE chỉ có phone, bổ sung phoneNumber
+                if (appointmentObj.profileId.phone && !appointmentObj.profileId.phoneNumber) {
+                    appointmentObj.profileId.phoneNumber = appointmentObj.profileId.phone;
+                }
+
+                // Ngược lại – nếu lỡ lưu phoneNumber nhưng thiếu phone
+                if (appointmentObj.profileId.phoneNumber && !appointmentObj.profileId.phone) {
+                    appointmentObj.profileId.phone = appointmentObj.profileId.phoneNumber;
+                }
+            }
+            
             return appointmentObj;
         });
 
