@@ -8,11 +8,9 @@ import {
   Input,
   Select,
   Modal,
-  Form,
   Typography,
   Tooltip,
   Popconfirm,
-  InputNumber,
   message,
   Row,
   Col,
@@ -42,10 +40,11 @@ import {
 } from '../../../utils/permissions';
 import { getServices, deleteService, GetServicesParams } from '../../../api/endpoints/serviceApi';
 import { recoverService, updateService, createService, toggleServiceStatus } from '../../../api/endpoints/serviceApi';
+import ServiceModal from '../../../components/ui/forms/ServiceModal';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
-const { TextArea, Search } = Input;
+const { Search } = Input;
 
 interface Service {
   key: string;
@@ -71,7 +70,6 @@ const ServiceManagement: React.FC = () => {
   const [sortOption, setSortOption] = useState<string>('default');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
-  const [form] = Form.useForm();
   
   // Get current user role for permissions
   const userRole = getCurrentUserRole();
@@ -280,13 +278,6 @@ const ServiceManagement: React.FC = () => {
 
   const handleEdit = (service: Service) => {
     setEditingService(service);
-    form.setFieldsValue({
-      serviceName: service.serviceName,
-      serviceType: service.serviceType,
-      description: service.description,
-      price: service.price,
-      availableAt: service.availableAt
-    });
     setIsModalVisible(true);
   };
 
@@ -322,20 +313,18 @@ const ServiceManagement: React.FC = () => {
     }
   };
 
-  const handleModalOk = async () => {
+  const handleServiceSubmit = async (data: any) => {
     try {
-      const values = await form.validateFields();
       if (editingService) {
         // Cập nhật dịch vụ hiện có
-        await updateService(editingService.id, values);
+        await updateService(editingService.id, data);
         message.success('Cập nhật dịch vụ thành công');
       } else {
         // Tạo dịch vụ mới
-        await createService(values);
+        await createService(data);
         message.success('Tạo dịch vụ thành công');
       }
       setIsModalVisible(false);
-      form.resetFields();
       setEditingService(null);
       loadData();
     } catch (err: any) {
@@ -345,7 +334,6 @@ const ServiceManagement: React.FC = () => {
 
   const handleModalCancel = () => {
     setIsModalVisible(false);
-    form.resetFields();
     setEditingService(null);
   };
 
@@ -649,80 +637,13 @@ const ServiceManagement: React.FC = () => {
         />
       </Card>
 
-      <Modal
-        title={editingService ? 'Chỉnh sửa dịch vụ' : 'Thêm dịch vụ mới'}
-        open={isModalVisible}
-        onOk={handleModalOk}
+      <ServiceModal
+        visible={isModalVisible}
         onCancel={handleModalCancel}
-        width={600}
-        okText={editingService ? 'Cập nhật' : 'Tạo mới'}
-        cancelText="Hủy"
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          style={{ marginTop: 16 }}
-        >
-          <Form.Item
-            name="serviceName"
-            label="Tên dịch vụ"
-            rules={[{ required: true, message: 'Vui lòng nhập tên dịch vụ!' }]}
-          >
-            <Input placeholder="Nhập tên dịch vụ" />
-          </Form.Item>
-
-          <Form.Item
-            name="serviceType"
-            label="Loại dịch vụ"
-            rules={[{ required: true, message: 'Vui lòng chọn loại dịch vụ!' }]}
-          >
-            <Select placeholder="Chọn loại dịch vụ">
-              <Option value="consultation">Tư vấn</Option>
-              <Option value="test">Xét nghiệm</Option>
-              <Option value="treatment">Điều trị</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="description"
-            label="Mô tả"
-            rules={[{ required: true, message: 'Vui lòng nhập mô tả!' }]}
-          >
-            <TextArea rows={3} placeholder="Nhập mô tả chi tiết về dịch vụ" />
-          </Form.Item>
-
-          <Form.Item
-            name="price"
-            label="Giá (VNĐ)"
-            rules={[{ required: true, message: 'Vui lòng nhập giá!' }]}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0}
-              formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value: any) => (value || '').replace(/\$\s?|(,*)/g, '')}
-              placeholder="Nhập giá dịch vụ"
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="availableAt"
-            label="Hình thức cung cấp"
-            rules={[{ required: true, message: 'Vui lòng chọn ít nhất một hình thức!' }]}
-          >
-            <Select 
-              mode="multiple"
-              placeholder="Chọn hình thức cung cấp (có thể chọn nhiều)"
-              style={{ minHeight: '40px' }}
-            >
-              <Option value="Online">Trực tuyến</Option>
-              <Option value="Center">Tại trung tâm</Option>
-            </Select>
-          </Form.Item>
-
-
-        </Form>
-      </Modal>
+        onSubmit={handleServiceSubmit}
+        service={editingService}
+        loading={loading}
+      />
     </div>
   );
 };
