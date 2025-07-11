@@ -7,7 +7,7 @@ import '../models/ServicePackages';
 import { PackagePurchaseService } from '../services/packagePurchaseService';
 import payosService from '../services/payosService';
 import { AuthRequest } from '../types/auth';
-import { sendConsultationPaymentSuccessEmail } from '../services/emails';
+import { sendConsultationPaymentSuccessEmail, sendDoctorNewConsultationNotificationEmail } from '../services/emails';
 
 // Helper: Log chi tiết lý do không tạo được packagePurchase
 
@@ -1024,6 +1024,29 @@ export class PaymentController {
             );
             
             console.log('✅ [PaymentController] Confirmation email sent for already scheduled consultation to:', customerEmail);
+            
+            // 📧 Gửi email thông báo cho bác sĩ (trường hợp consultation đã scheduled trước đó)
+            const doctorEmail = (fullConsultation.doctorId as any)?.userId?.email;
+            if (doctorEmail) {
+              try {
+                await sendDoctorNewConsultationNotificationEmail(
+                  doctorEmail,
+                  doctorName,
+                  customerName,
+                  customerPhone,
+                  fullConsultation.age,
+                  fullConsultation.gender,
+                  fullConsultation.question,
+                  appointmentDate,
+                  appointmentSlot,
+                  fullConsultation.consultationFee || paymentInfo?.amount || 0,
+                  fullConsultation._id.toString()
+                );
+                console.log('✅ [PaymentController] Doctor notification email sent for already scheduled consultation to:', doctorEmail);
+              } catch (doctorEmailError) {
+                console.error('⚠️ [PaymentController] Error sending doctor notification email for scheduled consultation:', doctorEmailError);
+              }
+            }
           }
         } catch (emailError) {
           console.error('⚠️ [PaymentController] Error sending confirmation email for scheduled consultation:', emailError);
@@ -1101,6 +1124,29 @@ export class PaymentController {
               );
               
               console.log('✅ [PaymentController] Delayed payment success email sent to:', customerEmail);
+              
+              // 📧 Gửi email thông báo cho bác sĩ (trường hợp payment đã success nhưng consultation chưa scheduled)
+              const doctorEmail = (fullConsultation.doctorId as any)?.userId?.email;
+              if (doctorEmail) {
+                try {
+                  await sendDoctorNewConsultationNotificationEmail(
+                    doctorEmail,
+                    doctorName,
+                    customerName,
+                    customerPhone,
+                    fullConsultation.age,
+                    fullConsultation.gender,
+                    fullConsultation.question,
+                    appointmentDate,
+                    appointmentSlot,
+                    fullConsultation.consultationFee || paymentTracking.amount,
+                    fullConsultation._id.toString()
+                  );
+                  console.log('✅ [PaymentController] Doctor notification email sent for delayed scheduled consultation to:', doctorEmail);
+                } catch (doctorEmailError) {
+                  console.error('⚠️ [PaymentController] Error sending doctor notification email for delayed consultation:', doctorEmailError);
+                }
+              }
             }
           } catch (emailError) {
             console.error('⚠️ [PaymentController] Error sending delayed payment success email:', emailError);
@@ -1177,6 +1223,55 @@ export class PaymentController {
       } catch (emailError) {
         console.error('⚠️ [PaymentController] Error sending payment success email:', emailError);
         // Không throw error để không ảnh hưởng payment flow chính
+      }
+
+      // 📧 Gửi email thông báo cho bác sĩ khi có cuộc hẹn mới
+      try {
+        console.log('📧 [PaymentController] Sending new consultation notification email to doctor...');
+
+        const fullConsultation = await DoctorQA.findById(qaId)
+          .populate({
+            path: 'doctorId',
+            select: 'userId bio specialization',
+            populate: {
+              path: 'userId',
+              select: 'fullName email'
+            }
+          })
+          .populate('userId', 'fullName email');
+
+        if (fullConsultation) {
+          const doctorEmail = (fullConsultation.doctorId as any)?.userId?.email;
+          const doctorName = (fullConsultation.doctorId as any)?.userId?.fullName || 'Bác sĩ tư vấn';
+          const customerName = fullConsultation.fullName;
+          const customerPhone = fullConsultation.phone;
+          const customerEmail = (fullConsultation.userId as any).email;
+          const question = fullConsultation.question;
+          const consultationFee = fullConsultation.consultationFee || paymentTracking.amount;
+          const appointmentDate = fullConsultation.appointmentDate 
+            ? new Date(fullConsultation.appointmentDate)
+            : new Date(Date.now() + 24 * 60 * 60 * 1000);
+          const appointmentSlot = fullConsultation.appointmentSlot || 'Sẽ được thông báo sau';
+
+                     if (doctorEmail) {
+             await sendDoctorNewConsultationNotificationEmail(
+               doctorEmail,
+               doctorName,
+               customerName,
+               customerPhone,
+               fullConsultation.age,
+               fullConsultation.gender,
+               question,
+               appointmentDate,
+               appointmentSlot,
+               consultationFee,
+               fullConsultation._id.toString()
+             );
+             console.log('✅ [PaymentController] New consultation notification email sent to doctor:', doctorEmail);
+           }
+        }
+      } catch (emailError) {
+        console.error('⚠️ [PaymentController] Error sending new consultation notification email to doctor:', emailError);
       }
 
       return res.status(200).json({

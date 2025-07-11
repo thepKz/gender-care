@@ -1,0 +1,52 @@
+@startuml context_diagram
+title Gender Healthcare System - Context Diagram
+
+skinparam backgroundColor #White
+skinparam actorBorderColor #Black
+skinparam usecaseBorderColor #Black
+skinparam arrowColor #Black
+skinparam stereotypeCBackgroundColor #LightBlue
+skinparam nodesep 80
+skinparam ranksep 80
+skinparam actorStyle default
+skinparam dpi 300
+
+left to right direction
+
+actor Guest <<Active>> as "Guest"
+actor Customer <<Active>> as "Customer"
+actor Consultant <<Active>> as "Consultant (Doctor)"
+actor Staff <<Active>> as "Staff"
+actor Manager <<Active>> as "Manager"
+actor Admin <<Active>> as "Admin"
+actor PayOs <<Cooperative>> as "PayOs"
+
+rectangle "Gender Healthcare\nService Management\nSystem" as GMS
+
+Guest --> GMS : View Public Content\n(Services, Packages, Doctors, Blogs)
+
+Customer ---> GMS : Manage Account & Profiles\nBook/Cancel Appointments\nPurchase Service Packages\nProvide Feedback & Ratings
+GMS ...> Customer : Appointment/Payment Status\nMeeting Links & Notifications\nMedical Records Access
+
+Consultant ---> GMS : Manage Schedule\nConduct Consultations\nUpdate Medical Records\nAnswer Q&A
+GMS ...> Consultant : View Appointments\nAccess Patient History\nView Test Results
+
+Staff ---> GMS : Manage Appointments\nSupport Customers\nInput Test Results\nAccess Operational Dashboard
+GMS ...> Staff : View Customer Bookings\nAccess Medical Records
+
+Manager ---> GMS : Manage System Resources\n(Doctors, Staff, Services)\nView Management Dashboard
+GMS ...> Manager : System Reports (Excel)\nReal-time Analytics Data
+
+Admin --> GMS : Full User Management\nSystem Configuration\nView System Logs
+GMS ..> Admin : Audit Trails & Logs
+
+PayOs ..u..> GMS : Send Payment Status Webhook
+GMS ..d..> PayOs : Initiate Payment Transaction
+
+legend
+  |= Type |= Description |
+  | <<Active>> | An entity that actively interacts with the system to achieve a goal. |
+  | <<Cooperative>> | An external system used to complete a process. |
+endlegend
+
+@enduml 
