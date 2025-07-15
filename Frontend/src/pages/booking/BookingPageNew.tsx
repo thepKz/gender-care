@@ -1784,6 +1784,9 @@ const BookingPageNew: React.FC = () => {
                                 <div
                                   key={uniqueKey}
                                   onClick={() => handleServiceFromPackageChange(service.serviceId)}
+                                  role="button"
+                                  tabIndex={0}
+                                  onKeyDown={(e) => e.key === 'Enter' && handleServiceFromPackageChange(service.serviceId)}
                                   style={{
                                     padding: '16px',
                                     borderRadius: '8px',
@@ -2076,6 +2079,7 @@ const BookingPageNew: React.FC = () => {
                   }}>
                     {timeSlots.map((slot) => (
                       <button
+                        type="button"
                         key={slot.id}
                             onClick={() => handleTimeSlotSelect(slot.time)}
                             disabled={!slot.isAvailable}
@@ -2647,31 +2651,6 @@ const BookingPageNew: React.FC = () => {
                     <span>Bạn bè</span>
                   </div>
                 </Option>
-              </Select>
-            </Form.Item>
-
-            {/* Appointment Type Selection */}
-            <Form.Item
-              label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Loại cuộc hẹn</span>}
-              required
-              style={{ marginBottom: '16px' }}
-            >
-              <Select
-                value={appointmentType}
-                onChange={setAppointmentType}
-                placeholder="Chọn loại cuộc hẹn"
-                style={{ fontSize: '14px' }}
-                size="large"
-              >
-                {bookingType === 'package' ? (
-                  <Option value="other">Gói dịch vụ</Option>
-                ) : (
-                  <>
-                    <Option value="consultation">Tư vấn</Option>
-                    <Option value="test">Xét nghiệm</Option>
-                    <Option value="treatment">Điều trị</Option>
-                  </>
-                )}
               </Select>
             </Form.Item>
           </Form>
