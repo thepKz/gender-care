@@ -2,6 +2,13 @@ import { DatePicker, Empty, Input, message, Modal, Rate, Select, Timeline } from
 import axios from 'axios';
 import type { Dayjs } from 'dayjs';
 import { AnimatePresence, motion } from 'framer-motion';
+
+// Khai báo biến toàn cục để theo dõi trạng thái cảnh báo
+declare global {
+  interface Window {
+    paymentWarningShown?: boolean;
+  }
+}
 import {
     Activity,
     Calendar,
@@ -221,6 +228,27 @@ const BookingHistory: React.FC = () => {
                   // Refresh appointments để lấy data mới (skip loading spinner)
                   fetchAppointments(true);
                   return; // Exit early after refresh
+                }
+                
+                // Kiểm tra thời gian tạo lịch hẹn để cảnh báo sắp hết hạn
+                const createdTime = new Date(appointment.createdAt).getTime();
+                const currentTime = new Date().getTime();
+                const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
+                const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
+                
+                // Nếu còn dưới 3 phút và chưa hiển thị cảnh báo
+                if (remainingMinutes <= 3 && remainingMinutes > 0 && !window.paymentWarningShown) {
+                  message.warning({
+                    content: `Lịch hẹn của bạn sẽ tự động hủy sau ${remainingMinutes} phút nếu không thanh toán!`,
+                    duration: 10,
+                    key: 'payment-expiry-warning'
+                  });
+                  window.paymentWarningShown = true;
+                  
+                  // Reset cảnh báo sau 1 phút
+                  setTimeout(() => {
+                    window.paymentWarningShown = false;
+                  }, 60000);
                 }
               }
             } catch (error) {

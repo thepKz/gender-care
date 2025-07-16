@@ -98,7 +98,7 @@ interface PurchasedPackage {
     maxQuantity?: number;  // Backend compatibility
   }>;
   totalAmount: number;
-  status: 'active' | 'expired' | 'used_up';
+  status: 'active' | 'expired' | 'used_up' | 'pending_payment';
   expiresAt: string;
 }
 
@@ -2419,17 +2419,27 @@ const BookingPageNew: React.FC = () => {
                         `• Bác sĩ: ${doctors.find(d => d.id === selectedDoctor)?.name}`
                       }
                     </div>
-                    <div style={{
-                      marginTop: '12px',
-                      padding: '8px',
-                      backgroundColor: '#ecfdf5',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      color: '#10b981'
-                    }}>
-                      💰 Chi phí: {formatPrice(getCurrentPrice())}
-                    </div>
+                                      <div style={{
+                    marginTop: '12px',
+                    padding: '8px',
+                    backgroundColor: '#ecfdf5',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#10b981'
+                  }}>
+                    💰 Chi phí: {formatPrice(getCurrentPrice())}
+                  </div>
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '8px',
+                    backgroundColor: '#fff7ed',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#c2410c'
+                  }}>
+                    ⏱️ Lưu ý: Sau khi đặt lịch, bạn có 10 phút để hoàn tất thanh toán. Sau thời gian này, lịch hẹn sẽ tự động hủy và trả lại khung giờ cho người khác.
+                  </div>
                   </div>
 
               {/* Submit Button */}
