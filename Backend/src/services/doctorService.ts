@@ -4,10 +4,51 @@ import Doctor from '../models/Doctor';
 import DoctorSchedules from '../models/DoctorSchedules';
 import Feedbacks from '../models/Feedbacks';
 import User from '../models/User';
+import { sendNewAccountEmail } from './emails';
 
 // Thêm function validation ObjectId
 const isValidObjectId = (id: string): boolean => {
   return mongoose.Types.ObjectId.isValid(id);
+};
+
+// Helper function: Tính số năm kinh nghiệm từ chuỗi mô tả kinh nghiệm
+export const calculateYearsOfExperience = (experienceStr: string | number | undefined): number => {
+  try {
+    // Nếu không có giá trị, trả về 0
+    if (experienceStr === undefined || experienceStr === null) return 0;
+
+    // Nếu experienceStr là số, trả về số đó
+    if (typeof experienceStr === 'number' || !isNaN(Number(experienceStr))) {
+      return Number(experienceStr);
+    }
+
+    // Đến đây, experienceStr chắc chắn là string
+    // Lấy các dòng kinh nghiệm từ chuỗi
+    const lines = experienceStr.split('\n').filter(line => line.trim() !== '');
+
+    let totalYears = 0;
+
+    lines.forEach(line => {
+      // Tìm định dạng năm-năm: nội dung
+      const match = line.match(/(\d{4})-(\d{4}|hiện tại):/i);
+      if (match) {
+        const startYear = parseInt(match[1]);
+        const endYear = match[2].toLowerCase() === 'hiện tại'
+          ? new Date().getFullYear()
+          : parseInt(match[2]);
+
+        // Tính số năm, đảm bảo tính cả năm bắt đầu và năm kết thúc
+        // Ví dụ: 2021-2025 = 5 năm (2021, 2022, 2023, 2024, 2025)
+        const years = (endYear - startYear) + 1;
+        totalYears += years > 0 ? years : 0;
+      }
+    });
+
+    return totalYears;
+  } catch (error) {
+    console.error('Error calculating years of experience:', error);
+    return 0;
+  }
 };
 
 // Helper function: Lấy feedback của doctor (tạm thời trả về empty)
@@ -62,7 +103,7 @@ export const getDoctorFeedbacks = async (doctorId: string) => {
 export const getDoctorActiveStatus = async (doctorId: string) => {
   try {
     const doctor = await Doctor.findById(doctorId).populate('userId', 'isActive');
-    
+
     if (!doctor || !(doctor as any).userId) {
       return {
         isActive: false,
@@ -72,7 +113,7 @@ export const getDoctorActiveStatus = async (doctorId: string) => {
     }
 
     const isActive = (doctor as any).userId.isActive;
-    
+
     return {
       isActive,
       statusText: isActive ? 'Hoạt động' : 'Tạm dừng',
@@ -92,21 +133,25 @@ export const getDoctorActiveStatus = async (doctorId: string) => {
 export const getAllDoctorsWithDetails = async () => {
   try {
     const doctors = await Doctor.find().populate('userId', 'fullName email avatar phone gender address isActive');
-    
+
     const doctorsWithDetails = [];
-    
+
     for (const doctor of doctors) {
       // Lấy feedback và status cho từng doctor
       const feedbackData = await getDoctorFeedbacks(doctor._id.toString());
       const statusData = await getDoctorActiveStatus(doctor._id.toString());
-      
+
+      // Tính số năm kinh nghiệm từ chuỗi mô tả kinh nghiệm
+      const yearsOfExperience = calculateYearsOfExperience(doctor.experience);
+
       doctorsWithDetails.push({
         ...JSON.parse(JSON.stringify(doctor)), // Convert to plain object
         feedback: feedbackData,
-        status: statusData
+        status: statusData,
+        yearsOfExperience // Thêm trường mới chứa số năm kinh nghiệm đã tính toán
       });
     }
-    
+
     return doctorsWithDetails;
   } catch (error) {
     console.error('Error getting all doctors with details:', error);
@@ -118,19 +163,23 @@ export const getAllDoctorsWithDetails = async () => {
 export const getDoctorByIdWithDetails = async (id: string) => {
   try {
     const doctor = await Doctor.findById(id).populate('userId', 'fullName email avatar phone gender address isActive');
-    
+
     if (!doctor) {
       throw new Error('Không tìm thấy bác sĩ');
     }
-    
+
     // Lấy feedback và status
     const feedbackData = await getDoctorFeedbacks(id);
     const statusData = await getDoctorActiveStatus(id);
-    
+
+    // Tính số năm kinh nghiệm từ chuỗi mô tả kinh nghiệm
+    const yearsOfExperience = calculateYearsOfExperience(doctor.experience);
+
     return {
       ...JSON.parse(JSON.stringify(doctor)), // Convert to plain object
       feedback: feedbackData,
-      status: statusData
+      status: statusData,
+      yearsOfExperience // Thêm trường mới chứa số năm kinh nghiệm đã tính toán
     };
   } catch (error) {
     console.error('Error getting doctor by ID with details:', error);
@@ -140,6 +189,26 @@ export const getDoctorByIdWithDetails = async (id: string) => {
 
 // ✅ Enhanced populate để include gender và address fields
 export const getAllDoctors = () => Doctor.find().populate('userId', 'fullName email avatar phone gender address isActive');
+
+// Thêm hàm mới để lấy danh sách bác sĩ kèm theo số năm kinh nghiệm được tính toán
+export const getAllDoctorsWithCalculatedExperience = async () => {
+  try {
+    const doctors = await Doctor.find().populate('userId', 'fullName email avatar phone gender address isActive');
+
+    // Thêm trường yearsOfExperience cho mỗi bác sĩ
+    return doctors.map(doctor => {
+      const yearsOfExperience = calculateYearsOfExperience(doctor.experience);
+      return {
+        ...doctor.toObject(),
+        yearsOfExperience
+      };
+    });
+  } catch (error) {
+    console.error('Error getting all doctors with calculated experience:', error);
+    throw error;
+  }
+};
+
 export const getDoctorById = (id: string) => Doctor.findById(id).populate('userId', 'fullName email avatar phone gender address isActive');
 
 // PUBLIC: Lấy thông tin cơ bản của bác sĩ (không bao gồm thông tin nhạy cảm)
@@ -151,10 +220,13 @@ export const getDoctorPublicInfo = async (id: string) => {
     }
 
     const doctor = await Doctor.findById(id).populate('userId', 'fullName avatar');
-    
+
     if (!doctor) {
       return null;
     }
+
+    // Tính số năm kinh nghiệm từ chuỗi mô tả kinh nghiệm
+    const yearsOfExperience = calculateYearsOfExperience(doctor.experience);
 
     // Chỉ trả về thông tin công khai, không bao gồm thông tin nhạy cảm
     return {
@@ -166,6 +238,7 @@ export const getDoctorPublicInfo = async (id: string) => {
       },
       bio: doctor.bio,
       experience: doctor.experience,
+      yearsOfExperience, // Thêm trường mới chứa số năm kinh nghiệm đã tính toán
       rating: doctor.rating,
       image: doctor.image,
       specialization: doctor.specialization,
@@ -188,69 +261,73 @@ export const createDoctor = async (doctorInfo: any) => {
       throw new Error('Tên bác sĩ (fullName) là bắt buộc');
     }
 
-    // Tự động tạo email từ fullName
-    const normalizedName = doctorInfo.fullName
-      .toLowerCase()
-      .replace(/bs\./g, '') // Bỏ tiền tố BS.
-      .replace(/[^\w\s]/g, '') // Bỏ ký tự đặc biệt
-      .trim()
-      .split(' ')
-      .join(''); // Nối các từ lại
-
-    const email = `bs.${normalizedName}@genderhealthcare.com`;
-
-    // Validate email và phone không trùng lặp
-    const existingUserByEmail = await User.findOne({ email });
-    if (existingUserByEmail) {
-      throw new Error(`Email ${email} đã tồn tại trong hệ thống`);
+    if (!doctorInfo.email) {
+      throw new Error('Email là bắt buộc');
     }
 
-    if (doctorInfo.phone) {
-      const existingUserByPhone = await User.findOne({ phone: doctorInfo.phone });
-      if (existingUserByPhone) {
-        throw new Error(`Số điện thoại ${doctorInfo.phone} đã tồn tại trong hệ thống`);
-      }
+    // Kiểm tra email đã tồn tại chưa
+    const existingUser = await User.findOne({ email: doctorInfo.email });
+    if (existingUser) {
+      throw new Error('Email đã tồn tại trong hệ thống');
     }
 
-    // Tạo password mặc định
+    // Tạo user account trước
     const defaultPassword = 'doctor123';
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
-    // Tạo user account với thông tin từ doctorInfo
-    const user = await User.create({
-      email,
+    const newUser = new User({
+      email: doctorInfo.email,
       password: hashedPassword,
       fullName: doctorInfo.fullName,
       phone: doctorInfo.phone || '',
-      avatar: doctorInfo.image || '', // Sync avatar từ doctor image
       gender: doctorInfo.gender || 'other',
       address: doctorInfo.address || '',
       role: 'doctor',
-      emailVerified: true,
-      isActive: true
+      isActive: true,
+      emailVerified: false,
     });
 
-    // Loại bỏ các field user khỏi doctorInfo để tránh duplicate
-    const { fullName, phone, gender, address, ...pureDoctorlnfo } = doctorInfo;
+    const savedUser = await newUser.save();
 
-    // Tạo doctor record với userId vừa tạo, đồng bộ image với user avatar
-    const doctor = await Doctor.create({
-      userId: user._id,
-      ...pureDoctorlnfo,
-      image: doctorInfo.image || user.avatar // Đảm bảo sync image
+    // Tạo doctor profile với thông tin chi tiết
+    const newDoctor = new Doctor({
+      userId: savedUser._id,
+      bio: doctorInfo.bio || '',
+      experience: doctorInfo.experience || '', // Now stores structured experience data
+      rating: 0, // Default rating
+      image: doctorInfo.image || '',
+      specialization: doctorInfo.specialization || '',
+      education: doctorInfo.education || '', // Now stores structured education data
+      certificate: doctorInfo.certificate || '', // Stores certificate file info
+      approvalStatus: 'approved', // Auto-approve for admin created doctors
+      lastApprovedBy: null,
+      lastApprovedAt: new Date(),
     });
 
-    // Populate user info để trả về
-    const populatedDoctor = await Doctor.findById(doctor._id).populate('userId', 'fullName email avatar phone');
-    
-    // Log thông tin account mới tạo cho admin
-    console.log(`Đã tạo bác sĩ mới: ${doctorInfo.fullName}`);
-    console.log(`Email: ${email}`);
-    console.log(`Password mặc định: ${defaultPassword}`);
-    
+    const savedDoctor = await newDoctor.save();
+
+    // Populate user info
+    const populatedDoctor = await Doctor.findById(savedDoctor._id)
+      .populate('userId', 'fullName email avatar phone gender address isActive');
+
+    // Gửi email thông báo tài khoản mới
+    try {
+      await sendNewAccountEmail(
+        doctorInfo.email,
+        doctorInfo.fullName,
+        doctorInfo.email,
+        defaultPassword,
+        'doctor'
+      );
+    } catch (emailError) {
+      console.error('Failed to send account email:', emailError);
+      // Continue without failing the doctor creation
+    }
+
     return populatedDoctor;
-  } catch (error: any) {
-    throw new Error(error.message);
+  } catch (error) {
+    console.error('Error creating doctor:', error);
+    throw error;
   }
 };
 
@@ -263,7 +340,7 @@ export const updateDoctor = async (id: string, data: any) => {
 
     // Loại bỏ userId khỏi data để đảm bảo không thể cập nhật
     const { userId, ...updateData } = data;
-    
+
     // Nếu có người cố tình gửi userId, ghi log cảnh báo
     if (userId) {
       console.warn(`⚠️ Cố gắng cập nhật userId cho doctor ${id}, đã bị loại bỏ`);
@@ -285,11 +362,19 @@ export const updateDoctor = async (id: string, data: any) => {
 
     // Validate experience nếu có
     if (updateData.experience !== undefined) {
-      const exp = Number(updateData.experience);
-      if (isNaN(exp) || exp < 0 || exp > 50) {
-        throw new Error('Kinh nghiệm phải là số từ 0 đến 50 năm');
+      // Kiểm tra kiểu dữ liệu
+      if (typeof updateData.experience === 'number') {
+        // Vẫn giữ lại xác thực cũ cho số năm kinh nghiệm nếu người dùng nhập số
+        const exp = Number(updateData.experience);
+        if (isNaN(exp) || exp < 0 || exp > 50) {
+          throw new Error('Kinh nghiệm phải là số từ 0 đến 50 năm hoặc chuỗi văn bản mô tả chi tiết');
+        }
+        updateData.experience = exp;
+      } else if (typeof updateData.experience !== 'string') {
+        // Nếu không phải số và không phải chuỗi thì báo lỗi
+        throw new Error('Kinh nghiệm phải là chuỗi văn bản hoặc số năm kinh nghiệm');
       }
-      updateData.experience = exp;
+      // Nếu là chuỗi thì giữ nguyên giá trị
     }
 
     // Validate rating nếu có
@@ -311,7 +396,7 @@ export const updateDoctor = async (id: string, data: any) => {
 
     // Populate để log current state
     const populatedDoctor = await Doctor.findById(id).populate('userId', 'fullName email');
-    
+
     console.log(`👤 [BEFORE UPDATE] Doctor: ${(populatedDoctor as any)?.userId?.fullName}`);
     console.log(`📊 [BEFORE UPDATE] Current data:`, {
       bio: populatedDoctor?.bio,
@@ -324,12 +409,12 @@ export const updateDoctor = async (id: string, data: any) => {
 
     // Thực hiện update với options đầy đủ
     const updatedDoctor = await Doctor.findByIdAndUpdate(
-      id, 
-      { 
+      id,
+      {
         $set: updateData,
         updatedAt: new Date() // Force update timestamp
-      }, 
-      { 
+      },
+      {
         new: true,           // Return updated document
         runValidators: true, // Run mongoose validators
         upsert: false,       // Don't create if not exists
@@ -344,7 +429,7 @@ export const updateDoctor = async (id: string, data: any) => {
     console.log(`✅ [AFTER UPDATE] Doctor: ${(updatedDoctor as any)?.userId?.fullName}`);
     console.log(`📊 [AFTER UPDATE] Updated data:`, {
       bio: updatedDoctor.bio,
-      experience: updatedDoctor.experience,  
+      experience: updatedDoctor.experience,
       rating: updatedDoctor.rating,
       specialization: updatedDoctor.specialization,
       education: updatedDoctor.education,
@@ -361,7 +446,7 @@ export const updateDoctor = async (id: string, data: any) => {
     });
 
     console.log(`🎉 [UPDATE SUCCESS] Doctor ${id} updated successfully`);
-    
+
     return updatedDoctor;
   } catch (error: any) {
     console.error(`❌ [UPDATE ERROR] Doctor ID ${id}:`, error.message);
@@ -383,7 +468,7 @@ export const getDoctorStatistics = async (doctorId: string) => {
 
     // Tìm tất cả lịch làm việc của bác sĩ
     const schedule = await DoctorSchedules.findOne({ doctorId });
-    
+
     if (!schedule) {
       return {
         doctorId,
@@ -402,7 +487,7 @@ export const getDoctorStatistics = async (doctorId: string) => {
     for (const weekDay of schedule.weekSchedule) {
       let absentSlotsInDay = 0;
       let bookedSlotsInDay = 0;
-      
+
       // Đếm slots trong ngày
       for (const slot of weekDay.slots) {
         if (slot.status === 'Booked') {
@@ -411,7 +496,7 @@ export const getDoctorStatistics = async (doctorId: string) => {
           absentSlotsInDay++;
         }
       }
-      
+
       // Logic sửa: Nếu đủ 8 slot absent = 1 ngày nghỉ, không tính vào absentSlots
       if (absentSlotsInDay >= 8) {
         absentDays++;
@@ -420,7 +505,7 @@ export const getDoctorStatistics = async (doctorId: string) => {
         // Chỉ slot absent lẻ mới tính vào absentSlots
         absentSlots += absentSlotsInDay;
       }
-      
+
       // Booked slots luôn được đếm bình thường
       bookedSlots += bookedSlotsInDay;
     }
@@ -444,13 +529,13 @@ export const getAllDoctorsStatistics = async () => {
   try {
     // Lấy tất cả bác sĩ
     const allDoctors = await Doctor.find().populate('userId', 'fullName');
-    
+
     const allStatistics = [];
 
     for (const doctor of allDoctors) {
       // Tìm lịch làm việc của từng bác sĩ
       const schedule = await DoctorSchedules.findOne({ doctorId: doctor._id });
-      
+
       let bookedSlots = 0;
       let absentSlots = 0;
       let absentDays = 0;
@@ -460,7 +545,7 @@ export const getAllDoctorsStatistics = async () => {
         for (const weekDay of schedule.weekSchedule) {
           let absentSlotsInDay = 0;
           let bookedSlotsInDay = 0;
-          
+
           // Đếm slots trong ngày
           for (const slot of weekDay.slots) {
             if (slot.status === 'Booked') {
@@ -469,7 +554,7 @@ export const getAllDoctorsStatistics = async () => {
               absentSlotsInDay++;
             }
           }
-          
+
           // Logic sửa: Nếu đủ 8 slot absent = 1 ngày nghỉ, không tính vào absentSlots
           if (absentSlotsInDay >= 8) {
             absentDays++;
@@ -478,7 +563,7 @@ export const getAllDoctorsStatistics = async () => {
             // Chỉ slot absent lẻ mới tính vào absentSlots
             absentSlots += absentSlotsInDay;
           }
-          
+
           // Booked slots luôn được đếm bình thường
           bookedSlots += bookedSlotsInDay;
         }

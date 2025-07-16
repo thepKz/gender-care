@@ -27,66 +27,123 @@ interface AppointmentDetail {
   location: string;
 }
 
+interface ApiError {
+  response?: {
+    data?: {
+      message?: string;
+    };
+    status?: number;
+  };
+  message?: string;
+}
+
 const PaymentSuccessPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
   const appointmentId = searchParams.get('appointmentId');
+  const code = searchParams.get('code');
+  const cancel = searchParams.get('cancel');
+  
+  // ✅ FIX: Handle both 'orderCode' and 'id' parameters
+  const orderCode = searchParams.get('orderCode') || searchParams.get('id');
+  
+  // ✅ FIX: Handle missing 'status' parameter - infer from 'code'
+  let status = searchParams.get('status');
+  if (!status && code === '00') {
+    status = 'PAID'; // Default to PAID when code=00
+  }
+  
   const [isLoading, setIsLoading] = useState(true);
   const [appointmentData, setAppointmentData] = useState<AppointmentDetail | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchAppointmentDetails = async () => {
-      if (!appointmentId) {
-        message.error('Không tìm thấy mã lịch hẹn');
+    const confirmAndFetch = async () => {
+      if (!appointmentId || !orderCode || !status || !code) {
+        console.error('❌ [PaymentSuccess] Missing required URL parameters:', {
+          appointmentId,
+          orderCode,
+          status,
+          code,
+          fullURL: window.location.href
+        });
+        message.error('Thiếu thông tin xác nhận thanh toán trong URL');
         navigate('/booking', { replace: true });
         return;
       }
 
+
+
+      const isPaid = code === '00' && cancel === 'false' && status === 'PAID';
+      
+      if (!isPaid) {
+
+        setConfirmError('Thanh toán không thành công hoặc đã bị hủy');
+        setIsLoading(false);
+        return;
+      }
+
       try {
-        console.log('🔄 Fetching appointment details:', appointmentId);
+
+        
+        const confirmResponse = await appointmentApi.fastConfirmPayment({ 
+          appointmentId, 
+          orderCode, 
+          status 
+        });
+        
+
+        
+        if (confirmResponse.data.success) {
+
+          message.success('Thanh toán thành công! Lịch hẹn đã được xác nhận.');
+        } else {
+          console.error('❌ [PaymentSuccess] Fast confirm failed:', confirmResponse.data);
+          throw new Error(confirmResponse.data.message || 'Không thể xác nhận thanh toán');
+        }
+        
+
         const response = await appointmentApi.getAppointmentById(appointmentId);
+
         
         if (response.success && response.data) {
           const appointment = response.data;
-          console.log('✅ Appointment data:', appointment);
-          
+
           setAppointmentData({
             id: appointment.id || appointmentId,
-            serviceName: appointment.serviceName || 'Dịch vụ khám bệnh',
-            doctorName: appointment.doctorName || 'Bác sĩ',
-            patientName: appointment.patientName || appointment.userProfile?.fullName || 'Bệnh nhân',
+            serviceName: appointment.serviceId?.serviceName || appointment.packageId?.name || 'Dịch vụ khám bệnh',
+            doctorName: appointment.doctorId?.userId?.fullName || 'Bác sĩ',
+            patientName: appointment.profileId?.fullName || appointment.userProfile?.fullName || 'Bệnh nhân',
             appointmentDate: appointment.appointmentDate || 'Chưa xác định',
-            timeSlot: appointment.timeSlot || 'Chưa xác định',
+            timeSlot: appointment.appointmentTime || appointment.timeSlot || 'Chưa xác định',
             totalAmount: appointment.totalAmount || 0,
             status: appointment.status || 'confirmed',
             location: appointment.location || appointment.typeLocation || 'Tại phòng khám'
           });
         } else {
+          console.error('❌ [PaymentSuccess] Failed to get appointment details:', response);
           throw new Error('Không thể lấy thông tin lịch hẹn');
         }
-      } catch (error) {
-        console.error('❌ Error fetching appointment:', error);
-        message.error('Có lỗi khi tải thông tin lịch hẹn');
-        // Vẫn hiển thị trang với thông tin cơ bản
-        setAppointmentData({
-          id: appointmentId,
-          serviceName: 'Dịch vụ khám bệnh',
-          doctorName: 'Bác sĩ',
-          patientName: 'Bệnh nhân',
-          appointmentDate: 'Chưa xác định',
-          timeSlot: 'Chưa xác định',
-          totalAmount: 0,
-          status: 'confirmed',
-          location: 'Tại phòng khám'
+      } catch (error: unknown) {
+        const err = error as ApiError;
+        console.error('❌ [PaymentSuccess] Error confirming appointment payment:', error);
+        console.error('❌ [PaymentSuccess] Error details:', {
+          message: err?.message,
+          response: err?.response,
+          responseData: err?.response?.data,
+          status: err?.response?.status
         });
+        const errorMessage = err?.response?.data?.message || err?.message || 'Có lỗi khi xác nhận thanh toán';
+        setConfirmError(errorMessage);
+        message.error(errorMessage);
       } finally {
         setIsLoading(false);
       }
     };
-
-    fetchAppointmentDetails();
-  }, [appointmentId, navigate]);
+    
+    confirmAndFetch();
+  }, [appointmentId, orderCode, status, code, cancel, navigate, searchParams]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -115,9 +172,57 @@ const PaymentSuccessPage = () => {
         <div className="text-center">
           <Spin size="large" />
           <div className="mt-4">
-            <Text className="text-lg text-gray-600">Đang tải thông tin lịch hẹn...</Text>
+            <Text className="text-lg text-gray-600">Đang xác nhận thanh toán...</Text>
           </div>
         </div>
+      </div>
+    );
+  }
+  if (confirmError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 py-12 px-4">
+        <motion.div 
+          className="max-w-md mx-auto"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card className="border-0 shadow-xl rounded-2xl text-center">
+            <div className="text-red-500 mb-4">
+              <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            
+            <Title level={3} className="text-red-600 mb-4">
+              ❌ Thanh toán thất bại
+            </Title>
+            
+            <Paragraph className="text-gray-600 mb-6">
+              {confirmError}
+            </Paragraph>
+            
+            <Space direction="vertical" className="w-full" size="middle">
+              <Button 
+                type="primary"
+                size="large"
+                onClick={() => navigate('/booking')}
+                className="w-full bg-blue-600 hover:bg-blue-700 border-none h-12 text-lg font-semibold rounded-xl"
+                icon={<CalendarOutlined />}
+              >
+                 Thử lại đặt lịch
+              </Button>
+              
+              <Button 
+                size="large"
+                onClick={() => navigate('/')}
+                className="w-full h-12 text-lg font-semibold rounded-xl border-gray-300"
+                icon={<HomeOutlined />}
+              >
+                 Về trang chủ
+              </Button>
+            </Space>
+          </Card>
+        </motion.div>
       </div>
     );
   }

@@ -11,7 +11,10 @@ import {
     getMyAppointments,
     confirmAppointment,
     cancelAppointmentByDoctor,
-    getStaffAppointments
+    getStaffAppointments,
+    getUserAppointments,
+    getUserBookingHistory,
+    cancelAppointmentWithRefund
 } from '../controllers/appointmentController';
 import { verifyToken, verifyAdmin, verifyCustomer, verifyStaff, verifyDoctor } from '../middleware';
 import { requireRole, requireAnyRole } from '../middleware/roleHierarchy';
@@ -31,6 +34,22 @@ router.get('/', getAllAppointments);
  * @access  Private (Customer, Staff)
  */
 router.post('/', verifyToken, createAppointment);
+
+/**
+ * @route   GET /api/appointments/user
+ * @desc    Lấy danh sách appointments của user hiện tại (chỉ appointments)
+ * @access  Private (Customer)
+ */
+router.get('/user', verifyToken, getUserAppointments);
+
+/**
+ * @route   GET /api/appointments/booking-history
+ * @desc    Lấy toàn bộ lịch sử đặt lịch của user (appointments + consultations)
+ * @access  Private (Customer)
+ */
+router.get('/booking-history', verifyToken, getUserBookingHistory);
+
+
 
 /**
  * @route   GET /api/appointments/my
@@ -97,5 +116,14 @@ router.put('/:id/confirm', verifyToken, confirmAppointment);
 
 // PUT /api/appointments/:id/cancel-by-doctor - Hủy cuộc hẹn bởi bác sĩ với lý do (DOCTOR ONLY)
 router.put('/:id/cancel-by-doctor', verifyToken, cancelAppointmentByDoctor);
+
+/**
+ * @route   PUT /api/appointments/:id/cancel-with-refund
+ * @desc    Hủy cuộc hẹn và hoàn tiền (điều kiện 24h)
+ * @access  Private (Customer - chỉ hủy appointment của mình)
+ */
+router.put('/:id/cancel-with-refund', verifyToken, verifyCustomer, cancelAppointmentWithRefund);
+
+
 
 export default router; 

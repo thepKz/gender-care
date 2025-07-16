@@ -257,15 +257,22 @@ const AppointmentManagement: React.FC = () => {
       }
       
       // ✅ SỬ DỤNG REAL API THAY VÌ MOCK DATA
-      // Staff có thể xem tất cả appointments để hỗ trợ quản lý
+      // Role-based API calls: Doctor vs Staff có quyền truy cập khác nhau
       const filters: AppointmentFilters = {
         page: 1,
         limit: 50, // Tăng limit để load nhiều appointments hơn
         ...searchFilters // Apply current search filters
       };
       
-      // Gọi API thông qua service để lấy real data từ database
-      const realAppointments = await appointmentManagementService.getStaffAppointments(filters);
+      // 🔐 ROLE-BASED API: Doctor chỉ xem appointments của mình, Staff xem tất cả
+      let realAppointments: any[];
+      if (userRole === 'doctor') {
+        // Doctor: Chỉ xem appointments của mình thông qua /appointments/my
+        realAppointments = await appointmentManagementService.getDoctorAppointments(filters);
+      } else {
+        // Staff/Manager: Xem tất cả appointments thông qua /appointments/staff
+        realAppointments = await appointmentManagementService.getStaffAppointments(filters);
+      }
       
       console.log('✅ [API] Loaded real appointments from database:', realAppointments.length);
       console.log('🎯 [API] Appointments with status "consulting":', 

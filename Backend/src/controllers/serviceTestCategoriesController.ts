@@ -71,7 +71,7 @@ class ServiceTestCategoriesController {
   // POST /api/service-test-categories - Gán test category cho service với custom range (Doctor, Staff)
   assignTestCategoryToService = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-      const { serviceId, testCategoryId, isRequired, customNormalRange, customUnit, targetValue, notes, minValue, maxValue } = req.body;
+      const { serviceId, testCategoryId, isRequired, unit, targetValue, minValue, maxValue, thresholdRules } = req.body;
       const userRole = req.user?.role || '';
 
       if (!serviceId || !testCategoryId) {
@@ -86,12 +86,11 @@ class ServiceTestCategoriesController {
         serviceId,
         testCategoryId,
         isRequired: isRequired !== undefined ? isRequired : true,
-        customNormalRange: customNormalRange?.trim(),
-        customUnit: customUnit?.trim(),
+        unit: unit?.trim(),
         targetValue: targetValue?.trim(),
-        notes: notes?.trim(),
         minValue: minValue !== undefined ? Number(minValue) : undefined,
-        maxValue: maxValue !== undefined ? Number(maxValue) : undefined
+        maxValue: maxValue !== undefined ? Number(maxValue) : undefined,
+        thresholdRules: Array.isArray(thresholdRules) ? thresholdRules : undefined
       };
 
       const result = await this.serviceTestCategoriesService.assignTestCategoryToService(data, userRole);
@@ -165,17 +164,16 @@ class ServiceTestCategoriesController {
   updateServiceTestCategory = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const { isRequired, customNormalRange, customUnit, targetValue, notes, minValue, maxValue } = req.body;
+      const { isRequired, unit, targetValue, minValue, maxValue, thresholdRules } = req.body;
       const userRole = req.user?.role || '';
 
       const updateData = {
         isRequired,
-        customNormalRange: customNormalRange?.trim(),
-        customUnit: customUnit?.trim(),
+        unit: unit?.trim(),
         targetValue: targetValue?.trim(),
-        notes: notes?.trim(),
         minValue: minValue !== undefined ? Number(minValue) : undefined,
-        maxValue: maxValue !== undefined ? Number(maxValue) : undefined
+        maxValue: maxValue !== undefined ? Number(maxValue) : undefined,
+        thresholdRules: Array.isArray(thresholdRules) ? thresholdRules : undefined
       };
       const result = await this.serviceTestCategoriesService.updateServiceTestCategory(id, updateData, userRole);
 

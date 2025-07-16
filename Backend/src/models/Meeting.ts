@@ -6,6 +6,7 @@ export interface IMeeting extends Document {
   doctorId: mongoose.Types.ObjectId;       // 🤖 AUTO: Reference to Doctor  
   userId: mongoose.Types.ObjectId;         // 🤖 AUTO: Reference to Customer/User
   meetingLink: string;                     // 🤖 AUTO: Jitsi URL (auto-generated)
+  meetingPassword: string;                 // ✏️ DOCTOR: Meeting password for extra security (REQUIRED)
   provider: 'google' | 'jitsi';            // 🤖 AUTO: Meeting provider (default: jitsi)
   
   // Thời gian
@@ -13,7 +14,7 @@ export interface IMeeting extends Document {
   actualStartTime?: Date;                  // ✏️ DOCTOR: Khi meeting thực sự bắt đầu
   
   // Trạng thái và thông tin
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'; // ✏️ DOCTOR: Meeting status
+  status: 'scheduled' | 'waiting_customer' | 'invite_sent' | 'in_progress' | 'completed' | 'cancelled'; // ✏️ DOCTOR: Meeting status
   participantCount: number;                // 🤖 AUTO: Số người tham gia hiện tại (from Jitsi API)
   maxParticipants: number;                 // ✏️ DOCTOR: Giới hạn số người (default: 2)
   
@@ -50,6 +51,13 @@ const MeetingSchema: Schema = new Schema({
     required: true,
     trim: true
   },
+  meetingPassword: {
+    type: String,
+    required: true,        // ✏️ CHANGE: Make required
+    trim: true,
+    minlength: 8,         // ➕ ADD validation
+    maxlength: 8
+  },
   provider: {
     type: String,
     enum: ['google', 'jitsi'],
@@ -64,7 +72,7 @@ const MeetingSchema: Schema = new Schema({
   },
   status: {
     type: String,
-    enum: ['scheduled', 'in_progress', 'completed', 'cancelled'],
+    enum: ['scheduled', 'waiting_customer', 'invite_sent', 'in_progress', 'completed', 'cancelled'], // ➕ ADD invite_sent
     default: 'scheduled'
   },
   participantCount: {

@@ -1,415 +1,35 @@
-import DoctorQA from '../models/DoctorQA';
-import Doctor from '../models/Doctor';
 import mongoose from 'mongoose';
 import { getDoctorStatistics } from './doctorService';
+import { generateMeetingPassword } from '../utils/passwordGenerator'; // ➕ IMPORT password generator
+import DoctorQA from '../models/DoctorQA'; // ➕ IMPORT DoctorQA model
+import { releaseSlot } from './doctorScheduleService'; // ➕ IMPORT releaseSlot function
+
 
 // Validate ObjectId helper
 const isValidObjectId = (id: string): boolean => {
   return mongoose.Types.ObjectId.isValid(id);
 };
 
-// 🔍 TÌM CÁC TIME SLOT GẦN NHẤT CÓ SLOT TRỐNG
-const findNearestAvailableTimeSlot = async (): Promise<{
-  date: Date;
-  slotTime: string;
-  availableDoctors: Array<{
-  doctorId: string;
-    doctorName: string;
-  slotId: any;
-    bookedSlots: number;
-  }>;
-}[]> => {
-  try {
-    console.log('🔍 [NEAREST-SLOT] Finding nearest available time slots...');
-    
-    // ✅ Import models với error handling
-    let DoctorSchedules;
-    try {
-      DoctorSchedules = require('../models/DoctorSchedules').default;
-    } catch (importError) {
-      console.error('❌ [IMPORT-ERROR] Failed to import DoctorSchedules:', importError);
-      const { default: DoctorSchedulesModel } = await import('../models/DoctorSchedules');
-      DoctorSchedules = DoctorSchedulesModel;
-    }
-    
-    if (!DoctorSchedules) {
-      throw new Error('Không thể load model DoctorSchedules. Vui lòng kiểm tra cấu trúc database.');
-    }
-    
-    // Lấy tất cả DoctorSchedule và populate doctor info
-    const allSchedules = await DoctorSchedules.find()
-      .populate({
-        path: 'doctorId',
-        populate: {
-          path: 'userId',
-          select: 'fullName email'
-        },
-        select: 'userId bio specialization'
-      });
-
-    console.log(`📊 [NEAREST-SLOT] Found ${allSchedules.length} doctor schedules`);
-    
-    if (allSchedules.length === 0) {
-      throw new Error('Không có bác sĩ nào có lịch làm việc trong hệ thống. Vui lòng tạo lịch làm việc cho bác sĩ trước.');
-    }
-
-    // ✅ Validate schedules có valid doctor data
-    const validSchedules = allSchedules.filter((schedule: any) => {
-      const isValid = schedule.doctorId && 
-                     schedule.doctorId.userId && 
-                     schedule.doctorId.userId.fullName;
-      if (!isValid) {
-        console.warn(`⚠️ [NEAREST-SLOT] Invalid schedule found: ${schedule._id}, skipping...`);
-      }
-      return isValid;
-    });
-
-    if (validSchedules.length === 0) {
-      throw new Error('Không có bác sĩ nào có thông tin hợp lệ trong hệ thống. Vui lòng kiểm tra dữ liệu bác sĩ.');
-    }
-
-    // Tính thống kê booked slots cho mỗi doctor
-    const doctorStats = new Map<string, number>();
-    for (const schedule of validSchedules) {
-      const doctorId = schedule.doctorId._id.toString();
-      let bookedCount = 0;
-      
-      for (const daySchedule of schedule.weekSchedule) {
-        bookedCount += daySchedule.slots.filter((slot: any) => slot.status === 'Booked').length;
-      }
-      
-      doctorStats.set(doctorId, bookedCount);
-    }
-
-    // 🔧 TIMEZONE FIX: Thu thập slots theo thời gian với VN timezone
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    
-    // 🔧 Fix: Dùng VN timezone cho today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    console.log(`🕐 [NEAREST-SLOT] Current VN time: ${now.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`);
-    console.log(`🕐 [NEAREST-SLOT] Today start: ${today.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`);
-
-    // Group slots theo thời gian (date + slotTime)
-    const slotsByTime = new Map<string, {
-      date: Date;
-      slotTime: string;
-      availableDoctors: Array<{
-      doctorId: string;
-        doctorName: string;
-        slotId: any;
-        bookedSlots: number;
-      }>;
-    }>();
-
-    // Duyệt qua tất cả schedule để group slots
-    for (const schedule of validSchedules) {
-      const doctor = schedule.doctorId as any;
-      const doctorId = doctor._id.toString();
-      const doctorName = doctor.userId.fullName;
-      const bookedSlots = doctorStats.get(doctorId) || 0;
-
-      for (const daySchedule of schedule.weekSchedule) {
-        // 🔧 TIMEZONE FIX: Parse date đúng cách để tránh UTC shift
-        const scheduleDate = new Date(daySchedule.dayOfWeek);
-        
-        // Convert về VN timezone và reset time
-        const vnScheduleDate = new Date(scheduleDate.getTime());
-        vnScheduleDate.setHours(0, 0, 0, 0);
-        
-        console.log(`🔍 [DEBUG] Schedule date:`, {
-          original: daySchedule.dayOfWeek,
-          parsed: scheduleDate.toISOString(),
-          vnDate: vnScheduleDate.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
-          todayVN: today.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
-          comparison: vnScheduleDate.getTime() >= today.getTime() ? 'VALID' : 'SKIP'
-        });
-
-        // Chỉ xét lịch từ hôm nay trở đi (VN timezone)
-        if (vnScheduleDate.getTime() < today.getTime()) continue;
-
-        for (const slot of daySchedule.slots) {
-          if (slot.status !== 'Free') continue;
-
-          const [slotStartHour, slotStartMinute] = slot.slotTime.split('-')[0].split(':').map(Number);
-          
-          // Nếu là hôm nay, chỉ lấy slot sau thời gian hiện tại (+ buffer 15 phút)
-          if (vnScheduleDate.getTime() === today.getTime()) {
-            if (slotStartHour < currentHour || 
-                (slotStartHour === currentHour && slotStartMinute <= (currentMinute + 15))) {
-              console.log(`⏭️ [SKIP] Slot ${slot.slotTime} is in the past or too close (current: ${currentHour}:${currentMinute})`);
-              continue;
-            }
-          }
-
-          // Key để group: date + slotTime (dùng VN date)
-          const vnDateStr = vnScheduleDate.toISOString().split('T')[0];
-          const timeKey = `${vnDateStr}_${slot.slotTime}`;
-          
-          if (!slotsByTime.has(timeKey)) {
-            slotsByTime.set(timeKey, {
-              date: new Date(vnScheduleDate),
-              slotTime: slot.slotTime,
-              availableDoctors: []
-            });
-          }
-
-          console.log(`🔍 [DEBUG] Found valid slot:`, {
-            doctorId,
-            doctorName,
-            slotId: slot._id,
-            slotTime: slot.slotTime,
-            status: slot.status,
-            vnDate: vnDateStr,
-            isToday: vnScheduleDate.getTime() === today.getTime()
-          });
-
-          slotsByTime.get(timeKey)!.availableDoctors.push({
-            doctorId,
-            doctorName,
-            slotId: slot._id,
-            bookedSlots
-          });
-        }
-      }
-    }
-
-    if (slotsByTime.size === 0) {
-      throw new Error('Không có slot nào khả dụng từ thời gian hiện tại. Vui lòng liên hệ để được hỗ trợ.');
-    }
-
-    // Convert Map thành Array và sort theo thời gian
-    const sortedTimeSlots = Array.from(slotsByTime.values()).sort((a, b) => {
-      // So sánh ngày trước
-      const dateCompare = a.date.getTime() - b.date.getTime();
-      if (dateCompare !== 0) return dateCompare;
-      
-      // Cùng ngày thì so sánh giờ
-      const aHour = parseInt(a.slotTime.split(':')[0]);
-      const bHour = parseInt(b.slotTime.split(':')[0]);
-      return aHour - bHour;
-    });
-
-    console.log(`📅 [NEAREST-SLOT] Found ${sortedTimeSlots.length} unique time slots`);
-    
-    return sortedTimeSlots;
-
-  } catch (error) {
-    console.error('❌ [ERROR] Finding nearest slots failed:', error);
-    throw error;
-  }
-};
-
-// 👨‍⚕️ CHỌN DOCTOR TỐI ỦU CHO MỘT TIME SLOT CỤ THỂ
-const selectOptimalDoctorForTimeSlot = (availableDoctors: Array<{
-  doctorId: string;
-  doctorName: string;
-  slotId: any;
-  bookedSlots: number;
-}>): {
-  doctorId: string;
-  doctorName: string;
-  slotId: any;
-  bookedSlots: number;
-} => {
-  try {
-    console.log(`👨‍⚕️ [DOCTOR-SELECT] Selecting optimal doctor from ${availableDoctors.length} candidates`);
-    
-    if (availableDoctors.length === 0) {
-      throw new Error('Không có bác sĩ khả dụng cho time slot này');
-    }
-
-    // Nếu chỉ có 1 doctor → chọn luôn
-    if (availableDoctors.length === 1) {
-      const selectedDoctor = availableDoctors[0];
-      console.log(`🎯 [DOCTOR-SELECT] Only 1 doctor available: ${selectedDoctor.doctorName}`);
-      return selectedDoctor;
-    }
-
-    // Nếu có >1 doctor → chọn doctor ít booked slots nhất
-    const sortedByBooked = [...availableDoctors].sort((a, b) => a.bookedSlots - b.bookedSlots);
-    const selectedDoctor = sortedByBooked[0];
-    
-    console.log(`🏆 [DOCTOR-SELECT] Selected ${selectedDoctor.doctorName} with ${selectedDoctor.bookedSlots} booked slots`);
-    console.log(`   📊 Other candidates:`, sortedByBooked.slice(1).map(d => `${d.doctorName}(${d.bookedSlots})`).join(', '));
-    
-    return selectedDoctor;
-
-  } catch (error) {
-    console.error('❌ [ERROR] Selecting optimal doctor failed:', error);
-    throw error;
-  }
-};
-
-// 🎯 SMART SLOT ASSIGNMENT - Logic mới với 3 bước rõ ràng
-export const findBestAvailableSlot = async (): Promise<{
-  doctorId: string;
-  appointmentDate: Date;
-  appointmentSlot: string;
-  slotId: any;
-  doctorName: string;
-}> => {
-  try {
-    console.log('🚀 [SMART-ASSIGN] Starting intelligent slot assignment with new logic...');
-    
-    // BƯỚC 1: Tìm tất cả time slots gần nhất có slot trống
-    const nearestTimeSlots = await findNearestAvailableTimeSlot();
-    
-    if (nearestTimeSlots.length === 0) {
-      throw new Error('Không có slot nào khả dụng từ thời gian hiện tại. Vui lòng liên hệ để được hỗ trợ.');
-    }
-
-    // BƯỚC 2: Lặp qua từng time slot theo thứ tự gần nhất cho đến khi tìm được slot phù hợp
-    for (const timeSlot of nearestTimeSlots) {
-      console.log(`🔄 [SMART-ASSIGN] Checking time slot: ${timeSlot.date.toISOString().split('T')[0]} ${timeSlot.slotTime}`);
-      console.log(`   📊 Available doctors: ${timeSlot.availableDoctors.length}`);
-
-      if (timeSlot.availableDoctors.length === 0) {
-        console.log(`   ⏭️ [SMART-ASSIGN] No doctors available for this slot, trying next...`);
-        continue; // Chuyển sang slot tiếp theo
-      }
-
-      // BƯỚC 3: Chọn doctor tối ưu cho time slot này
-      try {
-        const selectedDoctor = selectOptimalDoctorForTimeSlot(timeSlot.availableDoctors);
-    
-        console.log(`🏆 [SMART-ASSIGN] Successfully found optimal slot:`);
-        console.log(`   📅 Date: ${timeSlot.date.toISOString().split('T')[0]}`);
-        console.log(`   🕐 Time: ${timeSlot.slotTime}`);
-        console.log(`   👨‍⚕️ Doctor: ${selectedDoctor.doctorName} (${selectedDoctor.bookedSlots} booked slots)`);
-
-    return {
-          doctorId: selectedDoctor.doctorId,
-          appointmentDate: timeSlot.date,
-          appointmentSlot: timeSlot.slotTime,
-          slotId: selectedDoctor.slotId,
-          doctorName: selectedDoctor.doctorName
-    };
-
-      } catch (doctorSelectionError) {
-        console.warn(`⚠️ [SMART-ASSIGN] Failed to select doctor for this slot:`, doctorSelectionError);
-        continue; // Thử slot tiếp theo
-      }
-    }
-
-    // Nếu đến đây nghĩa là không tìm được slot nào phù hợp
-    throw new Error('Không thể tìm thấy slot phù hợp sau khi kiểm tra tất cả các time slot khả dụng. Vui lòng liên hệ để được hỗ trợ.');
-
-  } catch (error) {
-    console.error('❌ [ERROR] Smart assignment failed:', error);
-    throw error;
-  }
-};
-
-// 🔒 Book slot và set timeout để auto-release sau 15 phút
-const bookSlotWithTimeout = async (doctorId: string, slotId: any, qaId: string) => {
-  try {
-    console.log('🔒 [BOOKING] Starting slot booking...', { doctorId, slotId, qaId });
-    const DoctorSchedules = require('../models/DoctorSchedules').default;
-    
-    // 🔧 FIXED: MongoDB query đúng cho nested arrays
-    const updateResult = await DoctorSchedules.updateOne(
-      { 
-        doctorId: new mongoose.Types.ObjectId(doctorId),
-        'weekSchedule.slots._id': new mongoose.Types.ObjectId(slotId)
-      },
-      {
-        $set: {
-          'weekSchedule.$.slots.$[slot].status': 'Booked',
-          'weekSchedule.$.slots.$[slot].bookedBy': qaId,
-          'weekSchedule.$.slots.$[slot].bookedAt': new Date()
-        }
-      },
-      {
-        arrayFilters: [
-          { 'slot._id': new mongoose.Types.ObjectId(slotId) }
-        ]
-      }
-    );
-
-    console.log(`🔒 [BOOKING] Update result:`, updateResult);
-    
-    if (updateResult.matchedCount === 0) {
-      throw new Error(`Không tìm thấy doctor schedule với doctorId: ${doctorId}`);
-    }
-    
-    if (updateResult.modifiedCount === 0) {
-      console.warn(`⚠️ [BOOKING] No slot was modified. SlotId: ${slotId} might not exist or already booked`);
-    }
-
-    console.log(`🔒 [BOOKING] Slot ${slotId} booked for QA ${qaId}`);
-
-    // Set timeout để auto-release sau 15 phút nếu chưa thanh toán
-    setTimeout(async () => {
-      try {
-        const qa = await DoctorQA.findById(qaId);
-        if (qa && qa.status === 'pending_payment') {
-          // Chưa thanh toán sau 15 phút → release slot và cancel QA
-          await releaseSlot(doctorId, slotId);
-          await DoctorQA.findByIdAndUpdate(qaId, { status: 'cancelled' });
-          console.log(`⏰ [TIMEOUT] Auto-cancelled QA ${qaId} after 15 minutes`);
-        }
-      } catch (error) {
-        console.error('❌ [ERROR] Timeout handler failed:', error);
-      }
-    }, 15 * 60 * 1000); // 15 phút
-
-  } catch (error) {
-    console.error('❌ [ERROR] Booking slot failed:', error);
-    throw error;
-  }
-};
-
-// 🔓 Release slot về trạng thái Free
-const releaseSlot = async (doctorId: string, slotId: any) => {
-  try {
-    const DoctorSchedules = require('../models/DoctorSchedules').default;
-    
-    const updateResult = await DoctorSchedules.updateOne(
-      { 
-        doctorId: new mongoose.Types.ObjectId(doctorId),
-        'weekSchedule.slots._id': new mongoose.Types.ObjectId(slotId)
-      },
-      {
-        $set: {
-          'weekSchedule.$.slots.$[slot].status': 'Free'
-        },
-        $unset: {
-          'weekSchedule.$.slots.$[slot].bookedBy': 1,
-          'weekSchedule.$.slots.$[slot].bookedAt': 1
-        }
-      },
-      {
-        arrayFilters: [
-          { 'slot._id': new mongoose.Types.ObjectId(slotId) }
-        ]
-      }
-    );
-
-    console.log(`🔓 [RELEASE] Update result:`, updateResult);
-
-    console.log(`🔓 [RELEASE] Slot ${slotId} released`);
-
-  } catch (error) {
-    console.error('❌ [ERROR] Releasing slot failed:', error);
-    throw error;
-  }
-};
-
-// ✨ TẠO DOCTOR QA MỚI - Logic mới với auto assignment ngay lập tức
+// ✨ NEW: Simple QA creation without auto-assignment
 export const createDoctorQA = async (qaData: any) => {
   try {
-    let { userId, fullName, phone, question, notes } = qaData;
+    let { userId, fullName, phone, age, gender, question, notes } = qaData;
 
     // Validate userId
     if (!isValidObjectId(userId)) {
       throw new Error('User ID không hợp lệ');
     }
 
-    console.log('🚀 [CREATE-QA] Starting QA creation with smart assignment...');
+    // ➕ NEW: Validate age and gender
+    if (!age || age < 1 || age > 100) {
+      throw new Error('Tuổi phải từ 1 đến 100');
+    }
+
+    if (!gender || !['male', 'female'].includes(gender)) {
+      throw new Error('Giới tính phải là "male" hoặc "female"');
+    }
+
+    console.log('🚀 [CREATE-QA] Starting simple QA creation...', { userId, fullName, age, gender });
 
     // STEP 1: Tìm service tư vấn online để lấy phí và thông tin
     console.log('💰 [CREATE-QA] Finding online consultation service...');
@@ -427,69 +47,124 @@ export const createDoctorQA = async (qaData: any) => {
 
     console.log(`📋 [CREATE-QA] Found service: ${consultationService.serviceName} - ${consultationService.price}đ`);
 
-    // STEP 2: Tìm slot tốt nhất trước khi tạo QA
-    console.log('🔄 [CREATE-QA] Finding best available slot...');
-    const assignment = await findBestAvailableSlot();
-    console.log('✅ [CREATE-QA] Assignment result:', assignment);
-
-    // ✅ VALIDATION: Đảm bảo assignment có đầy đủ thông tin
-    if (!assignment || !assignment.doctorId || !assignment.appointmentDate || 
-        !assignment.appointmentSlot || !assignment.slotId || !assignment.doctorName) {
-      throw new Error(`Không thể tự động phân công bác sĩ. Chi tiết lỗi: ${JSON.stringify(assignment || 'null')}`);
-    }
-
-    // ✅ VALIDATION: Kiểm tra doctorId có hợp lệ không
-    if (!isValidObjectId(assignment.doctorId)) {
-      throw new Error(`Doctor ID không hợp lệ từ smart assignment: ${assignment.doctorId}`);
-    }
-
-    console.log(`✅ [CREATE-QA] Assignment validation passed for doctor: ${assignment.doctorName}`);
-
-    // STEP 3: Tạo QA với thông tin đầy đủ (bao gồm service info)
+    // STEP 2: Tạo QA chỉ với thông tin cơ bản, không auto-assign
     const newQA = await DoctorQA.create({
       userId,
       fullName,
       phone,
+      age,                                    // ➕ NEW FIELD
+      gender,                                // ➕ NEW FIELD
       question,
       notes,
-      status: 'pending_payment',
-      consultationFee: consultationService.price,  // Lấy phí từ service
-      serviceId: consultationService._id,          // Thêm serviceId
-      serviceName: consultationService.serviceName, // Thêm serviceName
-      doctorId: new mongoose.Types.ObjectId(assignment.doctorId),
-      appointmentDate: assignment.appointmentDate,
-      appointmentSlot: assignment.appointmentSlot,
-      slotId: assignment.slotId
+      status: 'pending_payment',              // Chỉ pending, không assign doctor
+      consultationFee: consultationService.price,
+      serviceId: consultationService._id,
+      serviceName: consultationService.serviceName
+      // ❌ REMOVED: doctorId, appointmentDate, appointmentSlot, slotId
     });
 
-    console.log(`📝 [CREATE-QA] Created QA ${newQA._id} with assignment info`);
+    console.log(`📝 [CREATE-QA] Created QA ${newQA._id} without assignment`);
 
-    // STEP 3: Book slot với timeout 15 phút
-    await bookSlotWithTimeout(assignment.doctorId, assignment.slotId.toString(), newQA._id.toString());
-
-    // STEP 4: Populate và return
+    // STEP 3: Populate và return
     const populatedQA = await DoctorQA.findById(newQA._id)
-      .populate({
-        path: 'doctorId',
-        select: 'userId bio specialization',
-        populate: {
-          path: 'userId',
-          select: 'fullName email'
-        }
-      })
       .populate('userId', 'fullName email')
       .populate('serviceId', 'serviceName price description serviceType');
 
-    console.log(`✅ [CREATE-QA] Successfully assigned and booked:`);
+    console.log(`✅ [CREATE-QA] Successfully created basic QA:`);
     console.log(`   🏥 Service: ${consultationService.serviceName} - ${consultationService.price.toLocaleString('vi-VN')}đ`);
-    console.log(`   📅 Date: ${assignment.appointmentDate.toISOString().split('T')[0]}`);
-    console.log(`   🕐 Time: ${assignment.appointmentSlot}`);
-    console.log(`   👨‍⚕️ Doctor: ${assignment.doctorName}`);
+    console.log(`   👤 Customer: ${fullName}, ${age} tuổi, ${gender === 'male' ? 'Nam' : 'Nữ'}`);
 
     return populatedQA;
 
   } catch (error) {
     console.error('❌ [ERROR] Creating QA failed:', error);
+    throw error;
+  }
+};
+
+// ➕ NEW: Check if specific slot is available
+export const checkSlotAvailability = async (date: string, slotTime: string): Promise<{
+  available: boolean;
+  doctorCount: number;
+}> => {
+  try {
+    console.log(`🔍 [CHECK-SLOT] Checking availability for ${date} ${slotTime}`);
+    
+    // Import doctorScheduleService
+    const { getAvailableDoctors } = require('./doctorScheduleService');
+    
+    // Get available doctors for specific slot
+    const availableDoctors = await getAvailableDoctors(date, slotTime, false); // Public view
+    
+    const result = {
+      available: availableDoctors.length > 0,
+      doctorCount: availableDoctors.length
+    };
+    
+    console.log(`✅ [CHECK-SLOT] Result: ${result.available ? 'Available' : 'Not available'} (${result.doctorCount} doctors)`);
+    
+    return result;
+    
+  } catch (error) {
+    console.error('❌ [ERROR] Check slot availability failed:', error);
+    throw error;
+  }
+};
+
+// ➕ NEW: Get all 8 slots availability for a date
+export const getAvailableSlotsForDate = async (date: string): Promise<{
+  date: string;
+  slots: Array<{
+    slotTime: string;
+    available: boolean;
+    doctorCount: number;
+  }>;
+}> => {
+  try {
+    console.log(`📅 [DAILY-SLOTS] Getting all slots for ${date}`);
+    
+    // Import doctorScheduleService
+    const { getAvailableDoctors } = require('./doctorScheduleService');
+    
+    // 8 fixed time slots
+    const FIXED_TIME_SLOTS = [
+      "07:00-08:00", "08:00-09:00", "09:00-10:00", "10:00-11:00",
+      "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"
+    ];
+    
+    // Check availability for each slot
+    const slotsAvailability = await Promise.all(
+      FIXED_TIME_SLOTS.map(async (slotTime) => {
+        try {
+          const availableDoctors = await getAvailableDoctors(date, slotTime, false);
+          return {
+            slotTime,
+            available: availableDoctors.length > 0,
+            doctorCount: availableDoctors.length
+          };
+        } catch (error) {
+          console.warn(`⚠️ [DAILY-SLOTS] Error checking slot ${slotTime}:`, error);
+          return {
+            slotTime,
+            available: false,
+            doctorCount: 0
+          };
+        }
+      })
+    );
+    
+    const result = {
+      date,
+      slots: slotsAvailability
+    };
+    
+    const availableCount = slotsAvailability.filter(slot => slot.available).length;
+    console.log(`✅ [DAILY-SLOTS] Found ${availableCount}/8 available slots for ${date}`);
+    
+    return result;
+    
+  } catch (error) {
+    console.error('❌ [ERROR] Get daily slots failed:', error);
     throw error;
   }
 };
@@ -531,7 +206,7 @@ export const updatePaymentStatus = async (qaId: string, paymentSuccess: boolean)
     } else {
       // Thanh toán thất bại → release slot và cancel
       if (qa.doctorId && qa.slotId) {
-        await releaseSlot(qa.doctorId.toString(), qa.slotId);
+        await releaseSlot(qa.slotId.toString());
       }
 
       const updatedQA = await DoctorQA.findByIdAndUpdate(
@@ -683,7 +358,7 @@ export const doctorConfirmQA = async (qaId: string, action: 'confirm' | 'reject'
       newStatus = 'cancelled';
       // Release slot if rejected
       if (qa.doctorId && qa.slotId) {
-        await releaseSlot(qa.doctorId.toString(), qa.slotId);
+        await releaseSlot(qa.slotId.toString());
       }
     }
 
@@ -728,7 +403,7 @@ export const updateQAStatus = async (qaId: string, newStatus: string, doctorNote
 
     // Nếu chuyển sang cancelled, release slot
     if (newStatus === 'cancelled' && qa.doctorId && qa.slotId) {
-      await releaseSlot(qa.doctorId.toString(), qa.slotId);
+      await releaseSlot(qa.slotId.toString());
     }
 
     const updatedQA = await DoctorQA.findByIdAndUpdate(
@@ -767,7 +442,7 @@ export const deleteDoctorQA = async (qaId: string) => {
 
     // Release slot trước khi xóa
     if (qa.doctorId && qa.slotId) {
-      await releaseSlot(qa.doctorId.toString(), qa.slotId);
+      await releaseSlot(qa.slotId.toString());
     }
 
     await DoctorQA.findByIdAndDelete(qaId);
@@ -779,20 +454,20 @@ export const deleteDoctorQA = async (qaId: string) => {
   }
 };
 
-// 🧹 LEGACY FUNCTIONS - Deprecated, chỉ giữ để backward compatibility
+// 🧹 LEGACY FUNCTIONS - Keep for backward compatibility but deprecate
 export const findLeastBookedDoctor = async (): Promise<string> => {
-  console.warn('⚠️ [DEPRECATED] findLeastBookedDoctor is deprecated. Use findBestAvailableSlot instead.');
+  console.warn('⚠️ [DEPRECATED] findLeastBookedDoctor is deprecated. Use getDoctorsWorkloadStatistics instead.');
   try {
-    const result = await findBestAvailableSlot();
-    return result.doctorId;
+    const stats = await getDoctorsWorkloadStatistics();
+    return stats.length > 0 ? stats[0].doctorId : '';
   } catch (error) {
     throw error;
   }
 };
 
 export const findBestDoctorForNextSlot = async () => {
-  console.warn('⚠️ [DEPRECATED] findBestDoctorForNextSlot is deprecated. Use findBestAvailableSlot instead.');
-  return await findBestAvailableSlot();
+  console.warn('⚠️ [DEPRECATED] findBestDoctorForNextSlot is deprecated. Use assignDoctorToSelectedSlot instead.');
+  throw new Error('Function deprecated. Use assignDoctorToSelectedSlot instead.');
 };
 
 // ⚠️ DEPRECATED - Logic cũ không còn sử dụng
@@ -820,7 +495,7 @@ export const cancelConsultationByDoctor = async (qaId: string, reason: string) =
     // Giải phóng slot nếu có slotId
     if (qa.doctorId && qa.slotId) {
       console.log(`🔓 [CANCEL-QA] Releasing slot ${qa.slotId} for QA ${qaId}`);
-      await releaseSlot(qa.doctorId.toString(), qa.slotId);
+      await releaseSlot(qa.slotId.toString());
     }
 
     // Cập nhật status và notes
@@ -1015,10 +690,14 @@ export const createMeetingRecord = async (qaId: string): Promise<{
       throw new Error('Meeting record đã tồn tại cho consultation này');
     }
 
-    // 4. Tạo meeting link (Jitsi)
+    // 4. Generate secure password
+    const meetingPassword = generateMeetingPassword();
+    console.log(`🔐 [CREATE-MEETING] Generated password: ${meetingPassword} for QA: ${qaId}`);
+    
+    // 5. Tạo meeting link (Jitsi)
     const meetingLink = `https://meet.jit.si/consultation-${qaId}-${Date.now()}`;
     
-    // 5. Parse scheduled time từ appointmentDate + appointmentSlot
+    // 6. Parse scheduled time từ appointmentDate + appointmentSlot
     const appointmentDate = new Date(qa.appointmentDate);
     const [startTime] = qa.appointmentSlot.split('-'); // Lấy "14:00" từ "14:00-15:00"
     const [hours, minutes] = startTime.split(':').map(Number);
@@ -1026,23 +705,24 @@ export const createMeetingRecord = async (qaId: string): Promise<{
     const scheduledTime = new Date(appointmentDate);
     scheduledTime.setHours(hours, minutes, 0, 0);
 
-    // 6. Tạo Meeting record
+    // 7. Tạo Meeting record
     const newMeeting = await Meeting.create({
       qaId: qa._id,
       doctorId: qa.doctorId,
       userId: qa.userId,
       meetingLink,
+      meetingPassword,           // ➕ ADD password field
       provider: 'jitsi',
       scheduledTime,
       status: 'scheduled',
       participantCount: 0,
-      maxParticipants: 2,
-      notes: `Meeting created for consultation: ${qa.question.substring(0, 100)}...`
+      maxParticipants: 2
+      // ✅ REMOVED: notes - Để trống để bắt buộc doctor phải nhập thông tin thực tế
     });
 
     console.log('✅ [CREATE-MEETING] Meeting record created:', newMeeting._id);
 
-    // 7. Update DoctorQA status to 'consulting'
+    // 8. Update DoctorQA status to 'consulting'
     const updatedQA = await DoctorQA.findByIdAndUpdate(
       qaId,
       { 
@@ -1072,7 +752,57 @@ export const createMeetingRecord = async (qaId: string): Promise<{
 };
 
 /**
- * ✅ Hoàn thành consultation và meeting
+ * 🔄 Cập nhật participant count và status
+ * @param meetingId - ID của Meeting
+ * @param participantCount - Số người tham gia hiện tại
+ */
+export const updateMeetingParticipants = async (
+  meetingId: string, 
+  participantCount: number
+): Promise<any> => {
+  try {
+    console.log(`🔄 [UPDATE-PARTICIPANTS] Meeting ${meetingId}: ${participantCount} participants`);
+    
+    if (!isValidObjectId(meetingId)) {
+      throw new Error('Meeting ID không hợp lệ');
+    }
+
+    const Meeting = require('../models/Meeting').default;
+    const meeting = await Meeting.findById(meetingId);
+    if (!meeting) {
+      throw new Error('Meeting không tồn tại');
+    }
+
+    let newStatus = meeting.status;
+    
+    // Logic tự động chuyển status
+    if (participantCount === 1 && meeting.status === 'scheduled') {
+      newStatus = 'waiting_customer';
+      console.log(`🔄 [STATUS-CHANGE] Doctor joined first → waiting_customer`);
+    } else if (participantCount >= 2 && meeting.status === 'waiting_customer') {
+      newStatus = 'in_progress';
+      console.log(`🔄 [STATUS-CHANGE] Customer joined → in_progress`);
+    }
+
+    const updatedMeeting = await Meeting.findByIdAndUpdate(
+      meetingId,
+      { 
+        participantCount,
+        status: newStatus,
+        ...(participantCount === 1 && { actualStartTime: new Date() })
+      },
+      { new: true }
+    );
+
+    return updatedMeeting;
+  } catch (error) {
+    console.error('❌ [ERROR] Update participants failed:', error);
+    throw error;
+  }
+};
+
+/**
+ *  Hoàn thành consultation và meeting
  * @param qaId - ID của DoctorQA
  * @param doctorNotes - Ghi chú của bác sĩ
  */
@@ -1085,13 +815,14 @@ export const completeConsultationWithMeeting = async (qaId: string, doctorNotes?
       throw new Error('QA ID không hợp lệ');
     }
 
-    console.log('✅ [COMPLETE-CONSULTATION] Completing consultation:', qaId);
+    console.log(' [COMPLETE-CONSULTATION] Completing consultation:', qaId);
 
-    // 1. Update DoctorQA status to 'completed'
+    // 1. Update DoctorQA status to 'completed' - KHÔNG lưu notes ở đây nữa
     const updateData: any = { status: 'completed' };
-    if (doctorNotes) {
-      updateData.doctorNotes = doctorNotes;
-    }
+    // ❌ REMOVED: doctorNotes sẽ được lưu ở Meeting table thôi
+    // if (doctorNotes) {
+    //   updateData.doctorNotes = doctorNotes;
+    // }
 
     const updatedQA = await DoctorQA.findByIdAndUpdate(
       qaId,
@@ -1110,16 +841,53 @@ export const completeConsultationWithMeeting = async (qaId: string, doctorNotes?
       throw new Error('Không tìm thấy yêu cầu tư vấn');
     }
 
-    // 2. Update Meeting status to 'completed'
+    // 2. Update Meeting status to 'completed' - KHÔNG override notes đã có
     const Meeting = require('../models/Meeting').default;
     const updatedMeeting = await Meeting.findOneAndUpdate(
       { qaId: new mongoose.Types.ObjectId(qaId) },
       { 
-        status: 'completed',
-        notes: doctorNotes || 'Consultation completed successfully'
+        status: 'completed'
+        // ❌ REMOVED: Không override notes đã được lưu từ updateMeetingNotes
+        // notes: doctorNotes || 'Consultation completed successfully'  
       },
       { new: true }
     );
+
+    // ➕ 3. NEW: Send thank you email to customer
+    try {
+      console.log(' [SEND-THANKS] Sending completion thank you email...');
+      
+      const { sendConsultationCompletedEmail } = await import('./emails');
+      
+      // Extract customer and doctor info
+      const customerData = updatedQA.userId as any;
+      const doctorData = (updatedQA.doctorId as any)?.userId as any;
+      const doctorName = doctorData?.fullName || 'Bác sĩ';
+      
+      if (customerData?.email) {
+        // ✅ FIX: Safe handling của appointmentDate
+        const appointmentDate = updatedQA.appointmentDate || new Date();
+        const appointmentSlot = updatedQA.appointmentSlot || 'N/A';
+        
+        await sendConsultationCompletedEmail(
+          customerData.email,
+          customerData.fullName || updatedQA.fullName,
+          updatedQA.phone,
+          doctorName,
+          appointmentDate,
+          appointmentSlot,
+          updatedQA.question,
+          updatedMeeting?.notes // ✅ FIX: Lấy notes từ Meeting thay vì doctorNotes
+        );
+        console.log(`✅ [SEND-THANKS] Thank you email sent to: ${customerData.email}`);
+      } else {
+        console.warn('⚠️ [SEND-THANKS] No customer email found, skipping thank you email');
+      }
+      
+    } catch (emailError: any) {
+      console.error('❌ [EMAIL-ERROR] Failed to send thank you email:', emailError.message);
+      // Don't throw error - email failure shouldn't block consultation completion
+    }
 
     console.log('✅ [COMPLETE-CONSULTATION] Both QA and Meeting completed');
 
@@ -1129,7 +897,7 @@ export const completeConsultationWithMeeting = async (qaId: string, doctorNotes?
     };
 
   } catch (error) {
-    console.error('❌ [ERROR] Complete consultation failed:', error);
+    console.error(' [ERROR] Complete consultation failed:', error);
     throw error;
   }
 };
@@ -1212,6 +980,232 @@ export const getMeetingDetails = async (qaId: string): Promise<any> => {
 
   } catch (error) {
     console.error('❌ [ERROR] Get meeting details failed:', error);
+    throw error;
+  }
+};
+
+// ➕ NEW: Get doctors workload statistics for priority assignment
+export const getDoctorsWorkloadStatistics = async (): Promise<Array<{
+  doctorId: string;
+  doctorName: string;
+  bookedSlots: number;
+}>> => {
+  try {
+    console.log('📊 [WORKLOAD-STATS] Getting doctors workload statistics...');
+    
+    // Import models
+    const DoctorSchedules = require('../models/DoctorSchedules').default;
+    const Doctor = require('../models/Doctor').default;
+    
+    // Get all doctors
+    const allDoctors = await Doctor.find({ 
+      isDeleted: { $ne: true } 
+    }).populate({
+      path: 'userId',
+      select: 'fullName email isActive',
+      match: { isActive: { $ne: false } }
+    });
+    
+    const doctorsStats = [];
+    
+    for (const doctor of allDoctors) {
+      if (!doctor.userId) continue; // Skip corrupted data
+      
+      // Get schedule for this doctor
+      const schedule = await DoctorSchedules.findOne({ doctorId: doctor._id });
+      
+      let bookedSlots = 0;
+      if (schedule) {
+        for (const daySchedule of schedule.weekSchedule) {
+          bookedSlots += daySchedule.slots.filter((slot: any) => slot.status === 'Booked').length;
+        }
+      }
+      
+      doctorsStats.push({
+        doctorId: doctor._id.toString(),
+        doctorName: (doctor.userId as any).fullName,
+        bookedSlots
+      });
+    }
+    
+    // Sort by bookedSlots ASC (least booked first)
+    const sortedStats = doctorsStats.sort((a, b) => a.bookedSlots - b.bookedSlots);
+    
+    console.log(`✅ [WORKLOAD-STATS] Found ${sortedStats.length} doctors, sorted by workload`);
+    
+    return sortedStats;
+    
+  } catch (error) {
+    console.error('❌ [ERROR] Get doctors workload stats failed:', error);
+    throw error;
+  }
+};
+
+// ➕ NEW: Assign doctor to selected slot with priority logic
+export const assignDoctorToSelectedSlot = async (qaData: any, selectedDate: string, selectedSlot: string): Promise<any> => {
+  try {
+    console.log(`🎯 [ASSIGN-SLOT] Starting assignment for ${selectedDate} ${selectedSlot}`);
+    
+    // 1. Validate inputs
+    if (!selectedDate || !selectedSlot) {
+      throw new Error('Ngày và slot thời gian là bắt buộc');
+    }
+    
+    // 2. Get available doctors for this specific slot
+    const { getAvailableDoctors } = require('./doctorScheduleService');
+    const availableDoctors = await getAvailableDoctors(selectedDate, selectedSlot, false);
+    
+    if (availableDoctors.length === 0) {
+      throw new Error('Không có bác sĩ nào khả dụng cho slot này');
+    }
+    
+    console.log(`📋 [ASSIGN-SLOT] Found ${availableDoctors.length} available doctors for slot`);
+    
+    // 3. Get workload statistics to determine priority
+    const workloadStats = await getDoctorsWorkloadStatistics();
+    
+    // 4. Find intersection: available doctors + least booked (priority)
+    const priorityDoctors = availableDoctors
+      .map((availableDoc: any) => {
+        const stats = workloadStats.find(stat => stat.doctorId === availableDoc.doctorId);
+        return {
+          ...availableDoc,
+          bookedSlots: stats ? stats.bookedSlots : 0
+        };
+      })
+      .sort((a: any, b: any) => a.bookedSlots - b.bookedSlots); // Sort by least booked
+    
+    console.log(`🏆 [ASSIGN-SLOT] Priority order:`, priorityDoctors.map((d: any) => 
+      `${d.doctorInfo.fullName} (${d.bookedSlots} slots)`
+    ));
+    
+    // 5. Try to assign to first available doctor (least booked)
+    const { lockSlot } = require('./doctorScheduleService');
+    let assignedDoctor = null;
+    let assignedSlotId = null;
+    
+    for (const doctor of priorityDoctors) {
+      try {
+        const doctorSlot = doctor.availableSlots.find((slot: any) => slot.slotTime === selectedSlot);
+        if (!doctorSlot) continue;
+        
+        console.log(`🔄 [ASSIGN-SLOT] Trying to lock slot for ${doctor.doctorInfo.fullName}...`);
+        
+        const lockSuccess = await lockSlot(doctorSlot.slotId);
+        if (lockSuccess) {
+          assignedDoctor = doctor;
+          assignedSlotId = doctorSlot.slotId;
+          console.log(`✅ [ASSIGN-SLOT] Successfully assigned to ${doctor.doctorInfo.fullName}`);
+          break;
+        }
+      } catch (lockError) {
+        console.log(`❌ [ASSIGN-SLOT] Failed to lock slot for ${doctor.doctorInfo.fullName}`);
+        continue;
+      }
+    }
+    
+    if (!assignedDoctor) {
+      throw new Error('Không thể phân công bác sĩ - tất cả slots đã bị chiếm');
+    }
+    
+    // 6. Get service info
+    const Service = require('../models/Service').default;
+    const consultationService = await Service.findOne({
+      serviceName: { $regex: /tư vấn.*online/i },
+      serviceType: 'consultation',
+      isDeleted: { $ne: true }
+    });
+    
+    if (!consultationService) {
+      // Rollback slot lock
+      const { releaseSlot } = require('./doctorScheduleService');
+      await releaseSlot(assignedSlotId.toString());
+      throw new Error('Không tìm thấy dịch vụ tư vấn online');
+    }
+    
+    // 7. Create DoctorQA with assignment
+    const { createVietnamDate } = require('../utils/timezoneUtils');
+    const appointmentDate = createVietnamDate(selectedDate);
+    
+    const newQA = await DoctorQA.create({
+      ...qaData,
+      status: 'pending_payment',
+      consultationFee: consultationService.price,
+      serviceId: consultationService._id,
+      serviceName: consultationService.serviceName,
+      doctorId: new mongoose.Types.ObjectId(assignedDoctor.doctorId),
+      appointmentDate,
+      appointmentSlot: selectedSlot,
+      slotId: assignedSlotId
+    });
+
+    // Create PaymentTracking
+    const PaymentTracking = require('../models/PaymentTracking').default;
+    const payment = await PaymentTracking.create({
+        serviceType: 'consultation',
+        recordId: newQA._id,
+        doctorQAId: newQA._id,
+        userId: qaData.userId,
+        amount: consultationService.price,
+        totalAmount: consultationService.price,
+        billNumber: `CONS-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+        description: `Thanh toán tư vấn online: ${consultationService.serviceName}`,
+        customerName: qaData.fullName || 'Khách hàng',
+        customerEmail: qaData.email || '',
+        customerPhone: qaData.phone || '',
+        orderCode: Date.now(),
+        paymentGateway: 'payos',
+        status: 'pending'
+    });
+
+    // Update DoctorQA with paymentTrackingId
+    await DoctorQA.findByIdAndUpdate(newQA._id, {
+        paymentTrackingId: payment._id
+    });
+    
+    // 8. Set 15min timeout để auto-release
+    setTimeout(async () => {
+      try {
+        const qa = await DoctorQA.findById(newQA._id);
+        if (qa && qa.status === 'pending_payment') {
+          const { releaseSlot } = require('./doctorScheduleService');
+          await releaseSlot(assignedSlotId.toString());
+          await DoctorQA.findByIdAndUpdate(newQA._id, { status: 'cancelled' });
+          console.log(`🔓 [AUTO-RELEASE] Slot ${assignedSlotId} released after 15 minutes`);
+        }
+      } catch (timeoutError) {
+        console.error('❌ [TIMEOUT] Error in auto-release:', timeoutError);
+      }
+    }, 15 * 60 * 1000); // 15 minutes
+    
+    // 9. Populate and return
+    const populatedQA = await DoctorQA.findById(newQA._id)
+      .populate({
+        path: 'doctorId',
+        select: 'userId bio specialization',
+        populate: {
+          path: 'userId',
+          select: 'fullName email'
+        }
+      })
+      .populate('userId', 'fullName email')
+      .populate('serviceId', 'serviceName price description serviceType');
+    
+    console.log(`✅ [ASSIGN-SLOT] Assignment completed for QA ${newQA._id}`);
+    
+    return {
+      qa: populatedQA,
+      assignedDoctor: {
+        doctorId: assignedDoctor.doctorId,
+        doctorName: assignedDoctor.doctorInfo.fullName,
+        specialization: assignedDoctor.doctorInfo.specialization || 'N/A',
+        bookedSlots: assignedDoctor.bookedSlots
+      },
+      service: consultationService
+    };
+    
+  } catch (error) {
+    console.error('❌ [ERROR] Assign doctor to slot failed:', error);
     throw error;
   }
 };

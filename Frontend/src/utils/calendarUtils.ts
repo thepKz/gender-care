@@ -23,6 +23,15 @@ export const convertSchedulesToCalendarEvents = (schedules: IDoctorSchedule[]): 
       weekScheduleCount: schedule.weekSchedule?.length
     });
 
+    // Kiểm tra xem doctor có tồn tại không
+    if (!schedule.doctorId || !schedule.doctorId.userId) {
+      console.warn('⚠️ [CalendarUtils] Schedule has deleted doctor, will show as "Bác sĩ đã bị xóa":', {
+        scheduleId: schedule._id,
+        doctorId: schedule.doctorId?._id || 'null'
+      });
+      // Vẫn tiếp tục xử lý để hiển thị lịch với thông tin "đã bị xóa"
+    }
+
     if (!schedule.weekSchedule || schedule.weekSchedule.length === 0) {
       console.log('❌ [CalendarUtils] No weekSchedule found for schedule:', schedule._id);
       return;
@@ -78,20 +87,23 @@ export const convertSchedulesToCalendarEvents = (schedules: IDoctorSchedule[]): 
           .millisecond(0)
           .toDate();
 
+        // Kiểm tra xem doctor có tồn tại không (có thể đã bị xóa)
+        const doctorName = schedule.doctorId?.userId?.fullName || 'Bác sĩ đã bị xóa';
+        
         // Tạo title cho event dựa vào status
         let title = '';
         switch (slot.status) {
           case 'Free':
-            title = `${schedule.doctorId.userId.fullName} - Có thể đặt`;
+            title = `${doctorName} - Có thể đặt`;
             break;
           case 'Booked':
-            title = `${schedule.doctorId.userId.fullName} - Đã đặt lịch`;
+            title = `${doctorName} - Đã đặt lịch`;
             break;
           case 'Absent':
-            title = `${schedule.doctorId.userId.fullName} - Không có mặt`;
+            title = `${doctorName} - Không có mặt`;
             break;
           default:
-            title = `${schedule.doctorId.userId.fullName} - ${slot.status}`;
+            title = `${doctorName} - ${slot.status}`;
         }
 
         const event: DoctorScheduleEvent = {
@@ -100,9 +112,9 @@ export const convertSchedulesToCalendarEvents = (schedules: IDoctorSchedule[]): 
           start: startDate,
           end: endDate,
           resource: {
-            doctorId: schedule.doctorId._id,
-            doctorName: schedule.doctorId.userId.fullName,
-            specialization: schedule.doctorId.specialization || 'Chưa xác định',
+            doctorId: schedule.doctorId?._id || 'deleted-doctor',
+            doctorName: doctorName,
+            specialization: schedule.doctorId?.specialization || 'Chưa xác định',
             status: slot.status,
             slotTime: slot.slotTime,
             appointmentId: undefined, // Will be updated when backend supports it

@@ -180,10 +180,8 @@ const ProfilePage: React.FC = () => {
                 }}
                 customRequest={async ({ file, onSuccess, onError }) => {
                   setUploading(true);
-                  const formData = new FormData();
-                  formData.append('avatar', file as File);
                   try {
-                    const res = await userApi.uploadAvatarImage(formData as unknown as File);
+                    const res = await userApi.uploadAvatarImage(file as File);
                     const url = res.data.url;
                     await userApi.updateAvatar(url);
                     

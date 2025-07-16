@@ -80,6 +80,17 @@ async function fixPaymentTrackingTTL() {
     }
 
     console.log('✅ PaymentTracking TTL fix completed successfully!');
+    
+    // 🗑️ Drop unique constraint on packagepurchases to allow multiple same packages
+    try {
+      const packageCollection = mongoose.connection.collection('packagepurchases');
+      await packageCollection.dropIndex('unique_active_user_package');
+      console.log('🗑️ Dropped index unique_active_user_package from packagepurchases');
+      console.log('✅ Now users can purchase multiple same packages');
+    } catch (error) {
+      console.log('ℹ️ Index unique_active_user_package not found or already dropped');
+    }
+    
     console.log('💡 From now on:');
     console.log('   - Pending payments will expire after 15 minutes');
     console.log('   - Successful/failed/cancelled payments will be kept forever');

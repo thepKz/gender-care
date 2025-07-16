@@ -226,10 +226,16 @@ export interface IServiceTestCategories {
   serviceId: string;
   testCategoryId: string;
   isRequired: boolean;
-  customNormalRange?: string;
-  customUnit?: string;
+  unit?: string;
   targetValue?: string;
-  notes?: string;
+  minValue?: number;
+  maxValue?: number;
+  thresholdRules?: Array<{
+    from: number | null;
+    to: number | null;
+    flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+    message: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -237,21 +243,19 @@ export interface IServiceTestCategories {
 export interface ITestCategory {
   _id: string;
   name: string;
-  description: string;
-  unit: string;
-  normalRange: string;
+  description?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface ITestResultItem {
   _id: string;
-  testResultId: string;
-  itemNameId: string;
+  appointmentId: string;
+  testCategoryId: string;
   value: string;
   unit: string;
-  currentRange: string;
-  flag: 'high' | 'low' | 'normal';
+  flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+  message?: string;
 }
 
 // Blog types
@@ -362,7 +366,7 @@ export interface IPackagePurchase {
   userId: string;              // Ai là người mua
   profileId: string;           // Hồ sơ bệnh án nào sử dụng gói này
   packageId: string;           // FK đến ServicePackages._id
-  billId: string;              // Liên kết hóa đơn thanh toán
+  paymentTrackingId: string;   // ✅ REPLACE: billId → paymentTrackingId
   activatedAt: Date;           // 🔹 Ngày bắt đầu sử dụng gói
   expiredAt: Date;             // 🔹 Ngày hết hạn (tính từ activatedAt + durationInDays)
   remainingUsages: number;     // 🔹 Số lượt còn lại có thể dùng

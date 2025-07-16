@@ -4,9 +4,10 @@ export interface ITestResults {
   appointmentId: mongoose.Types.ObjectId;
   profileId: mongoose.Types.ObjectId;
   doctorId: mongoose.Types.ObjectId;
-  conclusion?: string;
+  diagnosis?: string;
   recommendations?: string;
   createdAt?: Date;
+  testResultItemsId?: mongoose.Types.ObjectId[];
 }
 
 const TestResultsSchema = new mongoose.Schema<ITestResults>({
@@ -25,12 +26,17 @@ const TestResultsSchema = new mongoose.Schema<ITestResults>({
     ref: 'Doctor', 
     required: true 
   },
-  conclusion: { 
+  diagnosis: { 
     type: String 
   },
   recommendations: { 
     type: String 
-  }
+  },
+  testResultItemsId: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'TestResultItems',
+    default: []
+  }]
 }, { 
   timestamps: { createdAt: true, updatedAt: false } // Chỉ cần createdAt
 });

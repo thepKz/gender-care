@@ -50,7 +50,7 @@ export const sendVerificationEmail = async (
   fullName: string
 ): Promise<void> => {
   const subject = "Xác thực tài khoản của bạn - Gender Healthcare";
-  
+
   const htmlContent = `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e9e9e9; border-radius: 5px;">
       <div style="text-align: center; margin-bottom: 20px;">
@@ -76,7 +76,7 @@ export const sendVerificationEmail = async (
       </div>
     </div>
   `;
-  
+
   // Gọi hàm gửi email
   await sendEmail(to, subject, htmlContent);
 };
@@ -87,7 +87,7 @@ export const sendResetPasswordEmail = async (
   fullName: string
 ): Promise<void> => {
   const subject = "Đặt lại mật khẩu - Gender Healthcare";
-  
+
   const htmlContent = `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e9e9e9; border-radius: 5px;">
       <div style="text-align: center; margin-bottom: 20px;">
@@ -113,7 +113,7 @@ export const sendResetPasswordEmail = async (
       </div>
     </div>
   `;
-  
+
   // Gọi hàm gửi email
   await sendEmail(to, subject, htmlContent);
 };
@@ -183,14 +183,14 @@ export const sendNewAccountEmail = async (
 ): Promise<void> => {
   const roleNames: { [key: string]: string } = {
     customer: 'Khách hàng',
-    doctor: 'Bác sĩ', 
+    doctor: 'Bác sĩ',
     staff: 'Nhân viên',
     manager: 'Quản lý',
     admin: 'Quản trị viên'
   };
 
   const subject = "Thông tin tài khoản mới - Gender Healthcare";
-  
+
   const htmlContent = `
     <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e9e9e9; border-radius: 5px;">
       <div style="text-align: center; margin-bottom: 20px;">
@@ -240,10 +240,1495 @@ export const sendNewAccountEmail = async (
       </div>
     </div>
   `;
+
+  await sendEmail(to, subject, htmlContent);
+};
+
+export const sendMenstrualCycleReminderEmail = async (
+  to: string,
+  fullName: string
+): Promise<void> => {
+  const subject = "Nhắc nhở cập nhật chu kỳ kinh nguyệt - Gender Healthcare";
+
+  const htmlContent = `
+    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e9e9e9; border-radius: 5px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <h2 style="color: #E91E63;">Gender Healthcare</h2>
+        <span style="font-size: 24px;">🌸</span>
+      </div>
+      
+      <div style="padding: 20px; background-color: #fef7f7; border-radius: 5px; border-left: 4px solid #E91E63;">
+        <h3 style="margin-top: 0; color: #E91E63;">Xin chào ${fullName},</h3>
+        
+        <p>Đây là lời nhắc nhở từ Gender Healthcare để bạn cập nhật thông tin chu kỳ kinh nguyệt hôm nay.</p>
+        
+        <div style="background-color: #ffffff; padding: 20px; margin: 20px 0; border-radius: 5px; border: 1px solid #ffe0e6;">
+          <h4 style="margin-top: 0; color: #C2185B;">📅 Tại sao việc theo dõi hàng ngày lại quan trọng?</h4>
+          <ul style="margin: 0; padding-left: 20px; color: #666;">
+            <li>Giúp bạn hiểu rõ hơn về chu kỳ tự nhiên của cơ thể</li>
+            <li>Hỗ trợ theo dõi sức khỏe sinh sản</li>
+            <li>Cung cấp thông tin chính xác cho bác sĩ khi cần thiết</li>
+            <li>Giúp dự đoán thời điểm kinh nguyệt tiếp theo</li>
+          </ul>
+        </div>
+        
+        <div style="text-align: center; margin: 25px 0;">
+          <p style="margin: 10px 0; color: #666;">Hãy dành 2 phút để cập nhật thông tin hôm nay:</p>
+          <a href="${process.env.FRONTEND_URL || 'https://gender-healthcare.vercel.app'}/cycle" 
+             style="display: inline-block; background-color: #E91E63; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 10px 0;">
+            Cập nhật chu kỳ ngay
+          </a>
+        </div>
+        
+        <div style="background-color: #fff3e0; border: 1px solid #ffcc80; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p style="margin: 0; color: #f57c00; font-size: 14px;">
+            <strong>💡 Mẹo:</strong> Hãy cập nhật thông tin vào cùng một thời điểm mỗi ngày để tạo thói quen tốt!
+          </p>
+        </div>
+        
+        <p style="color: #666; font-size: 14px;">
+          Nếu bạn đã cập nhật thông tin hôm nay, bạn có thể bỏ qua email này. 
+          Nếu không muốn nhận thông báo nhắc nhở nữa, bạn có thể tắt tính năng này trong cài đặt tài khoản.
+        </p>
+        
+        <p>Chúc bạn một ngày tốt lành!<br/>Đội ngũ Gender Healthcare 💕</p>
+      </div>
+      
+      <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e9e9e9; text-align: center; font-size: 12px; color: #999;">
+        <p>© ${new Date().getFullYear()} Gender Healthcare. Tất cả các quyền được bảo lưu.</p>
+        <p>
+          <a href="${process.env.FRONTEND_URL || 'https://gender-healthcare.vercel.app'}/cycle" style="color: #E91E63;">Cập nhật chu kỳ</a> | 
+          <a href="${process.env.FRONTEND_URL || 'https://gender-healthcare.vercel.app'}/profile" style="color: #E91E63;">Cài đặt thông báo</a>
+        </p>
+      </div>
+    </div>
+  `;
+
+  await sendEmail(to, subject, htmlContent);
+};
+
+export const sendMeetingNotificationEmail = async (
+  to: string,
+  patientName: string,
+  doctorName: string,
+  meetingLink: string,
+  scheduledTime: Date,
+  consultationQuestion: string
+): Promise<void> => {
+  const subject = " Lịch hẹn tư vấn trực tuyến của bạn đã được tạo - Gender Healthcare";
+  
+  // Format thời gian tiếng Việt
+  const formattedTime = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Ho_Chi_Minh'
+  }).format(scheduledTime);
+  
+  const htmlContent = `
+    <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e9e9e9; border-radius: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="color: white; font-size: 28px; margin: 0; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+           Gender Healthcare
+        </h1>
+        <p style="color: #f0f0f0; font-size: 16px; margin: 8px 0 0 0;">Hệ thống chăm sóc sức khỏe toàn diện</p>
+      </div>
+      
+      <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); color: #333;">
+        <div style="text-align: center; margin-bottom: 25px;">
+          <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #4CAF50, #45a049); border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);">
+            <span style="font-size: 36px; color: white;">🩺</span>
+          </div>
+          <h2 style="color: #2c3e50; margin: 0; font-size: 24px;">Lịch hẹn tư vấn đã được tạo!</h2>
+        </div>
+
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4CAF50;">
+          <h3 style="margin-top: 0; color: #2c3e50; font-size: 18px;">
+            <span style="color: #4CAF50;">👋</span> Xin chào ${patientName},
+          </h3>
+          <p style="margin: 10px 0; line-height: 1.6; color: #555;">
+            Cuộc hẹn tư vấn trực tuyến của bạn với <strong style="color: #4CAF50;">${doctorName}</strong> đã được tạo thành công và sẵn sàng để bắt đầu!
+          </p>
+        </div>
+
+        <div style="background: #fff; border: 2px solid #e3f2fd; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <h4 style="margin-top: 0; color: #1976d2; font-size: 16px;">
+             Chi tiết cuộc hẹn
+          </h4>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">
+                <span style="color: #4CAF50;">👨‍⚕️</span> Bác sĩ tư vấn:
+              </td>
+              <td style="padding: 8px 0; color: #333;">
+                <strong>${doctorName}</strong>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; color: #666;">
+                <span style="color: #ff9800;"></span> Thời gian:
+              </td>
+              <td style="padding: 8px 0; color: #333;">
+                <strong style="color: #ff9800;">${formattedTime}</strong>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-weight: bold; color: #666;">
+                <span style="color: #2196f3;"></span> Vấn đề tư vấn:
+              </td>
+              <td style="padding: 8px 0; color: #555; font-style: italic;">
+                "${consultationQuestion.substring(0, 100)}${consultationQuestion.length > 100 ? '...' : ''}"
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${meetingLink}" 
+             target="_blank" 
+             style="display: inline-block; background: linear-gradient(135deg, #4CAF50, #45a049); color: white; padding: 16px 32px; text-decoration: none; border-radius: 50px; font-weight: bold; font-size: 16px; box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4); transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;">
+             Tham gia cuộc hẹn ngay
+          </a>
+          <p style="margin: 15px 0 0 0; font-size: 14px; color: #666;">
+            <strong>Lưu ý:</strong> Bạn có thể tham gia cuộc họp bất kỳ lúc nào từ giờ đến hết ngày hẹn
+          </p>
+        </div>
+
+        <div style="background: #e8f5e8; border: 1px solid #c8e6c9; border-radius: 8px; padding: 16px; margin: 20px 0;">
+          <h4 style="margin-top: 0; color: #2e7d32; font-size: 15px;">
+             Hướng dẫn tham gia:
+          </h4>
+          <ol style="margin: 10px 0 0 20px; color: #555; line-height: 1.6;">
+            <li>Click vào nút <strong>"Tham gia cuộc hẹn ngay"</strong> phía trên</li>
+            <li>Cho phép trình duyệt truy cập camera và microphone của bạn</li>
+            <li>Đợi bác sĩ tham gia và bắt đầu cuộc tư vấn</li>
+            <li>Chuẩn bị sẵn các câu hỏi bạn muốn tư vấn</li>
+          </ol>
+        </div>
+
+        <div style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 16px; margin: 20px 0;">
+          <p style="margin: 0; color: #856404; font-size: 14px;">
+            <strong> Bảo mật & Riêng tư:</strong> Cuộc tư vấn của bạn được mã hóa end-to-end. 
+            Mọi thông tin trao đổi đều được bảo mật tuyệt đối theo quy định y tế.
+          </p>
+        </div>
+
+        <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 25px; text-align: center;">
+          <p style="margin: 0; color: #666; font-size: 14px;">
+            Nếu bạn có bất kỳ thắc mắc nào, vui lòng liên hệ đội ngũ hỗ trợ của chúng tôi.
+          </p>
+          <p style="margin: 8px 0 0 0; color: #4CAF50; font-weight: bold;">
+            Chúc bạn có buổi tư vấn hiệu quả! 🌟
+          </p>
+        </div>
+      </div>
+      
+      <div style="margin-top: 20px; padding-top: 20px; text-align: center; font-size: 12px; color: #f0f0f0;">
+        <p style="margin: 0;">© ${new Date().getFullYear()} Gender Healthcare. Tất cả các quyền được bảo lưu.</p>
+        <p style="margin: 8px 0 0 0;"> Email này được gửi tự động, vui lòng không trả lời trực tiếp.</p>
+      </div>
+    </div>
+  `;
   
   await sendEmail(to, subject, htmlContent);
 };
 
+// Clean & Professional Email Template cho Customer Meeting Invite
+export const sendCustomerMeetingInviteEmail = async (
+  customerEmail: string,
+  customerName: string,
+  customerPhone: string,
+  doctorName: string,
+  meetingLink: string,
+  meetingPassword: string,
+  scheduledTime: Date,
+  consultationQuestion: string
+): Promise<void> => {
+  const subject = "Cuộc tư vấn của bạn đã sẵn sàng - Gender Healthcare";
+  
+  // Format thời gian tiếng Việt
+  const formattedTime = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Ho_Chi_Minh'
+  }).format(scheduledTime);
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Lời mời tư vấn - Gender Healthcare</title>
+    </head>
+    <body style="margin: 0; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; line-height: 1.6;">
+      
+      <!-- Email Container -->
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);">
+        
+        <!-- Header -->
+        <div style="background: #2563eb; padding: 40px 40px 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">
+            Gender Healthcare
+          </h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px; font-weight: 400;">
+            Dịch vụ tư vấn sức khỏe
+          </p>
+        </div>
 
+        <!-- Main Content -->
+        <div style="padding: 40px;">
+          
+          <!-- Welcome Message -->
+          <h2 style="color: #1e293b; margin: 0 0 24px 0; font-size: 24px; font-weight: 600; line-height: 1.3;">
+            Xin chào ${customerName},
+          </h2>
+          
+          <p style="color: #475569; font-size: 16px; margin: 0 0 32px 0; line-height: 1.6;">
+            Cuộc tư vấn với bác sĩ <strong style="color: #2563eb;">${doctorName}</strong> đã được thiết lập và sẵn sàng để bắt đầu. 
+            Vui lòng sử dụng thông tin bên dưới để tham gia.
+          </p>
 
+          <!-- Meeting Details -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 28px; margin-bottom: 32px;">
+            <h3 style="margin: 0 0 20px 0; color: #1e293b; font-size: 18px; font-weight: 600;">
+              Thông tin cuộc hẹn
+            </h3>
+            
+            <div style="margin-bottom: 16px;">
+              <p style="margin: 0 0 4px 0; color: #64748b; font-size: 14px; font-weight: 500;">Bác sĩ tư vấn</p>
+              <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${doctorName}</p>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+              <p style="margin: 0 0 4px 0; color: #64748b; font-size: 14px; font-weight: 500;">Thời gian</p>
+              <p style="margin: 0; color: #1e293b; font-size: 16px; font-weight: 600;">${formattedTime}</p>
+            </div>
+            
+            <div>
+              <p style="margin: 0 0 4px 0; color: #64748b; font-size: 14px; font-weight: 500;">Vấn đề cần tư vấn</p>
+              <p style="margin: 0; color: #475569; font-size: 15px; line-height: 1.5; font-style: italic;">
+                "${consultationQuestion.length > 120 ? consultationQuestion.substring(0, 120) + '...' : consultationQuestion}"
+              </p>
+            </div>
+          </div>
+
+          <!-- Password Section -->
+          <div style="background: #1e293b; border-radius: 8px; padding: 32px; text-align: center; margin-bottom: 32px;">
+            <h3 style="color: white; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">
+              Mã truy cập Meeting
+            </h3>
+            
+            <div style="background: rgba(255,255,255,0.1); border-radius: 6px; padding: 20px; margin: 20px 0;">
+              <p style="color: rgba(255,255,255,0.8); margin: 0 0 8px 0; font-size: 14px;">Nhập mã này khi được yêu cầu:</p>
+              <div style="color: white; font-size: 32px; font-weight: 700; font-family: 'Menlo', 'Monaco', 'Courier New', monospace; letter-spacing: 6px; margin: 8px 0;">
+                ${meetingPassword}
+              </div>
+            </div>
+            
+            <p style="color: rgba(255,255,255,0.8); margin: 0; font-size: 14px;">
+              Vui lòng giữ mã này bảo mật
+            </p>
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 40px 0;">
+            <a href="${meetingLink}" 
+               target="_blank" 
+               style="display: inline-block; background: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; border: none; cursor: pointer;">
+              Tham gia cuộc hẹn
+            </a>
+          </div>
+
+          <!-- Instructions -->
+          <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 20px; margin-bottom: 24px;">
+            <h4 style="margin: 0 0 12px 0; color: #0369a1; font-size: 16px; font-weight: 600;">
+              Hướng dẫn tham gia
+            </h4>
+            <ol style="margin: 0; padding-left: 20px; color: #0369a1; font-size: 14px; line-height: 1.6;">
+              <li>Nhấn nút "Tham gia cuộc hẹn" ở trên</li>
+              <li>Nhập mã truy cập khi được yêu cầu</li>
+              <li>Cho phép truy cập camera và microphone</li>
+              <li>Chờ bác sĩ tham gia và bắt đầu tư vấn</li>
+            </ol>
+          </div>
+
+          <!-- Security Note -->
+          <div style="background: #fefce8; border: 1px solid #fde047; border-radius: 6px; padding: 16px; text-align: center;">
+            <p style="margin: 0; color: #a16207; font-size: 14px; line-height: 1.5;">
+              <strong>Bảo mật:</strong> Cuộc tư vấn được mã hóa và bảo vệ theo tiêu chuẩn y tế.
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f8fafc; padding: 24px; text-align: center; border-top: 1px solid #e2e8f0;">
+          <p style="color: #64748b; margin: 0 0 8px 0; font-size: 14px;">
+            Cảm ơn bạn đã tin tưởng Gender Healthcare
+          </p>
+          <p style="color: #94a3b8; margin: 0; font-size: 12px;">
+            © ${new Date().getFullYear()} Gender Healthcare. Mọi quyền được bảo lưu.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  await sendEmail(customerEmail, subject, htmlContent);
+  console.log(` [EMAIL-SENT] Clean customer meeting invite sent to: ${customerEmail}`);
+};
+
+// ➕ NEW: Email thông báo thanh toán consultation thành công
+export const sendConsultationPaymentSuccessEmail = async (
+  customerEmail: string,
+  customerName: string,
+  customerPhone: string,
+  doctorName: string,
+  appointmentDate: Date,
+  appointmentSlot: string,
+  consultationQuestion: string,
+  consultationFee: number,
+  consultationId: string
+): Promise<void> => {
+  const subject = " Thanh toán thành công - Cuộc hẹn tư vấn đã được xác nhận | Gender Healthcare";
+  
+  // Format thời gian tiếng Việt
+  const formattedDate = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long', 
+    day: 'numeric',
+    timeZone: 'Asia/Ho_Chi_Minh'
+  }).format(appointmentDate);
+
+  const formattedDateTime = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Ho_Chi_Minh'
+  }).format(appointmentDate);
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Thanh toán thành công - Gender Healthcare</title>
+    </head>
+    <body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f7f7f7; line-height: 1.6;">
+      
+      <!-- Email Container -->
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden;">
+        
+        <!-- Header -->
+        <div style="background: #1DB954; padding: 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">
+            Thanh toán thành công
+          </h1>
+          <p style="color: #ffffff; margin: 8px 0 0 0; font-size: 16px;">
+            Cuộc hẹn tư vấn đã được xác nhận
+          </p>
+        </div>
+
+        <!-- Main Content -->
+        <div style="padding: 30px;">
+          
+          <!-- Welcome Message -->
+          <h2 style="color: #191414; margin: 0 0 20px 0; font-size: 20px; font-weight: 600;">
+            Xin chào ${customerName},
+          </h2>
+          <p style="color: #535353; font-size: 16px; margin: 0 0 30px 0; line-height: 1.5;">
+            Cảm ơn bạn đã tin tưởng dịch vụ tư vấn sức khỏe của Gender Healthcare. 
+            Cuộc hẹn của bạn đã được xác nhận thành công.
+          </p>
+
+          <!-- Payment Confirmation -->
+          <div style="background: #f8f8f8; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+            <h3 style="color: #191414; margin: 0 0 12px 0; font-size: 18px; font-weight: 600;">
+              Thanh toán đã được xử lý
+            </h3>
+            <p style="color: #535353; margin: 0; font-size: 16px;">
+              Số tiền: <strong>${consultationFee.toLocaleString('vi-VN')}₫</strong>
+            </p>
+            <p style="color: #535353; margin: 8px 0 0 0; font-size: 14px;">
+              Mã giao dịch: <code style="background: #ffffff; padding: 4px 8px; border-radius: 4px; font-family: monospace; border: 1px solid #e1e1e1;">${consultationId}</code>
+            </p>
+          </div>
+
+          <!-- Appointment Details -->
+          <div style="background: #f8f8f8; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+            <h3 style="margin: 0 0 16px 0; color: #191414; font-size: 18px; font-weight: 600;">
+              Chi tiết cuộc hẹn
+            </h3>
+            
+            <div style="margin-bottom: 16px;">
+              <p style="margin: 0 0 4px 0; color: #535353; font-size: 14px; font-weight: 500;">Bác sĩ tư vấn</p>
+              <p style="margin: 0; color: #191414; font-size: 16px; font-weight: 600;">${doctorName}</p>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+              <p style="margin: 0 0 4px 0; color: #535353; font-size: 14px; font-weight: 500;">Ngày hẹn</p>
+              <p style="margin: 0; color: #191414; font-size: 16px; font-weight: 600;">${formattedDate}</p>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+              <p style="margin: 0 0 4px 0; color: #535353; font-size: 14px; font-weight: 500;">Thời gian</p>
+              <p style="margin: 0; color: #191414; font-size: 16px; font-weight: 600;">${appointmentSlot}</p>
+            </div>
+            
+            <div>
+              <p style="margin: 0 0 4px 0; color: #535353; font-size: 14px; font-weight: 500;">Vấn đề cần tư vấn</p>
+              <p style="margin: 0; color: #191414; font-size: 15px; line-height: 1.5; font-style: italic;">
+                "${consultationQuestion}"
+              </p>
+            </div>
+          </div>
+
+          <!-- Next Steps -->
+          <div style="background: #f8f8f8; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+            <h3 style="margin: 0 0 16px 0; color: #191414; font-size: 18px; font-weight: 600;">
+              Các bước tiếp theo
+            </h3>
+            
+            <div style="margin-bottom: 16px;">
+              <p style="margin: 0 0 4px 0; color: #191414; font-weight: 600; font-size: 15px;">1. Bác sĩ xem xét yêu cầu</p>
+              <p style="margin: 0; color: #535353; font-size: 14px; line-height: 1.5;">Bác sĩ sẽ đánh giá câu hỏi và chuẩn bị nội dung tư vấn phù hợp trong vòng 24 giờ</p>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+              <p style="margin: 0 0 4px 0; color: #191414; font-weight: 600; font-size: 15px;">2. Nhận email hướng dẫn tham gia</p>
+              <p style="margin: 0; color: #535353; font-size: 14px; line-height: 1.5;">
+                <strong>5 phút trước giờ khám</strong>, bạn sẽ nhận email với link meeting và mật khẩu truy cập
+              </p>
+            </div>
+            
+            <div>
+              <p style="margin: 0 0 4px 0; color: #191414; font-weight: 600; font-size: 15px;">3. Tham gia tư vấn trực tuyến</p>
+              <p style="margin: 0; color: #535353; font-size: 14px; line-height: 1.5;">Click vào link trong email để bắt đầu cuộc tư vấn với bác sĩ chuyên khoa</p>
+            </div>
+          </div>
+
+          <!-- Important Notes -->
+          <div style="background: #f8f8f8; border-radius: 6px; padding: 20px; margin-bottom: 30px;">
+            <h4 style="margin: 0 0 12px 0; color: #191414; font-size: 16px; font-weight: 600;">
+              Lưu ý quan trọng
+            </h4>
+            <ul style="margin: 0; padding-left: 20px; color: #535353; font-size: 14px; line-height: 1.6;">
+              <li style="margin-bottom: 8px;">Kiểm tra email thường xuyên - đặc biệt trong 5 phút trước giờ hẹn</li>
+              <li style="margin-bottom: 8px;">Chuẩn bị sẵn câu hỏi bổ sung nếu cần để cuộc tư vấn hiệu quả</li>
+              <li style="margin-bottom: 8px;">Đảm bảo kết nối internet ổn định và test camera/microphone trước</li>
+              <li style="margin-bottom: 0px;">Tìm nơi riêng tư để bảo đảm tính bảo mật cho cuộc tư vấn</li>
+            </ul>
+          </div>
+
+          <!-- Contact Information -->
+          <div style="background: #f8f8f8; border-radius: 6px; padding: 20px; margin-bottom: 20px; text-align: center;">
+            <p style="margin: 0 0 8px 0; color: #191414; font-size: 14px; font-weight: 600;">
+              Cần hỗ trợ?
+            </p>
+            <p style="margin: 0; color: #535353; font-size: 14px;">
+              Email: support@genderhealthcare.vn | Hotline: 1900 2024
+            </p>
+          </div>
+
+          <!-- Security Note -->
+          <div style="border: 1px solid #e1e1e1; border-radius: 6px; padding: 16px; text-align: center;">
+            <p style="margin: 0 0 8px 0; color: #191414; font-weight: 600; font-size: 14px;">Cam kết bảo mật</p>
+            <p style="margin: 0; color: #535353; font-size: 13px; line-height: 1.5;">
+              Mọi thông tin tư vấn được bảo mật tuyệt đối theo tiêu chuẩn y tế. 
+              Chúng tôi không chia sẻ dữ liệu cá nhân với bên thứ ba.
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f8f8f8; padding: 20px; text-align: center; border-top: 1px solid #e1e1e1;">
+          <p style="margin: 0 0 8px 0; color: #191414; font-size: 16px; font-weight: 600;">
+            Gender Healthcare
+          </p>
+          <p style="margin: 0 0 12px 0; color: #535353; font-size: 14px;">
+            Hệ thống chăm sóc sức khỏe giới tính toàn diện
+          </p>
+          <p style="color: #999999; margin: 0; font-size: 12px;">
+            © ${new Date().getFullYear()} Gender Healthcare. Tất cả các quyền được bảo lưu.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  await sendEmail(customerEmail, subject, htmlContent);
+  console.log(` [EMAIL-SENT] Consultation payment success notification sent to: ${customerEmail}`);
+};
+
+// ➕ NEW: Email cảm ơn sau khi hoàn thành tư vấn
+export const sendConsultationCompletedEmail = async (
+  customerEmail: string,
+  customerName: string,
+  customerPhone: string,
+  doctorName: string,
+  appointmentDate: Date,
+  appointmentSlot: string,
+  consultationQuestion: string,
+  doctorNotes?: string
+): Promise<void> => {
+  const subject = "Cảm ơn bạn đã sử dụng dịch vụ tư vấn - Gender Healthcare";
+  
+  // Format thời gian tiếng Việt
+  const formattedDateTime = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Ho_Chi_Minh'
+  }).format(appointmentDate);
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Cảm ơn bạn đã sử dụng dịch vụ - Gender Healthcare</title>
+    </head>
+    <body style="margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f5f5f5; line-height: 1.6;">
+      
+      <!-- Email Container -->
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+        
+        <!-- Header -->
+        <div style="background: #4CAF50; padding: 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 24px; font-weight: 600;">
+            Cảm ơn bạn đã sử dụng dịch vụ!
+          </h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">
+            Cuộc tư vấn đã hoàn thành thành công
+          </p>
+        </div>
+
+        <!-- Main Content -->
+        <div style="padding: 30px;">
+          
+          <!-- Thank You Message -->
+          <h2 style="color: #2c3e50; margin: 0 0 20px 0; font-size: 20px; font-weight: 600;">
+            Xin chào ${customerName},
+          </h2>
+          
+          <p style="color: #555; font-size: 16px; margin: 0 0 25px 0; line-height: 1.6;">
+            Cảm ơn bạn đã tin tưởng và sử dụng dịch vụ tư vấn sức khỏe của Gender Healthcare. 
+            Chúng tôi hy vọng buổi tư vấn vừa qua đã mang lại cho bạn những thông tin hữu ích và 
+            giải đáp được những thắc mắc của bạn.
+          </p>
+
+          <!-- Consultation Summary -->
+          <div style="background: #f8f9fa; border-radius: 6px; padding: 20px; margin-bottom: 25px;">
+            <h3 style="margin: 0 0 16px 0; color: #2c3e50; font-size: 18px; font-weight: 600;">
+              Tóm tắt buổi tư vấn
+            </h3>
+            
+            <div style="margin-bottom: 12px;">
+              <p style="margin: 0 0 4px 0; color: #666; font-size: 14px; font-weight: 500;">Bác sĩ tư vấn</p>
+              <p style="margin: 0; color: #2c3e50; font-size: 16px; font-weight: 600;">${doctorName}</p>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+              <p style="margin: 0 0 4px 0; color: #666; font-size: 14px; font-weight: 500;">Thời gian</p>
+              <p style="margin: 0; color: #2c3e50; font-size: 16px; font-weight: 600;">${formattedDateTime}</p>
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+              <p style="margin: 0 0 4px 0; color: #666; font-size: 14px; font-weight: 500;">Thời lượng</p>
+              <p style="margin: 0; color: #2c3e50; font-size: 16px; font-weight: 600;">${appointmentSlot}</p>
+            </div>
+            
+            <div>
+              <p style="margin: 0 0 4px 0; color: #666; font-size: 14px; font-weight: 500;">Vấn đề đã tư vấn</p>
+              <p style="margin: 0; color: #555; font-size: 15px; line-height: 1.5; font-style: italic;">
+                "${consultationQuestion}"
+              </p>
+            </div>
+
+            ${doctorNotes ? `
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e9ecef;">
+              <p style="margin: 0 0 4px 0; color: #666; font-size: 14px; font-weight: 500;">Ghi chú từ bác sĩ</p>
+              <p style="margin: 0; color: #555; font-size: 15px; line-height: 1.5; background: white; padding: 12px; border-radius: 4px; border: 1px solid #e9ecef;">
+                "${doctorNotes}"
+              </p>
+            </div>
+            ` : ''}
+          </div>
+
+          <!-- Feedback Request -->
+          <div style="background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 6px; padding: 20px; margin-bottom: 25px;">
+            <h3 style="margin: 0 0 12px 0; color: #1976d2; font-size: 16px; font-weight: 600;">
+               Đánh giá dịch vụ
+            </h3>
+            <p style="margin: 0 0 12px 0; color: #1976d2; font-size: 14px; line-height: 1.5;">
+              Ý kiến của bạn rất quan trọng đối với chúng tôi! Nếu bạn có bất kỳ phản hồi nào về chất lượng dịch vụ 
+              hoặc muốn chia sẻ trải nghiệm, vui lòng liên hệ với chúng tôi.
+            </p>
+            <p style="margin: 0; color: #1976d2; font-size: 14px; font-weight: 600;">
+               Email: feedback@genderhealthcare.vn<br>
+               Hotline: 1900 2024
+            </p>
+          </div>
+
+          <!-- Next Steps -->
+          <div style="background: #f8f9fa; border-radius: 6px; padding: 20px; margin-bottom: 25px;">
+            <h3 style="margin: 0 0 16px 0; color: #2c3e50; font-size: 16px; font-weight: 600;">
+               Các bước tiếp theo
+            </h3>
+            <ul style="margin: 0; padding-left: 20px; color: #555; font-size: 14px; line-height: 1.6;">
+              <li style="margin-bottom: 8px;">Thực hiện theo các khuyến nghị của bác sĩ</li>
+              <li style="margin-bottom: 8px;">Theo dõi sức khỏe và ghi lại những thay đổi (nếu có)</li>
+              <li style="margin-bottom: 8px;">Liên hệ lại nếu có thêm thắc mắc hoặc triệu chứng mới</li>
+              <li style="margin-bottom: 0px;">Đặt lịch tư vấn định kỳ nếu bác sĩ khuyến nghị</li>
+            </ul>
+          </div>
+
+          <!-- Additional Services -->
+          <div style="background: #fff3e0; border: 1px solid #ffcc02; border-radius: 6px; padding: 20px; margin-bottom: 25px;">
+            <h3 style="margin: 0 0 12px 0; color: #f57c00; font-size: 16px; font-weight: 600;">
+               Dịch vụ khác tại Gender Healthcare
+            </h3>
+            <p style="margin: 0 0 12px 0; color: #f57c00; font-size: 14px; line-height: 1.5;">
+              Ngoài dịch vụ tư vấn trực tuyến, chúng tôi còn cung cấp:
+            </p>
+            <ul style="margin: 0; padding-left: 20px; color: #f57c00; font-size: 14px; line-height: 1.6;">
+              <li>Xét nghiệm sức khỏe tổng quát và chuyên khoa</li>
+              <li>Theo dõi chu kỳ sinh lý</li>
+              <li>Chăm sóc sức khỏe sinh sản</li>
+              <li>Tư vấn dinh dưỡng và lối sống</li>
+            </ul>
+          </div>
+
+          <!-- Contact Information -->
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h3 style="margin: 0 0 12px 0; color: #2c3e50; font-size: 16px; font-weight: 600;">
+               Liên hệ hỗ trợ
+            </h3>
+            <p style="margin: 0 0 8px 0; color: #555; font-size: 14px;">
+              <strong>Email:</strong> support@genderhealthcare.vn
+            </p>
+            <p style="margin: 0 0 8px 0; color: #555; font-size: 14px;">
+              <strong>Hotline:</strong> 1900 2024 (8:00 - 22:00 hàng ngày)
+            </p>
+            <p style="margin: 0; color: #555; font-size: 14px;">
+              <strong>Website:</strong> www.genderhealthcare.vn
+            </p>
+          </div>
+
+          <!-- Thank You Note -->
+          <div style="text-align: center; background: #e8f5e8; border-radius: 6px; padding: 20px;">
+            <p style="margin: 0 0 8px 0; color: #2e7d32; font-size: 16px; font-weight: 600;">
+               Cảm ơn bạn đã tin tưởng Gender Healthcare!
+            </p>
+            <p style="margin: 0; color: #2e7d32; font-size: 14px;">
+              Chúng tôi luôn sẵn sàng đồng hành cùng bạn trên hành trình chăm sóc sức khỏe.
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="background: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e9ecef;">
+          <p style="margin: 0 0 8px 0; color: #2c3e50; font-size: 16px; font-weight: 600;">
+            Gender Healthcare
+          </p>
+          <p style="margin: 0 0 12px 0; color: #666; font-size: 14px;">
+            Hệ thống chăm sóc sức khỏe giới tính toàn diện
+          </p>
+          <p style="color: #999; margin: 0; font-size: 12px;">
+            © ${new Date().getFullYear()} Gender Healthcare. Tất cả các quyền được bảo lưu.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  await sendEmail(customerEmail, subject, htmlContent);
+  console.log(` [EMAIL-SENT] Consultation completion thank you email sent to: ${customerEmail}`);
+};
+
+// ✅ NEW: Email template cho hủy lịch hẹn không hoàn tiền
+export const sendAppointmentCancelledNoRefundEmail = async (
+  customerEmail: string,
+  customerName: string,
+  serviceName: string,
+  appointmentDate: Date,
+  appointmentTime: string,
+  cancelReason?: string,
+  profileInfo?: {
+    fullName?: string;
+    phone?: string;
+    age?: number;
+    gender?: string;
+  }
+): Promise<void> => {
+  const subject = "Xác nhận hủy lịch hẹn - Gender Healthcare";
+  
+  const formattedDate = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long', 
+    day: 'numeric',
+    timeZone: 'Asia/Ho_Chi_Minh'
+  }).format(appointmentDate);
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Xác nhận hủy lịch hẹn</title>
+    </head>
+    <body style="margin: 0; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; line-height: 1.6;">
+      
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);">
+        
+        <!-- Header -->
+        <div style="background: #ef4444; padding: 40px 40px 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Gender Healthcare</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">Xác nhận hủy lịch hẹn</p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 40px;">
+          <h2 style="color: #1e293b; margin: 0 0 24px 0; font-size: 24px; font-weight: 600;">Xin chào ${customerName},</h2>
+          
+          <p style="color: #475569; font-size: 16px; margin: 0 0 24px 0; line-height: 1.6;">
+            Chúng tôi xác nhận rằng lịch hẹn của bạn đã được <strong style="color: #ef4444;">hủy thành công</strong> theo yêu cầu.
+          </p>
+
+          <!-- Appointment Details -->
+          <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="color: #dc2626; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">Chi tiết lịch hẹn đã hủy</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">🏥 Dịch vụ:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${serviceName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">📅 Ngày hẹn:</td>
+                <td style="padding: 8px 0; color: #333;">${formattedDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">🕐 Thời gian:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${appointmentTime}</td>
+              </tr>
+              ${cancelReason ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">📝 Lý do hủy:</td>
+                <td style="padding: 8px 0; color: #dc2626; font-style: italic;">"${cancelReason}"</td>
+              </tr>
+              ` : ''}
+            </table>
+          </div>
+
+          ${profileInfo ? `
+          <!-- Profile Information -->
+          <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="color: #0369a1; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">👤 Thông tin người đặt lịch</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              ${profileInfo.fullName ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">👤 Họ và tên:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.fullName}</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.phone ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">📞 Số điện thoại:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.phone}</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.age ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">🎂 Tuổi:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.age} tuổi</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.gender ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">⚧ Giới tính:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.gender === 'male' ? 'Nam' : profileInfo.gender === 'female' ? 'Nữ' : 'Khác'}</td>
+              </tr>
+              ` : ''}
+            </table>
+          </div>
+          ` : ''}
+
+          <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h4 style="color: #f59e0b; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">ℹ️ Thông tin quan trọng</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #92400e; line-height: 1.6;">
+              <li>Lịch hẹn đã được hủy hoàn toàn khỏi hệ thống</li>
+              <li>Bạn có thể đặt lịch hẹn mới bất kỳ lúc nào</li>
+            </ul>
+          </div>
+
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${process.env.FRONTEND_URL || 'https://gender-healthcare.vercel.app'}/booking" 
+               style="display: inline-block; background: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+              Đặt lịch hẹn mới
+            </a>
+          </div>
+
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 32px; text-align: center;">
+            <p style="margin: 0; color: #64748b; font-size: 14px;">
+              Cảm ơn bạn đã tin tưởng Gender Healthcare. Chúng tôi luôn sẵn sàng phục vụ bạn!
+            </p>
+          </div>
+        </div>
+        
+        <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e1e1e1;">
+          <p style="margin: 0 0 8px 0; color: #191414; font-size: 16px; font-weight: 600;">
+            Gender Healthcare
+          </p>
+          <p style="margin: 0 0 12px 0; color: #535353; font-size: 14px;">
+            Hệ thống chăm sóc sức khỏe giới tính toàn diện
+          </p>
+          <p style="color: #999; margin: 0; font-size: 12px;">
+            © ${new Date().getFullYear()} Gender Healthcare. Tất cả các quyền được bảo lưu.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  await sendEmail(customerEmail, subject, htmlContent);
+};
+
+// ✅ NEW: Email template cho hủy lịch hẹn có hoàn tiền
+export const sendAppointmentCancelledWithRefundEmail = async (
+  customerEmail: string,
+  customerName: string,
+  serviceName: string,
+  appointmentDate: Date,
+  appointmentTime: string,
+  refundAmount: number,
+  refundInfo: {
+    accountNumber: string;
+    accountHolderName: string;
+    bankName: string;
+  },
+  cancelReason?: string,
+  profileInfo?: {
+    fullName?: string;
+    phone?: string;
+    age?: number;
+    gender?: string;
+  }
+): Promise<void> => {
+  const subject = "Xác nhận hủy lịch hẹn & thông tin hoàn tiền - Gender Healthcare";
+  
+  const formattedDate = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long', 
+    day: 'numeric',
+    timeZone: 'Asia/Ho_Chi_Minh'
+  }).format(appointmentDate);
+
+  const formattedAmount = new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND'
+  }).format(refundAmount);
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Xác nhận hủy lịch hẹn & hoàn tiền</title>
+    </head>
+    <body style="margin: 0; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; line-height: 1.6;">
+      
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);">
+        
+        <!-- Header -->
+        <div style="background: #f59e0b; padding: 40px 40px 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Gender Healthcare</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">Xác nhận hủy lịch hẹn & hoàn tiền</p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 40px;">
+          <h2 style="color: #1e293b; margin: 0 0 24px 0; font-size: 24px; font-weight: 600;">Xin chào ${customerName},</h2>
+          
+          <p style="color: #475569; font-size: 16px; margin: 0 0 24px 0; line-height: 1.6;">
+            Chúng tôi xác nhận rằng lịch hẹn của bạn đã được <strong style="color: #ef4444;">hủy thành công</strong> và 
+            yêu cầu hoàn tiền đã được <strong style="color: #10b981;">ghi nhận</strong>.
+          </p>
+
+          <!-- Appointment Details -->
+          <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="color: #dc2626; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">Chi tiết lịch hẹn đã hủy</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">🏥 Dịch vụ:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${serviceName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">📅 Ngày hẹn:</td>
+                <td style="padding: 8px 0; color: #333;">${formattedDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">🕐 Thời gian:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${appointmentTime}</td>
+              </tr>
+              ${cancelReason ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">📝 Lý do hủy:</td>
+                <td style="padding: 8px 0; color: #dc2626; font-style: italic;">"${cancelReason}"</td>
+              </tr>
+              ` : ''}
+            </table>
+          </div>
+
+          ${profileInfo ? `
+          <!-- Profile Information -->
+          <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="color: #0369a1; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">👤 Thông tin người đặt lịch</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              ${profileInfo.fullName ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">👤 Họ và tên:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.fullName}</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.phone ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">📞 Số điện thoại:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.phone}</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.age ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">🎂 Tuổi:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.age} tuổi</td>
+              </tr>
+              ` : ''}
+              ${profileInfo.gender ? `
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">⚧ Giới tính:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.gender === 'male' ? 'Nam' : profileInfo.gender === 'female' ? 'Nữ' : 'Khác'}</td>
+              </tr>
+              ` : ''}
+            </table>
+          </div>
+          ` : ''}
+
+          <!-- Refund Information -->
+          <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="color: #065f46; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">💰 Thông tin hoàn tiền</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46; width: 35%;">💵 Số tiền hoàn:</td>
+                <td style="padding: 8px 0; color: #059669; font-weight: 600; font-size: 18px;">${formattedAmount}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">🏦 Ngân hàng:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${refundInfo.bankName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">🔢 Số tài khoản:</td>
+                <td style="padding: 8px 0; color: #333; font-family: monospace; font-weight: 500;">${refundInfo.accountNumber}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">👤 Tên chủ TK:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${refundInfo.accountHolderName}</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Refund Process Info -->
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h4 style="color: #1d4ed8; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">📋 Quy trình hoàn tiền</h4>
+            <ol style="margin: 0; padding-left: 20px; color: #1e40af; line-height: 1.6;">
+              <li><strong>Ghi nhận yêu cầu:</strong> ✅ Hoàn thành</li>
+              <li><strong>Xử lý bởi manager:</strong> ⏳ Đang chờ xử lý</li>
+              <li><strong>Chuyển khoản:</strong> ⏳ Chờ xử lý hoàn tất</li>
+              <li><strong>Hoàn thành:</strong> ⏳ Dự kiến trong 3-5 ngày làm việc</li>
+            </ol>
+          </div>
+
+          <div style="background: #fef3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0; color: #856404; font-size: 14px;">
+              <strong> Bảo mật & Riêng tư:</strong> Cuộc tư vấn được mã hóa và bảo vệ theo tiêu chuẩn y tế.
+            </p>
+          </div>
+        </div>
+
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${process.env.FRONTEND_URL || 'https://gender-healthcare.vercel.app'}/booking" 
+             style="display: inline-block; background: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+            Đặt lịch hẹn mới
+          </a>
+        </div>
+
+        <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 32px; text-align: center;">
+          <p style="margin: 0; color: #64748b; font-size: 14px;">
+            Bạn sẽ nhận được email thông báo khi quá trình hoàn tiền hoàn tất.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  await sendEmail(customerEmail, subject, htmlContent);
+};
+
+// ✅ NEW: Email template cho hoàn tất hoàn tiền
+export const sendRefundCompletedEmail = async (
+  customerEmail: string,
+  customerName: string,
+  serviceName: string,
+  refundAmount: number,
+  refundInfo: {
+    accountNumber: string;
+    accountHolderName: string;
+    bankName: string;
+  },
+  processedBy: string,
+  managerNotes?: string
+): Promise<void> => {
+  const subject = "Hoàn tiền thành công - Gender Healthcare";
+
+  const formattedAmount = new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND'
+  }).format(refundAmount);
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Hoàn tiền thành công</title>
+    </head>
+    <body style="margin: 0; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; line-height: 1.6;">
+      
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);">
+        
+        <!-- Header -->
+        <div style="background: #10b981; padding: 40px 40px 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Gender Healthcare</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">Hoàn tiền thành công</p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 40px;">
+          <div style="text-align: center; margin-bottom: 32px;">
+            <div style="width: 80px; height: 80px; background: #10b981; border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+              <span style="font-size: 32px;">✅</span>
+            </div>
+            <h2 style="color: #1e293b; margin: 0; font-size: 24px; font-weight: 600;">Hoàn tiền thành công!</h2>
+          </div>
+          
+          <p style="color: #475569; font-size: 16px; margin: 0 0 24px 0; line-height: 1.6;">
+            Xin chào <strong>${customerName}</strong>, yêu cầu hoàn tiền của bạn đã được <strong style="color: #10b981;">xử lý thành công</strong>!
+          </p>
+
+          <!-- Refund Details -->
+          <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="color: #065f46; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">💰 Chi tiết hoàn tiền</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46; width: 35%;">🏥 Dịch vụ đã hủy:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${serviceName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">💵 Số tiền hoàn:</td>
+                <td style="padding: 8px 0; color: #059669; font-weight: 600; font-size: 18px;">${formattedAmount}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">🏦 Ngân hàng:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${refundInfo.bankName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">🔢 Số tài khoản:</td>
+                <td style="padding: 8px 0; color: #333; font-family: monospace; font-weight: 500;">${refundInfo.accountNumber}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">👤 Tên chủ TK:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${refundInfo.accountHolderName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">👨‍💼 Xử lý bởi:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${processedBy}</td>
+              </tr>
+            </table>
+          </div>
+
+          ${managerNotes ? `
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h4 style="color: #1d4ed8; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">📝 Ghi chú từ bộ phận xử lý</h4>
+            <p style="margin: 0; color: #1e40af; font-style: italic; line-height: 1.6;">"${managerNotes}"</p>
+          </div>
+          ` : ''}
+
+          <!-- Success Info -->
+          <div style="background: #ecfdf5; border-left: 4px solid #10b981; padding: 20px; margin-bottom: 24px;">
+            <h4 style="margin: 0 0 12px 0; color: #065f46; font-size: 16px; font-weight: 600;">🎉 Thông tin hoàn tiền</h4>
+            <ul style="margin: 0; padding-left: 20px; color: #059669; line-height: 1.6;">
+              <li>Tiền đã được chuyển vào tài khoản ngân hàng của bạn</li>
+              <li>Thời gian hiển thị trong tài khoản: 1-2 giờ (nội địa) hoặc 1-3 ngày (liên ngân hàng)</li>
+              <li>Vui lòng kiểm tra số dư tài khoản hoặc tin nhắn từ ngân hàng</li>
+              <li>Nếu có thắc mắc, vui lòng liên hệ bộ phận hỗ trợ</li>
+            </ul>
+          </div>
+
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${process.env.FRONTEND_URL || 'https://gender-healthcare.vercel.app'}/booking" 
+               style="display: inline-block; background: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+              Đặt lịch hẹn mới
+            </a>
+          </div>
+
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 32px; text-align: center;">
+            <p style="margin: 0; color: #64748b; font-size: 14px;">
+              Cảm ơn bạn đã tin tưởng Gender Healthcare. Chúng tôi rất tiếc vì sự bất tiện này và mong được phục vụ bạn trong tương lai!
+            </p>
+          </div>
+        </div>
+        
+        <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e1e1e1;">
+          <p style="margin: 0 0 8px 0; color: #191414; font-size: 16px; font-weight: 600;">
+            Gender Healthcare
+          </p>
+          <p style="margin: 0 0 12px 0; color: #535353; font-size: 14px;">
+            Hệ thống chăm sóc sức khỏe giới tính toàn diện
+          </p>
+          <p style="color: #999; margin: 0; font-size: 12px;">
+            © ${new Date().getFullYear()} Gender Healthcare. Tất cả các quyền được bảo lưu.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  await sendEmail(customerEmail, subject, htmlContent);
+};
+
+// ✅ NEW: Email template cho từ chối hoàn tiền
+export const sendRefundRejectedEmail = async (
+  customerEmail: string,
+  customerName: string,
+  serviceName: string,
+  refundAmount: number,
+  processedBy: string,
+  rejectionReason?: string
+): Promise<void> => {
+  const subject = "Thông báo về yêu cầu hoàn tiền - Gender Healthcare";
+
+  const formattedAmount = new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND'
+  }).format(refundAmount);
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Thông báo về yêu cầu hoàn tiền</title>
+    </head>
+    <body style="margin: 0; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; line-height: 1.6;">
+      
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);">
+        
+        <!-- Header -->
+        <div style="background: #ef4444; padding: 40px 40px 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Gender Healthcare</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">Thông báo yêu cầu hoàn tiền</p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 40px;">
+          <h2 style="color: #1e293b; margin: 0 0 24px 0; font-size: 24px; font-weight: 600;">Xin chào ${customerName},</h2>
+          
+          <p style="color: #475569; font-size: 16px; margin: 0 0 24px 0; line-height: 1.6;">
+            Chúng tôi đã xem xét yêu cầu hoàn tiền của bạn. Rất tiếc, yêu cầu này <strong style="color: #ef4444;">không thể được chấp nhận</strong> 
+            dựa trên chính sách và điều kiện hiện tại.
+          </p>
+
+          <!-- Request Details -->
+          <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="color: #dc2626; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">📋 Chi tiết yêu cầu</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 35%;">🏥 Dịch vụ:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${serviceName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">💵 Số tiền yêu cầu:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 16px;">${formattedAmount}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">👨‍💼 Xử lý bởi:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${processedBy}</td>
+              </tr>
+            </table>
+          </div>
+
+          ${rejectionReason ? `
+          <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h4 style="color: #f59e0b; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">📝 Lý do từ chối</h4>
+            <p style="margin: 0; color: #92400e; line-height: 1.6;">${rejectionReason}</p>
+          </div>
+          ` : ''}
+
+          <!-- Support Info -->
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h4 style="color: #1d4ed8; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">🤝 Hỗ trợ khách hàng</h4>
+            <p style="margin: 0 0 12px 0; color: #1e40af; line-height: 1.6;">
+              Nếu bạn có thắc mắc về quyết định này hoặc cần hỗ trợ thêm, vui lòng liên hệ với chúng tôi.
+            </p>
+            <p style="margin: 0; color: #1e40af; font-size: 14px; font-weight: 600;">
+               Email: feedback@genderhealthcare.vn<br>
+               Hotline: 1900 2024
+            </p>
+          </div>
+
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${process.env.FRONTEND_URL || 'https://gender-healthcare.vercel.app'}/booking" 
+               style="display: inline-block; background: #3b82f6; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+              Đặt lịch hẹn mới
+            </a>
+          </div>
+
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 32px; text-align: center;">
+            <p style="margin: 0; color: #64748b; font-size: 14px;">
+              Cảm ơn bạn đã hiểu và tiếp tục tin tưởng Gender Healthcare.
+            </p>
+          </div>
+        </div>
+        
+        <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e1e1e1;">
+          <p style="margin: 0 0 8px 0; color: #191414; font-size: 16px; font-weight: 600;">
+            Gender Healthcare
+          </p>
+          <p style="margin: 0 0 12px 0; color: #535353; font-size: 14px;">
+            Hệ thống chăm sóc sức khỏe giới tính toàn diện
+          </p>
+          <p style="color: #999; margin: 0; font-size: 12px;">
+            © ${new Date().getFullYear()} Gender Healthcare. Tất cả các quyền được bảo lưu.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  await sendEmail(customerEmail, subject, htmlContent);
+};
+
+// ➕ NEW: Email thông báo cho bác sĩ khi có consultation appointment mới  
+export const sendDoctorNewConsultationNotificationEmail = async (
+  doctorEmail: string,
+  doctorName: string,
+  customerName: string,
+  customerPhone: string,
+  customerAge: number,
+  customerGender: string,
+  consultationQuestion: string,
+  appointmentDate: Date,
+  appointmentSlot: string,
+  consultationFee: number,
+  consultationId: string
+): Promise<void> => {
+  const subject = "🔔 Lịch hẹn tư vấn mới - Gender Healthcare";
+  
+  // Format thời gian tiếng Việt
+  const formattedDate = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long', 
+    day: 'numeric',
+    timeZone: 'Asia/Ho_Chi_Minh'
+  }).format(appointmentDate);
+
+  const formattedDateTime = new Intl.DateTimeFormat('vi-VN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Ho_Chi_Minh'
+  }).format(appointmentDate);
+  
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Lịch hẹn tư vấn mới - Gender Healthcare</title>
+    </head>
+    <body style="margin: 0; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; line-height: 1.6;">
+      
+      <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);">
+        
+        <!-- Header -->
+        <div style="background: #2563eb; padding: 40px 40px 30px; text-align: center;">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Gender Healthcare</h1>
+          <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 16px;">Thông báo lịch hẹn tư vấn mới</p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding: 40px;">
+          <div style="text-align: center; margin-bottom: 32px;">
+            <div style="width: 80px; height: 80px; background: #10b981; border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+              <span style="font-size: 32px;">👩‍⚕️</span>
+            </div>
+            <h2 style="color: #1e293b; margin: 0; font-size: 24px; font-weight: 600;">Lịch hẹn tư vấn mới!</h2>
+          </div>
+          
+          <p style="color: #475569; font-size: 16px; margin: 0 0 24px 0; line-height: 1.6;">
+            Xin chào <strong style="color: #2563eb;">Bác sĩ ${doctorName}</strong>, bạn có một yêu cầu tư vấn trực tuyến mới đã được thanh toán thành công và cần được xử lý.
+          </p>
+
+          <!-- Patient Information -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="color: #1e293b; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">
+              👤 Thông tin bệnh nhân
+            </h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">Họ tên:</td>
+                <td style="padding: 8px 0; color: #333; font-weight: 500;">${customerName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Số điện thoại:</td>
+                <td style="padding: 8px 0; color: #333;">${customerPhone}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Tuổi:</td>
+                <td style="padding: 8px 0; color: #333;">${customerAge} tuổi</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Giới tính:</td>
+                <td style="padding: 8px 0; color: #333;">${customerGender === 'male' ? 'Nam' : 'Nữ'}</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Appointment Details -->
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+            <h3 style="color: #1d4ed8; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">
+              📅 Chi tiết lịch hẹn
+            </h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #1e40af; width: 30%;">Ngày hẹn:</td>
+                <td style="padding: 8px 0; color: #1e293b; font-weight: 500;">${formattedDate}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #1e40af;">Thời gian:</td>
+                <td style="padding: 8px 0; color: #1e293b; font-weight: 500;">${appointmentSlot}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #1e40af;">Phí tư vấn:</td>
+                <td style="padding: 8px 0; color: #10b981; font-weight: 600; font-size: 16px;">${consultationFee.toLocaleString('vi-VN')}₫</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: bold; color: #1e40af;">Mã tư vấn:</td>
+                <td style="padding: 8px 0; color: #1e293b; font-family: monospace; font-size: 14px;">${consultationId}</td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Consultation Question -->
+          <div style="background: #fefce8; border: 1px solid #fde047; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h4 style="color: #a16207; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">
+              💬 Câu hỏi cần tư vấn
+            </h4>
+            <div style="background: white; padding: 16px; border-radius: 6px; border: 1px solid #fbbf24;">
+              <p style="margin: 0; color: #92400e; line-height: 1.6; font-style: italic;">
+                "${consultationQuestion}"
+              </p>
+            </div>
+          </div>
+
+          <!-- Action Required -->
+          <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h4 style="color: #065f46; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">
+              ⚡ Hành động cần thiết
+            </h4>
+            <ol style="margin: 0; padding-left: 20px; color: #059669; line-height: 1.6;">
+              <li>Đăng nhập vào hệ thống để xem chi tiết</li>
+              <li>Chuẩn bị câu trả lời và tài liệu tham khảo</li>
+              <li>Tạo link Google Meet cho buổi tư vấn</li>
+              <li>Gửi link meeting cho bệnh nhân trước 30 phút</li>
+            </ol>
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${process.env.FRONTEND_URL || 'https://gender-healthcare.vercel.app'}/dashboard" 
+               style="display: inline-block; background: #2563eb; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+              Vào Dashboard Quản Lý
+            </a>
+          </div>
+
+          <!-- Medical Privacy Notice -->
+          <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+            <h4 style="color: #dc2626; margin: 0 0 8px 0; font-size: 14px; font-weight: 600;">
+              🔒 Lưu ý về bảo mật y tế
+            </h4>
+            <p style="margin: 0; color: #7f1d1d; font-size: 13px; line-height: 1.5;">
+              Thông tin bệnh nhân trong email này được bảo vệ theo quy định về bảo mật thông tin y tế. 
+              Vui lòng không chia sẻ hoặc chuyển tiếp email này cho bên thứ ba.
+            </p>
+          </div>
+
+          <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 32px; text-align: center;">
+            <p style="margin: 0; color: #64748b; font-size: 14px;">
+              Cảm ơn bạn đã đồng hành cùng Gender Healthcare trong việc chăm sóc sức khỏe cộng đồng.
+            </p>
+          </div>
+        </div>
+        
+        <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e1e1e1;">
+          <p style="margin: 0 0 8px 0; color: #1e293b; font-size: 16px; font-weight: 600;">
+            Gender Healthcare
+          </p>
+          <p style="margin: 0 0 12px 0; color: #64748b; font-size: 14px;">
+            Hệ thống chăm sóc sức khỏe giới tính toàn diện
+          </p>
+          <p style="color: #94a3b8; margin: 0; font-size: 12px;">
+            © ${new Date().getFullYear()} Gender Healthcare. Tất cả các quyền được bảo lưu.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  
+  await sendEmail(doctorEmail, subject, htmlContent);
+  console.log(`✅ [EMAIL-SENT] Doctor consultation notification sent to: ${doctorEmail}`);
+};
 

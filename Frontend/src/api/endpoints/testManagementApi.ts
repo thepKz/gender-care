@@ -6,12 +6,16 @@ export interface ServiceTestCategory {
   serviceId: string;
   testCategoryId: string;
   isRequired: boolean;
-  customNormalRange?: string;
-  customUnit?: string;
+  unit?: string;
   targetValue?: string;
-  notes?: string;
   minValue?: number;
   maxValue?: number;
+  thresholdRules?: Array<{
+    from: number | null;
+    to: number | null;
+    flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+    message: string;
+  }>;
   createdAt?: string;
   updatedAt?: string;
   testCategory?: {
@@ -27,12 +31,16 @@ export interface CreateServiceTestCategoryData {
   serviceId: string;
   testCategoryId: string;
   isRequired: boolean;
-  customNormalRange?: string;
-  customUnit?: string;
+  unit?: string;
   targetValue?: string;
-  notes?: string;
   minValue?: number;
   maxValue?: number;
+  thresholdRules?: Array<{
+    from: number | null;
+    to: number | null;
+    flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+    message: string;
+  }>;
 }
 
 export interface BulkCreateServiceTestCategoryData {
@@ -43,7 +51,6 @@ export interface BulkCreateServiceTestCategoryData {
     customNormalRange?: string;
     customUnit?: string;
     targetValue?: string;
-    notes?: string;
   }[];
 }
 
@@ -60,45 +67,27 @@ export interface TestResultTemplate {
     customNormalRange?: string;
     customUnit?: string;
     targetValue?: string;
-    notes?: string;
   }[];
 }
 
 export interface TestResultItemData {
-  testResultId: string;
-  testCategoryId: string;
-  value: string;
+  appointmentId: string;
+  items?: Array<{
+    testCategoryId: string;
+    value: string;
+    unit?: string;
+    flag?: string;
+    message?: string;
+  }>;
+  testCategoryId?: string;
+  itemNameId?: string;
+  value?: string;
   unit?: string;
   isHigh?: boolean;
   isLow?: boolean;
   isNormal?: boolean;
-  notes?: string;
-}
-
-export interface AutoEvaluateData {
-  testResultId: string;
-  serviceId: string;
-  testItems: {
-    testCategoryId: string;
-    value: string;
-    unit?: string;
-    notes?: string;
-  }[];
-}
-
-export interface EvaluateValueData {
-  serviceId: string;
-  testCategoryId: string;
-  value: string;
-}
-
-export interface EvaluationResult {
-  isHigh: boolean;
-  isLow: boolean;
-  isNormal: boolean;
-  evaluation: string;
-  effectiveRange: string;
-  effectiveUnit: string;
+  flag?: string;
+  message?: string;
 }
 
 // ServiceTestCategories API
@@ -116,7 +105,7 @@ export const serviceTestCategoriesApi = {
   },
 
   // Bulk create service test categories
-  bulkCreate: async (data: BulkCreateServiceTestCategoryData): Promise<ServiceTestCategory[]> => {
+  bulkCreate: async (data: { serviceId: string; testCategories: CreateServiceTestCategoryData[] }): Promise<ServiceTestCategory[]> => {
     const response = await axiosInstance.post(`/service-test-categories/bulk`, data);
     return response.data.data;
   },
@@ -141,21 +130,47 @@ export const testResultItemsApi = {
     return response.data.data;
   },
 
-  // Create with auto evaluation
-  createWithAutoEvaluation: async (data: TestResultItemData): Promise<any> => {
-    const response = await axiosInstance.post(`/test-result-items/auto-evaluate`, data);
+  // Create testResultItem thủ công
+  create: async (data: TestResultItemData): Promise<any> => {
+    const response = await axiosInstance.post(`/test-result-items`, data);
     return response.data.data;
   },
 
-  // Bulk create with auto evaluation
-  bulkCreateWithAutoEvaluation: async (data: AutoEvaluateData): Promise<any> => {
-    const response = await axiosInstance.post(`/test-result-items/bulk-auto-evaluate`, data);
+  // Bulk create test result items
+  bulkCreate: async (data: {
+    appointmentId: string;
+    items: Array<{
+      testCategoryId: string;
+      value: string;
+      unit?: string;
+      flag?: string;
+      message?: string;
+    }>;
+  }): Promise<any> => {
+    const response = await axiosInstance.post(`/test-result-items/bulk`, data);
     return response.data.data;
   },
 
-  // Evaluate value
-  evaluateValue: async (data: EvaluateValueData): Promise<EvaluationResult> => {
-    const response = await axiosInstance.post(`/test-result-items/evaluate-value`, data);
+  // Get test result items by appointment ID
+  getByAppointment: async (appointmentId: string): Promise<any[]> => {
+    const response = await axiosInstance.get(`/test-result-items/appointment/${appointmentId}`);
+    return response.data.data;
+  },
+
+  // Update test result item by appointmentId and testCategoryId
+  updateByCategory: async (appointmentId: string, testCategoryId: string, data: {
+    value?: string;
+    unit?: string;
+    flag?: string;
+    message?: string;
+  }): Promise<any> => {
+    const response = await axiosInstance.put(`/test-result-items/${appointmentId}/${testCategoryId}`, data);
+    return response.data.data;
+  },
+
+  // Get summary by appointment ID
+  getSummary: async (appointmentId: string): Promise<any> => {
+    const response = await axiosInstance.get(`/test-result-items/summary/${appointmentId}`);
     return response.data.data;
   }
 };
@@ -195,4 +210,4 @@ export const testCategoriesApi = {
     const response = await axiosInstance.put(`/test-categories/${id}`, data);
     return response.data;
   }
-}; 
+};

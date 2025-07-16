@@ -13,78 +13,63 @@ const HelpModal: React.FC<HelpModalProps> = ({ visible, onClose }) => {
       key: '1',
       label: 'Phương pháp Billings',
       children: (
-        <div className="space-y-10">
-          <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
-            <div className="mb-6">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-900 rounded-full flex items-center justify-center">
-                <MedicineBoxOutlined className="text-2xl text-white" />
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-gray-50 rounded-2xl">
+            <div className="flex items-center justify-center space-x-4">
+              <MedicineBoxOutlined className="text-2xl text-gray-600" />
+              <div className="text-left">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Phương pháp Billings
+                </h2>
+                <p className="text-gray-600 text-sm">
+                  Phương pháp nhận biết khả năng sinh sản tự nhiên được khuyến nghị bởi WHO
+                </p>
               </div>
-              <h2 className="text-3xl font-semibold text-gray-900 mb-4" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                Phương pháp Billings
-              </h2>
-              <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                Phương pháp nhận biết khả năng sinh sản tự nhiên được khuyến nghị bởi WHO, 
-                dựa trên quan sát chất nhờn cổ tử cung và cảm giác âm đạo
-              </p>
             </div>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-white p-8 rounded-lg border border-gray-200 hover:shadow-lg transition-shadow duration-300">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-gray-900 rounded-lg flex items-center justify-center mr-4">
-                  <CheckCircleOutlined className="text-xl text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Mục tiêu
-                </h3>
+          <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-4">
+            <div className="bg-white p-4 rounded-2xl border border-gray-200">
+              <div className="flex items-center mb-3">
+                <CheckCircleOutlined className="text-lg text-gray-600 mr-2" />
+                <h3 className="text-base font-semibold text-gray-900">Mục tiêu</h3>
               </div>
-              <div className="space-y-4 text-gray-700">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="leading-relaxed">Xác định ngày đỉnh - khả năng thụ thai cao nhất</p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="leading-relaxed">Theo dõi 3 chu kỳ để đưa ra kết luận chính xác</p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="leading-relaxed">Dự đoán chu kỳ và thời gian an toàn</p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="leading-relaxed">Hỗ trợ kế hoạch gia đình tự nhiên</p>
-                </div>
+              <div className="space-y-2 text-gray-700 text-sm">
+                <p>• Xác định ngày đỉnh - khả năng thụ thai cao nhất</p>
+                <p>• Theo dõi 3 chu kỳ để đưa ra kết luận chính xác</p>
+                <p>• Dự đoán chu kỳ và thời gian an toàn</p>
+                <p>• Hỗ trợ kế hoạch gia đình tự nhiên</p>
               </div>
             </div>
             
-            <div className="bg-white p-8 rounded-lg border border-gray-200 hover:shadow-lg transition-shadow duration-300">
-              <div className="flex items-center mb-6">
-                <div className="w-12 h-12 bg-gray-900 rounded-lg flex items-center justify-center mr-4">
-                  <CalendarOutlined className="text-xl text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Thời gian
-                </h3>
+            <div className="bg-white p-4 rounded-2xl border border-gray-200">
+              <div className="flex items-center mb-3">
+                <CalendarOutlined className="text-lg text-gray-600 mr-2" />
+                <h3 className="text-base font-semibold text-gray-900">Thời gian</h3>
               </div>
-              <div className="space-y-4 text-gray-700">
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="leading-relaxed">Quan sát hàng ngày vào buổi tối</p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="leading-relaxed">Ghi nhận trong 3 chu kỳ liên tiếp</p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="leading-relaxed">Mỗi chu kỳ khoảng 28-35 ngày</p>
-                </div>
-                <div className="flex items-start space-x-3">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
-                  <p className="leading-relaxed">Cần kiên nhẫn và nhất quán</p>
-                </div>
+              <div className="space-y-2 text-gray-700 text-sm">
+                <p>• Quan sát hàng ngày vào buổi tối</p>
+                <p>• Ghi nhận trong 3 chu kỳ liên tiếp</p>
+                <p>• Mỗi chu kỳ khoảng 28-35 ngày</p>
+                <p>• Cần kiên nhẫn và nhất quán</p>
+              </div>
+            </div>
+            
+            <div className="bg-white p-4 rounded-2xl border border-gray-200 lg:col-span-1 md:col-span-2">
+              <div className="flex items-center mb-3">
+                <BookOutlined className="text-lg text-red-600 mr-2" />
+                <h3 className="text-base font-semibold text-red-600">⚠️ Cảnh báo an toàn</h3>
+              </div>
+              <div className="space-y-2 text-red-700 text-sm bg-red-50 p-3 rounded-xl">
+                <p>• <strong>KHÔNG thăm khám bằng tay</strong> trực tiếp</p>
+                <p>• <strong>KHÔNG dùng tay</strong> để kiểm tra bên trong âm hộ</p>
+                <p>• Chỉ quan sát chất nhờn tự nhiên tiết ra</p>
+                <p>• Cảm nhận âm hộ căng từ bên ngoài, tự nhiên</p>
+                <p>• Đây là phương pháp quan sát an toàn, không xâm lấn</p>
+              </div>
+              <div className="space-y-2 text-gray-700 text-sm mt-3">
+                <p>• Ghi nhận vào cùng thời điểm mỗi ngày</p>
+                <p>• Hỗ trợ kế hoạch gia đình tự nhiên hiệu quả</p>
               </div>
             </div>
           </div>
@@ -95,110 +80,95 @@ const HelpModal: React.FC<HelpModalProps> = ({ visible, onClose }) => {
       key: '2',
       label: 'Quan sát chất nhờn',
       children: (
-        <div className="space-y-10">
-          <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
-            <div className="mb-6">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-900 rounded-full flex items-center justify-center">
-                <BookOutlined className="text-2xl text-white" />
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-gray-50 rounded-2xl">
+            <div className="flex items-center justify-center space-x-4">
+              <BookOutlined className="text-2xl text-gray-600" />
+              <div className="text-left">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Hướng dẫn quan sát
+                </h2>
+                <p className="text-gray-600 text-sm">
+                  Quan sát chất nhờn vào buổi tối, trước khi đi ngủ, tại cửa âm đạo
+                </p>
               </div>
-              <h2 className="text-3xl font-semibold text-gray-900 mb-4" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                Hướng dẫn quan sát
-              </h2>
-              <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                Quan sát chất nhờn vào buổi tối, trước khi đi ngủ, tại cửa âm đạo.
-                Đây là chìa khóa để hiểu chu kỳ của bạn.
-              </p>
             </div>
           </div>
           
-          <div className="space-y-6">
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gray-900 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">M</span>
+          <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="bg-white border border-gray-200 rounded-2xl p-3">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">M</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                    Có máu / Lấm tấm máu
-                  </h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Có máu / Lấm tấm máu</h3>
                 </div>
-                <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                  Kinh nguyệt
-                </div>
+                <div className="bg-red-500 text-white px-2 py-1 rounded-full text-xs">Kinh nguyệt</div>
               </div>
-              <p className="text-gray-700 leading-relaxed">Thời kỳ kinh nguyệt - Cảm giác: <strong>Ướt</strong></p>
+              <p className="text-gray-700 text-xs">Thời kỳ kinh nguyệt - Cảm giác: <strong>Ướt</strong></p>
             </div>
             
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gray-900 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">C</span>
+            <div className="bg-white border border-gray-200 rounded-2xl p-3">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">C</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                    Đục
-                  </h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Đục</h3>
                 </div>
-                <div className="bg-gray-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                  Có thể thụ thai
-                </div>
+                <div className="bg-purple-500 text-white px-2 py-1 rounded-full text-xs">Có thể thụ thai</div>
               </div>
-              <p className="text-gray-700 leading-relaxed">Cảm giác: <strong>Dính, Ẩm</strong></p>
+              <p className="text-gray-700 text-xs">Cảm giác: <strong>Dính, Ẩm</strong></p>
             </div>
             
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gray-900 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">C</span>
+            <div className="bg-white border border-gray-200 rounded-2xl p-3">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">C</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                    Đục nhiều sợi / Trong nhiều sợi
-                  </h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Đục nhiều sợi / Trong nhiều sợi</h3>
                 </div>
-                <div className="bg-gray-600 text-white px-3 py-1 rounded-full text-sm font-medium">
-                  Có thể thụ thai
-                </div>
+                <div className="bg-purple-500 text-white px-2 py-1 rounded-full text-xs">Có thể thụ thai</div>
               </div>
-              <p className="text-gray-700 leading-relaxed">Cảm giác: <strong>Ướt, Trơn</strong></p>
+              <p className="text-gray-700 text-xs">Cảm giác: <strong>Ướt, Trơn</strong></p>
             </div>
             
-            <div className="bg-white border-2 border-blue-600 rounded-lg p-6 shadow-lg">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">X</span>
+            <div className="bg-white border-2 border-orange-500 rounded-2xl p-3 lg:col-span-2 xl:col-span-3">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">X</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                    Trong và âm hộ căng
-                  </h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Trong và ÂH căng</h3>
                 </div>
-                <div className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-bold">
-                  NGÀY ĐỈNH
-                </div>
+                <div className="bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-bold">NGÀY ĐỈNH</div>
               </div>
-              <p className="text-gray-900 font-semibold text-lg mb-2">🌟 NGÀY X - Cảm giác: <strong>Trơn</strong></p>
-              <p className="text-gray-700 leading-relaxed bg-gray-50 p-3 rounded-lg">
-                <BulbOutlined className="mr-2" />
-                Khả năng thụ thai cao nhất. Hệ thống sẽ tự động tạo các ngày theo dõi tiếp theo.
-              </p>
+              <div className="flex lg:flex-row flex-col lg:items-center lg:justify-between space-y-2 lg:space-y-0">
+                <p className="text-gray-900 font-semibold text-sm">🌟 NGÀY X - Cảm giác: <strong>Trơn</strong></p>
+                <p className="text-gray-700 bg-gray-50 p-2 rounded-xl text-xs">
+                  Khả năng thụ thai cao nhất. Hệ thống sẽ tự động tạo các ngày theo dõi tiếp theo.
+                </p>
+              </div>
+              <div className="mt-2 bg-red-50 p-2 rounded-xl">
+                <p className="text-red-700 text-xs font-medium">
+                  ⚠️ Lưu ý: "ÂH căng" = cảm nhận âm hộ căng từ bên ngoài, KHÔNG dùng tay thăm khám
+                </p>
+              </div>
             </div>
             
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">D</span>
+            <div className="bg-white border border-gray-200 rounded-2xl p-3">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-gray-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-xs">D</span>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                    Ít chất tiết
-                  </h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Ít chất tiết</h3>
                 </div>
-                <div className="bg-gray-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                  Khô
-                </div>
+                <div className="bg-gray-500 text-white px-2 py-1 rounded-full text-xs">Khô</div>
               </div>
-              <p className="text-gray-700 leading-relaxed">Cảm giác: <strong>Ẩm, Ướt</strong></p>
+              <p className="text-gray-700 text-xs">Cảm giác: <strong>Ẩm, Ướt</strong></p>
             </div>
           </div>
         </div>
@@ -208,209 +178,132 @@ const HelpModal: React.FC<HelpModalProps> = ({ visible, onClose }) => {
       key: '3',
       label: 'Ký hiệu và màu sắc',
       children: (
-        <div className="space-y-10">
-          <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
-            <div className="mb-6">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-900 rounded-full flex items-center justify-center">
-                <HeartOutlined className="text-2xl text-white" />
-              </div>
-              <h2 className="text-3xl font-semibold text-gray-900 mb-4" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                Bảng ký hiệu và màu sắc
-              </h2>
-              <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                Mỗi ký hiệu và màu sắc đại diện cho một giai đoạn khác nhau trong chu kỳ của bạn.
-                Hãy nắm vững các ký hiệu này để theo dõi hiệu quả.
-              </p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div 
-                  className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl shadow-md"
-                  style={{ backgroundColor: '#e53935' }}
-                >
-                  M
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-2 text-lg" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Kinh nguyệt
-                </h4>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Có máu hoặc lấm tấm máu
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-gray-50 rounded-2xl">
+            <div className="flex items-center justify-center space-x-4">
+              <HeartOutlined className="text-2xl text-gray-600" />
+              <div className="text-left">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Bảng ký hiệu và màu sắc
+                </h2>
+                <p className="text-gray-600 text-sm">
+                  Mỗi ký hiệu và màu sắc đại diện cho một giai đoạn khác nhau trong chu kỳ
                 </p>
-                <div className="mt-3 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
-                  Cảm giác: Ướt
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white border-2 border-blue-600 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div 
-                  className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl shadow-md"
-                  style={{ backgroundColor: '#ff9800' }}
-                >
-                  X
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-2 text-lg" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Ngày đỉnh
-                </h4>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Khả năng thụ thai cao nhất
-                </p>
-                <div className="mt-3 bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-bold">
-                  🌟 QUAN TRỌNG
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div 
-                  className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-gray-800 font-bold text-xl shadow-md"
-                  style={{ backgroundColor: '#fdd835' }}
-                >
-                  1
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-2 text-lg" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Sau đỉnh 1
-                </h4>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Ngày đầu tiên sau đỉnh
-                </p>
-                <div className="mt-3 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
-                  75% khả năng
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div 
-                  className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl shadow-md"
-                  style={{ backgroundColor: '#66bb6a' }}
-                >
-                  2
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-2 text-lg" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Sau đỉnh 2
-                </h4>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Ngày thứ hai sau đỉnh
-                </p>
-                <div className="mt-3 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
-                  50% khả năng
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div 
-                  className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl shadow-md"
-                  style={{ backgroundColor: '#42a5f5' }}
-                >
-                  3
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-2 text-lg" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Sau đỉnh 3
-                </h4>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Ngày thứ ba sau đỉnh
-                </p>
-                <div className="mt-3 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
-                  20% khả năng
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div 
-                  className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl shadow-md"
-                  style={{ backgroundColor: '#ab47bc' }}
-                >
-                  C
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-2 text-lg" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Có thể thụ thai
-                </h4>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Chất nhờn đục
-                </p>
-                <div className="mt-3 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
-                  Cần chú ý
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div 
-                  className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl shadow-md"
-                  style={{ backgroundColor: '#26c6da' }}
-                >
-                  S
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-2 text-lg" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  An toàn
-                </h4>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Thời gian bình thường
-                </p>
-                <div className="mt-3 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
-                  ✓ An toàn
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="text-center">
-                <div 
-                  className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-white font-bold text-xl shadow-md"
-                  style={{ backgroundColor: '#78909c' }}
-                >
-                  D
-                </div>
-                <h4 className="font-semibold text-gray-900 mb-2 text-lg" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                  Khô
-                </h4>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Ít chất tiết hoặc không có
-                </p>
-                <div className="mt-3 bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-medium">
-                  Bình thường
-                </div>
               </div>
             </div>
           </div>
           
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold bg-red-500">
+                M
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-1 text-xs">Kinh nguyệt</h4>
+              <p className="text-gray-600 text-xs">Có máu hoặc lấm tấm máu</p>
+              <div className="mt-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-xl text-xs">
+                Cảm giác: Ướt
+              </div>
+            </div>
+            
+            <div className="bg-white border-2 border-orange-500 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold bg-orange-500">
+                X
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-1 text-xs">Ngày đỉnh</h4>
+              <p className="text-gray-600 text-xs">Khả năng thụ thai cao nhất</p>
+              <div className="mt-1 bg-orange-500 text-white px-2 py-1 rounded-xl text-xs font-bold">
+                🌟 QUAN TRỌNG
+              </div>
+            </div>
+            
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-gray-800 font-bold bg-yellow-400">
+                1
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-1 text-xs">Sau đỉnh 1</h4>
+              <p className="text-gray-600 text-xs">Ngày đầu tiên sau đỉnh</p>
+              <div className="mt-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-xl text-xs">
+                75% khả năng
+              </div>
+            </div>
+            
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold bg-green-500">
+                2
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-1 text-xs">Sau đỉnh 2</h4>
+              <p className="text-gray-600 text-xs">Ngày thứ hai sau đỉnh</p>
+              <div className="mt-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-xl text-xs">
+                50% khả năng
+              </div>
+            </div>
+            
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold bg-blue-500">
+                3
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-1 text-xs">Sau đỉnh 3</h4>
+              <p className="text-gray-600 text-xs">Ngày thứ ba sau đỉnh</p>
+              <div className="mt-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-xl text-xs">
+                20% khả năng
+              </div>
+            </div>
+            
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold bg-purple-500">
+                C
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-1 text-xs">Có thể thụ thai</h4>
+              <p className="text-gray-600 text-xs">Chất nhờn đục</p>
+              <div className="mt-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-xl text-xs">
+                Cần chú ý
+              </div>
+            </div>
+            
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold bg-cyan-500">
+                S
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-1 text-xs">An toàn</h4>
+              <p className="text-gray-600 text-xs">Thời gian bình thường</p>
+              <div className="mt-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-xl text-xs">
+                ✓ An toàn
+              </div>
+            </div>
+            
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <div className="w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center text-white font-bold bg-gray-500">
+                D
+              </div>
+              <h4 className="font-semibold text-gray-900 mb-1 text-xs">Khô</h4>
+              <p className="text-gray-600 text-xs">Ít chất tiết hoặc không có</p>
+              <div className="mt-1 bg-gray-100 text-gray-700 px-2 py-1 rounded-xl text-xs">
+                Bình thường
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white border border-gray-200 rounded-2xl p-3">
+            <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
               <BulbOutlined className="mr-2 text-blue-600" />
               Mẹo ghi nhớ
             </h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2 text-gray-700">
-                <p className="flex items-start">
-                  <span className="font-medium mr-2">•</span>
-                  <span>Màu đỏ = Kinh nguyệt</span>
-                </p>
-                <p className="flex items-start">
-                  <span className="font-medium mr-2">•</span>
-                  <span>Màu cam/vàng = Ngày đỉnh quan trọng</span>
-                </p>
+            <div className="grid md:grid-cols-4 gap-3 text-sm">
+              <div className="space-y-1 text-gray-700">
+                <p>• Màu đỏ = Kinh nguyệt</p>
+                <p>• Màu cam/vàng = Ngày đỉnh quan trọng</p>
               </div>
-              <div className="space-y-2 text-gray-700">
-                <p className="flex items-start">
-                  <span className="font-medium mr-2">•</span>
-                  <span>Màu tím = Có thể thụ thai</span>
-                </p>
-                <p className="flex items-start">
-                  <span className="font-medium mr-2">•</span>
-                  <span>Màu xanh/xám = An toàn/bình thường</span>
-                </p>
+              <div className="space-y-1 text-gray-700">
+                <p>• Màu tím = Có thể thụ thai</p>
+                <p>• Màu xanh/xám = An toàn/bình thường</p>
+              </div>
+              <div className="space-y-1 text-gray-700">
+                <p>• X = Ngày quan trọng nhất</p>
+                <p>• 1,2,3 = Đếm sau ngày đỉnh</p>
+              </div>
+              <div className="space-y-1 text-gray-700">
+                <p>• M = Máu kinh nguyệt</p>
+                <p>• C,S,D = Loại chất nhờn</p>
               </div>
             </div>
           </div>
@@ -421,184 +314,230 @@ const HelpModal: React.FC<HelpModalProps> = ({ visible, onClose }) => {
       key: '4',
       label: 'Quy tắc validation',
       children: (
-        <div className="space-y-10">
-          <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
-            <div className="mb-6">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-900 rounded-full flex items-center justify-center">
-                <CheckCircleOutlined className="text-2xl text-white" />
-              </div>
-              <h2 className="text-3xl font-semibold text-gray-900 mb-4" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                Quy tắc kết hợp thông minh
-              </h2>
-              <p className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed">
-                Hệ thống sẽ tự động kiểm tra và gợi ý các kết hợp đúng giữa quan sát chất nhờn và cảm giác, 
-                giúp bạn ghi nhận chính xác theo phương pháp Billings.
-              </p>
-            </div>
-          </div>
-          
-          <div className="space-y-6">
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">M</span>
-                  </div>
-                  <span className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                    Có máu, Lấm tấm máu
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-700 font-medium">Chỉ kết hợp với:</span>
-                  <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    Ướt
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">C</span>
-                  </div>
-                  <span className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                    Đục
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-700 font-medium">Kết hợp với:</span>
-                  <div className="flex space-x-2">
-                    <div className="bg-purple-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      Dính
-                    </div>
-                    <div className="bg-purple-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      Ẩm
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">C</span>
-                  </div>
-                  <span className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                    Đục nhiều sợi, Trong nhiều sợi
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-700 font-medium">Kết hợp với:</span>
-                  <div className="flex space-x-2">
-                    <div className="bg-indigo-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      Ướt
-                    </div>
-                    <div className="bg-indigo-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      Trơn
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white border-2 border-blue-600 rounded-lg p-6 shadow-lg">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0 mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">X</span>
-                  </div>
-                  <span className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                    Trong và âm hộ căng
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-700 font-medium">Chỉ kết hợp với:</span>
-                  <div className="bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-bold">
-                    Trơn
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-900 font-semibold text-lg flex items-center">
-                  <span className="mr-2">🌟</span>
-                  Đây là ngày X - Ngày đỉnh khả năng thụ thai cao nhất
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-gray-50 rounded-2xl">
+            <div className="flex items-center justify-center space-x-4">
+              <CheckCircleOutlined className="text-2xl text-gray-600" />
+              <div className="text-left">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Quy tắc kết hợp thông minh
+                </h2>
+                <p className="text-gray-600 text-sm">
+                  Hệ thống sẽ tự động kiểm tra và gợi ý các kết hợp đúng giữa quan sát chất nhờn và cảm giác
                 </p>
-                <p className="text-gray-700 mt-2 leading-relaxed">
-                  Khi bạn chọn kết hợp này, hệ thống sẽ tự động đánh dấu là ngày đỉnh và tạo các ngày theo dõi tiếp theo.
-                </p>
-              </div>
-            </div>
-            
-            <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-300">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">D</span>
-                  </div>
-                  <span className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-                    Ít chất tiết
-                  </span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-700 font-medium">Kết hợp với:</span>
-                  <div className="flex space-x-2">
-                    <div className="bg-gray-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      Ẩm
-                    </div>
-                    <div className="bg-gray-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                      Ướt
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
           
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <CheckCircleOutlined className="mr-3 text-xl text-green-600" />
-                Validation thông minh
-              </h3>
-              <div className="space-y-3 text-gray-700">
-                <p className="flex items-start">
-                  <span className="text-green-500 mr-2 mt-1">✓</span>
-                  <span>Tự động kiểm tra kết hợp đúng/sai</span>
-                </p>
-                <p className="flex items-start">
-                  <span className="text-green-500 mr-2 mt-1">✓</span>
-                  <span>Hiển thị gợi ý khi nhập sai</span>
-                </p>
-                <p className="flex items-start">
-                  <span className="text-green-500 mr-2 mt-1">✓</span>
-                  <span>Lọc tùy chọn theo quan sát</span>
-                </p>
+          <div className="grid lg:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Kết hợp chuẩn</h3>
+              
+              <div className="bg-white border border-gray-200 rounded-2xl p-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-xs">M</span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">Có máu, Lấm tấm máu</span>
+                  </div>
+                  <div className="bg-red-500 text-white px-2 py-1 rounded-xl text-xs">Ướt</div>
+                </div>
+              </div>
+              
+              <div className="bg-white border border-gray-200 rounded-2xl p-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-xs">C</span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">Đục</span>
+                  </div>
+                  <div className="flex space-x-1">
+                    <div className="bg-purple-500 text-white px-2 py-1 rounded-xl text-xs">Dính</div>
+                    <div className="bg-purple-500 text-white px-2 py-1 rounded-xl text-xs">Ẩm</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white border border-gray-200 rounded-2xl p-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-xs">C</span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">Đục nhiều sợi, Trong nhiều sợi</span>
+                  </div>
+                  <div className="flex space-x-1">
+                    <div className="bg-purple-500 text-white px-2 py-1 rounded-xl text-xs">Ướt</div>
+                    <div className="bg-purple-500 text-white px-2 py-1 rounded-xl text-xs">Trơn</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white border-2 border-orange-500 rounded-2xl p-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-xs">X</span>
+                    </div>
+                    <span className="text-sm font-semibold text-gray-900">Trong và ÂH căng</span>
+                  </div>
+                  <div className="bg-orange-500 text-white px-2 py-1 rounded-xl text-xs font-bold">Trơn</div>
+                </div>
+                <div className="mt-2 bg-red-50 p-2 rounded-xl">
+                  <p className="text-red-700 text-xs">⚠️ Quan sát tự nhiên, không thăm khám bằng tay</p>
+                </div>
               </div>
             </div>
             
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <BulbOutlined className="mr-3 text-xl text-amber-500" />
-                Lưu ý quan trọng
-              </h3>
-              <div className="space-y-3 text-gray-700">
-                <p className="flex items-start">
-                  <span className="text-amber-500 mr-2 mt-1">⚠</span>
-                  <span>Nếu chọn sai kết hợp, hệ thống sẽ cảnh báo</span>
+            <div className="space-y-3">
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Hướng dẫn chi tiết</h3>
+              
+              <div className="bg-white border border-gray-200 rounded-2xl p-3">
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center text-sm">
+                  🌟 Ngày X - Quan trọng nhất
+                </h4>
+                <p className="text-gray-700 text-xs mb-2">
+                  Ngày có khả năng thụ thai cao nhất trong chu kỳ. Chỉ kết hợp với cảm giác "Trơn".
                 </p>
-                <p className="flex items-start">
-                  <span className="text-amber-500 mr-2 mt-1">⚠</span>
-                  <span>Bạn vẫn có thể lưu nếu chắc chắn</span>
-                </p>
-                <p className="flex items-start">
-                  <span className="text-amber-500 mr-2 mt-1">⚠</span>
-                  <span>Dữ liệu chính xác giúp dự đoán tốt hơn</span>
+                <div className="bg-orange-50 p-2 rounded-xl">
+                  <p className="text-orange-800 font-semibold text-xs">
+                    ⚡ Sau ngày X, hệ thống tự động tạo các ngày 1, 2, 3...
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-white border border-gray-200 rounded-2xl p-3">
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center text-sm">
+                  ✅ Validation tự động
+                </h4>
+                <div className="space-y-1 text-gray-700 text-xs">
+                  <p>• Hệ thống sẽ cảnh báo khi chọn kết hợp sai</p>
+                  <p>• Đề xuất kết hợp đúng theo phương pháp Billings</p>
+                  <p>• Giúp đảm bảo tính chính xác của dữ liệu</p>
+                  <p>• Hỗ trợ học tập và ghi nhận đúng cách</p>
+                </div>
+              </div>
+              
+              <div className="bg-white border border-gray-200 rounded-2xl p-3">
+                <h4 className="font-semibold text-gray-900 mb-2 flex items-center text-sm">
+                  📚 Lưu ý quan trọng
+                </h4>
+                <div className="space-y-1 text-gray-700 text-xs">
+                  <p>• Quan sát vào cùng thời điểm mỗi ngày</p>
+                  <p>• Ghi nhận ngay sau khi quan sát</p>
+                  <p>• Không đoán mà dựa vào cảm giác thực tế</p>
+                  <p>• Liên tục trong ít nhất 3 chu kỳ</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      key: '5',
+      label: '⚠️ An toàn',
+      children: (
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-red-50 rounded-2xl border-2 border-red-200">
+            <div className="flex items-center justify-center space-x-4">
+              <div className="text-3xl">⚠️</div>
+              <div className="text-left">
+                <h2 className="text-xl font-semibold text-red-800">
+                  Cảnh báo an toàn quan trọng
+                </h2>
+                <p className="text-red-600 text-sm">
+                  Phương pháp Billings là phương pháp quan sát tự nhiên, an toàn
                 </p>
               </div>
+            </div>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-4">
+            <div className="bg-white border-2 border-red-300 rounded-2xl p-4">
+              <h3 className="text-base font-semibold text-red-800 mb-3 flex items-center">
+                🚫 NGHIÊM CẤM
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-red-50 p-3 rounded-xl">
+                  <p className="text-red-700 font-semibold text-sm mb-1">❌ Thăm khám bằng tay</p>
+                  <p className="text-red-600 text-xs">Không được dùng tay để kiểm tra bên trong âm hộ</p>
+                </div>
+                <div className="bg-red-50 p-3 rounded-xl">
+                  <p className="text-red-700 font-semibold text-sm mb-1">❌ Xâm lấn cơ thể</p>
+                  <p className="text-red-600 text-xs">Không được dùng bất kỳ dụng cụ nào để thăm khám</p>
+                </div>
+                <div className="bg-red-50 p-3 rounded-xl">
+                  <p className="text-red-700 font-semibold text-sm mb-1">❌ Tự ý đoán định</p>
+                  <p className="text-red-600 text-xs">Không tự ý kiểm tra hay thay đổi kết quả</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white border-2 border-green-300 rounded-2xl p-4">
+              <h3 className="text-base font-semibold text-green-800 mb-3 flex items-center">
+                ✅ ĐƯỢC PHÉP
+              </h3>
+              <div className="space-y-3">
+                <div className="bg-green-50 p-3 rounded-xl">
+                  <p className="text-green-700 font-semibold text-sm mb-1">✓ Quan sát tự nhiên</p>
+                  <p className="text-green-600 text-xs">Quan sát chất nhờn tự nhiên tiết ra từ cơ thể</p>
+                </div>
+                <div className="bg-green-50 p-3 rounded-xl">
+                  <p className="text-green-700 font-semibold text-sm mb-1">✓ Cảm nhận bên ngoài</p>
+                  <p className="text-green-600 text-xs">Cảm nhận âm hộ căng từ bên ngoài, một cách tự nhiên</p>
+                </div>
+                <div className="bg-green-50 p-3 rounded-xl">
+                  <p className="text-green-700 font-semibold text-sm mb-1">✓ Ghi nhận trung thực</p>
+                  <p className="text-green-600 text-xs">Ghi nhận những gì cơ thể tự nhiên thể hiện</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white border border-gray-200 rounded-2xl p-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center">
+              💡 Hướng dẫn chi tiết an toàn
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-2">Quan sát chất nhờn:</h4>
+                <ul className="space-y-1 text-gray-700 text-sm">
+                  <li>• Quan sát chất nhờn tiết ra tự nhiên</li>
+                  <li>• Không dùng giấy vệ sinh để lau kiểm tra</li>
+                  <li>• Quan sát vào buổi tối trước khi ngủ</li>
+                  <li>• Dựa vào màu sắc và độ nhớt tự nhiên</li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-2">Cảm nhận âm hộ căng:</h4>
+                <ul className="space-y-1 text-gray-700 text-sm">
+                  <li>• Cảm nhận sự căng của âm hộ từ bên ngoài</li>
+                  <li>• Không dùng tay để kiểm tra bên trong</li>
+                  <li>• Dựa vào cảm giác tự nhiên của cơ thể</li>
+                  <li>• Ghi nhận cảm giác thực tế, không đoán</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+            <h3 className="text-base font-semibold text-blue-800 mb-3 flex items-center">
+              🏥 Khi nào cần gặp bác sĩ
+            </h3>
+            <div className="grid md:grid-cols-2 gap-3 text-sm">
+                             <div className="space-y-1 text-blue-700">
+                 <p>• Chu kỳ bất thường (&lt; 21 ngày hoặc &gt; 35 ngày)</p>
+                 <p>• Chảy máu bất thường giữa chu kỳ</p>
+                 <p>• Đau bụng dữ dội trong chu kỳ</p>
+               </div>
+               <div className="space-y-1 text-blue-700">
+                 <p>• Chất nhờn có mùi lạ hoặc màu lạ</p>
+                 <p>• Nghi ngờ có vấn đề sức khỏe sinh sản</p>
+                 <p>• Cần tư vấn về kế hoạch gia đình</p>
+               </div>
             </div>
           </div>
         </div>
@@ -609,75 +548,43 @@ const HelpModal: React.FC<HelpModalProps> = ({ visible, onClose }) => {
   return (
     <Modal
       title={
-        <div className="text-center py-6 bg-white -mx-6 -mt-6 mb-6 border-b border-gray-200">
-          <h1 className="text-3xl font-semibold text-gray-900 mb-2" style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}>
-            Hướng dẫn sử dụng
-          </h1>
-          <p className="text-lg text-gray-600 font-medium">Phương pháp Billings - Theo dõi chu kỳ tự nhiên</p>
-          <div className="mt-4 inline-flex items-center px-4 py-2 bg-gray-50 rounded-full border border-gray-300">
-            <MedicineBoxOutlined className="text-blue-600 mr-2" />
-            <span className="text-gray-800 font-medium text-sm">Được khuyến nghị bởi WHO</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <MedicineBoxOutlined className="text-xl text-blue-600" />
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900">Hướng dẫn sử dụng</h1>
+              <p className="text-sm text-gray-600">Phương pháp Billings - Theo dõi chu kỳ tự nhiên</p>
+            </div>
+          </div>
+          <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-2xl text-xs font-medium">
+            Được khuyến nghị bởi WHO
           </div>
         </div>
       }
       open={visible}
       onCancel={onClose}
       footer={
-        <div className="text-center py-6 bg-white -mx-6 -mb-6 border-t border-gray-200">
-          <div className="mb-4">
-            <p className="text-sm text-gray-600 mb-2">
-              💡 Hãy thực hành thường xuyên để nắm vững phương pháp
-            </p>
-          </div>
-          <Button 
-            type="primary" 
-            onClick={onClose}
-            size="large"
-            className="px-12 py-3 h-auto text-lg font-semibold bg-gray-900 hover:bg-gray-800 border-0 shadow-lg hover:shadow-xl transition-all duration-300 rounded-lg"
-            style={{ fontFamily: 'SF Pro Rounded, -apple-system, sans-serif' }}
-          >
-            <CheckCircleOutlined className="mr-2" />
-            Đã hiểu, bắt đầu sử dụng
-          </Button>
-          <p className="text-xs text-gray-500 mt-3">
-            Bạn luôn có thể xem lại hướng dẫn bằng cách nhấn nút "Trợ giúp"
+        <div className="flex justify-between items-center">
+          <p className="text-xs text-gray-500">
+            💡 Hãy thực hành thường xuyên để nắm vững phương pháp
           </p>
+          <Button type="primary" onClick={onClose} className="rounded-2xl">
+            Đã hiểu
+          </Button>
         </div>
       }
-      width={1000}
-      centered
-      className="help-modal overflow-hidden"
-      styles={{
-        body: { 
-          padding: '0 24px 0 24px',
-          maxHeight: '70vh',
-          overflowY: 'auto'
-        },
-        header: { 
-          padding: 0,
-          border: 'none',
-          marginBottom: 0
-        },
-        footer: {
-          padding: 0,
-          border: 'none'
-        }
-      }}
+      width="95%"
+      style={{ maxWidth: '1200px' }}
+      className="help-modal"
     >
-      <div className="px-2">
-        <Tabs 
-          items={items}
-          centered
-          className="help-tabs"
-          tabBarStyle={{ 
-            borderBottom: '2px solid #e5e7eb',
-            marginBottom: '32px',
-            padding: '0 16px'
-          }}
-          tabBarGutter={32}
-          size="large"
-        />
-      </div>
+      <Tabs
+        items={items}
+        className="mt-4"
+        tabBarStyle={{ 
+          marginBottom: '16px',
+          borderBottom: '2px solid #f0f0f0'
+        }}
+      />
     </Modal>
   );
 };

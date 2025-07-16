@@ -1,5 +1,22 @@
 import mongoose from 'mongoose';
 
+export interface IRefundInfo {
+  accountNumber: string;
+  accountHolderName: string;
+  bankName: string;
+  phoneNumber: string;
+  submittedAt: Date;
+}
+
+export interface IRefund {
+  refundInfo?: IRefundInfo;
+  refundReason?: string;
+  processingStatus?: "pending" | "processing" | "completed" | "rejected";
+  processedBy?: string;
+  processedAt?: Date;
+  processingNotes?: string;
+}
+
 export interface IPayments {
   userId: mongoose.Types.ObjectId;
   billId: mongoose.Types.ObjectId;
@@ -10,6 +27,7 @@ export interface IPayments {
   status: "pending" | "completed" | "failed" | "refunded";
   failureReason?: string;
   paymentAt?: Date;
+  refund?: IRefund;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -51,6 +69,24 @@ const PaymentsSchema = new mongoose.Schema<IPayments>({
   },
   paymentAt: { 
     type: Date 
+  },
+  refund: {
+    refundInfo: {
+      accountNumber: { type: String },
+      accountHolderName: { type: String },
+      bankName: { type: String },
+      phoneNumber: { type: String },
+      submittedAt: { type: Date }
+    },
+    refundReason: { type: String },
+    processingStatus: { 
+      type: String, 
+      enum: ["pending", "processing", "completed", "rejected"],
+      default: "pending"
+    },
+    processedBy: { type: String },
+    processedAt: { type: Date },
+    processingNotes: { type: String }
   }
 }, { timestamps: true });
 

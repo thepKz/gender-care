@@ -262,7 +262,7 @@ const MenstrualTrackerPage: React.FC = () => {
             className="cursor-pointer font-medium"
             onClick={() => setEditingCell({ row, col: dayIdx })}
             style={{ 
-              color: value === 'trong và âm hộ căng' ? '#ff6b35' : '#333',
+              color: value === 'trong và ÂH căng' ? '#ff6b35' : '#333',
               backgroundColor: dayData?.isPeakDay ? '#fff3cd' : 'transparent',
               padding: '4px 8px',
               borderRadius: '4px'
@@ -429,7 +429,7 @@ const MenstrualTrackerPage: React.FC = () => {
                   <div key={option.value} className="flex items-center gap-2">
                     <span className="w-4 h-4 bg-gray-200 rounded"></span>
                     <span>{option.label}</span>
-                    {option.value === 'trong và âm hộ căng' && <span className="text-orange-600 font-bold">⭐ Ngày X</span>}
+                    {option.value === 'trong và ÂH căng' && <span className="text-orange-600 font-bold">⭐ Ngày X</span>}
                   </div>
                 ))}
               </div>
@@ -450,7 +450,7 @@ const MenstrualTrackerPage: React.FC = () => {
           <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <div className="text-sm text-amber-800">
               <strong>Quy tắc validation:</strong> Hệ thống sẽ cảnh báo nếu kết hợp quan sát + cảm giác không phù hợp theo phương pháp Billings.
-              Ngày X được tự động phát hiện khi chọn "Trong và âm hộ căng" + "Trơn".
+              Ngày X được tự động phát hiện khi chọn "Trong và ÂH căng" + "Trơn".
             </div>
           </div>
         </div>

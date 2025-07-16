@@ -7,6 +7,8 @@ export interface IDoctorQA {
   phone: string;
   notes?: string;
   question: string;
+  age: number;
+  gender: string;
   // ✅ SIMPLIFIED STATUS: 5 states (thêm 'consulting' cho online sessions)
   status: "pending_payment" | "scheduled" | "consulting" | "completed" | "cancelled";
   consultationFee: number;
@@ -14,7 +16,8 @@ export interface IDoctorQA {
   serviceName?: string;  // Tên service cho tiện
   appointmentDate?: Date;
   appointmentSlot?: string;  // VD: "14:00-15:00"
-  slotId?: mongoose.Types.ObjectId;  // ID của slot đã book
+  slotId?: mongoose.Types.ObjectId;  // ID của slot đã book trong DoctorSchedules
+  paymentTrackingId?: mongoose.Types.ObjectId; // ✅ ADD: Payment reference
   doctorNotes?: string;  // Ghi chú của doctor sau khi tư vấn
   createdAt?: Date;
   updatedAt?: Date;
@@ -51,6 +54,17 @@ const DoctorQASchema = new mongoose.Schema<IDoctorQA>({
     type: String, 
     required: true 
   },
+  age: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 100
+  },
+  gender: {
+    type: String,
+    enum: ['male', 'female'],
+    required: true
+  },
   // ✅ SIMPLIFIED STATUS ENUM with all required states
   status: { 
     type: String, 
@@ -76,6 +90,10 @@ const DoctorQASchema = new mongoose.Schema<IDoctorQA>({
   },
   slotId: {
     type: mongoose.Schema.Types.ObjectId  // ID của slot đã book trong DoctorSchedules
+  },
+  paymentTrackingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PaymentTracking'
   },
   doctorNotes: {
     type: String  // Ghi chú của doctor sau khi tư vấn

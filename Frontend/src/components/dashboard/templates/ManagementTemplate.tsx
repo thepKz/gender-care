@@ -8,8 +8,7 @@ import {
   Row,
   Col,
   Card,
-  List,
-  Statistic
+  List
 } from 'antd';
 import {
   DashboardOutlined,
@@ -26,7 +25,6 @@ import {
   TrophyOutlined,
   CheckCircleOutlined,
   FileTextOutlined,
-  ExperimentOutlined,
   HomeOutlined
 } from '@ant-design/icons';
 import EnhancedStatsCard from '../widgets/EnhancedStatsCard';
@@ -37,10 +35,10 @@ import ServiceManagement from '../../../pages/dashboard/management/ServiceManage
 import ServicePackageManagement from '../../../pages/dashboard/management/ServicePackageManagement';
 import SystemLogManagement from '../../../pages/dashboard/management/SystemLogManagement';
 import LoginHistoryManagement from '../../../pages/dashboard/management/LoginHistoryManagement';
+import RefundManagement from '../../../pages/dashboard/management/RefundManagement';
 
 import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedulePage';
 import MedicineManagement from '../../../pages/dashboard/management/MedicineManagement';
-import TestManagement from '../../../pages/dashboard/management/TestManagement';
 
 import TestCategoriesManagement from '../../../pages/dashboard/management/TestCategoriesManagement';
 
@@ -49,9 +47,11 @@ import {
   type ActivityItem,
   type AppointmentItem
 } from '../../../types/dashboard';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { fetchManagementDashboard } from '../../../api/endpoints/dashboard';
+import ReportsPage from '../../../pages/dashboard/management/ReportsPage';
+import { filterMenuItemsByPermissions, type MenuItem } from '../../../utils/permissions';
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
@@ -87,11 +87,13 @@ interface ManagementTemplateProps {
   welcomeMessage?: string;
 }
 
-// Xây dựng menu động theo vai trò
-const getMenuItems = (role: 'admin' | 'manager') => {
+// Xây dựng menu động theo vai trò với permission filtering
+const getMenuItems = (role: 'admin' | 'manager'): MenuItem[] => {
+  let baseMenuItems: MenuItem[];
+  
   // Menu cho Admin - chỉ 5 mục như yêu cầu
   if (role === 'admin') {
-    return [
+    baseMenuItems = [
       {
         key: 'users',
         icon: <UserOutlined />,
@@ -118,71 +120,74 @@ const getMenuItems = (role: 'admin' | 'manager') => {
         label: 'Cài đặt',
       },
     ];
+  } else {
+    // Menu cho Manager - đầy đủ chức năng quản lý
+    baseMenuItems = [
+      {
+        key: 'dashboard',
+        icon: <DashboardOutlined />,
+        label: 'Tổng quan',
+      },
+      {
+        key: 'users',
+        icon: <UserOutlined />,
+        label: 'Quản lý người dùng',
+      },
+      {
+        key: 'doctors',
+        icon: <MedicineBoxOutlined />,
+        label: 'Quản lý bác sĩ',
+      },
+      {
+        key: 'schedule',
+        icon: <CalendarOutlined />,
+        label: 'Quản lý lịch làm việc',
+      },
+      {
+        key: 'services',
+        icon: <SettingOutlined />,
+        label: 'Quản lý dịch vụ',
+      },
+      {
+        key: 'service-packages',
+        icon: <AppstoreOutlined />,
+        label: 'Quản lý gói dịch vụ',
+      },
+      {
+        key: 'medicines',
+        icon: <MedicineBoxOutlined />,
+        label: 'Quản lý thuốc',
+      },
+      {
+        key: 'test-categories',
+        icon: <FileTextOutlined />,
+        label: 'Quản lý danh mục xét nghiệm',
+      },
+      {
+        key: 'refunds',
+        icon: <DollarOutlined />,
+        label: 'Quản lý yêu cầu hoàn tiền',
+      },
+      {
+        key: 'login-history',
+        icon: <HistoryOutlined />,
+        label: 'Lịch sử đăng nhập',
+      },
+      {
+        key: 'system-logs',
+        icon: <SecurityScanOutlined />,
+        label: 'System Logs',
+      },
+      {
+        key: 'reports',
+        icon: <BarChartOutlined />,
+        label: 'Báo cáo',
+      },
+    ];
   }
 
-  // Menu cho Manager - đầy đủ chức năng quản lý
-  const managerItems = [
-    {
-      key: 'dashboard',
-      icon: <DashboardOutlined />,
-      label: 'Tổng quan',
-    },
-    {
-      key: 'users',
-      icon: <UserOutlined />,
-      label: 'Quản lý người dùng',
-    },
-    {
-      key: 'doctors',
-      icon: <MedicineBoxOutlined />,
-      label: 'Quản lý bác sĩ',
-    },
-    {
-      key: 'schedule',
-      icon: <CalendarOutlined />,
-      label: 'Quản lý lịch làm việc',
-    },
-    {
-      key: 'services',
-      icon: <SettingOutlined />,
-      label: 'Quản lý dịch vụ',
-    },
-    {
-      key: 'service-packages',
-      icon: <AppstoreOutlined />,
-      label: 'Quản lý gói dịch vụ',
-    },
-    {
-
-      key: 'medicines',
-      icon: <MedicineBoxOutlined />,
-      label: 'Quản lý thuốc',
-    },
-    {
-
-      key: 'test-categories',
-      icon: <FileTextOutlined />,
-      label: 'Quản lý danh mục xét nghiệm',
-
-    },
-    {
-      key: 'login-history',
-      icon: <HistoryOutlined />,
-      label: 'Lịch sử đăng nhập',
-    },
-    {
-      key: 'system-logs',
-      icon: <SecurityScanOutlined />,
-      label: 'System Logs',
-    },
-    {
-      key: 'reports',
-      icon: <BarChartOutlined />,
-      label: 'Báo cáo',
-    },
-  ];
-
-  return managerItems;
+  // Apply permission filtering to only show items the user has access to
+  return filterMenuItemsByPermissions(baseMenuItems, role);
 };
 
 const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
@@ -190,10 +195,70 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
   userName = 'Admin',
   welcomeMessage
 }) => {
-  const [selectedKey, setSelectedKey] = useState(userRole === 'admin' ? 'users' : 'dashboard');
-  const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const { handleLogout } = useAuth();
+  const location = useLocation();
+
+  // ✅ UPDATED: Get initial selectedKey from URL params or default
+  const getInitialSelectedKey = (): string => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    
+    // Validate tab param against allowed menu items
+    const allowedKeys = getMenuItems(userRole).map(item => item.key);
+    
+    if (tabParam && allowedKeys.includes(tabParam)) {
+      return tabParam;
+    }
+    
+    // Return default based on role
+    return userRole === 'admin' ? 'users' : 'dashboard';
+  };
+
+  const [selectedKey, setSelectedKey] = useState(getInitialSelectedKey());
+  const [collapsed, setCollapsed] = useState(false);
+
+  // ✅ NEW: Update URL when selectedKey changes
+  const updateSelectedKey = (key: string) => {
+    setSelectedKey(key);
+    
+    // Update URL with tab parameter
+    const searchParams = new URLSearchParams(location.search);
+    if (key === (userRole === 'admin' ? 'users' : 'dashboard')) {
+      // Remove tab param for default pages
+      searchParams.delete('tab');
+    } else {
+      searchParams.set('tab', key);
+    }
+    
+    const newUrl = searchParams.toString() 
+      ? `${location.pathname}?${searchParams.toString()}`
+      : location.pathname;
+      
+    // Use replace to avoid adding to history stack
+    navigate(newUrl, { replace: true });
+  };
+
+  // ✅ NEW: Sync selectedKey when URL changes (back/forward navigation)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    
+    // Validate tab param against allowed menu items
+    const allowedKeys = getMenuItems(userRole).map(item => item.key);
+    
+    let newSelectedKey: string;
+    if (tabParam && allowedKeys.includes(tabParam)) {
+      newSelectedKey = tabParam;
+    } else {
+      // Return default based on role
+      newSelectedKey = userRole === 'admin' ? 'users' : 'dashboard';
+    }
+    
+    if (newSelectedKey !== selectedKey) {
+      setSelectedKey(newSelectedKey);
+    }
+  }, [location.search, userRole, selectedKey]);
 
   // Customize stats based on role
   const [stats, setStats] = useState<DashboardStat[]>([]);
@@ -521,7 +586,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                       icon={<UserOutlined />} 
                       size="middle"
                       block
-                      onClick={() => setSelectedKey('doctors')}
+                      onClick={() => updateSelectedKey('doctors')}
                     >
                       Quản lý bác sĩ
                     </Button>
@@ -532,7 +597,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                       icon={<MedicineBoxOutlined />} 
                       size="middle"
                       block
-                      onClick={() => setSelectedKey('schedule')}
+                      onClick={() => updateSelectedKey('schedule')}
                     >
                       Dịch vụ
                     </Button>
@@ -543,7 +608,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                       icon={<CalendarOutlined />} 
                       size="small"
                       block
-                      onClick={() => setSelectedKey('schedule')}
+                      onClick={() => updateSelectedKey('schedule')}
                     >
                       Lịch làm việc
                     </Button>
@@ -555,7 +620,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                           icon={<SettingOutlined />} 
                           size="small"
                           block
-                          onClick={() => setSelectedKey('users')}
+                          onClick={() => updateSelectedKey('users')}
                         >
                           Người dùng
                         </Button>
@@ -565,7 +630,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                           icon={<BarChartOutlined />} 
                           size="small"
                           block
-                          onClick={() => setSelectedKey('reports')}
+                          onClick={() => updateSelectedKey('reports')}
                         >
                           Báo cáo
                         </Button>
@@ -600,7 +665,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                   <Button 
                     icon={<SettingOutlined />} 
                     block
-                    onClick={() => setSelectedKey('users')}
+                    onClick={() => updateSelectedKey('users')}
                   >
                     Quản lý người dùng
                   </Button>
@@ -609,7 +674,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                   <Button 
                     icon={<BarChartOutlined />} 
                     block
-                    onClick={() => setSelectedKey('reports')}
+                    onClick={() => updateSelectedKey('reports')}
                   >
                     Báo cáo & Thống kê
                   </Button>
@@ -618,7 +683,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                   <Button 
                     icon={<SettingOutlined />} 
                     block
-                    onClick={() => setSelectedKey('settings')}
+                    onClick={() => updateSelectedKey('settings')}
                   >
                     Cấu hình hệ thống
                   </Button>
@@ -627,7 +692,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
                   <Button 
                     icon={<FileTextOutlined />} 
                     block
-                    onClick={() => setSelectedKey('logs')}
+                    onClick={() => updateSelectedKey('logs')}
                   >
                     Nhật ký hệ thống
                   </Button>
@@ -662,18 +727,16 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
       case 'test-categories':
         return <TestCategoriesManagement />;
 
+      case 'refunds':
+        return <RefundManagement />;
+
       case 'login-history':
         return <LoginHistoryManagement />;
       case 'system-logs':
-        if (userRole === 'admin' || userRole === 'manager') return <SystemLogManagement />;
+        if (userRole === 'admin') return <SystemLogManagement />;
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
       case 'reports':
-        return (
-          <div style={{ padding: '24px' }}>
-            <Title level={2}>Báo cáo</Title>
-            <p>Trang báo cáo đang được phát triển...</p>
-          </div>
-        );
+        return <ReportsPage />;
       case 'settings':
         if (userRole === 'admin') {
           return (
@@ -738,9 +801,9 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
             // Nếu manager chọn mục không có quyền (phòng trường hợp hard reload)
             const allowedKeys = menuItems.map(item => item.key);
             if (allowedKeys.includes(key)) {
-              setSelectedKey(key);
+              updateSelectedKey(key);
             } else {
-              setSelectedKey('dashboard');
+              updateSelectedKey('dashboard');
             }
           }}
           style={{ 

@@ -45,17 +45,20 @@ export interface CreateUserResponse {
 }
 
 export interface CreateDoctorRequest {
+  email: string;
   fullName: string;
   phone?: string;
   gender?: 'male' | 'female' | 'other';
   address?: string;
   bio?: string;
-  experience?: number;
+  experience?: string;
+  experienceDetails?: string;
   rating?: number;
   image?: string;
   specialization?: string;
   education?: string;
   certificate?: string;
+  certificates?: File[];
 }
 
 export interface CreateDoctorResponse {
@@ -73,6 +76,32 @@ export interface CreateDoctorResponse {
     specialization?: string;
     education?: string;
     certificate?: string;
+  };
+  userCredentials: {
+    email: string;
+    defaultPassword: string;
+  };
+}
+
+export interface CreateStaffRequest {
+  email: string;
+  fullName: string;
+  phone?: string;
+  gender?: 'male' | 'female' | 'other';
+  address?: string;
+  staffType: 'Nursing' | 'Blogers' | 'Normal';
+}
+
+export interface CreateStaffResponse {
+  data: {
+    _id: string;
+    userId: {
+      fullName: string;
+      avatar?: string;
+      gender?: string;
+      address?: string;
+    };
+    staffType: string;
   };
   userCredentials: {
     email: string;
@@ -159,9 +188,9 @@ export const userApi = {
   },
 
   // Cập nhật role của người dùng (Admin & Manager)
-  updateUserRole: async (userId: string, roleData: { 
-    newRole: string; 
-    reason?: string; 
+  updateUserRole: async (userId: string, roleData: {
+    newRole: string;
+    reason?: string;
     doctorProfile?: {
       bio?: string;
       experience?: number;
@@ -223,13 +252,26 @@ export const userApi = {
   uploadAvatarImage: async (file: File): Promise<{ success: boolean; message: string; data: { url: string } }> => {
     const formData = new FormData();
     formData.append('avatar', file);
-    
+
     const response = await axiosInstance.post('/users/profile/me/avatar/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
     });
-    return response.data;
+
+    // Handle different response formats from backend
+    const data = response.data;
+    if (data.url && !data.success) {
+      // Backend returns { url: "..." } format
+      return {
+        success: true,
+        message: 'Upload thành công',
+        data: { url: data.url }
+      };
+    }
+
+    // Backend returns { success: true, data: { url: "..." } } format
+    return data;
   },
 
   createUser: async (request: CreateUserRequest): Promise<CreateUserResponse> => {
@@ -239,6 +281,11 @@ export const userApi = {
 
   createDoctor: async (request: CreateDoctorRequest): Promise<CreateDoctorResponse> => {
     const response = await axiosInstance.post('/doctors', request);
+    return response.data;
+  },
+
+  createStaff: async (request: CreateStaffRequest): Promise<CreateStaffResponse> => {
+    const response = await axiosInstance.post('/staff', request);
     return response.data;
   },
 

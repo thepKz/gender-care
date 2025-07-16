@@ -43,7 +43,8 @@ import Feedbacks from './Feedbacks';
 
 // Business & Billing
 import Promotions from './Promotions';
-import Bills from './Bills';
+// ❌ REMOVED: Bills model đã được thay thế bằng PaymentTracking
+// import Bills from './Bills';
 import Payments from './Payments';
 import PackagePurchases from './PackagePurchases';
 import PaymentTracking from './PaymentTracking';
@@ -103,7 +104,7 @@ export {
 
   // Business & Billing
   Promotions,
-  Bills,
+  // Bills, // ❌ REMOVED: Bills model đã được thay thế bằng PaymentTracking
   Payments,
   PackagePurchases,
   PaymentTracking,
@@ -127,4 +128,6 @@ export type {
   IMedicalRecordMedicines,
   IMedicinesData
 };
+
+export { default as ProfileChangeRequest } from './ProfileChangeRequests';
 

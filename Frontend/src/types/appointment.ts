@@ -2,7 +2,7 @@
 // Includes both regular appointments and doctor QA consultations
 
 // ✅ UPDATED STATUS TYPES - Đồng bộ với Backend
-export type AppointmentStatus = 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled';
+export type AppointmentStatus = 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'done_testResultItem' | 'done_testResult';
 export type ConsultationStatus = 'pending_payment' | 'scheduled' | 'consulting' | 'completed' | 'cancelled';
 export type UnifiedStatus = 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled';
 
@@ -39,7 +39,7 @@ export interface ApiAppointment {
   slotId?: string;
   appointmentDate: string;
   appointmentTime: string;
-  appointmentType: 'consultation' | 'test' | 'other';
+  appointmentType: 'consultation' | 'test' | 'treatment' | 'other';
   typeLocation: 'clinic' | 'home' | 'Online';
   address?: string;
   description?: string;
@@ -49,6 +49,19 @@ export interface ApiAppointment {
   totalAmount?: number;
   paymentStatus: 'unpaid' | 'paid' | 'partial' | 'refunded';
   paidAt?: string;
+  refund?: {
+    refundReason?: string;
+    processingStatus?: 'pending' | 'completed' | 'rejected';
+    refundInfo?: {
+      accountNumber: string;
+      accountHolderName: string;
+      bankName: string;
+      submittedAt: string;
+    };
+    processedBy?: string;
+    processedAt?: string;
+    processingNotes?: string;
+  };
   bookingType: 'new_package' | 'purchased_package' | 'service_only';
   packagePurchaseId?: string;
   expiresAt?: string;
@@ -93,7 +106,7 @@ export interface UnifiedAppointment {
   doctorSpecialization?: string;
   appointmentDate: string;
   appointmentTime: string;
-  appointmentType: 'consultation' | 'test' | 'online-consultation' | 'other';
+  appointmentType: 'consultation' | 'test' | 'treatment' | 'other';
   typeLocation: 'clinic' | 'home' | 'Online';
   address?: string;
   description: string;
@@ -102,6 +115,19 @@ export interface UnifiedAppointment {
   status: UnifiedStatus;
   totalAmount?: number;
   paymentStatus?: 'unpaid' | 'paid' | 'partial' | 'refunded';
+  refund?: {
+    refundReason?: string;
+    processingStatus?: 'pending' | 'completed' | 'rejected';
+    refundInfo?: {
+      accountNumber: string;
+      accountHolderName: string;
+      bankName: string;
+      submittedAt: string;
+    };
+    processedBy?: string;
+    processedAt?: string;
+    processingNotes?: string;
+  };
   bookingType?: 'new_package' | 'purchased_package' | 'service_only';
   createdAt: string;
   updatedAt: string;
@@ -156,9 +182,10 @@ export interface TestResultData {
   appointmentId: string;
   profileId: string;
   doctorId: string;
-  conclusion?: string;
+  diagnosis?: string;
   recommendations?: string;
   createdAt: string;
+  testResultItemsId: string[];
 }
 
 export interface TestResultResponse {

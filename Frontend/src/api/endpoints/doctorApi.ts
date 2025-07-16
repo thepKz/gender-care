@@ -40,7 +40,7 @@ export interface Doctor {
   _id: string;
   userId: DoctorInfo;
   bio?: string;
-  experience?: number;
+  experience?: string | number;
   rating?: number;
   image?: string;
   specialization?: string;
@@ -55,7 +55,7 @@ export interface Doctor {
 }
 
 // Backwards compatibility - alias cho IDoctor
-export interface IDoctor extends Doctor {}
+export interface IDoctor extends Doctor { }
 
 export interface DoctorSchedule {
   _id: string;
@@ -86,7 +86,7 @@ export interface CreateDoctorRequest {
   gender?: string;
   address?: string;
   bio?: string;
-  experience?: number;
+  experience?: string | number;
   image?: string;
   specialization?: string;
   education?: string;
@@ -95,7 +95,7 @@ export interface CreateDoctorRequest {
 
 export interface UpdateDoctorRequest {
   bio?: string;
-  experience?: number;
+  experience?: string | number;
   image?: string;
   specialization?: string;
   education?: string;
@@ -105,7 +105,7 @@ export interface UpdateDoctorRequest {
 // ===== CONSOLIDATED DOCTOR API =====
 export const doctorApi = {
   // ===== BASIC CRUD OPERATIONS =====
-  
+
   // Lấy tất cả bác sĩ (basic info)
   getAllDoctors: async (): Promise<Doctor[]> => {
     const response = await axiosInstance.get('/doctors');
@@ -203,7 +203,7 @@ export const doctorApi = {
     const params: any = {};
     if (date) params.date = date;
     if (timeSlot) params.timeSlot = timeSlot;
-    
+
     const response = await axiosInstance.get('/doctors/available', { params });
     return response.data;
   },
@@ -213,7 +213,7 @@ export const doctorApi = {
     const params = new URLSearchParams();
     if (date) params.append('date', date);
     if (timeSlot) params.append('timeSlot', timeSlot);
-    
+
     const endpoint = `/doctors/available${params.toString() ? '?' + params.toString() : ''}`;
     const response = await axiosInstance.get(endpoint);
     return response.data;
@@ -234,7 +234,7 @@ export const doctorApi = {
   },
 
   // ===== STAFF ONLY OPERATIONS =====
-  
+
   // Tạo lịch cho bác sĩ (staff only)
   createDoctorSchedule: async (id: string, scheduleData: { date: string }): Promise<DoctorSchedule> => {
     const response = await axiosInstance.post(`/doctors/${id}/schedules`, scheduleData);
@@ -284,7 +284,7 @@ export const doctorApi = {
   },
 
   // ===== ENHANCED DOCTOR IMAGE UPLOAD =====
-  
+
   /**
    * Upload doctor image to Cloudinary
    * Enhanced cho medical professional photos
@@ -302,6 +302,35 @@ export const doctorApi = {
         }
       }
     });
+    return response.data;
+  },
+
+  // 🆕 DOCTOR: Update own profile - Doctor can only update their own profile  
+  updateMyProfile: async (updateData: UpdateDoctorRequest): Promise<Doctor> => {
+    const response = await axiosInstance.put('/doctors/profile/me', updateData);
+    return response.data;
+  },
+
+  // 🆕 DOCTOR: Get own change requests status
+  getMyChangeRequests: async (): Promise<{
+    success: boolean;
+    message: string;
+    data: Array<{
+      _id: string;
+      changeType: 'bio' | 'specialization' | 'education' | 'certificate' | 'image' | 'experiences';
+      currentValue: any;
+      proposedValue: any;
+      status: 'pending' | 'approved' | 'rejected';
+      submittedAt: string;
+      reviewedAt?: string;
+      reviewComments?: string;
+      reviewedBy?: {
+        fullName: string;
+        email: string;
+      };
+    }>;
+  }> => {
+    const response = await axiosInstance.get('/doctors/profile/me/change-requests');
     return response.data;
   },
 };

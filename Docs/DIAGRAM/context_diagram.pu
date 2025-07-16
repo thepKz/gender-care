@@ -1,0 +1,36 @@
+@startuml context_diagram
+title Gender Healthcare System - Context Diagram (Simplified)
+
+left to right direction
+skinparam backgroundColor #ffffff
+skinparam dpi 300
+
+actor Guest
+actor Customer
+actor Consultant
+actor Staff
+actor Manager
+actor Admin
+actor PayOs
+
+rectangle "Gender Healthcare System" as GHS
+
+Guest --> GHS : View Public Info
+
+Customer --> GHS : Book Appointments\nMake Payments\nSend Feedback
+GHS --> Customer : Confirmations\nMedical Records
+
+Consultant --> GHS : Provide Consultations\nAccess Medical Data
+GHS --> Consultant : Appointment Info\nPatient History
+
+Staff --> GHS : Manage Appointments\nInput Test Results
+GHS --> Staff : Customer Bookings\nTest Requests
+
+Manager --> GHS : View Reports\nOversee Operations
+
+Admin --> GHS : User/System Management
+
+PayOs --> GHS : Payment Status
+GHS --> PayOs : Payment Requests
+
+@enduml

@@ -1,7 +1,5 @@
 import TestResultItems, { ITestResultItems } from '../models/TestResultItems';
-import TestResults from '../models/TestResults';
 import Appointments from '../models/Appointments';
-import { TestResultComparisonService } from './testResultComparisonService';
 import mongoose from 'mongoose';
 
 // Service class để xử lý business logic cho TestResultItems
@@ -30,8 +28,8 @@ export class TestResultItemsService {
     // Thực hiện query với pagination và populate thông tin liên quan
     const [testResultItems, total] = await Promise.all([
       TestResultItems.find(filter)
-        .populate('testResultId', 'conclusion recommendations')
-        .populate('itemNameId', 'name description unit normalRange')
+        .populate('appointmentId', 'appointmentDate appointmentTime serviceId')
+        .populate('testCategoryId', 'name description unit')
         .skip(skip)
         .limit(limit)
         .sort({ _id: -1 }),
@@ -46,15 +44,15 @@ export class TestResultItemsService {
     };
   }
 
-  // Lấy test result items theo test result ID
-  async getTestResultItemsByTestResultId(testResultId: string): Promise<ITestResultItems[]> {
+  // Lấy test result items theo appointment ID
+  async getTestResultItemsByAppointmentId(appointmentId: string): Promise<ITestResultItems[]> {
     // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(testResultId)) {
-      throw new Error('Invalid test result ID format');
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      throw new Error('Invalid appointment ID format');
     }
 
-    const testResultItems = await TestResultItems.find({ testResultId })
-      .populate('itemNameId', 'name description unit normalRange')
+    const testResultItems = await TestResultItems.find({ appointmentId })
+      .populate('testCategoryId', 'name description unit')
       .sort({ _id: 1 });
 
     return testResultItems;
@@ -69,13 +67,9 @@ export class TestResultItemsService {
 
     const testResultItem = await TestResultItems.findById(id)
       .populate({
-        path: 'testResultId',
-        select: 'conclusion recommendations appointmentId profileId doctorId',
+        path: 'appointmentId',
+        select: 'appointmentDate appointmentTime serviceId profileId doctorId',
         populate: [
-          {
-            path: 'appointmentId',
-            select: 'appointmentDate appointmentTime serviceId'
-          },
           {
             path: 'profileId',
             select: 'fullName gender'
@@ -90,7 +84,7 @@ export class TestResultItemsService {
           }
         ]
       })
-      .populate('itemNameId', 'name description unit normalRange');
+      .populate('testCategoryId', 'name description unit');
     
     if (!testResultItem) {
       throw new Error('Test result item not found');
@@ -99,109 +93,108 @@ export class TestResultItemsService {
     return testResultItem;
   }
 
-  // Tạo test result item mới (chỉ Doctor và Nursing Staff)
+  // Tạo test result item mới (dạng mới: lưu 1 document với mảng items)
   async createTestResultItem(data: {
-    testResultId: string;
-    itemNameId: string;
-    value: string;
-    unit?: string;
-    currentRange?: string;
-    flag?: "high" | "low" | "normal";
+    appointmentId: string;
+    items: Array<{
+      testCategoryId: string;
+      value: string;
+      unit?: string;
+      flag?: "very_low" | "low" | "normal" | "mild_high" | "high" | "critical";
+      message?: string;
+    }>;
   }, createdByRole: string): Promise<ITestResultItems> {
-    // Kiểm tra quyền hạn - chỉ doctor và nursing staff
-    if (!['doctor', 'nursing_staff'].includes(createdByRole)) {
-      throw new Error('Only doctors and nursing staff can create test result items');
+    // Kiểm tra quyền hạn - cho phép doctor, nursing staff, staff
+    if (!['doctor', 'nursing_staff', 'staff'].includes(createdByRole)) {
+      throw new Error('Only doctors, nursing staff, and staff can create test result items');
     }
 
     // Validate input data
-    if (!data.testResultId || !mongoose.Types.ObjectId.isValid(data.testResultId)) {
-      throw new Error('Valid test result ID is required');
+    if (!data.appointmentId || !mongoose.Types.ObjectId.isValid(data.appointmentId)) {
+      throw new Error('Valid appointment ID is required');
+    }
+    if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
+      throw new Error('At least one test result item is required');
     }
 
-    if (!data.itemNameId || !mongoose.Types.ObjectId.isValid(data.itemNameId)) {
-      throw new Error('Valid item name ID is required');
+    // Kiểm tra appointment có tồn tại không
+    const appointment = await Appointments.findById(data.appointmentId);
+    if (!appointment) {
+      throw new Error('Appointment not found');
     }
 
-    if (!data.value || data.value.trim().length === 0) {
-      throw new Error('Test result value is required');
-    }
-
-    // Kiểm tra test result có tồn tại không
-    const TestResults = (await import('../models/TestResults')).default;
-    const testResult = await TestResults.findById(data.testResultId);
-    
-    if (!testResult) {
-      throw new Error('Test result not found');
-    }
-
-    // Kiểm tra test category có tồn tại không
+    // Validate từng item
     const TestCategories = (await import('../models/TestCategories')).default;
-    const testCategory = await TestCategories.findById(data.itemNameId);
-    
-    if (!testCategory) {
-      throw new Error('Test category not found');
+    for (const item of data.items) {
+      if (!item.testCategoryId || !mongoose.Types.ObjectId.isValid(item.testCategoryId)) {
+        throw new Error(`Invalid test category ID: ${item.testCategoryId}`);
+      }
+      if (!item.value || item.value.trim().length === 0) {
+        throw new Error(`Value is required for item: ${item.testCategoryId}`);
+      }
+      const testCategory = await TestCategories.findById(item.testCategoryId);
+      if (!testCategory) {
+        throw new Error(`Test category not found: ${item.testCategoryId}`);
+      }
     }
 
-    // Kiểm tra không tạo duplicate item cho cùng test result và item name
-    const existingItem = await TestResultItems.findOne({
-      testResultId: data.testResultId,
-      itemNameId: data.itemNameId
-    });
-
-    if (existingItem) {
-      throw new Error('Test result item already exists for this test result and item');
-    }
-
-    // Auto-determine flag dựa trên normal range nếu không được provide
-    let flag = data.flag;
-    if (!flag && testCategory.normalRange && data.value) {
-      flag = this.determineFlag(data.value, testCategory.normalRange);
-    }
-
-    // Tạo test result item mới
+    // Tạo test result item mới (1 document, mảng items)
     const testResultItem = new TestResultItems({
-      testResultId: data.testResultId,
-      itemNameId: data.itemNameId,
-      value: data.value.trim(),
-      unit: data.unit?.trim() || testCategory.unit,
-      currentRange: data.currentRange?.trim() || testCategory.normalRange,
-      flag: flag || 'normal'
+      appointmentId: data.appointmentId,
+      items: data.items.map(item => ({
+        testCategoryId: item.testCategoryId,
+        value: item.value.trim(),
+        unit: item.unit?.trim(),
+        flag: item.flag || 'normal',
+        message: item.message?.trim()
+      }))
     });
 
-    return await testResultItem.save();
+    const savedItem = await testResultItem.save();
+
+    // Map vào testResult nếu có
+    const TestResults = (await import('../models/TestResults')).default;
+    await TestResults.updateOne(
+      { appointmentId: data.appointmentId },
+      { $addToSet: { testResultItemsId: savedItem._id } }
+    );
+
+    // Populate và return
+    const result = await TestResultItems.findById(savedItem._id)
+      .populate('items.testCategoryId', 'name description unit');
+    if (!result) throw new Error('Test result item not found');
+    return result;
   }
 
   // Tạo nhiều test result items cùng lúc
   async createMultipleTestResultItems(data: {
-    testResultId: string;
+    appointmentId: string;
     items: Array<{
-      itemNameId: string;
+      testCategoryId: string;
       value: string;
       unit?: string;
-      currentRange?: string;
-      flag?: "high" | "low" | "normal";
+      flag?: "very_low" | "low" | "normal" | "mild_high" | "high" | "critical";
+      message?: string;
     }>;
   }, createdByRole: string): Promise<ITestResultItems[]> {
-    // Kiểm tra quyền hạn - chỉ doctor và nursing staff
-    if (!['doctor', 'nursing_staff'].includes(createdByRole)) {
-      throw new Error('Only doctors and nursing staff can create test result items');
+    // Kiểm tra quyền hạn - cho phép doctor, nursing staff, staff
+    if (!['doctor', 'nursing_staff', 'staff'].includes(createdByRole)) {
+      throw new Error('Only doctors, nursing staff, and staff can create test result items');
     }
 
     // Validate input data
-    if (!data.testResultId || !mongoose.Types.ObjectId.isValid(data.testResultId)) {
-      throw new Error('Valid test result ID is required');
+    if (!data.appointmentId || !mongoose.Types.ObjectId.isValid(data.appointmentId)) {
+      throw new Error('Valid appointment ID is required');
     }
 
     if (!data.items || data.items.length === 0) {
       throw new Error('At least one test result item is required');
     }
 
-    // Kiểm tra test result có tồn tại không
-    const TestResults = (await import('../models/TestResults')).default;
-    const testResult = await TestResults.findById(data.testResultId);
-    
-    if (!testResult) {
-      throw new Error('Test result not found');
+    // Kiểm tra appointment có tồn tại không
+    const appointment = await Appointments.findById(data.appointmentId);
+    if (!appointment) {
+      throw new Error('Appointment not found');
     }
 
     // Validate từng item và prepare data
@@ -210,43 +203,37 @@ export class TestResultItemsService {
 
     for (const item of data.items) {
       // Validate item
-      if (!item.itemNameId || !mongoose.Types.ObjectId.isValid(item.itemNameId)) {
-        throw new Error(`Invalid item name ID: ${item.itemNameId}`);
+      if (!item.testCategoryId || !mongoose.Types.ObjectId.isValid(item.testCategoryId)) {
+        throw new Error(`Invalid test category ID: ${item.testCategoryId}`);
       }
 
       if (!item.value || item.value.trim().length === 0) {
-        throw new Error(`Value is required for item: ${item.itemNameId}`);
+        throw new Error(`Value is required for item: ${item.testCategoryId}`);
       }
 
       // Kiểm tra test category
-      const testCategory = await TestCategories.findById(item.itemNameId);
+      const testCategory = await TestCategories.findById(item.testCategoryId);
       if (!testCategory) {
-        throw new Error(`Test category not found: ${item.itemNameId}`);
+        throw new Error(`Test category not found: ${item.testCategoryId}`);
       }
 
       // Check duplicate
       const existingItem = await TestResultItems.findOne({
-        testResultId: data.testResultId,
-        itemNameId: item.itemNameId
+        appointmentId: data.appointmentId,
+        testCategoryId: item.testCategoryId
       });
 
       if (existingItem) {
         throw new Error(`Test result item already exists for item: ${testCategory.name}`);
       }
 
-      // Auto-determine flag
-      let flag = item.flag;
-      if (!flag && testCategory.normalRange && item.value) {
-        flag = this.determineFlag(item.value, testCategory.normalRange);
-      }
-
       preparedItems.push({
-        testResultId: data.testResultId,
-        itemNameId: item.itemNameId,
+        appointmentId: data.appointmentId,
+        testCategoryId: item.testCategoryId,
         value: item.value.trim(),
-        unit: item.unit?.trim() || testCategory.unit,
-        currentRange: item.currentRange?.trim() || testCategory.normalRange,
-        flag: flag || 'normal'
+        unit: item.unit?.trim(),
+        flag: item.flag || 'normal',
+        message: item.message?.trim()
       });
     }
 
@@ -257,66 +244,66 @@ export class TestResultItemsService {
     return await TestResultItems.find({ 
       _id: { $in: createdItems.map(item => item._id) } 
     })
-    .populate('itemNameId', 'name description unit normalRange');
+    .populate('testCategoryId', 'name description unit');
   }
 
-  // Cập nhật test result item
-  async updateTestResultItem(id: string, data: {
-    value?: string;
-    unit?: string;
-    currentRange?: string;
-    flag?: "high" | "low" | "normal";
-  }, updatedByRole: string): Promise<ITestResultItems> {
-    // Kiểm tra quyền hạn - chỉ doctor và nursing staff
-    if (!['doctor', 'nursing_staff'].includes(updatedByRole)) {
-      throw new Error('Only doctors and nursing staff can update test result items');
+  // Cập nhật test result item theo appointmentId và testCategoryId
+  async updateTestResultItemByCategory(
+    appointmentId: string, 
+    testCategoryId: string, 
+    data: {
+      value?: string;
+      unit?: string;
+      flag?: "very_low" | "low" | "normal" | "mild_high" | "high" | "critical";
+      message?: string;
+    }, 
+    updatedByRole: string
+  ): Promise<any> {
+    // Kiểm tra quyền hạn - cho phép doctor, nursing staff, staff
+    if (!['doctor', 'nursing_staff', 'staff'].includes(updatedByRole)) {
+      throw new Error('Only doctors, nursing staff, and staff can update test result items');
     }
 
-    // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new Error('Invalid test result item ID format');
+    // Validate ObjectId formats
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      throw new Error('Invalid appointment ID format');
     }
-
-    // Kiểm tra tồn tại
-    const existingItem = await TestResultItems.findById(id)
-      .populate('itemNameId', 'normalRange');
-    
-    if (!existingItem) {
-      throw new Error('Test result item not found');
+    if (!mongoose.Types.ObjectId.isValid(testCategoryId)) {
+      throw new Error('Invalid test category ID format');
     }
 
     // Prepare update data
-    const updateData: any = {};
-    if (data.value !== undefined) updateData.value = data.value.trim();
-    if (data.unit !== undefined) updateData.unit = data.unit?.trim();
-    if (data.currentRange !== undefined) updateData.currentRange = data.currentRange?.trim();
-    if (data.flag !== undefined) updateData.flag = data.flag;
+    const updateFields: any = {};
+    if (data.value !== undefined) updateFields['items.$.value'] = data.value.trim();
+    if (data.unit !== undefined) updateFields['items.$.unit'] = data.unit?.trim();
+    if (data.flag !== undefined) updateFields['items.$.flag'] = data.flag;
+    if (data.message !== undefined) updateFields['items.$.message'] = data.message?.trim();
 
-    // Auto-update flag nếu value thay đổi và không có flag mới
-    if (data.value && !data.flag && existingItem.itemNameId && 
-        (existingItem.itemNameId as any).normalRange) {
-      updateData.flag = this.determineFlag(data.value, (existingItem.itemNameId as any).normalRange);
+    // Update item trong mảng items theo appointmentId và testCategoryId
+    const result = await TestResultItems.updateOne(
+      { 
+        appointmentId: new mongoose.Types.ObjectId(appointmentId),
+        'items.testCategoryId': new mongoose.Types.ObjectId(testCategoryId)
+      },
+      { $set: updateFields }
+    );
+
+    if (result.matchedCount === 0) {
+      throw new Error('Test result item not found');
     }
 
-    // Thực hiện update
-    const updatedItem = await TestResultItems.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    ).populate('itemNameId', 'name description unit normalRange');
+    // Lấy lại document đã update để return
+    const updatedDocument = await TestResultItems.findOne({ appointmentId })
+      .populate('items.testCategoryId', 'name description unit');
 
-    if (!updatedItem) {
-      throw new Error('Failed to update test result item');
-    }
-
-    return updatedItem;
+    return updatedDocument;
   }
 
   // Xóa test result item
   async deleteTestResultItem(id: string, deletedByRole: string): Promise<void> {
-    // Kiểm tra quyền hạn - chỉ doctor và nursing staff
-    if (!['doctor', 'nursing_staff'].includes(deletedByRole)) {
-      throw new Error('Only doctors and nursing staff can delete test result items');
+    // Kiểm tra quyền hạn
+    if (!['doctor', 'nursing_staff', 'staff'].includes(deletedByRole)) {
+      throw new Error('Only doctors, nursing staff, and staff can delete test result items');
     }
 
     // Validate ObjectId format
@@ -324,15 +311,21 @@ export class TestResultItemsService {
       throw new Error('Invalid test result item ID format');
     }
 
-    // Thực hiện xóa
-    const deletedItem = await TestResultItems.findByIdAndDelete(id);
-    if (!deletedItem) {
-      throw new Error('Test result item not found or already deleted');
+    // Xóa khỏi testResultItemsId trong TestResults
+    const TestResults = (await import('../models/TestResults')).default;
+    await TestResults.updateMany(
+      { testResultItemsId: id },
+      { $pull: { testResultItemsId: id } }
+    );
+
+    const result = await TestResultItems.findByIdAndDelete(id);
+    if (!result) {
+      throw new Error('Test result item not found');
     }
   }
 
-  // Lấy summary của test result items theo test result
-  async getTestResultItemsSummary(testResultId: string): Promise<{
+  // Lấy summary của test result items theo appointment
+  async getTestResultItemsSummary(appointmentId: string): Promise<{
     totalItems: number;
     normalCount: number;
     highCount: number;
@@ -340,13 +333,13 @@ export class TestResultItemsService {
     abnormalPercentage: number;
   }> {
     // Validate ObjectId format
-    if (!mongoose.Types.ObjectId.isValid(testResultId)) {
-      throw new Error('Invalid test result ID format');
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
+      throw new Error('Invalid appointment ID format');
     }
 
     const summary = await TestResultItems.aggregate([
       {
-        $match: { testResultId: new mongoose.Types.ObjectId(testResultId) }
+        $match: { appointmentId: new mongoose.Types.ObjectId(appointmentId) }
       },
       {
         $group: {
@@ -356,10 +349,10 @@ export class TestResultItemsService {
             $sum: { $cond: [{ $eq: ['$flag', 'normal'] }, 1, 0] }
           },
           highCount: {
-            $sum: { $cond: [{ $eq: ['$flag', 'high'] }, 1, 0] }
+            $sum: { $cond: [{ $in: ['$flag', ['high', 'mild_high', 'critical']] }, 1, 0] }
           },
           lowCount: {
-            $sum: { $cond: [{ $eq: ['$flag', 'low'] }, 1, 0] }
+            $sum: { $cond: [{ $in: ['$flag', ['low', 'very_low']] }, 1, 0] }
           }
         }
       }
@@ -372,6 +365,7 @@ export class TestResultItemsService {
       lowCount: 0
     };
 
+    // Tính abnormal percentage (bao gồm cả high và low)
     const abnormalCount = result.highCount + result.lowCount;
     const abnormalPercentage = result.totalItems > 0 
       ? Math.round((abnormalCount / result.totalItems) * 100 * 100) / 100
@@ -383,209 +377,46 @@ export class TestResultItemsService {
     };
   }
 
-  // Helper function để xác định flag dựa trên normal range
-  private determineFlag(value: string, normalRange: string): "high" | "low" | "normal" {
-    // Parse numeric value
-    const numericValue = parseFloat(value);
-    if (isNaN(numericValue)) {
-      return 'normal'; // Default cho non-numeric values
-    }
-
-    // Parse normal range (ví dụ: "10-20", "<5", ">100")
-    if (normalRange.includes('-')) {
-      const [min, max] = normalRange.split('-').map(v => parseFloat(v.trim()));
-      if (!isNaN(min) && !isNaN(max)) {
-        if (numericValue < min) return 'low';
-        if (numericValue > max) return 'high';
-        return 'normal';
-      }
-    } else if (normalRange.startsWith('<')) {
-      const threshold = parseFloat(normalRange.substring(1).trim());
-      if (!isNaN(threshold)) {
-        return numericValue >= threshold ? 'high' : 'normal';
-      }
-    } else if (normalRange.startsWith('>')) {
-      const threshold = parseFloat(normalRange.substring(1).trim());
-      if (!isNaN(threshold)) {
-        return numericValue <= threshold ? 'low' : 'normal';
-      }
-    }
-
-    return 'normal'; // Default fallback
-  }
-
-  // Tạo test result item với auto-evaluation dựa trên service custom range
-  async createTestResultItemWithAutoEvaluation(data: {
-    testResultId: string;
-    itemNameId: string;
-    value: string;
-    unit?: string;
-    currentRange?: string;
-  }, createdByRole: string): Promise<ITestResultItems> {
-    // Check permissions
-    if (!['doctor', 'nursing_staff'].includes(createdByRole)) {
-      throw new Error('Only doctors and nursing staff can create test result items');
-    }
-
-    // Validate input
-    if (!data.testResultId || !mongoose.Types.ObjectId.isValid(data.testResultId)) {
-      throw new Error('Valid test result ID is required');
-    }
-    if (!data.itemNameId || !mongoose.Types.ObjectId.isValid(data.itemNameId)) {
-      throw new Error('Valid item name ID is required');
-    }
-    if (!data.value || data.value.trim() === '') {
-      throw new Error('Value is required');
-    }
-
-    // Lấy test result để biết serviceId
-    const testResult = await TestResults.findById(data.testResultId)
-      .populate('appointmentId');
-    
-    if (!testResult) {
-      throw new Error('Test result not found');
-    }
-
-    const appointment = testResult.appointmentId as any;
-    if (!appointment || !appointment.serviceId) {
-      throw new Error('Appointment or service not found');
-    }
-
-    // Auto-evaluate dựa trên service custom range
-    const evaluation = await TestResultComparisonService.autoEvaluateTestResult(
-      appointment.serviceId.toString(),
-      data.itemNameId,
-      data.value
-    );
-
-    // Tạo test result item với auto-evaluated data
-    const testResultItem = new TestResultItems({
-      testResultId: data.testResultId,
-      itemNameId: data.itemNameId,
-      value: data.value.trim(),
-      unit: data.unit?.trim() || evaluation?.effectiveUnit || '',
-      currentRange: data.currentRange?.trim() || evaluation?.effectiveRange || '',
-      flag: evaluation?.flag || 'normal'
-    });
-
-    const savedItem = await testResultItem.save();
-
-    // Populate và return
-    return await TestResultItems.findById(savedItem._id)
-      .populate('itemNameId', 'name description unit normalRange') as ITestResultItems;
-  }
-
-  // Bulk create với auto-evaluation dựa trên service custom range
-  async createMultipleTestResultItemsWithAutoEvaluation(data: {
-    testResultId: string;
-    items: Array<{
-      itemNameId: string;
-      value: string;
-      unit?: string;
-      currentRange?: string;
-    }>;
-  }, createdByRole: string): Promise<ITestResultItems[]> {
-    // Check permissions
-    if (!['doctor', 'nursing_staff'].includes(createdByRole)) {
-      throw new Error('Only doctors and nursing staff can create test result items');
-    }
-
-    // Validate input
-    if (!data.testResultId || !mongoose.Types.ObjectId.isValid(data.testResultId)) {
-      throw new Error('Valid test result ID is required');
-    }
-    if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
-      throw new Error('Items array is required and cannot be empty');
-    }
-
-    // Lấy test result để biết serviceId
-    const testResult = await TestResults.findById(data.testResultId)
-      .populate('appointmentId');
-    
-    if (!testResult) {
-      throw new Error('Test result not found');
-    }
-
-    const appointment = testResult.appointmentId as any;
-    if (!appointment || !appointment.serviceId) {
-      throw new Error('Appointment or service not found');
-    }
-
-    // Validate từng item
-    const TestCategories = (await import('../models/TestCategories')).default;
-    for (const item of data.items) {
-      if (!item.itemNameId || !mongoose.Types.ObjectId.isValid(item.itemNameId)) {
-        throw new Error(`Invalid item name ID: ${item.itemNameId}`);
-      }
-      if (!item.value || item.value.trim().length === 0) {
-        throw new Error(`Value is required for item: ${item.itemNameId}`);
-      }
-
-      // Check if test category exists
-      const testCategory = await TestCategories.findById(item.itemNameId);
-      if (!testCategory) {
-        throw new Error(`Test category not found: ${item.itemNameId}`);
-      }
-
-      // Check duplicate
-      const existingItem = await TestResultItems.findOne({
-        testResultId: data.testResultId,
-        itemNameId: item.itemNameId
-      });
-      if (existingItem) {
-        throw new Error(`Test result item already exists for item: ${testCategory.name}`);
-      }
-    }
-
-    // Bulk auto-evaluate tất cả items
-    const evaluations = await TestResultComparisonService.bulkAutoEvaluate(
-      appointment.serviceId.toString(),
-      data.items.map(item => ({
-        testCategoryId: item.itemNameId,
-        value: item.value
-      }))
-    );
-
-    // Tạo test result items với auto-evaluated data
-    const testResultItemsData = data.items.map((item, index) => {
-      const evaluation = evaluations[index];
-      
-      return {
-        testResultId: data.testResultId,
-        itemNameId: item.itemNameId,
-        value: item.value.trim(),
-        unit: item.unit?.trim() || evaluation?.effectiveUnit || '',
-        currentRange: item.currentRange?.trim() || evaluation?.effectiveRange || '',
-        flag: evaluation?.flag || 'normal'
-      };
-    });
-
-    const createdItems = await TestResultItems.insertMany(testResultItemsData);
-
-    // Populate và return
-    return await TestResultItems.find({ 
-      _id: { $in: createdItems.map(item => item._id) } 
-    }).populate('itemNameId', 'name description unit normalRange');
-  }
-
-  // Lấy template cho service để nhập kết quả xét nghiệm
+  // Lấy template cho service
   async getTestResultTemplateForService(serviceId: string): Promise<any> {
+    // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(serviceId)) {
-      throw new Error('Invalid service ID');
+      throw new Error('Invalid service ID format');
     }
 
-    return await TestResultComparisonService.getTestResultTemplate(serviceId);
-  }
+    const ServiceTestCategories = (await import('../models/ServiceTestCategories')).default;
+    const Service = (await import('../models/Service')).default;
 
-  // Auto-evaluate một giá trị dựa trên service custom range
-  async autoEvaluateValue(serviceId: string, testCategoryId: string, value: string): Promise<any> {
-    if (!mongoose.Types.ObjectId.isValid(serviceId)) {
-      throw new Error('Invalid service ID');
-    }
-    if (!mongoose.Types.ObjectId.isValid(testCategoryId)) {
-      throw new Error('Invalid test category ID');
+    // Lấy thông tin service
+    const service = await Service.findById(serviceId);
+    if (!service) {
+      throw new Error('Service not found');
     }
 
-    return await TestResultComparisonService.autoEvaluateTestResult(serviceId, testCategoryId, value);
+    // Lấy test categories cho service
+    const serviceTestCategories = await ServiceTestCategories.find({ serviceId })
+      .populate('testCategoryId', 'name description unit')
+      .sort({ 'testCategoryId.name': 1 });
+
+    if (serviceTestCategories.length === 0) {
+      return null;
+    }
+
+    return {
+      serviceId: service._id,
+      serviceName: service.serviceName,
+      testCategories: serviceTestCategories.map(stc => {
+        const testCategory = stc.testCategoryId as any; // Type assertion for populated field
+        return {
+          _id: testCategory._id,
+          name: testCategory.name,
+          targetValue: stc.targetValue,
+          minValue: stc.minValue,
+          maxValue: stc.maxValue,
+          thresholdRules: stc.thresholdRules,
+          unit: stc.unit || testCategory.unit
+        };
+      })
+    };
   }
 } 

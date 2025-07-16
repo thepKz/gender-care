@@ -4,7 +4,7 @@ export interface ICycleDays {
   _id?: string;
   cycleId: mongoose.Types.ObjectId;
   date: Date;
-  mucusObservation?: string; // "có máu", "lấm tấm máu", "đục", "đục nhiều sợi", "trong nhiều sợi", "trong và âm hộ căng", "dầy", "ít chất tiết"
+  mucusObservation?: string; // "có máu", "lấm tấm máu", "đục", "đục nhiều sợi", "trong nhiều sợi", "trong và ÂH căng", "dầy", "ít chất tiết"
   feeling?: string; // "ướt", "dính", "ẩm", "khô", "trơn"
   isPeakDay: boolean; // true nếu là ngày X
   peakDayRelative?: number; // 0: ngày X, 1-3: sau X, -1/-2: trước X
@@ -28,7 +28,7 @@ export const MUCUS_OBSERVATIONS = [
   'đục',
   'đục nhiều sợi',
   'trong nhiều sợi',
-  'trong và âm hộ căng',
+  'trong và ÂH căng',
   'dầy',
   'ít chất tiết'
 ] as const;
@@ -44,11 +44,11 @@ export const FEELINGS = [
 // Validation rules theo phương pháp Billings
 export const MUCUS_FEELING_RULES: Record<string, string[]> = {
   'có máu': ['ướt'],
-  'lấm tấm máu': ['ướt'],
+  'lấm tấm máu': ['ướt', 'khô'],
   'đục nhiều sợi': ['ướt', 'trơn'],
   'trong nhiều sợi': ['ướt', 'trơn'],
-  'đục': ['dính', 'ẩm'],
-  'trong và âm hộ căng': ['trơn'],
+  'đục': ['dính', 'ẩm', 'khô'],
+  'trong và ÂH căng': ['trơn'],
   'ít chất tiết': ['ẩm', 'ướt']
 };
 
@@ -121,9 +121,7 @@ const CycleDaysSchema = new mongoose.Schema<ICycleDays>({
   },
   year: {
     type: Number,
-    required: true,
-    min: 2020,
-    max: 2050
+    required: true
   }
 }, {
   timestamps: true,

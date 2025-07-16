@@ -20,7 +20,25 @@ import {
   SaveOutlined,
   ExclamationCircleOutlined
 } from '@ant-design/icons';
-import { DoctorMeetingFormData, MeetingInputForm } from '../../../shared/mockData/consultationMockData';
+
+// Định nghĩa các interface thay thế cho mockData
+export interface MeetingInputForm {
+  patientName: string;
+  appointmentTime: string;
+  meetingLink: string;
+  status: string;
+  participantCount: number;
+  scheduledTime: string;
+  notes?: string;
+  maxParticipants?: number;
+  actualStartTime?: string;
+}
+
+export interface DoctorMeetingFormData {
+  notes: string;
+  maxParticipants: number;
+  actualStartTime: string;
+}
 
 const { TextArea } = Input;
 
@@ -221,7 +239,6 @@ const MeetingManagementForm: React.FC<MeetingManagementFormProps> = ({
           <Form.Item
             label="👥 Số người tham gia tối đa"
             name="maxParticipants"
-            help="Giới hạn số người có thể tham gia meeting (2-10)"
             rules={[
               { required: true, message: 'Vui lòng nhập số người tham gia tối đa' },
               { type: 'number', min: 2, max: 10, message: 'Số người phải từ 2 đến 10' }

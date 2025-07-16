@@ -2,6 +2,8 @@ import Meeting from '../models/Meeting';
 import DoctorQA from '../models/DoctorQA';
 import mongoose from 'mongoose';
 import googleCalendarService from './googleCalendarService';
+import { sendCustomerMeetingInviteEmail } from './emails';
+import { generateMeetingPassword } from '../utils/passwordGenerator';
 
 // Interface for creating meeting - UPDATED for simplified model
 interface CreateMeetingData {
@@ -121,12 +123,17 @@ export const createMeeting = async (data: CreateMeetingData) => {
       duration
     });
 
-    // Tạo meeting record với simplified model
+    // ➕ ADD: Generate secure meeting password
+    const meetingPassword = generateMeetingPassword();
+    console.log(`🔐 [CREATE-MEETING] Generated password: ${meetingPassword} for QA: ${qaId}`);
+
+    // Tạo meeting record với simplified model + password
     const newMeeting = new Meeting({
       qaId,
       doctorId,
       userId,
       meetingLink: meetingData.meetLink,
+      meetingPassword,           // ➕ ADD password field
       provider,
       scheduledTime,
       status: 'scheduled',
@@ -215,7 +222,7 @@ export const updateMeetingLink = async (qaId: string, newMeetLink: string) => {
 };
 
 /**
- * Participant join meeting notification - UPDATED for simplified model
+ * Participant join meeting notification - UPDATED for proper status workflow
  */
 export const participantJoinMeeting = async (
   qaId: string, 
@@ -232,23 +239,34 @@ export const participantJoinMeeting = async (
       throw new Error('Không tìm thấy meeting');
     }
 
-    // Increment participant count
-    meeting.participantCount = Math.min(meeting.participantCount + 1, meeting.maxParticipants);
+    console.log(`🎯 [JOIN-MEETING] ${participantType} joining meeting. Current status: ${meeting.status}, participantCount: ${meeting.participantCount}`);
 
-    // Nếu có participant join và meeting chưa bắt đầu → set actualStartTime
-    if (meeting.status === 'scheduled') {
-      meeting.status = 'in_progress';
-      meeting.actualStartTime = new Date();
-      
-      // Cập nhật DoctorQA status
-      await DoctorQA.findByIdAndUpdate(qaId, {
-        status: 'consulting'
-      });
+    // Logic theo workflow mới
+    if (participantType === 'doctor') {
+      // Doctor join meeting first
+      if (meeting.status === 'scheduled') {
+        meeting.status = 'waiting_customer';
+        meeting.participantCount = 1;
+        meeting.actualStartTime = new Date();
+        console.log(`🎯 [DOCTOR-JOIN] Doctor joined first → status: waiting_customer`);
+      }
+    } else if (participantType === 'user') {
+      // Customer join meeting
+      if (meeting.status === 'waiting_customer' || meeting.status === 'invite_sent') {
+        meeting.status = 'in_progress';
+        meeting.participantCount = 2;
+        
+        // Cập nhật DoctorQA status
+        await DoctorQA.findByIdAndUpdate(qaId, {
+          status: 'consulting'
+        });
+        console.log(`🎯 [CUSTOMER-JOIN] Customer joined → status: in_progress`);
+      }
     }
 
     await meeting.save();
 
-    console.log(`✅ Participant ${participantType} joined meeting:`, qaId);
+    console.log(`✅ [JOIN-MEETING] ${participantType} joined. New status: ${meeting.status}, participantCount: ${meeting.participantCount}`);
     return meeting;
   } catch (error: any) {
     console.error('Error participant joining meeting:', error);
@@ -332,5 +350,176 @@ export const getMeetingsByUserId = async (userId: string) => {
   } catch (error: any) {
     console.error('Error getting meetings by userId:', error);
     throw new Error(`Lỗi lấy meetings của user: ${error.message}`);
+  }
+};
+
+/**
+ * ➕ ADD: Simple API to update meeting status when doctor joins
+ */
+export const updateMeetingStatusToDoctorJoined = async (qaId: string, doctorUserId: string) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(qaId)) {
+      throw new Error('QA ID không hợp lệ');
+    }
+
+    // Lấy meeting
+    const meeting = await Meeting.findOne({ qaId });
+    if (!meeting) {
+      throw new Error('Không tìm thấy meeting');
+    }
+
+    // ✅ Validate doctor authority
+    const Doctor = require('../models/Doctor').default;
+    const doctorRecord = await Doctor.findOne({ userId: doctorUserId });
+    
+    if (!doctorRecord) {
+      throw new Error('Không tìm thấy thông tin doctor');
+    }
+
+    if (meeting.doctorId.toString() !== doctorRecord._id.toString()) {
+      throw new Error('Bạn không có quyền update meeting này');
+    }
+
+    console.log(`🎯 [UPDATE-STATUS] Doctor joining meeting. Current status: ${meeting.status}`);
+
+    // ✅ Update status từ scheduled → waiting_customer
+    if (meeting.status === 'scheduled') {
+      meeting.status = 'waiting_customer';
+      meeting.participantCount = 1;
+      meeting.actualStartTime = new Date();
+      
+      await meeting.save();
+      
+      console.log(`✅ [UPDATE-STATUS] Meeting status updated: scheduled → waiting_customer`);
+      console.log(`✅ [UPDATE-STATUS] ParticipantCount: 0 → 1`);
+      
+      return {
+        success: true,
+        meetingId: meeting._id,
+        oldStatus: 'scheduled',
+        newStatus: 'waiting_customer',
+        participantCount: 1,
+        message: 'Doctor đã tham gia meeting. Giờ có thể gửi thư mời cho customer!'
+      };
+    } else {
+      console.log(`ℹ️ [UPDATE-STATUS] Meeting already in status: ${meeting.status}`);
+      return {
+        success: true,
+        meetingId: meeting._id,
+        oldStatus: meeting.status,
+        newStatus: meeting.status,
+        participantCount: meeting.participantCount,
+        message: `Meeting đã ở status: ${meeting.status}`
+      };
+    }
+
+  } catch (error: any) {
+    console.error('❌ [UPDATE-STATUS] Error updating meeting status:', error);
+    throw new Error(`Lỗi update meeting status: ${error.message}`);
+  }
+};
+
+/**
+ * ➕ ADD: Send customer meeting invite với password
+ */
+export const sendCustomerInvite = async (qaId: string, doctorId: string) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(qaId) || !mongoose.Types.ObjectId.isValid(doctorId)) {
+      throw new Error('QA ID hoặc Doctor ID không hợp lệ');
+    }
+
+    // ✅ FIX: Lấy meeting với đầy đủ thông tin populated - populate nested để lấy doctor name
+    const meeting = await Meeting.findOne({ qaId })
+      .populate({
+        path: 'doctorId',
+        select: 'userId specialization',
+        populate: {
+          path: 'userId',
+          select: 'fullName email'
+        }
+      })
+      .populate('userId', 'fullName email phone')
+      .populate('qaId', 'fullName phone question status');
+
+    if (!meeting) {
+      throw new Error('Không tìm thấy meeting');
+    }
+
+    // Kiểm tra meeting có password không
+    if (!meeting.meetingPassword) {
+      throw new Error('Meeting chưa có password được tạo');
+    }
+
+    // ✅ FIX: Kiểm tra doctor authorization đúng cách
+    // doctorId từ frontend là userId, cần check qua Doctor.userId
+    const Doctor = require('../models/Doctor').default;
+    const doctorRecord = await Doctor.findOne({ userId: doctorId });
+    
+    if (!doctorRecord) {
+      throw new Error('Không tìm thấy thông tin doctor');
+    }
+
+    if (meeting.doctorId._id.toString() !== doctorRecord._id.toString()) {
+      throw new Error('Bạn không có quyền gửi invite cho meeting này');
+    }
+    
+    console.log(`✅ [AUTH-CHECK] Doctor authorized: userId=${doctorId}, doctorId=${doctorRecord._id}`);
+
+    // Kiểm tra status meeting - chỉ cho phép gửi khi status = waiting_customer
+    if (meeting.status !== 'waiting_customer') {
+      throw new Error(`⚠️ Bác sĩ cần chuẩn bị meeting trước khi gửi thư mời:\n\n✅ 1. Nhấn "Tham gia Meeting" để xác nhận tham gia\n✅ 2. Kiểm tra thiết bị (camera, micro, mạng)\n✅ 3. Chuẩn bị phần mềm ghi hình\n✅ 4. Sau đó mới có thể gửi thư mời cho khách hàng\n\n📋 `);
+    }
+
+    // Extract thông tin cần thiết
+    const customerData = meeting.userId as any;
+    const doctorData = meeting.doctorId as any;
+    const qaData = meeting.qaId as any;
+
+    // ✅ FIX: Safely extract doctor name từ nested populate
+    const doctorName = doctorData?.userId?.fullName || doctorData?.fullName || 'Bác sĩ';
+    
+    console.log(`📧 [DEBUG] Doctor info:`, {
+      doctorData: doctorData,
+      doctorName,
+      hasUserId: !!doctorData?.userId,
+      userIdName: doctorData?.userId?.fullName
+    });
+
+    // Gửi email invite
+    await sendCustomerMeetingInviteEmail(
+      customerData.email,
+      customerData.fullName,
+      customerData.phone || qaData.phone,
+      doctorName,  // ✅ FIX: Use safely extracted doctorName
+      meeting.meetingLink,
+      meeting.meetingPassword,
+      meeting.scheduledTime,
+      qaData.question
+    );
+
+    // ✅ Update meeting status để tránh spam - waiting_customer → invite_sent
+    meeting.status = 'invite_sent';
+    await meeting.save();
+
+    console.log(`📧 [INVITE-SENT] Customer meeting invite sent for meeting: ${meeting._id}`);
+    console.log(`   Customer: ${customerData.fullName} (${customerData.email})`);
+    console.log(`   Doctor: ${doctorName}`);  // ✅ FIX: Use safely extracted doctorName
+    console.log(`   Password: ${meeting.meetingPassword}`);
+    console.log(`✅ [STATUS-UPDATE] Meeting status updated: waiting_customer → invite_sent`);
+
+    return {
+      success: true,
+      meetingId: meeting._id,
+      customerEmail: customerData.email,
+      customerName: customerData.fullName,
+      doctorName: doctorName,  // ✅ FIX: Use safely extracted doctorName
+      meetingPassword: meeting.meetingPassword,
+      sentAt: new Date(),
+      newStatus: 'invite_sent'
+    };
+
+  } catch (error: any) {
+    console.error('Error sending customer invite:', error);
+    throw new Error(`${error.message}`);
   }
 }; 

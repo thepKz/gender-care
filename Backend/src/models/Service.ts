@@ -19,12 +19,6 @@ const ServiceSchema: Schema = new Schema({
     required: [true, 'Description is required'],
     trim: true
   },
-  duration: {
-    type: Number,
-    required: [true, 'Duration is required'],
-    min: [1, 'Duration must be at least 1 minute'],
-    default: 30
-  },
   isDeleted: {
     type: Number,
     default: 0,

@@ -144,10 +144,6 @@ const ServicePackageDisplayCard: React.FC<ServicePackageDisplayCardProps> = ({
               </div>
             </div>
           </div>
-          {/* Hover Effect Indicator */}
-          <div className="text-center mb-2">
-            <span className="text-xs text-gray-400">Nhấp để xem chi tiết</span>
-          </div>
           {/* Nút Mua ngay */}
           <div className="mt-auto flex justify-center">
             <button
@@ -155,10 +151,10 @@ const ServicePackageDisplayCard: React.FC<ServicePackageDisplayCardProps> = ({
               className="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-full transition-all duration-200 text-sm"
               onClick={e => {
                 e.stopPropagation();
-                if (onPurchaseClick) onPurchaseClick(servicePackage);
+                setIsModalVisible(true); // Luôn mở modal chi tiết
               }}
             >
-              Mua ngay
+              Nhấp để xem chi tiết →
             </button>
           </div>
         </div>

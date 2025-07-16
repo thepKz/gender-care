@@ -35,8 +35,9 @@ interface TestResultData {
     appointmentId: string;
     profileId: string;
     doctorId: string;
-    conclusion?: string;
+    diagnosis?: string;
     recommendations?: string;
+    testResultItemsId: string[];
 }
 
 export const appointmentApi = {
@@ -157,7 +158,7 @@ export const appointmentApi = {
     },
 
     // Cập nhật trạng thái cuộc hẹn - Updated với đầy đủ status
-    updateAppointmentStatus: async (id: string, status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled') => {
+    updateAppointmentStatus: async (id: string, status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'done_testResultItem' | 'done_testResult') => {
         const response = await axiosInstance.put(`/appointments/${id}/status`, { status });
         return response.data;
     },
@@ -189,7 +190,7 @@ export const appointmentApi = {
     },
 
     // Kiểm tra xem appointment đã có test result chưa
-    checkTestResultExists: async (appointmentId: string) => {
+    checkTestResultsByAppointment: async (appointmentId: string) => {
         const response = await axiosInstance.get(`/test-results/check/${appointmentId}`);
         return response.data;
     },
@@ -201,7 +202,7 @@ export const appointmentApi = {
     },
 
     // Cập nhật test result
-    updateTestResult: async (testResultId: string, data: { conclusion?: string; recommendations?: string }) => {
+    updateTestResult: async (testResultId: string, data: { diagnosis?: string; recommendations?: string }) => {
         const response = await axiosInstance.put(`/test-results/${testResultId}`, data);
         return response.data;
     },
@@ -223,6 +224,38 @@ export const appointmentApi = {
     // Lấy thống kê test results theo tháng
     getTestResultStats: async (year: number, month: number) => {
         const response = await axiosInstance.get(`/test-results/stats/${year}/${month}`);
+        return response.data;
+    },
+
+    // ➕ NEW: Lấy danh sách appointments của user hiện tại (chỉ appointments)
+    getUserAppointments: (filters?: AppointmentFilters) => {
+        return axiosInstance.get('/appointments/user', { params: filters });
+    },
+
+    // ➕ NEW: Lấy toàn bộ lịch sử đặt lịch của user (appointments + consultations)
+    getUserBookingHistory: (filters?: AppointmentFilters & { serviceType?: 'appointment' | 'consultation' | 'all' }) => {
+        return axiosInstance.get('/appointments/booking-history', { params: filters });
+    },
+
+    // Fast confirm payment (for PayOS return URLs)
+    fastConfirmPayment: async (data: { appointmentId: string; orderCode: string; status: string }) => {
+        return axiosInstance.post(`/payments/appointments/${data.appointmentId}/fast-confirm`, {
+            orderCode: data.orderCode,
+            status: data.status
+        });
+    },
+
+    // Cancel appointment with refund (24h rule)
+    cancelAppointmentWithRefund: async (id: string, reason: string, refundInfo?: {
+        accountNumber: string;
+        accountHolderName: string;
+        bankName: string;
+        reason?: string;
+    }) => {
+        const response = await axiosInstance.put(`/appointments/${id}/cancel-with-refund`, { 
+            reason,
+            refundInfo 
+        });
         return response.data;
     }
 };

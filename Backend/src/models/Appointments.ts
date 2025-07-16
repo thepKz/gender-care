@@ -1,6 +1,6 @@
-import mongoose from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 
-export interface IAppointments {
+export interface IAppointments extends Document {
   createdByUserId: mongoose.Types.ObjectId;
   profileId: mongoose.Types.ObjectId;
   packageId?: mongoose.Types.ObjectId;
@@ -9,12 +9,12 @@ export interface IAppointments {
   slotId?: mongoose.Types.ObjectId; // embedded document reference
   appointmentDate: Date;
   appointmentTime: string; // "8:00", "9:00"
-  appointmentType: "consultation" | "test" | "other";
+  appointmentType: "consultation" | "test" | "treatment" | "other";
   typeLocation: "clinic" | "home" | "Online";
   address?: string;
   description?: string;
   notes?: string;
-  status: "pending_payment" | "pending" | "scheduled" | "confirmed" | "consulting" | "completed" | "cancelled" | "payment_cancelled" | "expired";
+  status: "pending_payment" | "pending" | "scheduled" | "confirmed" | "consulting" | "completed" | "cancelled" | "payment_cancelled" | "expired" | "done_testResultItem" | "done_testResult";
   totalAmount?: number; // Total amount for payment
   paymentStatus?: "unpaid" | "paid" | "partial" | "refunded";
   paidAt?: Date; // Timestamp when payment was completed
@@ -22,6 +22,7 @@ export interface IAppointments {
   packagePurchaseId?: mongoose.Types.ObjectId; // Reference đến package đã mua (cho purchased_package)
   expiresAt?: Date; // Thời gian hết hạn cho pending appointments (15 phút)
   paymentLinkId?: string; // PayOS order code/payment link ID
+  paymentTrackingId?: mongoose.Types.ObjectId; // ✅ REPLACE: billId → paymentTrackingId
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -62,7 +63,7 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   appointmentType: {
     type: String,
-    enum: ["consultation", "test", "other"],
+    enum: ["consultation", "test", "treatment", "other"],
     required: true
   },
   typeLocation: {
@@ -110,6 +111,11 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   paymentLinkId: {
     type: String
+  },
+  paymentTrackingId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PaymentTracking',
+    default: null
   }
 }, { timestamps: true });
 

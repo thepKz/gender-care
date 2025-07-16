@@ -25,6 +25,7 @@ import {
     servicePackageRoutes,
     serviceRoutes,
     serviceTestCategoriesRoutes,
+    staffRoutes,
     systemLogRoutes,
     testCategoriesRoutes,
     testResultItemsRoutes,
@@ -33,6 +34,8 @@ import {
     userRoutes
 } from "./routes";
 import consultationRoutes from './routes/consultationRoutes';
+import reportsRoutes from './routes/reportsRoutes';
+import refundRoutes from './routes/refundRoutes';
 
 import { runAllSeeds } from "./seeds";
 import { startAutoTransitionService } from './services/appointmentAutoTransitionService';
@@ -207,6 +210,24 @@ const connectDB = async () => {
 
 connectDB();
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime()
+  });
+});
+
+// Test endpoint mà không cần auth
+app.get('/api/test', (req, res) => {
+  res.json({
+    message: 'API is working',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Thiết lập routes
 const apiRouter = express.Router();
 app.use('/api', apiRouter);
@@ -216,6 +237,7 @@ apiRouter.use('/users', userRoutes);
 apiRouter.use('/login-history', loginHistoryRoutes);
 apiRouter.use('/dashboard', dashboardRoutes);
 apiRouter.use('/doctors', doctorRoutes);
+apiRouter.use('/staff', staffRoutes);
 apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
 apiRouter.use('/service-test-categories', serviceTestCategoriesRoutes);
@@ -231,20 +253,27 @@ apiRouter.use('/test-result-items', testResultItemsRoutes);
 
 // Thêm DoctorQA & Meeting routes
 apiRouter.use('/', doctorQARoutes);
-apiRouter.use('/', meetingRoutes);
+apiRouter.use('/meetings', meetingRoutes);
 apiRouter.use('/medical-records', medicalRecordsRoutes);
 apiRouter.use('/medicines', medicinesRoutes);
 apiRouter.use('/medication-reminders', medicationRemindersRoutes);
 apiRouter.use('/notification-days', notificationDaysRoutes);
 apiRouter.use('/user-profiles', userProfileRoutes);
+
+
+// ✅ FIX: Đặt reportsRoutes TRƯỚC menstrualCycleRoutes để tránh xung đột
+// route /reports/management với /reports/:cycleId
+apiRouter.use('/reports', reportsRoutes);
+
+// Refund Management routes
+apiRouter.use('/refunds', refundRoutes);
+
+
 // Menstrual Cycle routes
 apiRouter.use('/', menstrualCycleRoutes);
 apiRouter.use('/appointments', appointmentRoutes);
 apiRouter.use('/payments', paymentRoutes);
 apiRouter.use('/system-logs', systemLogRoutes);
-
-// ✅ NEW: Consultation transfer routes
-apiRouter.use('/consultations', consultationRoutes);
 
 // Middleware xử lý lỗi
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -259,10 +288,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  
+
   // Start auto status transition service
   startAutoTransitionService();
-  
+
   console.log('Server started successfully with all services');
 });
 

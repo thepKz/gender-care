@@ -1,19 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Result, Button, Spin, Card, Typography, Space, message } from 'antd';
-import { CheckCircleOutlined, HomeOutlined, ShoppingOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, HomeOutlined, ShoppingOutlined } from '@ant-design/icons';
 import packagePurchaseApi from '../../api/endpoints/packagePurchaseApi';
 
 const { Title, Text } = Typography;
 
-interface PaymentSuccessProps {}
+interface PaymentInfo {
+  code: string | null;
+  id: string | null;
+  status: string | null;
+  orderCode: string | null;
+  cancel: boolean;
+}
 
-const PaymentSuccess: React.FC<PaymentSuccessProps> = () => {
+const PaymentSuccess: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [paymentInfo, setPaymentInfo] = useState<any>(null);
-  const [checkingPackages, setCheckingPackages] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
+
 
   useEffect(() => {
     // Lấy thông tin từ PayOS callback
@@ -23,7 +29,7 @@ const PaymentSuccess: React.FC<PaymentSuccessProps> = () => {
     const orderCode = searchParams.get('orderCode');
     const cancel = searchParams.get('cancel');
 
-    console.log('🔍 PayOS Callback:', { code, id, status, orderCode, cancel });
+
 
     setPaymentInfo({
       code,
@@ -48,10 +54,9 @@ const PaymentSuccess: React.FC<PaymentSuccessProps> = () => {
   };
 
   const handleCheckPurchases = async () => {
-    setCheckingPackages(true);
     try {
       const response = await packagePurchaseApi.getUserPurchasedPackages({ isActive: true });
-      console.log('🔍 [PaymentSuccess] Purchased packages:', response);
+  
       
       if (response.success && response.data?.packagePurchases?.length > 0) {
         message.success(`Tìm thấy ${response.data.packagePurchases.length} gói đã mua!`);
@@ -64,52 +69,9 @@ const PaymentSuccess: React.FC<PaymentSuccessProps> = () => {
     } catch (error) {
       console.error('❌ [PaymentSuccess] Error checking purchases:', error);
       message.error('Có lỗi khi kiểm tra gói đã mua.');
-    } finally {
-      setCheckingPackages(false);
-    }
+    } 
   };
 
-  const handleTestWebhook = async () => {
-    if (!paymentInfo?.orderCode) {
-      message.error('Không tìm thấy orderCode để test webhook');
-      return;
-    }
-
-    setCheckingPackages(true);
-    try {
-      console.log('🧪 [PaymentSuccess] Testing webhook with orderCode:', paymentInfo.orderCode);
-      
-      // Call test webhook endpoint
-      const webhookResponse = await fetch('http://localhost:8080/api/package-purchases/webhook/test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          orderCode: paymentInfo.orderCode
-        })
-      });
-
-      const webhookResult = await webhookResponse.json();
-      console.log('🧪 [PaymentSuccess] Webhook test result:', webhookResult);
-
-      if (webhookResult.success) {
-        message.success('Webhook test thành công! Đang kiểm tra gói đã mua...');
-        
-        // Sau khi webhook success, check purchased packages
-        setTimeout(async () => {
-          await handleCheckPurchases();
-        }, 2000);
-      } else {
-        message.error(`Webhook test failed: ${webhookResult.message}`);
-      }
-    } catch (error) {
-      console.error('❌ [PaymentSuccess] Webhook test error:', error);
-      message.error('Có lỗi khi test webhook');
-    } finally {
-      setCheckingPackages(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -182,21 +144,6 @@ const PaymentSuccess: React.FC<PaymentSuccessProps> = () => {
             Xem gói đã mua
           </Button>
         </div>
-
-        {isSuccess && (
-          <div className="mt-4">
-            <Button 
-              size="large" 
-              onClick={handleTestWebhook}
-              loading={checkingPackages}
-              icon={<ReloadOutlined />}
-              className="w-full"
-              ghost
-            >
-              {checkingPackages ? 'Đang test webhook...' : 'Test webhook & kiểm tra gói'}
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );

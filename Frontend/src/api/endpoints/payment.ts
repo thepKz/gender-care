@@ -22,11 +22,14 @@ export interface PaymentStatusResponse {
   success: boolean;
   data: {
     orderCode: string;
-    status: 'PENDING' | 'PAID' | 'CANCELLED' | 'EXPIRED';
+    status: 'pending' | 'success' | 'failed' | 'cancelled' | 'expired';
     amount: number;
-    transactions: unknown[];
+    paymentUrl?: string; // ✅ FIX: Thêm paymentUrl để có thể reuse
+    appointmentStatus: string;
+    paymentStatus?: string;
+    paidAt?: string;
     createdAt: string;
-    appointmentId: string;
+    webhookReceived?: boolean;
   };
   message?: string;
 }
@@ -68,7 +71,11 @@ export const fastConfirmPayment = async (data: {
   orderCode: string;
   status: string;
 }): Promise<{success: boolean; message: string; data?: unknown}> => {
-  const response = await axiosInstance.post('/payments/appointments/fast-confirm', data);
+  // ✅ FIX: Đúng pattern với appointmentId trong URL path
+  const response = await axiosInstance.post(`/payments/appointments/${data.appointmentId}/fast-confirm`, {
+    orderCode: data.orderCode,
+    status: data.status
+  });
   return response.data;
 };
 

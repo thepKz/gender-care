@@ -5,9 +5,10 @@ export interface MeetingData {
   meetLink: string;
   provider: 'google' | 'jitsi';
   scheduledTime: string;
-  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'waiting_customer' | 'invite_sent' | 'in_progress' | 'completed' | 'cancelled';
   participantCount: number;
   maxParticipants: number;
+  meetingPassword: string;
   googleEventId?: string;
 }
 
@@ -52,6 +53,43 @@ const meetingAPI = {
   // Get meetings by doctor
   getDoctorMeetings: async (doctorId: string) => {
     const response = await axiosConfig.get(`/meetings/doctor/${doctorId}`);
+    return response.data;
+  },
+
+  // Get my meetings (current doctor from token)
+  getMyMeetings: async () => {
+    const response = await axiosConfig.get('/meetings/doctor/my-meetings');
+    return response.data;
+  },
+
+  // ➕ ADD: Update meeting status when doctor joins
+  updateDoctorJoinStatus: async (qaId: string) => {
+    try {
+      console.log('🌐 [FRONTEND-API] === DOCTOR JOIN API CALL ===');
+      console.log('🌐 [FRONTEND-API] qaId:', qaId);
+      console.log('🌐 [FRONTEND-API] URL:', `/meetings/${qaId}/doctor-join`);
+      console.log('🌐 [FRONTEND-API] Method: POST');
+      console.log('🌐 [FRONTEND-API] BaseURL:', axiosConfig.defaults.baseURL);
+      
+      const response = await axiosConfig.post(`/meetings/${qaId}/doctor-join`);
+      
+      console.log('✅ [FRONTEND-API] Success response:', response.data);
+      return response.data;
+    } catch (error: unknown) {
+      console.error('❌ [FRONTEND-API] Error in updateDoctorJoinStatus:', error);
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: unknown; status?: number }; config?: { url?: string } };
+        console.error('❌ [FRONTEND-API] Error response:', axiosError.response?.data);
+        console.error('❌ [FRONTEND-API] Error status:', axiosError.response?.status);
+        console.error('❌ [FRONTEND-API] Error config:', axiosError.config?.url);
+      }
+      throw error;
+    }
+  },
+
+  // ➕ ADD: Send customer meeting invite
+  sendCustomerInvite: async (qaId: string) => {
+    const response = await axiosConfig.post(`/meetings/${qaId}/send-customer-invite`);
     return response.data;
   }
 };

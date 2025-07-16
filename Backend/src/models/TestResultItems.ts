@@ -1,44 +1,36 @@
 import mongoose from 'mongoose';
 
 export interface ITestResultItems {
-  testResultId: mongoose.Types.ObjectId;
-  itemNameId: mongoose.Types.ObjectId;
-  value: string;
-  unit?: string;
-  currentRange?: string;
-  flag?: "high" | "low" | "normal";
+  appointmentId: mongoose.Types.ObjectId;
+  items?: Array<{
+    testCategoryId: mongoose.Types.ObjectId;
+    value: string;
+    unit?: string;
+    flag?: "very_low" | "low" | "normal" | "mild_high" | "high" | "critical";
+    message?: string;
+  }>;
 }
 
 const TestResultItemsSchema = new mongoose.Schema<ITestResultItems>({
-  testResultId: { 
+  appointmentId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'TestResults', 
+    ref: 'Appointments', 
     required: true 
   },
-  itemNameId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'TestCategories', 
-    required: true 
-  },
-  value: { 
-    type: String, 
-    required: true 
-  },
-  unit: { 
-    type: String 
-  },
-  currentRange: { 
-    type: String 
-  },
-  flag: { 
-    type: String, 
-    enum: ["high", "low", "normal"]
-  }
+  items: [
+    {
+      _id: false,
+      testCategoryId: { type: mongoose.Schema.Types.ObjectId, ref: 'TestCategories', required: true },
+      value: { type: String, required: true },
+      unit: { type: String },
+      flag: { type: String, enum: ["very_low", "low", "normal", "mild_high", "high", "critical"] },
+      message: { type: String }
+    }
+  ]
 }, { timestamps: false }); // Không cần timestamps
 
 // Tạo index để tối ưu hóa truy vấn
-TestResultItemsSchema.index({ testResultId: 1 });
-TestResultItemsSchema.index({ itemNameId: 1 });
+TestResultItemsSchema.index({ appointmentId: 1 });
 
 const TestResultItems = mongoose.model<ITestResultItems>('TestResultItems', TestResultItemsSchema);
 

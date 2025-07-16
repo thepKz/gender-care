@@ -18,22 +18,24 @@ import {
   FileTextOutlined,
   LogoutOutlined,
   VideoCameraOutlined,
-  CheckCircleOutlined,
-  TrophyOutlined,
-  ClockCircleOutlined,
-  MedicineBoxOutlined
+
+  MedicineBoxOutlined,
+  HistoryOutlined
 } from '@ant-design/icons';
 import StatsCard from '../widgets/StatsCard';
 import ActivityFeed from '../widgets/ActivityFeed';
 import TableWidget from '../widgets/TableWidget';
 import DoctorScheduleCalendar from '../widgets/DoctorScheduleCalendar';
-import ScheduleOverview from '../widgets/ScheduleOverview';
+
 import AppointmentManagement from '../../../pages/dashboard/operational/AppointmentManagement';
 import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
 import ConsultationManagement from '../../../pages/dashboard/operational/ConsultationManagement';
+import MeetingHistoryManagement from '../../../pages/dashboard/operational/MeetingHistoryManagement';
 import DoctorAppointmentSchedule from '../../../pages/dashboard/operational/DoctorAppointmentSchedule';
-import TestResultsEntry from '../../../pages/dashboard/operational/TestResultsEntry';
 import ServiceTestConfiguration from '../../../pages/dashboard/operational/ServiceTestConfiguration';
+import TestResultsEntryStaff from '../../../pages/dashboard/operational/TestResultsEntryStaff';
+import DoctorProfileManagement from '../../../pages/dashboard/operational/DoctorProfileManagement';
+import StaffAllAppointmentsManagement from '../../../pages/dashboard/operational/StaffAllAppointmentsManagement';
 
 import { 
   type DashboardStat,
@@ -45,6 +47,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { fetchOperationalDashboard } from '../../../api/endpoints/dashboard';
+import { filterMenuItemsByPermissions, type MenuItem } from '../../../utils/permissions';
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
@@ -55,76 +58,76 @@ interface OperationalTemplateProps {
   welcomeMessage?: string;
 }
 
-// Xây dựng menu động theo vai trò Staff / Doctor
-const getMenuItemsOperational = (role: 'staff' | 'doctor') => {
-  // Mục chung cho cả doctor và staff
-  const baseItems = [
-    {
-      key: 'dashboard',
-      icon: <DashboardOutlined />,
-      label: 'Tổng quan',
-    },
-    {
-      key: 'my-appointments',
-      icon: <CalendarOutlined />,
-      label: 'Lịch hẹn của tôi',
-    },
-    {
-      key: 'test-results',
-      icon: <MedicineBoxOutlined />,
-      label: 'Nhập kết quả xét nghiệm',
-    },
-    {
-      key: 'test-config',
-      icon: <ScheduleOutlined />,
-      label: 'Cấu hình xét nghiệm',
-    },
-  ];
+// Xây dựng menu động theo vai trò Staff / Doctor với permission filtering
+const getMenuItemsOperational = (role: 'staff' | 'doctor', navigate: (path: string) => void): MenuItem[] => {
+  let baseMenuItems: MenuItem[];
 
   if (role === 'doctor') {
     // Bác sĩ: thêm các chức năng đặc biệt
-    return [
-      baseItems[0], // dashboard
-      baseItems[1], // my-appointments
+    baseMenuItems = [
       {
-        key: 'appointments',
-        icon: <CalendarOutlined />,
-        label: 'Quản lý tất cả lịch hẹn',
+        key: 'dashboard',
+        icon: <DashboardOutlined />,
+        label: 'Tổng quan',
       },
       {
-        key: 'patients',
+        key: 'profile',
         icon: <UserOutlined />,
-        label: 'Bệnh nhân',
+        label: 'Thông tin cá nhân',
       },
+      {
+        key: 'my-appointments',
+        icon: <CalendarOutlined />,
+        label: 'Lịch hẹn của tôi',
+      },
+      // ĐÃ XÓA mục 'Quản lý tất cả lịch hẹn' khỏi menu bác sĩ
       {
         key: 'medical-records',
         icon: <FileTextOutlined />,
-        label: 'Hồ sơ y tế',
+        label: 'Hồ sơ bệnh án',
       },
       {
         key: 'consultations',
         icon: <VideoCameraOutlined />,
         label: 'Tư vấn trực tuyến',
       },
-      baseItems[2], // test-results
-      baseItems[3], // test-config
       {
-        key: 'reports',
-        icon: <BarChartOutlined />,
-        label: 'Báo cáo',
+        key: 'meeting-history',
+        icon: <HistoryOutlined />,
+        label: 'Lịch sử Meeting',
       },
+      // Removed 'reports' for doctor - not needed for patient care focus
+    ];
+  } else {
+    // Staff: menu cơ bản
+    baseMenuItems = [
+      {
+        key: 'dashboard',
+        icon: <DashboardOutlined />,
+        label: 'Tổng quan',
+      },
+      {
+        key: 'my-appointments',
+        icon: <CalendarOutlined />,
+        label: 'Quản lý tất cả lịch hẹn',
+      },
+      // XÓA mục 'all-appointments' để tránh trùng label
+      {
+        key: 'test-results',
+        icon: <MedicineBoxOutlined />,
+        label: 'Nhập kết quả xét nghiệm',
+      },
+      {
+        key: 'test-config',
+        icon: <ScheduleOutlined />,
+        label: 'Cấu hình xét nghiệm',
+      },
+      // Removed 'reports' for staff - focus on operational tasks, not management reports
     ];
   }
 
-  // Staff: menu cơ bản
-  return [
-    ...baseItems,
-    {
-      key: 'reports',
-      icon: <BarChartOutlined />,
-      label: 'Báo cáo',
-    },
-  ];
+  // Apply permission filtering to only show items the user has access to
+  return filterMenuItemsByPermissions(baseMenuItems, role);
 };
 
 const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
@@ -154,7 +157,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
     : `Chào mừng ${userName}! Hôm nay có ${defaultAppointments.length} lịch hẹn cần xử lý và 5 nhiệm vụ đang chờ.`;
 
   const metrics = defaultPerformanceMetrics;
-  const menuItems = getMenuItemsOperational(userRole);
+  const menuItems = getMenuItemsOperational(userRole, navigate);
 
   useEffect(() => {
     (async () => {
@@ -247,19 +250,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
     if (result.success) navigate('/');
   };
 
-  // ✅ Helper để render icon components từ string
-  const getIconComponent = (iconName: string) => {
-    const icons: Record<string, React.ReactNode> = {
-      'UserOutlined': <UserOutlined />,
-      'CalendarOutlined': <CalendarOutlined />,
-      'CheckCircleOutlined': <CheckCircleOutlined />,
-      'TrophyOutlined': <TrophyOutlined />,
-      'ClockCircleOutlined': <ClockCircleOutlined />,
-      'MedicineBoxOutlined': <MedicineBoxOutlined />,
-      'ScheduleOutlined': <ScheduleOutlined />
-    };
-    return icons[iconName] || <CalendarOutlined />;
-  };
+
 
   const renderDashboard = () => (
     <div style={{ padding: '0' }}>
@@ -454,9 +445,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
     switch (selectedKey) {
       case 'dashboard':
         return renderDashboard();
-        
-      // Lịch hẹn của tôi - cho cả doctor và staff
+      // Lịch hẹn của tôi - cho doctor, Quản lý tất cả lịch hẹn - cho staff
       case 'my-appointments':
+        if (userRole === 'staff') return <StaffAllAppointmentsManagement />;
         return <DoctorAppointmentSchedule />;
         
       // Quản lý tất cả lịch hẹn - chỉ cho doctor
@@ -466,7 +457,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         
       // Nhập kết quả xét nghiệm - cho cả doctor và staff
       case 'test-results':
-        return <TestResultsEntry />;
+        return <TestResultsEntryStaff />;
         
       // Cấu hình xét nghiệm - cho cả doctor và staff
       case 'test-config':
@@ -513,6 +504,13 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
       case 'consultations':
         if (userRole === 'doctor') return <ConsultationManagement />;
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
+      case 'meeting-history':
+        if (userRole === 'doctor') return <MeetingHistoryManagement />;
+        return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
+      
+      case 'profile':
+        if (userRole === 'doctor') return <DoctorProfileManagement />;
+        return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
         
       default:
         return renderDashboard();
@@ -529,6 +527,11 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         style={{
           background: '#fff',
           boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+          position: 'fixed',
+          height: '100vh',
+          left: 0,
+          top: 0,
+          zIndex: 100,
         }}
       >
         <div style={{ 
@@ -563,15 +566,30 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
         />
       </Sider>
       
-      <Layout>
-        <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
+      <Layout style={{ marginLeft: collapsed ? 80 : 250, transition: 'margin-left 0.2s' }}>
+        <Header style={{ 
+          background: '#fff', 
+          padding: '0 24px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+          position: 'fixed',
+          top: 0,
+          right: 0,
+          left: collapsed ? 80 : 250,
+          zIndex: 99,
+          transition: 'left 0.2s',
+        }}>
           <Button type="link" icon={<DashboardOutlined />} onClick={() => navigate('/')}>Trang chủ</Button>
           <Button type="link" icon={<LogoutOutlined />} onClick={onLogout}>Đăng xuất</Button>
         </Header>
         <Content style={{ 
           padding: '24px',
           background: '#f5f5f5',
-          overflow: 'auto'
+          overflow: 'auto',
+          marginTop: 64, // Header height
+          minHeight: 'calc(100vh - 64px)',
         }}>
           {renderContent()}
         </Content>

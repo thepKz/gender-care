@@ -117,7 +117,7 @@ export interface Doctor {
   _id: string;
   userId: DoctorInfo;
   bio?: string;
-  experience?: number;
+  experience?: string | number;
   rating?: number;
   image?: string;
   specialization?: string;
@@ -356,7 +356,7 @@ export interface CycleDay {
   _id: string;
   cycleId: string;
   date: string;
-  mucusObservation?: string; // ví dụ: "có máu", "trong và âm hộ căng"
+  mucusObservation?: string; // ví dụ: "có máu", "trong và ÂH căng"
   feeling?: string; // ví dụ: "trơn", "khô"
   isPeakDay: boolean; // true nếu là ngày X
   peakDayRelative?: number; // 0: ngày X, 1-3: sau X, -1/-2: trước X
@@ -511,9 +511,10 @@ export interface AppointmentTest {
 export interface TestResult {
   _id: string;
   appointmentTestId: string;
-  conclusion: string;
+  diagnosis: string;
   recommendations: string;
   createdAt: string;
+  testResultItemsId: string[];
 }
 
 export interface TestCategory {
@@ -528,12 +529,12 @@ export interface TestCategory {
 
 export interface TestResultItem {
   _id: string;
-  testResultId: string;
-  itemNameId: string;
+  appointmentId: string;
+  testCategoryId: string;
   value: string;
   unit: string;
-  currentRange: string;
-  flag: 'high' | 'low' | 'normal';
+  flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
+  message?: string;
 }
 
 // Blog types

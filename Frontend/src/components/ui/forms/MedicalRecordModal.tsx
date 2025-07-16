@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   Form,
@@ -10,7 +10,8 @@ import {
   Col,
   Card,
   Space,
-  Typography
+  Typography,
+  Select
 } from 'antd';
 import {
   MedicineBoxOutlined,
@@ -21,6 +22,7 @@ import {
 import { UnifiedAppointment } from '../../../types/appointment';
 import moment from 'moment';
 import dayjs from 'dayjs';
+import medicinesApi, { IMedicine } from '../../../api/endpoints/medicines';
 
 const { TextArea } = Input;
 const { Text } = Typography;
@@ -36,7 +38,7 @@ export interface MedicalRecordFormData {
   profileId: string;
   doctorId: string;
   appointmentId: string;
-  diagnosis: string;
+  conclusion: string;
   symptoms?: string;
   treatment: string;
   medications?: string;
@@ -52,6 +54,43 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
 }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [medicineList, setMedicineList] = useState<IMedicine[]>([]);
+  const [prescriptions, setPrescriptions] = useState([
+    { medicineId: '', name: '', dosage: '', instructions: '', note: '', duration: '' }
+  ]);
+
+  useEffect(() => {
+    if (visible) {
+      medicinesApi.getAllMedicines({ isActive: true }).then(setMedicineList);
+    }
+  }, [visible]);
+
+  const handlePrescriptionChange = (idx, field, value) => {
+    setPrescriptions(prev => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item));
+  };
+
+  const handleMedicineSelect = (idx, medicineId) => {
+    const med = medicineList.find(m => m._id === medicineId);
+    setPrescriptions(prev => prev.map((item, i) =>
+      i === idx
+        ? {
+            ...item,
+            medicineId,
+            name: med?.name || '',
+            dosage: med?.defaultDosage || '',
+            instructions: med?.defaultTimingInstructions || ''
+          }
+        : item
+    ));
+  };
+
+  const handleAddPrescription = () => {
+    setPrescriptions(prev => [...prev, { medicineId: '', name: '', dosage: '', instructions: '', note: '', duration: '' }]);
+  };
+
+  const handleRemovePrescription = (idx) => {
+    setPrescriptions(prev => prev.filter((_, i) => i !== idx));
+  };
 
   const handleSubmit = async () => {
     try {
@@ -67,10 +106,10 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
         profileId: (appointment.originalData as any)?.profileId?._id || '',
         doctorId: (appointment.originalData as any)?.doctorId?._id || '',
         appointmentId: appointment._id,
-        diagnosis: values.diagnosis,
+        conclusion: values.conclusion,
         symptoms: values.symptoms,
         treatment: values.treatment,
-        medications: values.medications,
+        medications: JSON.stringify(prescriptions),
         notes: values.notes,
         followUpDate: values.followUpDate ? values.followUpDate.format('YYYY-MM-DD') : undefined
       };
@@ -181,15 +220,15 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
             <Row gutter={16}>
               <Col span={24}>
                 <Form.Item
-                  label="Chẩn đoán"
-                  name="diagnosis"
+                  label="Kết luận"
+                  name="conclusion"
                   rules={[
-                    { required: true, message: 'Vui lòng nhập chẩn đoán' },
-                    { min: 5, message: 'Chẩn đoán phải có ít nhất 5 ký tự' }
+                    { required: true, message: 'Vui lòng nhập kết luận' },
+                    { min: 5, message: 'Kết luận phải có ít nhất 5 ký tự' }
                   ]}
                 >
                   <Input.TextArea
-                    placeholder="Nhập chẩn đoán của bác sĩ..."
+                    placeholder="Nhập kết luận của bác sĩ..."
                     rows={3}
                     showCount
                     maxLength={500}
@@ -233,23 +272,78 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
 
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item
-                  label="Thuốc được kê đơn"
-                  name="medications"
-                >
-                  <Input.TextArea
-                    placeholder="Danh sách thuốc và liều dùng..."
-                    rows={2}
-                    showCount
-                    maxLength={400}
-                  />
+                <Form.Item label="Thuốc được kê đơn" required>
+                  <div style={{ border: '1px solid #eee', borderRadius: 8, overflow: 'hidden', marginBottom: 8 }}>
+                    <div style={{ display: 'flex', background: '#fafafa', fontWeight: 500, padding: '8px 0', borderBottom: '1px solid #eee', alignItems: 'center' }}>
+                      <div style={{ flex: 2, paddingLeft: 12 }}>Tên thuốc (autocomplete)</div>
+                      <div style={{ flex: 1 }}>Liều dùng</div>
+                      <div style={{ flex: 2 }}>Hướng dẫn sử dụng</div>
+                      <div style={{ flex: 1.5 }}>Thời gian dùng</div>
+                      <div style={{ flex: 2 }}>Ghi chú thêm</div>
+                      <div style={{ width: 40, textAlign: 'center' }}></div>
+                    </div>
+                    {prescriptions.map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', borderBottom: idx === prescriptions.length - 1 ? 'none' : '1px solid #eee', padding: '8px 0' }}>
+                        <div style={{ flex: 2, paddingLeft: 12 }}>
+                          <Select
+                            showSearch
+                            placeholder="Tên thuốc"
+                            value={item.medicineId}
+                            onChange={val => handleMedicineSelect(idx, val)}
+                            filterOption={(input, option) => {
+                              const label = String(option?.children ?? '');
+                              return label.toLowerCase().includes(input.toLowerCase());
+                            }}
+                            style={{ width: '100%' }}
+                          >
+                            {medicineList.map(med => (
+                              <Select.Option key={med._id} value={med._id}>{med.name}</Select.Option>
+                            ))}
+                          </Select>
+                        </div>
+                        <div style={{ flex: 1, padding: '0 4px' }}>
+                          <Input
+                            placeholder="Liều dùng"
+                            value={item.dosage}
+                            onChange={e => handlePrescriptionChange(idx, 'dosage', e.target.value)}
+                          />
+                        </div>
+                        <div style={{ flex: 2, padding: '0 4px' }}>
+                          <Input
+                            placeholder="Hướng dẫn sử dụng"
+                            value={item.instructions}
+                            onChange={e => handlePrescriptionChange(idx, 'instructions', e.target.value)}
+                          />
+                        </div>
+                        <div style={{ flex: 1.5, padding: '0 4px' }}>
+                          <Input
+                            placeholder="Thời gian dùng (VD: 7 ngày, 2 tuần)"
+                            value={item.duration}
+                            onChange={e => handlePrescriptionChange(idx, 'duration', e.target.value)}
+                          />
+                        </div>
+                        <div style={{ flex: 2, padding: '0 4px' }}>
+                          <Input
+                            placeholder="Ghi chú"
+                            value={item.note}
+                            onChange={e => handlePrescriptionChange(idx, 'note', e.target.value)}
+                          />
+                        </div>
+                        <div style={{ width: 40, textAlign: 'center' }}>
+                          <Button danger type="text" onClick={() => handleRemovePrescription(idx)} disabled={prescriptions.length === 1} style={{ fontSize: 18 }}>
+                            ❌
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <Button type="dashed" onClick={handleAddPrescription} block icon={<span style={{ fontSize: 18, color: '#6c63ff' }}>＋</span>} style={{ marginTop: 4, color: '#6c63ff', fontWeight: 500 }}>
+                    Thêm thuốc
+                  </Button>
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item
-                  label="Ngày tái khám"
-                  name="followUpDate"
-                >
+                <Form.Item label={<span style={{ fontWeight: 500 }}>Ngày tái khám</span>} name="followUpDate">
                   <DatePicker
                     style={{ width: '100%' }}
                     placeholder="Chọn ngày tái khám"
@@ -260,15 +354,12 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
               </Col>
             </Row>
 
-            <Row gutter={16}>
+            <Row gutter={16} style={{ marginTop: 0 }}>
               <Col span={24}>
-                <Form.Item
-                  label="Ghi chú bổ sung"
-                  name="notes"
-                >
+                <Form.Item label={<span style={{ fontWeight: 500 }}>Ghi chú bổ sung</span>} name="notes">
                   <Input.TextArea
-                    placeholder="Ghi chú thêm của bác sĩ về tình trạng bệnh nhân..."
-                    rows={3}
+                    placeholder="Ghi chú thêm của bác sĩ về tình trạng bệnh nhân... (tối đa 500 ký tự)"
+                    rows={2}
                     showCount
                     maxLength={500}
                   />

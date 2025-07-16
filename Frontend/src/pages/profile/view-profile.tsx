@@ -1,6 +1,7 @@
 import { CalendarOutlined, EditOutlined, FileTextOutlined, UserOutlined } from '@ant-design/icons';
-import { Button, Card, DatePicker, Form, Input, Modal, notification, Select, Spin } from 'antd';
+import { Button, Card, DatePicker, Form, Input, Modal, notification, Select, Spin, Tooltip, Tabs, Descriptions, List, Tag } from 'antd';
 import axios from 'axios';
+import axiosInstance from '../../api/axiosConfig';
 import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
@@ -24,11 +25,23 @@ const ViewProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([]);
   const [medicalLoading, setMedicalLoading] = useState(false);
+  const [completedAppointments, setCompletedAppointments] = useState<any[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [form] = Form.useForm();
+
+  const [showMedicalRecordTabs, setShowMedicalRecordTabs] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<any | null>(null);
+  const [selectedMedicalRecord, setSelectedMedicalRecord] = useState<any | null>(null);
+
+  // 1. State quản lý dữ liệu xét nghiệm
+  const [testCategories, setTestCategories] = useState<any[]>([]);
+  const [serviceTestCategories, setServiceTestCategories] = useState<any[]>([]);
+  const [testResultItems, setTestResultItems] = useState<any[]>([]);
+  const [loadingTestResult, setLoadingTestResult] = useState(false);
 
   // Kiểm tra đăng nhập
   useEffect(() => {
@@ -91,21 +104,41 @@ const ViewProfilePage: React.FC = () => {
   // Fetch medical records cho profile
   const fetchMedicalRecords = async () => {
     if (!profileId) return;
-
     try {
       setMedicalLoading(true);
       const response = await medicalApi.getMedicalRecordsByProfile(profileId, 1, 50);
-      
-      if (response.data?.success) {
-        setMedicalRecords(response.data.data || []);
+      // Đảm bảo luôn setMedicalRecords đúng logic
+      if (response.data?.data && Array.isArray(response.data.data)) {
+        setMedicalRecords(response.data.data);
+      } else if (response.data && Array.isArray(response.data)) {
+        setMedicalRecords(response.data);
+      } else if (response && Array.isArray(response)) {
+        setMedicalRecords(response);
       } else {
         setMedicalRecords([]);
       }
     } catch (error: unknown) {
-      console.error('Error fetching medical records:', error);
       setMedicalRecords([]);
     } finally {
       setMedicalLoading(false);
+    }
+  };
+
+  // Hàm lấy danh sách lịch hẹn completed theo profileId
+  const fetchCompletedAppointments = async () => {
+    if (!profileId) return;
+    try {
+      setAppointmentsLoading(true);
+      const response = await axios.get(`/api/appointments?profileId=${profileId}&status=completed`);
+      if (response.data?.success) {
+        setCompletedAppointments(response.data.data.appointments || []);
+      } else {
+        setCompletedAppointments([]);
+      }
+    } catch (error) {
+      setCompletedAppointments([]);
+    } finally {
+      setAppointmentsLoading(false);
     }
   };
 
@@ -118,6 +151,13 @@ const ViewProfilePage: React.FC = () => {
   useEffect(() => {
     if (profile) {
       fetchMedicalRecords();
+    }
+  }, [profile]);
+
+  // Fetch completed appointments khi profile được load
+  useEffect(() => {
+    if (profile) {
+      fetchCompletedAppointments();
     }
   }, [profile]);
 
@@ -144,8 +184,6 @@ const ViewProfilePage: React.FC = () => {
         return 'Khác';
     }
   };
-
-
 
   // Hàm mở modal chỉnh sửa
   const handleEditClick = () => {
@@ -197,6 +235,119 @@ const ViewProfilePage: React.FC = () => {
     } finally {
       setEditLoading(false);
     }
+  };
+
+  // Separate effect for finding medical record when appointment is selected
+  useEffect(() => {
+    if (!showMedicalRecordTabs || !selectedAppointment) {
+      setSelectedMedicalRecord(null);
+      return;
+    }
+
+    if (medicalRecords.length === 0) {
+      return; // Don't clear, might be loading
+    }
+
+    const selectedAppointmentId = selectedAppointment._id;
+    
+    const record = medicalRecords.find(r => {
+      if (!r.appointmentId) {
+        return false;
+      }
+      
+      const appId: any = r.appointmentId;
+      const recordAppointmentId = typeof appId === 'object' ? appId._id : appId;
+      
+      return recordAppointmentId === selectedAppointmentId;
+    });
+    
+    setSelectedMedicalRecord(record || null);
+    
+  }, [showMedicalRecordTabs, selectedAppointment, medicalRecords]);
+
+  // 2. Hàm fetch test categories
+  const fetchTestCategories = async () => {
+    try {
+      const res = await axiosInstance.get('/test-categories');
+      const data = res.data;
+      if (data && Array.isArray(data.data)) setTestCategories(data.data);
+    } catch {}
+  };
+
+  // 3. Hàm fetch service test categories theo serviceId hoặc packageId
+  const fetchServiceTestCategoriesForAppointment = async (apt: any) => {
+    // Hàm phụ fetch cho serviceId lẻ
+    const fetchServiceTestCategories = async (serviceId: string) => {
+      try {
+        const res = await axiosInstance.get(`/service-test-categories?serviceId=${serviceId}`);
+        const data = res.data;
+        if (data && Array.isArray(data.data)) setServiceTestCategories(data.data);
+      } catch {
+        setServiceTestCategories([]);
+      }
+    };
+    if (apt.packageId?._id || apt.packageId?.id) {
+      // Nếu là package, lấy tất cả serviceId trong package
+      try {
+        const pkgId = apt.packageId._id || apt.packageId.id;
+        const pkgRes = await axiosInstance.get(`/service-packages/${pkgId}`);
+        const services = pkgRes.data?.data?.services || [];
+        let allCats: any[] = [];
+        for (const s of services) {
+          const sid = typeof s.serviceId === 'object' ? s.serviceId._id : s.serviceId;
+          if (!sid) continue;
+          const res = await axiosInstance.get(`/service-test-categories?serviceId=${sid}`);
+          if (Array.isArray(res.data?.data)) allCats = allCats.concat(res.data.data);
+        }
+        setServiceTestCategories(allCats);
+      } catch {
+        setServiceTestCategories([]);
+      }
+    } else if (apt.serviceId) {
+      // Nếu là dịch vụ lẻ
+      fetchServiceTestCategories(apt.serviceId);
+    }
+  };
+
+  // Hàm fetch testResultItems trực tiếp theo appointmentId
+  const fetchTestResultItemsByAppointment = async (appointmentId: string) => {
+    setLoadingTestResult(true);
+    try {
+      // Đoán endpoint: /api/test-result-items/appointment/:appointmentId
+      const res = await axiosInstance.get(`/test-result-items/appointment/${appointmentId}`);
+      const data = res.data;
+      let items = [];
+      if (data && data.data && Array.isArray(data.data.items)) {
+        items = data.data.items;
+      } else if (data && data.data && Array.isArray(data.data)) {
+        // Nếu trả về mảng testResultItems, lấy items của phần tử đầu tiên
+        items = data.data[0]?.items || [];
+      }
+      setTestResultItems(items);
+    } catch {
+      setTestResultItems([]);
+    } finally {
+      setLoadingTestResult(false);
+    }
+  };
+
+  // Sửa useEffect khi mở modal:
+  useEffect(() => {
+    if (showMedicalRecordTabs && selectedAppointment) {
+      if (testCategories.length === 0) fetchTestCategories();
+      fetchServiceTestCategoriesForAppointment(selectedAppointment);
+      // Gọi fetchTestResultItemsByAppointment thay vì fetchTestResultByAppointment
+      if (selectedAppointment._id) fetchTestResultItemsByAppointment(selectedAppointment._id);
+    } else {
+      setTestResultItems([]);
+    }
+    // eslint-disable-next-line
+  }, [showMedicalRecordTabs, selectedAppointment]);
+
+  // Hàm lấy màu theo flag giống TestResultsEntryStaff
+  const getFlagColor = (flag: string) => {
+    if (flag === 'very_low' || flag === 'high' || flag === 'critical') return '#ff4d4f';
+    return undefined; // Không set màu cho low, normal, mild_high
   };
 
   if (loading) {
@@ -314,7 +465,17 @@ const ViewProfilePage: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-4 mt-8">
                   <h2 className="text-xl font-bold text-[#0C3C54]">Thông tin bệnh án</h2>
-                  {medicalLoading && <Spin size="small" />}
+                  <div className="flex items-center gap-2">
+                    {appointmentsLoading && <Spin size="small" />}
+                    <Button
+                      type="primary"
+                      className="bg-[#0C3C54] hover:bg-[#0C3C54]/90"
+                      icon={<FileTextOutlined />}
+                      onClick={() => setShowMedicalRecordTabs(true)}
+                    >
+                      Xem thông tin bệnh án
+                    </Button>
+                  </div>
                 </div>
                 
                 {medicalLoading ? (
@@ -322,58 +483,53 @@ const ViewProfilePage: React.FC = () => {
                     <Spin size="large" />
                     <p className="text-gray-500 mt-2">Đang tải hồ sơ bệnh án...</p>
                   </div>
-                ) : medicalRecords.length > 0 ? (
+                ) : completedAppointments.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {medicalRecords.map((record) => (
+                    {completedAppointments.map((apt, idx) => (
                       <motion.div
-                        key={record._id}
+                        key={apt._id || idx}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.3 }}
                       >
                         <Card 
                           className="bg-[#f8fafc] border-l-4 border-l-[#0C3C54] hover:shadow-md transition-shadow"
-                          bodyStyle={{ padding: '16px' }}
+                          styles={{ body: { padding: '16px' } }}
                         >
-                          <div className="flex items-center gap-2 mb-3">
-                            <CalendarOutlined className="text-[#0C3C54]" />
-                            <span className="text-[#0C3C54] text-lg font-bold">
-                              {new Date(record.createdAt).toLocaleDateString('vi-VN')}
-                            </span>
+                          <div className="flex items-center gap-2 mb-3 justify-between">
+                            <div className="flex items-center gap-2">
+                              <CalendarOutlined className="text-[#0C3C54]" />
+                              <span className="text-[#0C3C54] text-lg font-bold">
+                                {dayjs(apt.appointmentDate).format('DD/MM/YYYY')}
+                              </span>
+                            </div>
+                            <Tooltip title="Xem thông tin bệnh án">
+                              <Button
+                                type="text"
+                                icon={<FileTextOutlined style={{ fontSize: 20, color: '#0C3C54' }} />}
+                                onClick={() => {
+                                  setSelectedAppointment(apt);
+                                  setShowMedicalRecordTabs(true);
+                                }}
+                                disabled={medicalLoading}
+                              />
+                            </Tooltip>
                           </div>
                           
                           <div className="space-y-2">
                             <div className="flex items-start gap-2">
                               <FileTextOutlined className="text-red-500 mt-1 flex-shrink-0" />
                               <div>
-                                <span className="font-semibold text-[#0C3C54]">Chẩn đoán:</span>
-                                <p className="text-gray-700 mt-1">{record.diagnosis || 'Chưa có thông tin'}</p>
+                                <span className="font-semibold text-[#0C3C54]">Dịch vụ:</span>
+                                <p className="text-gray-700 mt-1">{apt.packageId?.name || apt.serviceId?.serviceName || 'N/A'}</p>
                               </div>
                             </div>
-                            
-                            {record.symptoms && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-orange-500">🩺</span>
-                                <div>
-                                  <span className="font-semibold text-[#0C3C54]">Triệu chứng:</span>
-                                  <p className="text-gray-700 mt-1">{record.symptoms}</p>
-                                </div>
-                              </div>
-                            )}
                             
                             <div className="flex items-start gap-2">
-                              <span className="text-green-500">💊</span>
-                              <div>
-                                <span className="font-semibold text-[#0C3C54]">Điều trị:</span>
-                                <p className="text-gray-700 mt-1">{record.treatment || 'Chưa có thông tin'}</p>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-2">
                               <UserOutlined className="text-blue-500" />
                               <span className="font-semibold text-[#0C3C54]">Bác sĩ:</span>
                               <span className="text-gray-700">
-                                {record.doctorId || 'Chưa có thông tin'}
+                                {apt.doctorInfo?.fullName || 'Chưa chỉ định bác sĩ'}
                               </span>
                             </div>
                           </div>
@@ -516,6 +672,141 @@ const ViewProfilePage: React.FC = () => {
             </div>
           </Form>
         </Modal>
+
+        {showMedicalRecordTabs && (
+          <Modal
+            title={
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e6f7ff', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}>
+                  <FileTextOutlined style={{ color: '#1890ff', fontSize: '18px' }} />
+                </div>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: 600, color: '#1f2937' }}>
+                    Xem bệnh án
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '2px' }}>
+                    {selectedAppointment?.profileName && `Bệnh nhân: ${selectedAppointment.profileName}`}
+                  </div>
+                </div>
+              </div>
+            }
+            open={showMedicalRecordTabs}
+            onCancel={() => setShowMedicalRecordTabs(false)}
+            width={900}
+            footer={null}
+          >
+            <Tabs
+              defaultActiveKey="1"
+              items={[
+                {
+                  key: '1',
+                  label: 'Hồ sơ bệnh án',
+                  children: (
+                    <div className="w-full">
+                      {selectedMedicalRecord && typeof selectedMedicalRecord === 'object' && Object.keys(selectedMedicalRecord).length > 0 ? (
+                        <div className="flex flex-col md:flex-row gap-8 w-full">
+                          {/* Cột trái: Thông tin bệnh án */}
+                          <div className="flex-1 min-w-[220px] max-w-[380px]">
+                            <Descriptions bordered column={1} size="middle">
+                              <Descriptions.Item label="Tên bệnh nhân">{profile.fullName}</Descriptions.Item>
+                              <Descriptions.Item label="Số điện thoại">{profile.phone || '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Bác sĩ">{selectedMedicalRecord.doctorId?.userId?.fullName || '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Ngày khám">{selectedMedicalRecord.appointmentId?.appointmentDate ? dayjs(selectedMedicalRecord.appointmentId.appointmentDate).format('DD/MM/YYYY') : '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Triệu chứng">{selectedMedicalRecord.symptoms || '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Kết luận">{selectedMedicalRecord.conclusion || '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Điều trị">{selectedMedicalRecord.treatment || '---'}</Descriptions.Item>
+                              <Descriptions.Item label="Ghi chú">{selectedMedicalRecord.notes || '---'}</Descriptions.Item>
+                            </Descriptions>
+                          </div>
+                          {/* Cột phải: Thuốc */}
+                          <div className="flex-1 min-w-[220px] max-w-[380px]">
+                            <div className="font-semibold text-lg mb-2 text-[#0C3C54]">Thuốc kê đơn</div>
+                            {selectedMedicalRecord.medicines && selectedMedicalRecord.medicines.length > 0 ? (
+                              <div className="flex flex-col gap-4">
+                                {selectedMedicalRecord.medicines.map((med, idx) => {
+                                  // Hiển thị thời gian dùng: nếu là số hoặc parse được số thì thêm ' ngày'
+                                  let durationStr = '---';
+                                  if (med.duration) {
+                                    const num = Number(med.duration);
+                                    if (!isNaN(num)) {
+                                      durationStr = `${num} ngày`;
+                                    } else {
+                                      durationStr = med.duration;
+                                    }
+                                  }
+                                  return (
+                                    <div key={idx} className="border border-gray-200 rounded-lg p-3 bg-[#f8fafc]">
+                                      <div className="font-semibold mb-1">{med.name}</div>
+                                      <div className="text-sm mb-1"><b>Liều lượng:</b> {med.dosage || '---'}</div>
+                                      <div className="text-sm mb-1"><b>Thời gian dùng:</b> {durationStr}</div>
+                                      {med.instructions && <div className="italic text-xs text-gray-500 mt-1">Hướng dẫn: {med.instructions}</div>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div>Không có thuốc kê đơn</div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center text-gray-500 py-8">Chưa có hồ sơ bệnh án cho lịch này</div>
+                      )}
+                    </div>
+                  )
+                },
+                {
+                  key: '2',
+                  label: 'Hồ sơ xét nghiệm',
+                  children: (
+                    loadingTestResult ? (
+                      <div className="text-center py-8"><Spin size="large" /><p className="text-gray-500 mt-2">Đang tải dữ liệu xét nghiệm...</p></div>
+                    ) : (
+                      <table className="w-full border mt-4">
+                        <thead>
+                          <tr className="bg-gray-100">
+                            <th className="p-2 border">Tên chỉ số</th>
+                            <th className="p-2 border text-center">Kết quả</th>
+                            <th className="p-2 border text-center">Chỉ số tham khảo</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {testResultItems && testResultItems.length > 0 ? (
+                            testResultItems.map((item, idx) => {
+                              // Lấy tên chỉ số
+                              const cat = testCategories.find(c => c._id === (item.testCategoryId?._id || item.testCategoryId));
+                              // Lấy chỉ số tham khảo
+                              const ref = serviceTestCategories.find(s => (s.testCategoryId?._id || s.testCategoryId) === (item.testCategoryId?._id || item.testCategoryId));
+                              let refStr = '';
+                              if (ref) {
+                                if (ref.minValue !== undefined && ref.maxValue !== undefined) {
+                                  refStr = `${ref.minValue} - ${ref.maxValue}${ref.unit ? ' ' + ref.unit : ''}`;
+                                } else if (ref.unit) {
+                                  refStr = ref.unit;
+                                }
+                              }
+                              return (
+                                <tr key={idx}>
+                                  <td className="p-2 border">{cat?.name || '---'}</td>
+                                  <td className="p-2 border text-center" style={getFlagColor(item.flag) ? {color: getFlagColor(item.flag), fontWeight: 600} : {}}>{item.value || '---'}</td>
+                                  <td className="p-2 border text-center">{refStr || '---'}</td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr><td colSpan={3} className="text-center p-2">Không có dữ liệu</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    )
+                  )
+                }
+              ]}
+            />
+          </Modal>
+        )}
       </div>
     </div>
   );

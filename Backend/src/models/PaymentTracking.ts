@@ -1,22 +1,50 @@
 import mongoose from 'mongoose';
 
+export interface IRefundInfo {
+  accountNumber: string;
+  accountHolderName: string;
+  bankName: string;
+  phoneNumber?: string;
+  submittedAt: Date;
+}
+
+export interface IRefund {
+  refundInfo?: IRefundInfo;
+  refundReason?: string;
+  processingStatus?: "pending" | "completed" | "rejected";
+  processedBy?: string;
+  processedAt?: Date;
+  processingNotes?: string;
+}
+
 export interface IPaymentTracking extends mongoose.Document {
+  // Service identification
   serviceType: 'appointment' | 'consultation' | 'package';
   recordId: mongoose.Types.ObjectId;
   appointmentId?: mongoose.Types.ObjectId;
   doctorQAId?: mongoose.Types.ObjectId;
   packageId?: mongoose.Types.ObjectId;
-  billId?: mongoose.Types.ObjectId;
+  
+  // Business fields (from Bills)
+  userId: mongoose.Types.ObjectId;
+  billNumber: string;
+  totalAmount: number;
+  amount: number;
+  
+  // PayOS integration
   orderCode: number;
   paymentLinkId?: string;
   paymentGateway: 'payos' | 'vnpay' | 'momo';
-  amount: number;
   description: string;
+  paymentUrl?: string;
+  
+  // Customer info
   customerName: string;
   customerEmail?: string;
   customerPhone?: string;
-  status: 'pending' | 'success' | 'failed' | 'cancelled' | 'expired';
-  paymentUrl?: string;
+  
+  // Status & tracking
+  status: 'pending' | 'success' | 'failed' | 'cancelled' | 'expired' | 'refunded';
   transactionInfo?: {
     reference?: string;
     transactionDateTime?: string;
@@ -25,9 +53,14 @@ export interface IPaymentTracking extends mongoose.Document {
   };
   webhookReceived?: boolean;
   webhookProcessedAt?: Date;
+  
+  // Refund info
+  refund?: IRefund;
+  
+  // TTL cleanup
+  expiresAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
-  expiresAt?: Date;
   
   // Instance methods
   updatePaymentStatus(status: string, transactionInfo?: any, webhookReceived?: boolean): Promise<this>;
@@ -44,18 +77,44 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
     required: true,
     refPath: 'serviceType',
     ref: function(): string {
-      return this.serviceType === 'appointment' ? 'Appointments' : 'DoctorQA';
+      return this.serviceType === 'appointment' ? 'Appointments' : 
+             this.serviceType === 'consultation' ? 'DoctorQA' : 'ServicePackages';
     }
+  },
+  appointmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Appointments',
+    required: false
+  },
+  doctorQAId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'DoctorQA',
+    required: false
   },
   packageId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ServicePackages',
     required: false
   },
-  billId: {
+  userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Bills',
-    required: false
+    ref: 'User',
+    required: true
+  },
+  billNumber: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  totalAmount: {
+    type: Number,
+    required: true,
+    min: 0
+  },
+  amount: {
+    type: Number,
+    required: true,
+    min: 0
   },
   orderCode: {
     type: Number,
@@ -71,14 +130,12 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
     required: true,
     default: 'payos'
   },
-  amount: {
-    type: Number,
-    required: true,
-    min: 0
-  },
   description: {
     type: String,
     required: true
+  },
+  paymentUrl: {
+    type: String
   },
   customerName: {
     type: String,
@@ -92,11 +149,8 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   },
   status: {
     type: String,
-    enum: ['pending', 'success', 'failed', 'cancelled', 'expired'],
+    enum: ['pending', 'success', 'failed', 'cancelled', 'expired', 'refunded'],
     default: 'pending'
-  },
-  paymentUrl: {
-    type: String
   },
   transactionInfo: {
     reference: String,
@@ -111,33 +165,57 @@ const PaymentTrackingSchema = new mongoose.Schema<IPaymentTracking>({
   webhookProcessedAt: {
     type: Date
   },
+  refund: {
+    refundInfo: {
+      accountNumber: { type: String },
+      accountHolderName: { type: String },
+      bankName: { type: String },
+      phoneNumber: { type: String },
+      submittedAt: { type: Date }
+    },
+    refundReason: { type: String },
+    processingStatus: { 
+      type: String, 
+      enum: ["pending", "completed", "rejected"],
+      default: "pending"
+    },
+    processedBy: { type: String },
+    processedAt: { type: Date },
+    processingNotes: { type: String }
+  },
   expiresAt: {
     type: Date,
-    default: () => new Date(Date.now() + 15 * 60 * 1000),
+    default: () => new Date(Date.now() + 10 * 60 * 1000),
   }
 }, { 
   timestamps: true 
 });
 
 PaymentTrackingSchema.pre('save', function() {
+  if (!this.billNumber && this.isNew) {
+    this.billNumber = `BILL-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+  }
+  
   if (!this.recordId) {
     throw new Error('recordId is required');
   }
-  if (this.serviceType === 'package' && (!this.packageId || !this.billId)) {
-    throw new Error('packageId and billId are required for package service type');
-  }
   
-  // Ensure only one service type reference is set
-  const references = [this.appointmentId, this.doctorQAId, this.packageId].filter(Boolean);
-  if (references.length > 1) {
-    throw new Error('Cannot have multiple service type references');
+  if (this.serviceType === 'appointment' && this.recordId && !this.appointmentId) {
+    this.appointmentId = this.recordId;
+  }
+  if (this.serviceType === 'consultation' && this.recordId && !this.doctorQAId) {
+    this.doctorQAId = this.recordId;
+  }
+  if (this.serviceType === 'package' && this.recordId && !this.packageId) {
+    this.packageId = this.recordId;
   }
 });
 
+PaymentTrackingSchema.index({ userId: 1 });
 PaymentTrackingSchema.index({ appointmentId: 1 });
 PaymentTrackingSchema.index({ doctorQAId: 1 });
 PaymentTrackingSchema.index({ packageId: 1 });
-PaymentTrackingSchema.index({ billId: 1 });
+PaymentTrackingSchema.index({ billNumber: 1 });
 PaymentTrackingSchema.index({ orderCode: 1 });
 PaymentTrackingSchema.index({ status: 1 });
 
@@ -156,18 +234,18 @@ PaymentTrackingSchema.statics.findAppointmentByOrderCode = function(orderCode: n
   return this.findOne({ 
     orderCode, 
     serviceType: 'appointment' 
-  }).populate('recordId');
+  }).populate('appointmentId');
 };
 
 PaymentTrackingSchema.statics.findConsultationByOrderCode = function(orderCode: number) {
   return this.findOne({ 
     orderCode, 
     serviceType: 'consultation' 
-  }).populate('recordId');
+  }).populate('doctorQAId');
 };
 
 PaymentTrackingSchema.statics.findPackageByOrderCode = function(orderCode: number) {
-  return this.findOne({ orderCode, serviceType: 'package' }).populate('packageId').populate('billId');
+  return this.findOne({ orderCode, serviceType: 'package' }).populate('packageId');
 };
 
 PaymentTrackingSchema.methods.updatePaymentStatus = function(
@@ -184,7 +262,7 @@ PaymentTrackingSchema.methods.updatePaymentStatus = function(
     this.webhookProcessedAt = new Date();
   }
   
-  if (status === 'success' || status === 'failed' || status === 'cancelled') {
+  if (status === 'success' || status === 'failed' || status === 'cancelled' || status === 'refunded') {
     this.expiresAt = null;
   }
   

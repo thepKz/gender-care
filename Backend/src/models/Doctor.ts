@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 export interface IDoctor {
   userId: mongoose.Types.ObjectId;
   bio?: string;
-  experience?: number;
+  experience?: string | number;
   rating?: number;
   image?: string;
   specialization?: string;
@@ -19,14 +19,14 @@ export interface IDoctor {
 
 // Mongoose schema
 const DoctorSchema = new mongoose.Schema<IDoctor>({
-  userId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true, 
-    unique: true 
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+    unique: true
   },
   bio: { type: String },
-  experience: { type: Number },
+  experience: { type: mongoose.Schema.Types.Mixed },
   rating: { type: Number, min: 0, max: 5 },
   image: { type: String },
   specialization: { type: String },

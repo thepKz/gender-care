@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import DoctorQA from '../models/DoctorQA';
 import PaymentTracking from '../models/PaymentTracking';
 import payosService from '../services/payosService';
@@ -71,20 +71,24 @@ export class ConsultationPaymentController {
       if (existingPayment) {
         existingPayment.orderCode = paymentData.orderCode;
         existingPayment.amount = amount;
+        existingPayment.totalAmount = amount;
         existingPayment.description = description;
         existingPayment.status = 'pending';
         existingPayment.paymentUrl = paymentData.checkoutUrl;
         existingPayment.paymentLinkId = paymentData.paymentLinkId;
-        existingPayment.expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        existingPayment.expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         paymentTracking = await existingPayment.save();
       } else {
         paymentTracking = await PaymentTracking.create({
           serviceType: 'consultation',
           recordId: doctorQAId,
+          userId: userId,
           orderCode: paymentData.orderCode,
           paymentLinkId: paymentData.paymentLinkId,
           paymentGateway: 'payos',
           amount,
+          totalAmount: amount,
+          billNumber: `CONS-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
           description,
           customerName: req.user?.fullName || consultation.fullName,
           customerEmail: req.user?.email,
@@ -102,7 +106,7 @@ export class ConsultationPaymentController {
           orderCode: paymentData.orderCode,
           amount: amount,
           qrCode: paymentData.qrCode,
-          expiredAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+          expiredAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
         }
       });
 

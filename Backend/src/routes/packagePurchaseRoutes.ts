@@ -7,7 +7,8 @@ import {
   getAllPackagesAnalytics,
   getPackageUsageAnalytics,
   handlePayOSWebhook,
-  testPayOSWebhook
+  testPayOSWebhook,
+  testCreatePackagePurchase
 } from '../controllers/packagePurchaseController';
 import { authMiddleware } from '../middleware/authMiddleware';
 
@@ -22,6 +23,7 @@ router.post('/webhook/test', testPayOSWebhook);
 // Protected routes
 router.use(authMiddleware);
 router.post('/', purchaseServicePackage);
+router.post('/test-create', testCreatePackagePurchase); // 🧪 Test endpoint
 router.get('/user', getUserPurchasedPackages);
 router.get('/:id', getPackagePurchaseDetail);
 router.get('/profile/:profileId', getPackagePurchasesByProfile);

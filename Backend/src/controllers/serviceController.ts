@@ -86,6 +86,49 @@ export const getAllServices = async (req: Request, res: Response) => {
   }
 };
 
+// GET /services/:id - Get service by ID
+export const getServiceById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: 'Invalid service ID format'
+      };
+      return res.status(400).json(response);
+    }
+
+    const service = await Service.findOne({ 
+      _id: id, 
+      isDeleted: 0 
+    }).lean();
+
+    if (!service) {
+      const response: ApiResponse<any> = {
+        success: false,
+        message: 'Service not found'
+      };
+      return res.status(404).json(response);
+    }
+
+    const response: ApiResponse<any> = {
+      success: true,
+      data: service
+    };
+
+    res.json(response);
+  } catch (error: any) {
+    const response: ApiResponse<any> = {
+      success: false,
+      message: 'Error fetching service',
+      errors: { general: error.message }
+    };
+    res.status(500).json(response);
+  }
+};
+
 // POST /services/search - Search services (new endpoint)
 export const searchServices = async (req: Request, res: Response) => {
   try {
@@ -159,7 +202,7 @@ export const searchServices = async (req: Request, res: Response) => {
 // POST /services - Create new service
 export const createService = async (req: AuthRequest, res: Response) => {
   try {
-    const { serviceName, price, description, duration, serviceType, availableAt, status } = req.body;
+    const { serviceName, price, description, serviceType, availableAt, status } = req.body;
 
     // Validation
     if (!serviceName || !price || !description || !serviceType || !availableAt) {
@@ -205,7 +248,6 @@ export const createService = async (req: AuthRequest, res: Response) => {
       serviceName: serviceName.trim(),
       price: Number(price),
       description: description.trim(),
-      duration: Number(duration) || 30,
       serviceType,
       availableAt: Array.isArray(availableAt) ? availableAt : [availableAt],
       isDeleted
@@ -250,7 +292,7 @@ export const createService = async (req: AuthRequest, res: Response) => {
 export const updateService = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { serviceName, price, description, duration, serviceType, availableAt } = req.body;
+    const { serviceName, price, description, serviceType, availableAt } = req.body;
 
     // Check if service exists and is not deleted
     const service = await Service.findOne({ _id: id, isDeleted: 0 });
@@ -284,7 +326,6 @@ export const updateService = async (req: AuthRequest, res: Response) => {
     if (serviceName) updateData.serviceName = serviceName.trim();
     if (price) updateData.price = Number(price);
     if (description) updateData.description = description.trim();
-    if (duration) updateData.duration = Number(duration);
     if (serviceType) updateData.serviceType = serviceType;
     if (availableAt) updateData.availableAt = Array.isArray(availableAt) ? availableAt : [availableAt];
 
