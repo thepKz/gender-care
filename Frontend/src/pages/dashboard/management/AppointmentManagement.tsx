@@ -44,7 +44,7 @@ interface Appointment {
   serviceName: string;
   appointmentDate: string;
   appointmentTime: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no-show';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'payment_cancelled' | 'expired' | 'no-show';
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -94,6 +94,8 @@ const AppointmentManagement: React.FC = () => {
       confirmed: 'blue',
       completed: 'green',
       cancelled: 'red',
+      payment_cancelled: 'red',
+      expired: 'red',
       'no-show': 'default'
     };
     return colors[status];
@@ -105,6 +107,8 @@ const AppointmentManagement: React.FC = () => {
       confirmed: 'Đã xác nhận',
       completed: 'Hoàn thành',
       cancelled: 'Đã hủy',
+      payment_cancelled: 'Hủy thanh toán',
+      expired: 'Hết hạn',
       'no-show': 'Không đến'
     };
     return texts[status];

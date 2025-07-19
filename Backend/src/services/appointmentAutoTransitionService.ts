@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { Appointments, PaymentTracking } from '../models';
+import { releaseSlot } from './doctorScheduleService';
 
 const combineDateTime = (appointmentDate: Date, appointmentTime: string): Date => {
   const date = new Date(appointmentDate);
@@ -85,9 +86,26 @@ export const autoCancelExpiredPayments = async (): Promise<number> => {
           // Cancel appointment if still pending_payment
           const appointment = await Appointments.findById(payment.recordId);
           if (appointment && appointment.status === 'pending_payment') {
+            // 1. Update appointment status and payment status
             await Appointments.findByIdAndUpdate(appointment._id, {
-              $set: { status: 'payment_cancelled' }
+              $set: { 
+                status: 'expired',
+                paymentStatus: 'expired'
+              }
             });
+            
+            // 2. Release slot if slotId exists
+            if (appointment.slotId) {
+              try {
+                await releaseSlot(appointment.slotId.toString());
+                console.log(`✅ [AUTO-CANCEL] Released slot ${appointment.slotId} for appointment ${appointment._id}`);
+              } catch (slotError) {
+                console.error(`❌ [AUTO-CANCEL] Error releasing slot ${appointment.slotId}:`, slotError);
+              }
+            } else {
+              console.log(`⚠️ [AUTO-CANCEL] Appointment ${appointment._id} has no slotId, skipping slot release`);
+            }
+            
             console.log(`🚫 [AUTO-CANCEL] Appointment ${appointment._id} cancelled due to payment timeout`);
           }
         } else if (payment.serviceType === 'consultation') {
@@ -107,8 +125,52 @@ export const autoCancelExpiredPayments = async (): Promise<number> => {
       }
     }
     
+    // ✅ NEW: Also check appointments without PaymentTracking (created but not paid)
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000); // 10 minutes ago
+    
+    const expiredAppointments = await Appointments.find({
+      status: 'pending_payment',
+      createdAt: { $lt: tenMinutesAgo }, // Created more than 10 minutes ago
+      $or: [
+        { paymentTrackingId: null },
+        { paymentTrackingId: { $exists: false } }
+      ]
+    });
+    
+    console.log(`🔍 [AUTO-CANCEL] Found ${expiredAppointments.length} expired appointments without PaymentTracking to cancel`);
+    
+    for (const appointment of expiredAppointments) {
+      try {
+        // 1. Update appointment status and payment status
+        await Appointments.findByIdAndUpdate(appointment._id, {
+          $set: { 
+            status: 'expired',
+            paymentStatus: 'expired'
+          }
+        });
+        
+        // 2. Release slot if slotId exists
+        if (appointment.slotId) {
+          try {
+            await releaseSlot(appointment.slotId.toString());
+            console.log(`✅ [AUTO-CANCEL] Released slot ${appointment.slotId} for appointment ${appointment._id} (no PaymentTracking)`);
+          } catch (slotError) {
+            console.error(`❌ [AUTO-CANCEL] Error releasing slot ${appointment.slotId}:`, slotError);
+          }
+        } else {
+          console.log(`⚠️ [AUTO-CANCEL] Appointment ${appointment._id} has no slotId, skipping slot release`);
+        }
+        
+        console.log(`🚫 [AUTO-CANCEL] Appointment ${appointment._id} cancelled due to timeout (no PaymentTracking)`);
+        cancelledCount++;
+        
+      } catch (error) {
+        console.error(`❌ [AUTO-CANCEL] Error cancelling appointment ${appointment._id}:`, error);
+      }
+    }
+    
     if (cancelledCount > 0) {
-      console.log(`🎯 [AUTO-CANCEL] Successfully cancelled ${cancelledCount} expired payments`);
+      console.log(`🎯 [AUTO-CANCEL] Successfully cancelled ${cancelledCount} expired payments/appointments`);
     }
     
     return cancelledCount;

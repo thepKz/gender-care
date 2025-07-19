@@ -157,14 +157,14 @@ export const appointmentApi = {
         return response.data;
     },
 
-    // Cập nhật trạng thái cuộc hẹn - Updated với đầy đủ status
-    updateAppointmentStatus: async (id: string, status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'done_testResultItem' | 'done_testResult') => {
+    // Cập nhật trạng thái cuộc hẹn - Updated với đầy đủ status bao gồm expired
+    updateAppointmentStatus: async (id: string, status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'payment_cancelled' | 'expired' | 'done_testResultItem' | 'done_testResult') => {
         const response = await axiosInstance.put(`/appointments/${id}/status`, { status });
         return response.data;
     },
 
-    // Cập nhật trạng thái thanh toán
-    updatePaymentStatus: async (id: string, status: 'paid' | 'unpaid' | 'partial' | 'refunded') => {
+    // Cập nhật trạng thái thanh toán - Updated với expired
+    updatePaymentStatus: async (id: string, status: 'paid' | 'unpaid' | 'partial' | 'refunded' | 'expired') => {
         const response = await axiosInstance.put(`/appointments/${id}/payment`, { status });
         return response.data;
     },
@@ -182,7 +182,7 @@ export const appointmentApi = {
     },
 
     // ===== TEST RESULTS API ENDPOINTS =====
-    
+
     // Lấy test results cho appointment
     getTestResultsByAppointment: async (appointmentId: string) => {
         const response = await axiosInstance.get(`/test-results/appointment/${appointmentId}`);
@@ -252,9 +252,9 @@ export const appointmentApi = {
         bankName: string;
         reason?: string;
     }) => {
-        const response = await axiosInstance.put(`/appointments/${id}/cancel-with-refund`, { 
+        const response = await axiosInstance.put(`/appointments/${id}/cancel-with-refund`, {
             reason,
-            refundInfo 
+            refundInfo
         });
         return response.data;
     }

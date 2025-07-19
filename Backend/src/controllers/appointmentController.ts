@@ -9,6 +9,7 @@ import { UserProfile } from '../models/UserProfile';
 import * as paymentService from '../services/paymentService';
 import systemLogService from '../services/systemLogService';
 import PackageUsageService from '../services/packageUsageService';
+import { releaseSlot } from '../services/doctorScheduleService';
 
 interface AuthRequest extends Request {
     user?: {
@@ -100,10 +101,10 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
         // Process appointments để handle missing doctor data
         const processedAppointments = appointments.map(apt => {
             const appointmentObj = apt.toObject() as any; // Cast to any để add custom properties
-            
+
             // Type cast để access populated fields
             const populatedDoctor = appointmentObj.doctorId as any;
-            
+
             // Handle missing doctor data gracefully
             if (!populatedDoctor || !populatedDoctor.userId) {
                 appointmentObj.doctorInfo = {
@@ -131,7 +132,7 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
                     missing: false
                 };
             }
-            
+
             // 🔄 Sync phone & phoneNumber for FE compatibility
             if (appointmentObj.profileId) {
                 // Nếu BE chỉ có phone, bổ sung phoneNumber
@@ -144,7 +145,7 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
                     appointmentObj.profileId.phone = appointmentObj.profileId.phoneNumber;
                 }
             }
-            
+
             return appointmentObj;
         });
 
@@ -182,7 +183,7 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
  */
 export const createAppointment = async (req: AuthRequest, res: Response) => {
     console.log('--- [createAppointment] Nhận request với body:', req.body);
-    const { 
+    const {
         profileId, packageId, serviceId, doctorId, slotId,
         appointmentDate, appointmentTime, appointmentType, typeLocation,
         description, notes,
@@ -191,7 +192,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
     console.log('🔍 [createAppointment] BookingType received:', bookingType);
 
-    const userId = req.user?._id; 
+    const userId = req.user?._id;
     if (!userId) {
         console.error('[createAppointment] Không tìm thấy userId trong req.user');
         return res.status(401).json({ success: false, message: 'Unauthorized: User ID not found.' });
@@ -200,9 +201,9 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
     // Validate bookingType
     if (!bookingType || !['service_only', 'new_package', 'purchased_package'].includes(bookingType)) {
         console.error('[createAppointment] bookingType không hợp lệ:', bookingType);
-        return res.status(400).json({ 
-            success: false, 
-            message: 'Loại đặt lịch không hợp lệ. Phải là một trong: service_only, new_package, purchased_package' 
+        return res.status(400).json({
+            success: false,
+            message: 'Loại đặt lịch không hợp lệ. Phải là một trong: service_only, new_package, purchased_package'
         });
     }
 
@@ -224,9 +225,9 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
         // Validate doctorId if provided
         if (doctorId && !mongoose.Types.ObjectId.isValid(doctorId)) {
             console.error('[createAppointment] doctorId không hợp lệ:', doctorId);
-            return res.status(400).json({ 
-                success: false, 
-                message: 'ID bác sĩ không hợp lệ' 
+            return res.status(400).json({
+                success: false,
+                message: 'ID bác sĩ không hợp lệ'
             });
         }
 
@@ -242,7 +243,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
             totalAmount = service.price;
             console.log('[createAppointment] Service booking - totalAmount:', totalAmount);
-            
+
         } else if (bookingType === 'new_package' && packageId) {
             console.log('[createAppointment] Processing new package booking - packageId:', packageId);
             const servicePackage = await require('../models/ServicePackages').default.findById(packageId);
@@ -253,7 +254,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
             totalAmount = servicePackage.price;
             console.log('[createAppointment] New package booking - totalAmount:', totalAmount);
-            
+
         } else if (bookingType === 'purchased_package' && packagePurchaseId && serviceId) {
             console.log('[createAppointment] Processing purchased package booking - packagePurchaseId:', packagePurchaseId, 'serviceId:', serviceId);
             // Validate package purchase exists and user owns it
@@ -262,7 +263,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
                 userId: userId,
                 status: 'active'
             });
-            
+
             if (!packagePurchase) {
                 console.error('[createAppointment] Không tìm thấy package purchase hoặc không thuộc về user:', packagePurchaseId);
                 return res.status(404).json({ success: false, message: 'Gói dịch vụ đã mua không tồn tại hoặc không thuộc về bạn.' });
@@ -277,12 +278,12 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
             totalAmount = 0; // Free for purchased package
             console.log('[createAppointment] Purchased package booking - totalAmount:', totalAmount, '(free)');
-            
+
         } else {
             console.error('[createAppointment] Invalid booking configuration:', { bookingType, serviceId, packageId, packagePurchaseId });
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Cấu hình đặt lịch không hợp lệ. Vui lòng kiểm tra lại thông tin.' 
+            return res.status(400).json({
+                success: false,
+                message: 'Cấu hình đặt lịch không hợp lệ. Vui lòng kiểm tra lại thông tin.'
             });
         }
 
@@ -325,27 +326,27 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
                 throw new Error('Lưu lịch hẹn thất bại hoặc không nhận được ID sau khi lưu.');
             }
             console.log('[createAppointment] Đã lưu appointment:', savedAppointment._id);
-            
+
             // 🔥 Trừ lượt sử dụng nếu là gói đã mua
             if (
-              savedAppointment.bookingType === 'purchased_package' &&
-              savedAppointment.packagePurchaseId &&
-              savedAppointment.serviceId
+                savedAppointment.bookingType === 'purchased_package' &&
+                savedAppointment.packagePurchaseId &&
+                savedAppointment.serviceId
             ) {
-              await PackageUsageService.useServiceFromPackage(
-                savedAppointment.packagePurchaseId.toString(),
-                savedAppointment.serviceId.toString(),
-                savedAppointment._id.toString()
-              );
+                await PackageUsageService.useServiceFromPackage(
+                    savedAppointment.packagePurchaseId.toString(),
+                    savedAppointment.serviceId.toString(),
+                    savedAppointment._id.toString()
+                );
             }
-            
+
             if (savedAppointment.status === 'pending_payment' && slotId) {
                 const lockResult = await DoctorSchedules.findOneAndUpdate(
-                    { 
+                    {
                         "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId),
                         "weekSchedule.slots.status": "Free"
                     },
-                    { 
+                    {
                         $set: { "weekSchedule.$[].slots.$[slot].status": "Booked" }
                     },
                     {
@@ -360,7 +361,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
                 }
                 console.log(`[Slot Lock] Slot ${slotId} đã được khóa thành công.`);
             }
-            
+
             await systemLogService.createLog({
                 action: LogAction.APPOINTMENT_CREATE,
                 level: LogLevel.PUBLIC,
@@ -381,10 +382,10 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
                     totalAmount: totalAmount
                 }
             });
-            
+
         } catch (error: any) {
             console.error('❌ [Appointment Error] Error during appointment creation or slot locking:', error);
-             
+
             // Rollback logic
             if (newAppointment?._id) {
                 await Appointments.findByIdAndDelete(newAppointment._id);
@@ -717,14 +718,15 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
 
             // 🔍 STEP 2: Free up the slot if appointment had one
             if (appointment.slotId) {
-                await DoctorSchedules.updateOne(
-                    { 'weekSchedule.slots._id': appointment.slotId },
-                    { $set: { 'weekSchedule.$.slots.$[slot].status': 'Free' } },
-                    { arrayFilters: [{ 'slot._id': appointment.slotId }] }
-                );
-                console.log('✅ [Slot Liberation] Successfully freed up appointment slot', {
-                    slotId: appointment.slotId?.toString()
-                });
+                try {
+                    await releaseSlot(appointment.slotId.toString());
+                    console.log('✅ [Slot Liberation] Successfully freed up appointment slot', {
+                        slotId: appointment.slotId?.toString()
+                    });
+                } catch (slotError) {
+                    console.error('❌ [Slot Liberation] Error releasing slot:', slotError);
+                    // Continue with cancellation even if slot release failed
+                }
             }
 
             // 🔍 STEP 3: Update appointment status to cancelled
@@ -733,19 +735,19 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
                 { $set: { status: 'cancelled' } },
                 { new: true }
             ).populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
-             .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
-             .populate('packageId', 'name', undefined, { strictPopulate: false })
-             .populate('createdByUserId', 'email fullName', undefined, { strictPopulate: false });
+                .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
+                .populate('packageId', 'name', undefined, { strictPopulate: false })
+                .populate('createdByUserId', 'email fullName', undefined, { strictPopulate: false });
 
             // ✅ NEW: Send cancellation email notification (no refund)
             try {
                 const customerEmail = (updatedAppointment?.createdByUserId as any)?.email;
-                const customerName = (updatedAppointment?.profileId as any)?.fullName || 
-                                   (updatedAppointment?.createdByUserId as any)?.fullName || 
-                                   'Khách hàng';
-                const serviceName = (updatedAppointment?.packageId as any)?.name || 
-                                  (updatedAppointment?.serviceId as any)?.serviceName || 
-                                  'Dịch vụ không xác định';
+                const customerName = (updatedAppointment?.profileId as any)?.fullName ||
+                    (updatedAppointment?.createdByUserId as any)?.fullName ||
+                    'Khách hàng';
+                const serviceName = (updatedAppointment?.packageId as any)?.name ||
+                    (updatedAppointment?.serviceId as any)?.serviceName ||
+                    'Dịch vụ không xác định';
 
                 // ✅ FIX: Lấy email từ user account thay vì profile để đảm bảo có email
                 const userAccount = await User.findById(appointment.createdByUserId).select('email fullName');
@@ -754,7 +756,7 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
 
                 if (accountEmail && updatedAppointment?.appointmentDate) {
                     const { sendAppointmentCancelledNoRefundEmail } = await import('../services/emails');
-                    
+
                     // ✅ FIX: Phân biệt lý do hủy dựa trên paymentStatus để khách hàng hiểu rõ
                     let cancelReason: string;
                     if (appointment.paymentStatus === 'paid') {
@@ -764,16 +766,16 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
                         // Trường hợp 1: Chưa thanh toán
                         cancelReason = 'Hủy lịch hẹn chưa thanh toán theo yêu cầu của khách hàng';
                     }
-                    
+
                     // ✅ NEW: Lấy thông tin profile để gửi trong email
                     const profileInfo = updatedAppointment?.profileId ? {
                         fullName: (updatedAppointment.profileId as any)?.fullName,
                         phone: (updatedAppointment.profileId as any)?.phone,
-                        age: (updatedAppointment.profileId as any)?.year ? 
-                              new Date().getFullYear() - (updatedAppointment.profileId as any).year : undefined,
+                        age: (updatedAppointment.profileId as any)?.year ?
+                            new Date().getFullYear() - (updatedAppointment.profileId as any).year : undefined,
                         gender: (updatedAppointment.profileId as any)?.gender
                     } : undefined;
-                    
+
                     await sendAppointmentCancelledNoRefundEmail(
                         accountEmail,
                         accountName,
@@ -798,7 +800,7 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
 
             return res.status(200).json({
                 success: true,
-                message: packageRefundPerformed 
+                message: packageRefundPerformed
                     ? 'Hủy cuộc hẹn thành công và đã hoàn trả lượt sử dụng gói dịch vụ'
                     : 'Hủy cuộc hẹn thành công',
                 data: updatedAppointment
@@ -806,14 +808,14 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
 
         } catch (error: any) {
             console.error('❌ [Error] Error in appointment cancellation + package refund:', error);
-            
+
             // Manual rollback for package refund if appointment cancellation failed
             if (packageRefundPerformed && packagePurchase && originalRemainingUsages >= 0) {
                 console.log('🔄 [Rollback] Attempting to rollback package refund...');
                 try {
                     const now = new Date();
                     const rollbackIsActive = (packagePurchase.expiredAt > now && originalRemainingUsages > 0);
-                    
+
                     await PackagePurchases.findByIdAndUpdate(
                         packagePurchase._id,
                         {
@@ -833,7 +835,7 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
                     });
                 }
             }
-            
+
             // Re-throw the original error
             throw error;
         }
@@ -871,8 +873,8 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
             throw new ValidationError({ id: 'ID cuộc hẹn không hợp lệ' });
         }
 
-        // Kiểm tra status có hợp lệ không - Updated với consulting status
-        if (!['pending', 'pending_payment', 'paid', 'scheduled', 'confirmed', 'consulting', 'completed', 'cancelled', 'done_testResultItem', 'done_testResult'].includes(status)) {
+        // Kiểm tra status có hợp lệ không - Updated với expired và payment_cancelled
+        if (!['pending', 'pending_payment', 'paid', 'scheduled', 'confirmed', 'consulting', 'completed', 'cancelled', 'payment_cancelled', 'expired', 'done_testResultItem', 'done_testResult'].includes(status)) {
             throw new ValidationError({ status: 'Trạng thái không hợp lệ' });
         }
 
@@ -896,9 +898,9 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
                 const releaseResult = await DoctorSchedules.findOneAndUpdate(
                     { "weekSchedule.slots._id": appointment.slotId, "weekSchedule.slots.status": "Booked" },
                     { $set: { "weekSchedule.$[].slots.$[slot].status": "Free" } },
-                    { 
+                    {
                         arrayFilters: [{ "slot._id": appointment.slotId }],
-                        new: true 
+                        new: true
                     }
                 );
                 if (releaseResult) {
@@ -924,9 +926,9 @@ export const updateAppointmentStatus = async (req: Request, res: Response) => {
 
         // Log system activity
         const profileName = (updatedAppointment?.profileId as any)?.fullName || 'Unknown';
-        const serviceName = (updatedAppointment?.serviceId as any)?.serviceName || 
-                           (updatedAppointment?.packageId as any)?.name || 'Unknown service';
-        
+        const serviceName = (updatedAppointment?.serviceId as any)?.serviceName ||
+            (updatedAppointment?.packageId as any)?.name || 'Unknown service';
+
         await systemLogService.createLog({
             action: LogAction.APPOINTMENT_UPDATE,
             level: LogLevel.PUBLIC,
@@ -1359,33 +1361,29 @@ export const cancelAppointmentByDoctor = async (req: AuthRequest, res: Response)
         // Giải phóng slot nếu có
         if (appointment.slotId) {
             console.log(`🔓 [CANCEL] Releasing slot ${appointment.slotId} for appointment ${id}`);
-            await DoctorSchedules.updateOne(
-                { 'weekSchedule.slots._id': appointment.slotId },
-                { 
-                    $set: { 'weekSchedule.$.slots.$[slot].status': 'Absent' },
-                    $unset: {
-                        'weekSchedule.$.slots.$[slot].bookedBy': 1,
-                        'weekSchedule.$.slots.$[slot].bookedAt': 1
-                    }
-                },
-                { arrayFilters: [{ 'slot._id': appointment.slotId }] }
-            );
+            try {
+                await releaseSlot(appointment.slotId.toString());
+                console.log(`✅ [CANCEL] Successfully released slot ${appointment.slotId} for appointment ${id}`);
+            } catch (slotError) {
+                console.error(`❌ [CANCEL] Error releasing slot ${appointment.slotId}:`, slotError);
+                // Continue with cancellation even if slot release failed
+            }
         }
 
         // Cập nhật trạng thái thành cancelled và lưu lý do vào notes
         const cancelNote = `[DOCTOR CANCELLED] ${reason.trim()}`;
         const existingNotes = appointment.notes || '';
-        const updatedNotes = existingNotes 
-            ? `${existingNotes}\n\n${cancelNote}` 
+        const updatedNotes = existingNotes
+            ? `${existingNotes}\n\n${cancelNote}`
             : cancelNote;
 
         const updatedAppointment = await Appointments.findByIdAndUpdate(
             id,
-            { 
-                $set: { 
+            {
+                $set: {
                     status: 'cancelled',
                     notes: updatedNotes
-                } 
+                }
             },
             { new: true }
         ).populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
@@ -1512,7 +1510,7 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
 
         // Logic cho Doctor: Tìm doctor record dựa trên userId từ token
         const doctor = await Doctor.findOne({ userId: req.user._id });
-        
+
         if (!doctor) {
             // Nếu chưa có doctor record, trả về empty list thay vì error
             return res.status(200).json({
@@ -2010,7 +2008,7 @@ export const getUserBookingHistory = async (req: AuthRequest, res: Response) => 
                             userId: userId,
                             'refund.refundInfo': { $exists: true } // Có yêu cầu hoàn tiền
                         }).sort({ createdAt: -1 });
-                        
+
                         if (paymentTracking && paymentTracking.refund) {
                             // ✅ Lấy thông tin refund đầy đủ từ PaymentTracking
                             refundInfo = {
@@ -2021,7 +2019,7 @@ export const getUserBookingHistory = async (req: AuthRequest, res: Response) => 
                                 processingNotes: paymentTracking.refund.processingNotes,
                                 refundInfo: paymentTracking.refund.refundInfo
                             };
-                            
+
                             console.log('✅ [RefundInfo] Found refund data:', {
                                 appointmentId: apt._id.toString(),
                                 processingStatus: refundInfo.processingStatus,
@@ -2190,7 +2188,7 @@ export const getUserBookingHistory = async (req: AuthRequest, res: Response) => 
             message: 'Đã xảy ra lỗi khi lấy lịch sử đặt lịch của bạn'
         });
     }
-}; 
+};
 
 /**
  * Hủy cuộc hẹn và hoàn tiền (điều kiện 24h trước khi bắt đầu)
@@ -2216,8 +2214,8 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
         // Validate refund info if provided
         if (refundInfo) {
             if (!refundInfo.accountNumber || !refundInfo.accountHolderName || !refundInfo.bankName) {
-                throw new ValidationError({ 
-                    refundInfo: 'Thông tin hoàn tiền không đầy đủ. Cần có: số tài khoản, tên chủ tài khoản, tên ngân hàng' 
+                throw new ValidationError({
+                    refundInfo: 'Thông tin hoàn tiền không đầy đủ. Cần có: số tài khoản, tên chủ tài khoản, tên ngân hàng'
                 });
             }
         }
@@ -2269,9 +2267,9 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
         let appointmentDateTime: Date;
         try {
             // Lấy phần thời gian bắt đầu (loại bỏ phần kết thúc nếu có dạng "07:00-08:00")
-            const startTime = appointment.appointmentTime.split('-')[0]?.trim() || 
-                             appointment.appointmentTime.split(' - ')[0]?.trim() || 
-                             appointment.appointmentTime.trim();
+            const startTime = appointment.appointmentTime.split('-')[0]?.trim() ||
+                appointment.appointmentTime.split(' - ')[0]?.trim() ||
+                appointment.appointmentTime.trim();
 
             // appointmentDate từ model luôn là Date type
             const dateStr = appointment.appointmentDate.toISOString().split('T')[0];
@@ -2436,26 +2434,18 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                 },
                 { new: true }
             ).populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
-             .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
-             .populate('packageId', 'name', undefined, { strictPopulate: false })
-             .populate('createdByUserId', 'email fullName', undefined, { strictPopulate: false });
+                .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
+                .populate('packageId', 'name', undefined, { strictPopulate: false })
+                .populate('createdByUserId', 'email fullName', undefined, { strictPopulate: false });
 
             // 🔍 STEP 4: Giải phóng slot nếu có
             if (appointment.slotId) {
                 try {
-                    const releaseResult = await DoctorSchedules.findOneAndUpdate(
-                        { "weekSchedule.slots._id": appointment.slotId, "weekSchedule.slots.status": "Booked" },
-                        { $set: { "weekSchedule.$[].slots.$[slot].status": "Free" } },
-                        { 
-                            arrayFilters: [{ "slot._id": appointment.slotId }],
-                            new: true 
-                        }
-                    );
-                    if (releaseResult) {
-                        console.log(`✅ [Slot Release] Slot ${appointment.slotId} released due to cancellation with refund`);
-                    }
+                    await releaseSlot(appointment.slotId.toString());
+                    console.log('✅ [Slot Release] Slot released due to cancellation with refund');
                 } catch (releaseError) {
-                    console.error(`❌ [Slot Release Error] Error releasing slot ${appointment.slotId}:`, releaseError);
+                    console.error('❌ [Slot Release Error] Error releasing slot:', releaseError);
+                    // Continue with cancellation even if slot release failed
                 }
             }
 
@@ -2464,25 +2454,25 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                 // ✅ FIX: Lấy email từ user account thay vì populated field
                 const userAccount = await User.findById(appointment.createdByUserId).select('email fullName');
                 const customerEmail = userAccount?.email;
-                const customerName = userAccount?.fullName || 
-                                   (updatedAppointment?.profileId as any)?.fullName || 
-                                   'Khách hàng';
-                const serviceName = (updatedAppointment?.packageId as any)?.name || 
-                                  (updatedAppointment?.serviceId as any)?.serviceName || 
-                                  'Dịch vụ không xác định';
+                const customerName = userAccount?.fullName ||
+                    (updatedAppointment?.profileId as any)?.fullName ||
+                    'Khách hàng';
+                const serviceName = (updatedAppointment?.packageId as any)?.name ||
+                    (updatedAppointment?.serviceId as any)?.serviceName ||
+                    'Dịch vụ không xác định';
 
                 if (customerEmail && updatedAppointment?.appointmentDate && refundInfo && paymentTracking) {
                     const { sendAppointmentCancelledWithRefundEmail } = await import('../services/emails');
-                    
+
                     // ✅ NEW: Lấy thông tin profile để gửi trong email
                     const profileInfo = updatedAppointment?.profileId ? {
                         fullName: (updatedAppointment.profileId as any)?.fullName,
                         phone: (updatedAppointment.profileId as any)?.phone,
-                        age: (updatedAppointment.profileId as any)?.year ? 
-                              new Date().getFullYear() - (updatedAppointment.profileId as any).year : undefined,
+                        age: (updatedAppointment.profileId as any)?.year ?
+                            new Date().getFullYear() - (updatedAppointment.profileId as any).year : undefined,
                         gender: (updatedAppointment.profileId as any)?.gender
                     } : undefined;
-                    
+
                     await sendAppointmentCancelledWithRefundEmail(
                         customerEmail,
                         customerName,
@@ -2523,14 +2513,14 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
 
         } catch (error: any) {
             console.error('❌ [Error] Error in appointment cancellation + refund:', error);
-            
+
             // Manual rollback cho package refund nếu appointment cancellation thất bại
             if (packageRefundPerformed && packagePurchase && originalRemainingUsages >= 0) {
                 console.log('🔄 [Rollback] Attempting to rollback package refund...');
                 try {
                     const now = new Date();
                     const rollbackIsActive = (packagePurchase.expiredAt > now && originalRemainingUsages > 0);
-                    
+
                     await PackagePurchases.findByIdAndUpdate(
                         packagePurchase._id,
                         {
@@ -2549,7 +2539,7 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                     });
                 }
             }
-            
+
             // Re-throw original error
             throw error;
         }
@@ -2578,5 +2568,5 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
             message: 'Đã xảy ra lỗi khi hủy cuộc hẹn và hoàn tiền'
         });
     }
-}; 
+};
 

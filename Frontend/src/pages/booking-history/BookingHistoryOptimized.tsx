@@ -257,6 +257,40 @@ const BookingHistoryOptimized: React.FC = () => {
     setCurrentPage(1); // Reset to first page when filtering
   }, [searchText, statusFilter, appointments]);
 
+  // Auto refresh for pending_payment appointments (no notifications to avoid spam)
+  useEffect(() => {
+    if (!appointments.length) return;
+
+    // Check if there are any pending_payment appointments
+    const pendingPayments = appointments.filter(apt => apt.status === 'pending_payment');
+    
+    if (pendingPayments.length === 0) return;
+
+    // Set up interval to check and refresh every 30 seconds
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      let shouldRefresh = false;
+
+      // Check if any pending_payment appointment has expired
+      pendingPayments.forEach(appointment => {
+        const createdTime = new Date(appointment.createdAt).getTime();
+        const elapsedMinutes = Math.floor((now - createdTime) / (1000 * 60));
+        
+        // If more than 10 minutes have passed, refresh to get updated status
+        if (elapsedMinutes >= 10) {
+          shouldRefresh = true;
+        }
+      });
+
+      if (shouldRefresh) {
+        console.log('🔄 [Auto-Refresh] Pending payment appointments expired, refreshing...');
+        fetchAppointments();
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [appointments]);
+
   // Status configuration - ✅ Updated với consultation statuses
   const statusConfig = {
     pending: { color: '#faad14', text: 'Chờ xác nhận', icon: <Timer size={16} /> },
@@ -268,7 +302,8 @@ const BookingHistoryOptimized: React.FC = () => {
     done_testResult: { color: '#06b6d4', text: 'Hoàn thành hồ sơ', icon: <TickCircle size={16} /> },
     completed: { color: '#22c55e', text: 'Hoàn thành', icon: <TickCircle size={16} /> },
     cancelled: { color: '#f5222d', text: 'Đã hủy', icon: <CloseCircle size={16} /> },
-    payment_cancelled: { color: '#ff4d4f', text: 'Hủy thanh toán', icon: <CloseCircle size={16} /> }
+    payment_cancelled: { color: '#ff4d4f', text: 'Hủy thanh toán', icon: <CloseCircle size={16} /> },
+    expired: { color: '#f5222d', text: 'Hết hạn', icon: <CloseCircle size={16} /> }
   };
 
   const locationConfig = {
@@ -293,15 +328,20 @@ const BookingHistoryOptimized: React.FC = () => {
     setShowDetailModal(true);
   };
 
-  // Helper function to check if appointment can be cancelled (ALWAYS except cancelled/completed)
+  // Helper function to check if appointment can be cancelled (ALWAYS except cancelled/completed/expired)
   const canCancel = (appointment: Appointment): boolean => {
-    return !['cancelled', 'completed'].includes(appointment.status);
+    return !['cancelled', 'completed', 'expired'].includes(appointment.status);
   };
 
   // Helper function to check if appointment can be cancelled with refund (24h rule)
   const canCancelWithRefund = (appointment: Appointment): boolean => {
     // Chỉ cho phép hoàn tiền nếu đã thanh toán
     if (appointment.paymentStatus !== 'paid') {
+      return false;
+    }
+
+    // Không cho phép hủy nếu đã quá hạn
+    if (appointment.status === 'expired') {
       return false;
     }
 
@@ -610,11 +650,39 @@ const BookingHistoryOptimized: React.FC = () => {
                         </Tag>
 
                         <Tag
-                          color={statusConfig[appointment.status as keyof typeof statusConfig]?.color}
+                          color={
+                            (appointment.status === 'pending_payment' && (() => {
+                              const createdTime = new Date(appointment.createdAt).getTime();
+                              const currentTime = new Date().getTime();
+                              const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
+                              const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
+                              return remainingMinutes <= 0;
+                            })()) || (appointment.status === 'expired' && appointment.paymentStatus === 'expired')
+                              ? '#f5222d'
+                              : statusConfig[appointment.status as keyof typeof statusConfig]?.color
+                          }
                           className="flex items-center gap-1 text-xs px-2 py-1"
                         >
-                          {statusConfig[appointment.status as keyof typeof statusConfig]?.icon}
-                          {statusConfig[appointment.status as keyof typeof statusConfig]?.text}
+                          {(appointment.status === 'pending_payment' && (() => {
+                            const createdTime = new Date(appointment.createdAt).getTime();
+                            const currentTime = new Date().getTime();
+                            const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
+                            const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
+                            return remainingMinutes <= 0;
+                          })()) ? (
+                            <>
+                              <CloseCircle size={16} /> Đã hủy lịch (quá hạn thanh toán)
+                            </>
+                          ) : (appointment.status === 'expired' && appointment.paymentStatus === 'expired') ? (
+                            <>
+                              <CloseCircle size={16} /> Đã quá hạn thanh toán
+                            </>
+                          ) : (
+                            <>
+                              {statusConfig[appointment.status as keyof typeof statusConfig]?.icon}
+                              {statusConfig[appointment.status as keyof typeof statusConfig]?.text}
+                            </>
+                          )}
                         </Tag>
                       </div>
                       
@@ -670,54 +738,61 @@ const BookingHistoryOptimized: React.FC = () => {
                   </div>
 
                   {/* Quick actions for pending appointments */}
-                  {appointment.status === 'pending_payment' && (
-                    <div className="pt-4 border-t border-gray-100">
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex flex-col">
-                            <span className="text-sm text-orange-600 font-medium">
-                              Cần thanh toán để xác nhận lịch hẹn
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              Chỗ sẽ được giữ trong 10 phút. Sau đó, lịch sẽ tự động hủy.
-                            </span>
+                  {appointment.status === 'pending_payment' && (() => {
+                    const createdTime = new Date(appointment.createdAt).getTime();
+                    const currentTime = new Date().getTime();
+                    const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
+                    const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
+                    if (remainingMinutes <= 0) return null;
+                    return (
+                      <div className="pt-4 border-t border-gray-100">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                              <span className="text-sm text-orange-600 font-medium">
+                                Cần thanh toán để xác nhận lịch hẹn
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                Chỗ sẽ được giữ trong 10 phút. Sau đó, lịch sẽ tự động hủy.
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => navigate(`/payment/process?appointmentId=${appointment.id}`)}
+                              className="px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors"
+                            >
+                              Thanh toán ngay
+                            </button>
                           </div>
-                          <button
-                            onClick={() => navigate(`/payment/process?appointmentId=${appointment.id}`)}
-                            className="px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors"
-                          >
-                            Thanh toán ngay
-                          </button>
-                        </div>
-                        {(() => {
-                          // Tính thời gian tạo lịch
-                          const createdTime = new Date(appointment.createdAt).getTime();
-                          const currentTime = new Date().getTime();
-                          const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
-                          const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
-                          
-                          if (remainingMinutes > 0) {
-                            return (
-                              <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                                <div 
-                                  className="bg-orange-500 h-2.5 rounded-full" 
-                                  style={{ width: `${remainingMinutes * 10}%` }}
-                                ></div>
-                                <div className="text-xs text-gray-500 mt-1 text-right">
-                                  Còn {remainingMinutes} phút để thanh toán
+                          {(() => {
+                            // Tính thời gian tạo lịch
+                            const createdTime = new Date(appointment.createdAt).getTime();
+                            const currentTime = new Date().getTime();
+                            const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
+                            const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
+                            
+                            if (remainingMinutes > 0) {
+                              return (
+                                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                  <div 
+                                    className="bg-orange-500 h-2.5 rounded-full" 
+                                    style={{ width: `${remainingMinutes * 10}%` }}
+                                  ></div>
+                                  <div className="text-xs text-gray-500 mt-1 text-right">
+                                    Còn {remainingMinutes} phút để thanh toán
+                                  </div>
                                 </div>
+                              );
+                            }
+                            return (
+                              <div className="text-xs text-red-500 font-medium mt-2">
+                                Hết thời gian giữ chỗ! Lịch có thể bị hủy bất kỳ lúc nào.
                               </div>
                             );
-                          }
-                          return (
-                            <div className="text-xs text-red-500 font-medium mt-2">
-                              Hết thời gian giữ chỗ! Lịch có thể bị hủy bất kỳ lúc nào.
-                            </div>
-                          );
-                        })()}
+                          })()}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </motion.div>
             ))}
@@ -770,11 +845,28 @@ const BookingHistoryOptimized: React.FC = () => {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">{selectedAppointment.serviceName}</h3>
                   <Tag
-                    color={statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.color}
+                    color={
+                      (selectedAppointment.status === 'cancelled' && selectedAppointment.paymentStatus === 'unpaid') ||
+                      (selectedAppointment.status === 'expired' && selectedAppointment.paymentStatus === 'expired')
+                        ? '#f5222d'
+                        : statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.color
+                    }
                     className="flex items-center gap-1"
                   >
-                    {statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.icon}
-                    {statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.text}
+                    {(selectedAppointment.status === 'cancelled' && selectedAppointment.paymentStatus === 'unpaid') ? (
+                      <>
+                        <CloseCircle size={16} /> Đã hủy lịch (quá hạn thanh toán)
+                      </>
+                    ) : (selectedAppointment.status === 'expired' && selectedAppointment.paymentStatus === 'expired') ? (
+                      <>
+                        <CloseCircle size={16} /> Đã quá hạn thanh toán
+                      </>
+                    ) : (
+                      <>
+                        {statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.icon}
+                        {statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.text}
+                      </>
+                    )}
                   </Tag>
                 </div>
               </div>
@@ -806,12 +898,19 @@ const BookingHistoryOptimized: React.FC = () => {
                 <div>
                   <label className="text-sm font-medium text-gray-500">Trạng thái thanh toán</label>
                   <p className="text-gray-900">
-                    {(selectedAppointment.paymentStatus === 'paid' || selectedAppointment.paymentStatus === 'refunded') ? 'Đã thanh toán' : 
-                     'Chưa thanh toán'}
+                    {selectedAppointment.paymentStatus === 'expired' ? (
+                      <span className="text-red-600 font-medium">Đã quá hạn thanh toán</span>
+                    ) : (selectedAppointment.paymentStatus === 'paid' || selectedAppointment.paymentStatus === 'refunded') ? (
+                      'Đã thanh toán'
+                    ) : (
+                      'Chưa thanh toán'
+                    )}
                   </p>
                 </div>
               </div>
 
+
+              
               {/* Hiển thị trạng thái hoàn tiền nếu có - Full Width */}
               {(() => {
                 // Check if this is a cancelled appointment that should show refund tracking
@@ -925,55 +1024,7 @@ const BookingHistoryOptimized: React.FC = () => {
                 </div>
               )}
 
-              {/* Thêm thông tin thời gian giữ chỗ cho trạng thái pending_payment */}
-              {selectedAppointment.status === 'pending_payment' && (
-                <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                  <h4 className="text-base font-semibold text-orange-800 mb-3">Thông tin thanh toán</h4>
-                  <div className="space-y-3">
-                    <div className="bg-white p-3 rounded-lg border border-orange-100">
-                      <p className="text-orange-700 mb-2">
-                        Lịch hẹn này đang chờ thanh toán. Vui lòng hoàn tất thanh toán để xác nhận lịch hẹn.
-                      </p>
-                      {(() => {
-                        // Tính thời gian tạo lịch
-                        const createdTime = new Date(selectedAppointment.createdAt).getTime();
-                        const currentTime = new Date().getTime();
-                        const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
-                        const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
-                        
-                        return (
-                          <div className="border-t border-orange-100 pt-2 mt-2">
-                            <p className="text-sm text-orange-800 font-medium mb-2">
-                              ⏱️ Thời gian giữ chỗ: {remainingMinutes > 0 ? `Còn ${remainingMinutes} phút` : 'Đã hết hạn'}
-                            </p>
-                            {remainingMinutes > 0 ? (
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div 
-                                  className="bg-orange-500 h-2 rounded-full" 
-                                  style={{ width: `${remainingMinutes * 10}%` }}
-                                ></div>
-                              </div>
-                            ) : (
-                              <p className="text-xs text-red-600">
-                                Lịch hẹn có thể bị hủy bất kỳ lúc nào do hết thời gian thanh toán!
-                              </p>
-                            )}
-                            <p className="text-xs text-gray-500 mt-2">
-                              Hệ thống sẽ giữ chỗ trong 10 phút kể từ khi đặt lịch. Sau thời gian này, lịch hẹn sẽ tự động hủy và trả lại khung giờ cho người khác.
-                            </p>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                    <button
-                      onClick={() => navigate(`/payment/process?appointmentId=${selectedAppointment.id}`)}
-                      className="w-full py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
-                    >
-                      Thanh toán ngay
-                    </button>
-                  </div>
-                </div>
-              )}
+
 
               {/* Cancellation Info */}
               {canCancel(selectedAppointment) && (

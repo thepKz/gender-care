@@ -109,12 +109,30 @@ const PaymentSuccessPage = () => {
         
         if (response.success && response.data) {
           const appointment = response.data;
+          
+          // ✅ DEBUG: Log appointment data structure để hiểu data từ backend
+          console.log('🔍 [PaymentSuccess] Appointment data from backend:', {
+            appointment,
+            serviceId: appointment.serviceId,
+            packageId: appointment.packageId,
+            doctorId: appointment.doctorId,
+            profileId: appointment.profileId,
+            userProfile: appointment.userProfile,
+            serviceName: appointment.serviceName,
+            doctorName: appointment.doctorName,
+            patientName: appointment.patientName,
+            // ✅ ADD: Log nested structures
+            serviceIdServiceName: appointment.serviceId?.serviceName,
+            packageIdName: appointment.packageId?.name,
+            doctorIdUserIdFullName: appointment.doctorId?.userId?.fullName,
+            profileIdFullName: appointment.profileId?.fullName
+          });
 
           setAppointmentData({
             id: appointment.id || appointmentId,
-            serviceName: appointment.serviceId?.serviceName || appointment.packageId?.name || 'Dịch vụ khám bệnh',
-            doctorName: appointment.doctorId?.userId?.fullName || 'Bác sĩ',
-            patientName: appointment.profileId?.fullName || appointment.userProfile?.fullName || 'Bệnh nhân',
+            serviceName: appointment.serviceId?.serviceName || appointment.packageId?.name || appointment.serviceName || 'Dịch vụ khám bệnh',
+            doctorName: appointment.doctorId?.userId?.fullName || appointment.doctorId?.fullName || appointment.doctorName || 'Bác sĩ',
+            patientName: appointment.profileId?.fullName || appointment.userProfile?.fullName || appointment.patientName || 'Bệnh nhân',
             appointmentDate: appointment.appointmentDate || 'Chưa xác định',
             timeSlot: appointment.appointmentTime || appointment.timeSlot || 'Chưa xác định',
             totalAmount: appointment.totalAmount || 0,
