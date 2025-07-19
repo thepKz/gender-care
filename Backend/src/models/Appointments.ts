@@ -16,7 +16,7 @@ export interface IAppointments extends Document {
   notes?: string;
   status: "pending_payment" | "pending" | "scheduled" | "confirmed" | "consulting" | "completed" | "cancelled" | "payment_cancelled" | "expired" | "done_testResultItem" | "done_testResult";
   totalAmount?: number; // Total amount for payment
-  paymentStatus?: "unpaid" | "paid" | "partial" | "refunded";
+  paymentStatus?: "unpaid" | "paid" | "partial" | "refunded" | "expired";
   paidAt?: Date; // Timestamp when payment was completed
   bookingType?: "new_package" | "purchased_package" | "service_only"; // Phân biệt loại đặt lịch
   packagePurchaseId?: mongoose.Types.ObjectId; // Reference đến package đã mua (cho purchased_package)
@@ -82,7 +82,7 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   status: {
     type: String,
-    enum: ["pending_payment", "pending", "scheduled", "confirmed", "consulting", "completed", "cancelled"],
+    enum: ["pending_payment", "pending", "scheduled", "confirmed", "consulting", "completed", "cancelled", "payment_cancelled", "expired"],
     default: "pending_payment"
   },
   totalAmount: {
@@ -91,7 +91,7 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   paymentStatus: {
     type: String,
-    enum: ["unpaid", "paid", "partial", "refunded"],
+    enum: ["unpaid", "paid", "partial", "refunded", "expired"],
     default: "unpaid"
   },
   paidAt: {

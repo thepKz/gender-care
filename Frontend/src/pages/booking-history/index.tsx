@@ -2,6 +2,13 @@ import { DatePicker, Empty, Input, message, Modal, Rate, Select, Timeline } from
 import axios from 'axios';
 import type { Dayjs } from 'dayjs';
 import { AnimatePresence, motion } from 'framer-motion';
+
+// Khai báo biến toàn cục để theo dõi trạng thái cảnh báo
+declare global {
+  interface Window {
+    paymentWarningShown?: boolean;
+  }
+}
 import {
     Activity,
     Calendar,
@@ -138,8 +145,8 @@ const BookingHistory: React.FC = () => {
           description: apt.description || apt.question, // ✅ question cho consultations
           notes: apt.notes,
           address: apt.address,
-          canCancel: apt.canCancel || ['pending', 'pending_payment', 'confirmed'].includes(apt.status),
-          canReschedule: apt.canReschedule || ['pending', 'confirmed'].includes(apt.status),
+          canCancel: apt.canCancel || ['pending', 'pending_payment', 'confirmed'].includes(apt.status) && apt.status !== 'expired',
+          canReschedule: apt.canReschedule || ['pending', 'confirmed'].includes(apt.status) && apt.status !== 'expired',
           rating: apt.rating,
           feedback: apt.feedback,
           // ✅ Consultation-specific fields
@@ -222,6 +229,45 @@ const BookingHistory: React.FC = () => {
                   fetchAppointments(true);
                   return; // Exit early after refresh
                 }
+                
+                // Kiểm tra thời gian tạo lịch hẹn để cảnh báo sắp hết hạn
+                const createdTime = new Date(appointment.createdAt).getTime();
+                const currentTime = new Date().getTime();
+                const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
+                const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
+                
+                // Nếu còn dưới 3 phút và chưa hiển thị cảnh báo
+                if (remainingMinutes <= 3 && remainingMinutes > 0 && !window.paymentWarningShown) {
+                  message.warning({
+                    content: `Lịch hẹn của bạn sẽ tự động hủy sau ${remainingMinutes} phút nếu không thanh toán!`,
+                    duration: 10,
+                    key: 'payment-expiry-warning'
+                  });
+                  window.paymentWarningShown = true;
+                  
+                  // Reset cảnh báo sau 1 phút
+                  setTimeout(() => {
+                    window.paymentWarningShown = false;
+                  }, 60000);
+                }
+                
+                // TỰ ĐỘNG HỦY nếu đã hết thời gian thanh toán (10 phút)
+                if (elapsedMinutes >= 10) {
+                  console.log('⏰ [Auto-Poll] Payment time expired for appointment', appointment.id, 'auto-cancelling...');
+                  try {
+                    // Gọi API hủy cuộc hẹn để trả lại slot
+                    await appointmentApi.deleteAppointment(appointment.id);
+                    message.error({
+                      content: 'Cuộc hẹn đã bị hủy tự động do quá thời gian thanh toán (10 phút)',
+                      duration: 5,
+                      key: 'payment-expired-cancel'
+                    });
+                    // Refresh appointments để lấy status mới (có thể là "expired" hoặc "cancelled")
+                    fetchAppointments(true);
+                  } catch (cancelError) {
+                    console.error('❌ [Auto-Poll] Error auto-cancelling expired appointment:', cancelError);
+                  }
+                }
               }
             } catch (error) {
               console.log('🔍 [Auto-Poll] Error checking payment for', appointment.id, ':', error.message);
@@ -240,6 +286,8 @@ const BookingHistory: React.FC = () => {
       clearInterval(pollInterval);
     };
   }, [appointments]); // Separate useEffect cho auto-polling
+
+
 
   // ✅ NEW: Force check payment and assign doctor for stuck appointments
   const handleForceCheck = async (appointment: Appointment) => {
@@ -370,7 +418,8 @@ const BookingHistory: React.FC = () => {
     confirmed: { color: '#52c41a', text: 'Đã xác nhận', icon: <TickCircle size={16} /> },
     completed: { color: '#722ed1', text: 'Hoàn thành', icon: <TickCircle size={16} /> },
     cancelled: { color: '#f5222d', text: 'Đã hủy lịch', icon: <CloseCircle size={16} /> },
-    payment_cancelled: { color: '#ff4d4f', text: 'Đã hủy thanh toán', icon: <Trash size={16} /> }
+    payment_cancelled: { color: '#ff4d4f', text: 'Đã hủy thanh toán', icon: <Trash size={16} /> },
+    expired: { color: '#f5222d', text: 'Hết hạn', icon: <CloseCircle size={16} /> }
   };
 
   const locationConfig = {

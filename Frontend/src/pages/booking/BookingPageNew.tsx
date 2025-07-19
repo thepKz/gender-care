@@ -98,7 +98,7 @@ interface PurchasedPackage {
     maxQuantity?: number;  // Backend compatibility
   }>;
   totalAmount: number;
-  status: 'active' | 'expired' | 'used_up';
+  status: 'active' | 'expired' | 'used_up' | 'pending_payment';
   expiresAt: string;
 }
 
@@ -850,8 +850,8 @@ const BookingPageNew: React.FC = () => {
       }
 
       // Validate description length
-      if (values.description && values.description.length > 25) {
-        message.error('Mô tả không được vượt quá 25 ký tự');
+      if (values.description && values.description.length > 200) {
+        message.error('Mô tả không được vượt quá 200 ký tự');
         return;
       }
 
@@ -973,6 +973,7 @@ const BookingPageNew: React.FC = () => {
                 
                 // Refetch purchased packages trước khi redirect
                 await refetchPurchasedPackages();
+                refetchSlotsAfterBooking();
                 
                 // Use setTimeout to ensure the redirect happens in a new execution context
                 setTimeout(() => {
@@ -985,6 +986,7 @@ const BookingPageNew: React.FC = () => {
             else {
                 // Refetch purchased packages trước khi reset/redirect
                 await refetchPurchasedPackages();
+                refetchSlotsAfterBooking();
                 Modal.success({
                     title: 'Đặt lịch thành công!',
                     content: 'Lịch hẹn của bạn đã được xác nhận. Vui lòng kiểm tra email hoặc trang Lịch sử đặt lịch.',
@@ -1007,6 +1009,13 @@ const BookingPageNew: React.FC = () => {
     } catch (error) {
       console.error('Error handling form submission:', error);
       message.error('Có lỗi xảy ra khi đặt lịch. Vui lòng thử lại sau.');
+    }
+  };
+
+  // Sau khi đặt lịch thành công hoặc bị hủy, refetch lại slot
+  const refetchSlotsAfterBooking = () => {
+    if (selectedDate) {
+      fetchTimeSlots(selectedDate);
     }
   };
 
@@ -1784,6 +1793,9 @@ const BookingPageNew: React.FC = () => {
                                 <div
                                   key={uniqueKey}
                                   onClick={() => handleServiceFromPackageChange(service.serviceId)}
+                                  role="button"
+                                  tabIndex={0}
+                                  onKeyDown={(e) => e.key === 'Enter' && handleServiceFromPackageChange(service.serviceId)}
                                   style={{
                                     padding: '16px',
                                     borderRadius: '8px',
@@ -2076,6 +2088,7 @@ const BookingPageNew: React.FC = () => {
                   }}>
                     {timeSlots.map((slot) => (
                       <button
+                        type="button"
                         key={slot.id}
                             onClick={() => handleTimeSlotSelect(slot.time)}
                             disabled={!slot.isAvailable}
@@ -2286,13 +2299,13 @@ const BookingPageNew: React.FC = () => {
                       name="description"
                       style={{ marginBottom: '16px' }}
                       rules={[
-                        { max: 25, message: 'Mô tả không được vượt quá 25 ký tự' }
+                        { max: 200, message: 'Mô tả không được vượt quá 200 ký tự' }
                       ]}
                     >
                       <Input.TextArea
-                        placeholder="Mô tả triệu chứng hoặc lý do khám (tối đa 25 ký tự)"
-                        rows={2}
-                        maxLength={25}
+                        placeholder="Mô tả triệu chứng hoặc lý do khám (tối đa 200 ký tự)"
+                        rows={3}
+                        maxLength={200}
                         showCount
                         size="large"
                       />
@@ -2415,17 +2428,41 @@ const BookingPageNew: React.FC = () => {
                         `• Bác sĩ: ${doctors.find(d => d.id === selectedDoctor)?.name}`
                       }
                     </div>
-                    <div style={{
-                      marginTop: '12px',
-                      padding: '8px',
-                      backgroundColor: '#ecfdf5',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      color: '#10b981'
-                    }}>
-                      💰 Chi phí: {formatPrice(getCurrentPrice())}
-                    </div>
+                                      <div style={{
+                    marginTop: '12px',
+                    padding: '8px',
+                    backgroundColor: '#ecfdf5',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#10b981'
+                  }}>
+                    💰 Chi phí: {formatPrice(getCurrentPrice())}
+                  </div>
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '8px',
+                    backgroundColor: '#fff7ed',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    color: '#c2410c',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{ fontSize: '16px' }}>⏱️</span>
+                    <span>Chỗ đặt sẽ được giữ trong 10 phút để thanh toán</span>
+                  </div>
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '8px',
+                    backgroundColor: '#fff7ed',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#c2410c'
+                  }}>
+                    ⏱️ Lưu ý: Sau khi đặt lịch, bạn có 10 phút để hoàn tất thanh toán. Sau thời gian này, lịch hẹn sẽ tự động hủy và trả lại khung giờ cho người khác.
+                  </div>
                   </div>
 
               {/* Submit Button */}
@@ -2647,31 +2684,6 @@ const BookingPageNew: React.FC = () => {
                     <span>Bạn bè</span>
                   </div>
                 </Option>
-              </Select>
-            </Form.Item>
-
-            {/* Appointment Type Selection */}
-            <Form.Item
-              label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Loại cuộc hẹn</span>}
-              required
-              style={{ marginBottom: '16px' }}
-            >
-              <Select
-                value={appointmentType}
-                onChange={setAppointmentType}
-                placeholder="Chọn loại cuộc hẹn"
-                style={{ fontSize: '14px' }}
-                size="large"
-              >
-                {bookingType === 'package' ? (
-                  <Option value="other">Gói dịch vụ</Option>
-                ) : (
-                  <>
-                    <Option value="consultation">Tư vấn</Option>
-                    <Option value="test">Xét nghiệm</Option>
-                    <Option value="treatment">Điều trị</Option>
-                  </>
-                )}
               </Select>
             </Form.Item>
           </Form>
