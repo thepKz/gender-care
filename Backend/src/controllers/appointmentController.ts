@@ -916,15 +916,6 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
           );
           // Continue with cancellation even if package not found (maybe manual appointment)
         } else {
-          console.log(
-            "✅ [Package Refund] Found package purchase, refunding usage...",
-            {
-              packagePurchaseId: packagePurchase._id?.toString() || "unknown",
-              usedServices: packagePurchase.usedServices?.length || 0,
-            }
-          );
-
-          // ✅ FIX: Khi sử dụng purchased package, appointment không có serviceId
           // Tìm service trong package để hoàn lại - sử dụng serviceId từ package purchase
           let serviceUsage = null;
           let serviceIdToRefund = null;
@@ -944,31 +935,15 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
 
           if (!serviceUsage) {
             console.log(
-              "⚠️ [Package Refund] Service not found in package, skipping refund",
-              {
-                appointmentServiceId: appointment.serviceId,
-                packageServices: packagePurchase.usedServices.map((s: any) => s.serviceId.toString())
-              }
+              "⚠️ [Package Refund] Service not found in package, skipping refund"
             );
             // Continue with cancellation but don't refund
           } else {
-            console.log(
-              "🔍 [Package Refund] Found service in package, checking usage...",
-              {
-                serviceId: serviceIdToRefund?.toString(),
-                currentUsedQuantity: serviceUsage.usedQuantity,
-                maxQuantity: serviceUsage.maxQuantity
-              }
-            );
 
             // Validate we don't refund more than max quantity
             if (serviceUsage.usedQuantity <= 0) {
               console.log(
-                "⚠️ [Package Refund] Service already at minimum usage (0), skipping refund",
-                {
-                  serviceId: serviceIdToRefund?.toString(),
-                  usedQuantity: serviceUsage.usedQuantity
-                }
+                "⚠️ [Package Refund] Service already at minimum usage (0), skipping refund"
               );
               // Continue with cancellation but don't refund
             } else {
@@ -1000,15 +975,7 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
               packageRefundPerformed = true;
 
               console.log(
-                "✅ [Package Refund] Successfully refunded package usage",
-                {
-                  packagePurchaseId: packagePurchase._id?.toString() || "unknown",
-                  serviceId: serviceIdToRefund?.toString(),
-                  oldUsedQuantity: originalRemainingUsages,
-                  newUsedQuantity: newUsedQuantity,
-                  oldStatus: oldStatus,
-                  newStatus: newStatus
-                }
+                "✅ [Package Refund] Successfully refunded package usage"
               );
             }
           }
@@ -1019,12 +986,7 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
       if (appointment.slotId) {
         try {
           await releaseSlot(appointment.slotId.toString());
-          console.log(
-            "✅ [Slot Liberation] Successfully freed up appointment slot",
-            {
-              slotId: appointment.slotId?.toString(),
-            }
-          );
+
         } catch (slotError) {
           console.error(
             "❌ [Slot Liberation] Error releasing slot:",
@@ -1175,7 +1137,6 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
             packagePurchase.checkAndUpdateStatus();
             
             await packagePurchase.save();
-            console.log("✅ [Rollback] Package refund rolled back successfully");
           } else {
             console.log("⚠️ [Rollback] Service not found for rollback");
           }
@@ -2915,31 +2876,15 @@ export const cancelAppointmentWithRefund = async (
 
           if (!serviceUsage) {
             console.log(
-              "⚠️ [Package Refund] Service not found in package, skipping refund",
-              {
-                appointmentServiceId: appointment.serviceId,
-                packageServices: packagePurchase.usedServices.map((s: any) => s.serviceId.toString())
-              }
+              "⚠️ [Package Refund] Service not found in package, skipping refund"
             );
             // Tiếp tục với việc hủy nhưng không hoàn package
           } else {
-            console.log(
-              "🔍 [Package Refund] Found service in package, checking usage...",
-              {
-                serviceId: serviceIdToRefund?.toString(),
-                currentUsedQuantity: serviceUsage.usedQuantity,
-                maxQuantity: serviceUsage.maxQuantity
-              }
-            );
 
             // Validate chúng ta không hoàn nhiều hơn max quantity
             if (serviceUsage.usedQuantity <= 0) {
               console.log(
-                "⚠️ [Package Refund] Service already at minimum usage (0), skipping refund",
-                {
-                  serviceId: serviceIdToRefund?.toString(),
-                  usedQuantity: serviceUsage.usedQuantity
-                }
+                "⚠️ [Package Refund] Service already at minimum usage (0), skipping refund"
               );
               // Tiếp tục với việc hủy nhưng không hoàn package
             } else {
@@ -2971,15 +2916,7 @@ export const cancelAppointmentWithRefund = async (
               packageRefundPerformed = true;
 
               console.log(
-                "✅ [Package Refund] Successfully refunded package usage",
-                {
-                  packagePurchaseId: packagePurchase._id?.toString() || "unknown",
-                  serviceId: serviceIdToRefund?.toString(),
-                  oldUsedQuantity: originalRemainingUsages,
-                  newUsedQuantity: newUsedQuantity,
-                  oldStatus: oldStatus,
-                  newStatus: newStatus
-                }
+                "✅ [Package Refund] Successfully refunded package usage"
               );
             }
           }
@@ -3048,9 +2985,7 @@ export const cancelAppointmentWithRefund = async (
       if (appointment.slotId) {
         try {
           await releaseSlot(appointment.slotId.toString());
-          console.log(
-            "✅ [Slot Release] Slot released due to cancellation with refund"
-          );
+
         } catch (releaseError) {
           console.error(
             "❌ [Slot Release Error] Error releasing slot:",
@@ -3177,7 +3112,6 @@ export const cancelAppointmentWithRefund = async (
             packagePurchase.checkAndUpdateStatus();
             
             await packagePurchase.save();
-            console.log("✅ [Rollback] Package refund rolled back successfully");
           } else {
             console.log("⚠️ [Rollback] Service not found for rollback");
           }
