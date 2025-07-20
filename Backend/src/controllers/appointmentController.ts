@@ -888,13 +888,21 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
         );
 
         // Find the corresponding package purchase record
-        packagePurchase = await PackagePurchases.findOne({
-          userId: appointment.createdByUserId,
-          profileId: appointment.profileId,
-          packageId: appointment.packageId,
-          // Note: We don't filter by isActive here because we want to refund even expired packages
-          expiredAt: { $gt: new Date() }, // Only refund if package hasn't expired yet
-        });
+        // ✅ FIX: Chỉ tìm theo userId và packagePurchaseId/packageId, không lọc theo profileId và expiryDate
+        if (appointment.packagePurchaseId) {
+          packagePurchase = await PackagePurchases.findOne({
+            _id: appointment.packagePurchaseId,
+            userId: appointment.createdByUserId,
+            // Note: Không lọc theo status để có thể hoàn lại ngay cả khi package đã used_up
+          });
+        } else {
+          // Fallback: Tìm theo packageId và userId nếu không có packagePurchaseId
+          packagePurchase = await PackagePurchases.findOne({
+            userId: appointment.createdByUserId,
+            packageId: appointment.packageId,
+            // Note: Không lọc theo status để có thể hoàn lại ngay cả khi package đã used_up
+          });
+        }
 
         if (!packagePurchase) {
           console.log(
@@ -912,62 +920,94 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
             "✅ [Package Refund] Found package purchase, refunding usage...",
             {
               packagePurchaseId: packagePurchase._id?.toString() || "unknown",
-              currentRemainingUsages: packagePurchase.remainingUsages,
-              totalAllowedUses: packagePurchase.totalAllowedUses,
+              usedServices: packagePurchase.usedServices?.length || 0,
             }
           );
 
-          // Store original value for logging and potential rollback
-          originalRemainingUsages = packagePurchase.remainingUsages;
+          // ✅ FIX: Khi sử dụng purchased package, appointment không có serviceId
+          // Tìm service trong package để hoàn lại - sử dụng serviceId từ package purchase
+          let serviceUsage = null;
+          let serviceIdToRefund = null;
 
-          // Validate we don't refund more than total allowed uses
-          if (
-            packagePurchase.remainingUsages >= packagePurchase.totalAllowedUses
-          ) {
+          if (appointment.serviceId) {
+            // Trường hợp appointment có serviceId (service_only booking)
+            serviceUsage = packagePurchase.usedServices.find(
+              (service: any) => service.serviceId.toString() === appointment.serviceId?.toString()
+            );
+            serviceIdToRefund = appointment.serviceId;
+          } else {
+            // Trường hợp appointment không có serviceId (purchased_package booking)
+            // Lấy service đầu tiên trong package để hoàn lại
+            serviceUsage = packagePurchase.usedServices[0];
+            serviceIdToRefund = serviceUsage?.serviceId;
+          }
+
+          if (!serviceUsage) {
             console.log(
-              "⚠️ [Package Refund] Package already at maximum usage, skipping refund",
+              "⚠️ [Package Refund] Service not found in package, skipping refund",
               {
-                packagePurchaseId: packagePurchase._id?.toString(),
-                remainingUsages: packagePurchase.remainingUsages,
-                totalAllowedUses: packagePurchase.totalAllowedUses,
+                appointmentServiceId: appointment.serviceId,
+                packageServices: packagePurchase.usedServices.map((s: any) => s.serviceId.toString())
               }
             );
             // Continue with cancellation but don't refund
           } else {
-            // Calculate new values - add back 1 usage
-            const newRemainingUsages = packagePurchase.remainingUsages + 1;
-            const now = new Date();
-            const newIsActive =
-              packagePurchase.expiredAt > now && newRemainingUsages > 0;
-
-            // Update package purchase with optimistic approach
-            const updateResult = await PackagePurchases.findByIdAndUpdate(
-              packagePurchase._id,
+            console.log(
+              "🔍 [Package Refund] Found service in package, checking usage...",
               {
-                $set: {
-                  remainingUsages: newRemainingUsages,
-                  isActive: newIsActive,
-                },
-              },
-              { new: true }
+                serviceId: serviceIdToRefund?.toString(),
+                currentUsedQuantity: serviceUsage.usedQuantity,
+                maxQuantity: serviceUsage.maxQuantity
+              }
             );
 
-            if (!updateResult) {
+            // Validate we don't refund more than max quantity
+            if (serviceUsage.usedQuantity <= 0) {
               console.log(
-                "❌ [Package Refund] Failed to update package purchase, continuing with cancellation"
+                "⚠️ [Package Refund] Service already at minimum usage (0), skipping refund",
+                {
+                  serviceId: serviceIdToRefund?.toString(),
+                  usedQuantity: serviceUsage.usedQuantity
+                }
               );
-              // Continue with cancellation even if package update failed
+              // Continue with cancellation but don't refund
             } else {
+              // Store original value for logging and potential rollback
+              originalRemainingUsages = serviceUsage.usedQuantity;
+
+              // Calculate new values - subtract 1 usage (refund)
+              const newUsedQuantity = serviceUsage.usedQuantity - 1;
+              serviceUsage.usedQuantity = newUsedQuantity;
+
+              // Update status based on new usage
+              const oldStatus = packagePurchase.status;
+              const newStatus = packagePurchase.checkAndUpdateStatus();
+
+              console.log(
+                "🔄 [Package Refund] Updating package with refund...",
+                {
+                  serviceId: serviceIdToRefund?.toString(),
+                  oldUsedQuantity: originalRemainingUsages,
+                  newUsedQuantity: newUsedQuantity,
+                  oldStatus: oldStatus,
+                  newStatus: newStatus
+                }
+              );
+
+              // Save the updated package
+              await packagePurchase.save();
+
               packageRefundPerformed = true;
 
               console.log(
                 "✅ [Package Refund] Successfully refunded package usage",
                 {
-                  packagePurchaseId:
-                    packagePurchase._id?.toString() || "unknown",
-                  oldRemainingUsages: originalRemainingUsages,
-                  newRemainingUsages: newRemainingUsages,
-                  isNowActive: newIsActive,
+                  packagePurchaseId: packagePurchase._id?.toString() || "unknown",
+                  serviceId: serviceIdToRefund?.toString(),
+                  oldUsedQuantity: originalRemainingUsages,
+                  newUsedQuantity: newUsedQuantity,
+                  oldStatus: oldStatus,
+                  newStatus: newStatus
                 }
               );
             }
@@ -1111,17 +1151,34 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
       ) {
         console.log("🔄 [Rollback] Attempting to rollback package refund...");
         try {
-          const now = new Date();
-          const rollbackIsActive =
-            packagePurchase.expiredAt > now && originalRemainingUsages > 0;
+          // ✅ FIX: Rollback logic cũng cần xử lý trường hợp appointment không có serviceId
+          let serviceUsage = null;
+          let serviceIdToRollback = null;
 
-          await PackagePurchases.findByIdAndUpdate(packagePurchase._id, {
-            $set: {
-              remainingUsages: originalRemainingUsages,
-              isActive: rollbackIsActive,
-            },
-          });
-          console.log("✅ [Rollback] Package refund rolled back successfully");
+          if (appointment.serviceId) {
+            // Trường hợp appointment có serviceId
+            serviceUsage = packagePurchase.usedServices.find(
+              (service: any) => service.serviceId.toString() === appointment.serviceId?.toString()
+            );
+            serviceIdToRollback = appointment.serviceId;
+          } else {
+            // Trường hợp appointment không có serviceId (purchased_package booking)
+            serviceUsage = packagePurchase.usedServices[0];
+            serviceIdToRollback = serviceUsage?.serviceId;
+          }
+
+          if (serviceUsage) {
+            // Rollback usedQuantity về giá trị cũ
+            serviceUsage.usedQuantity = originalRemainingUsages;
+            
+            // Update status
+            packagePurchase.checkAndUpdateStatus();
+            
+            await packagePurchase.save();
+            console.log("✅ [Rollback] Package refund rolled back successfully");
+          } else {
+            console.log("⚠️ [Rollback] Service not found for rollback");
+          }
         } catch (rollbackError) {
           console.error(
             "❌ [Rollback] Failed to rollback package refund:",
@@ -1132,7 +1189,8 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
             "🚨 [Critical] Manual intervention required for package refund rollback:",
             {
               packagePurchaseId: packagePurchase._id?.toString(),
-              shouldBeRemainingUsages: originalRemainingUsages,
+              serviceId: appointment.serviceId?.toString(),
+              shouldBeUsedQuantity: originalRemainingUsages,
             }
           );
         }
@@ -2801,13 +2859,21 @@ export const cancelAppointmentWithRefund = async (
         );
 
         // Tìm package purchase tương ứng
-        packagePurchase = await PackagePurchases.findOne({
-          userId: appointment.createdByUserId,
-          profileId: appointment.profileId,
-          packageId: appointment.packageId,
-          // Note: Chúng ta không lọc theo isActive ở đây vì chúng ta muốn hoàn tiền ngay cả khi package đã hết hạn
-          expiredAt: { $gt: new Date() }, // Chỉ hoàn tiền nếu package chưa hết hạn
-        });
+        // ✅ FIX: Chỉ tìm theo userId và packagePurchaseId/packageId, không lọc theo profileId và expiryDate
+        if (appointment.packagePurchaseId) {
+          packagePurchase = await PackagePurchases.findOne({
+            _id: appointment.packagePurchaseId,
+            userId: appointment.createdByUserId,
+            // Note: Không lọc theo status để có thể hoàn lại ngay cả khi package đã used_up
+          });
+        } else {
+          // Fallback: Tìm theo packageId và userId nếu không có packagePurchaseId
+          packagePurchase = await PackagePurchases.findOne({
+            userId: appointment.createdByUserId,
+            packageId: appointment.packageId,
+            // Note: Không lọc theo status để có thể hoàn lại ngay cả khi package đã used_up
+          });
+        }
 
         if (!packagePurchase) {
           console.log(
@@ -2825,60 +2891,94 @@ export const cancelAppointmentWithRefund = async (
             "✅ [Package Refund] Found package purchase, refunding usage...",
             {
               packagePurchaseId: packagePurchase._id?.toString() || "unknown",
-              currentRemainingUsages: packagePurchase.remainingUsages,
-              totalAllowedUses: packagePurchase.totalAllowedUses,
+              usedServices: packagePurchase.usedServices?.length || 0,
             }
           );
 
-          // Lưu giá trị gốc để rollback nếu cần
-          originalRemainingUsages = packagePurchase.remainingUsages;
+          // ✅ FIX: Khi sử dụng purchased package, appointment không có serviceId
+          // Tìm service trong package để hoàn lại - sử dụng serviceId từ package purchase
+          let serviceUsage = null;
+          let serviceIdToRefund = null;
 
-          // Tính toán giá trị mới
-          const newRemainingUsages = packagePurchase.remainingUsages + 1;
+          if (appointment.serviceId) {
+            // Trường hợp appointment có serviceId (service_only booking)
+            serviceUsage = packagePurchase.usedServices.find(
+              (service: any) => service.serviceId.toString() === appointment.serviceId?.toString()
+            );
+            serviceIdToRefund = appointment.serviceId;
+          } else {
+            // Trường hợp appointment không có serviceId (purchased_package booking)
+            // Lấy service đầu tiên trong package để hoàn lại
+            serviceUsage = packagePurchase.usedServices[0];
+            serviceIdToRefund = serviceUsage?.serviceId;
+          }
 
-          // Validate chúng ta không hoàn nhiều hơn tổng số lượt được phép
-          if (newRemainingUsages > packagePurchase.totalAllowedUses) {
+          if (!serviceUsage) {
             console.log(
-              "⚠️ [Package Refund] Package already at maximum usage, skipping refund",
+              "⚠️ [Package Refund] Service not found in package, skipping refund",
               {
-                currentUsages: packagePurchase.remainingUsages,
-                totalAllowed: packagePurchase.totalAllowedUses,
-                wouldBe: newRemainingUsages,
+                appointmentServiceId: appointment.serviceId,
+                packageServices: packagePurchase.usedServices.map((s: any) => s.serviceId.toString())
               }
             );
             // Tiếp tục với việc hủy nhưng không hoàn package
           } else {
-            const now = new Date();
-            const newIsActive =
-              packagePurchase.expiredAt > now && newRemainingUsages > 0;
-
-            // Cập nhật package purchase
-            const updateResult = await PackagePurchases.findByIdAndUpdate(
-              packagePurchase._id,
+            console.log(
+              "🔍 [Package Refund] Found service in package, checking usage...",
               {
-                $set: {
-                  remainingUsages: newRemainingUsages,
-                  isActive: newIsActive,
-                },
-              },
-              { new: true }
+                serviceId: serviceIdToRefund?.toString(),
+                currentUsedQuantity: serviceUsage.usedQuantity,
+                maxQuantity: serviceUsage.maxQuantity
+              }
             );
 
-            if (!updateResult) {
+            // Validate chúng ta không hoàn nhiều hơn max quantity
+            if (serviceUsage.usedQuantity <= 0) {
               console.log(
-                "❌ [Package Refund] Failed to update package purchase, continuing with cancellation"
+                "⚠️ [Package Refund] Service already at minimum usage (0), skipping refund",
+                {
+                  serviceId: serviceIdToRefund?.toString(),
+                  usedQuantity: serviceUsage.usedQuantity
+                }
               );
+              // Tiếp tục với việc hủy nhưng không hoàn package
             } else {
+              // Lưu giá trị gốc để rollback nếu cần
+              originalRemainingUsages = serviceUsage.usedQuantity;
+
+              // Tính toán giá trị mới - trừ 1 usage (hoàn lại)
+              const newUsedQuantity = serviceUsage.usedQuantity - 1;
+              serviceUsage.usedQuantity = newUsedQuantity;
+
+              // Cập nhật status dựa trên usage mới
+              const oldStatus = packagePurchase.status;
+              const newStatus = packagePurchase.checkAndUpdateStatus();
+
+              console.log(
+                "🔄 [Package Refund] Updating package with refund...",
+                {
+                  serviceId: serviceIdToRefund?.toString(),
+                  oldUsedQuantity: originalRemainingUsages,
+                  newUsedQuantity: newUsedQuantity,
+                  oldStatus: oldStatus,
+                  newStatus: newStatus
+                }
+              );
+
+              // Lưu package đã cập nhật
+              await packagePurchase.save();
+
               packageRefundPerformed = true;
 
               console.log(
                 "✅ [Package Refund] Successfully refunded package usage",
                 {
-                  packagePurchaseId:
-                    packagePurchase._id?.toString() || "unknown",
-                  oldRemainingUsages: originalRemainingUsages,
-                  newRemainingUsages: newRemainingUsages,
-                  isNowActive: newIsActive,
+                  packagePurchaseId: packagePurchase._id?.toString() || "unknown",
+                  serviceId: serviceIdToRefund?.toString(),
+                  oldUsedQuantity: originalRemainingUsages,
+                  newUsedQuantity: newUsedQuantity,
+                  oldStatus: oldStatus,
+                  newStatus: newStatus
                 }
               );
             }
@@ -3053,17 +3153,34 @@ export const cancelAppointmentWithRefund = async (
       ) {
         console.log("🔄 [Rollback] Attempting to rollback package refund...");
         try {
-          const now = new Date();
-          const rollbackIsActive =
-            packagePurchase.expiredAt > now && originalRemainingUsages > 0;
+          // ✅ FIX: Rollback logic cũng cần xử lý trường hợp appointment không có serviceId
+          let serviceUsage = null;
+          let serviceIdToRollback = null;
 
-          await PackagePurchases.findByIdAndUpdate(packagePurchase._id, {
-            $set: {
-              remainingUsages: originalRemainingUsages,
-              isActive: rollbackIsActive,
-            },
-          });
-          console.log("✅ [Rollback] Package refund rolled back successfully");
+          if (appointment.serviceId) {
+            // Trường hợp appointment có serviceId
+            serviceUsage = packagePurchase.usedServices.find(
+              (service: any) => service.serviceId.toString() === appointment.serviceId?.toString()
+            );
+            serviceIdToRollback = appointment.serviceId;
+          } else {
+            // Trường hợp appointment không có serviceId (purchased_package booking)
+            serviceUsage = packagePurchase.usedServices[0];
+            serviceIdToRollback = serviceUsage?.serviceId;
+          }
+
+          if (serviceUsage) {
+            // Rollback usedQuantity về giá trị cũ
+            serviceUsage.usedQuantity = originalRemainingUsages;
+            
+            // Update status
+            packagePurchase.checkAndUpdateStatus();
+            
+            await packagePurchase.save();
+            console.log("✅ [Rollback] Package refund rolled back successfully");
+          } else {
+            console.log("⚠️ [Rollback] Service not found for rollback");
+          }
         } catch (rollbackError) {
           console.error(
             "❌ [Rollback] Failed to rollback package refund:",
@@ -3073,7 +3190,8 @@ export const cancelAppointmentWithRefund = async (
             "🚨 [Critical] Manual intervention required for package refund rollback:",
             {
               packagePurchaseId: packagePurchase._id?.toString(),
-              shouldBeRemainingUsages: originalRemainingUsages,
+              serviceId: appointment.serviceId?.toString(),
+              shouldBeUsedQuantity: originalRemainingUsages,
             }
           );
         }
