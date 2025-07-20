@@ -439,15 +439,15 @@ const BookingHistoryOptimized: React.FC = () => {
       const shouldShowWarning = isExpiredPackage;
       
       if (shouldShowWarning) {
-        // Hiển thị cảnh báo trước khi hủy
+        // Hiển thị cảnh báo trước khi hủy (chỉ cho gói hết hạn)
         Modal.confirm({
-          title: '⚠️ Cảnh báo: Lịch hẹn sử dụng gói dịch vụ',
+          title: '⚠️ Cảnh báo: Gói dịch vụ đã hết hạn',
           content: (
             <div>
-              <p>Lịch hẹn này sử dụng gói dịch vụ <strong>"{appointment.packageName}"</strong>. Nếu hủy lịch hẹn này:</p>
+              <p>Lịch hẹn này sử dụng gói dịch vụ <strong>"{appointment.packageName}"</strong> đã hết hạn.</p>
               <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
                 <li>Lượt sử dụng sẽ được hoàn lại</li>
-                <li>Nếu gói đã hết hạn, bạn sẽ không thể đặt lịch mới với gói này</li>
+                <li>Bạn sẽ không thể đặt lịch mới với gói này</li>
                 <li>Cần cân nhắc kỹ trước khi hủy</li>
               </ul>
               {packageExpiryInfo?.expiryDate && (
@@ -463,23 +463,26 @@ const BookingHistoryOptimized: React.FC = () => {
           okText: 'Vẫn hủy',
           cancelText: 'Để lại',
           onOk: () => {
-            handleNormalCancel(appointment);
+            handleDirectCancel(appointment);
           }
         });
       } else {
-        // Gói chưa hết hạn, xử lý bình thường
-        handleNormalCancel(appointment);
+        // Gói chưa hết hạn → Hủy thẳng (không cần form hoàn tiền)
+        handleDirectCancel(appointment);
       }
     } else {
-      // Không có gói, xử lý bình thường
+      // Không có gói, xử lý bình thường (có thể cần form hoàn tiền)
       handleNormalCancel(appointment);
     }
   };
 
   // ✅ NEW: Helper function để xử lý cancel bình thường
   const handleNormalCancel = (appointment: Appointment) => {
-    // ✅ FIX: Chỉ show form khi đã thanh toán VÀ đủ điều kiện hoàn tiền
-    if (appointment.paymentStatus === 'paid' && canCancelWithRefund(appointment)) {
+    // ✅ FIX: Nếu là appointment sử dụng gói đã mua → Hủy thẳng (không cần form hoàn tiền)
+    if (appointment.packageName && appointment.packageId) {
+      // Appointment sử dụng gói đã mua → Hủy thẳng vì đã có hoàn lượt sử dụng
+      handleDirectCancel(appointment);
+    } else if (appointment.paymentStatus === 'paid' && canCancelWithRefund(appointment)) {
       // Đã thanh toán + đủ điều kiện hoàn tiền → Show form
       setRequestRefund(true);
       setShowCancelModal(true);
