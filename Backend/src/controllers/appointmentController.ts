@@ -397,7 +397,8 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
     console.log("[createAppointment] Tạo appointment với doctorId:", doctorId);
 
     // ✅ FIX: Chỉ tạo appointment, KHÔNG tạo PaymentTracking (Lazy Payment Creation)
-    const newAppointment = new Appointments({
+    // ✅ FIX: Khi sử dụng purchased package, lưu packageId thay vì serviceId
+    const appointmentData: any = {
       createdByUserId: userId,
       profileId: patientProfile._id,
       status: totalAmount > 0 ? "pending_payment" : "confirmed",
@@ -407,8 +408,6 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       typeLocation,
       description,
       notes,
-      serviceId: serviceId,
-      packageId: packageId,
       doctorId: doctorId,
       slotId: slotId,
       totalAmount: totalAmount,
@@ -420,14 +419,34 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
           : totalAmount > 0
           ? "unpaid"
           : "paid",
-    });
+    };
+
+    // Logic để lưu serviceId hoặc packageId tùy theo bookingType
+    if (bookingType === "purchased_package") {
+      // Khi sử dụng purchased package, lưu packageId từ package purchase
+      if (packagePurchaseId) {
+        const packagePurchase = await PackagePurchases.findById(packagePurchaseId);
+        if (packagePurchase) {
+          appointmentData.packageId = packagePurchase.packageId;
+          // Không lưu serviceId khi sử dụng purchased package
+        }
+      }
+    } else if (bookingType === "service_only") {
+      // Khi đặt service đơn lẻ, lưu serviceId
+      appointmentData.serviceId = serviceId;
+    } else if (bookingType === "new_package") {
+      // Khi đặt package mới, lưu packageId
+      appointmentData.packageId = packageId;
+    }
+
+    const newAppointment = new Appointments(appointmentData);
 
     console.log("🔍 [createAppointment] Creating appointment with:", {
       bookingType,
       totalAmount,
       status: totalAmount > 0 ? "pending_payment" : "confirmed",
-      serviceId,
-      packageId,
+      serviceId: appointmentData.serviceId,
+      packageId: appointmentData.packageId,
       packagePurchaseId,
     });
 
@@ -448,11 +467,11 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       if (
         savedAppointment.bookingType === "purchased_package" &&
         savedAppointment.packagePurchaseId &&
-        savedAppointment.serviceId
+        serviceId // Sử dụng serviceId từ request body thay vì từ appointment
       ) {
         await PackageUsageService.useServiceFromPackage(
           savedAppointment.packagePurchaseId.toString(),
-          savedAppointment.serviceId.toString(),
+          serviceId.toString(),
           savedAppointment._id.toString()
         );
       }
