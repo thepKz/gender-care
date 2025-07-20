@@ -3,9 +3,7 @@ import axios from 'axios';
 import {
   Activity,
   Heart,
-  People,
-  Package,
-  Info
+  People
 } from 'iconsax-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
