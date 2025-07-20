@@ -320,12 +320,122 @@ export const getMeetingsByDoctorId = async (doctorId: string) => {
       throw new Error('Doctor ID không hợp lệ');
     }
 
-    const meetings = await Meeting.find({ doctorId })
-      .populate('userId', 'fullName email')
-      .populate('qaId', 'fullName phone question status')
+    console.log(`🔍 [DEBUG] Getting meetings for doctorId: ${doctorId}`);
+
+    // ✅ Tìm meetings trước - KHÔNG populate
+    const rawMeetings = await Meeting.find({ doctorId }).sort({ scheduledTime: -1 });
+    console.log(`🔍 [DEBUG] Found ${rawMeetings.length} meetings`);
+    
+    // ✅ Debug raw meeting data
+    if (rawMeetings.length > 0) {
+      const firstRawMeeting = rawMeetings[0];
+      console.log('🔍 [DEBUG] Raw meeting data:', JSON.stringify(firstRawMeeting, null, 2));
+      console.log('🔍 [DEBUG] qaId in raw data:', firstRawMeeting.qaId);
+      console.log('🔍 [DEBUG] userId in raw data:', firstRawMeeting.userId);
+    }
+
+    if (rawMeetings.length === 0) {
+      console.log('⚠️ [DEBUG] No meetings found for this doctor');
+      return [];
+    }
+
+    // ✅ Kiểm tra xem qaId có tồn tại không
+    const meetingsWithQaId = rawMeetings.filter(m => m.qaId);
+    console.log(`🔍 [DEBUG] Meetings with qaId: ${meetingsWithQaId.length}/${rawMeetings.length}`);
+
+    // ✅ Nếu có qaId, thử populate
+    let populatedMeetings = rawMeetings;
+    if (meetingsWithQaId.length > 0) {
+      console.log('🔍 [DEBUG] Attempting to populate qaId...');
+      populatedMeetings = await Meeting.find({ doctorId })
+        .populate({
+          path: 'qaId',
+          select: 'fullName phone question status age gender consultationFee appointmentDate appointmentSlot',
+          options: { strictPopulate: false }
+        })
+        .sort({ scheduledTime: -1 });
+      
+      console.log(`🔍 [DEBUG] After populate: ${populatedMeetings.length} meetings`);
+      
+      // ✅ Debug first meeting after populate
+      if (populatedMeetings.length > 0) {
+        const firstMeeting = populatedMeetings[0];
+        console.log('🔍 [DEBUG] First meeting after populate:', JSON.stringify(firstMeeting, null, 2));
+        console.log('🔍 [DEBUG] qaId after populate:', firstMeeting.qaId);
+        console.log('🔍 [DEBUG] qaId type after populate:', typeof firstMeeting.qaId);
+        if (firstMeeting.qaId && typeof firstMeeting.qaId === 'object') {
+          console.log('🔍 [DEBUG] qaId.fullName:', (firstMeeting.qaId as any).fullName);
+          console.log('🔍 [DEBUG] qaId.phone:', (firstMeeting.qaId as any).phone);
+          console.log('🔍 [DEBUG] qaId.question:', (firstMeeting.qaId as any).question);
+        }
+      }
+    } else {
+      console.log('⚠️ [DEBUG] No meetings have qaId, checking for root level data...');
+      
+      // ✅ Kiểm tra xem dữ liệu có sẵn ở root level không
+      const firstMeeting = rawMeetings[0];
+      console.log('🔍 [DEBUG] Checking root level data in first meeting...');
+      console.log('🔍 [DEBUG] fullName in root:', (firstMeeting as any).fullName);
+      console.log('🔍 [DEBUG] phone in root:', (firstMeeting as any).phone);
+      console.log('🔍 [DEBUG] question in root:', (firstMeeting as any).question);
+      console.log('🔍 [DEBUG] appointmentDate in root:', (firstMeeting as any).appointmentDate);
+      console.log('🔍 [DEBUG] appointmentSlot in root:', (firstMeeting as any).appointmentSlot);
+      
+      // ✅ Nếu có dữ liệu ở root level, trả về luôn
+      if ((firstMeeting as any).fullName || (firstMeeting as any).phone || (firstMeeting as any).question) {
+        console.log('✅ [DEBUG] Found data at root level, returning raw meetings');
+        return rawMeetings;
+      }
+      
+      // ✅ Nếu không có dữ liệu ở root level, thử populate userId để lấy thông tin user
+      console.log('🔍 [DEBUG] No root level data, attempting to populate userId...');
+      populatedMeetings = await Meeting.find({ doctorId })
+        .populate({
+          path: 'userId',
+          select: 'fullName phone email',
+          options: { strictPopulate: false }
+        })
       .sort({ scheduledTime: -1 });
 
-    return meetings;
+      console.log(`🔍 [DEBUG] After userId populate: ${populatedMeetings.length} meetings`);
+      
+      // ✅ Debug first meeting after userId populate
+      if (populatedMeetings.length > 0) {
+        const firstMeeting = populatedMeetings[0];
+        console.log('🔍 [DEBUG] First meeting after userId populate:', JSON.stringify(firstMeeting, null, 2));
+        console.log('🔍 [DEBUG] userId after populate:', firstMeeting.userId);
+        console.log('🔍 [DEBUG] userId type after populate:', typeof firstMeeting.userId);
+        if (firstMeeting.userId && typeof firstMeeting.userId === 'object') {
+          console.log('🔍 [DEBUG] userId.fullName:', (firstMeeting.userId as any).fullName);
+          console.log('🔍 [DEBUG] userId.phone:', (firstMeeting.userId as any).phone);
+          console.log('🔍 [DEBUG] userId.email:', (firstMeeting.userId as any).email);
+        }
+        
+        // ✅ Thử tìm DoctorQA record dựa trên userId và doctorId
+        console.log('🔍 [DEBUG] Attempting to find DoctorQA record...');
+        const DoctorQA = mongoose.model('DoctorQA');
+        const doctorQARecord = await DoctorQA.findOne({
+          userId: firstMeeting.userId._id || firstMeeting.userId,
+          doctorId: doctorId
+        }).select('fullName phone question appointmentDate appointmentSlot');
+        
+        console.log('🔍 [DEBUG] Found DoctorQA record:', doctorQARecord);
+        
+        if (doctorQARecord) {
+          console.log('✅ [DEBUG] Found DoctorQA record, merging data...');
+          // ✅ Merge DoctorQA data vào meeting
+          populatedMeetings = populatedMeetings.map(meeting => {
+            const meetingObj = meeting.toObject();
+            return {
+              ...meetingObj,
+              qaId: doctorQARecord
+            } as any;
+          });
+        }
+      }
+    }
+
+    return populatedMeetings;
   } catch (error: any) {
     console.error('Error getting meetings by doctorId:', error);
     throw new Error(`Lỗi lấy meetings của doctor: ${error.message}`);

@@ -2550,40 +2550,56 @@ export const getUserBookingHistory = async (
             options: { strictPopulate: false },
           });
 
+        // Import Meeting model để lấy notes của bác sĩ
+        const Meeting = (await import("../models/Meeting")).default;
+
         // Transform consultations thành unified format
-        const transformedConsultations = consultations.map((consult: any) => ({
-          _id: consult._id,
-          type: "consultation", // Phân biệt loại
-          serviceId: consult.serviceId?._id || null,
-          serviceName:
-            consult.serviceName ||
-            consult.serviceId?.serviceName ||
-            "Tư vấn trực tuyến",
-          packageName: null, // Consultations không có package
-          doctorId: consult.doctorId?._id || null,
-          doctorName:
-            consult.doctorId?.userId?.fullName || "Chưa chỉ định bác sĩ",
-          doctorAvatar: consult.doctorId?.userId?.avatar || null,
-          patientName: consult.fullName || "Không xác định",
-          appointmentDate: consult.appointmentDate || null,
-          appointmentTime: null, // Consultations không có appointmentTime riêng
-          appointmentSlot: consult.appointmentSlot || null,
-          typeLocation: "Online", // Consultations luôn là Online
-          status: consult.status,
-          price: consult.consultationFee || 0,
-          createdAt: consult.createdAt,
-          description: consult.question, // question mapping thành description
-          notes: consult.notes,
-          address: null, // Consultations không có address
-          canCancel: ["pending_payment", "scheduled"].includes(consult.status),
-          canReschedule: false, // Consultations không thể reschedule
-          // Consultation-specific fields
-          phone: consult.phone,
-          age: consult.age,
-          gender: consult.gender,
-          question: consult.question,
-          doctorNotes: consult.doctorNotes,
-          slotId: consult.slotId,
+        const transformedConsultations = await Promise.all(consultations.map(async (consult: any) => {
+          // Lấy notes của bác sĩ từ Meeting
+          let doctorMeetingNotes = null;
+          try {
+            const meeting = await Meeting.findOne({ qaId: consult._id });
+            if (meeting && meeting.notes) {
+              doctorMeetingNotes = meeting.notes;
+            }
+          } catch (err) {
+            console.error("[getUserBookingHistory] Error fetching meeting notes:", err);
+          }
+          return {
+            _id: consult._id,
+            type: "consultation", // Phân biệt loại
+            serviceId: consult.serviceId?._id || null,
+            serviceName:
+              consult.serviceName ||
+              consult.serviceId?.serviceName ||
+              "Tư vấn trực tuyến",
+            packageName: null, // Consultations không có package
+            doctorId: consult.doctorId?._id || null,
+            doctorName:
+              consult.doctorId?.userId?.fullName || "Chưa chỉ định bác sĩ",
+            doctorAvatar: consult.doctorId?.userId?.avatar || null,
+            patientName: consult.fullName || "Không xác định",
+            appointmentDate: consult.appointmentDate || null,
+            appointmentTime: null, // Consultations không có appointmentTime riêng
+            appointmentSlot: consult.appointmentSlot || null,
+            typeLocation: "Online", // Consultations luôn là Online
+            status: consult.status,
+            price: consult.consultationFee || 0,
+            createdAt: consult.createdAt,
+            description: consult.question, // question mapping thành description
+            notes: consult.notes,
+            address: null, // Consultations không có address
+            canCancel: ["pending_payment", "scheduled"].includes(consult.status),
+            canReschedule: false, // Consultations không thể reschedule
+            // Consultation-specific fields
+            phone: consult.phone,
+            age: consult.age,
+            gender: consult.gender,
+            question: consult.question,
+            doctorNotes: consult.doctorNotes,
+            slotId: consult.slotId,
+            doctorMeetingNotes, // Ghi chú của bác sĩ từ Meeting
+          };
         }));
 
         allBookings.push(...transformedConsultations);

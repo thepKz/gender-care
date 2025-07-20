@@ -70,6 +70,7 @@ interface RawAppointmentData {
   age?: number;
   gender?: string;
   doctorNotes?: string;
+  doctorMeetingNotes?: string; // Ghi chú của bác sĩ từ Meeting
   paymentStatus?: string;
   refund?: RefundData;
 }
@@ -102,6 +103,7 @@ interface Appointment {
   gender?: string;
   question?: string;
   doctorNotes?: string;
+  doctorMeetingNotes?: string; // Ghi chú của bác sĩ từ Meeting
   paymentStatus?: string;
   refund?: RefundData;
 }
@@ -213,6 +215,7 @@ const BookingHistoryOptimized: React.FC = () => {
           gender: apt.gender,
           question: apt.question,
             doctorNotes: apt.doctorNotes,
+            doctorMeetingNotes: apt.doctorMeetingNotes, // Ghi chú của bác sĩ từ Meeting
             paymentStatus: paymentStatus,
             refund: apt.refund // Include refund info từ raw data
           };
@@ -1083,6 +1086,19 @@ const BookingHistoryOptimized: React.FC = () => {
                 </div>
               )}
 
+              {/* Notes - Only show original notes */}
+              {selectedAppointment.notes && (() => {
+                const { originalNotes } = parseNotes(selectedAppointment.notes);
+                
+                // Chỉ hiển thị ghi chú gốc (nếu có), lý do hủy đã hiển thị ở trên
+                return originalNotes ? (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 block mb-2">Ghi chú</label>
+                    <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{originalNotes}</p>
+                  </div>
+                ) : null;
+              })()}
+
               {/* ➕ Consultation-specific info */}
               {selectedAppointment.type === 'consultation' && (
                 <>
@@ -1119,21 +1135,18 @@ const BookingHistoryOptimized: React.FC = () => {
                       </p>
                     </div>
                   )}
+
+                  {/* Doctor Meeting Notes - Hiển thị ở cuối */}
+                  {selectedAppointment.doctorMeetingNotes && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 block mb-2">Ghi chú của bác sĩ</label>
+                      <p className="text-gray-900 bg-purple-50 p-3 rounded-lg border-l-4 border-purple-400">
+                        {selectedAppointment.doctorMeetingNotes}
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
-
-              {/* Notes - Only show original notes */}
-              {selectedAppointment.notes && (() => {
-                const { originalNotes } = parseNotes(selectedAppointment.notes);
-                
-                // Chỉ hiển thị ghi chú gốc (nếu có), lý do hủy đã hiển thị ở trên
-                return originalNotes ? (
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 block mb-2">Ghi chú</label>
-                    <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{originalNotes}</p>
-                  </div>
-                ) : null;
-              })()}
 
               {/* Actions */}
               <div className="flex justify-between pt-4 border-t border-gray-200">

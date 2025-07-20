@@ -124,7 +124,7 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
         message.error('Tạo hồ sơ bệnh án thất bại');
       }
     } catch (error) {
-      console.error('❌ [ERROR] Failed to create medical record:', error);
+      console.error('[ERROR] Failed to create medical record:', error);
       message.error('Có lỗi xảy ra khi tạo hồ sơ bệnh án');
     } finally {
       setLoading(false);
