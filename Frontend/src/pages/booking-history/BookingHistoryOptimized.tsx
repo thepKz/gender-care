@@ -47,6 +47,8 @@ interface RawAppointmentData {
   serviceId?: string;
   serviceName?: string;
   packageName?: string;
+  packageId?: string;
+  packagePurchaseId?: string;
   doctorName?: string;
   doctorAvatar?: string;
   patientName?: string;
@@ -73,6 +75,15 @@ interface RawAppointmentData {
   doctorMeetingNotes?: string; // Ghi chú của bác sĩ từ Meeting
   paymentStatus?: string;
   refund?: RefundData;
+  // ✅ ADD: Package expiry info
+  packageExpiryInfo?: {
+    hasPackage: boolean;
+    packageId?: string;
+    packageName?: string;
+    isExpired: boolean;
+    expiryDate?: string;
+    packageStatus: string;
+  };
 }
 
 interface Appointment {
@@ -81,6 +92,8 @@ interface Appointment {
   serviceId: string;
   serviceName: string;
   packageName?: string;
+  packageId?: string;
+  packagePurchaseId?: string;
   doctorName?: string;
   doctorAvatar?: string;
   patientName?: string;
@@ -106,6 +119,15 @@ interface Appointment {
   doctorMeetingNotes?: string; // Ghi chú của bác sĩ từ Meeting
   paymentStatus?: string;
   refund?: RefundData;
+  // ✅ ADD: Package expiry info
+  packageExpiryInfo?: {
+    hasPackage: boolean;
+    packageId?: string;
+    packageName?: string;
+    isExpired: boolean;
+    expiryDate?: string;
+    packageStatus: string;
+  };
 }
 
 interface RefundInfo {
@@ -193,6 +215,8 @@ const BookingHistoryOptimized: React.FC = () => {
           serviceId: apt.serviceId || '',
           serviceName: apt.serviceName || 'Dịch vụ không xác định',
           packageName: apt.packageName,
+          packageId: apt.packageId,
+          packagePurchaseId: apt.packagePurchaseId,
           doctorName: apt.doctorName || 'Chưa chỉ định bác sĩ',
           doctorAvatar: apt.doctorAvatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
           patientName: apt.patientName || apt.fullName,
@@ -217,7 +241,9 @@ const BookingHistoryOptimized: React.FC = () => {
             doctorNotes: apt.doctorNotes,
             doctorMeetingNotes: apt.doctorMeetingNotes, // Ghi chú của bác sĩ từ Meeting
             paymentStatus: paymentStatus,
-            refund: apt.refund // Include refund info từ raw data
+            refund: apt.refund, // Include refund info từ raw data
+            // ✅ ADD: Package expiry info
+            packageExpiryInfo: apt.packageExpiryInfo
           };
         });
 
@@ -401,8 +427,65 @@ const BookingHistoryOptimized: React.FC = () => {
   const handleCancelAppointment = async (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     
-    // ✅ FIX: Chỉ show form khi đã thanh toán VÀ đủ điều kiện hoàn tiền
-    if (appointment.paymentStatus === 'paid' && canCancelWithRefund(appointment)) {
+    // ✅ IMPROVED: Kiểm tra chính xác xem có phải appointment với gói hết hạn không
+    const hasPackage = appointment.packageName && appointment.packageId;
+    
+    // ✅ FIX: Hiển thị cảnh báo chỉ khi gói thực sự hết hạn
+    const hasPackageName = appointment.packageName;
+    
+    if (hasPackageName) {
+      // ✅ IMPROVED: Kiểm tra expiry với validation chính xác
+      const packageExpiryInfo = appointment.packageExpiryInfo;
+      const isExpiredPackage = packageExpiryInfo?.isExpired || false;
+      
+      // ✅ FIX: Chỉ hiển thị cảnh báo khi gói thực sự hết hạn
+      const shouldShowWarning = isExpiredPackage;
+      
+      if (shouldShowWarning) {
+        // Hiển thị cảnh báo trước khi hủy (chỉ cho gói hết hạn)
+        Modal.confirm({
+          title: '⚠️ Cảnh báo: Gói dịch vụ đã hết hạn',
+          content: (
+            <div>
+              <p>Lịch hẹn này sử dụng gói dịch vụ <strong>"{appointment.packageName}"</strong> đã hết hạn.</p>
+              <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
+                <li>Lượt sử dụng sẽ được hoàn lại</li>
+                <li>Bạn sẽ không thể đặt lịch mới với gói này</li>
+                <li>Cần cân nhắc kỹ trước khi hủy</li>
+              </ul>
+              {packageExpiryInfo?.expiryDate && (
+                <p style={{ marginTop: '8px', color: '#666', fontSize: '13px' }}>
+                  <strong>Ngày hết hạn:</strong> {new Date(packageExpiryInfo.expiryDate).toLocaleDateString('vi-VN')}
+                </p>
+              )}
+              <p style={{ marginTop: '12px', color: '#666', fontStyle: 'italic' }}>
+                Bạn có chắc chắn muốn hủy lịch hẹn này không?
+              </p>
+            </div>
+          ),
+          okText: 'Vẫn hủy',
+          cancelText: 'Để lại',
+          onOk: () => {
+            handleDirectCancel(appointment);
+          }
+        });
+      } else {
+        // Gói chưa hết hạn → Hủy thẳng (không cần form hoàn tiền)
+        handleDirectCancel(appointment);
+      }
+    } else {
+      // Không có gói, xử lý bình thường (có thể cần form hoàn tiền)
+      handleNormalCancel(appointment);
+    }
+  };
+
+  // ✅ NEW: Helper function để xử lý cancel bình thường
+  const handleNormalCancel = (appointment: Appointment) => {
+    // ✅ FIX: Nếu là appointment sử dụng gói đã mua → Hủy thẳng (không cần form hoàn tiền)
+    if (appointment.packageName && appointment.packageId) {
+      // Appointment sử dụng gói đã mua → Hủy thẳng vì đã có hoàn lượt sử dụng
+      handleDirectCancel(appointment);
+    } else if (appointment.paymentStatus === 'paid' && canCancelWithRefund(appointment)) {
       // Đã thanh toán + đủ điều kiện hoàn tiền → Show form
       setRequestRefund(true);
       setShowCancelModal(true);
@@ -410,7 +493,7 @@ const BookingHistoryOptimized: React.FC = () => {
       // Các trường hợp khác → Hủy thẳng
       // - Chưa thanh toán 
       // - Đã thanh toán nhưng không đủ điều kiện hoàn tiền
-      await handleDirectCancel(appointment);
+      handleDirectCancel(appointment);
     }
   };
 
@@ -418,15 +501,32 @@ const BookingHistoryOptimized: React.FC = () => {
   const handleDirectCancel = async (appointment: Appointment) => {
     try {
       setCancelLoading(true);
+      let response: any;
       
       if (appointment.type === 'consultation') {
-        await consultationApi.cancelConsultationByUser(
+        response = await consultationApi.cancelConsultationByUser(
           appointment.id, 
           'Hủy bởi người dùng'
         );
       } else {
         // ✅ FIX: Dùng deleteAppointment (đã bỏ validation 10 phút ở backend)
-        await appointmentApi.deleteAppointment(appointment.id);
+        response = await appointmentApi.deleteAppointment(appointment.id);
+      }
+      
+      // ✅ NEW: Kiểm tra package expiry warning
+      if (response?.data?.packageRefund?.packageExpired) {
+        Modal.warning({
+          title: '⚠️ Gói dịch vụ đã hết hạn',
+          content: (
+            <div>
+              <p>Gói dịch vụ của bạn đã hết hạn sử dụng. Lượt sử dụng đã được hoàn lại nhưng bạn sẽ không thể đặt lịch mới với gói này.</p>
+              <p style={{ marginTop: '8px', color: '#666' }}>
+                Ngày hết hạn: {new Date(response.data.packageRefund.expiryDate).toLocaleDateString('vi-VN')}
+              </p>
+            </div>
+          ),
+          okText: 'Đã hiểu'
+        });
       }
       
       message.success('Hủy lịch hẹn thành công!');
@@ -450,21 +550,39 @@ const BookingHistoryOptimized: React.FC = () => {
 
     try {
       setCancelLoading(true);
+      let response: any;
+      
       if (selectedAppointment.type === 'consultation') {
-        await consultationApi.cancelConsultationByUser(
+        response = await consultationApi.cancelConsultationByUser(
           selectedAppointment.id, 
           `Hủy bởi người dùng. ${refundInfo?.reason || ''}`
         );
       } else {
         if (requestRefund && refundInfo) {
-          await appointmentApi.cancelAppointmentWithRefund(
+          response = await appointmentApi.cancelAppointmentWithRefund(
             selectedAppointment.id, 
             refundInfo.reason || 'Hủy bởi người dùng',
             refundInfo
           );
         } else {
-          await appointmentApi.deleteAppointment(selectedAppointment.id);
+          response = await appointmentApi.deleteAppointment(selectedAppointment.id);
         }
+      }
+      
+      // ✅ NEW: Kiểm tra package expiry warning
+      if (response?.data?.packageRefund?.packageExpired) {
+        Modal.warning({
+          title: '⚠️ Gói dịch vụ đã hết hạn',
+          content: (
+            <div>
+              <p>Gói dịch vụ của bạn đã hết hạn sử dụng. Lượt sử dụng đã được hoàn lại nhưng bạn sẽ không thể đặt lịch mới với gói này.</p>
+              <p style={{ marginTop: '8px', color: '#666' }}>
+                Ngày hết hạn: {new Date(response.data.packageRefund.expiryDate).toLocaleDateString('vi-VN')}
+              </p>
+            </div>
+          ),
+          okText: 'Đã hiểu'
+        });
       }
       
       const successMessage = requestRefund 
