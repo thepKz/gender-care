@@ -1368,6 +1368,35 @@ const BookingPageNew: React.FC = () => {
                 )}
               </div>
 
+              {/* ✅ NEW: Lưu ý về gói dịch vụ */}
+              {bookingType === 'purchased_package' && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '12px 16px',
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '8px'
+                }}>
+                  <div style={{
+                    color: '#3b82f6',
+                    fontSize: '16px',
+                    marginTop: '2px'
+                  }}>
+                    ℹ️
+                  </div>
+                  <div style={{
+                    fontSize: '13px',
+                    color: '#1e40af',
+                    lineHeight: '1.4'
+                  }}>
+                    <span style={{ fontWeight: '600' }}>Lưu ý:</span> Những gói dịch vụ đã mua khi sử dụng hết lượt hoặc hết hạn sẽ không được hiển thị ở đây.
+                  </div>
+                </div>
+              )}
+
               {/* Service Selection */}
               {bookingType === 'service' && (
                 <>

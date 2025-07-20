@@ -916,6 +916,24 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
           );
           // Continue with cancellation even if package not found (maybe manual appointment)
         } else {
+          // ✅ NEW: Kiểm tra xem package có hết hạn không để cảnh báo user
+          const now = new Date();
+          const packageExpiryDate = packagePurchase.expiryDate;
+          const isPackageExpired = packageExpiryDate && new Date(packageExpiryDate) < now;
+          
+          if (isPackageExpired) {
+            console.log(
+              "⚠️ [Package Refund] Package has expired but will still refund usage",
+              {
+                appointmentId: id,
+                packageId: appointment.packageId,
+                packageExpiryDate: packageExpiryDate?.toISOString(),
+                currentTime: now.toISOString(),
+                packageStatus: packagePurchase.status
+              }
+            );
+          }
+
           // Tìm service trong package để hoàn lại - sử dụng serviceId từ package purchase
           let serviceUsage = null;
           let serviceIdToRefund = null;
@@ -1097,7 +1115,15 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
         message: packageRefundPerformed
           ? "Hủy cuộc hẹn thành công và đã hoàn trả lượt sử dụng gói dịch vụ"
           : "Hủy cuộc hẹn thành công",
-        data: updatedAppointment,
+        data: {
+          appointment: updatedAppointment,
+          packageRefund: packageRefundPerformed ? {
+            refunded: true,
+            packageId: packagePurchase?._id,
+            packageExpired: packagePurchase?.expiryDate && new Date(packagePurchase.expiryDate) < new Date(),
+            expiryDate: packagePurchase?.expiryDate
+          } : null
+        },
       });
     } catch (error: any) {
       console.error(
@@ -2500,6 +2526,8 @@ export const getUserBookingHistory = async (
                 apt.serviceId?.serviceName ||
                 "Dịch vụ không xác định",
               packageName: apt.packageId?.name || null,
+              packageId: apt.packageId?._id || null, // ✅ ADD: packageId
+              packagePurchaseId: apt.packagePurchaseId || null, // ✅ ADD: packagePurchaseId
               doctorId: apt.doctorId?._id || null,
               doctorName:
                 apt.doctorId?.userId?.fullName || "Chưa chỉ định bác sĩ",
@@ -2644,10 +2672,89 @@ export const getUserBookingHistory = async (
     const total = allBookings.length;
     const paginatedBookings = allBookings.slice(skip, skip + limitNumber);
 
+        // ✅ IMPROVED: Thêm thông tin package expiry chính xác cho mỗi booking
+    const bookingsWithExpiryInfo = await Promise.all(paginatedBookings.map(async (booking) => {
+      // ✅ FIX: Kiểm tra cả packageId và packageName
+      if (booking.packageId || booking.packageName) {
+            try {
+              // ✅ NEW: Tìm package purchase theo nhiều cách
+              let packagePurchase = null;
+              
+              // Thử tìm theo packagePurchaseId trước (nếu có)
+              if (booking.packagePurchaseId) {
+                packagePurchase = await PackagePurchases.findOne({
+                  _id: booking.packagePurchaseId,
+                  userId: req.user?._id
+                });
+              }
+              
+              // Nếu không tìm thấy, thử theo packageId
+              if (!packagePurchase && booking.packageId) {
+                packagePurchase = await PackagePurchases.findOne({
+                  userId: req.user?._id,
+                  packageId: booking.packageId
+                });
+              }
+              
+              // ✅ IMPROVED: Nếu vẫn không tìm thấy và có packageName, tìm theo tên
+              if (!packagePurchase && booking.packageName) {
+                // Tìm tất cả package purchases của user và populate packageId
+                const userPackages = await PackagePurchases.find({
+                  userId: req.user?._id
+                }).populate('packageId');
+                
+                packagePurchase = userPackages.find(pkg => {
+                  const packageData = pkg.packageId as any;
+                  return packageData?.name === booking.packageName;
+                });
+              }
+
+          if (packagePurchase) {
+            // ✅ NEW: Kiểm tra expiry chính xác
+            const now = new Date();
+            const expiryDate = packagePurchase.expiryDate;
+            const isExpired = expiryDate && new Date(expiryDate) < now;
+            
+            const packageExpiryInfo = {
+              hasPackage: true,
+              packageId: booking.packageId,
+              packageName: booking.packageName,
+              isExpired: isExpired,
+              expiryDate: expiryDate,
+              packageStatus: packagePurchase.status
+            };
+            
+            return {
+              ...booking,
+              packageExpiryInfo
+            };
+          }
+        } catch (error) {
+          console.error('Error checking package expiry:', error);
+        }
+        
+        // Fallback nếu không tìm thấy package purchase
+        const packageExpiryInfo = {
+          hasPackage: true,
+          packageId: booking.packageId,
+          packageName: booking.packageName,
+          isExpired: false, // Default to false if can't determine
+          expiryDate: null,
+          packageStatus: 'unknown'
+        };
+        
+        return {
+          ...booking,
+          packageExpiryInfo
+        };
+      }
+      return booking;
+    }));
+
     return res.status(200).json({
       success: true,
       data: {
-        bookings: paginatedBookings,
+        bookings: bookingsWithExpiryInfo,
         summary: {
           totalAppointments: allBookings.filter((b) => b.type === "appointment")
             .length,
@@ -2848,6 +2955,24 @@ export const cancelAppointmentWithRefund = async (
           );
           // Tiếp tục với việc hủy nhưng không hoàn package
         } else {
+          // ✅ NEW: Kiểm tra xem package có hết hạn không để cảnh báo user
+          const now = new Date();
+          const packageExpiryDate = packagePurchase.expiryDate;
+          const isPackageExpired = packageExpiryDate && new Date(packageExpiryDate) < now;
+          
+          if (isPackageExpired) {
+            console.log(
+              "⚠️ [Package Refund] Package has expired but will still refund usage",
+              {
+                appointmentId: id,
+                packageId: appointment.packageId,
+                packageExpiryDate: packageExpiryDate?.toISOString(),
+                currentTime: now.toISOString(),
+                packageStatus: packagePurchase.status
+              }
+            );
+          }
+
           console.log(
             "✅ [Package Refund] Found package purchase, refunding usage...",
             {
@@ -3072,6 +3197,12 @@ export const cancelAppointmentWithRefund = async (
             estimatedRefundDays: "3-5 ngày làm việc",
             refundMethod: "Chuyển khoản ngân hàng",
           },
+          packageRefund: packageRefundPerformed ? {
+            refunded: true,
+            packageId: packagePurchase?._id,
+            packageExpired: packagePurchase?.expiryDate && new Date(packagePurchase.expiryDate) < new Date(),
+            expiryDate: packagePurchase?.expiryDate
+          } : null
         },
       });
     } catch (error: any) {

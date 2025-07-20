@@ -130,6 +130,42 @@ PackagePurchasesSchema.methods.checkAndUpdateStatus = function(this: PackagePurc
   return this.status;
 };
 
+// ✅ NEW: Method để kiểm tra chính xác package expiry
+PackagePurchasesSchema.methods.isExpired = function(this: PackagePurchaseDocument): boolean {
+  const now = new Date();
+  
+  // Kiểm tra expiryDate có tồn tại và hợp lệ không
+  if (!this.expiryDate || !(this.expiryDate instanceof Date) || isNaN(this.expiryDate.getTime())) {
+    return false; // Không có expiryDate thì không hết hạn
+  }
+  
+  return now > this.expiryDate;
+};
+
+// ✅ NEW: Method để lấy thông tin chi tiết về expiry
+PackagePurchasesSchema.methods.getExpiryInfo = function(this: PackagePurchaseDocument) {
+  const now = new Date();
+  
+  if (!this.expiryDate || !(this.expiryDate instanceof Date) || isNaN(this.expiryDate.getTime())) {
+    return {
+      isExpired: false,
+      daysRemaining: null,
+      expiryDate: null,
+      hasExpiryDate: false
+    };
+  }
+  
+  const isExpired = now > this.expiryDate;
+  const daysRemaining = isExpired ? 0 : Math.ceil((this.expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  
+  return {
+    isExpired,
+    daysRemaining,
+    expiryDate: this.expiryDate,
+    hasExpiryDate: true
+  };
+};
+
 // 🔹 Method để sử dụng service
 PackagePurchasesSchema.methods.useService = function(this: PackagePurchaseDocument, serviceId: string, quantity: number = 1): boolean {
   const serviceUsage = this.usedServices.find((service: IUsedService) => 

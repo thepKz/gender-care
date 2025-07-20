@@ -476,13 +476,16 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
       // 🔹 Transform data to match frontend expectation
       transformedPurchases = packagePurchases.map((purchase: any) => {
         
-        // 🆕 Check and update status for each purchase
+        // ✅ IMPROVED: Check and update status for each purchase with better expiry logic
         let updatedStatus = purchase.status || 'active';
         const now = new Date();
         
-        // Check expiry
-        if (purchase.expiryDate && new Date(purchase.expiryDate) < now) {
-          updatedStatus = 'expired';
+        // ✅ IMPROVED: Check expiry with proper date validation
+        if (purchase.expiryDate) {
+          const expiryDate = new Date(purchase.expiryDate);
+          if (!isNaN(expiryDate.getTime()) && now > expiryDate) {
+            updatedStatus = 'expired';
+          }
         }
         // Check if all services used up
         else if (purchase.usedServices && purchase.usedServices.length > 0) {
@@ -551,13 +554,16 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
 
       // 🔹 Transform fallback data too
       transformedPurchases = packagePurchases.map((purchase: any) => {
-        // 🆕 Check and update status for each purchase (fallback case)
+        // ✅ IMPROVED: Check and update status for each purchase (fallback case) with better expiry logic
         let updatedStatus = purchase.status || 'active';
         const now = new Date();
         
-        // Check expiry
-        if (purchase.expiryDate && new Date(purchase.expiryDate) < now) {
-          updatedStatus = 'expired';
+        // ✅ IMPROVED: Check expiry with proper date validation
+        if (purchase.expiryDate) {
+          const expiryDate = new Date(purchase.expiryDate);
+          if (!isNaN(expiryDate.getTime()) && now > expiryDate) {
+            updatedStatus = 'expired';
+          }
         }
         // Check if all services used up
         else if (purchase.usedServices && purchase.usedServices.length > 0) {
