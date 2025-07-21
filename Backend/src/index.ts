@@ -40,6 +40,9 @@ import systemConfigRoutes from "./routes/systemConfigRoutes";
 import { startAutoTransitionService } from "./services/appointmentAutoTransitionService";
 import { menstrualCycleReminderService } from "./services/menstrualCycleReminderService";
 
+// 🆕 Import middleware
+import { updatePackageStatusMiddleware, updateResponseStatusMiddleware } from './middleware/packageStatusMiddleware';
+
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
 // Try multiple paths for .env file
 const envPaths = [
@@ -119,6 +122,10 @@ const allowedOrigins = [
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser()); // Thêm cookie-parser để đọc cookie
+
+// 🆕 Global middleware để tự động cập nhật package status
+app.use(updatePackageStatusMiddleware);
+app.use(updateResponseStatusMiddleware);
 
 // Cấu hình CORS với Cross-Origin-Opener-Policy
 app.use(

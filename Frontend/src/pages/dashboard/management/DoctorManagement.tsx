@@ -36,6 +36,7 @@ import {
   PhoneOutlined,
   HomeOutlined,
   UploadOutlined,
+  SwitcherOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { doctorApi } from '../../../api/endpoints'; // ✅ FIX: Import từ index file 
@@ -224,30 +225,36 @@ const DoctorManagement: React.FC = () => {
   };
 
   const handleEdit = (doctor: DisplayDoctor) => {
+    console.log('[EDIT] Setting form fields:', doctor);
+    console.log('[EDIT] Avatar value:', doctor.avatar);
+    console.log('[EDIT] Original doctor data:', doctor);
+    
+    // Convert certificate string to fileList array
+    const certificateFileList = doctor.certificate
+      ? [{
+          uid: '-1',
+          name: 'certificate',
+          status: 'done',
+          url: doctor.certificate
+        }]
+      : [];
+    
+    // ✅ Sửa certificate URL mapping để prefill đúng string
+    form.setFieldsValue({
+      fullName: doctor.fullName,
+      email: doctor.email,
+      phone: doctor.phone,
+      gender: doctor.gender,
+      address: doctor.address,
+      specialization: doctor.specialization,
+      experience: doctor.experience,
+      rating: doctor.rating,
+      education: doctor.education,
+      certificate: doctor.certificate, // ✅ String URL thay vì array object
+      bio: doctor.bio,
+    });
+    
     setEditingDoctor(doctor);
-    
-    // ✅ Enhanced form mapping để ensure all fields được set đúng
-    const formData = {
-      fullName: doctor.fullName || '',
-      email: doctor.email || '',
-      phone: doctor.phone || '',
-      gender: doctor.gender || undefined, // Ensure gender is properly set
-      address: doctor.address || '', // Ensure address is properly set
-      specialization: doctor.specialization || '',
-      experience: doctor.experience || 0,
-      rating: doctor.rating || 0,
-      education: doctor.education || '',
-      certificate: doctor.certificate || '',
-      bio: doctor.bio || '',
-      status: doctor.status || 'active', // Thêm status để tránh lỗi validation
-      avatar: doctor.avatar || undefined
-    };
-    
-    console.log('🔄 [EDIT] Setting form fields:', formData);
-    console.log('🖼️ [EDIT] Avatar value:', doctor.avatar);
-    console.log('📊 [EDIT] Original doctor data:', doctor);
-    
-    form.setFieldsValue(formData);
     setIsModalVisible(true);
   };
 
@@ -270,7 +277,7 @@ const DoctorManagement: React.FC = () => {
       
       // Ensure experience is number
       if (values.experience) {
-        values.experience = Number(values.experience);
+        // Removed automatic Number conversion to allow string descriptions
       }
       
       // Lấy status từ form và chuẩn hóa sang isActive
@@ -284,6 +291,13 @@ const DoctorManagement: React.FC = () => {
       
       // Xóa status khỏi values để không gửi lên API updateDoctor
       delete values.status;
+      
+      // Extract certificate URL
+      if (values.certificate && typeof values.certificate === 'string') {
+        // ✅ Giữ string URL thay vì extract từ array
+      } else {
+        delete values.certificate;
+      }
       
       if (editingDoctor) {
         console.log(`🔄 [FRONTEND] Updating doctor with ID: ${editingDoctor.id}`);
@@ -548,6 +562,17 @@ const DoctorManagement: React.FC = () => {
     return true;
   };
 
+  const handleToggleStatus = async (doctorId: string, currentStatus: DisplayDoctor['status']) => {
+    try {
+      const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+      const result = await doctorApi.updateStatus(doctorId, newStatus === 'active');
+      message.success(`Đã đổi trạng thái bác sĩ "${currentStatus}" thành "${newStatus}" thành công!`);
+      loadData();
+    } catch (err: any) {
+      message.error(err?.response?.data?.message || 'Không thể đổi trạng thái bác sĩ');
+    }
+  };
+
   const columns: ColumnsType<DisplayDoctor> = [
     {
       title: 'Bác sĩ',
@@ -658,7 +683,7 @@ const DoctorManagement: React.FC = () => {
               onClick={() => showDoctorDetails(record)}
             />
           </Tooltip>
-          {userRole === 'admin' && canEditDoctorProfile(userRole) && (
+          {canEditDoctorProfile(userRole) && (
             <Tooltip title="Chỉnh sửa tài khoản & hồ sơ">
               <Button 
                 type="text" 
@@ -667,7 +692,7 @@ const DoctorManagement: React.FC = () => {
               />
             </Tooltip>
           )}
-          {canDeleteDoctor(userRole) && userRole === 'admin' && (
+          {canDeleteDoctor(userRole) && (
             <Tooltip title="Xóa tài khoản">
               <Popconfirm
                 title="Bạn có chắc chắn muốn xóa tài khoản bác sĩ này? Hành động này không thể hoàn tác."
@@ -681,6 +706,15 @@ const DoctorManagement: React.FC = () => {
                   icon={<DeleteOutlined />}
                 />
               </Popconfirm>
+            </Tooltip>
+          )}
+          {userRole === 'manager' && (
+            <Tooltip title="Toggle trạng thái">
+              <Button 
+                type="text" 
+                icon={<SwitcherOutlined />} 
+                onClick={() => handleToggleStatus(record.id, record.status)}
+              />
             </Tooltip>
           )}
         </Space>
@@ -778,6 +812,7 @@ const DoctorManagement: React.FC = () => {
         onOk={handleModalOk}
         onCancel={handleModalCancel}
         width={800}
+        bodyStyle={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 24 }}
         okText={editingDoctor ? 'Cập nhật' : 'Tạo tài khoản & hồ sơ'}
         cancelText="Hủy"
         confirmLoading={submitting}
@@ -787,7 +822,7 @@ const DoctorManagement: React.FC = () => {
           layout="vertical"
           style={{ marginTop: 16 }}
         >
-          <Row gutter={16}>
+          <Row gutter={8}>
             <Col span={24}>
               <Title level={5} style={{ margin: '0 0 16px 0', color: '#1890ff' }}>
                 🔒 Thông tin tài khoản
@@ -795,7 +830,7 @@ const DoctorManagement: React.FC = () => {
             </Col>
           </Row>
           
-          <Row gutter={16}>
+          <Row gutter={8}>
             <Col span={12}>
               <Form.Item
                 name="fullName"
@@ -820,7 +855,7 @@ const DoctorManagement: React.FC = () => {
           </Row>
 
           {!editingDoctor && (
-            <Row gutter={16}>
+            <Row gutter={8}>
               <Col span={12}>
                 <Form.Item
                   name="password"
@@ -856,7 +891,7 @@ const DoctorManagement: React.FC = () => {
             </Row>
           )}
 
-          <Row gutter={16}>
+          <Row gutter={8}>
             <Col span={12}>
               <Form.Item
                 name="phone"
@@ -889,7 +924,7 @@ const DoctorManagement: React.FC = () => {
             <Input placeholder="Nhập địa chỉ" />
           </Form.Item>
 
-          <Row gutter={16}>
+          <Row gutter={8}>
             <Col span={24}>
               <Title level={5} style={{ margin: '24px 0 16px 0', color: '#52c41a' }}>
                 🩺 Thông tin chuyên môn
@@ -897,7 +932,7 @@ const DoctorManagement: React.FC = () => {
             </Col>
           </Row>
 
-          <Row gutter={16}>
+          <Row gutter={8}>
             <Col span={12}>
               <Form.Item
                 name="specialization"
@@ -912,19 +947,7 @@ const DoctorManagement: React.FC = () => {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
-              <Form.Item
-                name="status"
-                label="Trạng thái"
-                rules={[{ required: true, message: 'Vui lòng chọn trạng thái!' }]}
-              >
-                <Select placeholder="Chọn trạng thái">
-                  <Option value="active">Hoạt động</Option>
-                  <Option value="inactive">Tạm dừng</Option>
-                  <Option value="suspended">Bị khóa</Option>
-                </Select>
-              </Form.Item>
-            </Col>
+            {/* Remove status field */}
           </Row>
 
           <div style={{ display: 'flex', gap: 16 }}>
@@ -962,7 +985,7 @@ const DoctorManagement: React.FC = () => {
             </Form.Item>
           </div>
 
-          <Row gutter={16}>
+          <Row gutter={8}>
             <Col span={12}>
               <Form.Item
                 name="education"
@@ -972,13 +995,42 @@ const DoctorManagement: React.FC = () => {
                 <Input placeholder="VD: Bác sĩ đa khoa, Đại học Y Hà Nội" />
               </Form.Item>
             </Col>
+            {/* Certificate Upload */}
             <Col span={12}>
               <Form.Item
                 name="certificate"
-                label="Chứng chỉ hành nghề"
-                rules={[{ required: true, message: 'Vui lòng nhập mã chứng chỉ!' }]}
+                label="Chứng chỉ hành nghề (ảnh)"
+                valuePropName="fileList"
+                getValueFromEvent={(e) => (Array.isArray(e) ? e : e && e.fileList)}
+                rules={[{ required: true, message: 'Vui lòng tải ảnh chứng chỉ!' }]}
               >
-                <Input placeholder="Nhập mã chứng chỉ hành nghề" />
+                <Upload.Dragger
+                  name="image"
+                  accept=".jpg,.jpeg,.png,.webp"
+                  maxCount={1}
+                  beforeUpload={async (file) => {
+                    try {
+                      const formData = new FormData();
+                      formData.append('image', file); // Match backend field name
+                      const res = await doctorApi.uploadImage(formData);
+                      if (res.success) {
+                        form.setFieldsValue({ certificate: res.data.imageUrl });
+                        return false;
+                      }
+                    } catch (err) {
+                      message.error('Upload chứng chỉ thất bại');
+                    }
+                    return Upload.LIST_IGNORE;
+                  }}
+                  listType="picture"
+                  showUploadList={{ showRemoveIcon: true }}
+                >
+                  <p className="ant-upload-drag-icon">
+                    <UploadOutlined />
+                  </p>
+                  <p className="ant-upload-text">Chọn hoặc kéo thả ảnh chứng chỉ</p>
+                  <p className="ant-upload-hint">JPG/PNG/WebP, tối đa 5MB</p>
+                </Upload.Dragger>
               </Form.Item>
             </Col>
           </Row>
@@ -1003,7 +1055,7 @@ const DoctorManagement: React.FC = () => {
               name="image"
               listType="picture-card"
               maxCount={1}
-              action={`${axiosInstance.defaults.baseURL}/doctors/upload-image`}
+              action={`${axiosInstance.defaults.baseURL}/api/doctors/upload-image`}
               headers={{
                 'Authorization': `Bearer ${getValidTokenFromStorage('access_token') || ''}`
               }}

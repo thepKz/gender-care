@@ -118,7 +118,7 @@ const MeetingManagementForm: React.FC<MeetingManagementFormProps> = ({
       title={
         <Space>
           <VideoCameraOutlined style={{ color: '#1890ff' }} />
-          <span>📋 Quản lý Meeting</span>
+          <span>Quản lý Meeting</span>
         </Space>
       }
       extra={
@@ -149,7 +149,7 @@ const MeetingManagementForm: React.FC<MeetingManagementFormProps> = ({
     >
       {/* Read-only Meeting Information */}
       <Card 
-        title="📊 Thông tin Meeting (Chỉ đọc)"
+        title="Thông tin Meeting (Chỉ đọc)"
         size="small"
         style={{ marginBottom: '24px', background: '#fafafa' }}
       >
@@ -161,14 +161,14 @@ const MeetingManagementForm: React.FC<MeetingManagementFormProps> = ({
             </Space>
           </Descriptions.Item>
           
-          <Descriptions.Item label="🕐 Thời gian hẹn">
+          <Descriptions.Item label="Thời gian hẹn">
             <Space>
               <ClockCircleOutlined />
               <span>{meetingData.appointmentTime}</span>
             </Space>
           </Descriptions.Item>
           
-          <Descriptions.Item label="🔗 Meeting Link">
+          <Descriptions.Item label="Meeting Link">
             <a 
               href={meetingData.meetingLink} 
               target="_blank" 
@@ -182,19 +182,19 @@ const MeetingManagementForm: React.FC<MeetingManagementFormProps> = ({
             </a>
           </Descriptions.Item>
           
-          <Descriptions.Item label="📊 Trạng thái">
+          <Descriptions.Item label="Trạng thái">
             <Tag color={getStatusColor(meetingData.status)}>
               {getStatusText(meetingData.status)}
             </Tag>
           </Descriptions.Item>
           
-          <Descriptions.Item label="👥 Người tham gia">
+          <Descriptions.Item label="Người tham gia">
             <Tag color="cyan">
               {meetingData.participantCount} người
             </Tag>
           </Descriptions.Item>
           
-          <Descriptions.Item label="📅 Thời gian lên lịch">
+          <Descriptions.Item label="Thời gian lên lịch">
             <Space>
               <ClockCircleOutlined />
               <span>{new Date(meetingData.scheduledTime).toLocaleString('vi-VN')}</span>
@@ -208,7 +208,7 @@ const MeetingManagementForm: React.FC<MeetingManagementFormProps> = ({
         title={
           <Space>
             <EditOutlined style={{ color: '#52c41a' }} />
-            <span>✏️ Thông tin do Bác sĩ quản lý</span>
+            <span>Thông tin do Bác sĩ quản lý</span>
           </Space>
         }
         size="small"
@@ -223,7 +223,7 @@ const MeetingManagementForm: React.FC<MeetingManagementFormProps> = ({
           disabled={readOnly || loading}
         >
           <Form.Item
-            label="📝 Ghi chú Meeting"
+            label="Ghi chú Meeting"
             name="notes"
             help="Ghi chú về cuộc tư vấn, kết quả, khuyến nghị cho bệnh nhân"
           >
@@ -236,21 +236,7 @@ const MeetingManagementForm: React.FC<MeetingManagementFormProps> = ({
             />
           </Form.Item>
 
-          <Form.Item
-            label="👥 Số người tham gia tối đa"
-            name="maxParticipants"
-            rules={[
-              { required: true, message: 'Vui lòng nhập số người tham gia tối đa' },
-              { type: 'number', min: 2, max: 10, message: 'Số người phải từ 2 đến 10' }
-            ]}
-          >
-            <InputNumber
-              min={2}
-              max={10}
-              style={{ width: '100%' }}
-              placeholder="Nhập số người tham gia tối đa"
-            />
-          </Form.Item>
+          
 
           {/* Quick Action Buttons */}
           <Form.Item style={{ marginBottom: 0 }}>

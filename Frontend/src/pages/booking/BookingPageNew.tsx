@@ -279,7 +279,19 @@ const BookingPageNew: React.FC = () => {
       
       if (response.success && response.data?.packagePurchases) {
         const mappedPurchases: PurchasedPackage[] = response.data.packagePurchases
-          .filter((purchase: any) => purchase.status === 'active')
+          .filter((purchase: any) => {
+            // Chỉ lấy packages có status active và chưa sử dụng hết
+            if (purchase.status !== 'active') return false;
+            
+            // Kiểm tra xem có service nào còn có thể sử dụng không
+            const hasAvailableServices = purchase.usedServices?.some((usedService: any) => {
+              const usedQuantity = usedService.usedQuantity || usedService.usedCount || 0;
+              const maxQuantity = usedService.maxQuantity || 1;
+              return usedQuantity < maxQuantity;
+            });
+            
+            return hasAvailableServices;
+          })
           .map((purchase: any) => ({
             _id: purchase._id,
             servicePackage: purchase.servicePackage,
@@ -1356,6 +1368,35 @@ const BookingPageNew: React.FC = () => {
                 )}
               </div>
 
+              {/* ✅ NEW: Lưu ý về gói dịch vụ */}
+              {bookingType === 'purchased_package' && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '12px 16px',
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '8px'
+                }}>
+                  <div style={{
+                    color: '#3b82f6',
+                    fontSize: '16px',
+                    marginTop: '2px'
+                  }}>
+                    ℹ️
+                  </div>
+                  <div style={{
+                    fontSize: '13px',
+                    color: '#1e40af',
+                    lineHeight: '1.4'
+                  }}>
+                    <span style={{ fontWeight: '600' }}>Lưu ý:</span> Những gói dịch vụ đã mua khi sử dụng hết lượt hoặc hết hạn sẽ không được hiển thị ở đây.
+                  </div>
+                </div>
+              )}
+
               {/* Service Selection */}
               {bookingType === 'service' && (
                 <>
@@ -1743,16 +1784,65 @@ const BookingPageNew: React.FC = () => {
                                 marginTop: '12px',
                                 display: 'inline-block'
                               }}>
-                                <span style={{
-                                  fontSize: '12px',
-                                  backgroundColor: '#10b981',
-                                  color: 'white',
-                                  padding: '4px 12px',
-                                  borderRadius: '20px',
-                                  fontWeight: '600'
-                                }}>
-                                  ✨ ĐANG SỬ DỤNG
-                                </span>
+                                {(() => {
+                                  // Kiểm tra xem gói có còn service nào có thể sử dụng không
+                                  const hasAvailableServices = purchase.usedServices?.some((usedService: any) => {
+                                    const usedQuantity = usedService.usedQuantity || usedService.usedCount || 0;
+                                    const maxQuantity = usedService.maxQuantity || 1;
+                                    return usedQuantity < maxQuantity;
+                                  });
+                                  
+                                  if (!hasAvailableServices) {
+                                    return (
+                                      <span style={{
+                                        fontSize: '12px',
+                                        backgroundColor: '#ef4444',
+                                        color: 'white',
+                                        padding: '4px 12px',
+                                        borderRadius: '20px',
+                                        fontWeight: '600'
+                                      }}>
+                                        ❌ ĐÃ SỬ DỤNG HẾT
+                                      </span>
+                                    );
+                                  }
+                                  
+                                  // Kiểm tra xem có service nào sắp hết không
+                                  const hasLowQuantity = purchase.usedServices?.some((usedService: any) => {
+                                    const usedQuantity = usedService.usedQuantity || usedService.usedCount || 0;
+                                    const maxQuantity = usedService.maxQuantity || 1;
+                                    const remaining = maxQuantity - usedQuantity;
+                                    return remaining <= 1 && remaining > 0;
+                                  });
+                                  
+                                  if (hasLowQuantity) {
+                                    return (
+                                      <span style={{
+                                        fontSize: '12px',
+                                        backgroundColor: '#f59e0b',
+                                        color: 'white',
+                                        padding: '4px 12px',
+                                        borderRadius: '20px',
+                                        fontWeight: '600'
+                                      }}>
+                                        ⚠️ SẮP HẾT
+                                      </span>
+                                    );
+                                  }
+                                  
+                                  return (
+                                    <span style={{
+                                      fontSize: '12px',
+                                      backgroundColor: '#10b981',
+                                      color: 'white',
+                                      padding: '4px 12px',
+                                      borderRadius: '20px',
+                                      fontWeight: '600'
+                                    }}>
+                                      ✨ ĐANG SỬ DỤNG
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
                           );

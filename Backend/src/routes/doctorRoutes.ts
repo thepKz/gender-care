@@ -4,7 +4,7 @@ import * as profileChangeController from '../controllers/profileChangeController
 import * as doctorScheduleController from '../controllers/doctorScheduleController';
 import { verifyToken, verifyAdmin, verifyStaff } from '../middleware/auth';
 import { roleMiddleware } from '../middleware/roleMiddleware';
-import { requireRole } from '../middleware/roleHierarchy';
+import { requireRole, requireAnyRole } from '../middleware/roleHierarchy';
 import multer from 'multer';
 
 const router = Router();
@@ -24,8 +24,8 @@ router.get('/', doctorController.getAll);
 
 // ===== STATIC ROUTES FIRST (tránh conflict với /:id) =====
 
-// 🆕 DOCTOR/STAFF/MANAGER/ADMIN: Upload doctor image với enhanced validation - Doctor can upload their own images
-router.post('/upload-image', verifyToken, requireRole('doctor'), upload.single('image'), doctorController.uploadDoctorImage);
+// 🆕 DOCTOR/MANAGER/ADMIN: Upload doctor image với enhanced validation
+router.post('/upload-image', verifyToken, requireAnyRole(['doctor', 'manager', 'admin']), upload.single('image'), doctorController.uploadDoctorImage);
 
 // 🆕 STAFF/MANAGER/ADMIN: Lấy tất cả bác sĩ với feedback + status details - Now with hierarchy
 router.get('/details/all', verifyToken, requireRole('staff'), doctorController.getAllWithDetails);

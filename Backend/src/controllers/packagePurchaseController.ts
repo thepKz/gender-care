@@ -476,6 +476,27 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
       // 🔹 Transform data to match frontend expectation
       transformedPurchases = packagePurchases.map((purchase: any) => {
         
+        // ✅ IMPROVED: Check and update status for each purchase with better expiry logic
+        let updatedStatus = purchase.status || 'active';
+        const now = new Date();
+        
+        // ✅ IMPROVED: Check expiry with proper date validation
+        if (purchase.expiryDate) {
+          const expiryDate = new Date(purchase.expiryDate);
+          if (!isNaN(expiryDate.getTime()) && now > expiryDate) {
+            updatedStatus = 'expired';
+          }
+        }
+        // Check if all services used up
+        else if (purchase.usedServices && purchase.usedServices.length > 0) {
+          const allUsedUp = purchase.usedServices.every((service: any) => 
+            (service.usedQuantity || 0) >= (service.maxQuantity || 1)
+          );
+          if (allUsedUp) {
+            updatedStatus = 'used_up';
+          }
+        }
+        
         // Fix services mapping based on actual structure
         const services = (purchase.packageId?.services || []).map((service: any) => {
 
@@ -502,9 +523,9 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
             services: services
           },
           totalAmount: purchase.purchasePrice || purchase.totalAmount || 0,
-          // Ensure required fields are present
-          status: purchase.status || 'active',
-          isActive: purchase.isActive !== false && purchase.status === 'active',
+          // Ensure required fields are present with updated status
+          status: updatedStatus,
+          isActive: purchase.isActive !== false && updatedStatus === 'active',
           purchaseDate: purchase.purchaseDate || purchase.createdAt,
           expiryDate: purchase.expiryDate || purchase.expiresAt,
           expiresAt: purchase.expiryDate || purchase.expiresAt,
@@ -532,34 +553,57 @@ export const getUserPurchasedPackages = async (req: AuthRequest, res: Response) 
         .lean();
 
       // 🔹 Transform fallback data too
-      transformedPurchases = packagePurchases.map((purchase: any) => ({
-        ...purchase,
-        servicePackage: {
-          ...purchase.packageId,
-          // Basic services structure cho fallback case
-          services: purchase.packageId?.services?.map((service: any) => ({
-            serviceId: service.serviceId,
-            serviceName: service.serviceName || 'Tên dịch vụ không xác định',
-            quantity: service.quantity || 1,
-            price: 0, // Fallback không có populate price
-            description: '',
-            serviceType: 'consultation'
-          })) || []
-        },
-        totalAmount: purchase.purchasePrice || 0,
-        status: purchase.status || 'active',
-        isActive: purchase.isActive !== false && purchase.status === 'active',
-        purchaseDate: purchase.purchaseDate || purchase.createdAt,
-        expiryDate: purchase.expiryDate || purchase.expiresAt,
-        expiresAt: purchase.expiryDate || purchase.expiresAt,
-        remainingUsages: purchase.remainingUsages || 0,
-        usedServices: (purchase.usedServices || []).map((used: any) => ({
-          serviceId: used.serviceId,
-          usedCount: used.usedQuantity || 0,
-          usedQuantity: used.usedQuantity || 0,
-          maxQuantity: used.maxQuantity || 1
-        }))
-      }));
+      transformedPurchases = packagePurchases.map((purchase: any) => {
+        // ✅ IMPROVED: Check and update status for each purchase (fallback case) with better expiry logic
+        let updatedStatus = purchase.status || 'active';
+        const now = new Date();
+        
+        // ✅ IMPROVED: Check expiry with proper date validation
+        if (purchase.expiryDate) {
+          const expiryDate = new Date(purchase.expiryDate);
+          if (!isNaN(expiryDate.getTime()) && now > expiryDate) {
+            updatedStatus = 'expired';
+          }
+        }
+        // Check if all services used up
+        else if (purchase.usedServices && purchase.usedServices.length > 0) {
+          const allUsedUp = purchase.usedServices.every((service: any) => 
+            (service.usedQuantity || 0) >= (service.maxQuantity || 1)
+          );
+          if (allUsedUp) {
+            updatedStatus = 'used_up';
+          }
+        }
+        
+        return {
+          ...purchase,
+          servicePackage: {
+            ...purchase.packageId,
+            // Basic services structure cho fallback case
+            services: purchase.packageId?.services?.map((service: any) => ({
+              serviceId: service.serviceId,
+              serviceName: service.serviceName || 'Tên dịch vụ không xác định',
+              quantity: service.quantity || 1,
+              price: 0, // Fallback không có populate price
+              description: '',
+              serviceType: 'consultation'
+            })) || []
+          },
+          totalAmount: purchase.purchasePrice || 0,
+          status: updatedStatus,
+          isActive: purchase.isActive !== false && updatedStatus === 'active',
+          purchaseDate: purchase.purchaseDate || purchase.createdAt,
+          expiryDate: purchase.expiryDate || purchase.expiresAt,
+          expiresAt: purchase.expiryDate || purchase.expiresAt,
+          remainingUsages: purchase.remainingUsages || 0,
+          usedServices: (purchase.usedServices || []).map((used: any) => ({
+            serviceId: used.serviceId,
+            usedCount: used.usedQuantity || 0,
+            usedQuantity: used.usedQuantity || 0,
+            maxQuantity: used.maxQuantity || 1
+          }))
+        };
+      });
         
       total = await PackagePurchases.countDocuments(query);
 
@@ -1480,6 +1524,88 @@ export const testPayOSWebhook = async (req: Request, res: Response) => {
       success: false, 
       message: 'Test webhook failed',
       error: error.message 
+    });
+  }
+}; 
+
+// Test endpoint để kiểm tra và cập nhật package status
+export const testUpdatePackageStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    console.log('🧪 [Test] Testing package status update...');
+    
+    // Tìm tất cả packages có status "active"
+    const activePackages = await PackagePurchases.find({ status: 'active' });
+    console.log(`📦 [Test] Found ${activePackages.length} active packages`);
+    
+    const results = [];
+    
+    for (const packagePurchase of activePackages) {
+      console.log(`🔍 [Test] Checking package ${packagePurchase._id}:`);
+      console.log(`  - Current status: ${packagePurchase.status}`);
+      console.log(`  - Used services: ${packagePurchase.usedServices?.length || 0}`);
+      
+      if (packagePurchase.usedServices && packagePurchase.usedServices.length > 0) {
+        packagePurchase.usedServices.forEach((service, index) => {
+          console.log(`    Service ${index + 1}: ${service.usedQuantity}/${service.maxQuantity}`);
+        });
+      }
+      
+      const oldStatus = packagePurchase.status;
+      const newStatus = packagePurchase.checkAndUpdateStatus();
+      console.log(`  - New status: ${newStatus}`);
+      
+      if (newStatus !== oldStatus) {
+        await packagePurchase.save();
+        console.log(`✅ [Test] Updated package ${packagePurchase._id}: ${oldStatus} → ${newStatus}`);
+        results.push({
+          packageId: packagePurchase._id,
+          oldStatus,
+          newStatus,
+          updated: true
+        });
+      } else {
+        console.log(`ℹ️ [Test] Package ${packagePurchase._id} status unchanged`);
+        results.push({
+          packageId: packagePurchase._id,
+          oldStatus,
+          newStatus,
+          updated: false
+        });
+      }
+    }
+    
+    // Hiển thị thống kê
+    const stats = await PackagePurchases.aggregate([
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    console.log('📊 [Test] Status statistics:');
+    stats.forEach(stat => {
+      console.log(`  - ${stat._id}: ${stat.count} packages`);
+    });
+    
+    return res.json({
+      success: true,
+      message: 'Package status update test completed',
+      data: {
+        totalPackages: activePackages.length,
+        updatedPackages: results.filter(r => r.updated).length,
+        results,
+        statistics: stats
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('❌ [Test] Error in package status update test:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error testing package status update',
+      error: error.message
     });
   }
 }; 
