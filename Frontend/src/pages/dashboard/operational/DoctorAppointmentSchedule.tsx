@@ -32,7 +32,8 @@ import {
   VideoCameraOutlined,
   PhoneOutlined,
   MedicineBoxOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -45,6 +46,8 @@ import MedicalRecordModal from '../../../components/ui/forms/MedicalRecordModal'
 import ViewMedicalRecordModal from '../../../components/ui/forms/ViewMedicalRecordModal';
 import medicalApi from '../../../api/endpoints/medical';
 import { doctorApi } from '../../../api/endpoints/doctorApi';
+import CancelScheduleModal from '../../../components/ui/modals/CancelScheduleModal';
+import servicesApi from '../../../api/endpoints/services';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -81,13 +84,55 @@ interface UnifiedScheduleItem {
   address?: string;
   description: string;
   notes?: string;
-  status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'done_testResultItem' | 'done_testResult';
+  status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'doctor_cancel' | 'done_testResultItem' | 'done_testResult';
   // ✅ Additional fields for consultations
   question?: string;
   age?: number;
   gender?: 'male' | 'female';
   consultationFee?: number;
   doctorNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+  cancelledBy?: string; // Added for cancelled items
+  cancelReason?: string; // Added for cancelled items
+}
+
+// Add a minimal type for appointments from backend
+interface RawProfile {
+  _id: string;
+  fullName?: string;
+  phone?: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  gender?: string;
+}
+interface RawService {
+  _id: string;
+  serviceName?: string;
+  serviceType?: string;
+}
+interface RawPackage {
+  _id: string;
+  name?: string;
+}
+interface RawDoctor {
+  _id: string;
+  userId?: { fullName?: string };
+}
+interface RawAppointment {
+  _id: string;
+  profileId: RawProfile | string;
+  serviceId?: RawService | string;
+  packageId?: RawPackage | string;
+  doctorId?: RawDoctor | string;
+  appointmentDate: string;
+  appointmentTime: string;
+  appointmentType?: string;
+  typeLocation?: string;
+  address?: string;
+  description?: string;
+  notes?: string;
+  status: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -110,6 +155,10 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const [hasMedicalRecord, setHasMedicalRecord] = useState<boolean | null>(null);
   const [medicalRecordId, setMedicalRecordId] = useState<string | null>(null);
   const [doctorId, setDoctorId] = useState<string | null>(null);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelConfirmCall, setCancelConfirmCall] = useState(false);
 
   useEffect(() => {
     if (user?.role === 'doctor' && user?._id) {
@@ -153,86 +202,109 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const loadUnifiedSchedule = async () => {
     try {
       setLoading(true);
-      
       // 🔥 Parallel API calls
       const [appointmentsResponse, consultationsResponse] = await Promise.all([
         appointmentApi.getAllAppointments().catch(() => ({ data: { appointments: [] } })),
         consultationApi.getMyConsultations().catch(() => ({ data: [] }))
       ]);
-
-      // 🔥 Process Appointments - ✅ FIXED: Không filter theo serviceType nữa
       let myAppointments = [];
       if (appointmentsResponse.data?.appointments) {
         if (user?.role === 'staff') {
-          // Staff xem tất cả appointments
           myAppointments = appointmentsResponse.data.appointments;
         } else if (user?.role === 'doctor' && doctorId) {
-          // Doctor chỉ xem appointments được assign cho mình
           myAppointments = appointmentsResponse.data.appointments.filter((appointment: any) => {
             const aptDoctorId = appointment.doctorId?._id || appointment.doctorId;
             return aptDoctorId === doctorId;
           });
         }
       }
-
-      // 🔥 Process Consultations (DoctorQA) - ✅ FIXED: Enhanced filtering
       let myConsultations = [];
       if (consultationsResponse.data && Array.isArray(consultationsResponse.data)) {
         myConsultations = consultationsResponse.data;
       } else if (consultationsResponse.data?.consultations) {
         myConsultations = consultationsResponse.data.consultations;
       } else if (consultationsResponse.data?.data) {
-        // Backup case nếu data được wrap trong data property
         myConsultations = Array.isArray(consultationsResponse.data.data) ? consultationsResponse.data.data : [];
       }
-
-      console.log('🔍 [Debug] Raw consultation data structure:', {
-        hasData: !!consultationsResponse.data,
-        isArray: Array.isArray(consultationsResponse.data),
-        hasDataProperty: !!consultationsResponse.data?.data,
-        hasConsultationsProperty: !!consultationsResponse.data?.consultations,
-        consultationsCount: myConsultations.length,
-        firstConsultation: myConsultations[0] || null
-      });
-
-      // ✅ Convert appointments to unified format
-      const convertedAppointments: UnifiedScheduleItem[] = myAppointments.map((appointment: any) => ({
-        _id: appointment._id,
-        sourceType: 'appointment' as const,
-        profileId: {
-          _id: appointment.profileId?._id || appointment.profileId || '',
-          fullName: appointment.profileId?.fullName || 'N/A',
-          phoneNumber: appointment.profileId?.phone || appointment.profileId?.phoneNumber || 'N/A',
-          dateOfBirth: appointment.profileId?.dateOfBirth,
-          gender: appointment.profileId?.gender
-        },
-        serviceInfo: {
-          _id: appointment.serviceId?._id || appointment.serviceId || '',
-          serviceName: appointment.serviceId?.serviceName || 'N/A',
-          serviceType: appointment.serviceId?.serviceType || 'test'
-        },
-        doctorId: appointment.doctorId ? {
-          _id: appointment.doctorId._id || appointment.doctorId || '',
-          userId: {
-            fullName: appointment.doctorId?.userId?.fullName || user?.fullName || 'N/A'
+      // --- Sửa logic lấy tên dịch vụ/package ---
+      // Tạo map packageId -> name để tránh gọi API nhiều lần
+      const packageNameCache: Record<string, string> = {};
+      async function getPackageName(packageObj: RawPackage | string): Promise<string> {
+        if (!packageObj) return 'N/A';
+        if (typeof packageObj === 'object' && packageObj.name) return packageObj.name;
+        if (typeof packageObj === 'string') {
+          if (packageNameCache[packageObj]) return packageNameCache[packageObj];
+          try {
+            const res = await servicesApi.getServicePackageDetail(packageObj);
+            const name = res.data?.name || 'Gói dịch vụ';
+            packageNameCache[packageObj] = name;
+            return name;
+          } catch {
+            return 'Gói dịch vụ';
           }
-        } : {
-          _id: '',
-          userId: { fullName: 'Chưa phân công' }
-        },
-        appointmentDate: appointment.appointmentDate,
-        appointmentTime: appointment.appointmentTime,
-        appointmentType: appointment.appointmentType || 'test',
-        typeLocation: appointment.typeLocation || 'clinic',
-        address: appointment.address || '',
-        description: appointment.description || '',
-        notes: appointment.notes || '',
-        status: appointment.status,
-        createdAt: appointment.createdAt,
-        updatedAt: appointment.updatedAt
+        }
+        return 'Gói dịch vụ';
+      }
+      // Convert appointments to unified format (async để lấy tên package nếu cần)
+      const convertedAppointments: UnifiedScheduleItem[] = await Promise.all(myAppointments.map(async (appointment: RawAppointment) => {
+        let serviceName = (typeof appointment.serviceId === 'object' && appointment.serviceId?.serviceName) ? appointment.serviceId.serviceName : '';
+        let serviceType = (typeof appointment.serviceId === 'object' && appointment.serviceId?.serviceType) ? appointment.serviceId.serviceType : '';
+        // Nếu không có serviceId mà có packageId thì lấy tên package
+        if (!serviceName && appointment.packageId) {
+          serviceName = await getPackageName(appointment.packageId);
+          serviceType = 'package';
+        }
+        // Ensure correct type for appointmentType
+        let appointmentType: UnifiedScheduleItem['appointmentType'] = 'test';
+        if (appointment.appointmentType === 'consultation' || appointment.appointmentType === 'test' || appointment.appointmentType === 'treatment' || appointment.appointmentType === 'other') {
+          appointmentType = appointment.appointmentType;
+        }
+        let typeLocation: UnifiedScheduleItem['typeLocation'] = 'clinic';
+        if (appointment.typeLocation === 'clinic' || appointment.typeLocation === 'home' || appointment.typeLocation === 'Online') {
+          typeLocation = appointment.typeLocation;
+        }
+        return {
+          _id: appointment._id,
+          sourceType: 'appointment',
+          profileId: {
+            _id: typeof appointment.profileId === 'object' ? appointment.profileId._id : appointment.profileId || '',
+            fullName: typeof appointment.profileId === 'object' ? appointment.profileId.fullName || 'N/A' : 'N/A',
+            phoneNumber: typeof appointment.profileId === 'object' ? (appointment.profileId.phone || appointment.profileId.phoneNumber || 'N/A') : 'N/A',
+            dateOfBirth: typeof appointment.profileId === 'object' ? appointment.profileId.dateOfBirth : undefined,
+            gender: typeof appointment.profileId === 'object' ? appointment.profileId.gender : undefined
+          },
+          serviceInfo: {
+            _id:
+              ((typeof appointment.serviceId === 'object' && appointment.serviceId?._id)
+                || (typeof appointment.serviceId === 'string' && appointment.serviceId)
+                || (typeof appointment.packageId === 'object' && appointment.packageId?._id)
+                || (typeof appointment.packageId === 'string' && appointment.packageId)
+                || '') as string,
+            serviceName: serviceName || 'N/A',
+            serviceType: serviceType || (appointment.packageId ? 'package' : 'test')
+          },
+          doctorId: appointment.doctorId && typeof appointment.doctorId === 'object' ? {
+            _id: appointment.doctorId._id || '',
+            userId: {
+              fullName: appointment.doctorId.userId?.fullName || user?.fullName || 'N/A'
+            }
+          } : {
+            _id: '',
+            userId: { fullName: 'Chưa phân công' }
+          },
+          appointmentDate: appointment.appointmentDate,
+          appointmentTime: appointment.appointmentTime,
+          appointmentType,
+          typeLocation,
+          address: appointment.address || '',
+          description: appointment.description || '',
+          notes: appointment.notes || '',
+          status: appointment.status as UnifiedScheduleItem['status'],
+          createdAt: appointment.createdAt,
+          updatedAt: appointment.updatedAt
+        };
       }));
-
-      // ✅ Convert consultations to unified format  
+      // Convert consultations to unified format (không đổi)
       const convertedConsultations: UnifiedScheduleItem[] = myConsultations.map((consultation: any) => ({
         _id: consultation._id,
         sourceType: 'consultation' as const,
@@ -265,7 +337,6 @@ const DoctorAppointmentSchedule: React.FC = () => {
         description: consultation.question || '',
         notes: consultation.notes || '',
         status: consultation.status,
-        // Additional consultation fields
         question: consultation.question,
         age: consultation.age,
         gender: consultation.gender,
@@ -274,17 +345,10 @@ const DoctorAppointmentSchedule: React.FC = () => {
         createdAt: consultation.createdAt,
         updatedAt: consultation.updatedAt
       }));
-
       // 🔥 Merge and sort by date
       const allItems = [...convertedAppointments, ...convertedConsultations].sort(
         (a, b) => dayjs(b.appointmentDate).valueOf() - dayjs(a.appointmentDate).valueOf()
       );
-
-      console.log('🔍 [Debug] Final merged items:', allItems.length, {
-        appointments: convertedAppointments.length,
-        consultations: convertedConsultations.length
-      });
-
       setScheduleItems(allItems);
     } catch (err: any) {
       console.error('❌ Error loading schedule:', err);
@@ -294,11 +358,11 @@ const DoctorAppointmentSchedule: React.FC = () => {
     }
   };
 
+  // Sửa filterScheduleItems để tab "Đã hủy" hiển thị cả cancelled và doctor_cancel
   const filterScheduleItems = () => {
     let filtered = scheduleItems;
     const today = dayjs().format('YYYY-MM-DD');
     const selectedDateStr = selectedDate?.format('YYYY-MM-DD');
-    
     switch (activeTab) {
       case 'today':
         filtered = filtered.filter(item =>
@@ -315,13 +379,15 @@ const DoctorAppointmentSchedule: React.FC = () => {
       case 'completed':
         filtered = filtered.filter(item => item.status === 'completed');
         break;
+      case 'cancelled':
+        filtered = filtered.filter(item => item.status === 'cancelled' || item.status === 'doctor_cancel');
+        break;
       case 'selected-date':
         filtered = filtered.filter(item => 
           dayjs(item.appointmentDate).format('YYYY-MM-DD') === selectedDateStr
         );
         break;
     }
-    
     if (searchText) {
       filtered = filtered.filter(item =>
         item.profileId.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
@@ -330,11 +396,9 @@ const DoctorAppointmentSchedule: React.FC = () => {
         (item.question && item.question.toLowerCase().includes(searchText.toLowerCase()))
       );
     }
-    
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(item => item.status === selectedStatus);
     }
-    
     setFilteredItems(filtered);
   };
 
@@ -429,6 +493,37 @@ const DoctorAppointmentSchedule: React.FC = () => {
     }
   };
 
+  // Cancel handler
+  const [cancelTargetItem, setCancelTargetItem] = useState<UnifiedScheduleItem | null>(null);
+  const handleShowCancelModal = (item: UnifiedScheduleItem) => {
+    setCancelTargetItem(item);
+    setCancelReason('');
+    setCancelConfirmCall(false);
+    setCancelModalVisible(true);
+  };
+
+  const handleCancelSchedule = async () => {
+    if (!cancelTargetItem) return;
+    setCancelLoading(true);
+    try {
+      if (cancelTargetItem.sourceType === 'appointment') {
+        await appointmentApi.cancelByDoctor(cancelTargetItem._id, cancelReason);
+      } else {
+        await consultationApi.cancelByDoctor(cancelTargetItem._id, cancelReason);
+      }
+      message.success('Đã hủy lịch thành công!');
+      setCancelModalVisible(false);
+      setCancelTargetItem(null);
+      setCancelReason('');
+      setCancelConfirmCall(false);
+      loadUnifiedSchedule();
+    } catch (err) {
+      message.error('Hủy lịch thất bại!');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   // ✅ Clean and simple columns
   const columns: ColumnsType<UnifiedScheduleItem> = [
     {
@@ -478,8 +573,8 @@ const DoctorAppointmentSchedule: React.FC = () => {
           <div style={{ fontWeight: 500 }}>{dayjs(record.appointmentDate).format('DD/MM/YYYY')}</div>
           <div style={{ fontSize: '12px', color: '#666' }}>{record.appointmentTime}</div>
           <div style={{ fontSize: '11px', color: '#999' }}>
-            {record.typeLocation === 'clinic' ? '🏥 Phòng khám' : 
-             record.typeLocation === 'Online' ? '💻 Trực tuyến' : '🏠 Tại nhà'}
+            {record.typeLocation === 'clinic' ? 'Phòng khám' : 
+             record.typeLocation === 'Online' ? 'Trực tuyến' : 'Tại nhà'}
           </div>
         </div>
       ),
@@ -491,11 +586,15 @@ const DoctorAppointmentSchedule: React.FC = () => {
       render: (status, record) => (
         <div>
           <Tag color={getStatusColor(status)}>
-            {getStatusText(status)}
+            {status === 'doctor_cancel'
+              ? 'Bác sĩ hủy'
+              : status === 'cancelled'
+                ? 'Khách hàng hủy'
+                : getStatusText(status)}
           </Tag>
           {record.sourceType === 'consultation' && record.question && (
             <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', maxWidth: '200px' }}>
-              💬 {record.question.substring(0, 50)}...
+              {record.question.substring(0, 50)}...
             </div>
           )}
         </div>
@@ -504,55 +603,87 @@ const DoctorAppointmentSchedule: React.FC = () => {
     {
       title: 'Thao tác',
       key: 'actions',
-      render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="Xem chi tiết">
-            <Button
-              type="text"
-              icon={<EyeOutlined />}
-              onClick={() => showItemDetails(record)}
-            />
-          </Tooltip>
-
-          {['confirmed', 'scheduled'].includes(record.status) && (
-            <Popconfirm
-              title="Xác nhận bắt đầu khám?"
-              onConfirm={() => handleStartConsulting(record)}
-              okText="Có"
-              cancelText="Không"
-            >
-              <Tooltip title="Bắt đầu khám">
+      render: (_, record) => {
+        const isDoctor = user?.role === 'doctor';
+        const daysDiff = dayjs(record.appointmentDate).diff(dayjs(), 'day');
+        const canCancel = isDoctor && daysDiff >= 7 && !['cancelled', 'doctor_cancel', 'completed'].includes(record.status);
+        // Nếu đang ở tab Đã hủy thì chỉ render nút xem chi tiết
+        if (activeTab === 'cancelled') {
+          return (
+            <Space size="small">
+              <Tooltip title="Xem chi tiết">
                 <Button
-                  type="primary"
+                  type="text"
+                  icon={<EyeOutlined />}
+                  onClick={() => showItemDetails(record)}
+                />
+              </Tooltip>
+            </Space>
+          );
+        }
+        return (
+          <Space size="small">
+            <Tooltip title="Xem chi tiết">
+              <Button
+                type="text"
+                icon={<EyeOutlined />}
+                onClick={() => showItemDetails(record)}
+              />
+            </Tooltip>
+
+            {['confirmed', 'scheduled'].includes(record.status) && (
+              <Popconfirm
+                title="Xác nhận bắt đầu khám?"
+                onConfirm={() => handleStartConsulting(record)}
+                okText="Có"
+                cancelText="Không"
+              >
+                <Tooltip title="Bắt đầu khám">
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<PlayCircleOutlined />}
+                  >
+                    Bắt đầu
+                  </Button>
+                </Tooltip>
+              </Popconfirm>
+            )}
+
+            {record.status === 'consulting' && (
+              <Popconfirm
+                title="Xác nhận hoàn thành?"
+                onConfirm={() => handleCompleteItem(record._id, record.sourceType)}
+                okText="Có"
+                cancelText="Không"
+              >
+                <Tooltip title="Hoàn thành">
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<CheckCircleOutlined />}
+                  >
+                    Hoàn thành
+                  </Button>
+                </Tooltip>
+              </Popconfirm>
+            )}
+
+            {canCancel && (
+              <Tooltip title="Hủy lịch (chỉ khi còn trên 7 ngày)">
+                <Button
+                  danger
                   size="small"
-                  icon={<PlayCircleOutlined />}
+                  icon={<ExclamationCircleOutlined />}
+                  onClick={() => handleShowCancelModal(record)}
                 >
-                  Bắt đầu
+                  Hủy lịch
                 </Button>
               </Tooltip>
-            </Popconfirm>
-          )}
-
-          {record.status === 'consulting' && (
-            <Popconfirm
-              title="Xác nhận hoàn thành?"
-              onConfirm={() => handleCompleteItem(record._id, record.sourceType)}
-              okText="Có"
-              cancelText="Không"
-            >
-              <Tooltip title="Hoàn thành">
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<CheckCircleOutlined />}
-                >
-                  Hoàn thành
-                </Button>
-              </Tooltip>
-            </Popconfirm>
-          )}
-        </Space>
-      ),
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
@@ -581,6 +712,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
   );
   
   const completedItems = scheduleItems.filter(item => item.status === 'completed');
+  const cancelledItems = scheduleItems.filter(item => item.status === 'cancelled' || item.status === 'doctor_cancel');
 
   return (
     <div style={{ padding: '24px', background: '#f5f5f5', minHeight: '100vh' }}>
@@ -712,6 +844,22 @@ const DoctorAppointmentSchedule: React.FC = () => {
                 </Button>
                 
                 <Button 
+                  type={activeTab === 'cancelled' ? 'primary' : 'default'}
+                  icon={<ExclamationCircleOutlined />}
+                  onClick={() => setActiveTab('cancelled')}
+                  style={{ 
+                    borderRadius: '6px',
+                    height: '40px',
+                    minWidth: '120px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  Đã hủy ({cancelledItems.length})
+                </Button>
+                
+                <Button 
                   type={activeTab === 'selected-date' ? 'primary' : 'default'}
                   icon={<SearchOutlined />}
                   onClick={() => setActiveTab('selected-date')}
@@ -807,14 +955,17 @@ const DoctorAppointmentSchedule: React.FC = () => {
         onCancel={() => setIsDetailModalVisible(false)}
         footer={(() => {
           if (!selectedItem) return [<Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>];
-          
+          if (selectedItem.sourceType === 'consultation') {
+            return [<Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>];
+          }
           const isTest = selectedItem.serviceInfo?.serviceType === 'test';
-          
+          // Ẩn nút tạo hồ sơ bệnh án nếu lịch đã bị hủy
+          const isCancelled = selectedItem.status === 'cancelled' || selectedItem.status === 'doctor_cancel';
           return [
             <Button key="close" onClick={() => setIsDetailModalVisible(false)}>
               Đóng
             </Button>,
-            (!isTest && hasMedicalRecord === false) && (
+            (!isTest && hasMedicalRecord === false && !isCancelled) && (
               <Button key="create" type="primary" onClick={() => setMedicalRecordModalVisible(true)}>
                 Tạo hồ sơ bệnh án
               </Button>
@@ -843,7 +994,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
             <Row gutter={16}>
               {/* ✅ Left Section - Thông tin bệnh nhân */}
               <Col span={12}>
-                <Card title="👤 Thông tin bệnh nhân" size="small" style={{ marginBottom: '16px' }}>
+                <Card title="Thông tin bệnh nhân" size="small" style={{ marginBottom: '16px' }}>
                   <Descriptions column={1} size="small">
                     <Descriptions.Item label="Họ tên">
                       <Space>
@@ -862,13 +1013,19 @@ const DoctorAppointmentSchedule: React.FC = () => {
                     </Descriptions.Item>
                     {selectedItem.gender && (
                       <Descriptions.Item label="Giới tính">
-                        {selectedItem.gender === 'male' ? '👨 Nam' : '👩 Nữ'}
+                        {selectedItem.gender === 'male' ? 'Nam' : 'Nữ'}
                       </Descriptions.Item>
                     )}
                     <Descriptions.Item label="Trạng thái">
-                      <Tag color={getStatusColor(selectedItem.status)}>
-                        {getStatusText(selectedItem.status)}
-                      </Tag>
+                      {selectedItem.status === 'doctor_cancel' ? (
+                        <Tag color="red">Bác sĩ hủy</Tag>
+                      ) : selectedItem.status === 'cancelled' ? (
+                        <Tag color="volcano">Khách hàng hủy</Tag>
+                      ) : (
+                        <Tag color={getStatusColor(selectedItem.status)}>
+                          {getStatusText(selectedItem.status)}
+                        </Tag>
+                      )}
                     </Descriptions.Item>
                   </Descriptions>
                 </Card>
@@ -876,14 +1033,14 @@ const DoctorAppointmentSchedule: React.FC = () => {
 
               {/* ✅ Right Section - Thông tin lịch hẹn */}
               <Col span={12}>
-                <Card title="📅 Thông tin lịch hẹn" size="small" style={{ marginBottom: '16px' }}>
+                <Card title="Thông tin lịch hẹn" size="small" style={{ marginBottom: '16px' }}>
                   <Descriptions column={1} size="small">
                     <Descriptions.Item label="Dịch vụ">
                       <div>
                         <div style={{ fontWeight: 500 }}>{selectedItem.serviceInfo.serviceName}</div>
                         {selectedItem.consultationFee && (
                           <span style={{ color: '#fa8c16', fontSize: '12px' }}>
-                            💰 {selectedItem.consultationFee.toLocaleString()}đ
+                            {selectedItem.consultationFee.toLocaleString()}đ
                           </span>
                         )}
                       </div>
@@ -906,8 +1063,8 @@ const DoctorAppointmentSchedule: React.FC = () => {
                          selectedItem.typeLocation === 'clinic' ? <MedicineBoxOutlined /> :
                          <UserOutlined />}
                         <span>
-                          {selectedItem.typeLocation === 'clinic' ? '🏥 Phòng khám' : 
-                           selectedItem.typeLocation === 'Online' ? '💻 Trực tuyến' : '🏠 Tại nhà'}
+                          {selectedItem.typeLocation === 'clinic' ? 'Phòng khám' : 
+                           selectedItem.typeLocation === 'Online' ? 'Trực tuyến' : 'Tại nhà'}
                         </span>
                       </Space>
                     </Descriptions.Item>
@@ -917,24 +1074,17 @@ const DoctorAppointmentSchedule: React.FC = () => {
             </Row>
 
             {/* ✅ Bottom Section - Thông tin chi tiết */}
-            <Card title="📝 Thông tin chi tiết" size="small">
+            <Card title="Thông tin chi tiết" size="small">
               <Descriptions column={1} size="small">
                 {selectedItem.address && (
                   <Descriptions.Item label="Địa chỉ">
-                    📍 {selectedItem.address}
+                    {selectedItem.address}
                   </Descriptions.Item>
                 )}
                 
                 {selectedItem.question && (
                   <Descriptions.Item label="Câu hỏi tư vấn">
-                    <div style={{ 
-                      background: '#f6ffed', 
-                      padding: '12px', 
-                      borderRadius: '6px',
-                      border: '1px solid #b7eb8f'
-                    }}>
-                      💬 {selectedItem.question}
-                    </div>
+                    {selectedItem.question}
                   </Descriptions.Item>
                 )}
                 
@@ -942,29 +1092,28 @@ const DoctorAppointmentSchedule: React.FC = () => {
                   {selectedItem.description || 'Không có mô tả'}
                 </Descriptions.Item>
                 
-                {selectedItem.notes && (
-                  <Descriptions.Item label="Ghi chú">
-                    <div style={{ 
-                      background: '#fff7e6', 
-                      padding: '8px 12px', 
-                      borderRadius: '4px',
-                      fontStyle: 'italic'
-                    }}>
-                      📝 {selectedItem.notes}
+                {(() => {
+                  let noteText = selectedItem?.notes;
+                  if (noteText && noteText.includes('[DOCTOR CANCELLED]')) {
+                    noteText = noteText.split('[DOCTOR CANCELLED]')[0].trim();
+                  }
+                  return noteText ? (
+                    <Descriptions.Item label="Ghi chú">
+                      {noteText}
+                    </Descriptions.Item>
+                  ) : null;
+                })()}
+                {activeTab === 'cancelled' && selectedItem.status === 'doctor_cancel' && selectedItem.notes && selectedItem.notes.includes('[DOCTOR CANCELLED]') && (
+                  <Descriptions.Item label="Lý do bác sĩ hủy">
+                    <div style={{ color: '#cf1322', fontWeight: 500 }}>
+                      {selectedItem.notes.split('[DOCTOR CANCELLED]')[1]?.trim() || 'Không có lý do'}
                     </div>
                   </Descriptions.Item>
                 )}
                 
                 {selectedItem.doctorNotes && (
                   <Descriptions.Item label="Ghi chú bác sĩ">
-                    <div style={{ 
-                      background: '#e6f7ff', 
-                      padding: '12px', 
-                      borderRadius: '6px',
-                      border: '1px solid #91d5ff'
-                    }}>
-                      🩺 {selectedItem.doctorNotes}
-                    </div>
+                    {selectedItem.doctorNotes}
                   </Descriptions.Item>
                 )}
               </Descriptions>
@@ -1017,6 +1166,18 @@ const DoctorAppointmentSchedule: React.FC = () => {
           appointmentType: selectedItem.appointmentType,
         } : null}
         onCancel={() => setViewMedicalRecordModalVisible(false)}
+      />
+
+      {/* Modal hủy lịch */}
+      <CancelScheduleModal
+        visible={cancelModalVisible}
+        onCancel={() => setCancelModalVisible(false)}
+        onSubmit={handleCancelSchedule}
+        loading={cancelLoading}
+        reason={cancelReason}
+        setReason={setCancelReason}
+        confirmCall={cancelConfirmCall}
+        setConfirmCall={setCancelConfirmCall}
       />
     </div>
   );

@@ -257,6 +257,11 @@ export const appointmentApi = {
             refundInfo
         });
         return response.data;
+    },
+
+    // Cancel appointment by doctor (POST or PATCH)
+    cancelByDoctor: (id: string, reason: string) => {
+        return axiosInstance.put(`/appointments/${id}/cancel-by-doctor`, { reason });
     }
 };
 

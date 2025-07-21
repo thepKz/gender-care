@@ -14,7 +14,7 @@ export interface IAppointments extends Document {
   address?: string;
   description?: string;
   notes?: string;
-  status: "pending_payment" | "pending" | "scheduled" | "confirmed" | "consulting" | "completed" | "cancelled" | "payment_cancelled" | "expired" | "done_testResultItem" | "done_testResult";
+  status: "pending_payment" | "pending" | "scheduled" | "confirmed" | "consulting" | "completed" | "cancelled" | "doctor_cancel" | "payment_cancelled" | "expired" | "done_testResultItem" | "done_testResult";
   totalAmount?: number; // Total amount for payment
   paymentStatus?: "unpaid" | "paid" | "partial" | "refunded" | "expired";
   paidAt?: Date; // Timestamp when payment was completed
@@ -82,7 +82,7 @@ const AppointmentsSchema = new mongoose.Schema<IAppointments>({
   },
   status: {
     type: String,
-    enum: ["pending_payment", "pending", "scheduled", "confirmed", "consulting", "completed", "cancelled", "payment_cancelled", "expired"],
+    enum: ["pending_payment", "pending", "scheduled", "confirmed", "consulting", "completed", "cancelled", "doctor_cancel", "payment_cancelled", "expired"],
     default: "pending_payment"
   },
   totalAmount: {
