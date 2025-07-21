@@ -48,6 +48,8 @@ interface RawAppointmentData {
   serviceId?: string;
   serviceName?: string;
   packageName?: string;
+  packageId?: string;
+  packagePurchaseId?: string;
   doctorName?: string;
   doctorAvatar?: string;
   patientName?: string;
@@ -71,8 +73,18 @@ interface RawAppointmentData {
   age?: number;
   gender?: string;
   doctorNotes?: string;
+  doctorMeetingNotes?: string; // Ghi chú của bác sĩ từ Meeting
   paymentStatus?: string;
   refund?: RefundData;
+  // ✅ ADD: Package expiry info
+  packageExpiryInfo?: {
+    hasPackage: boolean;
+    packageId?: string;
+    packageName?: string;
+    isExpired: boolean;
+    expiryDate?: string;
+    packageStatus: string;
+  };
 }
 
 interface Appointment {
@@ -81,6 +93,8 @@ interface Appointment {
   serviceId: string;
   serviceName: string;
   packageName?: string;
+  packageId?: string;
+  packagePurchaseId?: string;
   doctorName?: string;
   doctorAvatar?: string;
   patientName?: string;
@@ -103,8 +117,18 @@ interface Appointment {
   gender?: string;
   question?: string;
   doctorNotes?: string;
+  doctorMeetingNotes?: string; // Ghi chú của bác sĩ từ Meeting
   paymentStatus?: string;
   refund?: RefundData;
+  // ✅ ADD: Package expiry info
+  packageExpiryInfo?: {
+    hasPackage: boolean;
+    packageId?: string;
+    packageName?: string;
+    isExpired: boolean;
+    expiryDate?: string;
+    packageStatus: string;
+  };
 }
 
 interface RefundInfo {
@@ -193,38 +217,41 @@ const BookingHistoryOptimized: React.FC = () => {
           }
 
           return {
-            id: apt._id,
-            type: (apt.type as "appointment" | "consultation") || "appointment",
-            serviceId: apt.serviceId || "",
-            serviceName: apt.serviceName || "Dịch vụ không xác định",
-            packageName: apt.packageName,
-            doctorName: apt.doctorName || "Chưa chỉ định bác sĩ",
-            doctorAvatar:
-              apt.doctorAvatar || "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150",
-            patientName: apt.patientName || apt.fullName,
-            appointmentDate: apt.appointmentDate
-              ? new Date(apt.appointmentDate).toISOString().split("T")[0]
-              : "",
-            appointmentTime: apt.appointmentTime || apt.appointmentSlot || "",
-            appointmentSlot: apt.appointmentSlot,
-            typeLocation: apt.typeLocation || "clinic",
-            status: apt.status,
-            price: apt.price || 0,
-            createdAt: new Date(apt.createdAt).toISOString(),
-            description: apt.description || apt.question,
-            notes: apt.notes,
-            address: apt.address,
-            canCancel: apt.canCancel || false,
-            canReschedule: apt.canReschedule || false,
-            rating: apt.rating,
-            feedback: apt.feedback,
-            phone: apt.phone,
-            age: apt.age,
-            gender: apt.gender,
-            question: apt.question,
+
+          id: apt._id,
+            type: (apt.type as 'appointment' | 'consultation') || 'appointment',
+          serviceId: apt.serviceId || '',
+          serviceName: apt.serviceName || 'Dịch vụ không xác định',
+          packageName: apt.packageName,
+          packageId: apt.packageId,
+          packagePurchaseId: apt.packagePurchaseId,
+          doctorName: apt.doctorName || 'Chưa chỉ định bác sĩ',
+          doctorAvatar: apt.doctorAvatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+          patientName: apt.patientName || apt.fullName,
+          appointmentDate: apt.appointmentDate ? new Date(apt.appointmentDate).toISOString().split('T')[0] : '',
+          appointmentTime: apt.appointmentTime || apt.appointmentSlot || '',
+          appointmentSlot: apt.appointmentSlot,
+          typeLocation: apt.typeLocation || 'clinic',
+          status: apt.status,
+          price: apt.price || 0,
+          createdAt: new Date(apt.createdAt).toISOString(),
+          description: apt.description || apt.question,
+          notes: apt.notes,
+          address: apt.address,
+          canCancel: apt.canCancel || false,
+          canReschedule: apt.canReschedule || false,
+          rating: apt.rating,
+          feedback: apt.feedback,
+          phone: apt.phone,
+          age: apt.age,
+          gender: apt.gender,
+          question: apt.question,
             doctorNotes: apt.doctorNotes,
+            doctorMeetingNotes: apt.doctorMeetingNotes, // Ghi chú của bác sĩ từ Meeting
             paymentStatus: paymentStatus,
             refund: apt.refund, // Include refund info từ raw data
+            // ✅ ADD: Package expiry info
+            packageExpiryInfo: apt.packageExpiryInfo
           };
         });
 
@@ -417,9 +444,66 @@ const BookingHistoryOptimized: React.FC = () => {
   // Handle cancel appointment - show cancel modal first
   const handleCancelAppointment = async (appointment: Appointment) => {
     setSelectedAppointment(appointment);
+    
+    // ✅ IMPROVED: Kiểm tra chính xác xem có phải appointment với gói hết hạn không
+    const hasPackage = appointment.packageName && appointment.packageId;
+    
+    // ✅ FIX: Hiển thị cảnh báo chỉ khi gói thực sự hết hạn
+    const hasPackageName = appointment.packageName;
+    
+    if (hasPackageName) {
+      // ✅ IMPROVED: Kiểm tra expiry với validation chính xác
+      const packageExpiryInfo = appointment.packageExpiryInfo;
+      const isExpiredPackage = packageExpiryInfo?.isExpired || false;
+      
+      // ✅ FIX: Chỉ hiển thị cảnh báo khi gói thực sự hết hạn
+      const shouldShowWarning = isExpiredPackage;
+      
+      if (shouldShowWarning) {
+        // Hiển thị cảnh báo trước khi hủy (chỉ cho gói hết hạn)
+        Modal.confirm({
+          title: '⚠️ Cảnh báo: Gói dịch vụ đã hết hạn',
+          content: (
+            <div>
+              <p>Lịch hẹn này sử dụng gói dịch vụ <strong>"{appointment.packageName}"</strong> đã hết hạn.</p>
+              <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
+                <li>Lượt sử dụng sẽ được hoàn lại</li>
+                <li>Bạn sẽ không thể đặt lịch mới với gói này</li>
+                <li>Cần cân nhắc kỹ trước khi hủy</li>
+              </ul>
+              {packageExpiryInfo?.expiryDate && (
+                <p style={{ marginTop: '8px', color: '#666', fontSize: '13px' }}>
+                  <strong>Ngày hết hạn:</strong> {new Date(packageExpiryInfo.expiryDate).toLocaleDateString('vi-VN')}
+                </p>
+              )}
+              <p style={{ marginTop: '12px', color: '#666', fontStyle: 'italic' }}>
+                Bạn có chắc chắn muốn hủy lịch hẹn này không?
+              </p>
+            </div>
+          ),
+          okText: 'Vẫn hủy',
+          cancelText: 'Để lại',
+          onOk: () => {
+            handleDirectCancel(appointment);
+          }
+        });
+      } else {
+        // Gói chưa hết hạn → Hủy thẳng (không cần form hoàn tiền)
+        handleDirectCancel(appointment);
+      }
+    } else {
+      // Không có gói, xử lý bình thường (có thể cần form hoàn tiền)
+      handleNormalCancel(appointment);
+    }
+  };
 
-    // ✅ FIX: Chỉ show form khi đã thanh toán VÀ đủ điều kiện hoàn tiền
-    if (appointment.paymentStatus === "paid" && canCancelWithRefund(appointment)) {
+  // ✅ NEW: Helper function để xử lý cancel bình thường
+  const handleNormalCancel = (appointment: Appointment) => {
+    // ✅ FIX: Nếu là appointment sử dụng gói đã mua → Hủy thẳng (không cần form hoàn tiền)
+    if (appointment.packageName && appointment.packageId) {
+      // Appointment sử dụng gói đã mua → Hủy thẳng vì đã có hoàn lượt sử dụng
+      handleDirectCancel(appointment);
+    } else if (appointment.paymentStatus === 'paid' && canCancelWithRefund(appointment)) {
       // Đã thanh toán + đủ điều kiện hoàn tiền → Show form
       setRequestRefund(true);
       setShowCancelModal(true);
@@ -427,7 +511,7 @@ const BookingHistoryOptimized: React.FC = () => {
       // Các trường hợp khác → Hủy thẳng
       // - Chưa thanh toán
       // - Đã thanh toán nhưng không đủ điều kiện hoàn tiền
-      await handleDirectCancel(appointment);
+      handleDirectCancel(appointment);
     }
   };
 
@@ -435,12 +519,32 @@ const BookingHistoryOptimized: React.FC = () => {
   const handleDirectCancel = async (appointment: Appointment) => {
     try {
       setCancelLoading(true);
-
-      if (appointment.type === "consultation") {
-        await consultationApi.cancelConsultationByUser(appointment.id, "Hủy bởi người dùng");
+      let response: any;
+      
+      if (appointment.type === 'consultation') {
+        response = await consultationApi.cancelConsultationByUser(
+          appointment.id, 
+          'Hủy bởi người dùng'
+        );
       } else {
         // ✅ FIX: Dùng deleteAppointment (đã bỏ validation 10 phút ở backend)
-        await appointmentApi.deleteAppointment(appointment.id);
+        response = await appointmentApi.deleteAppointment(appointment.id);
+      }
+      
+      // ✅ NEW: Kiểm tra package expiry warning
+      if (response?.data?.packageRefund?.packageExpired) {
+        Modal.warning({
+          title: '⚠️ Gói dịch vụ đã hết hạn',
+          content: (
+            <div>
+              <p>Gói dịch vụ của bạn đã hết hạn sử dụng. Lượt sử dụng đã được hoàn lại nhưng bạn sẽ không thể đặt lịch mới với gói này.</p>
+              <p style={{ marginTop: '8px', color: '#666' }}>
+                Ngày hết hạn: {new Date(response.data.packageRefund.expiryDate).toLocaleDateString('vi-VN')}
+              </p>
+            </div>
+          ),
+          okText: 'Đã hiểu'
+        });
       }
 
       message.success("Hủy lịch hẹn thành công!");
@@ -465,27 +569,45 @@ const BookingHistoryOptimized: React.FC = () => {
 
     try {
       setCancelLoading(true);
-      if (selectedAppointment.type === "consultation") {
-        await consultationApi.cancelConsultationByUser(
-          selectedAppointment.id,
-          `Hủy bởi người dùng. ${refundInfo?.reason || ""}`,
+      let response: any;
+      
+      if (selectedAppointment.type === 'consultation') {
+        response = await consultationApi.cancelConsultationByUser(
+          selectedAppointment.id, 
+          `Hủy bởi người dùng. ${refundInfo?.reason || ''}`
         );
       } else {
         if (requestRefund && refundInfo) {
-          await appointmentApi.cancelAppointmentWithRefund(
-            selectedAppointment.id,
-            refundInfo.reason || "Hủy bởi người dùng",
-            refundInfo,
+          response = await appointmentApi.cancelAppointmentWithRefund(
+            selectedAppointment.id, 
+            refundInfo.reason || 'Hủy bởi người dùng',
+            refundInfo
           );
         } else {
-          await appointmentApi.deleteAppointment(selectedAppointment.id);
+          response = await appointmentApi.deleteAppointment(selectedAppointment.id);
         }
       }
-
-      const successMessage = requestRefund
-        ? "Hủy lịch hẹn thành công! Tiền sẽ được hoàn lại trong 3-5 ngày làm việc."
-        : "Hủy lịch hẹn thành công!";
-
+      
+      // ✅ NEW: Kiểm tra package expiry warning
+      if (response?.data?.packageRefund?.packageExpired) {
+        Modal.warning({
+          title: '⚠️ Gói dịch vụ đã hết hạn',
+          content: (
+            <div>
+              <p>Gói dịch vụ của bạn đã hết hạn sử dụng. Lượt sử dụng đã được hoàn lại nhưng bạn sẽ không thể đặt lịch mới với gói này.</p>
+              <p style={{ marginTop: '8px', color: '#666' }}>
+                Ngày hết hạn: {new Date(response.data.packageRefund.expiryDate).toLocaleDateString('vi-VN')}
+              </p>
+            </div>
+          ),
+          okText: 'Đã hiểu'
+        });
+      }
+      
+      const successMessage = requestRefund 
+        ? 'Hủy lịch hẹn thành công! Tiền sẽ được hoàn lại trong 3-5 ngày làm việc.'
+        : 'Hủy lịch hẹn thành công!';
+      
       message.success(successMessage);
 
       // Refresh appointments list instead of updating local state
@@ -1206,6 +1328,19 @@ const BookingHistoryOptimized: React.FC = () => {
                 </div>
               )}
 
+              {/* Notes - Only show original notes */}
+              {selectedAppointment.notes && (() => {
+                const { originalNotes } = parseNotes(selectedAppointment.notes);
+                
+                // Chỉ hiển thị ghi chú gốc (nếu có), lý do hủy đã hiển thị ở trên
+                return originalNotes ? (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 block mb-2">Ghi chú</label>
+                    <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{originalNotes}</p>
+                  </div>
+                ) : null;
+              })()}
+
               {/* ➕ Consultation-specific info */}
               {selectedAppointment.type === "consultation" && (
                 <>
@@ -1248,24 +1383,20 @@ const BookingHistoryOptimized: React.FC = () => {
                       </p>
                     </div>
                   )}
+
+                  {/* Doctor Meeting Notes - Hiển thị ở cuối */}
+                  {selectedAppointment.doctorMeetingNotes && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 block mb-2">Ghi chú của bác sĩ</label>
+                      <p className="text-gray-900 bg-purple-50 p-3 rounded-lg border-l-4 border-purple-400">
+                        {selectedAppointment.doctorMeetingNotes}
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 
-              {/* Notes - Only show original notes */}
-              {selectedAppointment.notes &&
-                (() => {
-                  const { originalNotes } = parseNotes(selectedAppointment.notes);
 
-                  // Chỉ hiển thị ghi chú gốc (nếu có), lý do hủy đã hiển thị ở trên
-                  return originalNotes ? (
-                    <div>
-                      <label className="mb-2 block text-sm font-medium text-gray-500">
-                        Ghi chú
-                      </label>
-                      <p className="rounded-lg bg-gray-50 p-3 text-gray-900">{originalNotes}</p>
-                    </div>
-                  ) : null;
-                })()}
 
               {/* Actions */}
               <div className="flex justify-between border-t border-gray-200 pt-4">

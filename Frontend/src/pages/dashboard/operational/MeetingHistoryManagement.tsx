@@ -15,9 +15,7 @@ import {
   DatePicker,
   message,
   Avatar,
-  Result,
-  Descriptions,
-  Divider
+  Result
 } from 'antd';
 import {
   HistoryOutlined,
@@ -30,7 +28,6 @@ import {
   CheckCircleOutlined,
   FilterOutlined,
   ReloadOutlined,
-  FileTextOutlined,
   PhoneOutlined,
   LinkOutlined
 } from '@ant-design/icons';
@@ -44,7 +41,7 @@ const { Search } = Input;
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
-// ✅ Interface cho Meeting data từ API
+// ✅ Interface cho Meeting data từ API - Chỉ lấy từ DoctorQA
 interface MeetingHistoryData {
   _id: string;
   qaId: {
@@ -53,6 +50,11 @@ interface MeetingHistoryData {
     phone: string;
     question: string;
     status: string;
+    age?: number;
+    gender?: string;
+    consultationFee?: number;
+    appointmentDate?: string;
+    appointmentSlot?: string;
   };
   userId: {
     _id: string;
@@ -95,7 +97,20 @@ const MeetingHistoryManagement: React.FC = () => {
       
       // ✅ Get doctor's meetings với security tự động từ token
       const response = await meetingAPI.getMyMeetings();
+      console.log('✅ [MEETING-HISTORY] API Response:', response);
       console.log('✅ [MEETING-HISTORY] Meetings loaded:', response.data?.length || 0);
+      
+      // ✅ DEBUG: Log first meeting để kiểm tra cấu trúc dữ liệu
+      if (response.data && response.data.length > 0) {
+        console.log('🔍 [DEBUG] First meeting structure:', JSON.stringify(response.data[0], null, 2));
+        console.log('🔍 [DEBUG] qaId structure:', response.data[0].qaId);
+        console.log('🔍 [DEBUG] qaId.fullName:', response.data[0].qaId?.fullName);
+        console.log('🔍 [DEBUG] qaId.phone:', response.data[0].qaId?.phone);
+        console.log('🔍 [DEBUG] qaId.question:', response.data[0].qaId?.question);
+        console.log('🔍 [DEBUG] userId structure:', response.data[0].userId);
+      } else {
+        console.log('⚠️ [DEBUG] No meetings found in response');
+      }
       
       setMeetings(response.data || []);
       
@@ -140,14 +155,17 @@ const MeetingHistoryManagement: React.FC = () => {
 
   // ✅ Filter meetings based on search and filters
   const filteredMeetings = meetings.filter(meeting => {
-    // Search filter
+    // Search filter - Chỉ tìm theo thông tin từ DoctorQA
     if (searchText) {
       const searchLower = searchText.toLowerCase();
+      const phoneNumber = getPhoneNumber(meeting);
+      const patientName = getPatientName(meeting);
+      const consultationIssue = getConsultationIssue(meeting);
+      
       const matchesSearch = 
-        meeting.qaId?.fullName?.toLowerCase().includes(searchLower) ||
-        meeting.qaId?.phone?.includes(searchText) ||
-        meeting.qaId?.question?.toLowerCase().includes(searchLower) ||
-        meeting.userId?.fullName?.toLowerCase().includes(searchLower);
+        patientName.toLowerCase().includes(searchLower) ||
+        phoneNumber.includes(searchText) ||
+        consultationIssue.toLowerCase().includes(searchLower);
       
       if (!matchesSearch) return false;
     }
@@ -219,41 +237,154 @@ const MeetingHistoryManagement: React.FC = () => {
     setDetailModalVisible(true);
   };
 
-  // ✅ Table columns definition
+  // ✅ Helper functions để lấy thông tin từ DoctorQA hoặc User
+  const getPhoneNumber = (meeting: MeetingHistoryData): string => {
+    console.log('🔍 [DEBUG] getPhoneNumber called with meeting:', meeting);
+    
+    // ✅ Thử lấy từ qaId trước
+    if (meeting.qaId && typeof meeting.qaId === 'object' && 'phone' in meeting.qaId) {
+      const phone = (meeting.qaId as Record<string, unknown>).phone;
+      console.log('🔍 [DEBUG] Found phone in qaId:', phone);
+      return (phone as string) || 'N/A';
+    }
+    
+    // ✅ Thử lấy từ userId nếu có (User model có phone field)
+    if (meeting.userId && typeof meeting.userId === 'object' && 'phone' in meeting.userId) {
+      const phone = (meeting.userId as Record<string, unknown>).phone;
+      console.log('🔍 [DEBUG] Found phone in userId:', phone);
+      return (phone as string) || 'N/A';
+    }
+    
+    // ✅ Thử lấy từ root level (fallback)
+    if ('phone' in meeting) {
+      const phone = (meeting as Record<string, unknown>).phone;
+      console.log('🔍 [DEBUG] Found phone in root level:', phone);
+      return (phone as string) || 'N/A';
+    }
+    
+    console.log('🔍 [DEBUG] No phone found, returning N/A');
+    return 'N/A';
+  };
+
+  const getPatientName = (meeting: MeetingHistoryData): string => {
+    console.log('🔍 [DEBUG] getPatientName called with meeting:', meeting);
+    
+    // ✅ Thử lấy từ qaId trước
+    if (meeting.qaId && typeof meeting.qaId === 'object' && 'fullName' in meeting.qaId) {
+      const fullName = (meeting.qaId as Record<string, unknown>).fullName;
+      console.log('🔍 [DEBUG] Found fullName in qaId:', fullName);
+      return (fullName as string) || 'N/A';
+    }
+    
+    // ✅ Thử lấy từ userId nếu có (User model có fullName field)
+    if (meeting.userId && typeof meeting.userId === 'object' && 'fullName' in meeting.userId) {
+      const fullName = (meeting.userId as Record<string, unknown>).fullName;
+      console.log('🔍 [DEBUG] Found fullName in userId:', fullName);
+      return (fullName as string) || 'N/A';
+    }
+    
+    // ✅ Thử lấy từ root level (fallback)
+    if ('fullName' in meeting) {
+      const fullName = (meeting as Record<string, unknown>).fullName;
+      console.log('🔍 [DEBUG] Found fullName in root level:', fullName);
+      return (fullName as string) || 'N/A';
+    }
+    
+    console.log('🔍 [DEBUG] No fullName found, returning N/A');
+    return 'N/A';
+  };
+
+  const getConsultationIssue = (meeting: MeetingHistoryData): string => {
+    console.log('🔍 [DEBUG] getConsultationIssue called with meeting:', meeting);
+    
+    // ✅ Thử lấy từ qaId trước
+    if (meeting.qaId && typeof meeting.qaId === 'object' && 'question' in meeting.qaId) {
+      const question = (meeting.qaId as Record<string, unknown>).question;
+      console.log('🔍 [DEBUG] Found question in qaId:', question);
+      return (question as string) || 'Không có mô tả';
+    }
+    
+    // ✅ Thử lấy từ userId nếu có (User model không có question field)
+    if (meeting.userId && typeof meeting.userId === 'object' && 'question' in meeting.userId) {
+      const question = (meeting.userId as Record<string, unknown>).question;
+      console.log('🔍 [DEBUG] Found question in userId:', question);
+      return (question as string) || 'Không có mô tả';
+    }
+    
+    // ✅ Thử lấy từ root level (fallback)
+    if ('question' in meeting) {
+      const question = (meeting as Record<string, unknown>).question;
+      console.log('🔍 [DEBUG] Found question in root level:', question);
+      return (question as string) || 'Không có mô tả';
+    }
+    
+    // ✅ Nếu không có question, thử lấy từ notes
+    if (meeting.notes && meeting.notes.trim() !== '') {
+      console.log('🔍 [DEBUG] Using notes as consultation issue:', meeting.notes);
+      return meeting.notes;
+    }
+    
+    console.log('🔍 [DEBUG] No question found, returning default');
+    return 'Không có mô tả';
+  };
+
+  const getAppointmentTime = (meeting: MeetingHistoryData): string => {
+    console.log('🔍 [DEBUG] getAppointmentTime called with meeting:', meeting);
+    
+    // ✅ Thử lấy từ qaId trước
+    if (meeting.qaId && typeof meeting.qaId === 'object') {
+      const qaId = meeting.qaId as Record<string, unknown>;
+      if (qaId.appointmentDate && qaId.appointmentSlot) {
+        console.log('🔍 [DEBUG] Found appointment in qaId:', qaId.appointmentDate, qaId.appointmentSlot);
+        return `${dayjs(qaId.appointmentDate as string).format('DD/MM/YYYY')} ${qaId.appointmentSlot as string}`;
+      }
+    }
+    
+    // ✅ Thử lấy từ root level (fallback)
+    if ('appointmentDate' in meeting && 'appointmentSlot' in meeting) {
+      const appointmentDate = (meeting as Record<string, unknown>).appointmentDate;
+      const appointmentSlot = (meeting as Record<string, unknown>).appointmentSlot;
+      console.log('🔍 [DEBUG] Found appointment in root level:', appointmentDate, appointmentSlot);
+      return `${dayjs(appointmentDate as string).format('DD/MM/YYYY')} ${appointmentSlot as string}`;
+    }
+    
+    // ✅ Fallback to scheduledTime
+    console.log('🔍 [DEBUG] Using scheduledTime as fallback:', meeting.scheduledTime);
+    return dayjs(meeting.scheduledTime).format('DD/MM/YYYY HH:mm');
+  };
+
+  // ✅ Table columns definition - Compact
   const columns: ColumnsType<MeetingHistoryData> = [
     {
       title: 'Bệnh nhân',
       key: 'patient',
-      width: 180,
+      width: 160,
       render: (_, record) => (
-        <Space>
+        <Space size="small">
           <Avatar icon={<UserOutlined />} size="small" />
           <div>
-            <div style={{ fontWeight: 500, fontSize: '13px' }}>
-              {record.qaId?.fullName || record.userId?.fullName || 'N/A'}
+            <div style={{ fontWeight: 500, fontSize: '12px' }}>
+              {getPatientName(record)}
             </div>
-            <div style={{ fontSize: '11px', color: '#666' }}>
-              <PhoneOutlined style={{ marginRight: '4px' }} />
-              {record.qaId?.phone || 'N/A'}
+            <div style={{ fontSize: '10px', color: '#666' }}>
+              <PhoneOutlined style={{ marginRight: '2px' }} />
+              {getPhoneNumber(record)}
             </div>
           </div>
         </Space>
       ),
     },
     {
-      title: 'Thời gian',
-      key: 'time',
-      width: 140,
+      title: 'Thời gian khám',
+      key: 'appointmentTime',
+      width: 120,
       render: (_, record) => (
         <div>
-          <div style={{ fontWeight: 500, fontSize: '13px' }}>
-            {dayjs(record.scheduledTime).format('DD/MM/YYYY')}
-          </div>
-          <div style={{ fontSize: '11px', color: '#666' }}>
-            {dayjs(record.scheduledTime).format('HH:mm')}
+          <div style={{ fontWeight: 500, fontSize: '12px' }}>
+            {getAppointmentTime(record)}
           </div>
           {record.actualStartTime && (
-            <div style={{ fontSize: '10px', color: '#52c41a' }}>
+            <div style={{ fontSize: '9px', color: '#52c41a' }}>
               Bắt đầu: {dayjs(record.actualStartTime).format('HH:mm')}
             </div>
           )}
@@ -265,9 +396,9 @@ const MeetingHistoryManagement: React.FC = () => {
     {
       title: 'Trạng thái',
       key: 'status',
-      width: 110,
+      width: 100,
       render: (_, record) => (
-        <Tag color={getStatusColor(record.status)} style={{ fontSize: '11px' }}>
+        <Tag color={getStatusColor(record.status)} style={{ fontSize: '10px' }}>
           {getStatusText(record.status)}
         </Tag>
       ),
@@ -282,37 +413,16 @@ const MeetingHistoryManagement: React.FC = () => {
       onFilter: (value, record) => record.status === value,
     },
     {
-      title: 'Nền tảng',
-      key: 'provider',
-      width: 90,
-      render: (_, record) => (
-        <Tag color={getProviderColor(record.provider)} style={{ fontSize: '11px' }}>
-          {record.provider === 'google' ? 'Meet' : 'Jitsi'}
-        </Tag>
-      ),
-    },
-    {
-      title: 'Vấn đề tư vấn',
-      key: 'question',
-      render: (_, record) => (
-        <div style={{ maxWidth: '250px' }}>
-          <Text ellipsis={{ tooltip: record.qaId?.question }} style={{ fontSize: '13px' }}>
-            {record.qaId?.question || 'Không có mô tả'}
-          </Text>
-        </div>
-      ),
-    },
-    {
       title: 'Thao tác',
       key: 'actions',
-      width: 100,
+      width: 80,
       render: (_, record) => (
         <Button
           type="primary"
           size="small"
           icon={<EyeOutlined />}
           onClick={() => showMeetingDetails(record)}
-          style={{ fontSize: '12px' }}
+          style={{ fontSize: '10px' }}
         >
           Chi tiết
         </Button>
@@ -321,16 +431,15 @@ const MeetingHistoryManagement: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: '16px', background: '#f5f5f5', minHeight: '100vh' }}>
+    <div style={{ padding: '16px', background: '#f8f9fa', minHeight: '100vh' }}>
       {/* ✅ Header - Compact */}
       <div style={{ marginBottom: '16px' }}>
         <Row justify="space-between" align="middle">
           <Col>
-            <Title level={3} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#0c3c54' }}>
-              <HistoryOutlined />
+            <Title level={4} style={{ margin: 0, color: '#333', fontSize: '20px' }}>
               Lịch sử Meeting
             </Title>
-            <Text type="secondary" style={{ fontSize: '14px' }}>
+            <Text type="secondary" style={{ fontSize: '13px' }}>
               Quản lý các cuộc meeting tư vấn đã thực hiện
             </Text>
           </Col>
@@ -350,53 +459,49 @@ const MeetingHistoryManagement: React.FC = () => {
       {/* ✅ Statistics Cards - Compact */}
       <Row gutter={12} style={{ marginBottom: '16px' }}>
         <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center' }}>
+          <Card size="small" style={{ textAlign: 'center', borderRadius: '6px' }}>
             <Statistic
               title="Tổng số"
               value={stats.total}
-              prefix={<VideoCameraOutlined style={{ color: '#0c3c54' }} />}
-              valueStyle={{ color: '#0c3c54', fontSize: '18px' }}
-              style={{ padding: '8px 0' }}
+              prefix={<VideoCameraOutlined style={{ color: '#1890ff' }} />}
+              valueStyle={{ color: '#1890ff', fontSize: '18px' }}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center' }}>
+          <Card size="small" style={{ textAlign: 'center', borderRadius: '6px' }}>
             <Statistic
               title="Hoàn thành"
               value={stats.completed}
               prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
               valueStyle={{ color: '#52c41a', fontSize: '18px' }}
-              style={{ padding: '8px 0' }}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center' }}>
+          <Card size="small" style={{ textAlign: 'center', borderRadius: '6px' }}>
             <Statistic
               title="Đã lên lịch"
               value={stats.scheduled}
               prefix={<CalendarOutlined style={{ color: '#fa8c16' }} />}
               valueStyle={{ color: '#fa8c16', fontSize: '18px' }}
-              style={{ padding: '8px 0' }}
             />
           </Card>
         </Col>
         <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center' }}>
+          <Card size="small" style={{ textAlign: 'center', borderRadius: '6px' }}>
             <Statistic
               title="Đang diễn ra"
               value={stats.inProgress}
               prefix={<ClockCircleOutlined style={{ color: '#722ed1' }} />}
               valueStyle={{ color: '#722ed1', fontSize: '18px' }}
-              style={{ padding: '8px 0' }}
             />
           </Card>
         </Col>
       </Row>
 
       {/* ✅ Filters Section - Compact */}
-      <Card size="small" style={{ marginBottom: '16px' }}>
+      <Card size="small" style={{ marginBottom: '16px', borderRadius: '6px' }}>
         <Row gutter={[12, 12]} align="middle">
           <Col xs={24} sm={8} md={6}>
             <Search
@@ -466,7 +571,7 @@ const MeetingHistoryManagement: React.FC = () => {
       </Card>
 
       {/* ✅ Main Table - Compact */}
-      <Card size="small">
+      <Card size="small" style={{ borderRadius: '6px' }}>
         <Table
           columns={columns}
           dataSource={filteredMeetings}
@@ -475,7 +580,7 @@ const MeetingHistoryManagement: React.FC = () => {
           size="small"
           pagination={{
             total: filteredMeetings.length,
-            pageSize: 15,
+            pageSize: 10,
             showSizeChanger: true,
             showQuickJumper: true,
             showTotal: (total) => `Tổng: ${total} meeting`,
@@ -483,23 +588,22 @@ const MeetingHistoryManagement: React.FC = () => {
           }}
           locale={{
             emptyText: (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: '#999' }}>
+              <div style={{ textAlign: 'center', padding: '32px 0', color: '#999' }}>
                 <HistoryOutlined style={{ fontSize: '32px', marginBottom: '12px' }} />
                 <div style={{ fontSize: '14px' }}>Chưa có lịch sử meeting</div>
               </div>
             )
           }}
-          scroll={{ x: 700 }}
+          scroll={{ x: 500 }}
         />
       </Card>
 
       {/* ✅ Meeting Detail Modal - Compact */}
       <Modal
         title={
-          <Space>
-            <FileTextOutlined style={{ color: '#0c3c54' }} />
-            <span style={{ color: '#0c3c54' }}>Chi tiết Meeting</span>
-          </Space>
+          <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#333' }}>
+            Chi tiết Meeting
+          </div>
         }
         open={detailModalVisible}
         onCancel={() => {
@@ -512,112 +616,194 @@ const MeetingHistoryManagement: React.FC = () => {
           </Button>
         ]}
         width={550}
+        style={{ top: 20 }}
       >
         {selectedMeeting && (
-          <Descriptions column={1} bordered size="small" style={{ fontSize: '13px' }}>
-            <Descriptions.Item label="Bệnh nhân">
-              <Space>
-                <Avatar icon={<UserOutlined />} size="small" />
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: '13px' }}>
-                    {selectedMeeting.qaId?.fullName || selectedMeeting.userId?.fullName}
+          <div style={{ fontSize: '13px', lineHeight: '1.5' }}>
+            <Row gutter={[16, 12]}>
+              <Col span={12}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                    Bệnh nhân
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Avatar icon={<UserOutlined />} size="small" />
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '13px' }}>
+                        {getPatientName(selectedMeeting)}
                   </div>
                   <div style={{ fontSize: '11px', color: '#666' }}>
                     {selectedMeeting.userId?.email}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </Space>
-            </Descriptions.Item>
-            
-            <Descriptions.Item label="Số điện thoại">
-              <Text style={{ fontSize: '13px' }}>{selectedMeeting.qaId?.phone || 'N/A'}</Text>
-            </Descriptions.Item>
-            
-            <Descriptions.Item label="Thời gian lên lịch">
-              <Text style={{ fontSize: '13px' }}>
-                {dayjs(selectedMeeting.scheduledTime).format('DD/MM/YYYY HH:mm')}
-              </Text>
-            </Descriptions.Item>
+              </Col>
+              
+              <Col span={12}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                    Số điện thoại
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                    {getPhoneNumber(selectedMeeting)}
+                  </div>
+                </div>
+              </Col>
+              
+              <Col span={12}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                    Thời gian lên lịch
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                    {getAppointmentTime(selectedMeeting)}
+                  </div>
+                </div>
+              </Col>
             
             {selectedMeeting.actualStartTime && (
-              <Descriptions.Item label="Thời gian bắt đầu thực tế">
-                <Text style={{ fontSize: '13px' }}>
+                <Col span={12}>
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                      Thời gian bắt đầu thực tế
+                    </div>
+                    <div style={{ fontSize: '13px', fontWeight: 500 }}>
                   {dayjs(selectedMeeting.actualStartTime).format('DD/MM/YYYY HH:mm')}
-                </Text>
-              </Descriptions.Item>
-            )}
-            
-            <Descriptions.Item label="Trạng thái">
-              <Tag color={getStatusColor(selectedMeeting.status)} style={{ fontSize: '11px' }}>
+                    </div>
+                  </div>
+                </Col>
+              )}
+              
+              <Col span={12}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                    Trạng thái
+                  </div>
+                  <Tag color={getStatusColor(selectedMeeting.status)} style={{ fontSize: '11px', padding: '2px 8px' }}>
                 {getStatusText(selectedMeeting.status)}
               </Tag>
-            </Descriptions.Item>
-            
-            <Descriptions.Item label="Nền tảng">
-              <Tag color={getProviderColor(selectedMeeting.provider)} style={{ fontSize: '11px' }}>
+                </div>
+              </Col>
+              
+              <Col span={12}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                    Nền tảng
+                  </div>
+                  <Tag color={getProviderColor(selectedMeeting.provider)} style={{ fontSize: '11px', padding: '2px 8px' }}>
                 {selectedMeeting.provider === 'google' ? 'Google Meet' : 'Jitsi'}
               </Tag>
-            </Descriptions.Item>
-            
-            <Descriptions.Item label="Meeting Link">
-              <Space>
-                <LinkOutlined style={{ fontSize: '12px' }} />
+                </div>
+              </Col>
+              
+              <Col span={24}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                    Meeting Link
+                  </div>
+                  <div style={{ fontSize: '11px', wordBreak: 'break-all', background: '#f5f5f5', padding: '6px', borderRadius: '3px' }}>
+                    <LinkOutlined style={{ marginRight: '4px' }} />
                 <a 
                   href={selectedMeeting.meetingLink} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  style={{ fontSize: '12px' }}
                 >
                   {selectedMeeting.meetingLink}
                 </a>
-              </Space>
-            </Descriptions.Item>
-            
-            <Descriptions.Item label="Meeting Password">
-              <Text code style={{ fontSize: '14px', fontWeight: 'bold', color: '#f5222d' }}>
-                {selectedMeeting.meetingPassword}
-              </Text>
-            </Descriptions.Item>
-            
-            <Descriptions.Item label="Số người tham gia">
-              <Text style={{ fontSize: '13px' }}>
-                {selectedMeeting.participantCount} / {selectedMeeting.maxParticipants}
-              </Text>
-            </Descriptions.Item>
-            
-            <Descriptions.Item label="ID Meeting">
-              <Text code style={{ fontSize: '11px' }}>{selectedMeeting._id}</Text>
-            </Descriptions.Item>
-            
-            <Descriptions.Item label="Vấn đề tư vấn">
-              <div style={{ 
-                background: '#f5f5f5', 
-                padding: '8px', 
-                borderRadius: '4px',
-                fontSize: '13px',
-                lineHeight: '1.4'
-              }}>
-                {selectedMeeting.qaId?.question || 'Không có mô tả'}
-              </div>
-            </Descriptions.Item>
-            
-            {selectedMeeting.notes && (
-              <>
-                <Divider style={{ margin: '12px 0' }} />
-                <Descriptions.Item label="Ghi chú của bác sĩ">
+                  </div>
+                </div>
+              </Col>
+              
+              <Col span={12}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                    Meeting Password
+                  </div>
                   <div style={{ 
-                    background: '#e6f7ff', 
+                    fontSize: '13px', 
+                    fontWeight: 'bold', 
+                    color: '#f5222d',
+                    fontFamily: 'monospace',
+                    background: '#fff2f0',
+                    padding: '4px 8px',
+                    borderRadius: '3px',
+                    border: '1px solid #ffccc7'
+                  }}>
+                {selectedMeeting.meetingPassword}
+                  </div>
+                </div>
+              </Col>
+              
+              <Col span={12}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                    Số người tham gia
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: 500 }}>
+                {selectedMeeting.participantCount} / {selectedMeeting.maxParticipants}
+                  </div>
+                </div>
+              </Col>
+              
+              <Col span={24}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                    ID Meeting
+                  </div>
+              <div style={{ 
+                    fontSize: '10px', 
+                    fontFamily: 'monospace',
+                    color: '#666',
+                    wordBreak: 'break-all',
+                background: '#f5f5f5', 
+                    padding: '4px',
+                    borderRadius: '3px'
+                  }}>
+                    {selectedMeeting._id}
+                  </div>
+              </div>
+              </Col>
+              
+              <Col span={24}>
+                <div style={{ marginBottom: '12px' }}>
+                  <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                    Vấn đề tư vấn
+                  </div>
+                  <div style={{ 
+                    background: '#f6ffed', 
                     padding: '8px', 
                     borderRadius: '4px',
                     fontSize: '13px',
-                    lineHeight: '1.4'
+                    lineHeight: '1.4',
+                    border: '1px solid #b7eb8f'
+                  }}>
+                    {getConsultationIssue(selectedMeeting)}
+                  </div>
+                </div>
+              </Col>
+              
+              {selectedMeeting.notes && (
+                <Col span={24}>
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontWeight: 'bold', color: '#666', marginBottom: '4px', fontSize: '12px' }}>
+                      Ghi chú của bác sĩ
+                    </div>
+                    <div style={{ 
+                      background: '#e6f7ff', 
+                      padding: '8px', 
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      lineHeight: '1.4',
+                      border: '1px solid #91d5ff'
                   }}>
                     {selectedMeeting.notes}
+                    </div>
                   </div>
-                </Descriptions.Item>
-              </>
+                </Col>
             )}
-          </Descriptions>
+            </Row>
+          </div>
         )}
       </Modal>
     </div>

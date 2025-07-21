@@ -560,22 +560,33 @@ const Booking: React.FC = () => {
           packageIds: packages.map(p => p._id),
           packageStructure: packages.length > 0 ? Object.keys(packages[0]) : []
         });
-        // Sửa filter: chỉ cần isActive !== false, status === 'active', còn lượt, chưa hết hạn
+        // ✅ IMPROVED: Logic filter với kiểm tra expiry chính xác hơn
         const now = new Date();
         const activePackages = packages.filter((pkg, index) => {
           const isNotDisabled = pkg.isActive !== false;
-          const isStatusActive = pkg.status === 'active';
           const hasUsagesLeft = (pkg.remainingUsages || 0) > 0;
+          
+          // ✅ IMPROVED: Kiểm tra expiry với validation chính xác
+          let isNotExpired = true;
           const expiry = pkg.expiryDate || pkg.expiredAt;
-          const notExpired = !expiry || new Date(expiry) > now;
-          const isActive = isNotDisabled && isStatusActive && hasUsagesLeft && notExpired;
+          
+          if (expiry) {
+            const expiryDate = new Date(expiry);
+            if (!isNaN(expiryDate.getTime())) {
+              isNotExpired = now <= expiryDate;
+            }
+          }
+          
+          // ✅ LOGIC: Chỉ hiển thị gói còn hiệu lực (chưa hết hạn) và có lượt
+          const isActive = isNotDisabled && hasUsagesLeft && isNotExpired;
+          
           console.log(`[Filter] Package ${index + 1}/${packages.length} (${pkg._id}):`, {
             isActive,
             isNotDisabled,
-            isStatusActive,
             hasUsagesLeft,
-            notExpired,
+            isNotExpired,
             expiry,
+            expiryDate: expiry ? new Date(expiry).toISOString() : 'No expiry',
             packageName: pkg.packageId?.name || 'No name',
             packageData: pkg.packageId ? 'Has packageId' : 'Missing packageId'
           });
