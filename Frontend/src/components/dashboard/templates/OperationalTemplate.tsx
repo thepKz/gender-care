@@ -418,26 +418,6 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
           />
         </Col>
       </Row>
-
-      {/* Role-specific Note */}
-      <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
-        <Col xs={24}>
-          <div style={{
-            padding: '16px',
-            background: userRole === 'doctor' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-            borderRadius: '12px',
-            color: 'white',
-            textAlign: 'center'
-          }}>
-            <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: '14px' }}>
-              {userRole === 'doctor' 
-                ? '👩‍⚕️ Cảm ơn bạn đã tận tâm chăm sóc sức khỏe bệnh nhân!'
-                : '👨‍💼 Cảm ơn bạn đã hỗ trợ tích cực trong vận hành phòng khám!'
-              }
-            </Text>
-          </div>
-        </Col>
-      </Row>
     </div>
   );
 
