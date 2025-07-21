@@ -730,41 +730,11 @@ const DoctorScheduleCalendar: React.FC = () => {
         }
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
-        footer={
-          selectedSlot?.appointment ? [
-            <Button key="cancel" onClick={() => setIsModalVisible(false)}>
-              Đóng
-            </Button>,
-            selectedSlot.appointment.type === 'consultation' && (
-              <Button 
-                key="join"
-                type="primary" 
-                icon={<PlayCircleOutlined />}
-                onClick={() => handleJoinMeeting(selectedSlot.appointment!)}
-                loading={meetingLoading}
-                style={{ 
-                  background: '#52c41a', 
-                  borderColor: '#52c41a'
-                }}
-              >
-                {meetingLoading ? 'Đang tạo Meet...' : getMeetingButtonText(selectedSlot.appointment)}
-              </Button>
-            ),
-            <Button 
-              key="complete"
-              type="primary"
-              icon={<CheckCircleOutlined />}
-              onClick={() => handleCompleteMeeting(selectedSlot.appointment!)}
-              loading={meetingLoading}
-            >
-              Hoàn thành
-            </Button>
-          ] : [
-            <Button key="cancel" onClick={() => setIsModalVisible(false)}>
-              Đóng
-            </Button>
-          ]
-        }
+        footer={[
+          <Button key="cancel" onClick={() => setIsModalVisible(false)}>
+            Đóng
+          </Button>
+        ]}
         width={600}
       >
         {selectedSlot && (

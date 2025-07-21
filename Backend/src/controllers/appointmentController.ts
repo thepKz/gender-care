@@ -1808,7 +1808,7 @@ export const cancelAppointmentByDoctor = async (
       }
     }
 
-    // Cập nhật trạng thái thành cancelled và lưu lý do vào notes
+    // Cập nhật trạng thái thành doctor_cancel và lưu lý do vào notes
     const cancelNote = `[DOCTOR CANCELLED] ${reason.trim()}`;
     const existingNotes = appointment.notes || "";
     const updatedNotes = existingNotes
@@ -1819,7 +1819,7 @@ export const cancelAppointmentByDoctor = async (
       id,
       {
         $set: {
-          status: "cancelled",
+          status: "doctor_cancel",
           notes: updatedNotes,
         },
       },
@@ -1834,6 +1834,16 @@ export const cancelAppointmentByDoctor = async (
       .populate("packageId", "name price serviceIds", undefined, {
         strictPopulate: false,
       });
+
+    // Sau khi cập nhật, set slot thành Absent
+    if (appointment.doctorId && appointment.slotId && appointment.appointmentDate) {
+      const { updateDoctorSchedule } = require("../services/doctorScheduleService");
+      await updateDoctorSchedule(appointment.doctorId.toString(), {
+        date: appointment.appointmentDate,
+        slotId: appointment.slotId.toString(),
+        status: "Absent"
+      });
+    }
 
     return res.status(200).json({
       success: true,
