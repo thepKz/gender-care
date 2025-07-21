@@ -3,7 +3,6 @@ import {
   Modal,
   Form,
   Input,
-  DatePicker,
   Button,
   message,
   Row,
@@ -13,18 +12,15 @@ import {
   Typography,
   Select
 } from 'antd';
+import SimpleDatePicker from '../SimpleDatePicker';
 import {
   MedicineBoxOutlined,
   UserOutlined,
-  CalendarOutlined,
-  FileTextOutlined
+  CalendarOutlined
 } from '@ant-design/icons';
 import { UnifiedAppointment } from '../../../types/appointment';
 import moment from 'moment';
-import dayjs from 'dayjs';
 import medicinesApi, { IMedicine } from '../../../api/endpoints/medicines';
-
-const { TextArea } = Input;
 const { Text } = Typography;
 
 interface MedicalRecordModalProps {
@@ -344,11 +340,11 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
               </Col>
               <Col span={12}>
                 <Form.Item label={<span style={{ fontWeight: 500 }}>Ngày tái khám</span>} name="followUpDate">
-                  <DatePicker
+                  <SimpleDatePicker
                     style={{ width: '100%' }}
                     placeholder="Chọn ngày tái khám"
-                    format="DD/MM/YYYY"
-                    disabledDate={(current) => current && current < dayjs().endOf('day')}
+                    value=""
+                    onChange={() => {}}
                   />
                 </Form.Item>
               </Col>

@@ -4,7 +4,6 @@ import {
   Form,
   Input,
   Select,
-  DatePicker,
   Button,
   message,
   Row,
@@ -17,6 +16,7 @@ import {
   Avatar,
   Divider
 } from 'antd';
+import SimpleDatePicker from '../SimpleDatePicker';
 import dayjs from 'dayjs';
 import {
   UserOutlined,
@@ -331,10 +331,11 @@ const TestRecordModal: React.FC<TestRecordModalProps> = ({
               name="testDate"
               rules={[{ required: true }]}
             >
-              <DatePicker
-                style={{ width: '100%' }}
-                size="large"
-                format="DD/MM/YYYY"
+              <SimpleDatePicker
+                style={{ width: '100%', height: '40px' }}
+                value=""
+                onChange={() => {}}
+                placeholder="Chọn ngày lấy mẫu"
               />
             </Form.Item>
           </Col>

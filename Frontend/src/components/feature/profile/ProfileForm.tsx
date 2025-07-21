@@ -1,13 +1,13 @@
 import { CloseOutlined, SaveOutlined } from '@ant-design/icons';
 import {
     Button,
-    DatePicker,
     Divider,
     Form,
     Input,
     notification,
     Select
 } from 'antd';
+import SimpleDatePicker from '../../ui/SimpleDatePicker';
 import { motion } from 'framer-motion';
 import moment from 'moment';
 import React, { useEffect } from 'react';
@@ -130,11 +130,11 @@ const ProfileForm: React.FC<ProfileFormProps> = ({
           name="year"
           label="Ngày sinh"
         >
-          <DatePicker 
-            placeholder="Chọn ngày sinh" 
-            className="rounded-lg w-full" 
-            size="large"
-            format="DD/MM/YYYY"
+          <SimpleDatePicker
+            placeholder="Chọn ngày sinh"
+            style={{ width: '100%', height: '40px', borderRadius: '8px' }}
+            value=""
+            onChange={() => {}}
           />
         </Form.Item>
 

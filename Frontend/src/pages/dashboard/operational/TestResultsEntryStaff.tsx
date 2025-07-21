@@ -6,16 +6,15 @@ import {
   Space,
   Tag,
   Input,
-  DatePicker,
   message,
   Typography,
   Tooltip,
   Modal,
   Form,
-  Select,
   Spin
 } from 'antd';
-import { SearchOutlined, ExperimentOutlined, PlusCircleOutlined, EditOutlined, FileTextOutlined, EyeOutlined, FileSearchOutlined, FileProtectOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import SimpleDatePicker from '../../../components/ui/SimpleDatePicker';
+import { SearchOutlined, ExperimentOutlined, EditOutlined, FileTextOutlined, EyeOutlined, FileSearchOutlined, FileProtectOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { appointmentApi, testResultItemsApi, serviceTestCategoriesApi } from '../../../api/endpoints';
 import { useAuth } from '../../../hooks/useAuth';
@@ -53,7 +52,7 @@ const TestResultsEntry: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(dayjs());
+  const [selectedDate, setSelectedDate] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showTestForm, setShowTestForm] = useState(false);
   const [testResultStatus, setTestResultStatus] = useState<{ [appointmentId: string]: boolean }>({});
@@ -562,10 +561,15 @@ const TestResultsEntry: React.FC = () => {
     },
   ];
 
-  const filteredAppointments = appointments.filter(apt =>
-    apt.profileId.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
-    apt.serviceId.serviceName.toLowerCase().includes(searchText.toLowerCase())
-  );
+  const filteredAppointments = appointments.filter(apt => {
+    const matchesSearch = apt.profileId.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
+      apt.serviceId.serviceName.toLowerCase().includes(searchText.toLowerCase());
+
+    const matchesDate = selectedDate ?
+      dayjs(apt.appointmentDate).format('YYYY-MM-DD') === selectedDate : true;
+
+    return matchesSearch && matchesDate;
+  });
 
   // Hàm xử lý thay đổi input
   const handleInputChange = (key: string, value: string) => {
@@ -678,11 +682,10 @@ const TestResultsEntry: React.FC = () => {
       <Title level={3} style={{ marginBottom: 24 }}>Nhập kết quả xét nghiệm</Title>
       <Card style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <DatePicker
+          <SimpleDatePicker
             value={selectedDate}
             onChange={setSelectedDate}
             style={{ width: 180 }}
-            format="DD/MM/YYYY"
             placeholder="Chọn ngày"
           />
           <Search

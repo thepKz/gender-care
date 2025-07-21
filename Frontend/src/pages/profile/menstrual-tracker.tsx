@@ -1,5 +1,6 @@
 import { ArrowLeftOutlined, CalendarOutlined, ExportOutlined, SaveOutlined } from '@ant-design/icons';
-import { Breadcrumb, Button, DatePicker, message, Select, Spin, Tooltip, Typography, notification, Card } from 'antd';
+import { Breadcrumb, Button, message, Select, Spin, Tooltip, Typography, notification, Card } from 'antd';
+import SimpleMonthPicker from '../../components/ui/SimpleMonthPicker';
 
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
@@ -23,7 +24,7 @@ const MenstrualTrackerPage: React.FC = () => {
   const [currentCycle, setCurrentCycle] = useState<MenstrualCycle | null>(null);
   
   // Dữ liệu chu kỳ
-  const [month, setMonth] = useState(dayjs());
+  const [month, setMonth] = useState(dayjs().format('YYYY-MM'));
   const [cycleDays, setCycleDays] = useState<CycleDay[]>([]);
   const [editingCell, setEditingCell] = useState<{ row: 'mucus' | 'feeling'; col: number } | null>(null);
 
@@ -150,7 +151,7 @@ const MenstrualTrackerPage: React.FC = () => {
 
   // Lấy dữ liệu ngày theo index (1-31)
   const getDayData = (dayIndex: number) => {
-    const targetDate = month.date(dayIndex + 1);
+    const targetDate = dayjs(month).date(dayIndex + 1);
     return cycleDays.find(day => dayjs(day.date).isSame(targetDate, 'day'));
   };
 
@@ -161,7 +162,7 @@ const MenstrualTrackerPage: React.FC = () => {
       return;
     }
 
-    const targetDate = month.date(dayIdx + 1);
+    const targetDate = dayjs(month).date(dayIdx + 1);
     const existingDay = getDayData(dayIdx);
 
     try {
@@ -377,10 +378,10 @@ const MenstrualTrackerPage: React.FC = () => {
         </div>
 
         <div className="mb-4 flex justify-between items-center">
-          <DatePicker.MonthPicker
+          <SimpleMonthPicker
             value={month}
-            onChange={(date) => date && setMonth(date)}
-            format="MM/YYYY"
+            onChange={setMonth}
+            format="YYYY-MM"
             placeholder="Chọn tháng"
           />
         </div>

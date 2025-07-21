@@ -10,12 +10,12 @@ import {
   Modal,
   Typography,
   Tooltip,
-  DatePicker,
   message,
   Avatar
 } from 'antd';
+import SimpleDatePicker from '../../../components/ui/SimpleDatePicker';
+import SimpleDateRangePicker from '../../../components/ui/SimpleDateRangePicker';
 import {
-  SearchOutlined,
   EyeOutlined,
   CalendarOutlined,
   UserOutlined,
@@ -76,7 +76,7 @@ const AppointmentManagement: React.FC = () => {
   
   // ✅ NEW: Advanced Filters for Staff
   const [selectedDoctor, setSelectedDoctor] = useState<string>('all');
-  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
+  const [dateRange, setDateRange] = useState<[string, string] | null>(null);
   const [doctors, setDoctors] = useState<Array<{_id: string, userId: {fullName: string}}>>([]);
   const [doctorsLoading, setDoctorsLoading] = useState(false);
 
@@ -252,8 +252,8 @@ const AppointmentManagement: React.FC = () => {
       
       // Apply date range filter
       if (dateRange && dateRange[0] && dateRange[1]) {
-        searchFilters.startDate = dateRange[0].toISOString();
-        searchFilters.endDate = dateRange[1].toISOString();
+        searchFilters.startDate = new Date(dateRange[0]).toISOString();
+        searchFilters.endDate = new Date(dateRange[1]).toISOString();
       }
       
       // ✅ SỬ DỤNG REAL API THAY VÌ MOCK DATA
@@ -806,19 +806,18 @@ const AppointmentManagement: React.FC = () => {
             
             {/* ✅ Date filtering - Range picker for staff, single date for doctor */}
             {userRole === 'staff' ? (
-              <DatePicker.RangePicker
+              <SimpleDateRangePicker
                 placeholder={['Từ ngày', 'Đến ngày']}
                 value={dateRange}
                 onChange={setDateRange}
                 style={{ width: 260 }}
-                format="DD/MM/YYYY"
               />
             ) : (
-              <DatePicker
+              <SimpleDatePicker
                 placeholder="Chọn ngày"
-                onChange={(date) => setSelectedDate(date ? date.format('YYYY-MM-DD') : 'all')}
+                value={selectedDate === 'all' ? '' : selectedDate}
+                onChange={(date) => setSelectedDate(date || 'all')}
                 style={{ width: 150 }}
-                format="DD/MM/YYYY"
               />
             )}
           </Space>

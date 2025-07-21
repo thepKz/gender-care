@@ -1,4 +1,6 @@
-import { DatePicker, Empty, Input, message, Modal, Rate, Select, Timeline } from "antd";
+import { Empty, Input, message, Modal, Rate, Select, Timeline } from "antd";
+import SimpleDatePicker from "../../components/ui/SimpleDatePicker";
+import SimpleDateRangePicker from "../../components/ui/SimpleDateRangePicker";
 import axios from "axios";
 import type { Dayjs } from "dayjs";
 import { AnimatePresence, motion } from "framer-motion";
@@ -41,7 +43,7 @@ import paymentApi from "../../api/endpoints/payment";
 
 const { Search } = Input;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
+// Removed DatePicker import
 
 interface Appointment {
   id: string;
@@ -87,7 +89,7 @@ const BookingHistory: React.FC = () => {
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [serviceFilter, setServiceFilter] = useState<string>("all");
-  const [dateRange, setDateRange] = useState<[Dayjs, Dayjs] | null>(null);
+  const [dateRange, setDateRange] = useState<[string, string] | null>(null);
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
 
   const fetchAppointments = async (skipLoading = false) => {
@@ -458,8 +460,8 @@ const BookingHistory: React.FC = () => {
       const [startDate, endDate] = dateRange;
       filtered = filtered.filter((apt) => {
         const aptDate = new Date(apt.appointmentDate);
-        const start = startDate.toDate();
-        const end = endDate.toDate();
+        const start = new Date(startDate);
+        const end = new Date(endDate);
         return aptDate >= start && aptDate <= end;
       });
     }
@@ -1042,18 +1044,11 @@ const BookingHistory: React.FC = () => {
             </Select>
 
             {/* Date Range */}
-            <RangePicker
-              size="large"
+            <SimpleDateRangePicker
               placeholder={["Từ ngày", "Đến ngày"]}
               value={dateRange}
-              onChange={(dates) => {
-                if (dates && dates[0] && dates[1]) {
-                  setDateRange([dates[0], dates[1]]);
-                } else {
-                  setDateRange(null);
-                }
-              }}
-              format="DD/MM/YYYY"
+              onChange={setDateRange}
+              style={{ height: '40px' }}
             />
 
             {/* View Mode Toggle - Only show on desktop */}

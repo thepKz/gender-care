@@ -10,21 +10,15 @@ import {
   Modal,
   Form,
   Typography,
-  Tooltip,
-  Popconfirm,
-  DatePicker,
   TimePicker,
   message
 } from 'antd';
+import SimpleDatePicker from '../../../components/ui/SimpleDatePicker';
 import {
   SearchOutlined,
   PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
   EyeOutlined,
-  CalendarOutlined,
-  UserOutlined,
-  MedicineBoxOutlined
+  CalendarOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { appointmentApi } from '../../../api/endpoints';
@@ -323,10 +317,11 @@ const AppointmentManagement: React.FC = () => {
             <Option value="no-show">Không đến</Option>
           </Select>
 
-          <DatePicker
+          <SimpleDatePicker
             placeholder="Chọn ngày"
             style={{ width: 150 }}
-            onChange={(date) => setSelectedDate(date ? date.format('YYYY-MM-DD') : 'all')}
+            value={selectedDate === 'all' ? '' : selectedDate}
+            onChange={(date) => setSelectedDate(date || 'all')}
           />
         </div>
 
@@ -418,7 +413,7 @@ const AppointmentManagement: React.FC = () => {
               rules={[{ required: true, message: 'Vui lòng chọn ngày hẹn!' }]}
               style={{ flex: 1 }}
             >
-              <DatePicker style={{ width: '100%' }} />
+              <SimpleDatePicker style={{ width: '100%' }} value="" onChange={() => {}} />
             </Form.Item>
 
             <Form.Item

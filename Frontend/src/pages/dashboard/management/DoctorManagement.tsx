@@ -18,12 +18,13 @@ import {
   Row,
   Col,
   Statistic,
-  DatePicker,
+
   InputNumber,
   Switch,
   Descriptions,
   Upload,
 } from 'antd';
+import SimpleDatePicker from '../../../components/ui/SimpleDatePicker';
 import {
   SearchOutlined,
   PlusOutlined,
