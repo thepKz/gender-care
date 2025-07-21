@@ -284,11 +284,14 @@ const UserManagement: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      // Đảm bảo admin có thể xem tất cả role bằng cách truyền role='all'
       const response = await userApi.getAllUsers({
+        role: 'all', // Explicitly request all roles
         sortBy: 'createdAt',
-        sortOrder: 'desc'
+        sortOrder: 'desc',
+        limit: 1000 // Increase limit to ensure we get all users
       });
-      
+
       if (response.success) {
         // Convert API user format to component format
         const convertedUsers = response.data.users.map((user: ApiUser) => ({
@@ -305,6 +308,11 @@ const UserManagement: React.FC = () => {
           updatedAt: user.updatedAt
         }));
         setUsers(convertedUsers);
+
+        // Log để debug - kiểm tra các role có trong dữ liệu
+        const uniqueRoles = [...new Set(convertedUsers.map(user => user.role))];
+        console.log('🔍 Các role có trong hệ thống:', uniqueRoles);
+        console.log('📊 Tổng số người dùng:', convertedUsers.length);
       }
     } catch (err: unknown) {
       const error = err as { message?: string; response?: { status?: number; data?: { message?: string } } };
@@ -1704,26 +1712,38 @@ const UserManagement: React.FC = () => {
             border: 'none'
           }}
         >
-          <div style={{ 
-            marginBottom: 24, 
-            display: 'flex', 
-            justifyContent: 'space-between', 
+          <div style={{
+            marginBottom: 24,
+            display: 'flex',
+            justifyContent: 'space-between',
             alignItems: 'center',
             paddingBottom: '16px',
             borderBottom: '1px solid #f0f0f0'
           }}>
-            <Title level={3} style={{ 
-              margin: 0, 
-              display: 'flex', 
-              alignItems: 'center',
-              color: '#1890ff'
-            }}>
-              <UserOutlined style={{ marginRight: 12, fontSize: '24px' }} />
-              Quản lý người dùng
-            </Title>
+            <div>
+              <Title level={3} style={{
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                color: '#1890ff'
+              }}>
+                <UserOutlined style={{ marginRight: 12, fontSize: '24px' }} />
+                Quản lý người dùng
+              </Title>
+              {userRole === 'admin' && (
+                <div style={{
+                  marginTop: 8,
+                  color: '#52c41a',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}>
+                  ✅ Bạn có quyền xem tất cả các role trong hệ thống
+                </div>
+              )}
+            </div>
             {canCreateUser(userRole) && (
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => setIsModalVisible(true)}
                 size="large"
@@ -1737,10 +1757,66 @@ const UserManagement: React.FC = () => {
             )}
           </div>
 
-          <div style={{ 
-            marginBottom: 24, 
-            display: 'flex', 
-            gap: 16, 
+          {/* Thống kê role cho Admin */}
+          {userRole === 'admin' && (
+            <div style={{ marginBottom: 24 }}>
+              <Row gutter={16}>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#ff4d4f' }}>
+                    <div style={{ color: '#ff4d4f', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.filter(u => u.role === 'admin').length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Quản trị viên</div>
+                  </Card>
+                </Col>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#fa8c16' }}>
+                    <div style={{ color: '#fa8c16', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.filter(u => u.role === 'manager').length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Quản lý</div>
+                  </Card>
+                </Col>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#1890ff' }}>
+                    <div style={{ color: '#1890ff', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.filter(u => u.role === 'doctor').length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Bác sĩ</div>
+                  </Card>
+                </Col>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#52c41a' }}>
+                    <div style={{ color: '#52c41a', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.filter(u => u.role === 'staff').length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Nhân viên</div>
+                  </Card>
+                </Col>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#d9d9d9' }}>
+                    <div style={{ color: '#666', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.filter(u => u.role === 'customer').length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Khách hàng</div>
+                  </Card>
+                </Col>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#722ed1' }}>
+                    <div style={{ color: '#722ed1', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Tổng cộng</div>
+                  </Card>
+                </Col>
+              </Row>
+            </div>
+          )}
+
+          <div style={{
+            marginBottom: 24,
+            display: 'flex',
+            gap: 16,
             flexWrap: 'wrap',
             alignItems: 'center'
           }}>
@@ -1755,17 +1831,29 @@ const UserManagement: React.FC = () => {
             
             <Select
               placeholder="Vai trò"
-              style={{ width: 160 }}
+              style={{ width: 200 }}
               value={selectedRole}
               onChange={setSelectedRole}
               size="large"
             >
-              <Option value="all">Tất cả vai trò</Option>
-              <Option value="admin">Quản trị viên</Option>
-              <Option value="manager">Quản lý</Option>
-              <Option value="doctor">Bác sĩ</Option>
-              <Option value="staff">Nhân viên</Option>
-              <Option value="customer">Khách hàng</Option>
+              <Option value="all">
+                Tất cả vai trò ({users.length})
+              </Option>
+              <Option value="admin">
+                Quản trị viên ({users.filter(u => u.role === 'admin').length})
+              </Option>
+              <Option value="manager">
+                Quản lý ({users.filter(u => u.role === 'manager').length})
+              </Option>
+              <Option value="doctor">
+                Bác sĩ ({users.filter(u => u.role === 'doctor').length})
+              </Option>
+              <Option value="staff">
+                Nhân viên ({users.filter(u => u.role === 'staff').length})
+              </Option>
+              <Option value="customer">
+                Khách hàng ({users.filter(u => u.role === 'customer').length})
+              </Option>
             </Select>
 
             <Select
