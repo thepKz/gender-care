@@ -6,7 +6,8 @@ import {
   Button,
   Row,
   Col,
-  Card
+  Card,
+  Progress
 } from 'antd';
 import {
   DashboardOutlined,
@@ -17,9 +18,13 @@ import {
   LogoutOutlined,
   VideoCameraOutlined,
   MedicineBoxOutlined,
-  HistoryOutlined
+  HistoryOutlined,
+  DollarOutlined
 } from '@ant-design/icons';
 import DoctorScheduleCalendar from '../widgets/DoctorScheduleCalendar';
+import TableWidget from '../widgets/TableWidget';
+import ActivityFeed from '../widgets/ActivityFeed';
+import type { AppointmentItem, ActivityItem } from '../../../types/dashboard';
 
 import AppointmentManagement from '../../../pages/dashboard/operational/AppointmentManagement';
 import MedicalRecordsManagement from '../../../pages/dashboard/operational/MedicalRecordsManagement';
@@ -32,7 +37,7 @@ import DoctorProfileManagement from '../../../pages/dashboard/operational/Doctor
 import StaffAllAppointmentsManagement from '../../../pages/dashboard/operational/StaffAllAppointmentsManagement';
 import RefundManagement from '../../../pages/dashboard/operational/RefundManagement';
 
-import { type AppointmentItem, type DashboardStats } from '../../../types/dashboard';
+import { type DashboardStats } from '../../../types/dashboard';
 import { useAuth } from '../../../hooks/useAuth';
 import { fetchOperationalDashboard } from '../../../api/endpoints/dashboard';
 import { doctorApi } from '../../../api/endpoints/doctorApi';
@@ -134,22 +139,29 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
 
   // State thực tế
   const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
-  // Xóa biến không dùng
-  // const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
-  // const [loading, setLoading] = useState(false);
-  // const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [feedbacks, setFeedbacks] = useState<{ rating: number; feedback: string; comment?: string }[]>([]);
-  // Xóa biến không dùng
-  // const pieConfig = ...
-  // const barConfig = ...
-  // const recentAppointments = ...
-  // const latestFeedbacks = ...
+
+  // Data để hiển thị
+  const defaultAppointments = appointments;
+  const metrics = {
+    appointmentCompletion: 85,
+    patientSatisfaction: 92,
+    efficiency: 78,
+    responseTime: 88
+  };
+  const roleSpecificActivities: any[] = [];
+
+  // Function để handle menu selection
+  const updateSelectedKey = (key: string) => {
+    setSelectedKey(key);
+  };
 
   // Lấy doctorId nếu là bác sĩ
   const doctorId = userRole === 'doctor' ? user?._id : undefined;
 
   // Menu
-  const menuItems = getMenuItemsOperational(userRole, () => {});
+  const menuItems = getMenuItemsOperational(userRole);
 
   useEffect(() => {
     (async () => {

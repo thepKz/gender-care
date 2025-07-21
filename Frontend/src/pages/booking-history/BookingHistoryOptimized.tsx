@@ -980,56 +980,34 @@ const BookingHistoryOptimized: React.FC = () => {
                               </button>
                             </div>
 
-                            <button
-                              onClick={async () => {
-                                if (appointment.type === 'consultation') {
-                                  try {
-                                    const res = await consultationApi.createConsultationPaymentLink(appointment.id);
-                                    // Kiểm tra response structure
-                                    const paymentUrl = res?.data?.data?.paymentUrl || res?.data?.paymentUrl;
-                                    if (paymentUrl) {
-                                      window.location.href = paymentUrl;
-                                    } else {
-                                      message.error('Không tạo được link thanh toán cho tư vấn');
-                                    }
-                                  } catch {
-                                    message.error('Lỗi khi tạo link thanh toán cho tư vấn');
-                                  }
-                                } else {
-                                  navigate(`/payment/process?appointmentId=${appointment.id}`);
-                                }
-                              }}
-                              className="px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors"
-                            >
-                              Thanh toán ngay
-                            </button>
                           </div>
+
+                          {/* Hiển thị thời gian còn lại */}
                           {(() => {
-                            // Tính thời gian tạo lịch
                             const createdTime = new Date(appointment.createdAt).getTime();
                             const currentTime = new Date().getTime();
                             const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
                             const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
-                            
+
                             if (remainingMinutes > 0) {
                               return (
                                 <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                                  <div 
-                                    className="bg-orange-500 h-2.5 rounded-full" 
+                                  <div
+                                    className="bg-orange-500 h-2.5 rounded-full"
                                     style={{ width: `${remainingMinutes * 10}%` }}
                                   ></div>
                                   <div className="text-xs text-gray-500 mt-1 text-right">
                                     Còn {remainingMinutes} phút để thanh toán
                                   </div>
-                                );
-                              }
-                              return (
-                                <div className="mt-2 text-xs font-medium text-red-500">
-                                  Hết thời gian giữ chỗ! Lịch có thể bị hủy bất kỳ lúc nào.
                                 </div>
                               );
-                            })()}
-                          </div>
+                            }
+                            return (
+                              <div className="mt-2 text-xs font-medium text-red-500">
+                                Hết thời gian giữ chỗ! Lịch có thể bị hủy bất kỳ lúc nào.
+                              </div>
+                            );
+                          })()}
                         </div>
                       );
                     })()}

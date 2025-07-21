@@ -363,7 +363,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
     let filtered = scheduleItems;
     const today = dayjs().format('YYYY-MM-DD');
 
-    const selectedDateStr = selectedDate?.format('YYYY-MM-DD');
+    const selectedDateStr = selectedDate;
 
     switch (activeTab) {
       case 'today':
