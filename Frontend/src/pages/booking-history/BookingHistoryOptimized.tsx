@@ -878,7 +878,24 @@ const BookingHistoryOptimized: React.FC = () => {
                               </span>
                             </div>
                             <button
-                              onClick={() => navigate(`/payment/process?appointmentId=${appointment.id}`)}
+                              onClick={async () => {
+                                if (appointment.type === 'consultation') {
+                                  try {
+                                    const res = await consultationApi.createConsultationPaymentLink(appointment.id);
+                                    // Kiểm tra response structure
+                                    const paymentUrl = res?.data?.data?.paymentUrl || res?.data?.paymentUrl;
+                                    if (paymentUrl) {
+                                      window.location.href = paymentUrl;
+                                    } else {
+                                      message.error('Không tạo được link thanh toán cho tư vấn');
+                                    }
+                                  } catch {
+                                    message.error('Lỗi khi tạo link thanh toán cho tư vấn');
+                                  }
+                                } else {
+                                  navigate(`/payment/process?appointmentId=${appointment.id}`);
+                                }
+                              }}
                               className="px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors"
                             >
                               Thanh toán ngay
