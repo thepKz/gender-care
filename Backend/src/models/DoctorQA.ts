@@ -68,7 +68,7 @@ const DoctorQASchema = new mongoose.Schema<IDoctorQA>({
   // ✅ SIMPLIFIED STATUS ENUM with all required states
   status: { 
     type: String, 
-    enum: ["pending_payment", "scheduled", "consulting", "completed", "cancelled"],
+    enum: ["pending_payment", "scheduled", "consulting", "completed", "cancelled", "doctor_cancel"],
     default: "pending_payment" 
   },
   consultationFee: {

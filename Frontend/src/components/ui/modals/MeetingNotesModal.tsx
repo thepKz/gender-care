@@ -89,18 +89,18 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
   const handleSendCustomerInvite = async () => {
     try {
       setInviteLoading(true);
-      console.log('📧 [MODAL-INVITE] Sending customer invite for consultation:', consultationId);
+      console.log('[MODAL-INVITE] Sending customer invite for consultation:', consultationId);
       
       const response = await meetingAPI.sendCustomerInvite(consultationId);
       
-      message.success(`📧 Đã gửi thư mời tham gia meeting cho ${consultationData.patientName}!`);
-      console.log('✅ Customer invite sent from modal:', response);
+      message.success(`Đã gửi thư mời tham gia meeting cho ${consultationData.patientName}!`);
+      console.log('Customer invite sent from modal:', response);
       
       // ✅ Reload meeting details để cập nhật UI với status mới
       await loadMeetingDetails();
       
     } catch (error: unknown) {
-      console.error('❌ Error sending customer invite from modal:', error);
+      console.error('Error sending customer invite from modal:', error);
       const errorMessage = error && typeof error === 'object' && 'response' in error 
         ? (error as { response?: { data?: { message?: string } } }).response?.data?.message 
         : 'Không thể gửi thư mời cho customer';
@@ -115,7 +115,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
         const status = lines[lines.length - 1];
         
         Modal.error({
-          title: '⚠️ Cần chuẩn bị meeting trước',
+          title: 'Cần chuẩn bị meeting trước',
           width: 500,
           content: (
             <div style={{ marginTop: '16px' }}>
@@ -157,7 +157,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
       } else {
         // Fallback cho các lỗi khác
         Modal.error({
-          title: '❌ Không thể gửi thư mời',
+          title: 'Không thể gửi thư mời',
           content: fullErrorMessage,
           okText: 'Đóng',
           centered: true
@@ -196,25 +196,25 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
         // ✅ FIX: Chỉ set notes nếu có trong DB, nếu không có thì để trống
         if (details.notes && details.notes.trim()) {
           formValues.notes = details.notes;
-          console.log('📝 [LOAD-NOTES] Found existing notes, loading into form:', details.notes);
+          console.log('[LOAD-NOTES] Found existing notes, loading into form:', details.notes);
         } else {
-          console.log('📝 [LOAD-NOTES] No existing notes found, form will be empty');
+          console.log('[LOAD-NOTES] No existing notes found, form will be empty');
         }
         
         form.setFieldsValue(formValues);
 
         // ➕ ADD: Load meeting password từ meeting API
         try {
-          console.log(`🔑 [MODAL-LOAD] Loading password for consultation: ${consultationId}`);
+          console.log(`[MODAL-LOAD] Loading password for consultation: ${consultationId}`);
           const meetingData = await meetingAPI.getMeetingByQA(consultationId);
           if (meetingData && meetingData.meetingPassword) {
-            console.log(`🔑 [MODAL-LOAD] Password found: ${meetingData.meetingPassword}`);
+            console.log(`[MODAL-LOAD] Password found: ${meetingData.meetingPassword}`);
             setMeetingPassword(meetingData.meetingPassword);
           } else {
-            console.log(`🔑 [MODAL-LOAD] No password found in meeting data`);
+            console.log(`[MODAL-LOAD] No password found in meeting data`);
           }
         } catch (passwordError) {
-          console.error('❌ [MODAL-LOAD] Error loading meeting password:', passwordError);
+          console.error('[MODAL-LOAD] Error loading meeting password:', passwordError);
         }
       }
     } catch (error) {
@@ -249,7 +249,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
   };
 
   const handleJoinMeeting = () => {
-    console.log('🎯 [JOIN-MEETING] Requesting to join meeting from MeetingNotesModal');
+    console.log('[JOIN-MEETING] Requesting to join meeting from MeetingNotesModal');
     
     // 🎥 Show recording confirmation modal first
     setRecordingConfirmed(false);
@@ -264,16 +264,16 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
     }
 
     try {
-      console.log('🎯 [MODAL-DOCTOR-JOIN] Doctor joining meeting from modal, consultation:', consultationId);
+      console.log('[MODAL-DOCTOR-JOIN] Doctor joining meeting from modal, consultation:', consultationId);
       
       // ✅ FIRST: Call API to update meeting status
       const response = await meetingAPI.updateDoctorJoinStatus(consultationId);
-      console.log('✅ [MODAL-DOCTOR-JOIN] Meeting status updated:', response);
+      console.log('[MODAL-DOCTOR-JOIN] Meeting status updated:', response);
       
       // ✅ THEN: Open meeting link
       if (meetingDetails?.meetingLink) {
         window.open(meetingDetails.meetingLink, '_blank');
-        message.success(`🎥 ${response.message || 'Doctor đã tham gia meeting'}`);
+        message.success(`${response.message || 'Doctor đã tham gia meeting'}`);
         
         // ❌ REMOVED: Không reload để tránh load lại notes vào form
         // await loadMeetingDetails();
@@ -285,7 +285,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
         message.error('Không tìm thấy link meeting');
       }
     } catch (error: unknown) {
-      console.error('❌ [MODAL-DOCTOR-JOIN] Error joining meeting:', error);
+      console.error('[MODAL-DOCTOR-JOIN] Error joining meeting:', error);
       const errorMessage = error && typeof error === 'object' && 'response' in error 
         ? (error as { response?: { data?: { message?: string } } }).response?.data?.message 
         : 'Không thể tham gia meeting. Vui lòng thử lại.';
@@ -303,7 +303,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
   const handleCopyPassword = async (password: string) => {
     try {
       await navigator.clipboard.writeText(password);
-      message.success(`📋 Đã copy password: ${password}`);
+      message.success(`Đã copy password: ${password}`);
     } catch (error) {
       console.warn('Clipboard API failed, using fallback:', error);
       // Fallback for older browsers
@@ -313,13 +313,13 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
       textArea.select();
       document.execCommand('copy');
       document.body.removeChild(textArea);
-      message.success(`📋 Đã copy password: ${password}`);
+      message.success(`Đã copy password: ${password}`);
     }
   };
 
   // ✅ UPDATED: Show confirmation modal instead of direct completion
   const handleCompleteMeeting = () => {
-    console.log('🔴 [MEETING-COMPLETE] Requesting meeting completion for:', consultationId);
+    console.log('[MEETING-COMPLETE] Requesting meeting completion for:', consultationId);
     setEndConfirmVisible(true);
   };
 
@@ -330,17 +330,17 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
       
       // ✅ SIMPLIFIED: Chỉ lưu notes ở Meeting, không duplicate ở DoctorQA
       const values = form.getFieldsValue();
-      console.log('📝 [FORM-VALUES] Notes from form:', values.notes);
+      console.log('[FORM-VALUES] Notes from form:', values.notes);
       
       // 1. Lưu notes vào Meeting (bắt buộc)
       if (values.notes && values.notes.trim()) {
-        console.log('💾 [SAVE-NOTES] Saving notes to meeting:', values.notes);
+        console.log('[SAVE-NOTES] Saving notes to meeting:', values.notes);
         await consultationApi.updateMeetingNotes(consultationId, {
           notes: values.notes
         });
-        console.log('✅ [SAVE-NOTES] Notes saved successfully');
+        console.log('[SAVE-NOTES] Notes saved successfully');
       } else {
-        console.warn('⚠️ [SAVE-NOTES] No notes to save or notes is empty');
+        console.warn('[SAVE-NOTES] No notes to save or notes is empty');
       }
       
       // 2. Kết thúc consultation KHÔNG cần truyền notes (đã lưu ở Meeting rồi)
@@ -401,7 +401,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
       title={
         <Space>
           <VideoCameraOutlined style={{ color: '#1890ff' }} />
-          <span>📋 Quản lý Meeting - {consultationData.patientName}</span>
+          <span>Quản lý Meeting - {consultationData.patientName}</span>
         </Space>
       }
       open={visible}
@@ -431,7 +431,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
             icon={<CheckCircleOutlined />}
             style={{ color: '#52c41a', borderColor: '#52c41a' }}
           >
-            ✅ Đã gửi thư mời
+            Đã gửi thư mời
           </Button>
         ),
         <Button 
@@ -474,7 +474,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
         <>
           {/* Patient Information */}
           <Card 
-            title="👤 Thông tin bệnh nhân"
+            title="Thông tin bệnh nhân"
             size="small"
             style={{ marginBottom: '16px' }}
           >
@@ -514,7 +514,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
           {/* Meeting Information */}
           {meetingDetails && (
             <Card 
-              title="📊 Thông tin Meeting"
+              title="Thông tin Meeting"
               size="small"
               style={{ marginBottom: '16px' }}
             >
@@ -550,7 +550,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
                 </Descriptions.Item>
               </Descriptions>
               
-              {/* ➕ ADD: PROMINENT PASSWORD DISPLAY */}
+              {/* ADD: PROMINENT PASSWORD DISPLAY */}
               {meetingPassword && (
                 <div style={{ marginTop: '16px' }}>
                   <Divider style={{ margin: '12px 0' }} />
@@ -571,7 +571,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
                       gap: '8px'
                     }}>
                       <CheckCircleOutlined />
-                      <span>🔐 Mật khẩu Meeting</span>
+                      <span>Mật khẩu Meeting</span>
                     </div>
                     <div style={{ 
                       color: 'white', 
@@ -596,14 +596,14 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
                         marginBottom: '8px'
                       }}
                     >
-                      📋 Copy Password
+                      Copy Password
                     </Button>
                     <div style={{ 
                       color: 'rgba(255,255,255,0.9)', 
                       fontSize: '12px',
                       fontWeight: 'normal'
                     }}>
-                      ⚠️ Bảo mật - Chỉ chia sẻ với customer thông qua email chính thức
+                      Bảo mật - Chỉ chia sẻ với customer thông qua email chính thức
                     </div>
                   </div>
                 </div>
@@ -613,7 +613,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
               {meetingDetails.status === 'invite_sent' && (
                 <div style={{ marginTop: '16px' }}>
                   <Alert
-                    message="✅ Đã gửi thư mời thành công!"
+                    message="Đã gửi thư mời thành công!"
                     description={`Thư mời meeting đã được gửi đến ${consultationData.patientName}. Customer sẽ nhận được email với password và link tham gia.`}
                     type="success"
                     showIcon
@@ -631,7 +631,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
             title={
               <Space>
                 <EditOutlined style={{ color: '#52c41a' }} />
-                <span>✏️ Ghi chú của bác sĩ</span>
+                <span>Ghi chú của bác sĩ</span>
               </Space>
             }
             size="small"
@@ -655,20 +655,6 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
                   style={{ fontSize: '14px' }}
                 />
               </Form.Item>
-
-              <Form.Item
-                label="👥 Số người tham gia tối đa"
-                name="maxParticipants"
-                help="Giới hạn số người có thể tham gia meeting"
-              >
-                <Input 
-                  type="number" 
-                  min={2} 
-                  max={10}
-                  placeholder="2"
-                  style={{ width: '100px' }}
-                />
-              </Form.Item>
             </Form>
           </Card>
 
@@ -683,11 +669,11 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
               }}
             >
               <Alert
-                message="🔐 Bảo mật Password Meeting - Bác sĩ đã được huấn luyện"
+                message="Bảo mật Password Meeting - Bác sĩ đã được huấn luyện"
                 description={
                   <div style={{ fontSize: '13px', lineHeight: '1.6', marginTop: '8px' }}>
                     <div style={{ marginBottom: '8px' }}>
-                      <strong style={{ color: '#856404' }}>✅ Quy trình đã được huấn luyện tại trung tâm:</strong>
+                      <strong style={{ color: '#856404' }}>Quy trình đã được huấn luyện tại trung tâm:</strong>
                     </div>
                     <ul style={{ marginLeft: '16px', marginBottom: '8px', color: '#856404' }}>
                       <li><strong>Bảo mật Password:</strong> Chỉ chia sẻ với customer được phân công</li>
@@ -703,7 +689,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
                       color: '#856404',
                       fontWeight: 'bold'
                     }}>
-                      ⚠️ Password hiển thị chỉ cho bác sĩ được phân công. Việc rò rỉ có thể gây hậu quả nghiêm trọng.
+                      Password hiển thị chỉ cho bác sĩ được phân công. Việc rò rỉ có thể gây hậu quả nghiêm trọng.
                     </div>
                   </div>
                 }
@@ -757,7 +743,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
                   <li><strong>Bảo mật thông tin</strong> bệnh nhân và chỉ cung cấp khi có yêu cầu chính thức từ trung tâm</li>
                 </ul>
                 <p style={{ color: '#fa8c16', fontWeight: 'bold', marginTop: '16px' }}>
-                  ⚠️ <strong>Lưu ý:</strong> Nếu không thực hiện ghi hình và xảy ra tranh chấp, công ty sẽ không chịu trách nhiệm về các vấn đề pháp lý phát sinh.
+                  <strong>Lưu ý:</strong> Nếu không thực hiện ghi hình và xảy ra tranh chấp, công ty sẽ không chịu trách nhiệm về các vấn đề pháp lý phát sinh.
                 </p>
               </div>
             }
@@ -773,7 +759,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
           marginBottom: '20px'
         }}>
           <h4 style={{ margin: '0 0 8px 0', color: '#1890ff' }}>
-            📋 Thông tin buổi tư vấn:
+            Thông tin buổi tư vấn:
           </h4>
           <Row gutter={16}>
             <Col span={12}>
@@ -815,7 +801,7 @@ const MeetingNotesModal: React.FC<MeetingNotesModalProps> = ({
           fontSize: '14px',
           color: '#0050b3'
         }}>
-          💡 <strong>Gợi ý phần mềm ghi màn hình:</strong> OBS Studio (miễn phí), Bandicam, Camtasia, hoặc sử dụng tính năng ghi màn hình có sẵn trên hệ điều hành.
+          <strong>Gợi ý phần mềm ghi màn hình:</strong> OBS Studio (miễn phí), Bandicam, Camtasia, hoặc sử dụng tính năng ghi màn hình có sẵn trên hệ điều hành.
         </div>
       </Modal>
 

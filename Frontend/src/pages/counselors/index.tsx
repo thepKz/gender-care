@@ -6,12 +6,11 @@ import {
     Star1,
 } from "iconsax-react";
 // Custom components
-import CounselorCard from "../../components/ui/counselors/CounselorCard";
+import { ModernCounselorCard } from "../../components/ui/counselors/ModernCounselorCard";
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { doctorApi, type Doctor } from "../../api/endpoints/doctorApi";
-import { AnimatedSection } from "../../shared";
 import PrimaryButton from "../../components/ui/primitives/PrimaryButton";
 
 // MagicUI Components
@@ -75,17 +74,6 @@ const Counselors = () => {
     fetchDoctors();
     setTimeout(() => setLoading(false), 1000);
   }, []);
-
-  const handleBookConsultation = (doctor: Doctor) => {
-    navigate(`/booking/consultation/${doctor._id}`);
-  };
-
-  const handleViewProfile = (doctor: Doctor) => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTimeout(() => {
-      navigate(`/doctors/${doctor._id}`);
-    }, 300);
-  };
 
   // Loading spinner với MagicUI style
   if (loading) {
@@ -399,10 +387,9 @@ const Counselors = () => {
                     transition={{ duration: 0.3 }}
                     className="h-full"
                   >
-                    <CounselorCard
+                    <ModernCounselorCard
                       doctor={doctor}
-                      onBook={handleBookConsultation}
-                      onView={handleViewProfile}
+                      index={index}
                     />
                   </motion.div>
                 </BlurFade>

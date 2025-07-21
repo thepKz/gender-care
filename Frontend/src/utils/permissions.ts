@@ -23,10 +23,8 @@ export const canDeleteDoctorAccount = (userRole: string): boolean => {
 };
 
 // ===== DOCTOR PROFILE MANAGEMENT =====
-export const canEditDoctorProfile = (userRole: string): boolean => {
-  // Chỉ Admin có thể sửa đổi hồ sơ bác sĩ (học vấn, chứng chỉ, etc.)
-  return ['admin'].includes(userRole);
-};
+export const canEditDoctorProfile = (role: string) =>
+  role === 'admin' || role === 'manager';
 
 export const canViewDoctorProfiles = (userRole: string): boolean => {
   // Manager chỉ được xem (view-only), Admin có thể xem và sửa
@@ -52,9 +50,8 @@ export const canUpdateDoctor = (userRole: string): boolean => {
   return canEditDoctorProfile(userRole);
 };
 
-export const canDeleteDoctor = (userRole: string): boolean => {
-  return canDeleteDoctorAccount(userRole);
-};
+export const canDeleteDoctor = (role: string) =>
+  role === 'admin' || role === 'manager';
 
 export const canViewDoctorDetails = (userRole: string): boolean => {
   return canViewDoctorProfiles(userRole);

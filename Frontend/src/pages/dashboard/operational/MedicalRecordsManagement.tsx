@@ -11,22 +11,13 @@ import {
   Form,
   Typography,
   Tooltip,
-  Popconfirm,
-  DatePicker,
-  message,
-  Tabs,
-  Row,
-  Col
+  message
 } from 'antd';
 import {
   SearchOutlined,
-  PlusOutlined,
   EditOutlined,
-  DeleteOutlined,
   EyeOutlined,
-  FileTextOutlined,
-  UserOutlined,
-  MedicineBoxOutlined
+  FileTextOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { appointmentApi } from '../../../api/endpoints/appointment';
@@ -776,8 +767,34 @@ const MedicalRecordsManagement: React.FC = () => {
         footer={null}
         width={700}
       >
-        <Tabs activeKey={activeTabKey} onChange={setActiveTabKey}>
-          <Tabs.TabPane tab="Tạo hồ sơ bệnh án" key="1">
+        {/* --- Custom Tab Buttons (replaces Ant Design Tabs) --- */}
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            flexWrap: 'wrap',
+            marginBottom: 16,
+          }}
+        >
+          <Button
+            type={activeTabKey === '1' ? 'primary' : 'default'}
+            onClick={() => setActiveTabKey('1')}
+            style={{ borderRadius: 6, height: 40, minWidth: 160 }}
+          >
+            Tạo hồ sơ bệnh án
+          </Button>
+          <Button
+            type={activeTabKey === '2' ? 'primary' : 'default'}
+            onClick={() => setActiveTabKey('2')}
+            style={{ borderRadius: 6, height: 40, minWidth: 200 }}
+          >
+            Chi tiết hồ sơ xét nghiệm
+          </Button>
+        </div>
+
+        {/* --- Tab Content --- */}
+        {activeTabKey === '1' && (
+          <>
             {selectedAppointment && (
               <div
                 style={{
@@ -830,28 +847,32 @@ const MedicalRecordsManagement: React.FC = () => {
                 <TextArea placeholder="Nhập phương pháp điều trị" autoSize={{ minRows: 2 }} readOnly={modalMode === 'view'} />
               </Form.Item>
               <div style={{ marginBottom: 8 }}>Thuốc</div>
-              {medicineList.map((med, idx) => (
-                <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                  <Select
-                    showSearch
-                    placeholder="Tên thuốc"
-                    value={med.name}
-                    style={{ width: 150 }}
-                    onChange={val => {
-                      if (modalMode === 'view') return;
-                      const selected = medicinesOptions.find(m => m.name === val);
-                      handleMedicineChange(idx, 'name', selected?.name || val);
-                      if (selected) {
-                        handleMedicineChange(idx, 'dosage', selected.defaultDosage || '');
-                        handleMedicineChange(idx, 'instructions', selected.defaultTimingInstructions || '');
-                      } else {
-                        handleMedicineChange(idx, 'dosage', '');
-                        handleMedicineChange(idx, 'instructions', '');
-                      }
-                    }}
-                    options={medicinesOptions.map(m => ({ label: m.name, value: m.name }))}
-                    disabled={modalMode === 'view'}
-                  />
+              {medicineList.map((med, idx) => {
+                // Lọc các thuốc đã chọn ở dòng khác
+                const selectedNames = medicineList.map((m, i) => i !== idx && m.name).filter(Boolean);
+                const availableOptions = medicinesOptions.filter(opt => !selectedNames.includes(opt.name));
+                return (
+                  <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                    <Select
+                      showSearch
+                      placeholder="Tên thuốc"
+                      value={med.name}
+                      style={{ width: 150 }}
+                      onChange={val => {
+                        if (modalMode === 'view') return;
+                        const selected = medicinesOptions.find(m => m.name === val);
+                        handleMedicineChange(idx, 'name', selected?.name || val);
+                        if (selected) {
+                          handleMedicineChange(idx, 'dosage', selected.defaultDosage || '');
+                          handleMedicineChange(idx, 'instructions', selected.defaultTimingInstructions || '');
+                        } else {
+                          handleMedicineChange(idx, 'dosage', '');
+                          handleMedicineChange(idx, 'instructions', '');
+                        }
+                      }}
+                      options={availableOptions.map(m => ({ label: m.name, value: m.name }))}
+                      disabled={modalMode === 'view'}
+                    />
                   <Input
                     placeholder="Liều lượng/nhóm"
                     value={med.dosage}
@@ -875,7 +896,8 @@ const MedicalRecordsManagement: React.FC = () => {
                   />
                   <Button disabled={medicineList.length === 1 || modalMode === 'view'} onClick={() => handleRemoveMedicine(idx)}>Xóa</Button>
                 </div>
-              ))}
+              );
+            })}
               <Button type="dashed" onClick={handleAddMedicine} style={{ marginBottom: 16 }} disabled={modalMode === 'view'}>Thêm thuốc</Button>
               <Form.Item name="notes" label="Ghi chú">
                 <TextArea placeholder="Nhập ghi chú thêm (tùy chọn)" autoSize={{ minRows: 2 }} readOnly={modalMode === 'view'} />
@@ -901,11 +923,12 @@ const MedicalRecordsManagement: React.FC = () => {
                 <Button type="primary" onClick={() => setMedicalModalOpen(false)} style={{ width: 120 }}>OK</Button>
               </div>
             )}
-          </Tabs.TabPane>
-          <Tabs.TabPane tab="Chi tiết hồ sơ xét nghiệm" key="2">
-            <TestRecordDetail />
-          </Tabs.TabPane>
-        </Tabs>
+          </>
+        )}
+
+        {activeTabKey === '2' && (
+          <TestRecordDetail />
+        )}
       </Modal>
     </div>
   );

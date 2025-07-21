@@ -607,9 +607,10 @@ export class PaymentController {
         console.log('⚠️ [CancelPayment] PaymentTracking already in status:', paymentTracking.status);
       }
 
-      appointment.status = 'payment_cancelled';
+      appointment.status = 'expired';
+      appointment.paymentStatus = 'expired';
       await appointment.save();
-      console.log('✅ [CancelPayment] Appointment status updated to payment_cancelled');
+      console.log('✅ [CancelPayment] Appointment status updated to expired');
 
       return res.status(200).json({
         success: true,

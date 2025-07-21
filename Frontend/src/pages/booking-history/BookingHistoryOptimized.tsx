@@ -47,6 +47,8 @@ interface RawAppointmentData {
   serviceId?: string;
   serviceName?: string;
   packageName?: string;
+  packageId?: string;
+  packagePurchaseId?: string;
   doctorName?: string;
   doctorAvatar?: string;
   patientName?: string;
@@ -70,8 +72,18 @@ interface RawAppointmentData {
   age?: number;
   gender?: string;
   doctorNotes?: string;
+  doctorMeetingNotes?: string; // Ghi chú của bác sĩ từ Meeting
   paymentStatus?: string;
   refund?: RefundData;
+  // ✅ ADD: Package expiry info
+  packageExpiryInfo?: {
+    hasPackage: boolean;
+    packageId?: string;
+    packageName?: string;
+    isExpired: boolean;
+    expiryDate?: string;
+    packageStatus: string;
+  };
 }
 
 interface Appointment {
@@ -80,6 +92,8 @@ interface Appointment {
   serviceId: string;
   serviceName: string;
   packageName?: string;
+  packageId?: string;
+  packagePurchaseId?: string;
   doctorName?: string;
   doctorAvatar?: string;
   patientName?: string;
@@ -102,8 +116,18 @@ interface Appointment {
   gender?: string;
   question?: string;
   doctorNotes?: string;
+  doctorMeetingNotes?: string; // Ghi chú của bác sĩ từ Meeting
   paymentStatus?: string;
   refund?: RefundData;
+  // ✅ ADD: Package expiry info
+  packageExpiryInfo?: {
+    hasPackage: boolean;
+    packageId?: string;
+    packageName?: string;
+    isExpired: boolean;
+    expiryDate?: string;
+    packageStatus: string;
+  };
 }
 
 interface RefundInfo {
@@ -191,6 +215,8 @@ const BookingHistoryOptimized: React.FC = () => {
           serviceId: apt.serviceId || '',
           serviceName: apt.serviceName || 'Dịch vụ không xác định',
           packageName: apt.packageName,
+          packageId: apt.packageId,
+          packagePurchaseId: apt.packagePurchaseId,
           doctorName: apt.doctorName || 'Chưa chỉ định bác sĩ',
           doctorAvatar: apt.doctorAvatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
           patientName: apt.patientName || apt.fullName,
@@ -213,8 +239,11 @@ const BookingHistoryOptimized: React.FC = () => {
           gender: apt.gender,
           question: apt.question,
             doctorNotes: apt.doctorNotes,
+            doctorMeetingNotes: apt.doctorMeetingNotes, // Ghi chú của bác sĩ từ Meeting
             paymentStatus: paymentStatus,
-            refund: apt.refund // Include refund info từ raw data
+            refund: apt.refund, // Include refund info từ raw data
+            // ✅ ADD: Package expiry info
+            packageExpiryInfo: apt.packageExpiryInfo
           };
         });
 
@@ -257,6 +286,40 @@ const BookingHistoryOptimized: React.FC = () => {
     setCurrentPage(1); // Reset to first page when filtering
   }, [searchText, statusFilter, appointments]);
 
+  // Auto refresh for pending_payment appointments (no notifications to avoid spam)
+  useEffect(() => {
+    if (!appointments.length) return;
+
+    // Check if there are any pending_payment appointments
+    const pendingPayments = appointments.filter(apt => apt.status === 'pending_payment');
+    
+    if (pendingPayments.length === 0) return;
+
+    // Set up interval to check and refresh every 30 seconds
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      let shouldRefresh = false;
+
+      // Check if any pending_payment appointment has expired
+      pendingPayments.forEach(appointment => {
+        const createdTime = new Date(appointment.createdAt).getTime();
+        const elapsedMinutes = Math.floor((now - createdTime) / (1000 * 60));
+        
+        // If more than 10 minutes have passed, refresh to get updated status
+        if (elapsedMinutes >= 10) {
+          shouldRefresh = true;
+        }
+      });
+
+      if (shouldRefresh) {
+        console.log('🔄 [Auto-Refresh] Pending payment appointments expired, refreshing...');
+        fetchAppointments();
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [appointments]);
+
   // Status configuration - ✅ Updated với consultation statuses
   const statusConfig = {
     pending: { color: '#faad14', text: 'Chờ xác nhận', icon: <Timer size={16} /> },
@@ -268,7 +331,8 @@ const BookingHistoryOptimized: React.FC = () => {
     done_testResult: { color: '#06b6d4', text: 'Hoàn thành hồ sơ', icon: <TickCircle size={16} /> },
     completed: { color: '#22c55e', text: 'Hoàn thành', icon: <TickCircle size={16} /> },
     cancelled: { color: '#f5222d', text: 'Đã hủy', icon: <CloseCircle size={16} /> },
-    payment_cancelled: { color: '#ff4d4f', text: 'Hủy thanh toán', icon: <CloseCircle size={16} /> }
+    payment_cancelled: { color: '#ff4d4f', text: 'Hủy thanh toán', icon: <CloseCircle size={16} /> },
+    expired: { color: '#f5222d', text: 'Hết hạn', icon: <CloseCircle size={16} /> }
   };
 
   const locationConfig = {
@@ -293,15 +357,20 @@ const BookingHistoryOptimized: React.FC = () => {
     setShowDetailModal(true);
   };
 
-  // Helper function to check if appointment can be cancelled (ALWAYS except cancelled/completed)
+  // Helper function to check if appointment can be cancelled (ALWAYS except cancelled/completed/expired)
   const canCancel = (appointment: Appointment): boolean => {
-    return !['cancelled', 'completed'].includes(appointment.status);
+    return !['cancelled', 'completed', 'expired'].includes(appointment.status);
   };
 
   // Helper function to check if appointment can be cancelled with refund (24h rule)
   const canCancelWithRefund = (appointment: Appointment): boolean => {
     // Chỉ cho phép hoàn tiền nếu đã thanh toán
     if (appointment.paymentStatus !== 'paid') {
+      return false;
+    }
+
+    // Không cho phép hủy nếu đã quá hạn
+    if (appointment.status === 'expired') {
       return false;
     }
 
@@ -358,8 +427,65 @@ const BookingHistoryOptimized: React.FC = () => {
   const handleCancelAppointment = async (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     
-    // ✅ FIX: Chỉ show form khi đã thanh toán VÀ đủ điều kiện hoàn tiền
-    if (appointment.paymentStatus === 'paid' && canCancelWithRefund(appointment)) {
+    // ✅ IMPROVED: Kiểm tra chính xác xem có phải appointment với gói hết hạn không
+    const hasPackage = appointment.packageName && appointment.packageId;
+    
+    // ✅ FIX: Hiển thị cảnh báo chỉ khi gói thực sự hết hạn
+    const hasPackageName = appointment.packageName;
+    
+    if (hasPackageName) {
+      // ✅ IMPROVED: Kiểm tra expiry với validation chính xác
+      const packageExpiryInfo = appointment.packageExpiryInfo;
+      const isExpiredPackage = packageExpiryInfo?.isExpired || false;
+      
+      // ✅ FIX: Chỉ hiển thị cảnh báo khi gói thực sự hết hạn
+      const shouldShowWarning = isExpiredPackage;
+      
+      if (shouldShowWarning) {
+        // Hiển thị cảnh báo trước khi hủy (chỉ cho gói hết hạn)
+        Modal.confirm({
+          title: '⚠️ Cảnh báo: Gói dịch vụ đã hết hạn',
+          content: (
+            <div>
+              <p>Lịch hẹn này sử dụng gói dịch vụ <strong>"{appointment.packageName}"</strong> đã hết hạn.</p>
+              <ul style={{ marginLeft: '20px', marginTop: '8px' }}>
+                <li>Lượt sử dụng sẽ được hoàn lại</li>
+                <li>Bạn sẽ không thể đặt lịch mới với gói này</li>
+                <li>Cần cân nhắc kỹ trước khi hủy</li>
+              </ul>
+              {packageExpiryInfo?.expiryDate && (
+                <p style={{ marginTop: '8px', color: '#666', fontSize: '13px' }}>
+                  <strong>Ngày hết hạn:</strong> {new Date(packageExpiryInfo.expiryDate).toLocaleDateString('vi-VN')}
+                </p>
+              )}
+              <p style={{ marginTop: '12px', color: '#666', fontStyle: 'italic' }}>
+                Bạn có chắc chắn muốn hủy lịch hẹn này không?
+              </p>
+            </div>
+          ),
+          okText: 'Vẫn hủy',
+          cancelText: 'Để lại',
+          onOk: () => {
+            handleDirectCancel(appointment);
+          }
+        });
+      } else {
+        // Gói chưa hết hạn → Hủy thẳng (không cần form hoàn tiền)
+        handleDirectCancel(appointment);
+      }
+    } else {
+      // Không có gói, xử lý bình thường (có thể cần form hoàn tiền)
+      handleNormalCancel(appointment);
+    }
+  };
+
+  // ✅ NEW: Helper function để xử lý cancel bình thường
+  const handleNormalCancel = (appointment: Appointment) => {
+    // ✅ FIX: Nếu là appointment sử dụng gói đã mua → Hủy thẳng (không cần form hoàn tiền)
+    if (appointment.packageName && appointment.packageId) {
+      // Appointment sử dụng gói đã mua → Hủy thẳng vì đã có hoàn lượt sử dụng
+      handleDirectCancel(appointment);
+    } else if (appointment.paymentStatus === 'paid' && canCancelWithRefund(appointment)) {
       // Đã thanh toán + đủ điều kiện hoàn tiền → Show form
       setRequestRefund(true);
       setShowCancelModal(true);
@@ -367,7 +493,7 @@ const BookingHistoryOptimized: React.FC = () => {
       // Các trường hợp khác → Hủy thẳng
       // - Chưa thanh toán 
       // - Đã thanh toán nhưng không đủ điều kiện hoàn tiền
-      await handleDirectCancel(appointment);
+      handleDirectCancel(appointment);
     }
   };
 
@@ -375,15 +501,32 @@ const BookingHistoryOptimized: React.FC = () => {
   const handleDirectCancel = async (appointment: Appointment) => {
     try {
       setCancelLoading(true);
+      let response: any;
       
       if (appointment.type === 'consultation') {
-        await consultationApi.cancelConsultationByUser(
+        response = await consultationApi.cancelConsultationByUser(
           appointment.id, 
           'Hủy bởi người dùng'
         );
       } else {
         // ✅ FIX: Dùng deleteAppointment (đã bỏ validation 10 phút ở backend)
-        await appointmentApi.deleteAppointment(appointment.id);
+        response = await appointmentApi.deleteAppointment(appointment.id);
+      }
+      
+      // ✅ NEW: Kiểm tra package expiry warning
+      if (response?.data?.packageRefund?.packageExpired) {
+        Modal.warning({
+          title: '⚠️ Gói dịch vụ đã hết hạn',
+          content: (
+            <div>
+              <p>Gói dịch vụ của bạn đã hết hạn sử dụng. Lượt sử dụng đã được hoàn lại nhưng bạn sẽ không thể đặt lịch mới với gói này.</p>
+              <p style={{ marginTop: '8px', color: '#666' }}>
+                Ngày hết hạn: {new Date(response.data.packageRefund.expiryDate).toLocaleDateString('vi-VN')}
+              </p>
+            </div>
+          ),
+          okText: 'Đã hiểu'
+        });
       }
       
       message.success('Hủy lịch hẹn thành công!');
@@ -407,21 +550,39 @@ const BookingHistoryOptimized: React.FC = () => {
 
     try {
       setCancelLoading(true);
+      let response: any;
+      
       if (selectedAppointment.type === 'consultation') {
-        await consultationApi.cancelConsultationByUser(
+        response = await consultationApi.cancelConsultationByUser(
           selectedAppointment.id, 
           `Hủy bởi người dùng. ${refundInfo?.reason || ''}`
         );
       } else {
         if (requestRefund && refundInfo) {
-          await appointmentApi.cancelAppointmentWithRefund(
+          response = await appointmentApi.cancelAppointmentWithRefund(
             selectedAppointment.id, 
             refundInfo.reason || 'Hủy bởi người dùng',
             refundInfo
           );
         } else {
-          await appointmentApi.deleteAppointment(selectedAppointment.id);
+          response = await appointmentApi.deleteAppointment(selectedAppointment.id);
         }
+      }
+      
+      // ✅ NEW: Kiểm tra package expiry warning
+      if (response?.data?.packageRefund?.packageExpired) {
+        Modal.warning({
+          title: '⚠️ Gói dịch vụ đã hết hạn',
+          content: (
+            <div>
+              <p>Gói dịch vụ của bạn đã hết hạn sử dụng. Lượt sử dụng đã được hoàn lại nhưng bạn sẽ không thể đặt lịch mới với gói này.</p>
+              <p style={{ marginTop: '8px', color: '#666' }}>
+                Ngày hết hạn: {new Date(response.data.packageRefund.expiryDate).toLocaleDateString('vi-VN')}
+              </p>
+            </div>
+          ),
+          okText: 'Đã hiểu'
+        });
       }
       
       const successMessage = requestRefund 
@@ -610,11 +771,39 @@ const BookingHistoryOptimized: React.FC = () => {
                         </Tag>
 
                         <Tag
-                          color={statusConfig[appointment.status as keyof typeof statusConfig]?.color}
+                          color={
+                            (appointment.status === 'pending_payment' && (() => {
+                              const createdTime = new Date(appointment.createdAt).getTime();
+                              const currentTime = new Date().getTime();
+                              const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
+                              const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
+                              return remainingMinutes <= 0;
+                            })()) || (appointment.status === 'expired' && appointment.paymentStatus === 'expired')
+                              ? '#f5222d'
+                              : statusConfig[appointment.status as keyof typeof statusConfig]?.color
+                          }
                           className="flex items-center gap-1 text-xs px-2 py-1"
                         >
-                          {statusConfig[appointment.status as keyof typeof statusConfig]?.icon}
-                          {statusConfig[appointment.status as keyof typeof statusConfig]?.text}
+                          {(appointment.status === 'pending_payment' && (() => {
+                            const createdTime = new Date(appointment.createdAt).getTime();
+                            const currentTime = new Date().getTime();
+                            const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
+                            const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
+                            return remainingMinutes <= 0;
+                          })()) ? (
+                            <>
+                              <CloseCircle size={16} /> Đã hủy lịch (quá hạn thanh toán)
+                            </>
+                          ) : (appointment.status === 'expired' && appointment.paymentStatus === 'expired') ? (
+                            <>
+                              <CloseCircle size={16} /> Đã quá hạn thanh toán
+                            </>
+                          ) : (
+                            <>
+                              {statusConfig[appointment.status as keyof typeof statusConfig]?.icon}
+                              {statusConfig[appointment.status as keyof typeof statusConfig]?.text}
+                            </>
+                          )}
                         </Tag>
                       </div>
                       
@@ -670,21 +859,78 @@ const BookingHistoryOptimized: React.FC = () => {
                   </div>
 
                   {/* Quick actions for pending appointments */}
-                  {appointment.status === 'pending_payment' && (
-                    <div className="pt-4 border-t border-gray-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-orange-600 font-medium">
-                           Cần thanh toán để xác nhận lịch hẹn
-                        </span>
-                        <button
-                          onClick={() => navigate(`/payment/process?appointmentId=${appointment.id}`)}
-                          className="px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors"
-                        >
-                          Thanh toán ngay
-                        </button>
+                  {appointment.status === 'pending_payment' && (() => {
+                    const createdTime = new Date(appointment.createdAt).getTime();
+                    const currentTime = new Date().getTime();
+                    const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
+                    const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
+                    if (remainingMinutes <= 0) return null;
+                    return (
+                      <div className="pt-4 border-t border-gray-100">
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex flex-col">
+                              <span className="text-sm text-orange-600 font-medium">
+                                Cần thanh toán để xác nhận lịch hẹn
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                Chỗ sẽ được giữ trong 10 phút. Sau đó, lịch sẽ tự động hủy.
+                              </span>
+                            </div>
+                            <button
+                              onClick={async () => {
+                                if (appointment.type === 'consultation') {
+                                  try {
+                                    const res = await consultationApi.createConsultationPaymentLink(appointment.id);
+                                    // Kiểm tra response structure
+                                    const paymentUrl = res?.data?.data?.paymentUrl || res?.data?.paymentUrl;
+                                    if (paymentUrl) {
+                                      window.location.href = paymentUrl;
+                                    } else {
+                                      message.error('Không tạo được link thanh toán cho tư vấn');
+                                    }
+                                  } catch {
+                                    message.error('Lỗi khi tạo link thanh toán cho tư vấn');
+                                  }
+                                } else {
+                                  navigate(`/payment/process?appointmentId=${appointment.id}`);
+                                }
+                              }}
+                              className="px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors"
+                            >
+                              Thanh toán ngay
+                            </button>
+                          </div>
+                          {(() => {
+                            // Tính thời gian tạo lịch
+                            const createdTime = new Date(appointment.createdAt).getTime();
+                            const currentTime = new Date().getTime();
+                            const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
+                            const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
+                            
+                            if (remainingMinutes > 0) {
+                              return (
+                                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                  <div 
+                                    className="bg-orange-500 h-2.5 rounded-full" 
+                                    style={{ width: `${remainingMinutes * 10}%` }}
+                                  ></div>
+                                  <div className="text-xs text-gray-500 mt-1 text-right">
+                                    Còn {remainingMinutes} phút để thanh toán
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className="text-xs text-red-500 font-medium mt-2">
+                                Hết thời gian giữ chỗ! Lịch có thể bị hủy bất kỳ lúc nào.
+                              </div>
+                            );
+                          })()}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </motion.div>
             ))}
@@ -737,11 +983,28 @@ const BookingHistoryOptimized: React.FC = () => {
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold">{selectedAppointment.serviceName}</h3>
                   <Tag
-                    color={statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.color}
+                    color={
+                      (selectedAppointment.status === 'cancelled' && selectedAppointment.paymentStatus === 'unpaid') ||
+                      (selectedAppointment.status === 'expired' && selectedAppointment.paymentStatus === 'expired')
+                        ? '#f5222d'
+                        : statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.color
+                    }
                     className="flex items-center gap-1"
                   >
-                    {statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.icon}
-                    {statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.text}
+                    {(selectedAppointment.status === 'cancelled' && selectedAppointment.paymentStatus === 'unpaid') ? (
+                      <>
+                        <CloseCircle size={16} /> Đã hủy lịch (quá hạn thanh toán)
+                      </>
+                    ) : (selectedAppointment.status === 'expired' && selectedAppointment.paymentStatus === 'expired') ? (
+                      <>
+                        <CloseCircle size={16} /> Đã quá hạn thanh toán
+                      </>
+                    ) : (
+                      <>
+                        {statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.icon}
+                        {statusConfig[selectedAppointment.status as keyof typeof statusConfig]?.text}
+                      </>
+                    )}
                   </Tag>
                 </div>
               </div>
@@ -773,12 +1036,19 @@ const BookingHistoryOptimized: React.FC = () => {
                 <div>
                   <label className="text-sm font-medium text-gray-500">Trạng thái thanh toán</label>
                   <p className="text-gray-900">
-                    {(selectedAppointment.paymentStatus === 'paid' || selectedAppointment.paymentStatus === 'refunded') ? 'Đã thanh toán' : 
-                     'Chưa thanh toán'}
+                    {selectedAppointment.paymentStatus === 'expired' ? (
+                      <span className="text-red-600 font-medium">Đã quá hạn thanh toán</span>
+                    ) : (selectedAppointment.paymentStatus === 'paid' || selectedAppointment.paymentStatus === 'refunded') ? (
+                      'Đã thanh toán'
+                    ) : (
+                      'Chưa thanh toán'
+                    )}
                   </p>
                 </div>
               </div>
 
+
+              
               {/* Hiển thị trạng thái hoàn tiền nếu có - Full Width */}
               {(() => {
                 // Check if this is a cancelled appointment that should show refund tracking
@@ -892,6 +1162,8 @@ const BookingHistoryOptimized: React.FC = () => {
                 </div>
               )}
 
+
+
               {/* Cancellation Info */}
               {canCancel(selectedAppointment) && (
                 <div>
@@ -949,6 +1221,19 @@ const BookingHistoryOptimized: React.FC = () => {
                 </div>
               )}
 
+              {/* Notes - Only show original notes */}
+              {selectedAppointment.notes && (() => {
+                const { originalNotes } = parseNotes(selectedAppointment.notes);
+                
+                // Chỉ hiển thị ghi chú gốc (nếu có), lý do hủy đã hiển thị ở trên
+                return originalNotes ? (
+                  <div>
+                    <label className="text-sm font-medium text-gray-500 block mb-2">Ghi chú</label>
+                    <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{originalNotes}</p>
+                  </div>
+                ) : null;
+              })()}
+
               {/* ➕ Consultation-specific info */}
               {selectedAppointment.type === 'consultation' && (
                 <>
@@ -985,21 +1270,18 @@ const BookingHistoryOptimized: React.FC = () => {
                       </p>
                     </div>
                   )}
+
+                  {/* Doctor Meeting Notes - Hiển thị ở cuối */}
+                  {selectedAppointment.doctorMeetingNotes && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500 block mb-2">Ghi chú của bác sĩ</label>
+                      <p className="text-gray-900 bg-purple-50 p-3 rounded-lg border-l-4 border-purple-400">
+                        {selectedAppointment.doctorMeetingNotes}
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
-
-              {/* Notes - Only show original notes */}
-              {selectedAppointment.notes && (() => {
-                const { originalNotes } = parseNotes(selectedAppointment.notes);
-                
-                // Chỉ hiển thị ghi chú gốc (nếu có), lý do hủy đã hiển thị ở trên
-                return originalNotes ? (
-                  <div>
-                    <label className="text-sm font-medium text-gray-500 block mb-2">Ghi chú</label>
-                    <p className="text-gray-900 bg-gray-50 p-3 rounded-lg">{originalNotes}</p>
-                  </div>
-                ) : null;
-              })()}
 
               {/* Actions */}
               <div className="flex justify-between pt-4 border-t border-gray-200">

@@ -121,6 +121,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       consulting: 'lime',
       completed: 'green',
       cancelled: 'red',
+      payment_cancelled: 'red',
+      expired: 'red',
       // Legacy support
       paid: 'cyan'
     };
@@ -136,6 +138,8 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
       consulting: 'Đang tư vấn',
       completed: 'Hoàn thành',
       cancelled: 'Đã hủy',
+      payment_cancelled: 'Hủy thanh toán',
+      expired: 'Hết hạn',
       // Legacy support
       paid: 'Đã thanh toán'
     };
@@ -145,9 +149,10 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   // Check if appointment is paid but cancelled (highlight with yellow)
   const isPaidButCancelled = () => {
     // ✅ UPDATED: Bao gồm các appointment có refund request 
-    return appointment?.status === 'cancelled' && 
+    return (appointment?.status === 'cancelled' || appointment?.status === 'expired') && 
            (appointment?.paymentStatus === 'paid' || 
             appointment?.paymentStatus === 'refunded' ||
+            appointment?.paymentStatus === 'expired' ||
             appointment?.refund?.refundInfo); // Có yêu cầu hoàn tiền
   };
 
@@ -156,14 +161,29 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
     if (isPaidButCancelled()) {
       return 'gold'; // Yellow highlight for paid but cancelled appointments
     }
+    
+    // Check for expired payment status
+    if (appointment?.status === 'expired' && appointment?.paymentStatus === 'expired') {
+      return 'red'; // Red for expired payment status
+    }
+    
     return getStatusColor(status);
   };
 
   // Get enhanced status text with payment info
   const getEnhancedStatusText = (status: string) => {
     if (isPaidButCancelled()) {
+      if (appointment?.status === 'expired') {
+        return 'Đã thanh toán - Hết hạn';
+      }
       return 'Đã thanh toán - Đã hủy';
     }
+    
+    // Check for expired payment status
+    if (appointment?.status === 'expired' && appointment?.paymentStatus === 'expired') {
+      return 'Đã quá hạn thanh toán';
+    }
+    
     return getStatusText(status);
   };
 
@@ -171,10 +191,11 @@ const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
   const isRefundEligible = () => {
     if (!appointment) return false;
     
-    // ✅ UPDATED: Eligible nếu đã thanh toán và đã hủy, hoặc đã có yêu cầu hoàn tiền
-    return appointment.status === 'cancelled' && 
+    // ✅ UPDATED: Eligible nếu đã thanh toán và đã hủy/hết hạn, hoặc đã có yêu cầu hoàn tiền
+    return (appointment.status === 'cancelled' || appointment.status === 'expired') && 
            (appointment.paymentStatus === 'paid' || 
             appointment.paymentStatus === 'refunded' ||
+            appointment.paymentStatus === 'expired' ||
             appointment.refund?.refundInfo);
   };
 
