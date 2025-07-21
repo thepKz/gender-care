@@ -8,6 +8,8 @@ export interface IFeedbacks {
   doctorId?: mongoose.Types.ObjectId;
   serviceId?: mongoose.Types.ObjectId;
   packageId?: mongoose.Types.ObjectId;
+  doctorRating?: number;
+  serviceQuality?: number;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -41,6 +43,16 @@ const FeedbacksSchema = new mongoose.Schema<IFeedbacks>({
   packageId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ServicePackages'
+  },
+  doctorRating: {
+    type: Number,
+    min: 1,
+    max: 5
+  },
+  serviceQuality: {
+    type: Number,
+    min: 1,
+    max: 5
   }
 }, { timestamps: true });
 
