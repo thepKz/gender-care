@@ -11,7 +11,7 @@ const router = Router();
 router.get(
   '/',
   authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'staff']),
+  roleMiddleware(['admin', 'doctor', 'manager', 'staff']),
   testResultItemsController.getAllTestResultItems
 );
 
@@ -19,7 +19,7 @@ router.get(
 router.get(
   '/summary/:appointmentId',
   authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'staff']),
+  roleMiddleware(['admin', 'doctor', 'manager', 'staff']),
   testResultItemsController.getTestResultItemsSummary
 );
 
@@ -27,7 +27,7 @@ router.get(
 router.get(
   '/appointment/:appointmentId',
   authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'staff', 'customer']),
+  roleMiddleware(['admin', 'doctor', 'manager', 'staff', 'customer']),
   testResultItemsController.getTestResultItemsByAppointmentId
 );
 
@@ -35,7 +35,7 @@ router.get(
 router.post(
   '/bulk',
   authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'staff']),
+  roleMiddleware(['admin', 'doctor', 'manager', 'staff']),
   testResultItemsController.createMultipleTestResultItems
 );
 
@@ -43,7 +43,7 @@ router.post(
 router.post(
   '/',
   authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'staff']),
+  roleMiddleware(['admin', 'doctor', 'manager', 'staff']),
   testResultItemsController.createTestResultItem
 );
 
@@ -51,7 +51,7 @@ router.post(
 router.put(
   '/:appointmentId/:testCategoryId',
   authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'staff']),
+  roleMiddleware(['admin', 'doctor', 'manager', 'staff']),
   testResultItemsController.updateTestResultItemByCategory
 );
 
@@ -59,7 +59,7 @@ router.put(
 router.get(
   '/template/:serviceId',
   authMiddleware,
-  roleMiddleware(['admin', 'doctor', 'nursing_staff', 'staff']),
+  roleMiddleware(['admin', 'doctor', 'manager', 'staff']),
   testResultItemsController.getTestResultTemplateForService
 );
 

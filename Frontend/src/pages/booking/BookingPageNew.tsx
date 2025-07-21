@@ -2402,7 +2402,12 @@ const BookingPageNew: React.FC = () => {
                     </Form.Item>
 
                     <Form.Item
-                      label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Ghi chú</span>}
+                      label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Ghi chú
+                        <span style={{ color: '#d97706', fontSize: '13px', fontWeight: 'bold', marginLeft: '10px', display: 'inline-flex', alignItems: 'center' }}>
+                          <span style={{ fontSize: '15px', marginRight: '4px' }}>💡</span>
+                          (Nên ghi rõ bệnh nền, dị ứng nếu có)
+                        </span>
+                      </span>}
                       name="notes"
                       style={{ marginBottom: '0' }}
                     >

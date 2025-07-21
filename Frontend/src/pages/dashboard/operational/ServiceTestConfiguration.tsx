@@ -30,7 +30,8 @@ import {
   EyeOutlined,
   ExperimentOutlined,
   SettingOutlined,
-  SearchOutlined
+  SearchOutlined,
+  RollbackOutlined // Thêm icon khôi phục
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { 
@@ -96,7 +97,6 @@ const ServiceTestConfigurationInner: React.FC = () => {
         description: ''
       };
       
-      console.log('🔍 Restoring service from URL:', serviceFromUrl);
       setSelectedService(serviceFromUrl);
       setActiveTab('configurations');
       loadServiceTestCategories(serviceIdFromUrl);
@@ -117,9 +117,6 @@ const ServiceTestConfigurationInner: React.FC = () => {
         testCategoriesApi.getAll()
       ]);
 
-      console.log('Services API Response:', servicesResponse);
-      console.log('Test Categories API Response:', testCategoriesData);
-
       // Xử lý response structure
       const servicesData = servicesResponse.data;
       let allServices: any[] = [];
@@ -138,23 +135,9 @@ const ServiceTestConfigurationInner: React.FC = () => {
         allServices = servicesData;
       } else {
         console.error('Unexpected services response structure:', servicesData);
-        console.log('ServicesData type:', typeof servicesData);
-        console.log('ServicesData keys:', Object.keys(servicesData || {}));
         allServices = [];
       }
 
-      console.log('Parsed allServices:', allServices);
-      console.log('AllServices is array:', Array.isArray(allServices));
-
-      // Đảm bảo allServices là array trước khi filter
-      if (!Array.isArray(allServices)) {
-        console.error('allServices is not an array:', allServices);
-        allServices = [];
-      }
-
-      // Hiển thị tất cả dịch vụ (không lọc theo serviceType)
-      console.log('All services found:', allServices);
-      
       setServices(allServices);
       setTestCategories(testCategoriesData);
     } catch (error) {
@@ -168,10 +151,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
   const loadServiceTestCategories = async (serviceId: string) => {
     try {
       setLoading(true);
-      console.log('🔍 Loading service test categories for serviceId:', serviceId);
       const data = await serviceTestCategoriesApi.getByService(serviceId);
-      console.log('🔍 Service test categories data:', data);
-      console.log('🔍 First record structure:', data[0]);
       setServiceTestCategories(data);
     } catch (error) {
       message.error('Lỗi khi tải danh sách xét nghiệm của dịch vụ');
@@ -285,7 +265,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
       targetValue: item.targetValue,
       minValue: item.minValue,
       maxValue: item.maxValue,
-      thresholdRules: item.thresholdRules || [],
+      thresholdRules: item.thresholdRules && item.thresholdRules.length > 0 ? item.thresholdRules : [{ from: null, to: null, flag: 'normal', message: '' }],
       unit: item.unit || '',
       isRequired: item.isRequired || false,
     });
@@ -294,13 +274,25 @@ const ServiceTestConfigurationInner: React.FC = () => {
 
   const handleDeleteTestCategory = async (id: string) => {
     try {
-      await serviceTestCategoriesApi.delete(id);
+      await serviceTestCategoriesApi.update(id, { isDeleted: true }); // Chỉ update mỗi isDeleted
       message.success('Đã xóa cấu hình xét nghiệm thành công');
       if (selectedService) {
         loadServiceTestCategories(selectedService._id);
       }
     } catch (error) {
       message.error('Lỗi khi xóa cấu hình xét nghiệm');
+    }
+  };
+
+  const handleRestoreTestCategory = async (id: string) => {
+    try {
+      await serviceTestCategoriesApi.update(id, { isDeleted: false });
+      message.success('Đã khôi phục cấu hình xét nghiệm thành công');
+      if (selectedService) {
+        loadServiceTestCategories(selectedService._id);
+      }
+    } catch (error) {
+      message.error('Lỗi khi khôi phục cấu hình xét nghiệm');
     }
   };
 
@@ -396,10 +388,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
   };
 
   const getTestCategoryName = (testCategoryId: string) => {
-    console.log('🔍 getTestCategoryName called with:', testCategoryId);
-    console.log('🔍 Available testCategories:', testCategories);
     const testCategory = testCategories.find(tc => tc._id === testCategoryId);
-    console.log('🔍 Found testCategory:', testCategory);
     return testCategory?.name || 'N/A';
   };
 
@@ -445,30 +434,23 @@ const ServiceTestConfigurationInner: React.FC = () => {
       dataIndex: 'testCategoryId',
       key: 'testCategoryName',
       render: (testCategoryId, record) => {
-        console.log('🔍 Rendering name for record:', record);
-        console.log('🔍 testCategoryId:', testCategoryId);
-        console.log('🔍 record.testCategory:', record.testCategory);
-        console.log('🔍 typeof testCategoryId:', typeof testCategoryId);
         
         // Nếu testCategoryId đã là object (populated)
         if (typeof testCategoryId === 'object' && testCategoryId?.name) {
-          console.log('🔍 Using populated name:', testCategoryId.name);
           return testCategoryId.name;
         }
         
         // Nếu có testCategory property
         if (record.testCategory?.name) {
-          console.log('🔍 Using testCategory name:', record.testCategory.name);
           return record.testCategory.name;
         }
         
         // Fallback về hàm lookup
-        console.log('🔍 Using fallback lookup');
         return getTestCategoryName(testCategoryId);
       },
     },
     {
-      title: 'Bắt buộc',
+      title: 'Loại chỉ số', // Đổi từ 'Loại' thành 'Loại chỉ số'
       dataIndex: 'isRequired',
       key: 'isRequired',
       render: (isRequired) => (
@@ -488,11 +470,14 @@ const ServiceTestConfigurationInner: React.FC = () => {
         return unit ? <span>{unit}</span> : <span className="text-gray-500">Chưa thiết lập</span>;
       },
     },
+    // Đảm bảo chỉ có một cột 'Giá trị dao động' với key 'valueRange', đã căn giữa.
+    // Nếu có cột cũ trùng key, hãy xóa cột cũ, chỉ giữ lại đoạn sau:
     {
       title: 'Giá trị dao động',
       key: 'valueRange',
+      align: 'center', // Căn giữa theo Ant Design Table
       render: (_, record) => (
-        <div>
+        <div className="text-center" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
           {record.minValue !== undefined && record.maxValue !== undefined ? (
             <span>{record.minValue} - {record.maxValue}</span>
           ) : (
@@ -501,18 +486,16 @@ const ServiceTestConfigurationInner: React.FC = () => {
         </div>
       ),
     },
+    // Xóa cột 'Giá trị bình thường'
+    // Thêm cột 'Trạng thái'
     {
-      title: 'Giá trị bình thường',
-      dataIndex: 'targetValue',
-      key: 'targetValue',
-      render: (value, record) => {
-        // Tự động tính từ minValue và maxValue nếu có
-        if (record.minValue !== undefined && record.maxValue !== undefined) {
-          const calculatedValue = (record.minValue + record.maxValue) / 2;
-          return <span>{calculatedValue.toFixed(1)}</span>;
-        }
-        return value || <span className="text-gray-500">Chưa thiết lập</span>;
-      },
+      title: 'Trạng thái',
+      key: 'status',
+      render: (_, record) => (
+        <Tag color={record.isDeleted ? 'red' : 'blue'}>
+          {record.isDeleted ? 'Đã xóa' : 'Đang hoạt động'}
+        </Tag>
+      ),
     },
     {
       title: 'Thao tác',
@@ -523,19 +506,39 @@ const ServiceTestConfigurationInner: React.FC = () => {
             type="text"
             icon={<EditOutlined />}
             onClick={() => handleEditTestCategory(record)}
+            disabled={record.isDeleted}
           />
-          <Popconfirm
-            title="Xác nhận xóa cấu hình này?"
-            onConfirm={() => handleDeleteTestCategory(record._id)}
-            okText="Có"
-            cancelText="Không"
-          >
-            <Button type="text" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
+          {record.isDeleted ? (
+            <Popconfirm
+              title="Xác nhận khôi phục cấu hình này?"
+              onConfirm={() => handleRestoreTestCategory(record._id)}
+              okText="Có"
+              cancelText="Không"
+            >
+              <Button type="text" icon={<RestoreIcon />} />
+            </Popconfirm>
+          ) : (
+            <Popconfirm
+              title="Xác nhận xóa cấu hình này?"
+              onConfirm={() => handleDeleteTestCategory(record._id)}
+              okText="Có"
+              cancelText="Không"
+            >
+              <Button type="text" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
   ];
+
+  // Tạo icon SVG khôi phục màu xanh lá
+  const RestoreIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 4a8 8 0 1 0 8 8" stroke="#22c55e" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M16 4h4v4" stroke="#22c55e" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
 
   // Lọc dịch vụ theo tên và loại serviceType === 'test'
   const filteredServices = services.filter(service =>
@@ -882,7 +885,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
             // Hiển thị khi edit
             <>
               <Alert
-                message={`Chỉnh sửa cấu hình cho chỉ số: ${getTestCategoryDetails(editingItem.testCategoryId)?.name || 'N/A'}`}
+                message={`Chỉnh sửa cấu hình cho chỉ số${getTestCategoryDetails(editingItem.testCategoryId)?.name ? ': ' + getTestCategoryDetails(editingItem.testCategoryId)?.name : ''}`}
                 description="Bạn chỉ có thể thay đổi cấu hình riêng của chỉ số này cho dịch vụ hiện tại. Chỉ số gốc có thể được sử dụng bởi nhiều dịch vụ khác."
                 type="info"
                 showIcon
@@ -915,7 +918,15 @@ const ServiceTestConfigurationInner: React.FC = () => {
                 <Form.Item
                   name="minValue"
                   label="Giá trị thấp nhất"
-                  rules={[{ type: 'number', message: 'Vui lòng nhập số' }]}
+                  rules={[{ type: 'number', message: 'Vui lòng nhập số' }, ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const max = getFieldValue('maxValue');
+                      if (value !== undefined && max !== undefined && value >= max) {
+                        return Promise.reject(new Error('Giá trị thấp nhất phải nhỏ hơn giá trị cao nhất!'));
+                      }
+                      return Promise.resolve();
+                    },
+                  })]}
                   style={{ marginBottom: 8 }}
                 >
                   <InputNumber 
@@ -929,7 +940,15 @@ const ServiceTestConfigurationInner: React.FC = () => {
                 <Form.Item
                   name="maxValue"
                   label="Giá trị cao nhất"
-                  rules={[{ type: 'number', message: 'Vui lòng nhập số' }]}
+                  rules={[{ type: 'number', message: 'Vui lòng nhập số' }, ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const min = getFieldValue('minValue');
+                      if (value !== undefined && min !== undefined && min >= value) {
+                        return Promise.reject(new Error('Giá trị cao nhất phải lớn hơn giá trị thấp nhất!'));
+                      }
+                      return Promise.resolve();
+                    },
+                  })]}
                   style={{ marginBottom: 8 }}
                 >
                   <InputNumber 
@@ -945,7 +964,6 @@ const ServiceTestConfigurationInner: React.FC = () => {
           <Form.Item label="Thiết lập ngưỡng">
             <Form.List
               name="thresholdRules"
-              initialValue={editingItem?.thresholdRules || [{ from: null, to: null, flag: 'normal', message: '' }]}
               rules={[{
                 validator: async (_, rules) => {
                   if (!rules || rules.length < 1) {

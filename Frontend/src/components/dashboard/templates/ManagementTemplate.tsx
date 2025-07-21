@@ -41,6 +41,7 @@ import DoctorSchedulePage from '../../../pages/dashboard/management/DoctorSchedu
 import MedicineManagement from '../../../pages/dashboard/management/MedicineManagement';
 
 import TestCategoriesManagement from '../../../pages/dashboard/management/TestCategoriesManagement';
+import ServiceTestConfiguration from '../../../pages/dashboard/operational/ServiceTestConfiguration';
 
 import { 
   type DashboardStat,
@@ -725,7 +726,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         return <MedicineManagement />;
 
       case 'test-categories':
-        return <TestCategoriesManagement />;
+        return <ServiceTestConfiguration />;
 
       case 'refunds':
         return <RefundManagement />;
