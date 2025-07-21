@@ -1,7 +1,7 @@
 import express from 'express';
 import { RefundController } from '../controllers/refundController';
 import { verifyToken } from '../middleware/auth';
-import { authorizeManager } from '../middleware/authorizeManager';
+import { authorizeManagerOrStaff } from '../middleware/authorizeManager';
 
 const router = express.Router();
 const refundController = new RefundController();
@@ -10,7 +10,7 @@ const refundController = new RefundController();
  * @swagger
  * /api/refunds:
  *   get:
- *     summary: Lấy danh sách tất cả yêu cầu hoàn tiền (Manager only)
+ *     summary: Lấy danh sách tất cả yêu cầu hoàn tiền (Manager/Staff/Admin)
  *     tags: [Refunds Management]
  *     security:
  *       - bearerAuth: []
@@ -121,7 +121,7 @@ const refundController = new RefundController();
 router.get(
     '/',
     verifyToken,
-    authorizeManager,
+    authorizeManagerOrStaff,
     refundController.getAllRefundRequests
 );
 
@@ -129,7 +129,7 @@ router.get(
  * @swagger
  * /api/refunds/{paymentId}:
  *   get:
- *     summary: Lấy chi tiết yêu cầu hoàn tiền (Manager only)
+ *     summary: Lấy chi tiết yêu cầu hoàn tiền (Manager/Staff/Admin)
  *     tags: [Refunds Management]
  *     security:
  *       - bearerAuth: []
@@ -204,7 +204,7 @@ router.get(
 router.get(
     '/:paymentId',
     verifyToken,
-    authorizeManager,
+    authorizeManagerOrStaff,
     refundController.getRefundRequestDetail
 );
 
@@ -212,7 +212,7 @@ router.get(
  * @swagger
  * /api/refunds/{paymentId}/status:
  *   put:
- *     summary: Cập nhật trạng thái xử lý yêu cầu hoàn tiền (Manager only)
+ *     summary: Cập nhật trạng thái xử lý yêu cầu hoàn tiền (Manager/Staff/Admin)
  *     tags: [Refunds Management]
  *     security:
  *       - bearerAuth: []
@@ -278,7 +278,7 @@ router.get(
 router.put(
     '/:paymentId/status',
     verifyToken,
-    authorizeManager,
+    authorizeManagerOrStaff,
     refundController.updateRefundStatus
 );
 

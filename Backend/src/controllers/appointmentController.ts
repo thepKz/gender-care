@@ -719,10 +719,10 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
                 id,
                 { $set: { status: 'cancelled' } },
                 { new: true }
-            ).populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
-             .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
-             .populate('packageId', 'name', undefined, { strictPopulate: false })
-             .populate('createdByUserId', 'email fullName', undefined, { strictPopulate: false });
+            ).populate('profileId', 'fullName gender phone year')
+             .populate('serviceId', 'serviceName')
+             .populate('packageId', 'name')
+             .populate('createdByUserId', 'email fullName');
 
             // ✅ NEW: Send cancellation email notification (no refund)
             try {
@@ -730,9 +730,23 @@ export const deleteAppointment = async (req: AuthRequest, res: Response) => {
                 const customerName = (updatedAppointment?.profileId as any)?.fullName || 
                                    (updatedAppointment?.createdByUserId as any)?.fullName || 
                                    'Khách hàng';
+
+                // ✅ DEBUG: Log populated data for service name resolution
+                console.log('[DeleteAppointment] Service name resolution debug:', {
+                    appointmentId: id,
+                    packageId: updatedAppointment?.packageId,
+                    serviceId: updatedAppointment?.serviceId,
+                    packageName: (updatedAppointment?.packageId as any)?.name,
+                    serviceName: (updatedAppointment?.serviceId as any)?.serviceName,
+                    originalAppointmentPackageId: appointment.packageId,
+                    originalAppointmentServiceId: appointment.serviceId
+                });
+
                 const serviceName = (updatedAppointment?.packageId as any)?.name || 
                                   (updatedAppointment?.serviceId as any)?.serviceName || 
                                   'Dịch vụ không xác định';
+
+                console.log('[DeleteAppointment] Final service name:', serviceName);
 
                 // ✅ FIX: Lấy email từ user account thay vì profile để đảm bảo có email
                 const userAccount = await User.findById(appointment.createdByUserId).select('email fullName');
@@ -2422,10 +2436,10 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                     }
                 },
                 { new: true }
-            ).populate('profileId', 'fullName gender phone year', undefined, { strictPopulate: false })
-             .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
-             .populate('packageId', 'name', undefined, { strictPopulate: false })
-             .populate('createdByUserId', 'email fullName', undefined, { strictPopulate: false });
+            ).populate('profileId', 'fullName gender phone year')
+             .populate('serviceId', 'serviceName')
+             .populate('packageId', 'name')
+             .populate('createdByUserId', 'email fullName');
 
             // 🔍 STEP 4: Giải phóng slot nếu có
             if (appointment.slotId) {
@@ -2454,9 +2468,23 @@ export const cancelAppointmentWithRefund = async (req: AuthRequest, res: Respons
                 const customerName = userAccount?.fullName || 
                                    (updatedAppointment?.profileId as any)?.fullName || 
                                    'Khách hàng';
+
+                // ✅ DEBUG: Log populated data for service name resolution
+                console.log('[CancelWithRefund] Service name resolution debug:', {
+                    appointmentId: id,
+                    packageId: updatedAppointment?.packageId,
+                    serviceId: updatedAppointment?.serviceId,
+                    packageName: (updatedAppointment?.packageId as any)?.name,
+                    serviceName: (updatedAppointment?.serviceId as any)?.serviceName,
+                    originalAppointmentPackageId: appointment.packageId,
+                    originalAppointmentServiceId: appointment.serviceId
+                });
+
                 const serviceName = (updatedAppointment?.packageId as any)?.name || 
                                   (updatedAppointment?.serviceId as any)?.serviceName || 
                                   'Dịch vụ không xác định';
+
+                console.log('[CancelWithRefund] Final service name:', serviceName);
 
                 if (customerEmail && updatedAppointment?.appointmentDate && refundInfo && paymentTracking) {
                     const { sendAppointmentCancelledWithRefundEmail } = await import('../services/emails');

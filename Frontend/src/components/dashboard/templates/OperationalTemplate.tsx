@@ -14,11 +14,10 @@ import {
   UserOutlined,
   CalendarOutlined,
   ScheduleOutlined,
-  BarChartOutlined,
   FileTextOutlined,
   LogoutOutlined,
   VideoCameraOutlined,
-
+  DollarOutlined,
   MedicineBoxOutlined,
   HistoryOutlined
 } from '@ant-design/icons';
@@ -36,6 +35,7 @@ import ServiceTestConfiguration from '../../../pages/dashboard/operational/Servi
 import TestResultsEntryStaff from '../../../pages/dashboard/operational/TestResultsEntryStaff';
 import DoctorProfileManagement from '../../../pages/dashboard/operational/DoctorProfileManagement';
 import StaffAllAppointmentsManagement from '../../../pages/dashboard/operational/StaffAllAppointmentsManagement';
+import RefundManagement from '../../../pages/dashboard/operational/RefundManagement';
 
 import { 
   type DashboardStat,
@@ -44,7 +44,7 @@ import {
   defaultAppointments,
   defaultPerformanceMetrics
 } from '../../../types/dashboard';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../hooks/useAuth';
 import { fetchOperationalDashboard } from '../../../api/endpoints/dashboard';
 import { filterMenuItemsByPermissions, type MenuItem } from '../../../utils/permissions';
@@ -59,7 +59,7 @@ interface OperationalTemplateProps {
 }
 
 // Xây dựng menu động theo vai trò Staff / Doctor với permission filtering
-const getMenuItemsOperational = (role: 'staff' | 'doctor', navigate: (path: string) => void): MenuItem[] => {
+const getMenuItemsOperational = (role: 'staff' | 'doctor'): MenuItem[] => {
   let baseMenuItems: MenuItem[];
 
   if (role === 'doctor') {
@@ -122,6 +122,11 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor', navigate: (path: stri
         icon: <ScheduleOutlined />,
         label: 'Cấu hình xét nghiệm',
       },
+      {
+        key: 'refunds',
+        icon: <DollarOutlined />,
+        label: 'Quản lý hoàn tiền',
+      },
       // Removed 'reports' for staff - focus on operational tasks, not management reports
     ];
   }
@@ -135,10 +140,81 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   userName = 'User',
   welcomeMessage
 }) => {
-  const [selectedKey, setSelectedKey] = useState('dashboard');
-  const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const { handleLogout } = useAuth();
+  const location = useLocation();
+
+  // ✅ Get initial selectedKey from URL params or default
+  const getInitialSelectedKey = (): string => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    
+    // Validate tab param against allowed menu items
+    const allowedKeys = getMenuItemsOperational(userRole).map(item => item.key);
+    
+    if (tabParam && allowedKeys.includes(tabParam)) {
+      return tabParam;
+    }
+    
+    // Return default
+    return 'dashboard';
+  };
+
+  const [selectedKey, setSelectedKey] = useState(getInitialSelectedKey());
+  const [collapsed, setCollapsed] = useState(false);
+
+  // ✅ Clean URL on component mount to remove irrelevant params
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    
+    // Check if there are any other parameters besides 'tab'
+    const hasIrrelevantParams = Array.from(searchParams.keys()).some(key => key !== 'tab');
+    
+    if (hasIrrelevantParams) {
+      // Clean URL - only keep tab if it exists and is valid
+      const allowedKeys = getMenuItemsOperational(userRole).map(item => item.key);
+      if (tabParam && allowedKeys.includes(tabParam)) {
+        navigate(`${location.pathname}?tab=${tabParam}`, { replace: true });
+      } else {
+        navigate(location.pathname, { replace: true });
+      }
+    }
+  }, [location.search, location.pathname, navigate, userRole]); // Clean when URL changes
+
+  // ✅ Update URL when selectedKey changes
+  const updateSelectedKey = (key: string) => {
+    setSelectedKey(key);
+    
+    // Clean URL - only keep tab parameter, remove irrelevant params
+    let newUrl = location.pathname;
+    if (key !== 'dashboard') {
+      newUrl = `${location.pathname}?tab=${key}`;
+    }
+      
+    // Use replace to avoid adding to history stack
+    navigate(newUrl, { replace: true });
+  };
+
+  // ✅ Sync selectedKey when URL changes (back/forward navigation)
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    
+    // Validate tab param against allowed menu items
+    const allowedKeys = getMenuItemsOperational(userRole).map(item => item.key);
+    
+    let newSelectedKey: string;
+    if (tabParam && allowedKeys.includes(tabParam)) {
+      newSelectedKey = tabParam;
+    } else {
+      newSelectedKey = 'dashboard';
+    }
+    
+    if (newSelectedKey !== selectedKey) {
+      setSelectedKey(newSelectedKey);
+    }
+  }, [location.search, userRole, selectedKey]);
 
   const [statsCards, setStatsCards] = useState(defaultOperationalStats);
   const [loading, setLoading] = useState(false);
@@ -157,7 +233,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
     : `Chào mừng ${userName}! Hôm nay có ${defaultAppointments.length} lịch hẹn cần xử lý và 5 nhiệm vụ đang chờ.`;
 
   const metrics = defaultPerformanceMetrics;
-  const menuItems = getMenuItemsOperational(userRole, navigate);
+  const menuItems = getMenuItemsOperational(userRole);
 
   useEffect(() => {
     (async () => {
@@ -463,6 +539,10 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
       case 'test-config':
         return <ServiceTestConfiguration />;
         
+      case 'refunds':
+        if (userRole === 'staff') return <RefundManagement />;
+        return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
+        
       case 'medical-records':
         if (userRole === 'doctor') return <MedicalRecordsManagement />;
         return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
@@ -557,9 +637,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
           onClick={({ key }) => {
             const allowed = menuItems.map(item => item.key);
             if (allowed.includes(key)) {
-              setSelectedKey(key);
+              updateSelectedKey(key);
             } else {
-              setSelectedKey('dashboard');
+              updateSelectedKey('dashboard');
             }
           }}
           style={{ border: 'none' }}

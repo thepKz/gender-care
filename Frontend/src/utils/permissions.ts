@@ -133,6 +133,7 @@ export const canAccessManagementReports = (userRole: string): boolean => {
 
 export const canAccessOperationalReports = (userRole: string): boolean => {
   // Bác sĩ không cần báo cáo, chỉ cần dashboard cá nhân
+  void userRole; // Mark parameter as intentionally unused
   return false; // Removed doctor access to reports
 };
 
@@ -185,7 +186,7 @@ export const canAccessServicePackageManagement = (userRole: string): boolean => 
 };
 
 export const canAccessRefundManagement = (userRole: string): boolean => {
-  return ['admin', 'manager'].includes(userRole);
+  return ['admin', 'manager', 'staff'].includes(userRole);
 };
 
 // ===== DOCTOR APPROVAL WORKFLOW PERMISSIONS =====
