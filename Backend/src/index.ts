@@ -12,6 +12,7 @@ import {
     dashboardRoutes,
     doctorQARoutes,
     doctorRoutes,
+    feedbackRoutes,
     googleAuthRoutes,
     loginHistoryRoutes,
     medicalRecordsRoutes,
@@ -249,6 +250,7 @@ apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
 apiRouter.use('/service-test-categories', serviceTestCategoriesRoutes);
 apiRouter.use('/package-purchases', packagePurchaseRoutes);
+apiRouter.use('/feedbacks', feedbackRoutes);
 
 // ✅ NEW: Google Authentication routes
 apiRouter.use('/google-auth', googleAuthRoutes);

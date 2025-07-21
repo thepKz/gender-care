@@ -1,21 +1,18 @@
-import { Button, Card, Rate, Spin, Tag, message, Calendar } from "antd";
+import { Button, Card, Rate, Spin, message, Calendar } from "antd";
 import dayjs from 'dayjs';
-import { motion } from "framer-motion";
 import {
     ArrowLeft,
     Award,
-    Call,
     Clock,
-    Heart,
     MessageText1,
-    Profile2User,
-    TickCircle
+    Profile2User
 } from "iconsax-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { doctorApi, type Doctor, type DoctorSchedule } from "../../api/endpoints/doctorApi";
 import { ModernCounselorCard } from "../../components/ui/counselors/ModernCounselorCard";
 import { AnimatedSection } from "../../shared";
+import DoctorFeedbacks from "../../components/ui/DoctorFeedbacks";
 
 const DoctorDetail = () => {
   const navigate = useNavigate();
@@ -329,28 +326,11 @@ const DoctorDetail = () => {
               </Card>
             </AnimatedSection>
 
-            {/* Reviews Section */}
+            {/* Feedbacks Section */}
             <AnimatedSection animation="slideUp" delay={0.2}>
-              <Card 
-                title={<span className="text-xl font-bold text-gray-800 font-['Be_Vietnam_Pro',_sans-serif]">Đánh giá từ bệnh nhân</span>}
-                className="mb-8 border-0 shadow-lg rounded-2xl"
-              >
-                {(doctorFeedback as any).reviews && (doctorFeedback as any).reviews.length > 0 ? (
-                  <div className="space-y-4">
-                    {(doctorFeedback as any).reviews.map((review: any, index: number) => (
-                      <div key={index} className="border-b border-gray-100 pb-4 last:border-b-0">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-gray-800">{review.patientName}</span>
-                          <Rate disabled defaultValue={review.rating} />
-                        </div>
-                        <p className="text-gray-600">{review.comment}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">Chưa có đánh giá nào</p>
-                )}
-              </Card>
+              <div className="mb-8">
+                <DoctorFeedbacks doctorId={doctor._id} />
+              </div>
             </AnimatedSection>
 
             {/* Related Doctors */}
