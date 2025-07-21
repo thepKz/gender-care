@@ -249,10 +249,136 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   const renderDashboard = () => (
     <div style={{ padding: '24px' }}>
       <Row gutter={[24, 24]}>
-        <Col xs={24}>
-          <Card>
+        {/* Today's Appointments */}
+        <Col xs={24} lg={16}>
+          <TableWidget 
+            data={defaultAppointments}
+            title={userRole === 'doctor' ? 'Lịch khám hôm nay' : 'Lịch hẹn cần xử lý'}
+            pagination={false}
+            loading={loading}
+          />
+        </Col>
+
+        {/* Right Column */}
+        <Col xs={24} lg={8}>
+          <Row gutter={[0, 24]}>
+            {/* Daily Progress */}
+            <Col xs={24}>
+              <Card 
+                title={userRole === 'doctor' ? 'Tiến độ khám bệnh' : 'Tiến độ công việc'}
+                style={{ 
+                  borderRadius: '12px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                  border: '1px solid #e5e7eb'
+                }}
+                loading={loading}
+              >
+                {!loading && (
+                  <>
+                    <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <Progress
+                          type="circle"
+                          percent={metrics.appointmentCompletion}
+                          size={120}
+                          strokeColor="#667eea"
+                          strokeWidth={8}
+                        />
+                        <div style={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          textAlign: 'center'
+                        }}>
+                          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>
+                            {Math.round(defaultAppointments.length * metrics.appointmentCompletion / 100)}/{defaultAppointments.length}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                            Hoàn thành
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: '16px' }}>
+                      <Text type="secondary">
+                        {userRole === 'doctor' ? 'Bệnh nhân đã khám' : 'Công việc đã xong'}
+                      </Text>
+                    </div>
+                  </>
+                )}
+              </Card>
+            </Col>
+
+            {/* Performance Metrics */}
+            <Col xs={24}>
+              <Card 
+                title="Hiệu suất làm việc"
+                style={{ 
+                  borderRadius: '12px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                  border: '1px solid #e5e7eb'
+                }}
+                loading={loading}
+              >
+                {!loading && (
+                  <>
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <Text style={{ fontSize: '13px' }}>
+                          {userRole === 'doctor' ? 'Mức độ hài lòng' : 'Hiệu quả xử lý'}
+                        </Text>
+                        <Text strong style={{ fontSize: '13px' }}>
+                          {metrics.patientSatisfaction}%
+                        </Text>
+                      </div>
+                      <Progress percent={metrics.patientSatisfaction} size="small" strokeColor="#52c41a" />
+                    </div>
+                    
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <Text style={{ fontSize: '13px' }}>Quản lý thời gian</Text>
+                        <Text strong style={{ fontSize: '13px' }}>
+                          {metrics.efficiency}%
+                        </Text>
+                      </div>
+                      <Progress percent={metrics.efficiency} size="small" strokeColor="#faad14" />
+                    </div>
+                    
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <Text style={{ fontSize: '13px' }}>Thời gian phản hồi</Text>
+                        <Text strong style={{ fontSize: '13px' }}>
+                          {metrics.responseTime}%
+                        </Text>
+                      </div>
+                      <Progress percent={metrics.responseTime} size="small" strokeColor="#3b82f6" />
+                    </div>
+                  </>
+                )}
+              </Card>
+            </Col>
+          </Row>
+        </Col>
+      </Row>
+
+      {/* Doctor Schedule Calendar - only show for doctors */}
+      {userRole === 'doctor' && (
+        <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
+          <Col xs={24}>
             <DoctorScheduleCalendar />
-          </Card>
+          </Col>
+        </Row>
+      )}
+
+      {/* Recent Activities */}
+      <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
+        <Col xs={24}>
+          <ActivityFeed 
+            activities={roleSpecificActivities.slice(0, 5)}
+            title={userRole === 'doctor' ? 'Hoạt động khám bệnh' : 'Hoạt động gần đây'}
+          />
+
         </Col>
       </Row>
     </div>

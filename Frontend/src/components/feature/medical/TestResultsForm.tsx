@@ -4,7 +4,6 @@ import {
   Form,
   Input,
   Select,
-  DatePicker,
   Button,
   message,
   Row,
@@ -19,6 +18,7 @@ import {
   Spin,
   Alert
 } from 'antd';
+import SimpleDatePicker from '../../ui/SimpleDatePicker';
 import {
   ExperimentOutlined,
   UserOutlined,
@@ -268,10 +268,11 @@ export const TestResultsForm: React.FC<TestResultsFormProps> = ({
                 label="Ngày xét nghiệm"
                 rules={[{ required: true, message: 'Vui lòng chọn ngày xét nghiệm!' }]}
               >
-                <DatePicker 
-                  style={{ width: '100%' }} 
-                  format="DD/MM/YYYY"
+                <SimpleDatePicker
+                  style={{ width: '100%' }}
                   placeholder="Chọn ngày xét nghiệm"
+                  value=""
+                  onChange={() => {}}
                 />
               </Form.Item>
             </Col>

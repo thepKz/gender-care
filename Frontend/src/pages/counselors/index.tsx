@@ -390,6 +390,14 @@ const Counselors = () => {
                     <ModernCounselorCard
                       doctor={doctor}
                       index={index}
+
+                      onBook={() => navigate(`/booking/consultation/${doctor._id}`)}
+                      onView={() => {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        setTimeout(() => {
+                          navigate(`/doctors/${doctor._id}`);
+                        }, 300);
+                      }}
                     />
                   </motion.div>
                 </BlurFade>

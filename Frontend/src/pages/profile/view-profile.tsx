@@ -1,5 +1,6 @@
 import { CalendarOutlined, EditOutlined, FileTextOutlined, UserOutlined } from '@ant-design/icons';
-import { Button, Card, DatePicker, Form, Input, Modal, notification, Select, Spin, Tooltip, Tabs, Descriptions, List, Tag } from 'antd';
+import { Button, Card, Form, Input, Modal, notification, Select, Spin, Tooltip, Tabs, Descriptions, List, Tag } from 'antd';
+import SimpleDatePicker from '../../components/ui/SimpleDatePicker';
 import axios from 'axios';
 import axiosInstance from '../../api/axiosConfig';
 import dayjs from 'dayjs';
@@ -647,13 +648,11 @@ const ViewProfilePage: React.FC = () => {
                 { required: true, message: 'Vui lòng chọn ngày sinh' }
               ]}
             >
-              <DatePicker
+              <SimpleDatePicker
                 placeholder="Chọn ngày sinh"
-                format="DD/MM/YYYY"
-                className="w-full"
-                disabledDate={(current) => {
-                  return current && current > dayjs().endOf('day');
-                }}
+                style={{ width: '100%' }}
+                value=""
+                onChange={() => {}}
               />
             </Form.Item>
 

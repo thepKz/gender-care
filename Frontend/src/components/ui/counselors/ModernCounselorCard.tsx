@@ -7,14 +7,28 @@ import PrimaryButton from "../primitives/PrimaryButton";
 
 interface ModernCounselorCardProps {
   doctor: Doctor;
-  index: number;
+  index?: number;
+  onBook?: () => void;
+  onView?: () => void;
 }
 
-export function ModernCounselorCard({ doctor, index }: ModernCounselorCardProps) {
+export function ModernCounselorCard({ doctor, index = 0, onBook, onView }: ModernCounselorCardProps) {
   const navigate = useNavigate();
 
   const handleViewProfile = () => {
-    navigate(`/doctors/${doctor._id}`);
+    if (onView) {
+      onView();
+    } else {
+      navigate(`/doctors/${doctor._id}`);
+    }
+  };
+
+  const handleBooking = () => {
+    if (onBook) {
+      onBook();
+    } else {
+      navigate(`/booking/consultation/${doctor._id}`);
+    }
   };
 
   const years = (doctor as any).yearsOfExperience
@@ -74,14 +88,21 @@ export function ModernCounselorCard({ doctor, index }: ModernCounselorCardProps)
               "Bác sĩ có chuyên môn cao và tận tâm, luôn sẵn sàng hỗ trợ bạn."}
           </p>
 
-          <PrimaryButton
-            onClick={handleViewProfile}
-            className="w-full bg-blue-600 text-white hover:bg-blue-700 transition-all group"
-            fullWidth
-          >
-            Xem chi tiết
-            <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </PrimaryButton>
+          <div className="flex gap-3">
+            <PrimaryButton
+              onClick={handleBooking}
+              className="flex-1 bg-blue-600 text-white hover:bg-blue-700 transition-all"
+            >
+              Đặt lịch
+            </PrimaryButton>
+            <PrimaryButton
+              onClick={handleViewProfile}
+              className="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all group"
+            >
+              Xem chi tiết
+              <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </PrimaryButton>
+          </div>
         </div>
       </motion.div>
     </BlurFade>

@@ -12,19 +12,19 @@ import {
     Card,
     Col,
     Collapse,
-    DatePicker,
     Input,
     Row,
     Select,
     Space,
     Tag
 } from 'antd';
+import SimpleDateRangePicker from './SimpleDateRangePicker';
 import type { Dayjs } from 'dayjs';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { IDoctor } from '../../api/endpoints/doctorApi';
 
 const { Option } = Select;
-const { RangePicker } = DatePicker;
+// Removed DatePicker import
 const { Panel } = Collapse;
 
 // Interface cho filter options
@@ -33,7 +33,7 @@ export interface SearchFilterOptions {
   selectedDoctorIds: string[];
   selectedTimeSlots: string[];
   selectedDaysOfWeek: number[];
-  dateRange: [Dayjs, Dayjs] | null;
+  dateRange: [string, string] | null;
   status: ('Free' | 'Booked' | 'Absent')[];
   specializations: string[];
 }
@@ -361,17 +361,13 @@ const AdvancedSearchFilter: React.FC<AdvancedSearchFilterProps> = ({
                 <label style={{ fontWeight: 500, marginBottom: '8px', display: 'block' }}>
                   <CalendarOutlined /> Khoảng thời gian:
                 </label>
-                <RangePicker
+                <SimpleDateRangePicker
                   value={filters.dateRange}
                   onChange={(dates) => {
-                    if (dates && dates[0] && dates[1]) {
-                      updateFilters({ dateRange: [dates[0], dates[1]] });
-                    } else {
-                      updateFilters({ dateRange: null });
-                    }
+                    updateFilters({ dateRange: dates });
                   }}
                   style={{ width: '100%' }}
-                  format="DD/MM/YYYY"
+                  placeholder={['Từ ngày', 'Đến ngày']}
                 />
               </Col>
             </Row>
@@ -406,7 +402,7 @@ const AdvancedSearchFilter: React.FC<AdvancedSearchFilterProps> = ({
               )}
               {filters.dateRange && (
                 <Tag closable onClose={() => updateFilters({ dateRange: null })}>
-                  {filters.dateRange[0].format('DD/MM')} - {filters.dateRange[1].format('DD/MM')}
+                  {new Date(filters.dateRange[0]).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} - {new Date(filters.dateRange[1]).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
                 </Tag>
               )}
               {filters.status.length > 0 && (
