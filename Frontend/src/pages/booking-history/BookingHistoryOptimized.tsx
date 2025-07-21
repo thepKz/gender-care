@@ -905,7 +905,30 @@ const BookingHistoryOptimized: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="ml-4 flex items-center gap-2">
+
+                    <div className="flex items-center gap-2 ml-4">
+                      {/* Nút feedback cho appointments đã hoàn thành */}
+                      {appointment.status === 'completed' && !appointment.rating && (
+                        <button
+                          onClick={() => navigate(`/feedback?appointment=${appointment.id}`)}
+                          className="flex items-center gap-1 px-3 py-2 text-sm bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg transition-colors font-medium"
+                        >
+                          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                          </svg>
+                          Đánh giá
+                        </button>
+                      )}
+                      
+                      {appointment.status === 'completed' && appointment.rating && (
+                        <div className="flex items-center gap-1 px-3 py-2 text-sm bg-green-50 text-green-600 rounded-lg">
+                          <svg className="w-4 h-4 fill-current text-yellow-400" viewBox="0 0 24 24">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                          </svg>
+                          <span>Đã đánh giá {appointment.rating}/5</span>
+                        </div>
+                      )}
+                      
                       <button
                         onClick={() => handleViewDetail(appointment)}
                         className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-100"
@@ -956,26 +979,47 @@ const BookingHistoryOptimized: React.FC = () => {
                                 Thanh toán ngay
                               </button>
                             </div>
-                            {(() => {
-                              // Tính thời gian tạo lịch
-                              const createdTime = new Date(appointment.createdAt).getTime();
-                              const currentTime = new Date().getTime();
-                              const elapsedMinutes = Math.floor(
-                                (currentTime - createdTime) / (1000 * 60),
-                              );
-                              const timeoutMinutes = getReservationTimeout();
-                              const remainingMinutes = Math.max(0, timeoutMinutes - elapsedMinutes);
 
-                              if (remainingMinutes > 0) {
-                                return (
-                                  <div className="mt-2 h-2.5 w-full rounded-full bg-gray-200">
-                                    <div
-                                      className="h-2.5 rounded-full bg-orange-500"
-                                      style={{ width: `${(remainingMinutes / timeoutMinutes) * 100}%` }}
-                                    ></div>
-                                    <div className="mt-1 text-right text-xs text-gray-500">
-                                      Còn {remainingMinutes} phút để thanh toán
-                                    </div>
+                            <button
+                              onClick={async () => {
+                                if (appointment.type === 'consultation') {
+                                  try {
+                                    const res = await consultationApi.createConsultationPaymentLink(appointment.id);
+                                    // Kiểm tra response structure
+                                    const paymentUrl = res?.data?.data?.paymentUrl || res?.data?.paymentUrl;
+                                    if (paymentUrl) {
+                                      window.location.href = paymentUrl;
+                                    } else {
+                                      message.error('Không tạo được link thanh toán cho tư vấn');
+                                    }
+                                  } catch {
+                                    message.error('Lỗi khi tạo link thanh toán cho tư vấn');
+                                  }
+                                } else {
+                                  navigate(`/payment/process?appointmentId=${appointment.id}`);
+                                }
+                              }}
+                              className="px-4 py-2 bg-orange-500 text-white text-sm rounded-lg hover:bg-orange-600 transition-colors"
+                            >
+                              Thanh toán ngay
+                            </button>
+                          </div>
+                          {(() => {
+                            // Tính thời gian tạo lịch
+                            const createdTime = new Date(appointment.createdAt).getTime();
+                            const currentTime = new Date().getTime();
+                            const elapsedMinutes = Math.floor((currentTime - createdTime) / (1000 * 60));
+                            const remainingMinutes = Math.max(0, 10 - elapsedMinutes);
+                            
+                            if (remainingMinutes > 0) {
+                              return (
+                                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                                  <div 
+                                    className="bg-orange-500 h-2.5 rounded-full" 
+                                    style={{ width: `${remainingMinutes * 10}%` }}
+                                  ></div>
+                                  <div className="text-xs text-gray-500 mt-1 text-right">
+                                    Còn {remainingMinutes} phút để thanh toán
                                   </div>
                                 );
                               }
@@ -1397,6 +1441,44 @@ const BookingHistoryOptimized: React.FC = () => {
               )}
 
 
+              {/* Feedback section - Hiển thị sau khi hoàn thành */}
+              {selectedAppointment.status === 'completed' && (selectedAppointment.rating || selectedAppointment.feedback) && (
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-yellow-500 fill-current" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    Đánh giá dịch vụ
+                  </h4>
+                  <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                    {selectedAppointment.rating && (
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-medium text-gray-700">Đánh giá:</span>
+                        <div className="flex items-center gap-1">
+                          {[...Array(5)].map((_, index) => (
+                            <svg 
+                              key={index}
+                              className={`w-4 h-4 ${index < selectedAppointment.rating! ? "text-yellow-400 fill-current" : "text-gray-300 fill-current"}`}
+                              viewBox="0 0 24 24"
+                            >
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                          ))}
+                          <span className="text-sm font-medium text-gray-700 ml-1">
+                            ({selectedAppointment.rating}/5)
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {selectedAppointment.feedback && (
+                      <div className="mt-2">
+                        <span className="text-sm font-medium text-gray-700">Nhận xét:</span>
+                        <p className="text-sm text-gray-600 mt-1 italic">"{selectedAppointment.feedback}"</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Actions */}
               <div className="flex justify-between border-t border-gray-200 pt-4">
@@ -1408,6 +1490,22 @@ const BookingHistoryOptimized: React.FC = () => {
                 </button>
 
                 <div className="flex gap-2">
+                  {/* Nút feedback trong modal */}
+                  {selectedAppointment.status === 'completed' && !selectedAppointment.rating && (
+                    <button
+                      onClick={() => {
+                        navigate(`/feedback?appointment=${selectedAppointment.id}`);
+                        setShowDetailModal(false);
+                      }}
+                      className="flex items-center gap-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                    >
+                      <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                      Đánh giá
+                    </button>
+                  )}
+                  
                   {/* Hiển thị button hủy cho tất cả appointment có thể hủy */}
                   {canCancel(selectedAppointment) && (
                     <button

@@ -7,31 +7,32 @@ import path from "path";
 import swaggerUi from "swagger-ui-express";
 import YAML from "yamljs";
 import {
-  appointmentRoutes,
-  authRoutes,
-  dashboardRoutes,
-  doctorQARoutes,
-  doctorRoutes,
-  googleAuthRoutes,
-  loginHistoryRoutes,
-  medicalRecordsRoutes,
-  medicationRemindersRoutes,
-  medicinesRoutes,
-  meetingRoutes,
-  menstrualCycleRoutes,
-  notificationDaysRoutes,
-  packagePurchaseRoutes,
-  paymentRoutes,
-  servicePackageRoutes,
-  serviceRoutes,
-  serviceTestCategoriesRoutes,
-  staffRoutes,
-  systemLogRoutes,
-  testCategoriesRoutes,
-  testResultItemsRoutes,
-  testResultsRoutes,
-  userProfileRoutes,
-  userRoutes,
+    appointmentRoutes,
+    authRoutes,
+    dashboardRoutes,
+    doctorQARoutes,
+    doctorRoutes,
+    feedbackRoutes,
+    googleAuthRoutes,
+    loginHistoryRoutes,
+    medicalRecordsRoutes,
+    medicationRemindersRoutes,
+    medicinesRoutes,
+    meetingRoutes,
+    menstrualCycleRoutes,
+    notificationDaysRoutes,
+    packagePurchaseRoutes,
+    paymentRoutes,
+    servicePackageRoutes,
+    serviceRoutes,
+    serviceTestCategoriesRoutes,
+    staffRoutes,
+    systemLogRoutes,
+    testCategoriesRoutes,
+    testResultItemsRoutes,
+    testResultsRoutes,
+    userProfileRoutes,
+    userRoutes
 } from "./routes";
 import consultationRoutes from "./routes/consultationRoutes";
 import reportsRoutes from "./routes/reportsRoutes";
@@ -237,18 +238,20 @@ app.get("/api/test", (req, res) => {
 
 // Thiết lập routes
 const apiRouter = express.Router();
-app.use("/api", apiRouter);
 
-apiRouter.use("/auth", authRoutes);
-apiRouter.use("/users", userRoutes);
-apiRouter.use("/login-history", loginHistoryRoutes);
-apiRouter.use("/dashboard", dashboardRoutes);
-apiRouter.use("/doctors", doctorRoutes);
-apiRouter.use("/staff", staffRoutes);
-apiRouter.use("/services", serviceRoutes);
-apiRouter.use("/service-packages", servicePackageRoutes);
-apiRouter.use("/service-test-categories", serviceTestCategoriesRoutes);
-apiRouter.use("/package-purchases", packagePurchaseRoutes);
+app.use('/api', apiRouter);
+
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/users', userRoutes);
+apiRouter.use('/login-history', loginHistoryRoutes);
+apiRouter.use('/dashboard', dashboardRoutes);
+apiRouter.use('/doctors', doctorRoutes);
+apiRouter.use('/staff', staffRoutes);
+apiRouter.use('/services', serviceRoutes);
+apiRouter.use('/service-packages', servicePackageRoutes);
+apiRouter.use('/service-test-categories', serviceTestCategoriesRoutes);
+apiRouter.use('/package-purchases', packagePurchaseRoutes);
+apiRouter.use('/feedbacks', feedbackRoutes);
 
 // ✅ NEW: Google Authentication routes
 apiRouter.use("/google-auth", googleAuthRoutes);

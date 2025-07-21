@@ -1021,20 +1021,20 @@ export const sendAppointmentCancelledNoRefundEmail = async (
             <h3 style="color: #dc2626; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">Chi tiết lịch hẹn đã hủy</h3>
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">🏥 Dịch vụ:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">Dịch vụ:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${serviceName}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">📅 Ngày hẹn:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Ngày hẹn:</td>
                 <td style="padding: 8px 0; color: #333;">${formattedDate}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">🕐 Thời gian:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Thời gian:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${appointmentTime}</td>
               </tr>
               ${cancelReason ? `
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">📝 Lý do hủy:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Lý do hủy:</td>
                 <td style="padding: 8px 0; color: #dc2626; font-style: italic;">"${cancelReason}"</td>
               </tr>
               ` : ''}
@@ -1044,29 +1044,29 @@ export const sendAppointmentCancelledNoRefundEmail = async (
           ${profileInfo ? `
           <!-- Profile Information -->
           <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
-            <h3 style="color: #0369a1; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">👤 Thông tin người đặt lịch</h3>
+            <h3 style="color: #0369a1; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">Thông tin người đặt lịch</h3>
             <table style="width: 100%; border-collapse: collapse;">
               ${profileInfo.fullName ? `
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">👤 Họ và tên:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">Họ và tên:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.fullName}</td>
               </tr>
               ` : ''}
               ${profileInfo.phone ? `
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">📞 Số điện thoại:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Số điện thoại:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.phone}</td>
               </tr>
               ` : ''}
               ${profileInfo.age ? `
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">🎂 Tuổi:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Tuổi:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.age} tuổi</td>
               </tr>
               ` : ''}
               ${profileInfo.gender ? `
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">⚧ Giới tính:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Giới tính:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.gender === 'male' ? 'Nam' : profileInfo.gender === 'female' ? 'Nữ' : 'Khác'}</td>
               </tr>
               ` : ''}
@@ -1075,7 +1075,7 @@ export const sendAppointmentCancelledNoRefundEmail = async (
           ` : ''}
 
           <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-            <h4 style="color: #f59e0b; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">ℹ️ Thông tin quan trọng</h4>
+            <h4 style="color: #f59e0b; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">Thông tin quan trọng</h4>
             <ul style="margin: 0; padding-left: 20px; color: #92400e; line-height: 1.6;">
               <li>Lịch hẹn đã được hủy hoàn toàn khỏi hệ thống</li>
               <li>Bạn có thể đặt lịch hẹn mới bất kỳ lúc nào</li>
@@ -1183,20 +1183,20 @@ export const sendAppointmentCancelledWithRefundEmail = async (
             <h3 style="color: #dc2626; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">Chi tiết lịch hẹn đã hủy</h3>
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">🏥 Dịch vụ:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">Dịch vụ:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${serviceName}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">📅 Ngày hẹn:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Ngày hẹn:</td>
                 <td style="padding: 8px 0; color: #333;">${formattedDate}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">🕐 Thời gian:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Thời gian:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${appointmentTime}</td>
               </tr>
               ${cancelReason ? `
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">📝 Lý do hủy:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Lý do hủy:</td>
                 <td style="padding: 8px 0; color: #dc2626; font-style: italic;">"${cancelReason}"</td>
               </tr>
               ` : ''}
@@ -1206,29 +1206,29 @@ export const sendAppointmentCancelledWithRefundEmail = async (
           ${profileInfo ? `
           <!-- Profile Information -->
           <div style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
-            <h3 style="color: #0369a1; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">👤 Thông tin người đặt lịch</h3>
+            <h3 style="color: #0369a1; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">Thông tin người đặt lịch</h3>
             <table style="width: 100%; border-collapse: collapse;">
               ${profileInfo.fullName ? `
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">👤 Họ và tên:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 30%;">Họ và tên:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.fullName}</td>
               </tr>
               ` : ''}
               ${profileInfo.phone ? `
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">📞 Số điện thoại:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Số điện thoại:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.phone}</td>
               </tr>
               ` : ''}
               ${profileInfo.age ? `
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">🎂 Tuổi:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Tuổi:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.age} tuổi</td>
               </tr>
               ` : ''}
               ${profileInfo.gender ? `
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">⚧ Giới tính:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Giới tính:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${profileInfo.gender === 'male' ? 'Nam' : profileInfo.gender === 'female' ? 'Nữ' : 'Khác'}</td>
               </tr>
               ` : ''}
@@ -1238,22 +1238,22 @@ export const sendAppointmentCancelledWithRefundEmail = async (
 
           <!-- Refund Information -->
           <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
-            <h3 style="color: #065f46; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">💰 Thông tin hoàn tiền</h3>
+            <h3 style="color: #065f46; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">Thông tin hoàn tiền</h3>
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #065f46; width: 35%;">💵 Số tiền hoàn:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46; width: 35%;">Số tiền hoàn:</td>
                 <td style="padding: 8px 0; color: #059669; font-weight: 600; font-size: 18px;">${formattedAmount}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">🏦 Ngân hàng:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">Ngân hàng:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${refundInfo.bankName}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">🔢 Số tài khoản:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">Số tài khoản:</td>
                 <td style="padding: 8px 0; color: #333; font-family: monospace; font-weight: 500;">${refundInfo.accountNumber}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">👤 Tên chủ TK:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">Tên chủ TK:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${refundInfo.accountHolderName}</td>
               </tr>
             </table>
@@ -1261,12 +1261,12 @@ export const sendAppointmentCancelledWithRefundEmail = async (
 
           <!-- Refund Process Info -->
           <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-            <h4 style="color: #1d4ed8; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">📋 Quy trình hoàn tiền</h4>
+            <h4 style="color: #1d4ed8; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">Quy trình hoàn tiền</h4>
             <ol style="margin: 0; padding-left: 20px; color: #1e40af; line-height: 1.6;">
-              <li><strong>Ghi nhận yêu cầu:</strong> ✅ Hoàn thành</li>
-              <li><strong>Xử lý bởi manager:</strong> ⏳ Đang chờ xử lý</li>
-              <li><strong>Chuyển khoản:</strong> ⏳ Chờ xử lý hoàn tất</li>
-              <li><strong>Hoàn thành:</strong> ⏳ Dự kiến trong 3-5 ngày làm việc</li>
+              <li><strong>Ghi nhận yêu cầu:</strong> Hoàn thành</li>
+              <li><strong>Xử lý bởi manager:</strong> Đang chờ xử lý</li>
+              <li><strong>Chuyển khoản:</strong> Chờ xử lý hoàn tất</li>
+              <li><strong>Hoàn thành:</strong> Dự kiến trong 3-5 ngày làm việc</li>
             </ol>
           </div>
 
@@ -1340,7 +1340,7 @@ export const sendRefundCompletedEmail = async (
         <div style="padding: 40px;">
           <div style="text-align: center; margin-bottom: 32px;">
             <div style="width: 80px; height: 80px; background: #10b981; border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
-              <span style="font-size: 32px;">✅</span>
+              <span style="font-size: 32px; color: white; font-weight: bold;">✓</span>
             </div>
             <h2 style="color: #1e293b; margin: 0; font-size: 24px; font-weight: 600;">Hoàn tiền thành công!</h2>
           </div>
@@ -1351,30 +1351,30 @@ export const sendRefundCompletedEmail = async (
 
           <!-- Refund Details -->
           <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
-            <h3 style="color: #065f46; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">💰 Chi tiết hoàn tiền</h3>
+            <h3 style="color: #065f46; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">Chi tiết hoàn tiền</h3>
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #065f46; width: 35%;">🏥 Dịch vụ đã hủy:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46; width: 35%;">Dịch vụ đã hủy:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${serviceName}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">💵 Số tiền hoàn:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">Số tiền hoàn:</td>
                 <td style="padding: 8px 0; color: #059669; font-weight: 600; font-size: 18px;">${formattedAmount}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">🏦 Ngân hàng:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">Ngân hàng:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${refundInfo.bankName}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">🔢 Số tài khoản:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">Số tài khoản:</td>
                 <td style="padding: 8px 0; color: #333; font-family: monospace; font-weight: 500;">${refundInfo.accountNumber}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">👤 Tên chủ TK:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">Tên chủ TK:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${refundInfo.accountHolderName}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">👨‍💼 Xử lý bởi:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #065f46;">Xử lý bởi:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${processedBy}</td>
               </tr>
             </table>
@@ -1382,14 +1382,14 @@ export const sendRefundCompletedEmail = async (
 
           ${managerNotes ? `
           <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-            <h4 style="color: #1d4ed8; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">📝 Ghi chú từ bộ phận xử lý</h4>
+            <h4 style="color: #1d4ed8; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">Ghi chú từ bộ phận xử lý</h4>
             <p style="margin: 0; color: #1e40af; font-style: italic; line-height: 1.6;">"${managerNotes}"</p>
           </div>
           ` : ''}
 
           <!-- Success Info -->
           <div style="background: #ecfdf5; border-left: 4px solid #10b981; padding: 20px; margin-bottom: 24px;">
-            <h4 style="margin: 0 0 12px 0; color: #065f46; font-size: 16px; font-weight: 600;">🎉 Thông tin hoàn tiền</h4>
+            <h4 style="margin: 0 0 12px 0; color: #065f46; font-size: 16px; font-weight: 600;">Thông tin hoàn tiền</h4>
             <ul style="margin: 0; padding-left: 20px; color: #059669; line-height: 1.6;">
               <li>Tiền đã được chuyển vào tài khoản ngân hàng của bạn</li>
               <li>Thời gian hiển thị trong tài khoản: 1-2 giờ (nội địa) hoặc 1-3 ngày (liên ngân hàng)</li>
@@ -1476,18 +1476,18 @@ export const sendRefundRejectedEmail = async (
 
           <!-- Request Details -->
           <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
-            <h3 style="color: #dc2626; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">📋 Chi tiết yêu cầu</h3>
+            <h3 style="color: #dc2626; margin: 0 0 16px 0; font-size: 18px; font-weight: 600;">Chi tiết yêu cầu</h3>
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 35%;">🏥 Dịch vụ:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666; width: 35%;">Dịch vụ:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${serviceName}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">💵 Số tiền yêu cầu:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Số tiền yêu cầu:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 600; font-size: 16px;">${formattedAmount}</td>
               </tr>
               <tr>
-                <td style="padding: 8px 0; font-weight: bold; color: #666;">👨‍💼 Xử lý bởi:</td>
+                <td style="padding: 8px 0; font-weight: bold; color: #666;">Xử lý bởi:</td>
                 <td style="padding: 8px 0; color: #333; font-weight: 500;">${processedBy}</td>
               </tr>
             </table>
@@ -1495,14 +1495,14 @@ export const sendRefundRejectedEmail = async (
 
           ${rejectionReason ? `
           <div style="background: #fffbeb; border: 1px solid #fed7aa; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-            <h4 style="color: #f59e0b; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">📝 Lý do từ chối</h4>
+            <h4 style="color: #f59e0b; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">Lý do từ chối</h4>
             <p style="margin: 0; color: #92400e; line-height: 1.6;">${rejectionReason}</p>
           </div>
           ` : ''}
 
           <!-- Support Info -->
           <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-            <h4 style="color: #1d4ed8; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">🤝 Hỗ trợ khách hàng</h4>
+            <h4 style="color: #1d4ed8; margin: 0 0 12px 0; font-size: 16px; font-weight: 600;">Hỗ trợ khách hàng</h4>
             <p style="margin: 0 0 12px 0; color: #1e40af; line-height: 1.6;">
               Nếu bạn có thắc mắc về quyết định này hoặc cần hỗ trợ thêm, vui lòng liên hệ với chúng tôi.
             </p>

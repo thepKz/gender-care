@@ -569,11 +569,13 @@ export const cancelConsultationByDoctor = async (
 
     const updatedQA = await DoctorQA.findByIdAndUpdate(
       qaId,
-      {
-        $set: {
-          status: "cancelled",
-          notes: updatedNotes,
-        },
+
+      { 
+        $set: { 
+          status: 'doctor_cancel',
+          notes: updatedNotes
+        } 
+
       },
       { new: true }
     )
@@ -586,6 +588,16 @@ export const cancelConsultationByDoctor = async (
         },
       })
       .populate("userId", "fullName email");
+
+    // Sau khi cập nhật, set slot thành Absent
+    if (qa.doctorId && qa.slotId && qa.appointmentDate) {
+      const { updateDoctorSchedule } = require("./doctorScheduleService");
+      await updateDoctorSchedule(qa.doctorId.toString(), {
+        date: qa.appointmentDate,
+        slotId: qa.slotId.toString(),
+        status: "Absent"
+      });
+    }
 
     if (!updatedQA) {
       throw new Error("Không thể cập nhật yêu cầu tư vấn");

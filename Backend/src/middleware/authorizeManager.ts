@@ -26,4 +26,15 @@ export const authorizeStaffOrDoctorOrManager = (req: AuthRequest, res: Response,
 
   console.log('Access granted for role:', user.role);
   next();
+};
+
+export const authorizeManagerOrStaff = (req: AuthRequest, res: Response, next: NextFunction) => {
+  const user = req.user;
+
+  // Allow manager, admin and staff to access refund management
+  if (!user || !["manager", "admin", "staff"].includes(user.role)) {
+    return res.status(403).json({ message: "Access denied. Manager, Admin or Staff role required." });
+  }
+
+  next();
 }; 

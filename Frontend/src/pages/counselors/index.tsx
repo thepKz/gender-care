@@ -11,7 +11,6 @@ import { ModernCounselorCard } from "../../components/ui/counselors/ModernCounse
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { doctorApi, type Doctor } from "../../api/endpoints/doctorApi";
-import { AnimatedSection } from "../../shared";
 import PrimaryButton from "../../components/ui/primitives/PrimaryButton";
 
 // MagicUI Components
@@ -391,6 +390,7 @@ const Counselors = () => {
                     <ModernCounselorCard
                       doctor={doctor}
                       index={index}
+
                       onBook={() => navigate(`/booking/consultation/${doctor._id}`)}
                       onView={() => {
                         window.scrollTo({ top: 0, behavior: 'smooth' });

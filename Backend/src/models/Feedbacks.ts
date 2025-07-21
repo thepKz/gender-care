@@ -13,34 +13,34 @@ export interface IFeedbacks {
 }
 
 const FeedbacksSchema = new mongoose.Schema<IFeedbacks>({
-  rating: { 
-    type: Number, 
+  rating: {
+    type: Number,
     required: true,
     min: 1,
     max: 5
   },
-  feedback: { 
-    type: String, 
-    required: true 
+  feedback: {
+    type: String,
+    required: true
   },
-  comment: { 
-    type: String 
+  comment: {
+    type: String
   },
-  appointmentId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Appointments' 
+  appointmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Appointments'
   },
-  doctorId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Doctor' 
+  doctorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Doctor'
   },
-  serviceId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Services' 
+  serviceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Services'
   },
-  packageId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'ServicePackages' 
+  packageId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ServicePackages'
   }
 }, { timestamps: true });
 

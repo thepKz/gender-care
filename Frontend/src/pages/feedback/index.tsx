@@ -1,9 +1,7 @@
-import { Form, Input, message, Progress, Rate, Select, Upload } from 'antd';
+import { Form, Input, message, Rate } from 'antd';
 import { motion } from 'framer-motion';
 import {
-    Camera,
     Heart,
-    Home,
     Location,
     MonitorMobbile,
     Star,
@@ -12,10 +10,9 @@ import {
 } from 'iconsax-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import ModernButton from '../../components/ui/ModernButton';
+import { feedbackApi, CreateFeedbackRequest } from '../../api/endpoints/feedback';
+import { appointmentApi } from '../../api/endpoints/appointment';
 import ModernCard from '../../components/ui/ModernCard';
-
-const { Option } = Select;
 
 const { TextArea } = Input;
 
@@ -24,6 +21,7 @@ interface Appointment {
   serviceId: string;
   serviceName: string;
   packageName?: string;
+  doctorId?: string;
   doctorName?: string;
   doctorAvatar?: string;
   appointmentDate: string;
@@ -33,19 +31,10 @@ interface Appointment {
   status: string;
 }
 
-interface FeedbackData {
-  appointmentId: string;
-  overallRating: number;
-  serviceQuality: number;
+interface FormValues {
+  serviceRating: number;
   doctorRating: number;
-  facilityRating: number;
-  valueForMoney: number;
-  recommendation: number;
-  positiveAspects: string[];
-  improvements: string[];
-  detailedFeedback: string;
-  wouldRecommend: boolean;
-  images?: File[];
+  comment: string;
 }
 
 const Feedback: React.FC = () => {
@@ -54,60 +43,13 @@ const Feedback: React.FC = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [feedbackData, setFeedbackData] = useState<Partial<FeedbackData>>({});
 
-  // Mock appointment data
-  const mockAppointment: Appointment = {
-    id: 'apt1',
-    serviceId: 'consultation',
-    serviceName: 'Tư vấn sức khỏe',
-    doctorName: 'BS. Nguyễn Thị Hương',
-    doctorAvatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
-    appointmentDate: '2024-01-15',
-    appointmentTime: '09:00',
-    typeLocation: 'clinic',
-    price: 500000,
-    status: 'completed'
-  };
+
 
   const locationConfig = {
     online: { icon: <MonitorMobbile size={16} />, text: 'Online' },
     clinic: { icon: <Location size={16} />, text: 'Phòng khám' }
   };
-
-  const positiveOptions = [
-    'Bác sĩ tận tâm và chuyên nghiệp',
-    'Thời gian chờ đợi ngắn',
-    'Cơ sở vật chất hiện đại',
-    'Nhân viên thân thiện',
-    'Giải thích rõ ràng, dễ hiểu',
-    'Quy trình khám nhanh gọn',
-    'Giá cả hợp lý',
-    'Bảo mật thông tin tốt',
-    'Dịch vụ chăm sóc sau khám',
-    'Thuận tiện về địa điểm'
-  ];
-
-  const improvementOptions = [
-    'Cần cải thiện thời gian chờ đợi',
-    'Nâng cấp cơ sở vật chất',
-    'Tăng cường đào tạo nhân viên',
-    'Cải thiện quy trình đặt lịch',
-    'Tăng thời gian tư vấn',
-    'Giảm chi phí dịch vụ',
-    'Cải thiện hệ thống thanh toán',
-    'Tăng cường bảo mật thông tin',
-    'Mở rộng giờ làm việc',
-    'Cải thiện dịch vụ hỗ trợ'
-  ];
-
-  const steps = [
-    { title: 'Đánh giá tổng quan', description: 'Đánh giá chung về dịch vụ' },
-    { title: 'Đánh giá chi tiết', description: 'Đánh giá từng khía cạnh' },
-    { title: 'Phản hồi chi tiết', description: 'Chia sẻ trải nghiệm cụ thể' },
-    { title: 'Hoàn thành', description: 'Xác nhận và gửi đánh giá' }
-  ];
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -120,50 +62,151 @@ const Feedback: React.FC = () => {
     return new Date(date).toLocaleDateString('vi-VN');
   };
 
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const handlePrev = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleSubmit = async (values: any) => {
+  const handleSubmit = async (values: FormValues) => {
+    console.log('🚀 Form submitted with values:', values);
+    console.log('📋 Current appointment:', appointment);
+    
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const finalFeedback = {
-        ...feedbackData,
-        ...values,
-        appointmentId: appointment?.id
+      if (!appointment) {
+        console.error('❌ No appointment data');
+        message.error('Không tìm thấy thông tin lịch hẹn');
+        return;
+      }
+
+      // Validate required fields
+      if (!values.serviceRating) {
+        console.error('❌ Missing serviceRating');
+        message.error('Vui lòng đánh giá dịch vụ!');
+        return;
+      }
+
+      if (!values.doctorRating) {
+        console.error('❌ Missing doctorRating');
+        message.error('Vui lòng đánh giá bác sĩ!');
+        return;
+      }
+
+      if (!values.comment) {
+        console.error('❌ Missing comment');
+        message.error('Vui lòng để lại bình luận!');
+        return;
+      }
+
+      // Tạo feedback data để gửi lên server
+      const feedbackRequest: CreateFeedbackRequest = {
+        appointmentId: appointment.id,
+        rating: values.serviceRating,
+        feedback: values.comment,
+        comment: values.comment,
+        doctorRating: values.doctorRating,
+        serviceQuality: values.serviceRating
       };
       
-      console.log('Feedback submitted:', finalFeedback);
-      message.success('Cảm ơn bạn đã đánh giá! Phản hồi của bạn rất quan trọng với chúng tôi.');
+      console.log('📤 Submitting feedback:', feedbackRequest);
       
-      // Navigate back to booking history
-      navigate('/booking-history');
-    } catch {
-      message.error('Có lỗi xảy ra. Vui lòng thử lại!');
+      // Gọi API tạo feedback
+      const response = await feedbackApi.createFeedback(feedbackRequest);
+      
+      console.log('📥 API Response:', response);
+      
+      if (response.success) {
+        message.success(response.message || 'Cảm ơn bạn đã đánh giá! Phản hồi của bạn rất quan trọng với chúng tôi.');
+        // Navigate back to booking history
+        navigate('/booking-history', { 
+          state: { 
+            refreshData: true,
+            feedbackSubmitted: true 
+          } 
+        });
+      } else {
+        throw new Error('API returned success: false');
+      }
+    } catch (error) {
+      console.error('❌ Error submitting feedback:', error);
+      message.error('Có lỗi xảy ra khi gửi đánh giá. Vui lòng thử lại!');
     } finally {
       setLoading(false);
     }
   };
 
+  // Load appointment data từ API
   useEffect(() => {
-    const appointmentId = searchParams.get('appointment');
-    if (appointmentId) {
-      // In real app, fetch appointment data from API
-      setAppointment(mockAppointment);
-    } else {
-      navigate('/booking-history');
-    }
+    const loadAppointmentData = async () => {
+      const appointmentId = searchParams.get('appointment');
+      if (!appointmentId) {
+        navigate('/booking-history');
+        return;
+      }
+
+      try {
+        setLoading(true);
+        
+        // Kiểm tra xem đã có feedback cho appointment này chưa
+        try {
+          const feedbackResponse = await feedbackApi.getFeedbackByAppointment(appointmentId);
+          if (feedbackResponse.success) {
+            message.info('Bạn đã đánh giá lịch hẹn này rồi.');
+            navigate('/booking-history');
+            return;
+          }
+        } catch {
+          // Chưa có feedback, tiếp tục
+        }
+
+        // Load appointment details từ API
+        const appointmentResponse = await appointmentApi.getAppointmentById(appointmentId);
+        console.log('📋 Raw API Response:', appointmentResponse);
+        
+        // API có thể trả về trực tiếp data hoặc wrapped trong success/data
+        let aptData;
+        if (appointmentResponse.success && appointmentResponse.data) {
+          aptData = appointmentResponse.data;
+        } else if (appointmentResponse._id) {
+          // Trường hợp API trả về trực tiếp object appointment
+          aptData = appointmentResponse;
+        } else {
+          throw new Error('Không thể tải thông tin lịch hẹn');
+        }
+        
+        console.log('📋 Appointment Data to Transform:', aptData);
+        
+        // Transform dữ liệu từ API thành format cần thiết
+        const transformedAppointment: Appointment = {
+          id: aptData._id,
+          serviceId: aptData.serviceId?._id || aptData.serviceId || '',
+          serviceName: aptData.serviceId?.serviceName || aptData.serviceName || 'Dịch vụ không xác định',
+          packageName: aptData.packageId?.name || aptData.packageName,
+          doctorId: aptData.doctorId?._id || aptData.doctorId,
+          doctorName: aptData.doctorId?.userId?.fullName || aptData.doctorName || 'Bác sĩ không xác định', 
+          doctorAvatar: aptData.doctorId?.userId?.avatar || aptData.doctorAvatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+          appointmentDate: aptData.appointmentDate ? new Date(aptData.appointmentDate).toISOString().split('T')[0] : '',
+          appointmentTime: aptData.appointmentTime || '',
+          typeLocation: (aptData.typeLocation as 'online' | 'clinic' | 'home') || 'clinic',
+          price: aptData.price || aptData.serviceId?.price || aptData.packageId?.price || 0,
+          status: aptData.status || 'pending'
+        };
+        
+        console.log('🔄 Transformed appointment:', transformedAppointment);
+        console.log('💰 Price debugging:', {
+          rawPrice: aptData.price,
+          servicePrice: aptData.serviceId?.price,
+          packagePrice: aptData.packageId?.price,
+          finalPrice: transformedAppointment.price
+        });
+        
+        setAppointment(transformedAppointment);
+        
+      } catch (error) {
+        console.error('Error loading appointment:', error);
+        message.error('Không thể tải thông tin lịch hẹn');
+        navigate('/booking-history');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAppointmentData();
   }, [searchParams, navigate]);
 
   if (!appointment) {
@@ -194,25 +237,6 @@ const Feedback: React.FC = () => {
               Chia sẻ trải nghiệm của bạn để chúng tôi cải thiện dịch vụ
             </p>
           </motion.div>
-        </div>
-      </div>
-
-      {/* Progress */}
-      <div className="bg-white border-b">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-gray-600">
-              Bước {currentStep + 1} / {steps.length}
-            </span>
-            <span className="text-sm text-gray-500">
-              {steps[currentStep].title}
-            </span>
-          </div>
-          <Progress 
-            percent={((currentStep + 1) / steps.length) * 100} 
-            showInfo={false}
-            strokeColor="#3b82f6"
-          />
         </div>
       </div>
 
@@ -270,382 +294,106 @@ const Feedback: React.FC = () => {
         </motion.div>
 
         {/* Feedback Form */}
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          className="space-y-8"
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
         >
-          {/* Step 1: Overall Rating */}
-          {currentStep === 0 && (
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ duration: 0.3 }}
+          <ModernCard variant="default" size="large">
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSubmit}
+              className="space-y-6"
             >
-              <ModernCard variant="default" size="large">
-                <div className="text-center space-y-8">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                      Bạn cảm thấy thế nào về dịch vụ?
-                    </h2>
-                    <p className="text-gray-600">
-                      Đánh giá tổng quan về trải nghiệm của bạn
-                    </p>
-                  </div>
-
-                  <div className="space-y-6">
-                    <Form.Item
-                      name="overallRating"
-                      rules={[{ required: true, message: 'Vui lòng đánh giá!' }]}
-                    >
-                      <div className="text-center">
-                                                 <Rate
-                           character={<Star size={32} variant="Bold" />}
-                           className="text-4xl"
-                           onChange={(value) => setFeedbackData(prev => ({ ...prev, overallRating: value }))}
-                         />
-                        <div className="mt-4 text-lg text-gray-600">
-                          {feedbackData.overallRating === 5 && "Xuất sắc! 🌟"}
-                          {feedbackData.overallRating === 4 && "Rất tốt! 👍"}
-                          {feedbackData.overallRating === 3 && "Tốt 👌"}
-                          {feedbackData.overallRating === 2 && "Cần cải thiện 😐"}
-                          {feedbackData.overallRating === 1 && "Không hài lòng 😞"}
-                        </div>
-                      </div>
-                    </Form.Item>
-
-                    <Form.Item
-                      name="wouldRecommend"
-                      label="Bạn có giới thiệu dịch vụ này cho người khác không?"
-                      rules={[{ required: true, message: 'Vui lòng chọn!' }]}
-                    >
-                      <Select size="large" placeholder="Chọn câu trả lời">
-                        <Option value={true}>Có, tôi sẽ giới thiệu</Option>
-                        <Option value={false}>Không, tôi sẽ không giới thiệu</Option>
-                      </Select>
-                    </Form.Item>
-                  </div>
-                </div>
-              </ModernCard>
-            </motion.div>
-          )}
-
-          {/* Step 2: Detailed Ratings */}
-          {currentStep === 1 && (
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ModernCard variant="default" size="large">
-                <div className="space-y-8">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                      Đánh giá chi tiết
-                    </h2>
-                    <p className="text-gray-600">
-                      Đánh giá từng khía cạnh của dịch vụ
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                                             <Form.Item
-                         name="serviceQuality"
-                         label="Chất lượng dịch vụ"
-                         rules={[{ required: true, message: 'Vui lòng đánh giá!' }]}
-                       >
-                         <Rate character={<Star size={20} variant="Bold" />} />
-                       </Form.Item>
-
-                       <Form.Item
-                         name="doctorRating"
-                         label="Bác sĩ/Nhân viên y tế"
-                         rules={[{ required: true, message: 'Vui lòng đánh giá!' }]}
-                       >
-                         <Rate character={<Star size={20} variant="Bold" />} />
-                       </Form.Item>
-
-                       <Form.Item
-                         name="facilityRating"
-                         label="Cơ sở vật chất"
-                         rules={[{ required: true, message: 'Vui lòng đánh giá!' }]}
-                       >
-                         <Rate character={<Star size={20} variant="Bold" />} />
-                       </Form.Item>
-                    </div>
-
-                    <div className="space-y-6">
-                                             <Form.Item
-                         name="valueForMoney"
-                         label="Giá trị so với chi phí"
-                         rules={[{ required: true, message: 'Vui lòng đánh giá!' }]}
-                       >
-                         <Rate character={<Star size={20} variant="Bold" />} />
-                       </Form.Item>
-
-                       <Form.Item
-                         name="recommendation"
-                         label="Mức độ giới thiệu"
-                         rules={[{ required: true, message: 'Vui lòng đánh giá!' }]}
-                       >
-                         <Rate character={<Star size={20} variant="Bold" />} />
-                       </Form.Item>
-
-                      <div className="p-4 bg-blue-50 rounded-lg">
-                        <div className="text-sm text-blue-700">
-                          <strong>Gợi ý đánh giá:</strong>
-                          <ul className="mt-2 space-y-1 text-xs">
-                            <li>⭐ = Rất không hài lòng</li>
-                            <li>⭐⭐ = Không hài lòng</li>
-                            <li>⭐⭐⭐ = Bình thường</li>
-                            <li>⭐⭐⭐⭐ = Hài lòng</li>
-                            <li>⭐⭐⭐⭐⭐ = Rất hài lòng</li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </ModernCard>
-            </motion.div>
-          )}
-
-          {/* Step 3: Detailed Feedback */}
-          {currentStep === 2 && (
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="space-y-8">
-                <ModernCard variant="default" size="large">
-                  <div className="space-y-6">
-                    <div className="text-center">
-                      <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                        Chia sẻ trải nghiệm
-                      </h2>
-                      <p className="text-gray-600">
-                        Phản hồi chi tiết giúp chúng tôi cải thiện dịch vụ
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {/* Positive Aspects */}
-                      <div>
-                        <Form.Item
-                          name="positiveAspects"
-                          label="Điểm tích cực (chọn tất cả phù hợp)"
-                        >
-                          <Select
-                            mode="multiple"
-                            size="large"
-                            placeholder="Chọn những điểm bạn hài lòng"
-                            options={positiveOptions.map(option => ({
-                              label: option,
-                              value: option
-                            }))}
-                          />
-                        </Form.Item>
-                      </div>
-
-                      {/* Improvements */}
-                      <div>
-                        <Form.Item
-                          name="improvements"
-                          label="Cần cải thiện (chọn tất cả phù hợp)"
-                        >
-                          <Select
-                            mode="multiple"
-                            size="large"
-                            placeholder="Chọn những điểm cần cải thiện"
-                            options={improvementOptions.map(option => ({
-                              label: option,
-                              value: option
-                            }))}
-                          />
-                        </Form.Item>
-                      </div>
-                    </div>
-
-                    <Form.Item
-                      name="detailedFeedback"
-                      label="Phản hồi chi tiết"
-                    >
-                      <TextArea
-                        rows={6}
-                        placeholder="Chia sẻ chi tiết về trải nghiệm của bạn: điều gì bạn thích nhất? Có điều gì cần cải thiện không? Bạn có gợi ý nào khác?"
-                        showCount
-                        maxLength={1000}
-                      />
-                    </Form.Item>
-
-                    {/* Image Upload */}
-                    <Form.Item
-                      name="images"
-                      label="Hình ảnh (tùy chọn)"
-                    >
-                      <Upload.Dragger
-                        name="files"
-                        multiple
-                        accept="image/*"
-                        beforeUpload={() => false}
-                        className="border-dashed border-2 border-gray-300 rounded-lg p-6"
-                      >
-                        <div className="text-center">
-                          <Camera size={48} className="mx-auto text-gray-400 mb-4" />
-                          <p className="text-lg font-medium text-gray-700 mb-2">
-                            Thêm hình ảnh
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Kéo thả hoặc click để chọn hình ảnh
-                          </p>
-                        </div>
-                      </Upload.Dragger>
-                    </Form.Item>
-                  </div>
-                </ModernCard>
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  Bạn cảm thấy thế nào về dịch vụ?
+                </h2>
+                <p className="text-gray-600">
+                  Đánh giá tổng quan về trải nghiệm của bạn
+                </p>
               </div>
-            </motion.div>
-          )}
 
-          {/* Step 4: Review & Submit */}
-          {currentStep === 3 && (
-            <motion.div
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ModernCard variant="default" size="large">
-                <div className="space-y-8">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                      Xem lại đánh giá
-                    </h2>
-                    <p className="text-gray-600">
-                      Kiểm tra lại thông tin trước khi gửi
-                    </p>
-                  </div>
+              {/* Đánh giá dịch vụ */}
+              <div className="text-center space-y-4">
+                <Form.Item
+                  name="serviceRating"
+                  label={<span className="text-lg font-semibold text-gray-900">Đánh giá dịch vụ</span>}
+                  rules={[{ required: true, message: 'Vui lòng đánh giá dịch vụ!' }]}
+                >
+                  <Rate
+                    character={<Star size={40} variant="Bold" />}
+                    className="text-5xl text-yellow-400"
+                  />
+                </Form.Item>
+              </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Rating Summary */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        Tóm tắt đánh giá
-                      </h3>
-                      <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Đánh giá tổng quan:</span>
-                          <Rate disabled value={form.getFieldValue('overallRating')} className="text-sm" />
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Chất lượng dịch vụ:</span>
-                                                      <Rate disabled value={form.getFieldValue('serviceQuality')} className="text-sm" />
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Bác sĩ/Nhân viên:</span>
-                          <Rate disabled value={form.getFieldValue('doctorRating')} className="text-sm" />
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Cơ sở vật chất:</span>
-                          <Rate disabled value={form.getFieldValue('facilityRating')} className="text-sm" />
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600">Giá trị/Chi phí:</span>
-                          <Rate disabled value={form.getFieldValue('valueForMoney')} className="text-sm" />
-                        </div>
-                      </div>
-                    </div>
+              {/* Đánh giá bác sĩ */}
+              <div className="text-center space-y-4">
+                <Form.Item
+                  name="doctorRating"
+                  label={<span className="text-lg font-semibold text-gray-900">Đánh giá bác sĩ: {appointment.doctorName}</span>}
+                  rules={[{ required: true, message: 'Vui lòng đánh giá bác sĩ!' }]}
+                >
+                  <Rate
+                    character={<Star size={40} variant="Bold" />}
+                    className="text-5xl text-yellow-400"
+                  />
+                </Form.Item>
+              </div>
 
-                    {/* Feedback Summary */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        Phản hồi của bạn
-                      </h3>
-                      <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                        <div>
-                          <span className="text-sm font-medium text-gray-600">Giới thiệu:</span>
-                          <p className="text-gray-800">
-                            {form.getFieldValue('wouldRecommend') ? 'Có' : 'Không'}
-                          </p>
-                        </div>
-                        {form.getFieldValue('detailedFeedback') && (
-                          <div>
-                            <span className="text-sm font-medium text-gray-600">Chi tiết:</span>
-                            <p className="text-gray-800 text-sm">
-                              {form.getFieldValue('detailedFeedback')}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+              {/* Bình luận */}
+              <div className="space-y-4">
+                <Form.Item
+                  name="comment"
+                  label={<span className="text-lg font-semibold text-gray-900">Bình luận về trải nghiệm</span>}
+                  rules={[{ required: true, message: 'Vui lòng để lại bình luận!' }]}
+                >
+                  <TextArea
+                    rows={6}
+                    placeholder="Chia sẻ trải nghiệm của bạn về dịch vụ và bác sĩ..."
+                    showCount
+                    maxLength={500}
+                    className="text-base"
+                  />
+                </Form.Item>
+              </div>
 
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                    <div className="flex items-start gap-3">
-                      <TickCircle size={24} className="text-green-500 flex-shrink-0 mt-1" />
-                      <div>
-                        <h4 className="font-semibold text-green-800 mb-2">
-                          Cảm ơn bạn đã dành thời gian đánh giá!
-                        </h4>
-                        <p className="text-green-700 text-sm">
-                          Phản hồi của bạn giúp chúng tôi cải thiện chất lượng dịch vụ và mang đến trải nghiệm tốt hơn cho tất cả khách hàng.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+              {/* Submit Button */}
+              <div className="text-center pt-6">
+                <div className="flex gap-4 justify-center items-center">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/booking-history')}
+                    className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors font-medium text-base"
+                  >
+                    Hủy bỏ
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    onClick={() => console.log('🔘 Submit button clicked')}
+                    className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-base min-w-[200px] flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Đang gửi...
+                      </>
+                    ) : (
+                      <>
+                        <TickCircle size={20} />
+                        Gửi đánh giá
+                      </>
+                    )}
+                  </button>
                 </div>
-              </ModernCard>
-            </motion.div>
-          )}
-
-          {/* Navigation */}
-          <div className="flex justify-between pt-8">
-            {currentStep > 0 ? (
-              <ModernButton
-                variant="outline"
-                onClick={handlePrev}
-                icon={<span className="rotate-180">→</span>}
-              >
-                Quay lại
-              </ModernButton>
-            ) : (
-              <ModernButton
-                variant="outline"
-                onClick={() => navigate('/booking-history')}
-              >
-                Hủy bỏ
-              </ModernButton>
-            )}
-
-            {currentStep < steps.length - 1 ? (
-              <ModernButton
-                variant="primary"
-                onClick={handleNext}
-                icon={<span>→</span>}
-                iconPosition="right"
-              >
-                Tiếp tục
-              </ModernButton>
-            ) : (
-              <ModernButton
-                variant="primary"
-                htmlType="submit"
-                loading={loading}
-                icon={<TickCircle size={20} />}
-                iconPosition="right"
-                size="large"
-              >
-                Gửi đánh giá
-              </ModernButton>
-            )}
-          </div>
-        </Form>
+              </div>
+            </Form>
+          </ModernCard>
+        </motion.div>
       </div>
     </div>
   );

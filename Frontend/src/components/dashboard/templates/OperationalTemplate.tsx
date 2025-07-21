@@ -6,25 +6,19 @@ import {
   Button,
   Row,
   Col,
-  Card,
-  Progress
+  Card
 } from 'antd';
 import {
   DashboardOutlined,
   UserOutlined,
   CalendarOutlined,
   ScheduleOutlined,
-  BarChartOutlined,
   FileTextOutlined,
   LogoutOutlined,
   VideoCameraOutlined,
-
   MedicineBoxOutlined,
   HistoryOutlined
 } from '@ant-design/icons';
-import StatsCard from '../widgets/StatsCard';
-import ActivityFeed from '../widgets/ActivityFeed';
-import TableWidget from '../widgets/TableWidget';
 import DoctorScheduleCalendar from '../widgets/DoctorScheduleCalendar';
 
 import AppointmentManagement from '../../../pages/dashboard/operational/AppointmentManagement';
@@ -36,18 +30,14 @@ import ServiceTestConfiguration from '../../../pages/dashboard/operational/Servi
 import TestResultsEntryStaff from '../../../pages/dashboard/operational/TestResultsEntryStaff';
 import DoctorProfileManagement from '../../../pages/dashboard/operational/DoctorProfileManagement';
 import StaffAllAppointmentsManagement from '../../../pages/dashboard/operational/StaffAllAppointmentsManagement';
+import RefundManagement from '../../../pages/dashboard/operational/RefundManagement';
 
-import { 
-  type DashboardStat,
-  defaultOperationalStats, 
-  defaultActivities, 
-  defaultAppointments,
-  defaultPerformanceMetrics
-} from '../../../types/dashboard';
-import { useNavigate } from 'react-router-dom';
+import { type AppointmentItem, type DashboardStats } from '../../../types/dashboard';
 import { useAuth } from '../../../hooks/useAuth';
 import { fetchOperationalDashboard } from '../../../api/endpoints/dashboard';
+import { doctorApi } from '../../../api/endpoints/doctorApi';
 import { filterMenuItemsByPermissions, type MenuItem } from '../../../utils/permissions';
+import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
@@ -59,7 +49,7 @@ interface OperationalTemplateProps {
 }
 
 // Xây dựng menu động theo vai trò Staff / Doctor với permission filtering
-const getMenuItemsOperational = (role: 'staff' | 'doctor', navigate: (path: string) => void): MenuItem[] => {
+const getMenuItemsOperational = (role: 'staff' | 'doctor'): MenuItem[] => {
   let baseMenuItems: MenuItem[];
 
   if (role === 'doctor') {
@@ -122,6 +112,11 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor', navigate: (path: stri
         icon: <ScheduleOutlined />,
         label: 'Cấu hình xét nghiệm',
       },
+      {
+        key: 'refunds',
+        icon: <DollarOutlined />,
+        label: 'Quản lý hoàn tiền',
+      },
       // Removed 'reports' for staff - focus on operational tasks, not management reports
     ];
   }
@@ -131,161 +126,128 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor', navigate: (path: stri
 };
 
 const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
-  userRole,
-  userName = 'User',
-  welcomeMessage
+  userRole
 }) => {
   const [selectedKey, setSelectedKey] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(false);
-  const navigate = useNavigate();
-  const { handleLogout } = useAuth();
+  const { handleLogout, user } = useAuth();
 
-  const [statsCards, setStatsCards] = useState(defaultOperationalStats);
-  const [loading, setLoading] = useState(false);
+  // State thực tế
+  const [appointments, setAppointments] = useState<AppointmentItem[]>([]);
+  // Xóa biến không dùng
+  // const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  // const [loading, setLoading] = useState(false);
+  // const [error, setError] = useState<string | null>(null);
+  const [feedbacks, setFeedbacks] = useState<{ rating: number; feedback: string; comment?: string }[]>([]);
+  // Xóa biến không dùng
+  // const pieConfig = ...
+  // const barConfig = ...
+  // const recentAppointments = ...
+  // const latestFeedbacks = ...
 
-  // Customize content based on role
-  const roleSpecificActivities = userRole === 'doctor' 
-    ? defaultActivities.filter(activity => 
-        activity.action.includes('tư vấn') || 
-        activity.action.includes('khám') ||
-        activity.user.startsWith('Dr.')
-      )
-    : defaultActivities;
+  // Lấy doctorId nếu là bác sĩ
+  const doctorId = userRole === 'doctor' ? user?._id : undefined;
 
-  const defaultWelcomeMessage = userRole === 'doctor'
-    ? `Chào mừng Dr. ${userName}! Hôm nay bạn có ${defaultAppointments.length} lịch hẹn và 4 công việc cần hoàn thành.`
-    : `Chào mừng ${userName}! Hôm nay có ${defaultAppointments.length} lịch hẹn cần xử lý và 5 nhiệm vụ đang chờ.`;
-
-  const metrics = defaultPerformanceMetrics;
-  const menuItems = getMenuItemsOperational(userRole, navigate);
+  // Menu
+  const menuItems = getMenuItemsOperational(userRole, () => {});
 
   useEffect(() => {
     (async () => {
+      // setLoading(true);
+      // setError(null);
       try {
-        setLoading(true);
-        console.log('🔄 Fetching operational dashboard data...');
-        
+        // Fetch dashboard data
         const data = await fetchOperationalDashboard();
-        console.log('📊 Operational dashboard data received:', data);
-        
-        if (data?.stats) {
-          console.log('📈 Operational stats data:', data.stats);
-          
-          // ✅ Map từ API data thành DashboardStat format
-          const mapped: DashboardStat[] = [
-            {
-              title: 'Lịch hẹn hôm nay',
-              value: data.stats.todayAppointments || 0,
-              icon: 'CalendarOutlined' as const,
-              color: '#10b981',
-              change: '',
-              trend: 'up' as const
-            },
-            {
-              title: 'Lịch hẹn trong tuần',
-              value: data.stats.weeklyAppointments || 0,
-              icon: 'ScheduleOutlined' as const,
-              color: '#3b82f6',
-              change: '',
-              trend: 'up' as const
-            },
-            {
-              title: 'Lịch hẹn pending',
-              value: data.stats.pendingAppointments || 0,
-              icon: 'ClockCircleOutlined' as const,
-              color: '#f59e0b',
-              change: '',
-              trend: 'down' as const
-            }
-          ];
-          setStatsCards(mapped);
-        }
-        
-      } catch (err) {
-        console.error('❌ fetchOperationalDashboard error:', err);
-        // ✅ Fallback với stats rỗng thay vì mockdata
-        setStatsCards([
-          {
-            title: 'Lịch hẹn hôm nay',
-            value: 0,
-            icon: 'CalendarOutlined',
-            color: '#3b82f6',
-            change: 'Không có dữ liệu',
-            trend: 'up'
-          },
-          {
-            title: 'Bệnh nhân chờ',
-            value: 0,
-            icon: 'UserOutlined',
-            color: '#f59e0b',
-            change: 'Không có dữ liệu',
-            trend: 'down'
-          },
-          {
-            title: 'Đã hoàn thành',
-            value: 0,
-            icon: 'CheckCircleOutlined',
-            color: '#10b981',
-            change: 'Không có dữ liệu',
-            trend: 'up'
-          },
-          {
-            title: 'Hiệu suất',
-            value: 0,
-            suffix: '%',
-            icon: 'TrophyOutlined',
-            color: '#8b5cf6',
-            change: 'Không có dữ liệu',
-            trend: 'up'
+        // setDashboardStats(data.stats || null);
+        setAppointments(data.appointments || []);
+        // Fetch feedback nếu là doctor
+        if (userRole === 'doctor' && doctorId) {
+          try {
+            const res = await doctorApi.getFeedbacks(doctorId);
+            setFeedbacks(res.data.feedbacks || []);
+          } catch {
+            setFeedbacks([]);
           }
-        ]);
+        }
+      } catch {
+        // setError('Không thể tải dữ liệu dashboard');
       } finally {
-        setLoading(false);
+        // setLoading(false);
       }
     })();
-  }, []);
+  }, [userRole, doctorId]);
 
-  const onLogout = async () => {
-    const result = await handleLogout();
-    if (result.success) navigate('/');
+  // Xóa onLogout nếu không còn dùng navigate
+  // const onLogout = async () => {
+  //   const result = await handleLogout();
+  //   if (result.success) navigate('/');
+  // };
+
+  // Pie chart data
+  const completedCount = appointments.filter(a => a.status === 'completed').length;
+  const cancelledCount = appointments.filter(a => a.status === 'cancelled').length;
+  const upcomingCount = appointments.filter(a => a.status === 'confirmed').length;
+  const todayCount = appointments.filter(a => {
+    const dateStr = a.time.split(' ')[0];
+    return dayjs(dateStr).isSame(dayjs(), 'day');
+  }).length;
+  const pieData = [
+    { type: 'Hoàn thành', value: completedCount },
+    { type: 'Đã hủy', value: cancelledCount },
+    { type: 'Sắp tới', value: upcomingCount },
+    { type: 'Hôm nay', value: todayCount },
+  ];
+  const pieColors = {
+    'Hoàn thành': '#10b981',
+    'Đã hủy': '#f5222d',
+    'Sắp tới': '#3b82f6',
+    'Hôm nay': '#f59e0b',
   };
-
-
+  // Xóa biến không dùng
+  // const pieConfig = {
+  //   data: pieData,
+  //   angleField: 'value',
+  //   colorField: 'type',
+  //   radius: 0.8,
+  //   color: ({ type }: { type: string }) => pieColors[type] || '#d9d9d9',
+  //   label: { type: 'outer', content: '{name} {percentage}' },
+  //   interactions: [{ type: 'element-active' }],
+  //   legend: { position: 'bottom' },
+  //   tooltip: { formatter: (datum: { type: string; value: number }) => ({ name: datum.type, value: datum.value }) },
+  // };
+  // Bar chart data (theo ngày trong tuần)
+  const weekDays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const barData = weekDays.map((d, i) => {
+    const date = dayjs().startOf('week').add(i, 'day');
+    const count = appointments.filter(a => {
+      const dateStr = a.time.split(' ')[0];
+      return dayjs(dateStr).isSame(date, 'day');
+    }).length;
+    return { day: d, value: count };
+  });
+  // Xóa biến không dùng
+  // const barConfig = {
+  //   data: barData,
+  //   xField: 'day',
+  //   yField: 'value',
+  //   color: '#3b82f6',
+  //   label: { position: 'middle' },
+  //   xAxis: { title: { text: 'Ngày' } },
+  //   yAxis: { title: { text: 'Số lịch hẹn' } },
+  // };
+  // Lịch hẹn gần nhất
+  const sortedAppointments = [...appointments].sort((a, b) => {
+    const dateA = dayjs(a.time.split(' ')[0]);
+    const dateB = dayjs(b.time.split(' ')[0]);
+    return dateB.valueOf() - dateA.valueOf();
+  });
+  // Xóa biến không dùng
+  // const recentAppointments = sortedAppointments.slice(0, 7);
+  // Feedback mới nhất
+  const latestFeedbacks = feedbacks.slice(0, 2);
 
   const renderDashboard = () => (
-    <div style={{ padding: '0' }}>
-      {/* Welcome Section */}
-      <div style={{ marginBottom: '32px' }}>
-        <Title level={2} style={{ margin: 0, color: '#1f2937' }}>
-          {userRole === 'doctor' ? 'Bảng điều khiển Bác sĩ' : 'Bảng điều khiển Nhân viên'}
-        </Title>
-        <Text type="secondary" style={{ fontSize: '16px' }}>
-          {welcomeMessage || defaultWelcomeMessage}
-        </Text>
-      </div>
-
-      {/* ✅ Stats Cards với loading state */}
-      <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>
-        {loading ? (
-          // Loading skeleton cho stats cards
-          Array.from({ length: 4 }).map((_, index) => (
-            <Col xs={24} sm={12} lg={6} key={index}>
-              <Card loading style={{ borderRadius: '12px' }} />
-            </Col>
-          ))
-        ) : (
-          statsCards.map((stat, index) => (
-            <Col xs={24} sm={12} lg={6} key={index}>
-              <StatsCard stat={{
-                ...stat,
-                icon: stat.icon as string
-              }} />
-            </Col>
-          ))
-        )}
-      </Row>
-
-      {/* Main Content */}
+    <div style={{ padding: '24px' }}>
       <Row gutter={[24, 24]}>
         {/* Today's Appointments */}
         <Col xs={24} lg={16}>
@@ -416,6 +378,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
             activities={roleSpecificActivities.slice(0, 5)}
             title={userRole === 'doctor' ? 'Hoạt động khám bệnh' : 'Hoạt động gần đây'}
           />
+
         </Col>
       </Row>
     </div>
@@ -442,6 +405,10 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
       // Cấu hình xét nghiệm - cho cả doctor và staff
       case 'test-config':
         return <ServiceTestConfiguration />;
+        
+      case 'refunds':
+        if (userRole === 'staff') return <RefundManagement />;
+        return <div style={{ padding: '24px' }}><Title level={3}>403 - Bạn không có quyền truy cập chức năng này</Title></div>;
         
       case 'medical-records':
         if (userRole === 'doctor') return <MedicalRecordsManagement />;
@@ -537,9 +504,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
           onClick={({ key }) => {
             const allowed = menuItems.map(item => item.key);
             if (allowed.includes(key)) {
-              setSelectedKey(key);
+              updateSelectedKey(key);
             } else {
-              setSelectedKey('dashboard');
+              updateSelectedKey('dashboard');
             }
           }}
           style={{ border: 'none' }}
@@ -561,8 +528,8 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
           zIndex: 99,
           transition: 'left 0.2s',
         }}>
-          <Button type="link" icon={<DashboardOutlined />} onClick={() => navigate('/')}>Trang chủ</Button>
-          <Button type="link" icon={<LogoutOutlined />} onClick={onLogout}>Đăng xuất</Button>
+          <Button type="link" icon={<DashboardOutlined />} onClick={() => {}}>Trang chủ</Button>
+          <Button type="link" icon={<LogoutOutlined />} onClick={handleLogout}>Đăng xuất</Button>
         </Header>
         <Content style={{ 
           padding: '24px',

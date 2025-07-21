@@ -178,6 +178,8 @@ const BookingHistory: React.FC = () => {
           doctorNotes: apt.doctorNotes,
         }));
 
+
+
         setAppointments(formattedAppointments);
         setFilteredAppointments(formattedAppointments);
       }
@@ -1604,14 +1606,16 @@ const BookingHistory: React.FC = () => {
                           </>
                         )}
 
-                        {appointment.status === "completed" && !appointment.rating && (
-                          <button
-                            onClick={() => handleFeedback(appointment)}
-                            className="flex items-center gap-1 rounded-lg bg-yellow-100 px-3 py-1.5 text-xs text-yellow-700 transition-colors hover:bg-yellow-200"
-                          >
-                            <Star size={12} />
-                            <span>Đánh giá</span>
-                          </button>
+
+
+                        
+                        {appointment.status === 'completed' && appointment.rating && (
+                          <div className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-100 text-green-700 rounded-lg">
+                            <Star size={12} className="fill-current" />
+                            <span>{appointment.rating}/5</span>
+                            <span className="text-green-600">Đã đánh giá</span>
+                          </div>
+
                         )}
                       </div>
                     </div>
@@ -1811,15 +1815,16 @@ const BookingHistory: React.FC = () => {
                             </>
                           )}
 
-                          {appointment.status === "completed" && !appointment.rating && (
-                            <ModernButton
-                              variant="primary"
-                              className="text-sm"
-                              icon={<Star size={14} />}
-                              onClick={() => handleFeedback(appointment)}
-                            >
-                              Đánh giá
-                            </ModernButton>
+
+
+                          
+                          {appointment.status === 'completed' && appointment.rating && (
+                            <div className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg border border-green-200">
+                              <Star size={14} className="fill-current text-yellow-400" />
+                              <span className="text-sm font-medium">{appointment.rating}/5</span>
+                              <span className="text-sm text-green-600">Đã đánh giá</span>
+                            </div>
+
                           )}
                         </div>
                       </div>
@@ -1987,6 +1992,41 @@ const BookingHistory: React.FC = () => {
                     <div>
                       <span className="text-sm font-medium text-gray-600">Ghi chú:</span>
                       <p className="text-gray-700">{selectedAppointment.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Feedback Section - Only show if appointment is completed and has rating/feedback */}
+            {selectedAppointment.status === 'completed' && (selectedAppointment.rating || selectedAppointment.feedback) && (
+              <div className="space-y-3">
+                <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Star size={20} className="text-yellow-500" />
+                  Đánh giá dịch vụ
+                </h4>
+                <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+                  {selectedAppointment.rating && (
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm font-medium text-gray-700">Đánh giá:</span>
+                      <div className="flex items-center gap-1">
+                        {[...Array(5)].map((_, index) => (
+                          <Star 
+                            key={index}
+                            size={16} 
+                            className={index < selectedAppointment.rating! ? "text-yellow-400 fill-current" : "text-gray-300"}
+                          />
+                        ))}
+                        <span className="text-sm font-medium text-gray-700 ml-1">
+                          ({selectedAppointment.rating}/5)
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {selectedAppointment.feedback && (
+                    <div className="mt-2">
+                      <span className="text-sm font-medium text-gray-700">Nhận xét:</span>
+                      <p className="text-sm text-gray-600 mt-1 italic">"{selectedAppointment.feedback}"</p>
                     </div>
                   )}
                 </div>
