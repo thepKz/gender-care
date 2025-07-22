@@ -403,13 +403,7 @@ const MedicalRecordsManagement: React.FC = () => {
         </div>
       )
     },
-    {
-      title: 'Bác sĩ',
-      dataIndex: 'doctorName',
-      key: 'doctorName',
-      width: 100,
-      render: (text: string) => <Text>{text}</Text>
-    },
+
     {
       title: 'Ngày',
       dataIndex: 'appointmentDate',
@@ -722,39 +716,7 @@ const MedicalRecordsManagement: React.FC = () => {
         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Title level={3} style={{ marginBottom: 24 }}>Quản lý hồ sơ bệnh án</Title>
         </div>
-        <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <Search
-            placeholder="Tìm kiếm theo tên bệnh nhân, bác sĩ hoặc dịch vụ..."
-            allowClear
-            style={{ width: 350 }}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            prefix={<SearchOutlined />}
-          />
-          <Select
-            placeholder="Trạng thái"
-            style={{ width: 150 }}
-            value={selectedStatus}
-            onChange={setSelectedStatus}
-          >
-            <Option value="all">Tất cả trạng thái</Option>
-            <Option value="pending">Chờ xác nhận</Option>
-            <Option value="scheduled">Đã lên lịch</Option>
-            <Option value="confirmed">Đã xác nhận</Option>
-            <Option value="consulting">Đang tư vấn</Option>
-            <Option value="completed">Hoàn thành</Option>
-            <Option value="cancelled">Đã hủy</Option>
-          </Select>
-          <Select
-            placeholder="Bác sĩ"
-            style={{ width: 200 }}
-            value={selectedDoctor}
-            onChange={setSelectedDoctor}
-          >
-            <Option value="all">Tất cả bác sĩ</Option>
-            {/* Có thể map động danh sách bác sĩ nếu cần */}
-          </Select>
-        </div>
+   
         <Table
           columns={columns}
           dataSource={filteredRecords}
