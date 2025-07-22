@@ -192,6 +192,8 @@ const AppRoutes: React.FC = () => {
       {/* Dashboard Routes - template based (không dùng DashboardWrapper) */}
       <Route path="/dashboard/management" element={isAuthenticated ? <ManagementDashboardPage /> : <Navigate to="/login" replace />} />
       <Route path="/dashboard/operational" element={isAuthenticated ? <OperationalDashboardPage /> : <Navigate to="/login" replace />} />
+
+
     </Routes>
   );
 };

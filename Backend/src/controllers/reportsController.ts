@@ -317,6 +317,267 @@ export const getAnalyticsReports = async (req: AuthRequest, res: Response) => {
   }
 };
 
+/**
+ * GET /reports/admin-dashboard
+ * Lấy báo cáo tổng hợp cho admin dashboard
+ */
+export const getAdminDashboardReports = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role || !['admin', 'manager'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const data = await reportService.getAdminDashboardReports();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching admin dashboard reports:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * GET /reports/revenue
+ * Lấy báo cáo doanh thu theo period (week/month/quarter)
+ */
+export const getRevenueReports = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role || !['admin', 'manager'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const { period = 'month', limit = 12 } = req.query;
+    const validPeriods = ['week', 'month', 'quarter'];
+
+    if (!validPeriods.includes(period as string)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid period. Must be week, month, or quarter'
+      });
+    }
+
+    const data = await reportService.getRevenueReports(
+      period as 'week' | 'month' | 'quarter',
+      parseInt(limit as string) || 12
+    );
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching revenue reports:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * GET /reports/appointments-overview
+ * Lấy báo cáo tổng quan về appointments
+ */
+export const getAppointmentOverviewReports = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role || !['admin', 'manager'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const data = await reportService.getAppointmentOverview();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching appointment overview:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * GET /reports/payment-statistics
+ * Lấy thống kê về payments qua PayOS
+ */
+export const getPaymentStatisticsReports = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role || !['admin', 'manager'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const data = await reportService.getPaymentStatistics();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching payment statistics:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * GET /reports/doctor-rankings
+ * Lấy thống kê bác sĩ được đặt nhiều nhất
+ */
+export const getDoctorRankingsReports = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role || !['admin', 'manager'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const data = await reportService.getDoctorRankings();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching doctor rankings:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * GET /reports/peak-times
+ * Lấy thống kê thời gian được book nhiều nhất (cao điểm)
+ */
+export const getPeakTimeAnalysisReports = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role || !['admin', 'manager'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const data = await reportService.getPeakTimeAnalysis();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching peak time analysis:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * GET /reports/service-popularity
+ * Lấy thống kê dịch vụ được đặt nhiều nhất/ít nhất
+ */
+export const getServicePopularityReports = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role || !['admin', 'manager'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const data = await reportService.getServicePopularityAnalysis();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching service popularity:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * GET /reports/package-analysis
+ * Lấy thống kê gói dịch vụ được đặt nhiều nhất/ít nhất và gói đang giảm giá
+ */
+export const getPackageAnalysisReports = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role || !['admin', 'manager'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const data = await reportService.getPackageAnalysis();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error fetching package analysis:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * POST /reports/export-admin-dashboard
+ * Export báo cáo admin dashboard ra Excel
+ */
+export const exportAdminDashboardReports = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role || !['admin', 'manager'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const { format = 'excel', sections = [] } = req.body;
+
+    // Validate format
+    if (!['excel', 'pdf'].includes(format)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid format. Must be excel or pdf'
+      });
+    }
+
+    // Get comprehensive data
+    const data = await reportService.getAdminDashboardReports();
+
+    // Generate export file
+    const exportBuffer = await reportService.exportAdminDashboard(data, format, sections);
+
+    // Set response headers
+    const filename = `admin-dashboard-report-${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+    const contentType = format === 'excel'
+      ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      : 'application/pdf';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', exportBuffer.length);
+
+    res.send(exportBuffer);
+  } catch (error) {
+    console.error('Error exporting admin dashboard:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+/**
+ * POST /reports/export-revenue
+ * Export báo cáo doanh thu ra Excel/PDF
+ */
+export const exportRevenueReports = async (req: AuthRequest, res: Response) => {
+  try {
+    const role = req.user?.role;
+    if (!role || !['admin', 'manager'].includes(role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const { period = 'month', limit = 12, format = 'excel' } = req.body;
+
+    // Validate inputs
+    const validPeriods = ['week', 'month', 'quarter'];
+    if (!validPeriods.includes(period)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid period. Must be week, month, or quarter'
+      });
+    }
+
+    if (!['excel', 'pdf'].includes(format)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid format. Must be excel or pdf'
+      });
+    }
+
+    // Get revenue data
+    const revenueData = await reportService.getRevenueReports(period as 'week' | 'month' | 'quarter', limit);
+
+    // Generate export file
+    const exportBuffer = await reportService.exportRevenueReport(revenueData, period, format);
+
+    // Set response headers
+    const filename = `revenue-report-${period}-${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'pdf'}`;
+    const contentType = format === 'excel'
+      ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      : 'application/pdf';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', exportBuffer.length);
+
+    res.send(exportBuffer);
+  } catch (error) {
+    console.error('Error exporting revenue report:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 // Helper to format month label YYYY-MM
 const formatMonthLabel = (date: Date) => {
   const m = date.getMonth() + 1;
