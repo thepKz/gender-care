@@ -1,5 +1,6 @@
 import { CameraOutlined, LockOutlined, SaveOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Button, Col, DatePicker, Form, Input, notification, Row, Select, Skeleton, Spin, Upload } from 'antd';
+import { Avatar, Button, Col, Form, Input, notification, Row, Select, Skeleton, Spin, Upload } from 'antd';
+import SimpleDatePicker from '../../components/ui/SimpleDatePicker';
 import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
 import moment from 'moment';
@@ -321,17 +322,9 @@ const ProfilePage: React.FC = () => {
                       label={<span className="text-gray-700 font-medium">Ngày sinh</span>}
                       name="year"
                     >
-                      <DatePicker
-                        size="large"
+                      <SimpleDatePicker
+                        style={{ width: '100%', height: '40px', borderRadius: '12px' }}
                         placeholder="Chọn ngày sinh"
-                        className="w-full rounded-xl border-gray-200 hover:border-[#0C3C54] focus:border-[#0C3C54]"
-                        format="DD/MM/YYYY"
-                        disabledDate={(current) => {
-                          // Disable future dates (birth date can't be in the future)
-                          return current && current.isAfter(dayjs().endOf('day'));
-                        }}
-                        showToday={false}
-                        allowClear
                       />
                     </Form.Item>
                   </Col>

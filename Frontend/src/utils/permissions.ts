@@ -130,6 +130,7 @@ export const canAccessManagementReports = (userRole: string): boolean => {
 
 export const canAccessOperationalReports = (userRole: string): boolean => {
   // Bác sĩ không cần báo cáo, chỉ cần dashboard cá nhân
+  void userRole; // Mark parameter as intentionally unused
   return false; // Removed doctor access to reports
 };
 
@@ -182,6 +183,10 @@ export const canAccessServicePackageManagement = (userRole: string): boolean => 
 };
 
 export const canAccessRefundManagement = (userRole: string): boolean => {
+  return ['admin', 'manager', 'staff'].includes(userRole);
+};
+
+export const canAccessFeedbackManagement = (userRole: string): boolean => {
   return ['admin', 'manager'].includes(userRole);
 };
 
@@ -217,6 +222,7 @@ export const MenuPermissions = {
   'medicines': canAccessMedicineManagement,
   'test-categories': canAccessTestCategoriesManagement,
   'refunds': canAccessRefundManagement,
+  'feedbacks': canAccessFeedbackManagement,
   'login-history': canViewLoginHistory,
   'system-logs': canAccessSystemLogs,
   'reports': canAccessReports,

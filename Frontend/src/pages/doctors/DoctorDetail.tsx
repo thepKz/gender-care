@@ -1,21 +1,19 @@
-import { Button, Card, Rate, Spin, Tag, message, Calendar } from "antd";
+import { Button, Card, Rate, Spin, message, Calendar } from "antd";
 import dayjs from 'dayjs';
-import { motion } from "framer-motion";
 import {
     ArrowLeft,
     Award,
-    Call,
     Clock,
-    Heart,
     MessageText1,
-    Profile2User,
-    TickCircle
+    Profile2User
 } from "iconsax-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { doctorApi, type Doctor, type DoctorSchedule } from "../../api/endpoints/doctorApi";
+import { feedbackApi } from "../../api/endpoints/feedback";
 import { ModernCounselorCard } from "../../components/ui/counselors/ModernCounselorCard";
 import { AnimatedSection } from "../../shared";
+import DoctorFeedbacks from "../../components/ui/DoctorFeedbacks";
 
 const DoctorDetail = () => {
   const navigate = useNavigate();
@@ -26,6 +24,24 @@ const DoctorDetail = () => {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [loading, setLoading] = useState(true);
   const [relatedDoctors, setRelatedDoctors] = useState<Doctor[]>([]);
+  const [feedbackStats, setFeedbackStats] = useState<{ totalFeedbacks: number; averageRating: number } | null>(null);
+
+  const fetchFeedbackStats = async (doctorId: string) => {
+    try {
+      console.log('📊 Fetching feedback stats for doctor:', doctorId);
+      const response = await feedbackApi.getDoctorFeedbacks(doctorId, 1, 1); // Just get first result for stats
+      if (response.success && response.data.stats) {
+        setFeedbackStats({
+          totalFeedbacks: response.data.stats.totalFeedbacks || 0,
+          averageRating: response.data.stats.averageRating || 0,
+        });
+        console.log('✅ Feedback stats loaded:', response.data.stats);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching feedback stats:', error);
+      setFeedbackStats({ totalFeedbacks: 0, averageRating: 0 });
+    }
+  };
 
   const fetchAllDoctorData = async () => {
     try {
@@ -45,6 +61,8 @@ const DoctorDetail = () => {
       // Doctor data is returned directly, not wrapped in data.data
       if (doctorResponse) {
         setDoctor(doctorResponse);
+        // Load feedback stats after doctor data is loaded
+        await fetchFeedbackStats(doctorResponse._id);
       } else {
         console.error('❌ No doctor data found');
         message.error('Không tìm thấy thông tin bác sĩ');
@@ -145,7 +163,7 @@ const DoctorDetail = () => {
   const doctorEducation = doctor.education || 'Chưa cập nhật';
   const doctorBio = doctor.bio || 'Chưa cập nhật';
   const doctorCertificate = doctor.certificate || '';
-  const doctorFeedback = doctor.feedback || { totalFeedbacks: 0, averageRating: 0, reviews: [] };
+
 
   // Debug console logs
   console.log('🔍 Doctor Data:', doctor);
@@ -153,9 +171,64 @@ const DoctorDetail = () => {
   console.log('📅 Available Slots:', availableSlots);
   console.log('📅 Schedules:', schedules);
 
-  const doctorCertificateUrl = doctorCertificate
-    ? (doctorCertificate.startsWith('http') ? doctorCertificate : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${doctorCertificate}`)
-    : '';
+  // Parse certificates - support multiple formats (enhanced version)
+  const parseCertificates = (certificateData: string): string[] => {
+    console.log('🏥 [CERTIFICATE PARSE] Raw certificate data:', certificateData);
+    console.log('🏥 [CERTIFICATE PARSE] Type:', typeof certificateData);
+
+    if (typeof certificateData === 'string' && certificateData.trim()) {
+      // Format 1: JSON array - ["url1", "url2"]
+      if (certificateData.trim().startsWith('[') && certificateData.trim().endsWith(']')) {
+        try {
+          const parsed = JSON.parse(certificateData);
+          if (Array.isArray(parsed)) {
+            console.log('🏥 [CERTIFICATE PARSE] Successfully parsed JSON array:', parsed);
+            console.log('🏥 [CERTIFICATE PARSE] Array length:', parsed.length);
+            return parsed.filter(url => url && url.trim()); // Filter out empty URLs
+          }
+        } catch (error) {
+          console.error('🏥 [CERTIFICATE PARSE] JSON parse error:', error);
+        }
+      }
+
+      // Format 2: Comma-separated URLs - "url1, url2, url3"
+      if (certificateData.includes(',')) {
+        const urls = certificateData.split(',')
+          .map(url => url.trim())
+          .filter(url => url && (url.startsWith('http') || url.includes('.')));
+
+        if (urls.length > 0) {
+          console.log('🏥 [CERTIFICATE PARSE] Parsed comma-separated URLs:', urls);
+          return urls;
+        }
+      }
+
+      // Format 3: Single certificate URL or filename
+      if (certificateData.startsWith('http') || certificateData.includes('.')) {
+        console.log('🏥 [CERTIFICATE PARSE] Single certificate URL:', certificateData);
+        return [certificateData];
+      }
+
+      // Format 4: Filename only (old format)
+      console.log('🏥 [CERTIFICATE PARSE] Treating as filename:', certificateData);
+      return [certificateData];
+    } else if (Array.isArray(certificateData)) {
+      console.log('🏥 [CERTIFICATE PARSE] Already an array:', certificateData);
+      return certificateData.filter(url => url && url.trim());
+    }
+
+    console.log('🏥 [CERTIFICATE PARSE] No certificates found');
+    return [];
+  };
+
+  const doctorCertificates = parseCertificates(doctorCertificate);
+  console.log('🏥 [CERTIFICATE FINAL] Final certificates array:', doctorCertificates);
+  console.log('🏥 [CERTIFICATE FINAL] Array length:', doctorCertificates.length);
+
+  const formatCertificateUrl = (cert: string): string => {
+    if (!cert) return '';
+    return cert.startsWith('http') ? cert : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${cert}`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -184,7 +257,7 @@ const DoctorDetail = () => {
               <Card className="mb-8 border-0 shadow-lg rounded-2xl overflow-hidden">
                 <div className="relative">
                   {/* Background Image */}
-                  <div className="h-48 bg-gradient-to-r from-[#0C3C54] to-[#2A7F9E]"></div>
+                  <div className="h-36 bg-gradient-to-r from-[#0C3C54] to-[#2A7F9E]"></div>
                   
                   {/* Doctor Avatar */}
                   <div className="absolute -bottom-16 left-8">
@@ -212,15 +285,15 @@ const DoctorDetail = () => {
                         </span>
                         <span className="flex items-center gap-1">
                           <MessageText1 size={16} />
-                          {doctorFeedback.totalFeedbacks || 0} đánh giá
+                          {feedbackStats?.totalFeedbacks || 0} đánh giá
                         </span>
                       </div>
                     </div>
                     
                     <div className="text-right">
-                      <Rate disabled defaultValue={doctorFeedback.averageRating || 0} className="text-yellow-400" />
+                      <Rate disabled defaultValue={feedbackStats?.averageRating || 0} className="text-yellow-400" />
                       <p className="text-sm text-gray-600 mt-1">
-                        {doctorFeedback.averageRating ? `${doctorFeedback.averageRating}/5` : 'Chưa có đánh giá'}
+                        {feedbackStats?.averageRating ? `${feedbackStats.averageRating}/5` : 'Chưa có đánh giá'}
                       </p>
                     </div>
                   </div>
@@ -232,8 +305,8 @@ const DoctorDetail = () => {
                       <div className="text-sm text-gray-600">Năm kinh nghiệm</div>
                     </div>
                     <div className="text-center p-4 bg-[#2A7F9E]/5 rounded-xl">
-                      <div className="text-2xl font-bold text-[#2A7F9E]">{doctorFeedback.totalFeedbacks || 0}</div>
-                      <div className="text-sm text-gray-600">Bệnh nhân</div>
+                      <div className="text-2xl font-bold text-[#2A7F9E]">{feedbackStats?.totalFeedbacks || 0}</div>
+                      <div className="text-sm text-gray-600">Khách hàng</div>
                     </div>
                     <div className="text-center p-4 bg-cyan-500/5 rounded-xl">
                       <div className="text-2xl font-bold text-cyan-500">{schedules.length || 0}</div>
@@ -313,15 +386,28 @@ const DoctorDetail = () => {
                   </div>
 
                   {/* Certificates */}
-                  {doctorCertificate && (
+                  {doctorCertificates.length > 0 && (
                     <div className="mb-6">
-                      <h3 className="text-xl font-bold text-gray-800 mb-3 font-['Be_Vietnam_Pro',_sans-serif]">Chứng chỉ</h3>
-                      <div className="border border-gray-200 rounded-lg p-3">
-                        <img 
-                          src={doctorCertificateUrl} 
-                          alt="Chứng chỉ"
-                          className="w-full h-32 object-cover rounded"
-                        />
+                      <h3 className="text-xl font-bold text-gray-800 mb-3 font-['Be_Vietnam_Pro',_sans-serif]">
+                        Chứng chỉ {doctorCertificates.length > 1 && `(${doctorCertificates.length})`}
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {doctorCertificates.map((cert, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                            <img
+                              src={formatCertificateUrl(cert)}
+                              alt={`Chứng chỉ ${index + 1}`}
+                              className="w-full h-48 object-contain rounded bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                              onClick={() => window.open(formatCertificateUrl(cert), '_blank')}
+                              onError={(e) => {
+                                e.currentTarget.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=Không+thể+tải+chứng+chỉ';
+                              }}
+                            />
+                            <p className="text-sm text-gray-600 mt-2 text-center">
+                              Chứng chỉ {index + 1} - Nhấp để xem chi tiết
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
@@ -329,28 +415,11 @@ const DoctorDetail = () => {
               </Card>
             </AnimatedSection>
 
-            {/* Reviews Section */}
+            {/* Feedbacks Section */}
             <AnimatedSection animation="slideUp" delay={0.2}>
-              <Card 
-                title={<span className="text-xl font-bold text-gray-800 font-['Be_Vietnam_Pro',_sans-serif]">Đánh giá từ bệnh nhân</span>}
-                className="mb-8 border-0 shadow-lg rounded-2xl"
-              >
-                {(doctorFeedback as any).reviews && (doctorFeedback as any).reviews.length > 0 ? (
-                  <div className="space-y-4">
-                    {(doctorFeedback as any).reviews.map((review: any, index: number) => (
-                      <div key={index} className="border-b border-gray-100 pb-4 last:border-b-0">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="font-medium text-gray-800">{review.patientName}</span>
-                          <Rate disabled defaultValue={review.rating} />
-                        </div>
-                        <p className="text-gray-600">{review.comment}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">Chưa có đánh giá nào</p>
-                )}
-              </Card>
+              <div className="mb-8">
+                <DoctorFeedbacks doctorId={doctor._id} />
+              </div>
             </AnimatedSection>
 
             {/* Related Doctors */}

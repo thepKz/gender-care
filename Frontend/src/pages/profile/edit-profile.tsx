@@ -8,7 +8,6 @@ import {
     Breadcrumb,
     Button,
     Card,
-    DatePicker,
     Form,
     Input,
     Modal,
@@ -17,6 +16,7 @@ import {
     Spin,
     Typography
 } from 'antd';
+import SimpleDatePicker from '../../components/ui/SimpleDatePicker';
 import { motion } from 'framer-motion';
 import moment from 'moment';
 import React, { useEffect, useState } from 'react';
@@ -320,11 +320,9 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
                 name="year"
                 label="Ngày sinh"
               >
-                <DatePicker 
-                  placeholder="Chọn ngày sinh" 
-                  className="rounded-lg w-full" 
-                  size="large"
-                  format="DD/MM/YYYY"
+                <SimpleDatePicker
+                  placeholder="Chọn ngày sinh"
+                  style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                 />
               </Form.Item>
             </div>

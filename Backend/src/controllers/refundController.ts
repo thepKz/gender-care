@@ -260,19 +260,28 @@ export class RefundController {
                     const refundAmount = updatedPaymentTracking.amount || 0;
                     const processedBy = req.user?.fullName || 'Manager';
 
-                    // Get service name from appointment
+                    // Get service name from appointment - Fixed logic
                     let serviceName = 'Dịch vụ không xác định';
                     if (updatedPaymentTracking.appointmentId) {
                         try {
-                            const appointmentWithService = await import('../models/Appointments');
-                            const appointment = await appointmentWithService.default.findById(updatedPaymentTracking.appointmentId)
-                                .populate('serviceId', 'serviceName', undefined, { strictPopulate: false })
-                                .populate('packageId', 'name', undefined, { strictPopulate: false });
+                            const appointment = await Appointments.findById(updatedPaymentTracking.appointmentId)
+                                .populate('serviceId', 'serviceName')
+                                .populate('packageId', 'name');
                             
                             if (appointment) {
-                                serviceName = (appointment.packageId as any)?.name || 
-                                            (appointment.serviceId as any)?.serviceName || 
-                                            'Dịch vụ không xác định';
+                                // Check package first, then service
+                                if (appointment.packageId && (appointment.packageId as any).name) {
+                                    serviceName = (appointment.packageId as any).name;
+                                } else if (appointment.serviceId && (appointment.serviceId as any).serviceName) {
+                                    serviceName = (appointment.serviceId as any).serviceName;
+                                }
+                                
+                                console.log('[RefundController] Service name resolved:', {
+                                    appointmentId: appointment._id,
+                                    packageName: (appointment.packageId as any)?.name,
+                                    serviceName: (appointment.serviceId as any)?.serviceName,
+                                    finalServiceName: serviceName
+                                });
                             }
                         } catch (serviceError) {
                             console.error('Error fetching service name:', serviceError);

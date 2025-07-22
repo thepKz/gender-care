@@ -10,7 +10,6 @@ import {
   Modal,
   Typography,
   Tooltip,
-  DatePicker,
   message,
   Descriptions,
   Popconfirm,
@@ -19,6 +18,7 @@ import {
   Avatar,
   Statistic
 } from 'antd';
+import SimpleDatePicker from '../../../components/ui/SimpleDatePicker';
 import {
   SearchOutlined,
   EyeOutlined,
@@ -145,7 +145,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(dayjs());
+  const [selectedDate, setSelectedDate] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [selectedItem, setSelectedItem] = useState<UnifiedScheduleItem | null>(null);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [showTestForm, setShowTestForm] = useState(false);
@@ -362,7 +362,9 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const filterScheduleItems = () => {
     let filtered = scheduleItems;
     const today = dayjs().format('YYYY-MM-DD');
-    const selectedDateStr = selectedDate?.format('YYYY-MM-DD');
+
+    const selectedDateStr = selectedDate;
+
     switch (activeTab) {
       case 'today':
         filtered = filtered.filter(item =>
@@ -383,9 +385,11 @@ const DoctorAppointmentSchedule: React.FC = () => {
         filtered = filtered.filter(item => item.status === 'cancelled' || item.status === 'doctor_cancel');
         break;
       case 'selected-date':
-        filtered = filtered.filter(item => 
-          dayjs(item.appointmentDate).format('YYYY-MM-DD') === selectedDateStr
-        );
+        if (selectedDateStr) {
+          filtered = filtered.filter(item =>
+            dayjs(item.appointmentDate).format('YYYY-MM-DD') === selectedDateStr
+          );
+        }
         break;
     }
     if (searchText) {
@@ -907,11 +911,10 @@ const DoctorAppointmentSchedule: React.FC = () => {
           </Col>
           {activeTab === 'selected-date' && (
             <Col xs={24} sm={12} md={8}>
-              <DatePicker
+              <SimpleDatePicker
                 value={selectedDate}
                 onChange={setSelectedDate}
                 style={{ width: '100%', height: '40px' }}
-                format="DD/MM/YYYY"
                 placeholder="Chọn ngày"
               />
             </Col>

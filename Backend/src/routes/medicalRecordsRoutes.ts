@@ -1,5 +1,6 @@
 import express from 'express';
 import * as medicalRecordsController from '../controllers/medicalRecordsController';
+import MedicalRecordSyncController from '../controllers/medicalRecordSyncController';
 import { verifyToken } from '../middleware/auth';
 import { roleMiddleware } from '../middleware/roleMiddleware';
 
@@ -66,4 +67,34 @@ router.get('/check/:appointmentId', medicalRecordsController.checkMedicalRecordB
 // Add new route for getting medical records by appointmentId
 router.get('/appointment/:appointmentId', medicalRecordsController.getMedicalRecordsByAppointment);
 
-export default router; 
+// ===== MEDICAL RECORD SYNC ROUTES =====
+
+// POST /api/medical-records/sync/:appointmentId - Đồng bộ một appointment thành medical record
+router.post('/sync/:appointmentId',
+  verifyToken,
+  roleMiddleware(['doctor', 'staff', 'manager', 'admin']),
+  MedicalRecordSyncController.syncSingleAppointment
+);
+
+// POST /api/medical-records/sync/bulk - Đồng bộ tất cả appointments "Hoàn thành kết quả"
+router.post('/sync/bulk',
+  verifyToken,
+  roleMiddleware(['staff', 'manager', 'admin']),
+  MedicalRecordSyncController.syncAllCompletedAppointments
+);
+
+// GET /api/medical-records/sync/status/:appointmentId - Kiểm tra trạng thái sync
+router.get('/sync/status/:appointmentId',
+  verifyToken,
+  roleMiddleware(['doctor', 'staff', 'manager', 'admin']),
+  MedicalRecordSyncController.checkSyncStatus
+);
+
+// GET /api/medical-records/sync/pending - Lấy danh sách appointments cần sync
+router.get('/sync/pending',
+  verifyToken,
+  roleMiddleware(['staff', 'manager', 'admin']),
+  MedicalRecordSyncController.getPendingSyncAppointments
+);
+
+export default router;

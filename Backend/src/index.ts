@@ -1,6 +1,6 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 import express from "express";
 import mongoose from "mongoose";
 import path from "path";
@@ -12,6 +12,7 @@ import {
     dashboardRoutes,
     doctorQARoutes,
     doctorRoutes,
+    feedbackRoutes,
     googleAuthRoutes,
     loginHistoryRoutes,
     medicalRecordsRoutes,
@@ -33,12 +34,11 @@ import {
     userProfileRoutes,
     userRoutes
 } from "./routes";
-import consultationRoutes from './routes/consultationRoutes';
-import reportsRoutes from './routes/reportsRoutes';
-import refundRoutes from './routes/refundRoutes';
-
-import { runAllSeeds } from "./seeds";
-import { startAutoTransitionService } from './services/appointmentAutoTransitionService';
+import consultationRoutes from "./routes/consultationRoutes";
+import reportsRoutes from "./routes/reportsRoutes";
+import refundRoutes from "./routes/refundRoutes";
+import systemConfigRoutes from "./routes/systemConfigRoutes";
+import { startAutoTransitionService } from "./services/appointmentAutoTransitionService";
 import { menstrualCycleReminderService } from "./services/menstrualCycleReminderService";
 
 // 🆕 Import middleware
@@ -47,9 +47,9 @@ import { updatePackageStatusMiddleware, updateResponseStatusMiddleware } from '.
 // Load biến môi trường từ file .env (phải đặt ở đầu file)
 // Try multiple paths for .env file
 const envPaths = [
-  path.join(__dirname, '../.env'),
-  path.join(process.cwd(), '.env'),
-  path.join(process.cwd(), 'Backend/.env')
+  path.join(__dirname, "../.env"),
+  path.join(process.cwd(), ".env"),
+  path.join(process.cwd(), "Backend/.env"),
 ];
 
 let envLoaded = false;
@@ -67,7 +67,7 @@ for (const envPath of envPaths) {
 }
 
 if (!envLoaded) {
-  console.log('No .env file found, trying default dotenv.config()');
+  console.log("No .env file found, trying default dotenv.config()");
   dotenv.config();
 }
 
@@ -76,26 +76,26 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Trust proxy để lấy real IP từ reverse proxy/load balancer
-app.set('trust proxy', true); // Cho phép lấy IP từ X-Forwarded-For header
+app.set("trust proxy", true); // Cho phép lấy IP từ X-Forwarded-For header
 
 // Middleware để extract real IP address
 app.use((req, res, next) => {
   // Lấy real IP từ các headers phổ biến
-  req.realIP = req.ip ||
-    req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
-    req.headers['x-real-ip']?.toString() ||
+  req.realIP =
+    req.ip ||
+    req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ||
+    req.headers["x-real-ip"]?.toString() ||
     req.connection?.remoteAddress ||
     req.socket?.remoteAddress ||
-    'unknown';
+    "unknown";
 
   // Convert IPv6 localhost về IPv4 cho development
-  if (req.realIP === '::1' || req.realIP === '::ffff:127.0.0.1') {
-    req.realIP = '127.0.0.1';
+  if (req.realIP === "::1" || req.realIP === "::ffff:127.0.0.1") {
+    req.realIP = "127.0.0.1";
   }
 
   // Chỉ log IP cho authentication endpoints để tránh spam
-  if (req.path.includes('/auth/') || req.path.includes('/login')) {
-
+  if (req.path.includes("/auth/") || req.path.includes("/login")) {
     console.log(`Real IP detected: ${req.realIP} (Original: ${req.ip})`);
   }
   next();
@@ -103,20 +103,20 @@ app.use((req, res, next) => {
 
 // Cấu hình CORS cho nhiều origin
 const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:5174',
-  'http://127.0.0.1:3000',
-  'https://gender-healthcare.vercel.app',
-  'https://gender-healthcare-service-management.onrender.com',
-  'http://localhost:5000',
-  'https://team05.ksfu.cloud',
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+  "http://127.0.0.1:3000",
+  "https://gender-healthcare.vercel.app",
+  "https://gender-healthcare-service-management.onrender.com",
+  "http://localhost:5000",
+  "https://team05.ksfu.cloud",
   // ✅ ADD: PayOS domains for payment processing
-  'https://pay.payos.vn',
-  'https://payos.vn',
-  'https://api.payos.vn'
+  "https://pay.payos.vn",
+  "https://payos.vn",
+  "https://api.payos.vn",
 ];
 
 // Middleware
@@ -129,53 +129,58 @@ app.use(updatePackageStatusMiddleware);
 app.use(updateResponseStatusMiddleware);
 
 // Cấu hình CORS với Cross-Origin-Opener-Policy
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true, // Quan trọng: cho phép gửi cookie
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With',
-    // ✅ ADD: PayOS specific headers
-    'X-PayOS-Signature',
-    'X-PayOS-Webhook-Id'
-  ],
-  optionsSuccessStatus: 200 // Để support legacy browsers
-}));
+      if (
+        allowedOrigins.includes(origin) ||
+        process.env.NODE_ENV !== "production"
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true, // Quan trọng: cho phép gửi cookie
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      // ✅ ADD: PayOS specific headers
+      "X-PayOS-Signature",
+      "X-PayOS-Webhook-Id",
+    ],
+    optionsSuccessStatus: 200, // Để support legacy browsers
+  })
+);
 
 // Thêm headers để fix COOP policy cho Google OAuth
 app.use((req, res, next) => {
   // Set Cross-Origin-Opener-Policy để support Google OAuth
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+  res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
 
   // Additional security headers
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
   // ✅ ADD: PayOS specific headers and debugging
-  if (req.headers.origin?.includes('payos.vn')) {
-    console.log('🔍 PayOS Request detected:', {
+  if (req.headers.origin?.includes("payos.vn")) {
+    console.log("🔍 PayOS Request detected:", {
       origin: req.headers.origin,
       method: req.method,
       path: req.path,
-      userAgent: req.headers['user-agent']
+      userAgent: req.headers["user-agent"],
     });
-    
+
     // Allow PayOS to access response
-    res.setHeader('Access-Control-Allow-Origin', req.headers.origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader("Access-Control-Allow-Origin", req.headers.origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
   }
 
   next();
@@ -183,32 +188,28 @@ app.use((req, res, next) => {
 
 // Phục vụ tài liệu Swagger
 try {
-  const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-  console.log('Swagger documentation loaded successfully');
+  const swaggerDocument = YAML.load(path.join(__dirname, "swagger.yaml"));
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  console.log("Swagger documentation loaded successfully");
 } catch (error) {
-  console.error('Error loading swagger.yaml:', error);
+  console.error("Error loading swagger.yaml:", error);
   // Tạm thời skip swagger để server có thể chạy
-  console.log('Skipping Swagger documentation due to YAML error');
+  console.log("Skipping Swagger documentation due to YAML error");
 }
 
 // Kết nối đến cơ sở dữ liệu MongoDB
 const connectDB = async () => {
   try {
     // Set global mongoose options
-    mongoose.set('strictPopulate', false);
-    
+    mongoose.set("strictPopulate", false);
+
     const conn = await mongoose.connect(process.env.MONGO_URI as string);
     console.log(`MongoDB đã kết nối: ${conn.connection.host}`);
 
-    // Chạy seed data sau khi kết nối DB thành công - Disable để tránh memory issues
-    if (process.env.NODE_ENV === 'development' && process.env.RUN_SEEDS === 'true') {
-      await runAllSeeds();
-    }
+    // Seed data đã được xóa - sử dụng admin dashboard để quản lý data
 
     // Khởi tạo reminder service cho menstrual cycles
     menstrualCycleReminderService.initializeDailyReminders();
-
   } catch (error) {
     console.error(`Lỗi: ${error}`);
     process.exit(1);
@@ -218,25 +219,26 @@ const connectDB = async () => {
 connectDB();
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get("/health", (req, res) => {
   res.json({
-    status: 'OK',
+    status: "OK",
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    uptime: process.uptime()
+    environment: process.env.NODE_ENV || "development",
+    uptime: process.uptime(),
   });
 });
 
 // Test endpoint mà không cần auth
-app.get('/api/test', (req, res) => {
+app.get("/api/test", (req, res) => {
   res.json({
-    message: 'API is working',
-    timestamp: new Date().toISOString()
+    message: "API is working",
+    timestamp: new Date().toISOString(),
   });
 });
 
 // Thiết lập routes
 const apiRouter = express.Router();
+
 app.use('/api', apiRouter);
 
 apiRouter.use('/auth', authRoutes);
@@ -249,57 +251,64 @@ apiRouter.use('/services', serviceRoutes);
 apiRouter.use('/service-packages', servicePackageRoutes);
 apiRouter.use('/service-test-categories', serviceTestCategoriesRoutes);
 apiRouter.use('/package-purchases', packagePurchaseRoutes);
+apiRouter.use('/feedbacks', feedbackRoutes);
 
 // ✅ NEW: Google Authentication routes
-apiRouter.use('/google-auth', googleAuthRoutes);
+apiRouter.use("/google-auth", googleAuthRoutes);
 
 // Thêm Test Management routes
-apiRouter.use('/test-categories', testCategoriesRoutes);
-apiRouter.use('/test-results', testResultsRoutes);
-apiRouter.use('/test-result-items', testResultItemsRoutes);
+apiRouter.use("/test-categories", testCategoriesRoutes);
+apiRouter.use("/test-results", testResultsRoutes);
+apiRouter.use("/test-result-items", testResultItemsRoutes);
 
 // Thêm DoctorQA & Meeting routes
-apiRouter.use('/', doctorQARoutes);
-apiRouter.use('/meetings', meetingRoutes);
-apiRouter.use('/medical-records', medicalRecordsRoutes);
-apiRouter.use('/medicines', medicinesRoutes);
-apiRouter.use('/medication-reminders', medicationRemindersRoutes);
-apiRouter.use('/notification-days', notificationDaysRoutes);
-apiRouter.use('/user-profiles', userProfileRoutes);
-
+apiRouter.use("/", doctorQARoutes);
+apiRouter.use("/meetings", meetingRoutes);
+apiRouter.use("/medical-records", medicalRecordsRoutes);
+apiRouter.use("/medicines", medicinesRoutes);
+apiRouter.use("/medication-reminders", medicationRemindersRoutes);
+apiRouter.use("/notification-days", notificationDaysRoutes);
+apiRouter.use("/user-profiles", userProfileRoutes);
 
 // ✅ FIX: Đặt reportsRoutes TRƯỚC menstrualCycleRoutes để tránh xung đột
 // route /reports/management với /reports/:cycleId
-apiRouter.use('/reports', reportsRoutes);
+apiRouter.use("/reports", reportsRoutes);
 
 // Refund Management routes
-apiRouter.use('/refunds', refundRoutes);
-
+apiRouter.use("/refunds", refundRoutes);
 
 // Menstrual Cycle routes
-apiRouter.use('/', menstrualCycleRoutes);
-apiRouter.use('/appointments', appointmentRoutes);
-apiRouter.use('/payments', paymentRoutes);
-apiRouter.use('/system-logs', systemLogRoutes);
+apiRouter.use("/", menstrualCycleRoutes);
+apiRouter.use("/appointments", appointmentRoutes);
+apiRouter.use("/payments", paymentRoutes);
+apiRouter.use("/system-logs", systemLogRoutes);
+apiRouter.use("/system-configs", systemConfigRoutes);
 
 // Middleware xử lý lỗi
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({
-    message: 'Đã xảy ra lỗi server!',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
-});
+app.use(
+  (
+    err: any,
+    req: express.Request,
+    res: express.Response,
+    next: express.NextFunction
+  ) => {
+    console.error(err.stack);
+    res.status(500).json({
+      message: "Đã xảy ra lỗi server!",
+      error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    });
+  }
+);
 
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 
   // Start auto status transition service
   startAutoTransitionService();
 
-  console.log('Server started successfully with all services');
+  console.log("Server started successfully with all services");
 });
 
 export default app;

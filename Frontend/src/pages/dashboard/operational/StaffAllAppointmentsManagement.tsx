@@ -10,7 +10,6 @@ import {
   Modal,
   Typography,
   Tooltip,
-  DatePicker,
   message,
   Descriptions,
   Popconfirm,
@@ -37,6 +36,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { TestResultsForm } from '../../../components/feature/medical/TestResultsForm';
 import MedicalRecordModal from '../../../components/ui/forms/MedicalRecordModal';
 import ViewMedicalRecordModal from '../../../components/ui/forms/ViewMedicalRecordModal';
+import SimpleDatePicker from '../../../components/ui/SimpleDatePicker';
 import medicalApi from '../../../api/endpoints/medical';
 import { doctorApi } from '../../../api/endpoints/doctorApi';
 import { getServicePackageById } from '../../../api/endpoints/servicePackageApi';
@@ -97,7 +97,7 @@ const StaffAllAppointmentsManagement: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(dayjs());
+  const [selectedDate, setSelectedDate] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [selectedAppointment, setSelectedAppointment] = useState<DoctorAppointment | null>(null);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [showTestForm, setShowTestForm] = useState(false);
@@ -110,11 +110,11 @@ const StaffAllAppointmentsManagement: React.FC = () => {
 
   useEffect(() => {
     loadStaffAppointments();
-  }, [selectedDate]);
+  }, []);
 
   useEffect(() => {
     filterAppointments();
-  }, [appointments, searchText, selectedStatus, activeTab, selectedDoctor]);
+  }, [appointments, searchText, selectedStatus, activeTab, selectedDoctor, selectedDate]);
 
   useEffect(() => {
     const checkMedicalRecord = async () => {
@@ -137,120 +137,65 @@ const StaffAllAppointmentsManagement: React.FC = () => {
     checkMedicalRecord();
   }, [isDetailModalVisible, selectedAppointment]);
 
-  // Chỉ lấy lịch hẹn test cho staff
+  // Lấy tất cả lịch hẹn cho staff (đơn giản hóa logic)
   const loadStaffAppointments = async () => {
     try {
       setLoading(true);
-      const response = await appointmentApi.getAllAppointments();
+      const response = await appointmentApi.getAllAppointments({ limit: 200 });
       const appointmentsRaw = response.data.appointments;
-      // Lọc appointment có serviceType = 'test' hoặc 'treatment', hoặc package chứa serviceType = 'test' hoặc 'treatment'
       const filteredAppointments: DoctorAppointment[] = [];
-      for (const appointment of appointmentsRaw) {
-        let match = false;
-        // 1. Nếu có serviceId và serviceType là 'test' hoặc 'treatment'
-        if (appointment.serviceId?.serviceType === 'test' || appointment.serviceId?.serviceType === 'treatment') {
-          match = true;
-        }
-        // 2. Nếu có packageId, kiểm tra các service trong package
-        else if (appointment.packageId) {
-          try {
-            // FIX: Ép packageId về string nếu là object
-            const pkgId = typeof appointment.packageId === 'object'
-              ? appointment.packageId._id || appointment.packageId.id
-              : appointment.packageId;
-            if (!pkgId) continue;
-            console.log('Processing appointment with packageId:', pkgId);
-            const pkgRes = await getServicePackageById(pkgId);
-            const services = pkgRes.data?.services || [];
-            console.log('Package services:', services);
-            for (const item of services) {
-              let serviceTypeToCheck = null;
-              
-              // Nếu item.serviceId là object, lấy serviceType trực tiếp
-              if (typeof item.serviceId === 'object' && item.serviceId?.serviceType) {
-                serviceTypeToCheck = item.serviceId.serviceType;
-              }
-              // Nếu item.serviceId là string, gọi API để lấy thông tin service
-              else if (typeof item.serviceId === 'string') {
-                try {
-                  console.log('Calling getServiceById for serviceId:', item.serviceId);
-                  const serviceRes = await getServiceById(item.serviceId);
-                  serviceTypeToCheck = serviceRes.data?.serviceType;
-                  console.log('Service response:', serviceRes.data);
-                } catch (e) {
-                  console.error('Error calling getServiceById:', e);
-                  // Nếu lỗi lấy service thì tiếp tục với item tiếp theo
-                  continue;
-                }
-              }
-              
-              // Kiểm tra serviceType
-              if (serviceTypeToCheck === 'test' || serviceTypeToCheck === 'treatment') {
-                match = true;
-                break;
-      }
-            }
-          } catch (e) {
-            // Nếu lỗi lấy package thì bỏ qua
-          }
-        }
+
+      for (const appointment of appointmentsRaw || []) {
+        let match = true;
+
         if (match) {
-          // Xử lý tên dịch vụ và loại cho package
           let serviceName = appointment.serviceId?.serviceName || 'N/A';
           let serviceType = appointment.serviceId?.serviceType || 'consultation';
 
           if (appointment.packageId) {
-            const pkgId = typeof appointment.packageId === 'object'
-              ? appointment.packageId._id || appointment.packageId.id
-              : appointment.packageId;
-            let packageName = '';
-            try {
-              const pkgRes = await getServicePackageById(pkgId);
-              packageName = pkgRes.data?.name || 'Gói dịch vụ';
-            } catch {}
-            serviceName = packageName;
-            serviceType = 'other';
+            serviceName = appointment.packageId?.name || 'Gói dịch vụ';
+            serviceType = 'package';
           }
 
           filteredAppointments.push({
-        _id: appointment._id,
-        profileId: {
-          _id: appointment.profileId?._id || appointment.profileId || '',
-          fullName: appointment.profileId?.fullName || 'N/A',
-              phoneNumber: appointment.profileId?.phone || 'N/A',
-          dateOfBirth: appointment.profileId?.dateOfBirth,
-          gender: appointment.profileId?.gender
-        },
-        serviceId: {
-          _id: appointment.serviceId?._id || appointment.serviceId || '',
+            _id: appointment._id,
+            profileId: {
+              _id: appointment.profileId?._id || appointment.profileId || '',
+              fullName: appointment.profileId?.fullName || 'N/A',
+              phoneNumber: appointment.profileId?.phone || appointment.profileId?.phoneNumber || 'N/A',
+              dateOfBirth: appointment.profileId?.dateOfBirth,
+              gender: appointment.profileId?.gender
+            },
+            serviceId: {
+              _id: appointment.serviceId?._id || appointment.serviceId || '',
               serviceName,
               serviceType
-        },
-        doctorId: appointment.doctorId ? {
-          _id: appointment.doctorId._id || appointment.doctorId || '',
-          userId: {
+            },
+            doctorId: appointment.doctorId ? {
+              _id: appointment.doctorId._id || appointment.doctorId || '',
+              userId: {
                 fullName: appointment.doctorId?.userId?.fullName || 'Chưa phân công'
-          }
-        } : {
-          _id: '',
-          userId: { fullName: 'Chưa phân công' }
-        },
-        appointmentDate: appointment.appointmentDate,
-        appointmentTime: appointment.appointmentTime,
-        appointmentType: appointment.appointmentType || 'consultation',
-        typeLocation: appointment.typeLocation || 'clinic',
-        address: appointment.address || '',
-        description: appointment.description || '',
-        notes: appointment.notes || '',
-        status: appointment.status,
-        createdAt: appointment.createdAt,
-        updatedAt: appointment.updatedAt
+              }
+            } : {
+              _id: '',
+              userId: { fullName: 'Chưa phân công' }
+            },
+            appointmentDate: appointment.appointmentDate,
+            appointmentTime: appointment.appointmentTime,
+            appointmentType: appointment.appointmentType || 'consultation',
+            typeLocation: appointment.typeLocation || 'clinic',
+            address: appointment.address || '',
+            description: appointment.description || '',
+            notes: appointment.notes || '',
+            status: appointment.status,
+            createdAt: appointment.createdAt,
+            updatedAt: appointment.updatedAt
           });
         }
       }
       setAppointments(filteredAppointments);
     } catch (err: any) {
-      console.error(err);
+      console.error('Error loading appointments:', err);
       message.error('Không thể tải danh sách lịch hẹn của bạn');
     } finally {
       setLoading(false);
@@ -263,22 +208,28 @@ const StaffAllAppointmentsManagement: React.FC = () => {
   const filterAppointments = () => {
     let filtered = appointments;
     const today = dayjs().format('YYYY-MM-DD');
-    const selectedDateStr = selectedDate?.format('YYYY-MM-DD');
+
     switch (activeTab) {
       case 'today':
         filtered = filtered.filter(apt =>
-          dayjs(apt.appointmentDate).format('YYYY-MM-DD') === today &&
-          ['consulting', 'done_testResultItem', 'done_testResult', 'completed', 'confirmed'].includes(apt.status)
+          dayjs(apt.appointmentDate).format('YYYY-MM-DD') === today
         );
         break;
       case 'upcoming':
-        filtered = filtered.filter(apt => dayjs(apt.appointmentDate).isSameOrAfter(dayjs(), 'day') && apt.status === 'confirmed');
+        filtered = filtered.filter(apt =>
+          dayjs(apt.appointmentDate).isSameOrAfter(dayjs(), 'day') &&
+          !['cancelled', 'expired', 'doctor_cancel'].includes(apt.status)
+        );
         break;
       case 'completed':
-        filtered = filtered.filter(apt => apt.status === 'completed');
+        filtered = filtered.filter(apt =>
+          ['completed', 'done_testResult', 'done_testResultItem'].includes(apt.status)
+        );
         break;
       case 'selected-date':
-        filtered = filtered.filter(apt => dayjs(apt.appointmentDate).format('YYYY-MM-DD') === selectedDateStr);
+        if (selectedDate) {
+          filtered = filtered.filter(apt => dayjs(apt.appointmentDate).format('YYYY-MM-DD') === selectedDate);
+        }
         break;
     }
     if (searchText) {
@@ -291,10 +242,10 @@ const StaffAllAppointmentsManagement: React.FC = () => {
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(apt => apt.status === selectedStatus);
     }
-    // Lọc theo bác sĩ
     if (selectedDoctor !== 'all') {
       filtered = filtered.filter(apt => apt.doctorId?.userId?.fullName === selectedDoctor);
     }
+
     setFilteredAppointments(filtered);
   };
 
@@ -622,11 +573,9 @@ const StaffAllAppointmentsManagement: React.FC = () => {
             </Col>
             {activeTab === 'selected-date' && (
               <Col xs={24} sm={12} md={8}>
-                <DatePicker
+                <SimpleDatePicker
                   value={selectedDate}
                   onChange={setSelectedDate}
-                  style={{ width: '100%' }}
-                  format="DD/MM/YYYY"
                   placeholder="Chọn ngày"
                 />
               </Col>

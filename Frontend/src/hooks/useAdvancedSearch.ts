@@ -107,8 +107,10 @@ export const useAdvancedSearch = ({ schedules, events }: UseAdvancedSearchProps)
         const [startDate, endDate] = currentFilters.dateRange;
         filteredEventList = filteredEventList.filter(event => {
           const eventDate = dayjs(event.start);
-          return eventDate.isAfter(startDate.subtract(1, 'day')) && 
-                 eventDate.isBefore(endDate.add(1, 'day'));
+          const start = dayjs(startDate);
+          const end = dayjs(endDate);
+          return eventDate.isAfter(start.subtract(1, 'day')) &&
+                 eventDate.isBefore(end.add(1, 'day'));
         });
       }
 
@@ -289,8 +291,10 @@ export const useAdvancedSearch = ({ schedules, events }: UseAdvancedSearchProps)
       const [startDate, endDate] = filters.dateRange;
       filteredEventList = filteredEventList.filter(event => {
         const eventDate = dayjs(event.start);
-        return eventDate.isAfter(startDate.subtract(1, 'day')) && 
-               eventDate.isBefore(endDate.add(1, 'day'));
+        const start = dayjs(startDate);
+        const end = dayjs(endDate);
+        return eventDate.isAfter(start.subtract(1, 'day')) &&
+               eventDate.isBefore(end.add(1, 'day'));
       });
     }
 

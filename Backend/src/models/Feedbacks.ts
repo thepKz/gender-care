@@ -8,39 +8,56 @@ export interface IFeedbacks {
   doctorId?: mongoose.Types.ObjectId;
   serviceId?: mongoose.Types.ObjectId;
   packageId?: mongoose.Types.ObjectId;
+  doctorRating?: number;
+  serviceQuality?: number;
   createdAt?: Date;
   updatedAt?: Date;
+  isHidden?: boolean;
 }
 
 const FeedbacksSchema = new mongoose.Schema<IFeedbacks>({
-  rating: { 
-    type: Number, 
+  rating: {
+    type: Number,
     required: true,
     min: 1,
     max: 5
   },
-  feedback: { 
-    type: String, 
-    required: true 
+  feedback: {
+    type: String,
+    required: true
   },
-  comment: { 
-    type: String 
+  comment: {
+    type: String
   },
-  appointmentId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Appointments' 
+  appointmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Appointments'
   },
-  doctorId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Doctor' 
+  doctorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Doctor'
   },
-  serviceId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Services' 
+  serviceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Services'
   },
-  packageId: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'ServicePackages' 
+  packageId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ServicePackages'
+  },
+  doctorRating: {
+    type: Number,
+    min: 1,
+    max: 5
+  },
+  serviceQuality: {
+    type: Number,
+    min: 1,
+    max: 5
+  },
+  isHidden: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 
