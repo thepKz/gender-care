@@ -668,7 +668,7 @@ dayjs.extend(weekday);
                             <input
                                 id="age"
                                 type="number"
-                                min={1}
+                                min={12}
                                 max={100}
                                 value={form.age || ''}
                                 onChange={e => setForm(prev => ({ ...prev, age: e.target.value }))}
@@ -787,7 +787,7 @@ dayjs.extend(weekday);
                                     
                                     setIsSubmitting(true);
                                     try {
-                                        if (!form.age || parseInt(form.age,10)<1) {
+                                        if (!form.age || parseInt(form.age,10)<12 || parseInt(form.age,10)>100) {
                                             alert('Tuổi không hợp lệ'); 
                                             setIsSubmitting(false);
                                             return;

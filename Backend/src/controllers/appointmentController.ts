@@ -131,17 +131,16 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
           );
         }
       } else {
+        // Ensure doctor info is properly populated
         appointmentObj.doctorInfo = {
-          doctorId: populatedDoctor._id,
-          userId: populatedDoctor.userId._id,
-          fullName: populatedDoctor.userId.fullName,
-          email: populatedDoctor.userId.email,
-          avatar: populatedDoctor.userId.avatar,
-          isActive: populatedDoctor.userId.isActive !== false,
-          specialization: populatedDoctor.specialization,
-          experience: populatedDoctor.experience,
-          rating: populatedDoctor.rating,
+          fullName: populatedDoctor.userId.fullName || "Bác sĩ",
+          email: populatedDoctor.userId.email || null,
+          avatar: populatedDoctor.userId.avatar || null,
+          isActive: populatedDoctor.userId.isActive || false,
+          specialization: populatedDoctor.specialization || null,
           missing: false,
+          experience: populatedDoctor.experience,
+          rating: populatedDoctor.rating
         };
       }
 
@@ -421,6 +420,77 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
     console.log("[createAppointment] Tạo appointment với doctorId:", doctorId);
 
+    // 🤖 AUTO-ASSIGN DOCTOR: Nếu không có doctorId, tự động chỉ định bác sĩ
+    let finalDoctorId = doctorId;
+    if (!doctorId || doctorId === 'auto' || doctorId === '') {
+      console.log("🤖 [Auto-Assign] No doctor specified, auto-assigning...");
+      try {
+        const { default: Doctor } = await import('../models/Doctor');
+        const { default: DoctorSchedule } = await import('../models/DoctorSchedules');
+
+        // Tìm bác sĩ khả dụng cho slot cụ thể
+        if (slotId && appointmentDate) {
+          console.log("🤖 [Auto-Assign] Finding doctor available for slot:", slotId, "on date:", appointmentDate);
+
+          // Tìm schedule có slot này
+          const schedule = await DoctorSchedule.findOne({
+            'slots._id': slotId,
+            date: new Date(appointmentDate)
+          }).populate('doctorId', '_id');
+
+          if (schedule && schedule.doctorId) {
+            finalDoctorId = schedule.doctorId._id;
+            console.log("🤖 [Auto-Assign] Found doctor from schedule:", finalDoctorId);
+          }
+        }
+
+        // Nếu vẫn chưa có doctor, tìm bác sĩ khả dụng chung
+        if (!finalDoctorId) {
+          const availableDoctor = await Doctor.findOne({
+            isDeleted: { $ne: true }
+          }).populate('userId', 'fullName isActive');
+
+          if (availableDoctor && (availableDoctor.userId as any)?.isActive) {
+            finalDoctorId = availableDoctor._id;
+            console.log("🤖 [Auto-Assign] Assigned available doctor:", (availableDoctor.userId as any)?.fullName || 'Unknown', "ID:", finalDoctorId);
+          } else {
+            console.warn("⚠️ [Auto-Assign] No available doctors found");
+            // Vẫn tiếp tục tạo appointment, có thể assign sau
+          }
+        }
+      } catch (autoAssignError) {
+        console.error("❌ [Auto-Assign] Error:", autoAssignError);
+        // Vẫn tiếp tục tạo appointment
+      }
+    } else if (doctorId) {
+      // 🔧 FIX: Kiểm tra xem doctorId có phải là userId không, nếu có thì convert sang doctorId
+      console.log("🔍 [Doctor Validation] Checking if doctorId is actually userId:", doctorId);
+
+      try {
+        // Thử tìm doctor record với _id = doctorId
+        const doctorRecord = await Doctor.findById(doctorId);
+
+        if (!doctorRecord) {
+          // Nếu không tìm thấy, có thể doctorId là userId, tìm doctor theo userId
+          console.log("🔍 [Doctor Fix] doctorId not found as Doctor._id, checking if it's userId...");
+          const doctorByUserId = await Doctor.findOne({ userId: doctorId, isDeleted: { $ne: true } });
+
+          if (doctorByUserId) {
+            finalDoctorId = doctorByUserId._id;
+            console.log("✅ [Doctor Fix] Found doctor by userId, corrected doctorId:", finalDoctorId);
+          } else {
+            console.warn("⚠️ [Doctor Fix] No doctor found with userId:", doctorId);
+            // Giữ nguyên doctorId, có thể là ID hợp lệ khác
+          }
+        } else {
+          console.log("✅ [Doctor Validation] doctorId is valid Doctor._id");
+        }
+      } catch (validationError) {
+        console.error("❌ [Doctor Validation] Error:", validationError);
+        // Giữ nguyên doctorId
+      }
+    }
+
     // ✅ FIX: Chỉ tạo appointment, KHÔNG tạo PaymentTracking (Lazy Payment Creation)
     // ✅ FIX: Khi sử dụng purchased package, lưu packageId thay vì serviceId
     const appointmentData: any = {
@@ -433,7 +503,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       typeLocation,
       description,
       notes,
-      doctorId: doctorId,
+      doctorId: finalDoctorId, // Sử dụng finalDoctorId thay vì doctorId
       slotId: slotId,
       totalAmount: totalAmount,
       bookingType: bookingType,

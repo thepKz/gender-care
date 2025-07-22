@@ -1,4 +1,5 @@
-import { Button, Calendar, Form, Input, message, Modal, notification, Select, Alert } from 'antd';
+import { Button, Calendar, Form, Input, message, Modal, notification, Select, Alert, Tooltip } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -506,10 +507,12 @@ const BookingPageNew: React.FC = () => {
     if (!date) return;
 
     const dateStr = date.format('YYYY-MM-DD');
+    console.log('🕐 [FetchTimeSlots] Loading timeslots for:', dateStr);
 
-    // Check cache first
+    // Check cache first (but skip cache if forced refresh)
     if (timeSlotsCache.has(dateStr)) {
       const cachedSlots = timeSlotsCache.get(dateStr);
+      console.log('📦 [FetchTimeSlots] Using cached slots:', cachedSlots?.length);
       setTimeSlots(cachedSlots);
       return;
     }
@@ -560,10 +563,11 @@ const BookingPageNew: React.FC = () => {
       }, 5 * 60 * 1000);
 
     } catch (error) {
-      console.error('Error fetching time slots:', error);
+      console.error('❌ [FetchTimeSlots] Error fetching time slots:', error);
       setTimeSlots([]);
     } finally {
       setLoadingTimeSlots(false);
+      console.log('✅ [FetchTimeSlots] Finished loading timeslots for:', dateStr);
     }
   }, [timeSlotsCache]);
 
@@ -720,27 +724,28 @@ const BookingPageNew: React.FC = () => {
     });
   }, [servicePackages]);
 
-  // Debounce mechanism for date selection
-  const [dateSelectTimeout, setDateSelectTimeout] = useState<NodeJS.Timeout | null>(null);
-
-  // Handle date selection with debouncing
+  // Handle date selection with immediate refresh
   const handleDateSelect = (date: Dayjs) => {
+    console.log('📅 [DateSelect] Date changed to:', date.format('YYYY-MM-DD'));
+
     setSelectedDate(date);
     setSelectedTimeSlot('');
     setSelectedDoctor('');
     setDoctors([]);
 
-    // Clear previous timeout
-    if (dateSelectTimeout) {
-      clearTimeout(dateSelectTimeout);
-    }
+    // Clear timeslots immediately to show loading state
+    setTimeSlots([]);
 
-    // Reduced debounce for faster response
-    const timeout = setTimeout(() => {
-      fetchTimeSlots(date);
-    }, 70); // Reduced to 100ms for faster response
+    // Clear cache for the new date to force fresh data
+    const dateStr = date.format('YYYY-MM-DD');
+    setTimeSlotsCache(prev => {
+      const newCache = new Map(prev);
+      newCache.delete(dateStr);
+      return newCache;
+    });
 
-    setDateSelectTimeout(timeout);
+    // Immediate fetch for better UX (no debounce for date changes)
+    fetchTimeSlots(date);
   };
 
   // Handle time slot selection with caching
@@ -2593,7 +2598,14 @@ const BookingPageNew: React.FC = () => {
                     {/* Doctor Selection - Only show after date/time selected */}
                     {selectedDate && selectedTimeSlot && (
               <Form.Item
-                        label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Bác sĩ (tùy chọn)</span>}
+                        label={
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '14px', fontWeight: '600' }}>Bác sĩ (tùy chọn)</span>
+                            <Tooltip title="Nếu không chọn bác sĩ, hệ thống sẽ tự động chỉ định bác sĩ phù hợp cho bạn">
+                              <InfoCircleOutlined style={{ color: '#1890ff', fontSize: '12px' }} />
+                            </Tooltip>
+                          </div>
+                        }
                         style={{ marginBottom: '16px' }}
               >
                 {loadingDoctors ? (

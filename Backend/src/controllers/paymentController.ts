@@ -1407,28 +1407,46 @@ export class PaymentController {
 
           // Import doctor model
           const { default: Doctors } = await import('../models/Doctor');
-          
+
           console.log('🔍 [ForceCheck] Looking for available doctors for appointment type:', appointment.appointmentType);
 
-          // Get all active doctors (simplified assignment)
-          const allDoctors = await Doctors.find({ isDeleted: { $ne: true } })
-            .populate('userId', 'fullName');
+          // Get all active doctors (improved assignment logic)
+          const allDoctors = await Doctors.find({
+            isDeleted: { $ne: true },
+            // Có thể thêm filter theo specialization nếu cần
+          }).populate('userId', 'fullName isActive')
+            .limit(10); // Giới hạn để tránh load quá nhiều
           
           if (allDoctors.length > 0) {
-            // For now, assign first available doctor
-            // TODO: Enhance with schedule-based selection later
-            const selectedDoctor = allDoctors[0];
+            // Enhanced assignment: Find doctor with least appointments
+            let selectedDoctor = allDoctors[0];
+            let minAppointments = Infinity;
+
+            for (const doctor of allDoctors) {
+              // Count current appointments for this doctor
+              const appointmentCount = await Appointments.countDocuments({
+                doctorId: doctor._id,
+                status: { $in: ['confirmed', 'scheduled', 'consulting'] },
+                appointmentDate: { $gte: new Date() } // Only future appointments
+              });
+
+              if (appointmentCount < minAppointments) {
+                minAppointments = appointmentCount;
+                selectedDoctor = doctor;
+              }
+            }
 
             // Assign doctor to appointment
             appointment.doctorId = selectedDoctor._id;
             await appointment.save();
 
             doctorAssigned = true;
-            
-            console.log('✅ [ForceCheck] Doctor assigned:', {
+
+            console.log('✅ [ForceCheck] Doctor assigned (load-balanced):', {
               doctorId: selectedDoctor._id,
               doctorName: (selectedDoctor.userId as any)?.fullName || 'Unknown Doctor',
-              note: 'Simple assignment - can be enhanced with schedule checking'
+              currentAppointments: minAppointments,
+              note: 'Load-balanced assignment based on current workload'
             });
           } else {
             console.log('⚠️ [ForceCheck] No active doctors found for assignment');
