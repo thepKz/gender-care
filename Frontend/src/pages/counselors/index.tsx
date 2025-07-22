@@ -79,7 +79,7 @@ const Counselors = () => {
   // Loading spinner với MagicUI style
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0C3C54] relative overflow-hidden">
+      <div className="min-h-screen flex items-center justify-center bg-[#0e314e] relative overflow-hidden">
         {/* Animated background particles */}
         <div className="absolute inset-0">
           {[...Array(50)].map((_, i) => (
@@ -114,7 +114,7 @@ const Counselors = () => {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section with FlickeringGrid effect */}
-      <div className="relative pt-20 pb-20 overflow-hidden bg-[#0C3C54]">
+      <div className="relative pt-20 pb-20 overflow-hidden bg-[#0e314e]">
         {/* Animated grid background */}
         <div className="absolute inset-0">
           <div className="absolute inset-0 opacity-30">
@@ -178,7 +178,7 @@ const Counselors = () => {
             <div className="flex flex-wrap justify-center gap-4">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <PrimaryButton
-                  className="!bg-white !text-[#0C3C54] !font-bold !px-8 !py-6 !text-lg !shadow-2xl hover:!bg-gray-50"
+                  className="!bg-white !text-[#0e314e] !font-bold !px-8 !py-6 !text-lg !shadow-2xl hover:!bg-gray-50"
                   onClick={() => document.getElementById('doctors')?.scrollIntoView({ behavior: 'smooth' })}
                 >
                   Tìm bác sĩ
@@ -187,7 +187,7 @@ const Counselors = () => {
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <PrimaryButton
                   variant="outline"
-                  className="!border-white !text-white !font-bold !px-8 !py-6 !text-lg hover:!bg-white hover:!text-[#0C3C54]"
+                  className="!border-white !text-white !font-bold !px-8 !py-6 !text-lg hover:!bg-white hover:!text-[#0e314e]"
                   onClick={() => navigate('/booking')}
                 >
                   Đặt lịch ngay
@@ -224,24 +224,7 @@ const Counselors = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              {
-                icon: <Profile2User size={32} variant="Bold" />,
-                title: `${doctors.length}+ Bác sĩ`,
-                description: "Chuyên gia hàng đầu",
-                color: "#0C3C54"
-              },
-              {
-                icon: <Award size={32} variant="Bold" />,
-                title: "10+ Năm",
-                description: "Kinh nghiệm trung bình",
-                color: "#2A7F9E"
-              },
-              {
-                icon: <Star1 size={32} variant="Bold" />,
-                title: "4.8/5",
-                description: "Đánh giá từ bệnh nhân",
-                color: "#4CAF50"
-              }
+  
             ].map((stat, index) => (
               <BlurFade key={index} delay={0.2 + index * 0.1} inView>
                 <WarpBackground className="h-full group cursor-pointer">
@@ -308,13 +291,13 @@ const Counselors = () => {
                     <input
                       type="text"
                       placeholder="Tìm kiếm bác sĩ..."
-                      className="w-full border border-gray-300 rounded-lg py-3 pl-10 pr-4 focus:outline-none focus:border-[#0C3C54] focus:ring-2 focus:ring-[#0C3C54]/20 transition-all duration-300"
+                      className="w-full border border-gray-300 rounded-lg py-3 pl-10 pr-4 focus:outline-none focus:border-[#0e314e] focus:ring-2 focus:ring-[#0e314e]/20 transition-all duration-300"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                   <select
-                    className="border border-gray-300 rounded-lg py-3 px-4 focus:outline-none focus:border-[#0C3C54] focus:ring-2 focus:ring-[#0C3C54]/20 w-full sm:w-60 transition-all duration-300"
+                    className="border border-gray-300 rounded-lg py-3 px-4 focus:outline-none focus:border-[#0e314e] focus:ring-2 focus:ring-[#0e314e]/20 w-full sm:w-60 transition-all duration-300"
                     value={selectedSpecialization}
                     onChange={(e) => setSelectedSpecialization(e.target.value)}
                   >
@@ -396,7 +379,7 @@ const Counselors = () => {
                   key={doctor._id}
                   doctor={doctor}
                   index={index}
-                  onBook={() => navigate(`/booking/consultation/${doctor._id}`)}
+                  onBook={() => navigate(`/booking`)}
                   onView={() => {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                     setTimeout(() => {
@@ -414,7 +397,7 @@ const Counselors = () => {
               <div className="text-center mt-16">
                 <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                   <PrimaryButton
-                    className="!bg-[#0C3C54] !text-white !font-bold !px-8 !py-6 !text-lg hover:!bg-[#2A7F9E] !shadow-2xl"
+                    className="!bg-[#0e314e] !text-white !font-bold !px-8 !py-6 !text-lg hover:!bg-[#0a2538] !shadow-2xl"
                   >
                     Xem thêm bác sĩ
                   </PrimaryButton>
@@ -437,7 +420,7 @@ const Counselors = () => {
                   Hãy thử thay đổi từ khóa tìm kiếm hoặc bộ lọc chuyên khoa
                 </p>
                 <button
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200"
+                  className="bg-[#0e314e] hover:bg-[#0a2538] text-white font-medium py-3 px-6 rounded-xl transition-all duration-200"
                   onClick={() => {
                     setSearchTerm("");
                     setSelectedSpecialization("all");

@@ -27,7 +27,7 @@ export function ModernCounselorCard({ doctor, index = 0, onBook, onView }: Moder
     if (onBook) {
       onBook();
     } else {
-      navigate(`/booking/consultation/${doctor._id}`);
+      navigate(`/booking`);
     }
   };
 
@@ -47,8 +47,8 @@ export function ModernCounselorCard({ doctor, index = 0, onBook, onView }: Moder
       return validAvatar;
     }
 
-    // Fallback to generated avatar
-    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${doctor.userId?.fullName || doctor._id || 'doctor'}`;
+    // Fallback to professional medical avatar
+    return `https://api.dicebear.com/7.x/personas/svg?seed=${doctor.userId?.fullName || doctor._id || 'doctor'}&backgroundColor=0e314e&clothingColor=ffffff`;
   };
 
   // Enhanced name logic
@@ -83,7 +83,7 @@ export function ModernCounselorCard({ doctor, index = 0, onBook, onView }: Moder
                 alt={getDoctorName()}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${getDoctorName()}`;
+                  e.currentTarget.src = `https://api.dicebear.com/7.x/personas/svg?seed=${getDoctorName()}&backgroundColor=0e314e&clothingColor=ffffff`;
                 }}
               />
             </div>
@@ -108,9 +108,6 @@ export function ModernCounselorCard({ doctor, index = 0, onBook, onView }: Moder
                   {doctor.rating?.toFixed(1) || "5.0"}
                 </span>
               </div>
-              <span className="text-xs text-gray-500">
-                ({doctor.feedback?.totalFeedbacks || 0} đánh giá)
-              </span>
             </div>
           </div>
         </div>
@@ -119,12 +116,6 @@ export function ModernCounselorCard({ doctor, index = 0, onBook, onView }: Moder
       {/* Content */}
       <div className="px-6 pb-6">
         {/* Experience */}
-        <div className="flex items-center gap-2 mb-3">
-          <Clock className="w-4 h-4 text-gray-400" />
-          <span className="text-sm text-gray-600">
-            {years}+ năm kinh nghiệm
-          </span>
-        </div>
 
         {/* Bio */}
         <p className="text-gray-600 text-sm leading-relaxed mb-6 line-clamp-3">

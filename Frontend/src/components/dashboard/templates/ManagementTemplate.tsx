@@ -603,88 +603,10 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
           </Row>
         </Col>
 
-        {/* Right Column - Quick Actions & System Info */}
-        <Col
-          xs={24}
-          lg={8}
-        >
-          <Row gutter={[0, 24]}>
-            {/* Quick Actions Card */}
-            <Col xs={24}>
-              <Card
-                title="Thao tác nhanh"
-                size="small"
-                style={{
-                  borderRadius: "12px",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                }}
-              >
-                <Row gutter={[8, 8]}>
-                  <Col span={24}>
-                    <Button
-                      type="primary"
-                      icon={<UserOutlined />}
-                      size="middle"
-                      block
-                      onClick={() => updateSelectedKey("doctors")}
-                    >
-                      Quản lý bác sĩ
-                    </Button>
-                  </Col>
-                  <Col span={12}>
-                    <Button
-                      type="default"
-                      icon={<MedicineBoxOutlined />}
-                      size="middle"
-                      block
-                      onClick={() => updateSelectedKey("schedule")}
-                    >
-                      Dịch vụ
-                    </Button>
-                  </Col>
-                  <Col span={12}>
-                    <Button
-                      type="default"
-                      icon={<CalendarOutlined />}
-                      size="small"
-                      block
-                      onClick={() => updateSelectedKey("schedule")}
-                    >
-                      Lịch làm việc
-                    </Button>
-                  </Col>
-                  {userRole === "admin" && (
-                    <>
-                      <Col span={12}>
-                        <Button
-                          icon={<SettingOutlined />}
-                          size="small"
-                          block
-                          onClick={() => updateSelectedKey("users")}
-                        >
-                          Người dùng
-                        </Button>
-                      </Col>
-                      <Col span={12}>
-                        <Button
-                          icon={<BarChartOutlined />}
-                          size="small"
-                          block
-                          onClick={() => updateSelectedKey("reports")}
-                        >
-                          Báo cáo
-                        </Button>
-                      </Col>
-                    </>
-                  )}
-                </Row>
-              </Card>
-            </Col>
-          </Row>
-        </Col>
-      </Row>
 
-      {/* Optional: Admin-only advanced features */}
+      </Row>  
+
+      {/* Optional: Admin-only advanced   features */}
       {userRole === "admin" && (
         <Row
           gutter={[24, 24]}

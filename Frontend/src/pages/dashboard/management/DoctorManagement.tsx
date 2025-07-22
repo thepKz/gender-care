@@ -105,9 +105,55 @@ const mapApiDoctorToDisplay = (apiDoctor: any): DisplayDoctor => {
     rating: doctorData.rating || apiDoctor.rating || 0,
     education: doctorData.education || apiDoctor.education || '',
     certificate: (() => {
-      const cert = doctorData.certificate || apiDoctor.certificate || [];
+      const cert = doctorData.certificate || apiDoctor.certificate || '';
       console.log('🏥 [CERTIFICATE DEBUG] Raw certificate data:', cert);
-      return cert;
+      console.log('🏥 [CERTIFICATE DEBUG] Certificate type:', typeof cert);
+      console.log('🏥 [CERTIFICATE DEBUG] Certificate length:', cert?.length);
+
+      // Parse certificate data - support multiple formats
+      if (typeof cert === 'string' && cert.trim()) {
+        // Format 1: JSON array - ["url1", "url2"]
+        if (cert.trim().startsWith('[') && cert.trim().endsWith(']')) {
+          try {
+            const parsed = JSON.parse(cert);
+            if (Array.isArray(parsed)) {
+              console.log('🏥 [CERTIFICATE DEBUG] Successfully parsed JSON array:', parsed);
+              console.log('🏥 [CERTIFICATE DEBUG] Array length:', parsed.length);
+              return parsed.filter(url => url && url.trim()); // Filter out empty URLs
+            }
+          } catch (error) {
+            console.error('🏥 [CERTIFICATE DEBUG] JSON parse error:', error);
+          }
+        }
+
+        // Format 2: Comma-separated URLs - "url1, url2, url3"
+        if (cert.includes(',')) {
+          const urls = cert.split(',')
+            .map(url => url.trim())
+            .filter(url => url && (url.startsWith('http') || url.includes('.')));
+
+          if (urls.length > 0) {
+            console.log('🏥 [CERTIFICATE DEBUG] Parsed comma-separated URLs:', urls);
+            return urls;
+          }
+        }
+
+        // Format 3: Single certificate URL or filename
+        if (cert.startsWith('http') || cert.includes('.')) {
+          console.log('🏥 [CERTIFICATE DEBUG] Single certificate URL:', cert);
+          return [cert];
+        }
+
+        // Format 4: Filename only (old format)
+        console.log('🏥 [CERTIFICATE DEBUG] Treating as filename:', cert);
+        return [cert];
+      } else if (Array.isArray(cert)) {
+        console.log('🏥 [CERTIFICATE DEBUG] Already an array:', cert);
+        return cert.filter(url => url && url.trim());
+      }
+
+      console.log('🏥 [CERTIFICATE DEBUG] No certificates found');
+      return [];
     })(),
     bio: doctorData.bio || apiDoctor.bio || '',
     status: (userData.isActive === false || doctorData.isDeleted) ? 'inactive' : 'active' as DisplayDoctor['status'],
@@ -316,20 +362,40 @@ const DoctorManagement: React.FC = () => {
       // Xóa status khỏi values để không gửi lên API updateDoctor
       delete values.status;
       
-      // Handle certificate - convert array to string for backend compatibility
-      if (values.certificate && Array.isArray(values.certificate)) {
-        // Convert array to string (take first certificate for now)
-        if (values.certificate.length > 0) {
-          values.certificate = values.certificate[0]; // Take first certificate
-          console.log('Certificate to save (first from array):', values.certificate);
-        } else {
-          values.certificate = '';
-          console.log('No certificates, setting empty string');
-        }
+      // Handle certificate - convert array to JSON string for backend storage
+      console.log('🏥 [CERTIFICATE SUBMIT] Raw certificate value from form:', values.certificate);
+      console.log('🏥 [CERTIFICATE SUBMIT] Type:', typeof values.certificate);
+      console.log('🏥 [CERTIFICATE SUBMIT] Is array:', Array.isArray(values.certificate));
+      console.log('🏥 [CERTIFICATE SUBMIT] FileList state:', certificateFileList);
+
+      // Validate that uploaded certificates match form value
+      const successfulUploads = certificateFileList
+        .filter(file => file.status === 'done' && file.response?.success)
+        .map(file => file.response.data.imageUrl)
+        .filter(url => url);
+
+      console.log('🏥 [CERTIFICATE SUBMIT] Successful uploads from fileList:', successfulUploads);
+
+      // Use successful uploads as the source of truth
+      if (successfulUploads.length > 0) {
+        const jsonString = JSON.stringify(successfulUploads);
+        console.log('🏥 [CERTIFICATE SUBMIT] Final certificates to save:', successfulUploads);
+        console.log('🏥 [CERTIFICATE SUBMIT] JSON string result:', jsonString);
+        values.certificate = jsonString;
+      } else if (values.certificate && Array.isArray(values.certificate) && values.certificate.length > 0) {
+        // Fallback to form value if fileList is empty but form has data
+        const jsonString = JSON.stringify(values.certificate);
+        console.log('🏥 [CERTIFICATE SUBMIT] Using form value as fallback:', values.certificate);
+        values.certificate = jsonString;
+      } else if (typeof values.certificate === 'string' && values.certificate.trim()) {
+        // Handle single certificate string
+        const jsonString = JSON.stringify([values.certificate]);
+        console.log('🏥 [CERTIFICATE SUBMIT] Single certificate, wrapping in array:', values.certificate);
+        values.certificate = jsonString;
       } else {
-        // If no certificates, set empty string to clear database
+        // No certificates
         values.certificate = '';
-        console.log('No certificates, setting empty string');
+        console.log('🏥 [CERTIFICATE SUBMIT] No certificates, setting empty string');
       }
       
       if (editingDoctor) {
@@ -1100,35 +1166,58 @@ const DoctorManagement: React.FC = () => {
                   }}
                   beforeUpload={handleBeforeUpload}
                   onChange={(info) => {
-                    console.log('Certificate upload change:', info);
-                    // Update fileList state
+                    console.log('🏥 [CERTIFICATE UPLOAD] Upload change event:', {
+                      file: info.file,
+                      fileList: info.fileList,
+                      fileListLength: info.fileList.length,
+                      fileStatus: info.file.status
+                    });
+
+                    // Always update fileList state first
                     setCertificateFileList(info.fileList);
 
-                    // Handle certificate upload similar to avatar
+                    // Build certificate array from all successful uploads in fileList
+                    const successfulUploads = info.fileList
+                      .filter(file => file.status === 'done' && file.response?.success)
+                      .map(file => file.response.data.imageUrl)
+                      .filter(url => url); // Remove any undefined/null URLs
+
+                    console.log('🏥 [CERTIFICATE UPLOAD] All successful uploads:', successfulUploads);
+
+                    // Update form with complete certificate array
+                    form.setFieldsValue({ certificate: successfulUploads });
+
+                    // Handle individual file status messages
                     if (info.file.status === 'done' && info.file.response?.success) {
                       const imageUrl = info.file.response.data.imageUrl;
-                      // Get current certificates - ensure it's always an array
-                      const currentCerts = form.getFieldValue('certificate');
-                      const certsArray = Array.isArray(currentCerts) ? currentCerts : [];
-                      const newCerts = [...certsArray, imageUrl];
-                      form.setFieldsValue({ certificate: newCerts });
+                      console.log('🏥 [CERTIFICATE UPLOAD] Individual upload successful:', imageUrl);
                       message.success(`Upload chứng chỉ "${info.file.name}" thành công!`);
                     } else if (info.file.status === 'error') {
+                      console.error('🏥 [CERTIFICATE UPLOAD] Upload error:', {
+                        file: info.file,
+                        response: info.file.response,
+                        error: info.file.error
+                      });
                       message.error(`Upload chứng chỉ "${info.file.name}" thất bại!`);
+                    } else if (info.file.status === 'uploading') {
+                      console.log('🏥 [CERTIFICATE UPLOAD] Uploading:', info.file.name);
                     }
                   }}
                   onRemove={(file) => {
-                    console.log('Remove certificate:', file);
-                    // Remove from form value - ensure it's always an array
-                    const currentCerts = form.getFieldValue('certificate');
-                    const certsArray = Array.isArray(currentCerts) ? currentCerts : [];
-                    const imageUrl = file.response?.data?.imageUrl || file.url;
-                    const newCerts = certsArray.filter((cert: string) => cert !== imageUrl);
-                    form.setFieldsValue({ certificate: newCerts });
+                    console.log('🏥 [CERTIFICATE REMOVE] Removing certificate:', file);
 
-                    // Update fileList state
+                    // Update fileList state first
                     const newFileList = certificateFileList.filter(f => f.uid !== file.uid);
                     setCertificateFileList(newFileList);
+
+                    // Rebuild certificate array from remaining successful uploads
+                    const remainingCerts = newFileList
+                      .filter(f => f.status === 'done' && f.response?.success)
+                      .map(f => f.response.data.imageUrl)
+                      .filter(url => url);
+
+                    console.log('🏥 [CERTIFICATE REMOVE] Remaining certificates:', remainingCerts);
+                    form.setFieldsValue({ certificate: remainingCerts });
 
                     message.success('Đã xóa chứng chỉ!');
                     return true;
