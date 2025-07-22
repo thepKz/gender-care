@@ -1011,6 +1011,34 @@ const BookingPageNew: React.FC = () => {
         return;
       }
 
+      // 🚨 CRITICAL: Check patient double booking
+      console.log('🔒 [Patient Check] Checking for existing appointments...');
+      try {
+        const existingAppointmentsResponse = await appointmentApi.getAllAppointments({
+          profileId: selectedProfile,
+          startDate: selectedDate.format('YYYY-MM-DD'),
+          endDate: selectedDate.format('YYYY-MM-DD'),
+          status: 'pending_payment,pending,confirmed,scheduled,consulting'
+        });
+
+        if (existingAppointmentsResponse.success && existingAppointmentsResponse.data?.appointments) {
+          const conflictingAppointment = existingAppointmentsResponse.data.appointments.find((apt: any) =>
+            apt.appointmentTime === selectedTimeSlot
+          );
+
+          if (conflictingAppointment) {
+            message.error(`Bệnh nhân đã có lịch hẹn vào ${selectedTimeSlot} ngày ${selectedDate.format('DD/MM/YYYY')}. Một bệnh nhân không thể có 2 lịch hẹn cùng thời gian.`);
+            return;
+          }
+        }
+
+        console.log('✅ [Patient Check] No conflicting appointments found');
+      } catch (patientCheckError) {
+        console.error('❌ [Patient Check] Error:', patientCheckError);
+        message.error('Không thể kiểm tra lịch hẹn hiện tại. Vui lòng thử lại.');
+        return;
+      }
+
       // Validate description length
       if (values.description && values.description.length > 200) {
         message.error('Mô tả không được vượt quá 200 ký tự');
@@ -1163,8 +1191,15 @@ const BookingPageNew: React.FC = () => {
         }
       } catch (error: any) {
         console.error('❌ [Booking Error]', error);
-        const errorMessage = error.response?.data?.message || 'Lỗi hệ thống, vui lòng thử lại sau.';
-        message.error(errorMessage);
+
+        // Handle specific error codes
+        if (error.response?.status === 409) {
+          const errorMessage = error.response?.data?.message || 'Có xung đột trong việc đặt lịch.';
+          message.error(errorMessage);
+        } else {
+          const errorMessage = error.response?.data?.message || 'Lỗi hệ thống, vui lòng thử lại sau.';
+          message.error(errorMessage);
+        }
       } finally {
         setIsSubmitting(false);
       }
@@ -1371,6 +1406,46 @@ const BookingPageNew: React.FC = () => {
       }
     }
   }, [location.state]);
+
+  // 🚨 Real-time conflict checking when profile, date, or time changes
+  useEffect(() => {
+    const checkConflicts = async () => {
+      if (selectedProfile && selectedDate && selectedTimeSlot) {
+        console.log('🔍 [Conflict Check] Checking for existing appointments...');
+        try {
+          const existingAppointmentsResponse = await appointmentApi.getAllAppointments({
+            profileId: selectedProfile,
+            startDate: selectedDate.format('YYYY-MM-DD'),
+            endDate: selectedDate.format('YYYY-MM-DD'),
+            status: 'pending_payment,pending,confirmed,scheduled,consulting'
+          });
+
+          if (existingAppointmentsResponse.success && existingAppointmentsResponse.data?.appointments) {
+            const conflictingAppointment = existingAppointmentsResponse.data.appointments.find((apt: any) =>
+              apt.appointmentTime === selectedTimeSlot
+            );
+
+            if (conflictingAppointment) {
+              message.warning({
+                content: `⚠️ Bệnh nhân đã có lịch hẹn vào ${selectedTimeSlot} ngày ${selectedDate.format('DD/MM/YYYY')}. Vui lòng chọn khung giờ khác.`,
+                duration: 5,
+                key: 'conflict-warning'
+              });
+            } else {
+              // Clear warning if no conflict
+              message.destroy('conflict-warning');
+            }
+          }
+        } catch (error) {
+          console.error('❌ [Conflict Check] Error:', error);
+        }
+      }
+    };
+
+    // Debounce the check to avoid too many API calls
+    const timeoutId = setTimeout(checkConflicts, 500);
+    return () => clearTimeout(timeoutId);
+  }, [selectedProfile, selectedDate, selectedTimeSlot]);
 
   return (
     <div style={{ 

@@ -394,6 +394,31 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // 🚨 CRITICAL: Kiểm tra bệnh nhân đã có lịch hẹn cùng thời gian chưa
+    console.log("[createAppointment] Checking patient double booking...");
+    const existingAppointment = await Appointments.findOne({
+      profileId: patientProfile._id,
+      appointmentDate: new Date(appointmentDate),
+      appointmentTime: appointmentTime,
+      status: { $nin: ["cancelled", "completed", "expired", "payment_cancelled"] }
+    });
+
+    if (existingAppointment) {
+      console.error("[createAppointment] DOUBLE BOOKING DETECTED:", {
+        profileId: patientProfile._id,
+        patientName: patientProfile.fullName,
+        appointmentDate,
+        appointmentTime,
+        existingDoctorId: existingAppointment.doctorId,
+        newDoctorId: doctorId
+      });
+      return res.status(409).json({
+        success: false,
+        message: `Bệnh nhân ${patientProfile.fullName} đã có lịch hẹn vào ${appointmentTime} ngày ${appointmentDate}. Một bệnh nhân không thể có 2 lịch hẹn cùng thời gian.`,
+        errorCode: "PATIENT_DOUBLE_BOOKING"
+      });
+    }
+
     console.log("[createAppointment] Tạo appointment với doctorId:", doctorId);
 
     // ✅ FIX: Chỉ tạo appointment, KHÔNG tạo PaymentTracking (Lazy Payment Creation)
@@ -717,6 +742,29 @@ export const updateAppointment = async (req: Request, res: Response) => {
       throw new ValidationError({
         status: "Không thể cập nhật cuộc hẹn đã hoàn thành hoặc đã hủy",
       });
+    }
+
+    // 🚨 CRITICAL: Nếu thay đổi thời gian, kiểm tra patient double booking
+    if (
+      (updateData.appointmentDate && updateData.appointmentDate !== appointment.appointmentDate?.toISOString().split('T')[0]) ||
+      (updateData.appointmentTime && updateData.appointmentTime !== appointment.appointmentTime)
+    ) {
+      const checkDate = updateData.appointmentDate || appointment.appointmentDate?.toISOString().split('T')[0];
+      const checkTime = updateData.appointmentTime || appointment.appointmentTime;
+
+      const existingAppointment = await Appointments.findOne({
+        _id: { $ne: appointment._id }, // Exclude current appointment
+        profileId: appointment.profileId,
+        appointmentDate: new Date(checkDate),
+        appointmentTime: checkTime,
+        status: { $nin: ["cancelled", "completed", "expired", "payment_cancelled"] }
+      });
+
+      if (existingAppointment) {
+        throw new ValidationError({
+          appointmentTime: `Bệnh nhân đã có lịch hẹn vào ${checkTime} ngày ${checkDate}. Không thể có 2 lịch hẹn cùng thời gian.`
+        });
+      }
     }
 
     // Nếu thay đổi slot, kiểm tra slot mới có trống không

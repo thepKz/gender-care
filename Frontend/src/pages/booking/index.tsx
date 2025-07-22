@@ -1017,6 +1017,27 @@ const Booking: React.FC = () => {
           } else {
             throw new Error(`Không tìm thấy slot trống cho bác sĩ đã chọn tại ${selectedTimeSlot}`);
           }
+
+          // 🚨 CRITICAL: Check patient double booking
+          console.log('🔒 [Patient Check] Checking for existing appointments...');
+          const existingAppointmentsResponse = await appointmentApi.getAllAppointments({
+            profileId: selectedProfile,
+            startDate: selectedDate,
+            endDate: selectedDate,
+            status: 'pending_payment,pending,confirmed,scheduled,consulting'
+          });
+
+          if (existingAppointmentsResponse.success && existingAppointmentsResponse.data?.appointments) {
+            const conflictingAppointment = existingAppointmentsResponse.data.appointments.find((apt: any) =>
+              apt.appointmentTime === selectedTimeSlot
+            );
+
+            if (conflictingAppointment) {
+              throw new Error(`Bệnh nhân đã có lịch hẹn vào ${selectedTimeSlot} ngày ${selectedDate}. Một bệnh nhân không thể có 2 lịch hẹn cùng thời gian.`);
+            }
+          }
+
+          console.log('✅ [Patient Check] No conflicting appointments found');
         } else {
           // Hệ thống tự chọn - lấy bác sĩ đầu tiên available
           if (availableDoctorIds.length === 0) {
@@ -1147,8 +1168,15 @@ const Booking: React.FC = () => {
       console.error('Error creating appointment:', error);
       if (error instanceof Error) {
         message.error(error.message);
-      } else if (axios.isAxiosError(error) && error.response?.data?.message) {
-        message.error(error.response.data.message);
+      } else if (axios.isAxiosError(error)) {
+        // Handle specific error codes
+        if (error.response?.status === 409) {
+          const errorMessage = error.response?.data?.message || 'Có xung đột trong việc đặt lịch.';
+          message.error(errorMessage);
+        } else {
+          const errorMessage = error.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại!';
+          message.error(errorMessage);
+        }
       } else {
         message.error('Có lỗi xảy ra. Vui lòng thử lại!');
       }
@@ -1230,6 +1258,46 @@ const Booking: React.FC = () => {
       }
     }
   }, [selectedDoctor, doctorAvailability, selectedDate, selectedTimeSlot]);
+
+  // 🚨 Real-time conflict checking when profile, date, or time changes
+  useEffect(() => {
+    const checkConflicts = async () => {
+      if (selectedProfile && selectedDate && selectedTimeSlot) {
+        console.log('🔍 [Conflict Check] Checking for existing appointments...');
+        try {
+          const existingAppointmentsResponse = await appointmentApi.getAllAppointments({
+            profileId: selectedProfile,
+            startDate: selectedDate,
+            endDate: selectedDate,
+            status: 'pending_payment,pending,confirmed,scheduled,consulting'
+          });
+
+          if (existingAppointmentsResponse.success && existingAppointmentsResponse.data?.appointments) {
+            const conflictingAppointment = existingAppointmentsResponse.data.appointments.find((apt: any) =>
+              apt.appointmentTime === selectedTimeSlot
+            );
+
+            if (conflictingAppointment) {
+              message.warning({
+                content: `⚠️ Bệnh nhân đã có lịch hẹn vào ${selectedTimeSlot} ngày ${selectedDate}. Vui lòng chọn khung giờ khác.`,
+                duration: 5,
+                key: 'conflict-warning'
+              });
+            } else {
+              // Clear warning if no conflict
+              message.destroy('conflict-warning');
+            }
+          }
+        } catch (error) {
+          console.error('❌ [Conflict Check] Error:', error);
+        }
+      }
+    };
+
+    // Debounce the check to avoid too many API calls
+    const timeoutId = setTimeout(checkConflicts, 500);
+    return () => clearTimeout(timeoutId);
+  }, [selectedProfile, selectedDate, selectedTimeSlot]);
 
   // Auto-select service or package from URL params
   useEffect(() => {
