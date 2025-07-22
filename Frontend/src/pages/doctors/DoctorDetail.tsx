@@ -10,6 +10,7 @@ import {
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { doctorApi, type Doctor, type DoctorSchedule } from "../../api/endpoints/doctorApi";
+import { feedbackApi } from "../../api/endpoints/feedback";
 import { ModernCounselorCard } from "../../components/ui/counselors/ModernCounselorCard";
 import { AnimatedSection } from "../../shared";
 import DoctorFeedbacks from "../../components/ui/DoctorFeedbacks";
@@ -23,6 +24,24 @@ const DoctorDetail = () => {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [loading, setLoading] = useState(true);
   const [relatedDoctors, setRelatedDoctors] = useState<Doctor[]>([]);
+  const [feedbackStats, setFeedbackStats] = useState<{ totalFeedbacks: number; averageRating: number } | null>(null);
+
+  const fetchFeedbackStats = async (doctorId: string) => {
+    try {
+      console.log('📊 Fetching feedback stats for doctor:', doctorId);
+      const response = await feedbackApi.getDoctorFeedbacks(doctorId, 1, 1); // Just get first result for stats
+      if (response.success && response.data.stats) {
+        setFeedbackStats({
+          totalFeedbacks: response.data.stats.totalFeedbacks || 0,
+          averageRating: response.data.stats.averageRating || 0,
+        });
+        console.log('✅ Feedback stats loaded:', response.data.stats);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching feedback stats:', error);
+      setFeedbackStats({ totalFeedbacks: 0, averageRating: 0 });
+    }
+  };
 
   const fetchAllDoctorData = async () => {
     try {
@@ -42,6 +61,8 @@ const DoctorDetail = () => {
       // Doctor data is returned directly, not wrapped in data.data
       if (doctorResponse) {
         setDoctor(doctorResponse);
+        // Load feedback stats after doctor data is loaded
+        await fetchFeedbackStats(doctorResponse._id);
       } else {
         console.error('❌ No doctor data found');
         message.error('Không tìm thấy thông tin bác sĩ');
@@ -142,7 +163,7 @@ const DoctorDetail = () => {
   const doctorEducation = doctor.education || 'Chưa cập nhật';
   const doctorBio = doctor.bio || 'Chưa cập nhật';
   const doctorCertificate = doctor.certificate || '';
-  const doctorFeedback = doctor.feedback || { totalFeedbacks: 0, averageRating: 0, reviews: [] };
+
 
   // Debug console logs
   console.log('🔍 Doctor Data:', doctor);
@@ -264,15 +285,15 @@ const DoctorDetail = () => {
                         </span>
                         <span className="flex items-center gap-1">
                           <MessageText1 size={16} />
-                          {doctorFeedback.totalFeedbacks || 0} đánh giá
+                          {feedbackStats?.totalFeedbacks || 0} đánh giá
                         </span>
                       </div>
                     </div>
                     
                     <div className="text-right">
-                      <Rate disabled defaultValue={doctorFeedback.averageRating || 0} className="text-yellow-400" />
+                      <Rate disabled defaultValue={feedbackStats?.averageRating || 0} className="text-yellow-400" />
                       <p className="text-sm text-gray-600 mt-1">
-                        {doctorFeedback.averageRating ? `${doctorFeedback.averageRating}/5` : 'Chưa có đánh giá'}
+                        {feedbackStats?.averageRating ? `${feedbackStats.averageRating}/5` : 'Chưa có đánh giá'}
                       </p>
                     </div>
                   </div>
@@ -284,8 +305,8 @@ const DoctorDetail = () => {
                       <div className="text-sm text-gray-600">Năm kinh nghiệm</div>
                     </div>
                     <div className="text-center p-4 bg-[#2A7F9E]/5 rounded-xl">
-                      <div className="text-2xl font-bold text-[#2A7F9E]">{doctorFeedback.totalFeedbacks || 0}</div>
-                      <div className="text-sm text-gray-600">Bệnh nhân</div>
+                      <div className="text-2xl font-bold text-[#2A7F9E]">{feedbackStats?.totalFeedbacks || 0}</div>
+                      <div className="text-sm text-gray-600">Khách hàng</div>
                     </div>
                     <div className="text-center p-4 bg-cyan-500/5 rounded-xl">
                       <div className="text-2xl font-bold text-cyan-500">{schedules.length || 0}</div>

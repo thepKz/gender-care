@@ -12,6 +12,7 @@ export interface IFeedbacks {
   serviceQuality?: number;
   createdAt?: Date;
   updatedAt?: Date;
+  isHidden?: boolean;
 }
 
 const FeedbacksSchema = new mongoose.Schema<IFeedbacks>({
@@ -53,6 +54,10 @@ const FeedbacksSchema = new mongoose.Schema<IFeedbacks>({
     type: Number,
     min: 1,
     max: 5
+  },
+  isHidden: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 
