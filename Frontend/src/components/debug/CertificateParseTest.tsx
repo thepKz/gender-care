@@ -1,14 +1,19 @@
-import React from 'react';
-import { Card, Typography, Space, Divider } from 'antd';
+import React, { useState } from 'react';
+import { Card, Typography, Space, Divider, Button } from 'antd';
 
 const { Title, Text, Paragraph } = Typography;
 
 const CertificateParseTest: React.FC = () => {
   // Test data from your actual doctors
+  const [testCertificateData, setTestCertificateData] = useState<string>(
+    '["https://res.cloudinary.com/dacbvhtgz/image/upload/v1753157639/doctors/srtwme4uad3r03hz1zse.jpg"]'
+  );
+  const [parsedCertificates, setParsedCertificates] = useState<string[]>([]);
+
   const testCases = [
     {
       name: "Thanh Long Nguyen Tran (Current - JSON Array)",
-      data: "[\"https://res.cloudinary.com/dacbvhtgz/image/upload/v1753157639/doctors/srtwme4uad3r03hz1zse.jpg\"]"
+      data: '["https://res.cloudinary.com/dacbvhtgz/image/upload/v1753157639/doctors/srtwme4uad3r03hz1zse.jpg"]'
     },
     {
       name: "Nguyễn Văn Minh (Current - Comma Separated)",
@@ -16,7 +21,7 @@ const CertificateParseTest: React.FC = () => {
     },
     {
       name: "Multiple Certificates (JSON Array)",
-      data: "[\"https://example.com/cert1.jpg\",\"https://example.com/cert2.jpg\",\"https://example.com/cert3.jpg\"]"
+      data: '["https://example.com/cert1.jpg","https://example.com/cert2.jpg","https://example.com/cert3.jpg"]'
     },
     {
       name: "Single Certificate (URL)",
@@ -90,7 +95,39 @@ const CertificateParseTest: React.FC = () => {
       <Card>
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <Title level={2}>Certificate Parse Test</Title>
-          
+          {/* Nút để parse dữ liệu mẫu và cập nhật state */}
+          <Button type="primary" onClick={() => setParsedCertificates(parseCertificates(testCertificateData))}>
+            Parse dữ liệu mẫu
+          </Button>
+          <Divider />
+          <div>
+            <Title level={4}>Visual Preview:</Title>
+            {parsedCertificates.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {parsedCertificates.map((cert, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                    <img
+                      src={cert}
+                      alt={`Chứng chỉ ${index + 1}`}
+                      className="w-full h-48 object-contain rounded bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                      onClick={() => window.open(cert, '_blank')}
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=Không+thể+tải+chứng+chỉ';
+                      }}
+                    />
+                    <p className="text-sm text-gray-600 mt-2 text-center">
+                      Chứng chỉ {index + 1} - Nhấp để xem chi tiết
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Text type="secondary">Không có chứng chỉ nào được tìm thấy</Text>
+            )}
+          </div>
+
+          <Divider />
+
           <div>
             <Title level={4}>Test Results Summary:</Title>
             {testResults.map((test, index) => (
@@ -128,34 +165,6 @@ const CertificateParseTest: React.FC = () => {
                 </div>
               </div>
             ))}
-          </div>
-
-          <Divider />
-
-          <div>
-            <Title level={4}>Visual Preview:</Title>
-            {parsedCertificates.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {parsedCertificates.map((cert, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
-                    <img
-                      src={formatCertificateUrl(cert)}
-                      alt={`Chứng chỉ ${index + 1}`}
-                      className="w-full h-48 object-contain rounded bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
-                      onClick={() => window.open(formatCertificateUrl(cert), '_blank')}
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=Không+thể+tải+chứng+chỉ';
-                      }}
-                    />
-                    <p className="text-sm text-gray-600 mt-2 text-center">
-                      Chứng chỉ {index + 1} - Nhấp để xem chi tiết
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Text type="secondary">Không có chứng chỉ nào được tìm thấy</Text>
-            )}
           </div>
 
           <Divider />
