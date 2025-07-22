@@ -216,7 +216,6 @@ const ServiceModal: React.FC<ServiceModalProps> = ({
             <Select placeholder="Chọn loại dịch vụ">
               <Option value="consultation">Tư vấn</Option>
               <Option value="test">Xét nghiệm</Option>
-              <Option value="treatment">Điều trị</Option>
             </Select>
           </Form.Item>
 
@@ -263,7 +262,6 @@ const ServiceModal: React.FC<ServiceModalProps> = ({
               placeholder="Chọn hình thức cung cấp (có thể chọn nhiều)"
               style={{ minHeight: '40px' }}
             >
-              <Option value="Athome">Tại nhà</Option>
               <Option value="Online">Trực tuyến</Option>
               <Option value="Center">Tại trung tâm</Option>
             </Select>

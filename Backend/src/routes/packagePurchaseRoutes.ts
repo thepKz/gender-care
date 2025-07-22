@@ -8,9 +8,11 @@ import {
   getPackageUsageAnalytics,
   handlePayOSWebhook,
   testPayOSWebhook,
-  testCreatePackagePurchase
+  testCreatePackagePurchase,
+  testUpdatePackageStatus
 } from '../controllers/packagePurchaseController';
 import { authMiddleware } from '../middleware/authMiddleware';
+import { updatePackageStatusMiddleware, updateResponseStatusMiddleware } from '../middleware/packageStatusMiddleware';
 
 const router = Router();
 
@@ -22,8 +24,12 @@ router.post('/webhook/test', testPayOSWebhook);
 
 // Protected routes
 router.use(authMiddleware);
+router.use(updatePackageStatusMiddleware); // 🆕 Auto-update package status
+router.use(updateResponseStatusMiddleware); // 🆕 Update status in response
+
 router.post('/', purchaseServicePackage);
 router.post('/test-create', testCreatePackagePurchase); // 🧪 Test endpoint
+router.get('/test-status', testUpdatePackageStatus); // 🧪 Test status update
 router.get('/user', getUserPurchasedPackages);
 router.get('/:id', getPackagePurchaseDetail);
 router.get('/profile/:profileId', getPackagePurchasesByProfile);

@@ -1,10 +1,11 @@
 import { ClearOutlined, FilterOutlined } from '@ant-design/icons';
-import { Button, DatePicker, Dropdown, Form, Select } from 'antd';
+import { Button, Dropdown, Form, Select } from 'antd';
+import SimpleDateRangePicker from './SimpleDateRangePicker';
 import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
 import React, { useState } from 'react';
 
-const { RangePicker } = DatePicker;
+// Removed DatePicker import
 
 interface FilterValues {
   gender?: 'all' | 'male' | 'female' | 'other';
@@ -85,11 +86,11 @@ const FilterDropdown: React.FC<FilterDropdownProps> = ({
           name="dateRange"
           label="Ngày tạo"
         >
-          <RangePicker
+          <SimpleDateRangePicker
             placeholder={['Từ ngày', 'Đến ngày']}
-            format="DD/MM/YYYY"
-            className="w-full"
-            disabledDate={(current) => current && current > dayjs().endOf('day')}
+            style={{ width: '100%' }}
+            value={null}
+            onChange={() => {}}
           />
         </Form.Item>
 

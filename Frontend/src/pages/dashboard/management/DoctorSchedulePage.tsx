@@ -16,7 +16,6 @@ import {
     Calendar,
     Card,
     Col,
-    DatePicker,
     Empty,
     Form,
     message,
@@ -34,6 +33,7 @@ import {
     Tooltip,
     Typography
 } from 'antd';
+import SimpleMonthPicker from '../../../components/ui/SimpleMonthPicker';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
@@ -168,7 +168,7 @@ interface ScheduleViewData {
 
 const DoctorSchedulePage: React.FC = () => {
   const [schedules, setSchedules] = useState<IDoctorSchedule[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<Dayjs>(dayjs().tz('Asia/Ho_Chi_Minh'));
+  const [selectedMonth, setSelectedMonth] = useState<string>(dayjs().tz('Asia/Ho_Chi_Minh').format('YYYY-MM'));
   const [loading, setLoading] = useState(false);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [createMode, setCreateMode] = useState<CreateMode>('dates');
@@ -432,7 +432,7 @@ const DoctorSchedulePage: React.FC = () => {
       setLoading(true);
       
       // Sử dụng timezone VN để đảm bảo tính đúng tháng
-      const vnMonth = selectedMonth.tz('Asia/Ho_Chi_Minh');
+      const vnMonth = dayjs(selectedMonth).tz('Asia/Ho_Chi_Minh');
       
       // Debug logs
       console.log('🔍 [Debug] Loading schedules for (VN timezone):', {
@@ -683,8 +683,8 @@ const DoctorSchedulePage: React.FC = () => {
 
   const handleCalendarNavigate = (date: Date, view: CalendarView) => {
     const newMonth = dayjs(date);
-    if (!newMonth.isSame(selectedMonth, 'month')) {
-      setSelectedMonth(newMonth);
+    if (!newMonth.isSame(dayjs(selectedMonth), 'month')) {
+      setSelectedMonth(newMonth.format('YYYY-MM'));
     }
     setCalendarView(view);
     
@@ -996,12 +996,11 @@ const DoctorSchedulePage: React.FC = () => {
             <Text strong>Chọn tháng:</Text>
           </Col>
           <Col>
-            <DatePicker.MonthPicker
+            <SimpleMonthPicker
               value={selectedMonth}
-              onChange={(date) => setSelectedMonth(date ? date.tz('Asia/Ho_Chi_Minh') : dayjs().tz('Asia/Ho_Chi_Minh'))}
-              format="MM/YYYY"
+              onChange={setSelectedMonth}
+              format="YYYY-MM"
               placeholder="Chọn tháng"
-              getPopupContainer={trigger => trigger.parentNode as HTMLElement}
             />
           </Col>
           <Col>
@@ -1078,7 +1077,7 @@ const DoctorSchedulePage: React.FC = () => {
                         Không có dữ liệu lịch làm việc
                       </div>
                       <div style={{ fontSize: '14px', color: '#999', marginBottom: '16px' }}>
-                        Tháng {selectedMonth.format('MM/YYYY')} chưa có lịch làm việc nào được tạo.
+                        Tháng {dayjs(selectedMonth).format('MM/YYYY')} chưa có lịch làm việc nào được tạo.
                       </div>
                       <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                         <Button
@@ -1110,7 +1109,7 @@ const DoctorSchedulePage: React.FC = () => {
               events={visibleEvents}
               onSelectEvent={handleSelectEvent}
               onNavigate={(date, view) => {
-                setSelectedMonth(dayjs(date));
+                setSelectedMonth(dayjs(date).format('YYYY-MM'));
                 handleCalendarNavigate(date, view);
               }}
               onView={handleCalendarViewChange}
@@ -1118,13 +1117,13 @@ const DoctorSchedulePage: React.FC = () => {
               views={['month', 'week', 'day', 'agenda'] as CalendarView[]}
               loading={loading || searchLoading}
               height={700}
-              currentDate={selectedMonth.toDate()}
+              currentDate={dayjs(selectedMonth).toDate()}
             />
           )}
         </div>
       ) : (
         /* Schedule Table */
-        <Card title={`Lịch làm việc tháng ${selectedMonth.format('MM/YYYY')} (${tableData.length} lịch)`}>
+        <Card title={`Lịch làm việc tháng ${dayjs(selectedMonth).format('MM/YYYY')} (${tableData.length} lịch)`}>
         {loading && !isCreateModalVisible ? (
           <div style={{ textAlign: 'center', padding: '50px' }}>
             <Spin size="large" />

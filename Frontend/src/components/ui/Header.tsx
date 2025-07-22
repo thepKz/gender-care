@@ -373,10 +373,10 @@ const Header: React.FC = () => {
                   <span>Đặt lịch</span>
                 </div>
                 <div className="mt-2 pl-4 flex flex-col space-y-2">
-                  <Link to="/booking/consultation" className="text-gray-600 text-base">
+                  <Link to="/booking" className="text-gray-600 text-base">
                     Tư vấn
                   </Link>
-                  <Link to="/booking/test" className="text-gray-600 text-base">
+                  <Link to="/booking" className="text-gray-600 text-base">
                     Xét nghiệm
                   </Link>
                   {isAuthenticated && (

@@ -1,5 +1,6 @@
 import { CalendarOutlined, EditOutlined, FileTextOutlined, UserOutlined } from '@ant-design/icons';
-import { Button, Card, DatePicker, Form, Input, Modal, notification, Select, Spin, Tooltip, Tabs, Descriptions, List, Tag } from 'antd';
+import { Button, Card, Form, Input, Modal, notification, Select, Spin, Tooltip, Tabs, Descriptions, List, Tag } from 'antd';
+import SimpleDatePicker from '../../components/ui/SimpleDatePicker';
 import axios from 'axios';
 import axiosInstance from '../../api/axiosConfig';
 import dayjs from 'dayjs';
@@ -647,13 +648,11 @@ const ViewProfilePage: React.FC = () => {
                 { required: true, message: 'Vui lòng chọn ngày sinh' }
               ]}
             >
-              <DatePicker
+              <SimpleDatePicker
                 placeholder="Chọn ngày sinh"
-                format="DD/MM/YYYY"
-                className="w-full"
-                disabledDate={(current) => {
-                  return current && current > dayjs().endOf('day');
-                }}
+                style={{ width: '100%' }}
+                value=""
+                onChange={() => {}}
               />
             </Form.Item>
 
@@ -741,7 +740,7 @@ const ViewProfilePage: React.FC = () => {
                                       <div className="font-semibold mb-1">{med.name}</div>
                                       <div className="text-sm mb-1"><b>Liều lượng:</b> {med.dosage || '---'}</div>
                                       <div className="text-sm mb-1"><b>Thời gian dùng:</b> {durationStr}</div>
-                                      {med.instructions && <div className="italic text-xs text-gray-500 mt-1">Hướng dẫn: {med.instructions}</div>}
+                                      {med.instructions && <div className="italic text-xs text-gray-900 mt-1">Hướng dẫn: {med.instructions}</div>}
                                     </div>
                                   );
                                 })}
@@ -790,7 +789,7 @@ const ViewProfilePage: React.FC = () => {
                               return (
                                 <tr key={idx}>
                                   <td className="p-2 border">{cat?.name || '---'}</td>
-                                  <td className="p-2 border text-center" style={getFlagColor(item.flag) ? {color: getFlagColor(item.flag), fontWeight: 600} : {}}>{item.value || '---'}</td>
+                                  <td className="p-2 border text-center" style={['very_low','high','critical'].includes(item.flag) ? {color: '#111', fontWeight: 700, textDecoration: 'underline'} : {color: '#111'}}>{item.value || '---'}</td>
                                   <td className="p-2 border text-center">{refStr || '---'}</td>
                                 </tr>
                               );

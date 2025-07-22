@@ -65,6 +65,28 @@ const medicalApi = {
   getTestResultDetail: (id: string) => {
     return axiosInstance.get(`/test-results/${id}`);
   },
+
+  // ===== MEDICAL RECORD SYNC APIs =====
+
+  // Đồng bộ một appointment thành medical record
+  syncAppointmentToMedicalRecord: (appointmentId: string) => {
+    return axiosInstance.post(`/medical-records/sync/${appointmentId}`);
+  },
+
+  // Đồng bộ tất cả appointments "Hoàn thành kết quả"
+  syncAllCompletedAppointments: () => {
+    return axiosInstance.post('/medical-records/sync/bulk');
+  },
+
+  // Kiểm tra trạng thái sync của appointment
+  checkSyncStatus: (appointmentId: string) => {
+    return axiosInstance.get(`/medical-records/sync/status/${appointmentId}`);
+  },
+
+  // Lấy danh sách appointments cần sync
+  getPendingSyncAppointments: () => {
+    return axiosInstance.get('/medical-records/sync/pending');
+  },
   
   // Lấy danh sách loại xét nghiệm
   getTestCategories: (params?: QueryParams) => {

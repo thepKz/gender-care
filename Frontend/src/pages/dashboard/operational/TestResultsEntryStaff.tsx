@@ -6,16 +6,15 @@ import {
   Space,
   Tag,
   Input,
-  DatePicker,
   message,
   Typography,
   Tooltip,
   Modal,
   Form,
-  Select,
   Spin
 } from 'antd';
-import { SearchOutlined, ExperimentOutlined, PlusCircleOutlined, EditOutlined, FileTextOutlined, EyeOutlined, FileSearchOutlined, FileProtectOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import SimpleDatePicker from '../../../components/ui/SimpleDatePicker';
+import { SearchOutlined, ExperimentOutlined, EditOutlined, FileTextOutlined, EyeOutlined, FileSearchOutlined, FileProtectOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { appointmentApi, testResultItemsApi, serviceTestCategoriesApi } from '../../../api/endpoints';
 import { useAuth } from '../../../hooks/useAuth';
@@ -53,7 +52,7 @@ const TestResultsEntry: React.FC = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [selectedDate, setSelectedDate] = useState<dayjs.Dayjs | null>(dayjs());
+  const [selectedDate, setSelectedDate] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [showTestForm, setShowTestForm] = useState(false);
   const [testResultStatus, setTestResultStatus] = useState<{ [appointmentId: string]: boolean }>({});
@@ -562,10 +561,15 @@ const TestResultsEntry: React.FC = () => {
     },
   ];
 
-  const filteredAppointments = appointments.filter(apt =>
-    apt.profileId.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
-    apt.serviceId.serviceName.toLowerCase().includes(searchText.toLowerCase())
-  );
+  const filteredAppointments = appointments.filter(apt => {
+    const matchesSearch = apt.profileId.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
+      apt.serviceId.serviceName.toLowerCase().includes(searchText.toLowerCase());
+
+    const matchesDate = selectedDate ?
+      dayjs(apt.appointmentDate).format('YYYY-MM-DD') === selectedDate : true;
+
+    return matchesSearch && matchesDate;
+  });
 
   // Hàm xử lý thay đổi input
   const handleInputChange = (key: string, value: string) => {
@@ -678,11 +682,10 @@ const TestResultsEntry: React.FC = () => {
       <Title level={3} style={{ marginBottom: 24 }}>Nhập kết quả xét nghiệm</Title>
       <Card style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <DatePicker
+          <SimpleDatePicker
             value={selectedDate}
-            onChange={setSelectedDate}
+            onChange={date => setSelectedDate(date ? date.format('YYYY-MM-DD') : '')}
             style={{ width: 180 }}
-            format="DD/MM/YYYY"
             placeholder="Chọn ngày"
           />
           <Search
@@ -774,7 +777,7 @@ const TestResultsEntry: React.FC = () => {
           setInputValues({});
         }}
         onOk={async () => {
-          if (modalMode === 'view') {
+          if (modalMode && modalMode === 'view') {
             setTestItemModalVisible(false);
             return;
           }
@@ -787,7 +790,8 @@ const TestResultsEntry: React.FC = () => {
             const values = await testItemForm.validateFields(); // validate toàn bộ form
             const testItemValues = values.testItemValues || {};
             // Đảm bảo tất cả chỉ số đều có giá trị
-            const allFilled = testCategories.every(cat => !!testItemValues[(cat.testCategoryId?._id || cat.testCategoryId)]?.value);
+            const activeCategories = testCategories.filter(cat => !cat.isDeleted);
+            const allFilled = activeCategories.every(cat => !!testItemValues[(cat.testCategoryId?._id || cat.testCategoryId)]?.value);
             if (!allFilled) {
               // Nếu còn thiếu, không gọi API, không đóng modal
               return;
@@ -795,7 +799,7 @@ const TestResultsEntry: React.FC = () => {
             setTestItemLoading(true);
             if (modalMode === 'edit') {
               // EDIT: Gọi API update từng item theo appointmentId + testCategoryId
-              const updatePromises = testCategories.map(cat => {
+              const updatePromises = activeCategories.map(cat => {
                 const key = cat.testCategoryId?._id || cat.testCategoryId;
                 const v = testItemValues[key]?.value;
                 const thresholdRules = cat.thresholdRules || [];
@@ -814,7 +818,7 @@ const TestResultsEntry: React.FC = () => {
               loadAppointments();
             } else {
               // CREATE: Gọi API create như cũ, KHÔNG truyền _id cho từng item
-             const items = testCategories.map(cat => {
+             const items = activeCategories.map(cat => {
                 const key = cat.testCategoryId?._id || cat.testCategoryId;
                 const v = testItemValues[key]?.value;
                 const thresholdRules = cat.thresholdRules || [];
@@ -870,108 +874,208 @@ const TestResultsEntry: React.FC = () => {
         ) : (
           <Form form={testItemForm} layout="vertical">
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              {testCategories.map(cat => {
-                const testName = cat.testCategoryId?.name || cat.testCategory?.name || cat.name || cat.testCategoryName || cat.label || cat.title || '';
-                const unit = cat.unit || cat.testCategory?.unit || cat.testCategoryId?.unit || '';
-                const min = cat.minValue;
-                const max = cat.maxValue;
-                const normal = cat.targetValue || cat.normalRange || '';
-                const key = cat.testCategoryId?._id || cat.testCategoryId;
-                const thresholdRules = cat.thresholdRules || [];
-                const currentValue = inputValues[key] || '';
-                const evaluation = getAutoEvaluation(currentValue, thresholdRules);
-                return (
-                  <Form.Item
-                    key={key}
-                    required
-                    style={{ marginBottom: 0, padding: '18px 0 8px 0', borderBottom: '1px solid #f0f0f0' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', minHeight: 60 }}>
-                      {/* Tên chỉ số */}
-                      <div style={{
-                        flex: 1.5,
-                        minWidth: 0,
-                        fontWeight: 700,
-                        fontSize: 16,
-                        color: '#222',
-                        lineHeight: '36px',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        marginRight: 0
-                      }}>
-                        {cat.testCategoryId?.name || cat.name || testName}
-                      </div>
-                      {/* Min-max + unit nhỏ phía trên input */}
-                      <div style={{
-                        flex: '0 0 120px',
-                        maxWidth: 120,
-                        fontSize: 13,
-                        color: '#888',
-                        fontWeight: 500,
-                        textAlign: 'right',
-                        marginRight: 18
-                      }}>
-                        {min !== undefined && max !== undefined ? (
-                          <span>{min} - {max}{unit ? ` (${unit})` : ''}</span>
-                        ) : normal ? (
-                          <span>{normal}{unit ? ` (${unit})` : ''}</span>
-                        ) : unit ? (
-                          <span>({unit})</span>
-                        ) : null}
-                      </div>
-                      {/* Input kết quả */}
+              {/* SỬA ĐOẠN NÀY: Chỉ map qua các chỉ số đã lưu trong DB (items) khi ở chế độ view */}
+              {modalMode === 'view'
+                ? (Array.isArray(testItemForm.getFieldValue('testItemValues'))
+                    ? testItemForm.getFieldValue('testItemValues')
+                    : Object.entries(testItemForm.getFieldValue('testItemValues') || {}))
+                    .map(([key, val]: any, idx: number) => {
+                      // Tìm testCategory tương ứng
+                      const cat = testCategories.find(cat => String(cat.testCategoryId?._id || cat.testCategoryId) === String(key));
+                      const testName = cat?.testCategoryId?.name || cat?.name || key;
+                      const unit = cat?.unit || cat?.testCategory?.unit || cat?.testCategoryId?.unit || '';
+                      const min = cat?.minValue;
+                      const max = cat?.maxValue;
+                      const normal = cat?.targetValue || cat?.normalRange || '';
+                      const thresholdRules = cat?.thresholdRules || [];
+                      const currentValue = val?.value || '';
+                      const evaluation = getAutoEvaluation(currentValue, thresholdRules);
+                      return (
+                        <Form.Item
+                          key={key}
+                          style={{ marginBottom: 0, padding: '18px 0 8px 0', borderBottom: '1px solid #f0f0f0' }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', minHeight: 60 }}>
+                            {/* Tên chỉ số */}
+                            <div style={{
+                              flex: 1.5,
+                              minWidth: 0,
+                              fontWeight: 700,
+                              fontSize: 16,
+                              color: '#222',
+                              lineHeight: '36px',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              marginRight: 0
+                            }}>
+                              {testName}
+                            </div>
+                            {/* Min-max + unit nhỏ phía trên input */}
+                            <div style={{
+                              flex: '0 0 120px',
+                              maxWidth: 120,
+                              fontSize: 13,
+                              color: '#888',
+                              fontWeight: 500,
+                              textAlign: 'right',
+                              marginRight: 18
+                            }}>
+                              {min !== undefined && max !== undefined ? (
+                                <span>{min} - {max}{unit ? ` (${unit})` : ''}</span>
+                              ) : normal ? (
+                                <span>{normal}{unit ? ` (${unit})` : ''}</span>
+                              ) : unit ? (
+                                <span>({unit})</span>
+                              ) : null}
+                            </div>
+                            {/* Input kết quả */}
+                            <Input
+                              style={{ width: 90, height: 32, fontSize: 14, borderRadius: 8, border: '1.5px solid #d9d9d9', padding: '2px 8px', marginRight: 0 }}
+                              placeholder="Kết quả"
+                              readOnly
+                              type="number"
+                              value={currentValue}
+                            />
+                            {/* Đánh giá text tự động */}
+                            <span style={{
+                              flex: 1,
+                              minWidth: 0,
+                              fontWeight: 700,
+                              color: evaluation.color,
+                              fontSize: 15,
+                              lineHeight: '36px',
+                              letterSpacing: 0.2,
+                              textShadow: evaluation.flag === 'normal' ? '0 1px 0 #e6ffe6' : evaluation.flag ? '0 1px 0 #fff1f0' : undefined,
+                              marginRight: 0,
+                              marginLeft: 12,
+                            }}>
+                              {evaluation.text || ''}
+                            </span>
+                          </div>
+                          {/* Message đánh giá nằm bên dưới min-max, kéo dài tới cuối modal */}
+                          <div style={{
+                            width: '100%',
+                            gridColumn: '2 / span 3',
+                            fontSize: 14,
+                            color: evaluation.color,
+                            marginTop: 2,
+                            minHeight: 20,
+                            fontStyle: evaluation.message ? 'normal' : 'italic',
+                            opacity: evaluation.message ? 1 : 0.6,
+                            fontWeight: 500,
+                            letterSpacing: 0.1,
+                            paddingLeft: 1.5 * 160 + 18, // căn lề trái đúng vị trí min-max
+                            boxSizing: 'border-box',
+                            wordBreak: 'break-word'
+                          }}>
+                            {evaluation.message || ''}
+                          </div>
+                        </Form.Item>
+                      );
+                    })
+                : testCategories.filter(cat => !cat.isDeleted).map(cat => {
+                    const testName = cat.testCategoryId?.name || cat.name || cat.testCategoryName || cat.label || cat.title || '';
+                    const unit = cat.unit || cat.testCategory?.unit || cat.testCategoryId?.unit || '';
+                    const min = cat.minValue;
+                    const max = cat.maxValue;
+                    const normal = cat.targetValue || cat.normalRange || '';
+                    const key = cat.testCategoryId?._id || cat.testCategoryId;
+                    const thresholdRules = cat.thresholdRules || [];
+                    const currentValue = inputValues[key] || '';
+                    const evaluation = getAutoEvaluation(currentValue, thresholdRules);
+                    return (
                       <Form.Item
-                        name={['testItemValues', key, 'value']}
-                        rules={[{ required: true, message: 'Vui lòng nhập kết quả!' }]}
-                        noStyle
+                        key={key}
+                        required
+                        style={{ marginBottom: 0, padding: '18px 0 8px 0', borderBottom: '1px solid #f0f0f0' }}
                       >
-                        <Input
-                          style={{ width: 90, height: 32, fontSize: 14, borderRadius: 8, border: '1.5px solid #d9d9d9', padding: '2px 8px', marginRight: 0 }}
-                          placeholder="Kết quả"
-                          readOnly={modalMode === 'view'}
-                          type="number"
-                          value={testItemForm.getFieldValue(['testItemValues', key, 'value'])}
-                          onChange={(e) => handleInputChange(key, e.target.value)}
-                        />
+                        <div style={{ display: 'flex', alignItems: 'center', minHeight: 60 }}>
+                          {/* Tên chỉ số */}
+                          <div style={{
+                            flex: 1.5,
+                            minWidth: 0,
+                            fontWeight: 700,
+                            fontSize: 16,
+                            color: '#222',
+                            lineHeight: '36px',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            marginRight: 0
+                          }}>
+                            {cat.testCategoryId?.name || cat.name || testName}
+                          </div>
+                          {/* Min-max + unit nhỏ phía trên input */}
+                          <div style={{
+                            flex: '0 0 120px',
+                            maxWidth: 120,
+                            fontSize: 13,
+                            color: '#888',
+                            fontWeight: 500,
+                            textAlign: 'right',
+                            marginRight: 18
+                          }}>
+                            {min !== undefined && max !== undefined ? (
+                              <span>{min} - {max}{unit ? ` (${unit})` : ''}</span>
+                            ) : normal ? (
+                              <span>{normal}{unit ? ` (${unit})` : ''}</span>
+                            ) : unit ? (
+                              <span>({unit})</span>
+                            ) : null}
+                          </div>
+                          {/* Input kết quả */}
+                          <Form.Item
+                            name={['testItemValues', key, 'value']}
+                            rules={[{ required: true, message: 'Vui lòng nhập kết quả!' }]}
+                            noStyle
+                          >
+                            <Input
+                              style={{ width: 90, height: 32, fontSize: 14, borderRadius: 8, border: '1.5px solid #d9d9d9', padding: '2px 8px', marginRight: 0 }}
+                              placeholder="Kết quả"
+                              readOnly={modalMode === 'view' as any}
+                              type="number"
+                              value={testItemForm.getFieldValue(['testItemValues', key, 'value'])}
+                              onChange={(e) => handleInputChange(key, e.target.value)}
+                            />
+                          </Form.Item>
+                          {/* Đánh giá text tự động */}
+                          <span style={{
+                            flex: 1,
+                            minWidth: 0,
+                            fontWeight: 700,
+                            color: evaluation.color,
+                            fontSize: 15,
+                            lineHeight: '36px',
+                            letterSpacing: 0.2,
+                            textShadow: evaluation.flag === 'normal' ? '0 1px 0 #e6ffe6' : evaluation.flag ? '0 1px 0 #fff1f0' : undefined,
+                            marginRight: 0,
+                            marginLeft: 12,
+                          }}>
+                            {evaluation.text || ''}
+                          </span>
+                        </div>
+                        {/* Message đánh giá nằm bên dưới min-max, kéo dài tới cuối modal */}
+                        <div style={{
+                          width: '100%',
+                          gridColumn: '2 / span 3',
+                          fontSize: 14,
+                          color: evaluation.color,
+                          marginTop: 2,
+                          minHeight: 20,
+                          fontStyle: evaluation.message ? 'normal' : 'italic',
+                          opacity: evaluation.message ? 1 : 0.6,
+                          fontWeight: 500,
+                          letterSpacing: 0.1,
+                          paddingLeft: 1.5 * 160 + 18, // căn lề trái đúng vị trí min-max
+                          boxSizing: 'border-box',
+                          wordBreak: 'break-word'
+                        }}>
+                          {evaluation.message || ''}
+                        </div>
                       </Form.Item>
-                      {/* Đánh giá text tự động */}
-                      <span style={{
-                        flex: 1,
-                        minWidth: 0,
-                        fontWeight: 700,
-                        color: evaluation.color,
-                        fontSize: 15,
-                        lineHeight: '36px',
-                        letterSpacing: 0.2,
-                        textShadow: evaluation.flag === 'normal' ? '0 1px 0 #e6ffe6' : evaluation.flag ? '0 1px 0 #fff1f0' : undefined,
-                        marginRight: 0,
-                        marginLeft: 12,
-                      }}>
-                        {evaluation.text || ''}
-                      </span>
-                    </div>
-                    {/* Message đánh giá nằm bên dưới min-max, kéo dài tới cuối modal */}
-                    <div style={{
-                      width: '100%',
-                      gridColumn: '2 / span 3',
-                      fontSize: 14,
-                      color: evaluation.color,
-                      marginTop: 2,
-                      minHeight: 20,
-                      fontStyle: evaluation.message ? 'normal' : 'italic',
-                      opacity: evaluation.message ? 1 : 0.6,
-                      fontWeight: 500,
-                      letterSpacing: 0.1,
-                      paddingLeft: 1.5 * 160 + 18, // căn lề trái đúng vị trí min-max
-                      boxSizing: 'border-box',
-                      wordBreak: 'break-word'
-                    }}>
-                      {evaluation.message || ''}
-                    </div>
-                  </Form.Item>
-                );
-              })}
+                    );
+                  })}
             </div>
           </Form>
         )}
@@ -1122,12 +1226,16 @@ const TestResultsEntry: React.FC = () => {
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>Kết quả chỉ số đã nhập:</div>
               <div>
-                {testResultModalTestCategories.map((cat, idx) => {
-                  const item = testResultModalItems.find(i => String(i.testCategoryId?._id || i.testCategoryId || i.itemNameId?._id || i.itemNameId) === String(cat.testCategoryId?._id || cat.testCategoryId || cat._id));
-                  if (!item) return null;
+                {testResultModalItems.map((item, idx) => {
+                  // Tìm testCategory tương ứng
+                  const cat = testResultModalTestCategories.find(tc =>
+                    String(tc.testCategoryId?._id || tc.testCategoryId || tc._id) === String(item.testCategoryId?._id || item.testCategoryId || item.itemNameId?._id || item.itemNameId)
+                  );
+                  // Nếu không tìm thấy testCategory hoặc testCategory đã bị xóa mềm, không render
+                  if (!cat || cat.isDeleted) return null;
                   const minValue = cat.minValue;
                   const maxValue = cat.maxValue;
-                  const unit = cat.customUnit || cat.unit || '';
+                  const unit = cat.customUnit || cat.unit || item.unit || '';
                   let color = '#1677ff';
                   if (item.flag === 'normal') color = '#52c41a';
                   else if (item.flag === 'low' || item.flag === 'mild_high') color = '#faad14';
@@ -1141,7 +1249,7 @@ const TestResultsEntry: React.FC = () => {
                     critical: 'Nguy kịch'
                   };
                   return (
-                    <React.Fragment key={cat._id || idx}>
+                    <React.Fragment key={item._id || idx}>
                       <div style={{
                         borderBottom: '1px solid #f0f0f0',
                         padding: '14px 0 6px 0',
@@ -1184,7 +1292,7 @@ const TestResultsEntry: React.FC = () => {
                                 lineHeight: '32px',
                               }}
                               value={item.value}
-                              readOnly={testResultModalMode !== 'edit'}
+                              readOnly={true}
                               type="number"
                             />
                           </div>

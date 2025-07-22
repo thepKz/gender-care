@@ -2,9 +2,9 @@
 // Includes both regular appointments and doctor QA consultations
 
 // ✅ UPDATED STATUS TYPES - Đồng bộ với Backend
-export type AppointmentStatus = 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'done_testResultItem' | 'done_testResult';
+export type AppointmentStatus = 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'payment_cancelled' | 'expired' | 'done_testResultItem' | 'done_testResult';
 export type ConsultationStatus = 'pending_payment' | 'scheduled' | 'consulting' | 'completed' | 'cancelled';
-export type UnifiedStatus = 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled';
+export type UnifiedStatus = 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'payment_cancelled' | 'expired';
 
 // API Response Interfaces from Backend - Updated với fields mới
 export interface ApiAppointment {
@@ -47,7 +47,7 @@ export interface ApiAppointment {
   // ✅ UPDATED STATUS với đầy đủ các trạng thái
   status: AppointmentStatus;
   totalAmount?: number;
-  paymentStatus: 'unpaid' | 'paid' | 'partial' | 'refunded';
+  paymentStatus: 'unpaid' | 'paid' | 'partial' | 'refunded' | 'expired';
   paidAt?: string;
   refund?: {
     refundReason?: string;
@@ -114,7 +114,7 @@ export interface UnifiedAppointment {
   // ✅ UPDATED STATUS với đầy đủ các trạng thái
   status: UnifiedStatus;
   totalAmount?: number;
-  paymentStatus?: 'unpaid' | 'paid' | 'partial' | 'refunded';
+  paymentStatus?: 'unpaid' | 'paid' | 'partial' | 'refunded' | 'expired';
   refund?: {
     refundReason?: string;
     processingStatus?: 'pending' | 'completed' | 'rejected';

@@ -16,7 +16,6 @@ import {
     Calendar,
     Card,
     Col,
-    DatePicker,
     Form,
     Input,
     Modal,
@@ -31,6 +30,7 @@ import {
     Alert,
     Tabs
 } from 'antd';
+import SimpleDatePicker from '../../components/ui/SimpleDatePicker';
 import dayjs, { Dayjs } from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -2224,7 +2224,7 @@ const CyclePage: React.FC = () => {
                 name="date"
                 label={<span className="text-gray-700 font-medium">Ngày</span>}
               >
-                <DatePicker className="w-full" disabled />
+                <SimpleDatePicker style={{ width: '100%' }} disabled value="" onChange={() => {}} />
               </Form.Item>
 
               <Row gutter={16}>
@@ -2411,10 +2411,11 @@ const CyclePage: React.FC = () => {
                 { required: true, message: 'Vui lòng chọn ngày bắt đầu mới' }
               ]}
             >
-              <DatePicker 
-                className="w-full" 
-                format="DD/MM/YYYY"
+              <SimpleDatePicker
+                style={{ width: '100%' }}
                 placeholder="Chọn ngày bắt đầu chu kỳ mới"
+                value=""
+                onChange={() => {}}
               />
             </Form.Item>
 
@@ -2501,10 +2502,11 @@ const CyclePage: React.FC = () => {
                 { required: true, message: 'Vui lòng chọn ngày bắt đầu chu kỳ' }
               ]}
             >
-              <DatePicker 
-                className="w-full" 
-                format="DD/MM/YYYY"
+              <SimpleDatePicker
+                style={{ width: '100%' }}
                 placeholder="Chọn ngày bắt đầu chu kỳ"
+                value=""
+                onChange={() => {}}
               />
             </Form.Item>
 

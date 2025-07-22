@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Form, 
-  Input, 
-  Select, 
-  DatePicker, 
-  Button, 
-  Card, 
+import {
+  Form,
+  Input,
+  Select,
+  Button,
+  Card,
   Typography,
   message
 } from 'antd';
+import SimpleDatePicker from '../../components/ui/SimpleDatePicker';
 import { 
   ArrowLeftOutlined, 
   FormOutlined,
@@ -211,7 +211,7 @@ const CreateProfile: React.FC = () => {
                     { required: true, message: 'Vui lòng chọn ngày sinh' },
                     {
                       validator: (_, value) => {
-                        if (value && value.isAfter(dayjs().subtract(10, 'years'), 'day')) {
+                        if (value && dayjs.isDayjs(value) && value.isAfter(dayjs().subtract(10, 'years'), 'day')) {
                           return Promise.reject('Tuổi phải từ 10 trở lên');
                         }
                         return Promise.resolve();
@@ -219,15 +219,9 @@ const CreateProfile: React.FC = () => {
                     }
                   ]}
                 >
-                  <DatePicker 
-                    placeholder="Chọn ngày sinh" 
-                    className="rounded-lg w-full" 
-                    size="large"
-                    format="DD/MM/YYYY"
-                    disabledDate={disabledDate}
-                    showToday={false}
-                    allowClear
-                    defaultPickerValue={dayjs().subtract(25, 'years')}
+                  <SimpleDatePicker
+                    placeholder="Chọn ngày sinh"
+                    style={{ width: '100%', height: '40px', borderRadius: '8px' }}
                   />
                 </Form.Item>
               </div>

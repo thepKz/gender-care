@@ -9,28 +9,23 @@ import {
   Modal,
   Form,
   Typography,
-  message,
   Tag,
   Popconfirm,
   Row,
   Col,
-  Tabs,
   Alert,
-  Descriptions,
   App,
   Checkbox,
   InputNumber
 } from 'antd';
-import { useSelector } from 'react-redux';
-import type { RootState } from '../../../redux/store';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  EyeOutlined,
   ExperimentOutlined,
   SettingOutlined,
-  SearchOutlined
+  SearchOutlined,
+  RollbackOutlined // Thêm icon khôi phục
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { 
@@ -43,8 +38,6 @@ import { servicesApi } from '../../../api/endpoints';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
-const { Option } = Select;
-const { TextArea } = Input;
 
 interface Service {
   _id: string;
@@ -74,7 +67,6 @@ const ServiceTestConfigurationInner: React.FC = () => {
   const [bulkForm] = Form.useForm();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<ServiceTestCategory | null>(null);
-  const [newTestCategoryName, setNewTestCategoryName] = useState('');
   const [form] = Form.useForm();
   const selectRef = useRef<any>(null); // ref cho Select
   const [customTestCategoryName, setCustomTestCategoryName] = useState<string>('');
@@ -96,7 +88,6 @@ const ServiceTestConfigurationInner: React.FC = () => {
         description: ''
       };
       
-      console.log('🔍 Restoring service from URL:', serviceFromUrl);
       setSelectedService(serviceFromUrl);
       setActiveTab('configurations');
       loadServiceTestCategories(serviceIdFromUrl);
@@ -117,9 +108,6 @@ const ServiceTestConfigurationInner: React.FC = () => {
         testCategoriesApi.getAll()
       ]);
 
-      console.log('Services API Response:', servicesResponse);
-      console.log('Test Categories API Response:', testCategoriesData);
-
       // Xử lý response structure
       const servicesData = servicesResponse.data;
       let allServices: any[] = [];
@@ -138,23 +126,9 @@ const ServiceTestConfigurationInner: React.FC = () => {
         allServices = servicesData;
       } else {
         console.error('Unexpected services response structure:', servicesData);
-        console.log('ServicesData type:', typeof servicesData);
-        console.log('ServicesData keys:', Object.keys(servicesData || {}));
         allServices = [];
       }
 
-      console.log('Parsed allServices:', allServices);
-      console.log('AllServices is array:', Array.isArray(allServices));
-
-      // Đảm bảo allServices là array trước khi filter
-      if (!Array.isArray(allServices)) {
-        console.error('allServices is not an array:', allServices);
-        allServices = [];
-      }
-
-      // Hiển thị tất cả dịch vụ (không lọc theo serviceType)
-      console.log('All services found:', allServices);
-      
       setServices(allServices);
       setTestCategories(testCategoriesData);
     } catch (error) {
@@ -168,10 +142,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
   const loadServiceTestCategories = async (serviceId: string) => {
     try {
       setLoading(true);
-      console.log('🔍 Loading service test categories for serviceId:', serviceId);
       const data = await serviceTestCategoriesApi.getByService(serviceId);
-      console.log('🔍 Service test categories data:', data);
-      console.log('🔍 First record structure:', data[0]);
       setServiceTestCategories(data);
     } catch (error) {
       message.error('Lỗi khi tải danh sách xét nghiệm của dịch vụ');
@@ -285,7 +256,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
       targetValue: item.targetValue,
       minValue: item.minValue,
       maxValue: item.maxValue,
-      thresholdRules: item.thresholdRules || [],
+      thresholdRules: item.thresholdRules && item.thresholdRules.length > 0 ? item.thresholdRules : [{ from: null, to: null, flag: 'normal', message: '' }],
       unit: item.unit || '',
       isRequired: item.isRequired || false,
     });
@@ -294,13 +265,25 @@ const ServiceTestConfigurationInner: React.FC = () => {
 
   const handleDeleteTestCategory = async (id: string) => {
     try {
-      await serviceTestCategoriesApi.delete(id);
+      await serviceTestCategoriesApi.update(id, { isDeleted: true }); // Chỉ update mỗi isDeleted
       message.success('Đã xóa cấu hình xét nghiệm thành công');
       if (selectedService) {
         loadServiceTestCategories(selectedService._id);
       }
     } catch (error) {
       message.error('Lỗi khi xóa cấu hình xét nghiệm');
+    }
+  };
+
+  const handleRestoreTestCategory = async (id: string) => {
+    try {
+      await serviceTestCategoriesApi.update(id, { isDeleted: false });
+      message.success('Đã khôi phục cấu hình xét nghiệm thành công');
+      if (selectedService) {
+        loadServiceTestCategories(selectedService._id);
+      }
+    } catch (error) {
+      message.error('Lỗi khi khôi phục cấu hình xét nghiệm');
     }
   };
 
@@ -396,10 +379,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
   };
 
   const getTestCategoryName = (testCategoryId: string) => {
-    console.log('🔍 getTestCategoryName called with:', testCategoryId);
-    console.log('🔍 Available testCategories:', testCategories);
     const testCategory = testCategories.find(tc => tc._id === testCategoryId);
-    console.log('🔍 Found testCategory:', testCategory);
     return testCategory?.name || 'N/A';
   };
 
@@ -445,30 +425,23 @@ const ServiceTestConfigurationInner: React.FC = () => {
       dataIndex: 'testCategoryId',
       key: 'testCategoryName',
       render: (testCategoryId, record) => {
-        console.log('🔍 Rendering name for record:', record);
-        console.log('🔍 testCategoryId:', testCategoryId);
-        console.log('🔍 record.testCategory:', record.testCategory);
-        console.log('🔍 typeof testCategoryId:', typeof testCategoryId);
         
         // Nếu testCategoryId đã là object (populated)
         if (typeof testCategoryId === 'object' && testCategoryId?.name) {
-          console.log('🔍 Using populated name:', testCategoryId.name);
           return testCategoryId.name;
         }
         
         // Nếu có testCategory property
         if (record.testCategory?.name) {
-          console.log('🔍 Using testCategory name:', record.testCategory.name);
           return record.testCategory.name;
         }
         
         // Fallback về hàm lookup
-        console.log('🔍 Using fallback lookup');
         return getTestCategoryName(testCategoryId);
       },
     },
     {
-      title: 'Bắt buộc',
+      title: 'Loại chỉ số', // Đổi từ 'Loại' thành 'Loại chỉ số'
       dataIndex: 'isRequired',
       key: 'isRequired',
       render: (isRequired) => (
@@ -488,11 +461,14 @@ const ServiceTestConfigurationInner: React.FC = () => {
         return unit ? <span>{unit}</span> : <span className="text-gray-500">Chưa thiết lập</span>;
       },
     },
+    // Đảm bảo chỉ có một cột 'Giá trị dao động' với key 'valueRange', đã căn giữa.
+    // Nếu có cột cũ trùng key, hãy xóa cột cũ, chỉ giữ lại đoạn sau:
     {
       title: 'Giá trị dao động',
       key: 'valueRange',
+      align: 'center', // Căn giữa theo Ant Design Table
       render: (_, record) => (
-        <div>
+        <div className="text-center" style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
           {record.minValue !== undefined && record.maxValue !== undefined ? (
             <span>{record.minValue} - {record.maxValue}</span>
           ) : (
@@ -501,18 +477,16 @@ const ServiceTestConfigurationInner: React.FC = () => {
         </div>
       ),
     },
+    // Xóa cột 'Giá trị bình thường'
+    // Thêm cột 'Trạng thái'
     {
-      title: 'Giá trị bình thường',
-      dataIndex: 'targetValue',
-      key: 'targetValue',
-      render: (value, record) => {
-        // Tự động tính từ minValue và maxValue nếu có
-        if (record.minValue !== undefined && record.maxValue !== undefined) {
-          const calculatedValue = (record.minValue + record.maxValue) / 2;
-          return <span>{calculatedValue.toFixed(1)}</span>;
-        }
-        return value || <span className="text-gray-500">Chưa thiết lập</span>;
-      },
+      title: 'Trạng thái',
+      key: 'status',
+      render: (_, record) => (
+        <Tag color={record.isDeleted ? 'red' : 'blue'}>
+          {record.isDeleted ? 'Đã xóa' : 'Đang hoạt động'}
+        </Tag>
+      ),
     },
     {
       title: 'Thao tác',
@@ -523,19 +497,39 @@ const ServiceTestConfigurationInner: React.FC = () => {
             type="text"
             icon={<EditOutlined />}
             onClick={() => handleEditTestCategory(record)}
+            disabled={record.isDeleted}
           />
-          <Popconfirm
-            title="Xác nhận xóa cấu hình này?"
-            onConfirm={() => handleDeleteTestCategory(record._id)}
-            okText="Có"
-            cancelText="Không"
-          >
-            <Button type="text" danger icon={<DeleteOutlined />} />
-          </Popconfirm>
+          {record.isDeleted ? (
+            <Popconfirm
+              title="Xác nhận khôi phục cấu hình này?"
+              onConfirm={() => handleRestoreTestCategory(record._id)}
+              okText="Có"
+              cancelText="Không"
+            >
+              <Button type="text" icon={<RestoreIcon />} />
+            </Popconfirm>
+          ) : (
+            <Popconfirm
+              title="Xác nhận xóa cấu hình này?"
+              onConfirm={() => handleDeleteTestCategory(record._id)}
+              okText="Có"
+              cancelText="Không"
+            >
+              <Button type="text" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
   ];
+
+  // Tạo icon SVG khôi phục màu xanh lá
+  const RestoreIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 4a8 8 0 1 0 8 8" stroke="#22c55e" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M16 4h4v4" stroke="#22c55e" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
 
   // Lọc dịch vụ theo tên và loại serviceType === 'test'
   const filteredServices = services.filter(service =>
@@ -553,249 +547,270 @@ const ServiceTestConfigurationInner: React.FC = () => {
         </Text>
       </div>
 
+      {/* Button group tab UI đẹp thay cho Tabs --- */}
       <Card>
-        <Tabs 
-          activeKey={activeTab} 
-          onChange={setActiveTab}
-          items={[
-            {
-              key: 'services',
-              label: (
-                <span>
-                  <ExperimentOutlined />
+        <div style={{ marginBottom: '16px' }}>
+          <Row gutter={16} align="middle" justify="center">
+            <Col flex="auto">
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Button
+                  type={activeTab === 'services' ? 'primary' : 'default'}
+                  icon={<ExperimentOutlined />}
+                  onClick={() => setActiveTab('services')}
+                  style={{
+                    borderRadius: '6px',
+                    height: '40px',
+                    minWidth: '180px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: 18
+                  }}
+                >
                   Danh sách dịch vụ
-                </span>
-              ),
-              children: (
-                <>
-                  <div className="mb-4">
-                    <Row gutter={16}>
-                      <Col xs={24} sm={12} md={8}>
-                        <Search
-                          placeholder="Tìm kiếm dịch vụ..."
-                          value={searchText}
-                          onChange={(e) => setSearchText(e.target.value)}
-                          allowClear
-                        />
-                      </Col>
-                    </Row>
-                  </div>
-
-                  <Table
-                    columns={serviceColumns}
-                    dataSource={filteredServices}
-                    rowKey="_id"
-                    loading={loading}
-                    pagination={{
-                      pageSize: 10,
-                      showSizeChanger: true,
-                      showQuickJumper: true,
-                      showTotal: (total, range) =>
-                        `${range[0]}-${range[1]} của ${total} dịch vụ`,
-                    }}
-                  />
-                </>
-              ),
-            },
-            {
-              key: 'configurations',
-              label: (
-                <span>
-                  <SettingOutlined />
+                </Button>
+                <Button
+                  type={activeTab === 'configurations' ? 'primary' : 'default'}
+                  icon={<SettingOutlined />}
+                  onClick={() => setActiveTab('configurations')}
+                  disabled={!selectedService}
+                  style={{
+                    borderRadius: '6px',
+                    height: '40px',
+                    minWidth: '180px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: 18
+                  }}
+                >
                   Cấu hình xét nghiệm
-                </span>
-              ),
-              disabled: !selectedService,
-              children: selectedService && (
-                <>
-                  <Alert
-                    message={`Thiết lập chỉ số tiêu chuẩn cho dịch vụ: ${selectedService.serviceName}`}
-                    description="Các chỉ số bạn thiết lập ở đây sẽ được sử dụng để đánh giá kết quả xét nghiệm khi bác sĩ nhập kết quả cho khách hàng."
-                    type="info"
-                    className="mb-4"
-                    action={
-                      <Button
-                        size="small"
-                        onClick={() => setActiveTab('services')}
-                      >
-                        Chọn dịch vụ khác
-                      </Button>
-                    }
+                </Button>
+              </div>
+            </Col>
+          </Row>
+        </div>
+        {/* Render children tương ứng với activeTab */}
+        {activeTab === 'services' && (
+          <>
+            <div className="mb-4">
+              <Row gutter={16}>
+                <Col xs={24} sm={12} md={8}>
+                  <Search
+                    placeholder="Tìm kiếm dịch vụ..."
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    allowClear
                   />
-
-                  <div className="mb-4">
-                    <Space>
-                      {!bulkEditMode ? (
-                        <>
-                          <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={handleAddTestCategory}
-                          >
-                            Thêm chỉ số xét nghiệm
-                          </Button>
-                          <Button
-                            icon={<SettingOutlined />}
-                            onClick={handleBulkEdit}
-                          >
-                            Cập nhật nhiều chỉ số
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            type="primary"
-                            onClick={handleBulkSave}
-                            loading={loading}
-                          >
-                            Lưu tất cả chỉ số
-                          </Button>
-                          <Button
-                            onClick={() => setBulkEditMode(false)}
-                          >
-                            Hủy
-                          </Button>
-                        </>
-                      )}
-                    </Space>
-                  </div>
-
-                  {!bulkEditMode ? (
-                    <Table
-                      columns={testCategoryColumns}
-                      dataSource={serviceTestCategories}
-                      rowKey="_id"
+                </Col>
+              </Row>
+            </div>
+            <Table
+              columns={serviceColumns}
+              dataSource={filteredServices}
+              rowKey="_id"
+              loading={loading}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) =>
+                  `${range[0]}-${range[1]} của ${total} dịch vụ`,
+              }}
+            />
+          </>
+        )}
+        {activeTab === 'configurations' && selectedService && (
+          <>
+            <Alert
+              message={`Thiết lập chỉ số tiêu chuẩn cho dịch vụ: ${selectedService.serviceName}`}
+              description="Các chỉ số bạn thiết lập ở đây sẽ được sử dụng để đánh giá kết quả xét nghiệm khi bác sĩ nhập kết quả cho khách hàng."
+              type="info"
+              className="mb-4"
+              action={
+                <Button
+                  size="small"
+                  onClick={() => setActiveTab('services')}
+                >
+                  Chọn dịch vụ khác
+                </Button>
+              }
+            />
+            <div className="mb-4">
+              <Space>
+                {!bulkEditMode ? (
+                  <>
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={handleAddTestCategory}
+                    >
+                      Thêm chỉ số xét nghiệm
+                    </Button>
+                    <Button
+                      icon={<SettingOutlined />}
+                      onClick={handleBulkEdit}
+                    >
+                      Cập nhật nhiều chỉ số
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      type="primary"
+                      onClick={handleBulkSave}
                       loading={loading}
-                      pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                        showTotal: (total, range) =>
-                          `${range[0]}-${range[1]} của ${total} xét nghiệm`,
-                      }}
+                    >
+                      Lưu tất cả chỉ số
+                    </Button>
+                    <Button
+                      onClick={() => setBulkEditMode(false)}
+                    >
+                      Hủy
+                    </Button>
+                  </>
+                )}
+              </Space>
+            </div>
+            {!bulkEditMode ? (
+              <Table
+                columns={testCategoryColumns}
+                dataSource={serviceTestCategories}
+                rowKey="_id"
+                loading={loading}
+                pagination={{
+                  pageSize: 10,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total, range) =>
+                    `${range[0]}-${range[1]} của ${total} xét nghiệm`,
+                }}
+              />
+            ) : (
+              <Form form={bulkForm} layout="vertical" preserve={false}>
+                <Alert
+                  message="Cấu hình nhiều chỉ số cùng lúc"
+                  description="Điền thông tin cho các chỉ số bạn muốn cấu hình. Các chỉ số để trống sẽ không được tạo/cập nhật."
+                  type="info"
+                  className="mb-4"
+                />
+                
+                {testCategories.length === 0 ? (
+                  <div>
+                    <Alert
+                      message="Tạo chỉ số xét nghiệm cho dịch vụ"
+                      description="Hiện chưa có danh sách chỉ số xét nghiệm. Bạn có thể tạo trực tiếp các chỉ số cần thiết cho dịch vụ này."
+                      type="info"
+                      showIcon
+                      className="mb-4"
                     />
-                  ) : (
-                    <Form form={bulkForm} layout="vertical" preserve={false}>
-                      <Alert
-                        message="Cấu hình nhiều chỉ số cùng lúc"
-                        description="Điền thông tin cho các chỉ số bạn muốn cấu hình. Các chỉ số để trống sẽ không được tạo/cập nhật."
-                        type="info"
-                        className="mb-4"
-                      />
-                      
-                      {testCategories.length === 0 ? (
-                        <div>
-                          <Alert
-                            message="Tạo chỉ số xét nghiệm cho dịch vụ"
-                            description="Hiện chưa có danh sách chỉ số xét nghiệm. Bạn có thể tạo trực tiếp các chỉ số cần thiết cho dịch vụ này."
-                            type="info"
-                            showIcon
-                            className="mb-4"
-                          />
-                          
-                          <Card title="Tạo chỉ số xét nghiệm mới" size="small">
-                            <Form
-                              layout="inline"
-                              onFinish={async (values) => {
-                                try {
-                                  // Gọi API tạo test category mới
-                                  await testCategoriesApi.create(values);
-                                  message.success('Đã tạo chỉ số xét nghiệm mới');
-                                  loadInitialData(); // Reload data
-                                } catch (error) {
-                                  message.error('Lỗi khi tạo chỉ số xét nghiệm');
-                                }
-                              }}
+                    
+                    <Card title="Tạo chỉ số xét nghiệm mới" size="small">
+                      <Form
+                        layout="inline"
+                        onFinish={async (values) => {
+                          try {
+                            // Gọi API tạo test category mới
+                            await testCategoriesApi.create(values);
+                            message.success('Đã tạo chỉ số xét nghiệm mới');
+                            loadInitialData(); // Reload data
+                          } catch (error) {
+                            message.error('Lỗi khi tạo chỉ số xét nghiệm');
+                          }
+                        }}
+                      >
+                        <Form.Item name="name" rules={[{ required: true, message: 'Vui lòng nhập tên chỉ số' }]}>
+                          <Input placeholder="Tên chỉ số (VD: Cholesterol)" />
+                        </Form.Item>
+                        <Form.Item name="unit">
+                          <Input placeholder="Đơn vị (VD: mg/dL)" />
+                        </Form.Item>
+                        <Form.Item name="normalRange">
+                          <Input placeholder="Khoảng chuẩn (VD: <200)" />
+                        </Form.Item>
+                        <Form.Item>
+                          <Button type="primary" htmlType="submit">
+                            Thêm chỉ số
+                          </Button>
+                        </Form.Item>
+                      </Form>
+                    </Card>
+                  </div>
+                ) : (
+                  <Row gutter={[16, 24]}>
+                    {testCategories.map(tc => (
+                    <Col xs={24} lg={12} key={tc._id}>
+                      <Card
+                        size="small"
+                        title={
+                          <Space>
+                            <ExperimentOutlined />
+                            <strong>{tc.name}</strong>
+                          </Space>
+                        }
+                        extra={
+                          <Form.Item
+                            name={`${tc._id}_isRequired`}
+                            valuePropName="checked"
+                            style={{ margin: 0 }}
+                          >
+                            <Checkbox>Bắt buộc</Checkbox>
+                          </Form.Item>
+                        }
+                      >
+                        <Row gutter={12}>
+                          <Col span={12}>
+                            <Form.Item
+                              name={`${tc._id}_targetValue`}
+                              label="Giá trị bình thường"
+                              style={{ marginBottom: 12 }}
                             >
-                              <Form.Item name="name" rules={[{ required: true, message: 'Vui lòng nhập tên chỉ số' }]}>
-                                <Input placeholder="Tên chỉ số (VD: Cholesterol)" />
-                              </Form.Item>
-                              <Form.Item name="unit">
-                                <Input placeholder="Đơn vị (VD: mg/dL)" />
-                              </Form.Item>
-                              <Form.Item name="normalRange">
-                                <Input placeholder="Khoảng chuẩn (VD: <200)" />
-                              </Form.Item>
-                              <Form.Item>
-                                <Button type="primary" htmlType="submit">
-                                  Thêm chỉ số
-                                </Button>
-                              </Form.Item>
-                            </Form>
-                          </Card>
-                        </div>
-                      ) : (
-                        <Row gutter={[16, 24]}>
-                          {testCategories.map(tc => (
-                          <Col xs={24} lg={12} key={tc._id}>
-                            <Card
-                              size="small"
-                              title={
-                                <Space>
-                                  <ExperimentOutlined />
-                                  <strong>{tc.name}</strong>
-                                </Space>
-                              }
-                              extra={
-                                <Form.Item
-                                  name={`${tc._id}_isRequired`}
-                                  valuePropName="checked"
-                                  style={{ margin: 0 }}
-                                >
-                                  <Checkbox>Bắt buộc</Checkbox>
-                                </Form.Item>
-                              }
-                            >
-                              <Row gutter={12}>
-                                <Col span={12}>
-                                  <Form.Item
-                                    name={`${tc._id}_targetValue`}
-                                    label="Giá trị bình thường"
-                                    style={{ marginBottom: 12 }}
-                                  >
-                                    <Input 
-                                      placeholder="Ví dụ: 4.5, <5.0"
-                                      size="small"
-                                    />
-                                  </Form.Item>
-                                </Col>
-                              </Row>
-                              
-                              <Form.Item
-                                name={`${tc._id}_minValue`}
-                                label="Giá trị thấp nhất"
-                                style={{ marginBottom: 12 }}
-                              >
-                                <InputNumber 
-                                  placeholder="VD: 3.5" 
-                                  style={{ width: '100%' }}
-                                  step={0.1}
-                                />
-                              </Form.Item>
-                              
-                              <Form.Item
-                                name={`${tc._id}_maxValue`}
-                                label="Giá trị cao nhất"
-                                style={{ marginBottom: 12 }}
-                              >
-                                <InputNumber 
-                                  placeholder="VD: 5.0" 
-                                  style={{ width: '100%' }}
-                                  step={0.1}
-                                />
-                              </Form.Item>
-                            </Card>
+                              <Input 
+                                placeholder="Ví dụ: 4.5, <5.0"
+                                size="small"
+                              />
+                            </Form.Item>
                           </Col>
-                        ))}
                         </Row>
-                      )}
-                    </Form>
-                  )}
-                </>
-              ),
-            },
-          ]}
-        />
+                        
+                        <Form.Item
+                          name={`${tc._id}_minValue`}
+                          label="Giá trị thấp nhất"
+                          style={{ marginBottom: 12 }}
+                        >
+                          <InputNumber 
+                            placeholder="VD: 3.5" 
+                            style={{ width: '100%' }}
+                            step={0.1}
+                          />
+                        </Form.Item>
+                        
+                        <Form.Item
+                          name={`${tc._id}_maxValue`}
+                          label="Giá trị cao nhất"
+                          style={{ marginBottom: 12 }}
+                        >
+                          <InputNumber 
+                            placeholder="VD: 5.0" 
+                            style={{ width: '100%' }}
+                            step={0.1}
+                          />
+                        </Form.Item>
+                      </Card>
+                    </Col>
+                  ))}
+                  </Row>
+                )}
+              </Form>
+            )}
+          </>
+        )}
       </Card>
 
       {/* Modal để tạo/chỉnh sửa chỉ số */}
@@ -882,7 +897,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
             // Hiển thị khi edit
             <>
               <Alert
-                message={`Chỉnh sửa cấu hình cho chỉ số: ${getTestCategoryDetails(editingItem.testCategoryId)?.name || 'N/A'}`}
+                message={`Chỉnh sửa cấu hình cho chỉ số${getTestCategoryDetails(editingItem.testCategoryId)?.name ? ': ' + getTestCategoryDetails(editingItem.testCategoryId)?.name : ''}`}
                 description="Bạn chỉ có thể thay đổi cấu hình riêng của chỉ số này cho dịch vụ hiện tại. Chỉ số gốc có thể được sử dụng bởi nhiều dịch vụ khác."
                 type="info"
                 showIcon
@@ -915,7 +930,15 @@ const ServiceTestConfigurationInner: React.FC = () => {
                 <Form.Item
                   name="minValue"
                   label="Giá trị thấp nhất"
-                  rules={[{ type: 'number', message: 'Vui lòng nhập số' }]}
+                  rules={[{ type: 'number', message: 'Vui lòng nhập số' }, ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const max = getFieldValue('maxValue');
+                      if (value !== undefined && max !== undefined && value >= max) {
+                        return Promise.reject(new Error('Giá trị thấp nhất phải nhỏ hơn giá trị cao nhất!'));
+                      }
+                      return Promise.resolve();
+                    },
+                  })]}
                   style={{ marginBottom: 8 }}
                 >
                   <InputNumber 
@@ -929,7 +952,15 @@ const ServiceTestConfigurationInner: React.FC = () => {
                 <Form.Item
                   name="maxValue"
                   label="Giá trị cao nhất"
-                  rules={[{ type: 'number', message: 'Vui lòng nhập số' }]}
+                  rules={[{ type: 'number', message: 'Vui lòng nhập số' }, ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const min = getFieldValue('minValue');
+                      if (value !== undefined && min !== undefined && min >= value) {
+                        return Promise.reject(new Error('Giá trị cao nhất phải lớn hơn giá trị thấp nhất!'));
+                      }
+                      return Promise.resolve();
+                    },
+                  })]}
                   style={{ marginBottom: 8 }}
                 >
                   <InputNumber 
@@ -945,7 +976,6 @@ const ServiceTestConfigurationInner: React.FC = () => {
           <Form.Item label="Thiết lập ngưỡng">
             <Form.List
               name="thresholdRules"
-              initialValue={editingItem?.thresholdRules || [{ from: null, to: null, flag: 'normal', message: '' }]}
               rules={[{
                 validator: async (_, rules) => {
                   if (!rules || rules.length < 1) {

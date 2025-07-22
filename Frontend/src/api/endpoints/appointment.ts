@@ -130,16 +130,8 @@ export const appointmentApi = {
             console.error('Lỗi khi tạo cuộc hẹn:', error);
             if (axios.isAxiosError(error)) {
                 console.error('Chi tiết lỗi:', error.response?.data);
-
-                // Phân tích lỗi cụ thể từ API
-                if (error.response?.data?.errors) {
-                    const errorDetails = Object.entries(error.response.data.errors)
-                        .map(([key, value]) => `${key}: ${value}`)
-                        .join(', ');
-                    throw new Error(`Lỗi validation: ${errorDetails}`);
-                } else if (error.response?.data?.message) {
-                    throw new Error(error.response.data.message);
-                }
+                // Để axios error bubble up để BookingPageNew.tsx có thể access error.response
+                throw error;
             }
             throw error;
         }
@@ -157,14 +149,14 @@ export const appointmentApi = {
         return response.data;
     },
 
-    // Cập nhật trạng thái cuộc hẹn - Updated với đầy đủ status
-    updateAppointmentStatus: async (id: string, status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'done_testResultItem' | 'done_testResult') => {
+    // Cập nhật trạng thái cuộc hẹn - Updated với đầy đủ status bao gồm expired
+    updateAppointmentStatus: async (id: string, status: 'pending_payment' | 'pending' | 'scheduled' | 'confirmed' | 'consulting' | 'completed' | 'cancelled' | 'payment_cancelled' | 'expired' | 'done_testResultItem' | 'done_testResult') => {
         const response = await axiosInstance.put(`/appointments/${id}/status`, { status });
         return response.data;
     },
 
-    // Cập nhật trạng thái thanh toán
-    updatePaymentStatus: async (id: string, status: 'paid' | 'unpaid' | 'partial' | 'refunded') => {
+    // Cập nhật trạng thái thanh toán - Updated với expired
+    updatePaymentStatus: async (id: string, status: 'paid' | 'unpaid' | 'partial' | 'refunded' | 'expired') => {
         const response = await axiosInstance.put(`/appointments/${id}/payment`, { status });
         return response.data;
     },
@@ -182,7 +174,7 @@ export const appointmentApi = {
     },
 
     // ===== TEST RESULTS API ENDPOINTS =====
-    
+
     // Lấy test results cho appointment
     getTestResultsByAppointment: async (appointmentId: string) => {
         const response = await axiosInstance.get(`/test-results/appointment/${appointmentId}`);
@@ -252,11 +244,16 @@ export const appointmentApi = {
         bankName: string;
         reason?: string;
     }) => {
-        const response = await axiosInstance.put(`/appointments/${id}/cancel-with-refund`, { 
+        const response = await axiosInstance.put(`/appointments/${id}/cancel-with-refund`, {
             reason,
-            refundInfo 
+            refundInfo
         });
         return response.data;
+    },
+
+    // Cancel appointment by doctor (POST or PATCH)
+    cancelByDoctor: (id: string, reason: string) => {
+        return axiosInstance.put(`/appointments/${id}/cancel-by-doctor`, { reason });
     }
 };
 

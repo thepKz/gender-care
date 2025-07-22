@@ -23,10 +23,8 @@ export const canDeleteDoctorAccount = (userRole: string): boolean => {
 };
 
 // ===== DOCTOR PROFILE MANAGEMENT =====
-export const canEditDoctorProfile = (userRole: string): boolean => {
-  // Chỉ Admin có thể sửa đổi hồ sơ bác sĩ (học vấn, chứng chỉ, etc.)
-  return ['admin'].includes(userRole);
-};
+export const canEditDoctorProfile = (role: string) =>
+  role === 'admin' || role === 'manager';
 
 export const canViewDoctorProfiles = (userRole: string): boolean => {
   // Manager chỉ được xem (view-only), Admin có thể xem và sửa
@@ -52,9 +50,8 @@ export const canUpdateDoctor = (userRole: string): boolean => {
   return canEditDoctorProfile(userRole);
 };
 
-export const canDeleteDoctor = (userRole: string): boolean => {
-  return canDeleteDoctorAccount(userRole);
-};
+export const canDeleteDoctor = (role: string) =>
+  role === 'admin' || role === 'manager';
 
 export const canViewDoctorDetails = (userRole: string): boolean => {
   return canViewDoctorProfiles(userRole);
@@ -133,6 +130,7 @@ export const canAccessManagementReports = (userRole: string): boolean => {
 
 export const canAccessOperationalReports = (userRole: string): boolean => {
   // Bác sĩ không cần báo cáo, chỉ cần dashboard cá nhân
+  void userRole; // Mark parameter as intentionally unused
   return false; // Removed doctor access to reports
 };
 
@@ -185,6 +183,10 @@ export const canAccessServicePackageManagement = (userRole: string): boolean => 
 };
 
 export const canAccessRefundManagement = (userRole: string): boolean => {
+  return ['admin', 'manager', 'staff'].includes(userRole);
+};
+
+export const canAccessFeedbackManagement = (userRole: string): boolean => {
   return ['admin', 'manager'].includes(userRole);
 };
 
@@ -220,6 +222,7 @@ export const MenuPermissions = {
   'medicines': canAccessMedicineManagement,
   'test-categories': canAccessTestCategoriesManagement,
   'refunds': canAccessRefundManagement,
+  'feedbacks': canAccessFeedbackManagement,
   'login-history': canViewLoginHistory,
   'system-logs': canAccessSystemLogs,
   'reports': canAccessReports,

@@ -36,7 +36,8 @@ import {
   DeleteOutlined,
   IdcardOutlined,
   WarningOutlined,
-  CloseOutlined
+  CloseOutlined,
+  UploadOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps, UploadFile } from 'antd/es/upload';
@@ -284,11 +285,14 @@ const UserManagement: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      // Đảm bảo admin có thể xem tất cả role bằng cách truyền role='all'
       const response = await userApi.getAllUsers({
+        role: 'all', // Explicitly request all roles
         sortBy: 'createdAt',
-        sortOrder: 'desc'
+        sortOrder: 'desc',
+        limit: 1000 // Increase limit to ensure we get all users
       });
-      
+
       if (response.success) {
         // Convert API user format to component format
         const convertedUsers = response.data.users.map((user: ApiUser) => ({
@@ -305,6 +309,11 @@ const UserManagement: React.FC = () => {
           updatedAt: user.updatedAt
         }));
         setUsers(convertedUsers);
+
+        // Log để debug - kiểm tra các role có trong dữ liệu
+        const uniqueRoles = [...new Set(convertedUsers.map(user => user.role))];
+        console.log('🔍 Các role có trong hệ thống:', uniqueRoles);
+        console.log('📊 Tổng số người dùng:', convertedUsers.length);
       }
     } catch (err: unknown) {
       const error = err as { message?: string; response?: { status?: number; data?: { message?: string } } };
@@ -382,33 +391,64 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  // Certificate upload props
+  // Certificate upload props - Updated to use API upload like DoctorManagement
   const certificateUploadProps: UploadProps = {
-    name: 'certificate',
+    name: 'image',
     multiple: true,
+    listType: 'picture-card',
     fileList: certificateFileList,
+    action: `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/doctors/upload-image`,
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`
+    },
     beforeUpload: (file) => {
-      const isValidType = file.type === 'application/pdf' || 
-                         file.type === 'image/jpeg' || 
+      const isValidType = file.type === 'image/jpeg' ||
                          file.type === 'image/png' ||
-                         file.type === 'image/jpg';
+                         file.type === 'image/jpg' ||
+                         file.type === 'image/webp';
       if (!isValidType) {
-        messageApi.error('Chỉ cho phép upload file PDF, JPG, JPEG, PNG!');
+        messageApi.error('Chỉ cho phép upload file JPG, JPEG, PNG, WebP!');
         return false;
       }
-      const isLt2M = file.size / 1024 / 1024 < 2;
-      if (!isLt2M) {
-        messageApi.error('File phải nhỏ hơn 2MB!');
+      const isLt5M = file.size / 1024 / 1024 < 5;
+      if (!isLt5M) {
+        messageApi.error('File phải nhỏ hơn 5MB!');
         return false;
       }
-      return false; // Prevent auto upload, we'll handle it manually
+      return true; // Allow upload to API
     },
     onChange: (info) => {
+      console.log('🏥 [USER CERT UPLOAD] Upload change:', {
+        file: info.file,
+        fileList: info.fileList,
+        fileListLength: info.fileList.length,
+        fileStatus: info.file.status
+      });
+
       setCertificateFileList(info.fileList);
+
+      if (info.file.status === 'done' && info.file.response?.success) {
+        messageApi.success(`Upload chứng chỉ "${info.file.name}" thành công!`);
+      } else if (info.file.status === 'error') {
+        messageApi.error(`Upload chứng chỉ "${info.file.name}" thất bại!`);
+      }
     },
     onRemove: (file) => {
       setCertificateFileList(prev => prev.filter(item => item.uid !== file.uid));
+      return true;
     },
+    onPreview: (file) => {
+      const url = file.url || file.thumbUrl;
+      if (url) {
+        window.open(url, '_blank');
+      }
+    },
+    accept: 'image/jpeg,image/jpg,image/png,image/webp',
+    showUploadList: {
+      showPreviewIcon: true,
+      showDownloadIcon: false,
+      showRemoveIcon: true,
+    }
   };
 
   const addEducationItem = () => {
@@ -722,6 +762,13 @@ const UserManagement: React.FC = () => {
           onOk: async () => {
             try {
               // Create doctor with full profile
+              // Extract certificate URLs from uploaded files
+              const certificateUrls = certificateFileList
+                .filter(file => file.status === 'done' && file.response?.success)
+                .map(file => file.response.data.imageUrl);
+
+              console.log('🏥 [USER CREATE DOCTOR] Certificate URLs:', certificateUrls);
+
               const doctorData: CreateDoctorRequest = {
                 email: values.email,
                 fullName: values.fullName,
@@ -732,8 +779,7 @@ const UserManagement: React.FC = () => {
                 specialization: formattedSpecialization,
                 education: educationValidation.formattedEducation,
                 experience: experienceValidation.formattedExperience,
-                certificate: certificateFileList.map(file => file.name).join(', '), 
-                certificates: certificateFileList.map(file => file.originFileObj).filter(Boolean) as File[]
+                certificate: certificateUrls.length > 0 ? JSON.stringify(certificateUrls) : ''
               };
               
               const response = await userApi.createDoctor(doctorData);
@@ -1453,18 +1499,20 @@ const UserManagement: React.FC = () => {
           </div>
 
           <Form.Item
-            label="Chứng chỉ hành nghề"
+            label="Chứng chỉ hành nghề (ảnh)"
             rules={[{ required: true, message: 'Vui lòng upload chứng chỉ!' }]}
           >
-            <Dragger {...certificateUploadProps} style={{ padding: '20px' }}>
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined />
-              </p>
-              <p className="ant-upload-text">Kéo thả file vào đây hoặc click để chọn file</p>
-              <p className="ant-upload-hint">
-                Hỗ trợ file PDF, JPG, PNG. Tối đa 2MB mỗi file.
-              </p>
-            </Dragger>
+            <Upload {...certificateUploadProps}>
+              {certificateFileList.length >= 5 ? null : (
+                <div>
+                  <UploadOutlined />
+                  <div style={{ marginTop: 8 }}>Thêm chứng chỉ</div>
+                  <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                    JPG/PNG/WebP, tối đa 5MB mỗi ảnh
+                  </div>
+                </div>
+              )}
+            </Upload>
           </Form.Item>
 
           <Form.Item
@@ -1704,26 +1752,38 @@ const UserManagement: React.FC = () => {
             border: 'none'
           }}
         >
-          <div style={{ 
-            marginBottom: 24, 
-            display: 'flex', 
-            justifyContent: 'space-between', 
+          <div style={{
+            marginBottom: 24,
+            display: 'flex',
+            justifyContent: 'space-between',
             alignItems: 'center',
             paddingBottom: '16px',
             borderBottom: '1px solid #f0f0f0'
           }}>
-            <Title level={3} style={{ 
-              margin: 0, 
-              display: 'flex', 
-              alignItems: 'center',
-              color: '#1890ff'
-            }}>
-              <UserOutlined style={{ marginRight: 12, fontSize: '24px' }} />
-              Quản lý người dùng
-            </Title>
+            <div>
+              <Title level={3} style={{
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                color: '#1890ff'
+              }}>
+                <UserOutlined style={{ marginRight: 12, fontSize: '24px' }} />
+                Quản lý người dùng
+              </Title>
+              {userRole === 'admin' && (
+                <div style={{
+                  marginTop: 8,
+                  color: '#52c41a',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}>
+                  ✅ Bạn có quyền xem tất cả các role trong hệ thống
+                </div>
+              )}
+            </div>
             {canCreateUser(userRole) && (
-              <Button 
-                type="primary" 
+              <Button
+                type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => setIsModalVisible(true)}
                 size="large"
@@ -1737,10 +1797,66 @@ const UserManagement: React.FC = () => {
             )}
           </div>
 
-          <div style={{ 
-            marginBottom: 24, 
-            display: 'flex', 
-            gap: 16, 
+          {/* Thống kê role cho Admin */}
+          {userRole === 'admin' && (
+            <div style={{ marginBottom: 24 }}>
+              <Row gutter={16}>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#ff4d4f' }}>
+                    <div style={{ color: '#ff4d4f', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.filter(u => u.role === 'admin').length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Quản trị viên</div>
+                  </Card>
+                </Col>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#fa8c16' }}>
+                    <div style={{ color: '#fa8c16', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.filter(u => u.role === 'manager').length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Quản lý</div>
+                  </Card>
+                </Col>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#1890ff' }}>
+                    <div style={{ color: '#1890ff', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.filter(u => u.role === 'doctor').length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Bác sĩ</div>
+                  </Card>
+                </Col>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#52c41a' }}>
+                    <div style={{ color: '#52c41a', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.filter(u => u.role === 'staff').length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Nhân viên</div>
+                  </Card>
+                </Col>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#d9d9d9' }}>
+                    <div style={{ color: '#666', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.filter(u => u.role === 'customer').length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Khách hàng</div>
+                  </Card>
+                </Col>
+                <Col span={4}>
+                  <Card size="small" style={{ textAlign: 'center', borderColor: '#722ed1' }}>
+                    <div style={{ color: '#722ed1', fontSize: '20px', fontWeight: 'bold' }}>
+                      {users.length}
+                    </div>
+                    <div style={{ color: '#666', fontSize: '12px' }}>Tổng cộng</div>
+                  </Card>
+                </Col>
+              </Row>
+            </div>
+          )}
+
+          <div style={{
+            marginBottom: 24,
+            display: 'flex',
+            gap: 16,
             flexWrap: 'wrap',
             alignItems: 'center'
           }}>
@@ -1755,17 +1871,29 @@ const UserManagement: React.FC = () => {
             
             <Select
               placeholder="Vai trò"
-              style={{ width: 160 }}
+              style={{ width: 200 }}
               value={selectedRole}
               onChange={setSelectedRole}
               size="large"
             >
-              <Option value="all">Tất cả vai trò</Option>
-              <Option value="admin">Quản trị viên</Option>
-              <Option value="manager">Quản lý</Option>
-              <Option value="doctor">Bác sĩ</Option>
-              <Option value="staff">Nhân viên</Option>
-              <Option value="customer">Khách hàng</Option>
+              <Option value="all">
+                Tất cả vai trò ({users.length})
+              </Option>
+              <Option value="admin">
+                Quản trị viên ({users.filter(u => u.role === 'admin').length})
+              </Option>
+              <Option value="manager">
+                Quản lý ({users.filter(u => u.role === 'manager').length})
+              </Option>
+              <Option value="doctor">
+                Bác sĩ ({users.filter(u => u.role === 'doctor').length})
+              </Option>
+              <Option value="staff">
+                Nhân viên ({users.filter(u => u.role === 'staff').length})
+              </Option>
+              <Option value="customer">
+                Khách hàng ({users.filter(u => u.role === 'customer').length})
+              </Option>
             </Select>
 
             <Select

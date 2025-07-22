@@ -101,8 +101,12 @@ class ServiceTestCategoriesController {
         data: result
       });
     } catch (error: any) {
-      if (error.message.includes('Only') || error.message.includes('not found') ||
-        error.message.includes('already assigned')) {
+      if (
+        error.message.includes('Only') ||
+        error.message.includes('not found') ||
+        error.message.includes('already assigned') ||
+        error.message.includes('đã được gán cho dịch vụ này')
+      ) {
         res.status(400).json({
           success: false,
           message: error.message
@@ -110,7 +114,7 @@ class ServiceTestCategoriesController {
       } else {
         res.status(500).json({
           success: false,
-          message: 'Failed to assign test category to service',
+          message: 'Lỗi server, vui lòng thử lại sau',
           error: error.message
         });
       }
@@ -164,19 +168,10 @@ class ServiceTestCategoriesController {
   updateServiceTestCategory = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const { isRequired, unit, targetValue, minValue, maxValue, thresholdRules } = req.body;
       const userRole = req.user?.role || '';
-
-      const updateData = {
-        isRequired,
-        unit: unit?.trim(),
-        targetValue: targetValue?.trim(),
-        minValue: minValue !== undefined ? Number(minValue) : undefined,
-        maxValue: maxValue !== undefined ? Number(maxValue) : undefined,
-        thresholdRules: Array.isArray(thresholdRules) ? thresholdRules : undefined
-      };
+      // Truyền toàn bộ req.body vào service để không filter mất isDeleted
+      const updateData = req.body;
       const result = await this.serviceTestCategoriesService.updateServiceTestCategory(id, updateData, userRole);
-
       res.status(200).json({
         success: true,
         message: 'Service test category updated successfully',
@@ -242,8 +237,8 @@ class ServiceTestCategoriesController {
 
       res.status(200).json({
         success: true,
-        message: `${result.deletedCount} test categories removed from service successfully`,
-        data: { deletedCount: result.deletedCount }
+        message: `${result.modifiedCount} test categories removed from service successfully`,
+        data: { acknowledged: result.acknowledged, modifiedCount: result.modifiedCount }
       });
     } catch (error: any) {
       if (error.message.includes('Only')) {

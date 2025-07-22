@@ -326,6 +326,11 @@ const consultationApi = {
   cancelConsultationByUser: (qaId: string, reason?: string) => {
     return axiosInstance.put(`/doctor-qa/${qaId}/cancel-by-user`, { reason });
   },
+
+  // Cancel consultation by doctor (STAFF only)
+  cancelByDoctor: (id: string, reason: string) => {
+    return axiosInstance.put(`/doctor-qa/${id}/cancel-by-doctor`, { reason });
+  },
 };
 
 export default consultationApi; 

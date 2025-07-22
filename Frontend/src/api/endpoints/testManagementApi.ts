@@ -25,6 +25,7 @@ export interface ServiceTestCategory {
     normalRange?: string;
     unit?: string;
   };
+  isDeleted?: boolean;
 }
 
 export interface CreateServiceTestCategoryData {
@@ -41,6 +42,7 @@ export interface CreateServiceTestCategoryData {
     flag: 'very_low' | 'low' | 'normal' | 'mild_high' | 'high' | 'critical';
     message: string;
   }>;
+  isDeleted?: boolean;
 }
 
 export interface BulkCreateServiceTestCategoryData {

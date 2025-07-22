@@ -105,7 +105,7 @@ export class TestResultItemsService {
     }>;
   }, createdByRole: string): Promise<ITestResultItems> {
     // Kiểm tra quyền hạn - cho phép doctor, nursing staff, staff
-    if (!['doctor', 'nursing_staff', 'staff'].includes(createdByRole)) {
+    if (!['doctor', 'manager', 'staff'].includes(createdByRole)) {
       throw new Error('Only doctors, nursing staff, and staff can create test result items');
     }
 
@@ -178,7 +178,7 @@ export class TestResultItemsService {
     }>;
   }, createdByRole: string): Promise<ITestResultItems[]> {
     // Kiểm tra quyền hạn - cho phép doctor, nursing staff, staff
-    if (!['doctor', 'nursing_staff', 'staff'].includes(createdByRole)) {
+    if (!['doctor', 'manager', 'staff'].includes(createdByRole)) {
       throw new Error('Only doctors, nursing staff, and staff can create test result items');
     }
 
@@ -260,7 +260,7 @@ export class TestResultItemsService {
     updatedByRole: string
   ): Promise<any> {
     // Kiểm tra quyền hạn - cho phép doctor, nursing staff, staff
-    if (!['doctor', 'nursing_staff', 'staff'].includes(updatedByRole)) {
+    if (!['doctor', 'manager', 'staff'].includes(updatedByRole)) {
       throw new Error('Only doctors, nursing staff, and staff can update test result items');
     }
 
@@ -302,7 +302,7 @@ export class TestResultItemsService {
   // Xóa test result item
   async deleteTestResultItem(id: string, deletedByRole: string): Promise<void> {
     // Kiểm tra quyền hạn
-    if (!['doctor', 'nursing_staff', 'staff'].includes(deletedByRole)) {
+    if (!['doctor', 'manager', 'staff'].includes(deletedByRole)) {
       throw new Error('Only doctors, nursing staff, and staff can delete test result items');
     }
 

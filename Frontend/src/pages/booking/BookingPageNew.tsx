@@ -98,7 +98,7 @@ interface PurchasedPackage {
     maxQuantity?: number;  // Backend compatibility
   }>;
   totalAmount: number;
-  status: 'active' | 'expired' | 'used_up';
+  status: 'active' | 'expired' | 'used_up' | 'pending_payment';
   expiresAt: string;
 }
 
@@ -130,12 +130,12 @@ const BookingPageNew: React.FC = () => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [userProfiles, setUserProfiles] = useState<UserProfile[]>([]);
 
-  // Loading states
-  const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
+  // Loading states - Smart loading indicators
   const [availableDates, setAvailableDates] = useState<string[]>([]);
-  const [loadingAvailableDates, setLoadingAvailableDates] = useState(false);
   const [networkError, setNetworkError] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingTimeSlots, setLoadingTimeSlots] = useState(false);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
 
   // Profile modal
   const [showCreateProfileModal, setShowCreateProfileModal] = useState(false);
@@ -279,7 +279,19 @@ const BookingPageNew: React.FC = () => {
       
       if (response.success && response.data?.packagePurchases) {
         const mappedPurchases: PurchasedPackage[] = response.data.packagePurchases
-          .filter((purchase: any) => purchase.status === 'active')
+          .filter((purchase: any) => {
+            // Chỉ lấy packages có status active và chưa sử dụng hết
+            if (purchase.status !== 'active') return false;
+            
+            // Kiểm tra xem có service nào còn có thể sử dụng không
+            const hasAvailableServices = purchase.usedServices?.some((usedService: any) => {
+              const usedQuantity = usedService.usedQuantity || usedService.usedCount || 0;
+              const maxQuantity = usedService.maxQuantity || 1;
+              return usedQuantity < maxQuantity;
+            });
+            
+            return hasAvailableServices;
+          })
           .map((purchase: any) => ({
             _id: purchase._id,
             servicePackage: purchase.servicePackage,
@@ -299,6 +311,9 @@ const BookingPageNew: React.FC = () => {
       setPurchasedPackages([]);
     }
   }, [isAuthenticated, user?._id]);
+
+  // Cache for doctors to avoid repeated API calls
+  const [doctorsCache, setDoctorsCache] = useState<Map<string, any>>(new Map());
 
   // Fetch available doctors based on selected date and time
   const fetchAvailableDoctors = useCallback(async (date?: Dayjs, timeSlot?: string) => {
@@ -339,9 +354,19 @@ const BookingPageNew: React.FC = () => {
     }
 
     // Fetch doctors available for specific date/time
+    const dateStr = date.format('YYYY-MM-DD');
+
+    // Check cache first
+    const cacheKey = `${dateStr}-${timeSlot}`;
+    if (doctorsCache.has(cacheKey)) {
+      const cachedDoctors = doctorsCache.get(cacheKey);
+      setDoctors(cachedDoctors);
+      return;
+    }
+
+    setLoadingDoctors(true);
     try {
       setNetworkError(false);
-      const dateStr = date.format('YYYY-MM-DD');
       console.log('🔍 [Doctor Debug] Fetching available doctors for date:', dateStr, 'timeSlot:', timeSlot);
 
       const response = await doctorScheduleApi.getAvailableDoctors(dateStr, timeSlot);
@@ -380,12 +405,32 @@ const BookingPageNew: React.FC = () => {
 
       console.log('🔍 [Doctor Debug] Available doctors for', dateStr, timeSlot, ':', mappedDoctors.length);
       setDoctors(mappedDoctors);
+
+      // Cache the result for 3 minutes - increased for better performance
+      const cacheKey = `${dateStr}-${timeSlot}`;
+      setDoctorsCache(prev => {
+        const newCache = new Map(prev);
+        newCache.set(cacheKey, mappedDoctors);
+        return newCache;
+      });
+
+      // Clear cache entry after 3 minutes
+      setTimeout(() => {
+        setDoctorsCache(prev => {
+          const updated = new Map(prev);
+          updated.delete(cacheKey);
+          return updated;
+        });
+      }, 3 * 60 * 1000);
+
     } catch (error) {
       console.error('Error fetching available doctors:', error);
       setNetworkError(true);
       setDoctors([]);
+    } finally {
+      setLoadingDoctors(false);
     }
-  }, []);
+  }, [doctorsCache]);
 
   // Authentication check - redirect if not authenticated
   useEffect(() => {
@@ -406,8 +451,8 @@ const BookingPageNew: React.FC = () => {
   // Show loading state while redirecting if not authenticated
   if (!isAuthenticated) {
     return (
-      <div style={{ 
-        minHeight: '100vh', 
+      <div style={{
+        minHeight: '100vh',
         backgroundColor: '#f8fafc',
         display: 'flex',
         alignItems: 'center',
@@ -431,6 +476,8 @@ const BookingPageNew: React.FC = () => {
     );
   }
 
+
+
   // Fetch user profiles
   const fetchUserProfiles = useCallback(async () => {
     if (!isAuthenticated || !user) return;
@@ -451,13 +498,24 @@ const BookingPageNew: React.FC = () => {
     }
   }, [isAuthenticated, user]);
 
-  // Fetch time slots based on selected date with availability check
+  // Cache for time slots to avoid repeated API calls
+  const [timeSlotsCache, setTimeSlotsCache] = useState<Map<string, any>>(new Map());
+
+  // Fetch time slots based on selected date with caching
   const fetchTimeSlots = useCallback(async (date: Dayjs) => {
     if (!date) return;
-    
+
+    const dateStr = date.format('YYYY-MM-DD');
+
+    // Check cache first
+    if (timeSlotsCache.has(dateStr)) {
+      const cachedSlots = timeSlotsCache.get(dateStr);
+      setTimeSlots(cachedSlots);
+      return;
+    }
+
     setLoadingTimeSlots(true);
     try {
-      const dateStr = date.format('YYYY-MM-DD');
       const response = await doctorScheduleApi.getAvailableDoctors(dateStr);
       const doctorsData = Array.isArray(response) ? response : [];
       
@@ -486,44 +544,79 @@ const BookingPageNew: React.FC = () => {
       }));
       
       setTimeSlots(slotsArray);
+
+      // Cache the result for 5 minutes - increased for better performance
+      const newCache = new Map(timeSlotsCache);
+      newCache.set(dateStr, slotsArray);
+      setTimeSlotsCache(newCache);
+
+      // Clear old cache entries after 5 minutes
+      setTimeout(() => {
+        setTimeSlotsCache(prev => {
+          const updated = new Map(prev);
+          updated.delete(dateStr);
+          return updated;
+        });
+      }, 5 * 60 * 1000);
+
     } catch (error) {
       console.error('Error fetching time slots:', error);
       setTimeSlots([]);
     } finally {
       setLoadingTimeSlots(false);
     }
-  }, []);
+  }, [timeSlotsCache]);
 
-  // Fetch available dates
+  // Cache for available dates to avoid repeated API calls
+  const [availableDatesCache, setAvailableDatesCache] = useState<Map<string, boolean>>(new Map());
+  const [lastCacheUpdate, setLastCacheUpdate] = useState<number>(0);
+  const CACHE_DURATION = 10 * 60 * 1000; // 10 minutes - increased for better performance
+
+  // Fetch available dates with improved performance
   const fetchAvailableDates = useCallback(async () => {
-    if (loadingAvailableDates) return;
-    
+
+
+    // Check if cache is still valid
+    const now = Date.now();
+    if (now - lastCacheUpdate < CACHE_DURATION && availableDatesCache.size > 0) {
+      const cachedDates = Array.from(availableDatesCache.entries())
+        .filter(([_, isAvailable]) => isAvailable)
+        .map(([date, _]) => date)
+        .sort();
+      setAvailableDates(cachedDates);
+      return;
+    }
+
     try {
-      setLoadingAvailableDates(true);
-      const currentMonth = dayjs();
-      const nextMonth = currentMonth.add(1, 'month');
-      
-      const allDatesToCheck: string[] = [];
+
       const today = dayjs();
-      const endOfNextMonth = nextMonth.endOf('month');
-      
+      const endDate = today.add(3, 'weeks'); // Further reduced to 3 weeks for faster loading
+
+      const allDatesToCheck: string[] = [];
       let checkDate = today;
-      while (checkDate.isBefore(endOfNextMonth) || checkDate.isSame(endOfNextMonth, 'day')) {
+      while (checkDate.isBefore(endDate) || checkDate.isSame(endDate, 'day')) {
         allDatesToCheck.push(checkDate.format('YYYY-MM-DD'));
         checkDate = checkDate.add(1, 'day');
       }
-      
+
       const availableDatesSet = new Set<string>();
-      const batchSize = 10;
+      const newCache = new Map<string, boolean>();
+      const batchSize = 7; // Increased batch size for better performance
       
       for (let i = 0; i < allDatesToCheck.length; i += batchSize) {
         const batch = allDatesToCheck.slice(i, i + batchSize);
         
         const batchPromises = batch.map(async (dateStr) => {
           try {
-            const response = await doctorScheduleApi.getAvailableDoctors(dateStr);
+            // Reduced timeout for faster response
+            const timeoutPromise = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Request timeout')), 5000)
+            );
+
+            const apiPromise = doctorScheduleApi.getAvailableDoctors(dateStr);
+            const response = await Promise.race([apiPromise, timeoutPromise]) as any;
             const doctorsData = Array.isArray(response) ? response : [];
-            
+
             const hasAvailableSlots = doctorsData.some((doctor: any) => {
               if (doctor.availableSlots && Array.isArray(doctor.availableSlots)) {
                 const freeSlots = doctor.availableSlots.filter((slot: any) => slot.status === 'Free');
@@ -531,12 +624,16 @@ const BookingPageNew: React.FC = () => {
               }
               return false;
             });
-            
+
+            newCache.set(dateStr, hasAvailableSlots);
+
             if (hasAvailableSlots) {
               return dateStr;
             }
             return null;
           } catch (error) {
+            console.warn(`Failed to check availability for ${dateStr}:`, error);
+            newCache.set(dateStr, false);
             return null;
           }
         });
@@ -545,47 +642,56 @@ const BookingPageNew: React.FC = () => {
         batchResults.forEach(date => {
           if (date) availableDatesSet.add(date);
         });
-        
+
+        // Reduced delay between batches for faster loading
         if (i + batchSize < allDatesToCheck.length) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
       }
-      
+
       const finalAvailableDates = Array.from(availableDatesSet).sort();
       setAvailableDates(finalAvailableDates);
-      
+      setAvailableDatesCache(newCache);
+      setLastCacheUpdate(now);
+
     } catch (error) {
       console.error('Error fetching available dates:', error);
       setAvailableDates([]);
-    } finally {
-      setLoadingAvailableDates(false);
-    }
-  }, [loadingAvailableDates]);
+    } 
+  }, [availableDatesCache, lastCacheUpdate]);
 
-  // Initialize data
+  // Initialize data - Optimized for faster loading
   useEffect(() => {
     const initializeData = async () => {
       // Fetch services first, then packages will auto-fetch via dependency
-      await fetchServices();
-      
-      // Fetch other data in parallel
-      await Promise.all([
+      fetchServices();
+
+      // Fetch other data in parallel without blocking UI
+      Promise.all([
         fetchPurchasedPackages(), // 🆕 Fetch purchased packages
         fetchAvailableDoctors(), // Fetch all doctors initially
         fetchUserProfiles(),
         fetchAvailableDates()
-      ]);
-      
+      ]).then(() => {
+        // Preload time slots for today and tomorrow for better UX
+        const today = dayjs();
+        const tomorrow = today.add(1, 'day');
+        fetchTimeSlots(today);
+        fetchTimeSlots(tomorrow);
+      }).catch(error => {
+        console.error('Error initializing data:', error);
+      });
+
       // Check if user just came back from payment
       const pendingBooking = localStorage.getItem('pendingBooking');
       if (pendingBooking) {
         try {
           const booking = JSON.parse(pendingBooking);
           console.log('🔄 Refreshing availability after payment for:', booking);
-          
+
           // Refresh available dates
-          await fetchAvailableDates();
-          
+          fetchAvailableDates();
+
           // Clear the pending booking flag
           localStorage.removeItem('pendingBooking');
         } catch (error) {
@@ -594,7 +700,7 @@ const BookingPageNew: React.FC = () => {
         }
       }
     };
-    
+
     initializeData();
   }, []); // Empty dependency array to run only once
 
@@ -614,23 +720,44 @@ const BookingPageNew: React.FC = () => {
     });
   }, [servicePackages]);
 
-  // Handle date selection
+  // Debounce mechanism for date selection
+  const [dateSelectTimeout, setDateSelectTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  // Handle date selection with debouncing
   const handleDateSelect = (date: Dayjs) => {
     setSelectedDate(date);
     setSelectedTimeSlot('');
     setSelectedDoctor('');
-    fetchTimeSlots(date);
-    // Reset doctors when date changes
     setDoctors([]);
+
+    // Clear previous timeout
+    if (dateSelectTimeout) {
+      clearTimeout(dateSelectTimeout);
+    }
+
+    // Reduced debounce for faster response
+    const timeout = setTimeout(() => {
+      fetchTimeSlots(date);
+    }, 70); // Reduced to 100ms for faster response
+
+    setDateSelectTimeout(timeout);
   };
 
-  // Handle time slot selection with refresh logic
+  // Handle time slot selection with caching
   const handleTimeSlotSelect = (timeSlot: string) => {
     setSelectedTimeSlot(timeSlot);
     setSelectedDoctor('');
-    
-    // Fetch available doctors for selected date and time
+
+    // Check cache first
     if (selectedDate) {
+      const cacheKey = `${selectedDate.format('YYYY-MM-DD')}-${timeSlot}`;
+      if (doctorsCache.has(cacheKey)) {
+        const cachedDoctors = doctorsCache.get(cacheKey);
+        setDoctors(cachedDoctors);
+        return;
+      }
+
+      // Fetch available doctors for selected date and time
       fetchAvailableDoctors(selectedDate, timeSlot);
     }
   };
@@ -845,13 +972,76 @@ const BookingPageNew: React.FC = () => {
 
       // Bước 3: Hồ sơ bệnh nhân - chỉ kiểm tra khi đã qua 2 bước trước
       if (!selectedProfile) {
-        // message.error('Vui lòng chọn hồ sơ bệnh nhân');
+        message.error('Vui lòng chọn hồ sơ bệnh nhân');
+        return;
+      }
+
+      // 🔒 CRITICAL: Final validation - Check slot vẫn available không
+      console.log('🔒 [Final Validation] Checking slot availability before submit...');
+      try {
+        const response = await doctorScheduleApi.getAvailableDoctors(selectedDate.format('YYYY-MM-DD'));
+        let availableDoctorsData: any[] = [];
+        if (Array.isArray(response)) {
+          availableDoctorsData = response;
+        } else if (response && typeof response === 'object' && 'data' in response) {
+          availableDoctorsData = (response as any).data || [];
+        }
+
+        // Check if any doctor has the selected time slot available
+        const hasAvailableSlot = availableDoctorsData.some((doctor: any) => {
+          if (doctor.availableSlots && Array.isArray(doctor.availableSlots)) {
+            return doctor.availableSlots.some((slot: any) =>
+              slot.slotTime === selectedTimeSlot && slot.status === 'Free'
+            );
+          }
+          return false;
+        });
+
+        if (!hasAvailableSlot) {
+          message.error(`Khung giờ ${selectedTimeSlot} đã được đặt bởi khách hàng khác. Vui lòng chọn khung giờ khác.`);
+          // Refresh time slots
+          await fetchTimeSlots(selectedDate);
+          return;
+        }
+
+        console.log('✅ [Final Validation] Slot still available, proceeding...');
+      } catch (validationError) {
+        console.error('❌ [Final Validation] Error:', validationError);
+        message.error('Không thể xác minh tình trạng khung giờ. Vui lòng thử lại.');
+        return;
+      }
+
+      // 🚨 CRITICAL: Check patient double booking
+      console.log('🔒 [Patient Check] Checking for existing appointments...');
+      try {
+        const existingAppointmentsResponse = await appointmentApi.getAllAppointments({
+          profileId: selectedProfile,
+          startDate: selectedDate.format('YYYY-MM-DD'),
+          endDate: selectedDate.format('YYYY-MM-DD'),
+          status: 'pending_payment,pending,confirmed,scheduled,consulting'
+        });
+
+        if (existingAppointmentsResponse.success && existingAppointmentsResponse.data?.appointments) {
+          const conflictingAppointment = existingAppointmentsResponse.data.appointments.find((apt: any) =>
+            apt.appointmentTime === selectedTimeSlot
+          );
+
+          if (conflictingAppointment) {
+            message.error(`Bệnh nhân đã có lịch hẹn vào ${selectedTimeSlot} ngày ${selectedDate.format('DD/MM/YYYY')}. Một bệnh nhân không thể có 2 lịch hẹn cùng thời gian.`);
+            return;
+          }
+        }
+
+        console.log('✅ [Patient Check] No conflicting appointments found');
+      } catch (patientCheckError) {
+        console.error('❌ [Patient Check] Error:', patientCheckError);
+        message.error('Không thể kiểm tra lịch hẹn hiện tại. Vui lòng thử lại.');
         return;
       }
 
       // Validate description length
-      if (values.description && values.description.length > 25) {
-        message.error('Mô tả không được vượt quá 25 ký tự');
+      if (values.description && values.description.length > 200) {
+        message.error('Mô tả không được vượt quá 200 ký tự');
         return;
       }
 
@@ -973,6 +1163,7 @@ const BookingPageNew: React.FC = () => {
                 
                 // Refetch purchased packages trước khi redirect
                 await refetchPurchasedPackages();
+                refetchSlotsAfterBooking();
                 
                 // Use setTimeout to ensure the redirect happens in a new execution context
                 setTimeout(() => {
@@ -985,6 +1176,7 @@ const BookingPageNew: React.FC = () => {
             else {
                 // Refetch purchased packages trước khi reset/redirect
                 await refetchPurchasedPackages();
+                refetchSlotsAfterBooking();
                 Modal.success({
                     title: 'Đặt lịch thành công!',
                     content: 'Lịch hẹn của bạn đã được xác nhận. Vui lòng kiểm tra email hoặc trang Lịch sử đặt lịch.',
@@ -999,14 +1191,28 @@ const BookingPageNew: React.FC = () => {
         }
       } catch (error: any) {
         console.error('❌ [Booking Error]', error);
-        const errorMessage = error.response?.data?.message || 'Lỗi hệ thống, vui lòng thử lại sau.';
-        message.error(errorMessage);
+
+        // Handle specific error codes
+        if (error.response?.status === 409) {
+          const errorMessage = error.response?.data?.message || 'Có xung đột trong việc đặt lịch.';
+          message.error(errorMessage);
+        } else {
+          const errorMessage = error.response?.data?.message || 'Lỗi hệ thống, vui lòng thử lại sau.';
+          message.error(errorMessage);
+        }
       } finally {
         setIsSubmitting(false);
       }
     } catch (error) {
       console.error('Error handling form submission:', error);
       message.error('Có lỗi xảy ra khi đặt lịch. Vui lòng thử lại sau.');
+    }
+  };
+
+  // Sau khi đặt lịch thành công hoặc bị hủy, refetch lại slot
+  const refetchSlotsAfterBooking = () => {
+    if (selectedDate) {
+      fetchTimeSlots(selectedDate);
     }
   };
 
@@ -1201,6 +1407,79 @@ const BookingPageNew: React.FC = () => {
     }
   }, [location.state]);
 
+  // 🚨 Real-time conflict checking when profile, date, or time changes
+  useEffect(() => {
+    const checkConflicts = async () => {
+      if (selectedProfile && selectedDate && selectedTimeSlot) {
+        console.log('🔍 [Conflict Check] Starting conflict check...', {
+          profileId: selectedProfile,
+          date: selectedDate.format('YYYY-MM-DD'),
+          timeSlot: selectedTimeSlot
+        });
+
+        try {
+          const existingAppointmentsResponse = await appointmentApi.getAllAppointments({
+            profileId: selectedProfile,
+            startDate: selectedDate.format('YYYY-MM-DD'),
+            endDate: selectedDate.format('YYYY-MM-DD'),
+            status: 'pending_payment,pending,confirmed,scheduled,consulting'
+          });
+
+          console.log('🔍 [Conflict Check] Raw API Response:', existingAppointmentsResponse);
+
+          // Check if response has appointments
+          if (existingAppointmentsResponse && existingAppointmentsResponse.data) {
+            const appointments = existingAppointmentsResponse.data.appointments || existingAppointmentsResponse.data;
+            console.log('🔍 [Conflict Check] Appointments array:', appointments);
+
+            if (Array.isArray(appointments) && appointments.length > 0) {
+              const conflictingAppointment = appointments.find((apt: any) => {
+                console.log('🔍 [Conflict Check] Comparing appointment:', {
+                  appointmentId: apt._id,
+                  aptTime: apt.appointmentTime,
+                  selectedTime: selectedTimeSlot,
+                  aptDate: apt.appointmentDate,
+                  selectedDate: selectedDate.format('YYYY-MM-DD'),
+                  match: apt.appointmentTime === selectedTimeSlot
+                });
+                return apt.appointmentTime === selectedTimeSlot;
+              });
+
+              if (conflictingAppointment) {
+                console.log('🚨 [Conflict Check] CONFLICT DETECTED!', conflictingAppointment);
+                message.warning({
+                  content: `⚠️ Bệnh nhân đã có lịch hẹn vào ${selectedTimeSlot} ngày ${selectedDate.format('DD/MM/YYYY')}. Vui lòng chọn khung giờ khác.`,
+                  duration: 8,
+                  key: 'conflict-warning'
+                });
+              } else {
+                console.log('✅ [Conflict Check] No time conflicts found');
+                message.destroy('conflict-warning');
+              }
+            } else {
+              console.log('✅ [Conflict Check] No existing appointments found');
+              message.destroy('conflict-warning');
+            }
+          } else {
+            console.log('⚠️ [Conflict Check] Invalid API response structure');
+          }
+        } catch (error) {
+          console.error('❌ [Conflict Check] API Error:', error);
+        }
+      } else {
+        console.log('⚠️ [Conflict Check] Missing required data:', {
+          hasProfile: !!selectedProfile,
+          hasDate: !!selectedDate,
+          hasTimeSlot: !!selectedTimeSlot
+        });
+      }
+    };
+
+    // Debounce the check to avoid too many API calls
+    const timeoutId = setTimeout(checkConflicts, 300);
+    return () => clearTimeout(timeoutId);
+  }, [selectedProfile, selectedDate, selectedTimeSlot]);
+
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -1346,6 +1625,35 @@ const BookingPageNew: React.FC = () => {
                   </button>
                 )}
               </div>
+
+              {/* ✅ NEW: Lưu ý về gói dịch vụ */}
+              {bookingType === 'purchased_package' && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '12px 16px',
+                  backgroundColor: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '8px'
+                }}>
+                  <div style={{
+                    color: '#3b82f6',
+                    fontSize: '16px',
+                    marginTop: '2px'
+                  }}>
+                    ℹ️
+                  </div>
+                  <div style={{
+                    fontSize: '13px',
+                    color: '#1e40af',
+                    lineHeight: '1.4'
+                  }}>
+                    <span style={{ fontWeight: '600' }}>Lưu ý:</span> Những gói dịch vụ đã mua khi sử dụng hết lượt hoặc hết hạn sẽ không được hiển thị ở đây.
+                  </div>
+                </div>
+              )}
 
               {/* Service Selection */}
               {bookingType === 'service' && (
@@ -1734,16 +2042,65 @@ const BookingPageNew: React.FC = () => {
                                 marginTop: '12px',
                                 display: 'inline-block'
                               }}>
-                                <span style={{
-                                  fontSize: '12px',
-                                  backgroundColor: '#10b981',
-                                  color: 'white',
-                                  padding: '4px 12px',
-                                  borderRadius: '20px',
-                                  fontWeight: '600'
-                                }}>
-                                  ✨ ĐANG SỬ DỤNG
-                                </span>
+                                {(() => {
+                                  // Kiểm tra xem gói có còn service nào có thể sử dụng không
+                                  const hasAvailableServices = purchase.usedServices?.some((usedService: any) => {
+                                    const usedQuantity = usedService.usedQuantity || usedService.usedCount || 0;
+                                    const maxQuantity = usedService.maxQuantity || 1;
+                                    return usedQuantity < maxQuantity;
+                                  });
+                                  
+                                  if (!hasAvailableServices) {
+                                    return (
+                                      <span style={{
+                                        fontSize: '12px',
+                                        backgroundColor: '#ef4444',
+                                        color: 'white',
+                                        padding: '4px 12px',
+                                        borderRadius: '20px',
+                                        fontWeight: '600'
+                                      }}>
+                                        ❌ ĐÃ SỬ DỤNG HẾT
+                                      </span>
+                                    );
+                                  }
+                                  
+                                  // Kiểm tra xem có service nào sắp hết không
+                                  const hasLowQuantity = purchase.usedServices?.some((usedService: any) => {
+                                    const usedQuantity = usedService.usedQuantity || usedService.usedCount || 0;
+                                    const maxQuantity = usedService.maxQuantity || 1;
+                                    const remaining = maxQuantity - usedQuantity;
+                                    return remaining <= 1 && remaining > 0;
+                                  });
+                                  
+                                  if (hasLowQuantity) {
+                                    return (
+                                      <span style={{
+                                        fontSize: '12px',
+                                        backgroundColor: '#f59e0b',
+                                        color: 'white',
+                                        padding: '4px 12px',
+                                        borderRadius: '20px',
+                                        fontWeight: '600'
+                                      }}>
+                                        ⚠️ SẮP HẾT
+                                      </span>
+                                    );
+                                  }
+                                  
+                                  return (
+                                    <span style={{
+                                      fontSize: '12px',
+                                      backgroundColor: '#10b981',
+                                      color: 'white',
+                                      padding: '4px 12px',
+                                      borderRadius: '20px',
+                                      fontWeight: '600'
+                                    }}>
+                                      ✨ ĐANG SỬ DỤNG
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
                           );
@@ -1784,6 +2141,9 @@ const BookingPageNew: React.FC = () => {
                                 <div
                                   key={uniqueKey}
                                   onClick={() => handleServiceFromPackageChange(service.serviceId)}
+                                  role="button"
+                                  tabIndex={0}
+                                  onKeyDown={(e) => e.key === 'Enter' && handleServiceFromPackageChange(service.serviceId)}
                                   style={{
                                     padding: '16px',
                                     borderRadius: '8px',
@@ -1965,18 +2325,18 @@ const BookingPageNew: React.FC = () => {
             border: '1px solid #e5e7eb',
               opacity: (selectedService || selectedServicePackage || (selectedPurchasedPackage && selectedServiceFromPackage)) ? 1 : 0.6
           }}>
-            <h3 style={{ 
-                fontSize: '18px', 
-              fontWeight: '600', 
-                color: '#1f2937', 
+            <h3 style={{
+                fontSize: '18px',
+              fontWeight: '600',
+                color: '#1f2937',
                 margin: '0 0 20px 0',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px'
               }}>
-                <span style={{ 
-                  background: (selectedService || selectedServicePackage || (selectedPurchasedPackage && selectedServiceFromPackage)) ? '#3b82f6' : '#9ca3af', 
-                  color: 'white', 
+                <span style={{
+                  background: (selectedService || selectedServicePackage || (selectedPurchasedPackage && selectedServiceFromPackage)) ? '#3b82f6' : '#9ca3af',
+                  color: 'white',
                   borderRadius: '50%',
                   width: '24px',
                   height: '24px',
@@ -1997,27 +2357,30 @@ const BookingPageNew: React.FC = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                   {/* Calendar */}
                   <div>
-                    <h4 style={{ 
-                      fontSize: '14px', 
-                      fontWeight: '600', 
-                      color: '#1f2937', 
+                    <h4 style={{
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: '#1f2937',
                       margin: '0 0 12px 0'
                     }}>Chọn ngày</h4>
-                    <div style={{ 
-                      transform: 'scale(1)', 
+                    <div style={{
+                      transform: 'scale(1)',
                       transformOrigin: 'top left',
                       height: '300px',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      position: 'relative'
                     }}>
-              <Calendar
-                fullscreen={false}
-                value={selectedDate}
+
+                      <Calendar
+                        fullscreen={false}
+                        value={selectedDate}
                         defaultValue={dayjs()}
                         onSelect={handleDateChange}
-                cellRender={dateCellRender}
-                disabledDate={disabledDate}
-                className="compact-calendar"
-              />
+                        cellRender={dateCellRender}
+                        disabledDate={disabledDate}
+                        className="compact-calendar"
+
+                      />
                     </div>
             </div>
 
@@ -2031,9 +2394,9 @@ const BookingPageNew: React.FC = () => {
                     }}>Chọn giờ</h4>
                     
                     {!selectedDate ? (
-                    <div style={{ 
-                        textAlign: 'center', 
-                        color: '#6b7280', 
+                    <div style={{
+                        textAlign: 'center',
+                        color: '#6b7280',
                         fontSize: '13px',
                         padding: '20px',
                         backgroundColor: '#f9fafb',
@@ -2043,18 +2406,31 @@ const BookingPageNew: React.FC = () => {
                         Chọn ngày trước
                       </div>
                     ) : loadingTimeSlots ? (
-                      <div style={{ textAlign: 'center', padding: '20px' }}>
-                        <div style={{ 
-                          width: '20px', 
-                          height: '20px', 
-                      border: '2px solid #e5e7eb',
-                      borderTop: '2px solid #3b82f6',
-                      borderRadius: '50%',
-                      animation: 'spin 0.8s linear infinite',
-                      margin: '0 auto'
-                    }}></div>
-                  </div>
-                ) : timeSlots.length === 0 ? (
+                      <div style={{
+                        textAlign: 'center',
+                        padding: '30px 20px',
+                        backgroundColor: '#f9fafb',
+                        borderRadius: '8px',
+                        border: '1px solid #e5e7eb'
+                      }}>
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          border: '2px solid #e5e7eb',
+                          borderTop: '2px solid #3b82f6',
+                          borderRadius: '50%',
+                          animation: 'spin 1s linear infinite',
+                          margin: '0 auto 8px auto'
+                        }}></div>
+                        <div style={{
+                          fontSize: '12px',
+                          color: '#6b7280',
+                          fontWeight: '500'
+                        }}>
+                          Đang tải khung giờ...
+                        </div>
+                      </div>
+                    ) : timeSlots.length === 0 ? (
                       <div style={{ 
                         textAlign: 'center', 
                         color: '#ef4444', 
@@ -2076,6 +2452,7 @@ const BookingPageNew: React.FC = () => {
                   }}>
                     {timeSlots.map((slot) => (
                       <button
+                        type="button"
                         key={slot.id}
                             onClick={() => handleTimeSlotSelect(slot.time)}
                             disabled={!slot.isAvailable}
@@ -2219,15 +2596,39 @@ const BookingPageNew: React.FC = () => {
                         label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Bác sĩ (tùy chọn)</span>}
                         style={{ marginBottom: '16px' }}
               >
-                <Select
-                          value={selectedDoctor}
-                          onChange={setSelectedDoctor}
-                          placeholder={doctors.length === 0 ? "Không có bác sĩ rảnh" : "Hệ thống tự chọn"}
-                          allowClear
-                          style={{ fontSize: '14px' }}
-                          size="large"
-                          disabled={doctors.length === 0}
-                        >
+                {loadingDoctors ? (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '12px',
+                    backgroundColor: '#f9fafb',
+                    borderRadius: '6px',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    <div style={{
+                      width: '16px',
+                      height: '16px',
+                      border: '2px solid #e5e7eb',
+                      borderTop: '2px solid #3b82f6',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      marginRight: '8px'
+                    }}></div>
+                    <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                      Đang tải bác sĩ...
+                    </span>
+                  </div>
+                ) : (
+                  <Select
+                            value={selectedDoctor}
+                            onChange={setSelectedDoctor}
+                            placeholder={doctors.length === 0 ? "Không có bác sĩ rảnh" : "Hệ thống tự chọn"}
+                            allowClear
+                            style={{ fontSize: '14px' }}
+                            size="large"
+                            disabled={doctors.length === 0}
+                          >
                           {doctors.filter(d => d.isAvailable && d.doctorId).map((doctor, index) => (
                             <Option key={doctor.doctorId} value={doctor.doctorId}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0' }}>
@@ -2244,8 +2645,9 @@ const BookingPageNew: React.FC = () => {
                               </div>
                             </Option>
                           ))}
-                </Select>
-                        {doctors.length > 0 && (
+                          </Select>
+                        )}
+                        {!loadingDoctors && doctors.length > 0 && (
                           <div style={{ marginTop: '8px' }}>
                             <div style={{ fontSize: '12px', color: '#10b981', marginBottom: '4px', fontWeight: '500' }}>
                               ✓ {doctors.length} bác sĩ có sẵn cho thời gian này
@@ -2286,20 +2688,25 @@ const BookingPageNew: React.FC = () => {
                       name="description"
                       style={{ marginBottom: '16px' }}
                       rules={[
-                        { max: 25, message: 'Mô tả không được vượt quá 25 ký tự' }
+                        { max: 200, message: 'Mô tả không được vượt quá 200 ký tự' }
                       ]}
                     >
                       <Input.TextArea
-                        placeholder="Mô tả triệu chứng hoặc lý do khám (tối đa 25 ký tự)"
-                        rows={2}
-                        maxLength={25}
+                        placeholder="Mô tả triệu chứng hoặc lý do khám (tối đa 200 ký tự)"
+                        rows={3}
+                        maxLength={200}
                         showCount
                         size="large"
                       />
                     </Form.Item>
 
                     <Form.Item
-                      label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Ghi chú</span>}
+                      label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Ghi chú
+                        <span style={{ color: '#d97706', fontSize: '13px', fontWeight: 'bold', marginLeft: '10px', display: 'inline-flex', alignItems: 'center' }}>
+                          <span style={{ fontSize: '15px', marginRight: '4px' }}>💡</span>
+                          (Nên ghi rõ bệnh nền, dị ứng nếu có)
+                        </span>
+                      </span>}
                       name="notes"
                       style={{ marginBottom: '0' }}
                     >
@@ -2415,17 +2822,41 @@ const BookingPageNew: React.FC = () => {
                         `• Bác sĩ: ${doctors.find(d => d.id === selectedDoctor)?.name}`
                       }
                     </div>
-                    <div style={{
-                      marginTop: '12px',
-                      padding: '8px',
-                      backgroundColor: '#ecfdf5',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      color: '#10b981'
-                    }}>
-                      💰 Chi phí: {formatPrice(getCurrentPrice())}
-                    </div>
+                                      <div style={{
+                    marginTop: '12px',
+                    padding: '8px',
+                    backgroundColor: '#ecfdf5',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#10b981'
+                  }}>
+                    💰 Chi phí: {formatPrice(getCurrentPrice())}
+                  </div>
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '8px',
+                    backgroundColor: '#fff7ed',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    color: '#c2410c',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{ fontSize: '16px' }}>⏱️</span>
+                    <span>Chỗ đặt sẽ được giữ trong 10 phút để thanh toán</span>
+                  </div>
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '8px',
+                    backgroundColor: '#fff7ed',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#c2410c'
+                  }}>
+                    ⏱️ Lưu ý: Sau khi đặt lịch, bạn có 10 phút để hoàn tất thanh toán. Sau thời gian này, lịch hẹn sẽ tự động hủy và trả lại khung giờ cho người khác.
+                  </div>
                   </div>
 
               {/* Submit Button */}
@@ -2647,31 +3078,6 @@ const BookingPageNew: React.FC = () => {
                     <span>Bạn bè</span>
                   </div>
                 </Option>
-              </Select>
-            </Form.Item>
-
-            {/* Appointment Type Selection */}
-            <Form.Item
-              label={<span style={{ fontSize: '14px', fontWeight: '600' }}>Loại cuộc hẹn</span>}
-              required
-              style={{ marginBottom: '16px' }}
-            >
-              <Select
-                value={appointmentType}
-                onChange={setAppointmentType}
-                placeholder="Chọn loại cuộc hẹn"
-                style={{ fontSize: '14px' }}
-                size="large"
-              >
-                {bookingType === 'package' ? (
-                  <Option value="other">Gói dịch vụ</Option>
-                ) : (
-                  <>
-                    <Option value="consultation">Tư vấn</Option>
-                    <Option value="test">Xét nghiệm</Option>
-                    <Option value="treatment">Điều trị</Option>
-                  </>
-                )}
               </Select>
             </Form.Item>
           </Form>

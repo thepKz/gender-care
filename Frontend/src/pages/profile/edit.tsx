@@ -1,5 +1,6 @@
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import { Button, Card, DatePicker, Form, Input, Radio, notification } from 'antd';
+import { Button, Card, Form, Input, Radio, notification } from 'antd';
+import SimpleDatePicker from '../../components/ui/SimpleDatePicker';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -225,6 +226,7 @@ const ProfileEditPage: React.FC = () => {
                 rules={[{
                   validator: (_, value) => {
                     if (!value) return Promise.resolve();
+                    if (!dayjs.isDayjs(value)) return Promise.resolve();
                     const minDate = dayjs().subtract(12, 'years').endOf('day');
                     if (value.isAfter(minDate)) {
                       return Promise.reject('Bạn phải trên 12 tuổi!');
@@ -233,16 +235,9 @@ const ProfileEditPage: React.FC = () => {
                   },
                 }]}
               >
-                <DatePicker 
-                  format="DD/MM/YYYY" 
+                <SimpleDatePicker
                   placeholder="Chọn ngày sinh"
-                  size="large"
-                  style={{ width: '100%' }}
-                  className="rounded-xl border-gray-200 hover:border-[#0C3C54] focus:border-[#0C3C54] transition-all duration-200"
-                  disabledDate={current => {
-                    return current && current.isAfter(dayjs().subtract(12, 'years').endOf('day'));
-                  }}
-                  onChange={date => form.setFieldsValue({ year: date })}
+                  style={{ width: '100%', height: '40px', borderRadius: '12px' }}
                 />
               </Form.Item>
             </div>

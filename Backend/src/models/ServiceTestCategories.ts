@@ -16,6 +16,7 @@ export interface IServiceTestCategories {
   }>;
   createdAt?: Date;
   updatedAt?: Date;
+  isDeleted?: boolean;
 }
 
 const ServiceTestCategoriesSchema = new mongoose.Schema<IServiceTestCategories>({
@@ -60,9 +61,14 @@ const ServiceTestCategoriesSchema = new mongoose.Schema<IServiceTestCategories>(
       },
       message: { type: String, required: true }
     }
-  ]
+  ],
+  isDeleted: {
+    type: Boolean,
+    default: false
+  }
 }, {
-  timestamps: true
+  timestamps: true,
+  strict: true // Bổ sung rõ ràng strict mode
 });
 
 // Tạo index để tối ưu hóa truy vấn

@@ -1,5 +1,6 @@
 
-import { DatePicker, Form, Input, Modal, Select } from 'antd';
+import { Form, Input, Modal, Select } from 'antd';
+import SimpleDatePicker from '../../ui/SimpleDatePicker';
 import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
 import React, { useEffect } from 'react';
@@ -156,13 +157,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
               { required: true, message: 'Vui lòng chọn ngày sinh' }
             ]}
           >
-            <DatePicker
+            <SimpleDatePicker
               placeholder="Chọn ngày sinh"
-              format="DD/MM/YYYY"
-              className="w-full"
-              disabledDate={(current) => {
-                return current && current > dayjs().endOf('day');
-              }}
+              style={{ width: '100%' }}
             />
           </Form.Item>
         </Form>
