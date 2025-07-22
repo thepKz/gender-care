@@ -30,6 +30,25 @@ export const createFeedback = async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // ✅ SANITIZATION: Clean and validate appointmentId
+    const cleanAppointmentId = appointmentId.trim();
+    
+    // MongoDB ObjectId validation
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(cleanAppointmentId)) {
+      console.log('❌ Invalid appointmentId format in createFeedback:', {
+        original: appointmentId,
+        cleaned: cleanAppointmentId,
+        length: cleanAppointmentId.length
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'appointmentId không hợp lệ'
+      });
+    }
+
+    console.log('✅ Valid appointmentId in createFeedback:', cleanAppointmentId);
+
     // Validate rating range
     if (rating < 1 || rating > 5) {
       return res.status(400).json({
@@ -57,7 +76,7 @@ export const createFeedback = async (req: AuthRequest, res: Response) => {
     // Sử dụng service để tạo feedback
     console.log('📞 Calling feedbackService.createFeedback...');
     const newFeedback = await feedbackService.createFeedback({
-      appointmentId,
+      appointmentId: cleanAppointmentId,
       rating,
       feedback,
       comment,
@@ -101,15 +120,54 @@ export const getFeedbackByAppointment = async (req: AuthRequest, res: Response) 
     const { appointmentId } = req.params;
     const userId = req.user?._id;
 
+    console.log('🔍 getFeedbackByAppointment called with:', {
+      appointmentId,
+      userId,
+      originalUrl: req.originalUrl,
+      params: req.params,
+      query: req.query
+    });
+
     if (!userId) {
+      console.log('❌ No userId found in request');
       return res.status(401).json({
         success: false,
         message: 'Cần đăng nhập để xem đánh giá'
       });
     }
 
+    // ✅ VALIDATION: Check if appointmentId is provided and valid format
+    if (!appointmentId) {
+      console.log('❌ No appointmentId provided in request params');
+      return res.status(400).json({
+        success: false,
+        message: 'appointmentId là bắt buộc'
+      });
+    }
+
+    // ✅ SANITIZATION: Clean appointmentId
+    const cleanAppointmentId = appointmentId.trim();
+    
+    // MongoDB ObjectId validation
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(cleanAppointmentId)) {
+      console.log('❌ Invalid appointmentId format:', {
+        original: appointmentId,
+        cleaned: cleanAppointmentId,
+        length: cleanAppointmentId.length
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'appointmentId không hợp lệ'
+      });
+    }
+
+    console.log('✅ Valid appointmentId:', cleanAppointmentId);
+
     // Sử dụng service để lấy feedback
-    const feedback = await feedbackService.getFeedbackByAppointment(appointmentId, userId);
+    const feedback = await feedbackService.getFeedbackByAppointment(cleanAppointmentId, userId);
+
+    console.log('✅ Successfully retrieved feedback:', feedback ? 'Found' : 'Not found');
 
     res.json({
       success: true,
@@ -117,7 +175,12 @@ export const getFeedbackByAppointment = async (req: AuthRequest, res: Response) 
     });
 
   } catch (error: any) {
-    console.error('Error getting feedback:', error);
+    console.error('❌ Error getting feedback by appointment:', {
+      error: error.message,
+      stack: error.stack,
+      appointmentId: req.params?.appointmentId,
+      userId: req.user?._id
+    });
     
     // Handle business logic errors
     if (error.message.includes('Không tìm thấy') || 
@@ -232,14 +295,46 @@ export const getDoctorFeedbacks = async (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
 
+    console.log('🔍 getDoctorFeedbacks called with:', {
+      doctorId,
+      page,
+      limit,
+      originalUrl: req.originalUrl
+    });
+
     if (!doctorId) {
+      console.log('❌ No doctorId provided in request params');
       return res.status(400).json({
         success: false,
         message: 'doctorId là bắt buộc'
       });
     }
 
-    const result = await feedbackService.getDoctorFeedbacks(doctorId, page, limit);
+    // ✅ SANITIZATION: Clean and validate doctorId
+    const cleanDoctorId = doctorId.trim();
+    
+    // MongoDB ObjectId validation
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(cleanDoctorId)) {
+      console.log('❌ Invalid doctorId format:', {
+        original: doctorId,
+        cleaned: cleanDoctorId,
+        length: cleanDoctorId.length
+      });
+      return res.status(400).json({
+        success: false,
+        message: 'doctorId không hợp lệ'
+      });
+    }
+
+    console.log('✅ Valid doctorId:', cleanDoctorId);
+
+    const result = await feedbackService.getDoctorFeedbacks(cleanDoctorId, page, limit);
+
+    console.log('✅ Successfully retrieved doctor feedbacks:', {
+      totalFeedbacks: result.feedbacks.length,
+      totalCount: result.totalCount
+    });
 
     res.status(200).json({
       success: true,
@@ -248,7 +343,11 @@ export const getDoctorFeedbacks = async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Error getting doctor feedbacks:', error);
+    console.error('❌ Error getting doctor feedbacks:', {
+      error: error.message,
+      stack: error.stack,
+      doctorId: req.params?.doctorId
+    });
     res.status(500).json({
       success: false,
       message: 'Lỗi server khi lấy danh sách đánh giá',

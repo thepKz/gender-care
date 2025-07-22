@@ -25,7 +25,28 @@ const DoctorFeedbacks: React.FC<DoctorFeedbacksProps> = ({ doctorId }) => {
   const loadFeedbacks = async (page: number = 1) => {
     try {
       setLoading(true);
-      const response = await feedbackApi.getDoctorFeedbacks(doctorId, page, pageSize);
+      
+      // ✅ VALIDATION: Ensure doctorId is valid before making API call
+      if (!doctorId || !doctorId.trim()) {
+        console.error('❌ Invalid doctorId provided to loadFeedbacks:', doctorId);
+        return;
+      }
+
+      const cleanDoctorId = doctorId.trim();
+      
+      // MongoDB ObjectId validation
+      if (!/^[a-fA-F0-9]{24}$/.test(cleanDoctorId)) {
+        console.error('❌ Invalid doctorId format:', {
+          original: doctorId,
+          cleaned: cleanDoctorId,
+          length: cleanDoctorId.length
+        });
+        return;
+      }
+
+      console.log('✅ Loading feedbacks for valid doctorId:', cleanDoctorId);
+      
+      const response = await feedbackApi.getDoctorFeedbacks(cleanDoctorId, page, pageSize);
       
       if (response.success) {
         setFeedbacks(response.data.feedbacks);
@@ -33,7 +54,7 @@ const DoctorFeedbacks: React.FC<DoctorFeedbacksProps> = ({ doctorId }) => {
         setTotalCount(response.data.totalCount);
       }
     } catch (error) {
-      console.error('Error loading doctor feedbacks:', error);
+      console.error('❌ Error loading doctor feedbacks:', error);
     } finally {
       setLoading(false);
     }

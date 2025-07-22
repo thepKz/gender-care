@@ -37,13 +37,22 @@ interface FormValues {
   comment: string;
 }
 
+interface ExistingFeedback {
+  _id: string;
+  rating: number;
+  feedback: string;
+  comment: string;
+  doctorRating?: number;
+  serviceQuality?: number;
+}
+
 const Feedback: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [appointment, setAppointment] = useState<Appointment | null>(null);
-
+  const [existingFeedback, setExistingFeedback] = useState<ExistingFeedback | null>(null);
 
 
   const locationConfig = {
@@ -134,28 +143,60 @@ const Feedback: React.FC = () => {
   useEffect(() => {
     const loadAppointmentData = async () => {
       const appointmentId = searchParams.get('appointment');
+      
+      // ✅ VALIDATION: Check if appointmentId is valid
       if (!appointmentId) {
+        console.error('❌ No appointmentId found in URL parameters');
         navigate('/booking-history');
         return;
       }
+
+      // ✅ SANITIZATION: Clean and validate appointmentId format
+      const cleanAppointmentId = appointmentId.trim();
+      
+      // MongoDB ObjectId validation - should be 24 hex characters
+      if (!/^[a-fA-F0-9]{24}$/.test(cleanAppointmentId)) {
+        console.error('❌ Invalid appointmentId format:', {
+          original: appointmentId,
+          cleaned: cleanAppointmentId,
+          length: cleanAppointmentId.length,
+          isValidObjectId: /^[a-fA-F0-9]{24}$/.test(cleanAppointmentId)
+        });
+        message.error('ID lịch hẹn không hợp lệ');
+        navigate('/booking-history');
+        return;
+      }
+
+      console.log('✅ Valid appointmentId:', {
+        original: appointmentId,
+        cleaned: cleanAppointmentId,
+        length: cleanAppointmentId.length
+      });
 
       try {
         setLoading(true);
         
         // Kiểm tra xem đã có feedback cho appointment này chưa
+        let existingFeedback = null;
         try {
-          const feedbackResponse = await feedbackApi.getFeedbackByAppointment(appointmentId);
-          if (feedbackResponse.success) {
-            message.info('Bạn đã đánh giá lịch hẹn này rồi.');
-            navigate('/booking-history');
-            return;
+          console.log('🔍 Checking existing feedback for appointmentId:', cleanAppointmentId);
+          const feedbackResponse = await feedbackApi.getFeedbackByAppointment(cleanAppointmentId);
+          if (feedbackResponse.success && feedbackResponse.data) {
+            existingFeedback = feedbackResponse.data;
+            console.log('📋 Found existing feedback:', existingFeedback);
+            message.info('Hiển thị đánh giá đã gửi trước đó');
+            
+            // Set existing feedback vào state để UI có thể hiển thị
+            setExistingFeedback(existingFeedback);
           }
-        } catch {
+        } catch (error) {
+          console.log('🔍 No existing feedback found or error:', error);
           // Chưa có feedback, tiếp tục
         }
 
         // Load appointment details từ API
-        const appointmentResponse = await appointmentApi.getAppointmentById(appointmentId);
+        console.log('🔍 Loading appointment details for appointmentId:', cleanAppointmentId);
+        const appointmentResponse = await appointmentApi.getAppointmentById(cleanAppointmentId);
         console.log('📋 Raw API Response:', appointmentResponse);
         
         // API có thể trả về trực tiếp data hoặc wrapped trong success/data
@@ -197,8 +238,17 @@ const Feedback: React.FC = () => {
         
         setAppointment(transformedAppointment);
         
+        // Nếu có existing feedback, populate form
+        if (existingFeedback) {
+          form.setFieldsValue({
+            serviceRating: existingFeedback.serviceQuality || existingFeedback.rating,
+            doctorRating: existingFeedback.doctorRating || existingFeedback.rating,
+            comment: existingFeedback.feedback || existingFeedback.comment
+          });
+        }
+        
       } catch (error) {
-        console.error('Error loading appointment:', error);
+        console.error('❌ Error loading appointment:', error);
         message.error('Không thể tải thông tin lịch hẹn');
         navigate('/booking-history');
       } finally {
@@ -308,10 +358,10 @@ const Feedback: React.FC = () => {
             >
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                  Bạn cảm thấy thế nào về dịch vụ?
+                  {existingFeedback ? 'Đánh giá đã gửi' : 'Bạn cảm thấy thế nào về dịch vụ?'}
                 </h2>
                 <p className="text-gray-600">
-                  Đánh giá tổng quan về trải nghiệm của bạn
+                  {existingFeedback ? 'Bạn đã đánh giá lịch hẹn này trước đó' : 'Đánh giá tổng quan về trải nghiệm của bạn'}
                 </p>
               </div>
 
@@ -320,11 +370,12 @@ const Feedback: React.FC = () => {
                 <Form.Item
                   name="serviceRating"
                   label={<span className="text-lg font-semibold text-gray-900">Đánh giá dịch vụ</span>}
-                  rules={[{ required: true, message: 'Vui lòng đánh giá dịch vụ!' }]}
+                  rules={[{ required: !existingFeedback, message: 'Vui lòng đánh giá dịch vụ!' }]}
                 >
                   <Rate
                     character={<Star size={40} variant="Bold" />}
                     className="text-5xl text-yellow-400"
+                    disabled={!!existingFeedback}
                   />
                 </Form.Item>
               </div>
@@ -334,11 +385,12 @@ const Feedback: React.FC = () => {
                 <Form.Item
                   name="doctorRating"
                   label={<span className="text-lg font-semibold text-gray-900">Đánh giá bác sĩ: {appointment.doctorName}</span>}
-                  rules={[{ required: true, message: 'Vui lòng đánh giá bác sĩ!' }]}
+                  rules={[{ required: !existingFeedback, message: 'Vui lòng đánh giá bác sĩ!' }]}
                 >
                   <Rate
                     character={<Star size={40} variant="Bold" />}
                     className="text-5xl text-yellow-400"
+                    disabled={!!existingFeedback}
                   />
                 </Form.Item>
               </div>
@@ -348,14 +400,16 @@ const Feedback: React.FC = () => {
                 <Form.Item
                   name="comment"
                   label={<span className="text-lg font-semibold text-gray-900">Bình luận về trải nghiệm</span>}
-                  rules={[{ required: true, message: 'Vui lòng để lại bình luận!' }]}
+                  rules={[{ required: !existingFeedback, message: 'Vui lòng để lại bình luận!' }]}
                 >
                   <TextArea
                     rows={6}
-                    placeholder="Chia sẻ trải nghiệm của bạn về dịch vụ và bác sĩ..."
-                    showCount
+                    placeholder={existingFeedback ? "Đánh giá của bạn" : "Chia sẻ trải nghiệm của bạn về dịch vụ và bác sĩ..."}
+                    showCount={!existingFeedback}
                     maxLength={500}
                     className="text-base"
+                    disabled={!!existingFeedback}
+                    readOnly={!!existingFeedback}
                   />
                 </Form.Item>
               </div>
@@ -371,24 +425,31 @@ const Feedback: React.FC = () => {
                     Hủy bỏ
                   </button>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    onClick={() => console.log('🔘 Submit button clicked')}
-                    className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-base min-w-[200px] flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Đang gửi...
-                      </>
-                    ) : (
-                      <>
-                        <TickCircle size={20} />
-                        Gửi đánh giá
-                      </>
-                    )}
-                  </button>
+                  {existingFeedback ? (
+                    <div className="px-8 py-3 bg-green-100 text-green-800 rounded-lg font-medium text-base min-w-[200px] flex items-center justify-center gap-2">
+                      <TickCircle size={20} />
+                      Đã gửi đánh giá
+                    </div>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      onClick={() => console.log('🔘 Submit button clicked')}
+                      className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium text-base min-w-[200px] flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Đang gửi...
+                        </>
+                      ) : (
+                        <>
+                          <TickCircle size={20} />
+                          Gửi đánh giá
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             </Form>
