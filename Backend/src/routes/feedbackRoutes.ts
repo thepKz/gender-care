@@ -4,7 +4,9 @@ import {
   getFeedbackByAppointment,
   getUserFeedbacks,
   updateFeedback,
-  getDoctorFeedbacks
+  getDoctorFeedbacks,
+  hideFeedback,
+  deleteFeedback
 } from '../controllers/feedbackController';
 import { verifyToken } from '../middleware/auth';
 
@@ -29,5 +31,11 @@ router.put('/:id', verifyToken, updateFeedback);
 // GET /api/feedbacks/doctor/:doctorId - Lấy tất cả feedback của doctor (public)
 // Public endpoint - để hiển thị trên profile bác sĩ
 router.get('/doctor/:doctorId', getDoctorFeedbacks);
+
+// PATCH /api/feedbacks/:id/hide - Ẩn/hiện feedback
+router.patch('/:id/hide', verifyToken, hideFeedback);
+
+// DELETE /api/feedbacks/:id - Xóa feedback
+router.delete('/:id', verifyToken, deleteFeedback);
 
 export default router; 
