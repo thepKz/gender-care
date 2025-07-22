@@ -27,6 +27,12 @@ export interface FeedbackResponse {
     appointmentDate: string;
     appointmentTime: string;
     status: string;
+    profileId?: {
+      _id: string;
+      fullName: string;
+      gender?: string;
+      phone?: string;
+    };
   };
   doctorId?: {
     _id: string;
@@ -108,7 +114,8 @@ export const feedbackApi = {
   getDoctorFeedbacks: async (
     doctorId: string,
     page: number = 1,
-    limit: number = 10
+    limit: number = 10,
+    rating?: number
   ): Promise<ApiResponse<{
     feedbacks: FeedbackResponse[];
     totalCount: number;
@@ -120,10 +127,36 @@ export const feedbackApi = {
     };
   }>> => {
     try {
-      const response = await axiosInstance.get(`/feedbacks/doctor/${doctorId}?page=${page}&limit=${limit}`);
+      let url = `/feedbacks/doctor/${doctorId}?page=${page}&limit=${limit}`;
+      if (rating && rating >= 1 && rating <= 5) {
+        url += `&rating=${rating}`;
+      }
+      const response = await axiosInstance.get(url);
       return response.data;
     } catch (error: unknown) {
       console.error('Error getting doctor feedbacks:', error);
+      throw error;
+    }
+  },
+
+  // PATCH /api/feedbacks/:id/hide - Ẩn/hiện feedback
+  hideFeedback: async (feedbackId: string, isHidden: boolean): Promise<ApiResponse<FeedbackResponse>> => {
+    try {
+      const response = await axiosInstance.patch(`/feedbacks/${feedbackId}/hide`, { isHidden });
+      return response.data;
+    } catch (error: unknown) {
+      console.error('Error hiding feedback:', error);
+      throw error;
+    }
+  },
+
+  // DELETE /api/feedbacks/:id - Xóa feedback
+  deleteFeedback: async (feedbackId: string): Promise<ApiResponse<null>> => {
+    try {
+      const response = await axiosInstance.delete(`/feedbacks/${feedbackId}`);
+      return response.data;
+    } catch (error: unknown) {
+      console.error('Error deleting feedback:', error);
       throw error;
     }
   },

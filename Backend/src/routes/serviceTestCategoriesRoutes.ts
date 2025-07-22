@@ -21,35 +21,35 @@ router.get(
   serviceTestCategoriesController.getAllServiceTestCategories
 );
 
-// POST /api/service-test-categories - Gán test category cho service (Doctor, Staff, Admin)
+// POST /api/service-test-categories - Gán test category cho service (Doctor, Staff, Admin, Manager)
 router.post(
   '/',
   authMiddleware,
-  roleMiddleware(['doctor', 'staff', 'admin']),
+  roleMiddleware(['doctor', 'staff', 'admin', 'manager']),
   serviceTestCategoriesController.assignTestCategoryToService
 );
 
-// POST /api/service-test-categories/bulk - Gán nhiều test categories cho service (Doctor, Staff, Admin)
+// POST /api/service-test-categories/bulk - Gán nhiều test categories cho service (Doctor, Staff, Admin, Manager)
 router.post(
   '/bulk',
   authMiddleware,
-  roleMiddleware(['doctor', 'staff', 'admin']),
+  roleMiddleware(['doctor', 'staff', 'admin', 'manager']),
   serviceTestCategoriesController.assignMultipleTestCategoriesToService
 );
 
-// PUT /api/service-test-categories/:id - Cập nhật service test category (Doctor, Staff, Admin)
+// PUT /api/service-test-categories/:id - Cập nhật service test category (Doctor, Staff, Admin, Manager)
 router.put(
   '/:id',
   authMiddleware,
-  roleMiddleware(['doctor', 'staff', 'admin']),
+  roleMiddleware(['doctor', 'staff', 'admin', 'manager']),
   serviceTestCategoriesController.updateServiceTestCategory
 );
 
-// DELETE /api/service-test-categories/:id - Xóa test category khỏi service (Doctor, Staff, Admin)
+// DELETE /api/service-test-categories/:id - Xóa test category khỏi service (Doctor, Staff, Admin, Manager)
 router.delete(
   '/:id',
   authMiddleware,
-  roleMiddleware(['doctor', 'staff', 'admin']),
+  roleMiddleware(['doctor', 'staff', 'admin', 'manager']),
   serviceTestCategoriesController.removeTestCategoryFromService
 );
 

@@ -45,13 +45,24 @@ interface RefundData {
 interface RawAppointmentData {
   _id: string;
   type?: string;
-  serviceId?: string;
+  serviceId?: string | { serviceName?: string; _id?: string };
   serviceName?: string;
   packageName?: string;
-  packageId?: string;
+  packageId?: string | { name?: string; _id?: string };
   packagePurchaseId?: string;
   doctorName?: string;
   doctorAvatar?: string;
+  doctorInfo?: {
+    fullName?: string;
+    avatar?: string;
+    specialization?: string;
+  };
+  doctorId?: {
+    userId?: {
+      fullName?: string;
+      avatar?: string;
+    };
+  };
   patientName?: string;
   fullName?: string;
   appointmentDate?: string;
@@ -221,12 +232,12 @@ const BookingHistoryOptimized: React.FC = () => {
           id: apt._id,
             type: (apt.type as 'appointment' | 'consultation') || 'appointment',
           serviceId: apt.serviceId || '',
-          serviceName: apt.serviceName || 'Dịch vụ không xác định',
+          serviceName: apt.serviceName || apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ khám',
           packageName: apt.packageName,
           packageId: apt.packageId,
           packagePurchaseId: apt.packagePurchaseId,
-          doctorName: apt.doctorName || 'Chưa chỉ định bác sĩ',
-          doctorAvatar: apt.doctorAvatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
+          doctorName: apt.doctorName || apt.doctorInfo?.fullName || apt.doctorId?.userId?.fullName || 'Chưa chỉ định bác sĩ',
+          doctorAvatar: apt.doctorAvatar || apt.doctorInfo?.avatar || apt.doctorId?.userId?.avatar || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150',
           patientName: apt.patientName || apt.fullName,
           appointmentDate: apt.appointmentDate ? new Date(apt.appointmentDate).toISOString().split('T')[0] : '',
           appointmentTime: apt.appointmentTime || apt.appointmentSlot || '',

@@ -164,19 +164,10 @@ class ServiceTestCategoriesController {
   updateServiceTestCategory = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
-      const { isRequired, unit, targetValue, minValue, maxValue, thresholdRules } = req.body;
       const userRole = req.user?.role || '';
-
-      const updateData = {
-        isRequired,
-        unit: unit?.trim(),
-        targetValue: targetValue?.trim(),
-        minValue: minValue !== undefined ? Number(minValue) : undefined,
-        maxValue: maxValue !== undefined ? Number(maxValue) : undefined,
-        thresholdRules: Array.isArray(thresholdRules) ? thresholdRules : undefined
-      };
+      // Truyền toàn bộ req.body vào service để không filter mất isDeleted
+      const updateData = req.body;
       const result = await this.serviceTestCategoriesService.updateServiceTestCategory(id, updateData, userRole);
-
       res.status(200).json({
         success: true,
         message: 'Service test category updated successfully',
@@ -242,8 +233,8 @@ class ServiceTestCategoriesController {
 
       res.status(200).json({
         success: true,
-        message: `${result.deletedCount} test categories removed from service successfully`,
-        data: { deletedCount: result.deletedCount }
+        message: `${result.modifiedCount} test categories removed from service successfully`,
+        data: { acknowledged: result.acknowledged, modifiedCount: result.modifiedCount }
       });
     } catch (error: any) {
       if (error.message.includes('Only')) {

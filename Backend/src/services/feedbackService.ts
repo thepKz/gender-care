@@ -357,7 +357,7 @@ class FeedbackService {
   }
 
   // Lấy tất cả feedback của doctor để hiển thị trên profile
-  async getDoctorFeedbacks(doctorId: string, page: number = 1, limit: number = 10): Promise<{
+  async getDoctorFeedbacks(doctorId: string, page: number = 1, limit: number = 10, ratingFilter?: number, showHidden?: boolean): Promise<{
     feedbacks: IFeedbacks[];
     totalCount: number;
     averageRating: number;
@@ -365,21 +365,37 @@ class FeedbackService {
   }> {
     const skip = (page - 1) * limit;
 
-    // Lấy feedbacks với pagination
-    const feedbacks = await Feedbacks.find({ doctorId })
+    // Build query with rating filter
+    const query: any = { doctorId };
+    if (ratingFilter && ratingFilter >= 1 && ratingFilter <= 5) {
+      query.rating = ratingFilter;
+    }
+    if (!showHidden) {
+      query.isHidden = false;
+    }
+
+    // Lấy feedbacks với pagination và populate thông tin khách hàng
+    const feedbacks = await Feedbacks.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .populate([
-        { path: 'appointmentId', select: 'appointmentDate appointmentTime' },
+        { 
+          path: 'appointmentId', 
+          select: 'appointmentDate appointmentTime profileId',
+          populate: {
+            path: 'profileId',
+            select: 'fullName gender phone'
+          }
+        },
         { path: 'serviceId', select: 'serviceName' },
         { path: 'packageId', select: 'name' }
       ]);
 
-    // Lấy tổng số feedback
-    const totalCount = await Feedbacks.countDocuments({ doctorId });
+    // Lấy tổng số feedback (với filter nếu có)
+    const totalCount = await Feedbacks.countDocuments(query);
 
-    // Lấy thống kê
+    // Lấy thống kê (không filter để show tổng quan)
     const stats = await this.getDoctorFeedbackStats(doctorId);
 
     return {
@@ -388,6 +404,21 @@ class FeedbackService {
       averageRating: stats.averageRating,
       stats
     };
+  }
+
+  // Ẩn/hiện feedback
+  async hideFeedback(feedbackId: string, isHidden: boolean): Promise<IFeedbacks | null> {
+    return await Feedbacks.findByIdAndUpdate(
+      feedbackId,
+      { isHidden },
+      { new: true }
+    );
+  }
+
+  // Xóa feedback
+  async deleteFeedback(feedbackId: string): Promise<boolean> {
+    const result = await Feedbacks.findByIdAndDelete(feedbackId);
+    return !!result;
   }
 }
 

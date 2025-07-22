@@ -294,11 +294,15 @@ export const getDoctorFeedbacks = async (req: Request, res: Response) => {
     const { doctorId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
+    const ratingFilter = req.query.rating ? parseInt(req.query.rating as string) : undefined;
+    const showHidden = req.query.showHidden === 'true';
 
     console.log('🔍 getDoctorFeedbacks called with:', {
       doctorId,
       page,
       limit,
+      ratingFilter,
+      showHidden,
       originalUrl: req.originalUrl
     });
 
@@ -329,11 +333,12 @@ export const getDoctorFeedbacks = async (req: Request, res: Response) => {
 
     console.log('✅ Valid doctorId:', cleanDoctorId);
 
-    const result = await feedbackService.getDoctorFeedbacks(cleanDoctorId, page, limit);
+    const result = await feedbackService.getDoctorFeedbacks(cleanDoctorId, page, limit, ratingFilter, showHidden);
 
     console.log('✅ Successfully retrieved doctor feedbacks:', {
       totalFeedbacks: result.feedbacks.length,
-      totalCount: result.totalCount
+      totalCount: result.totalCount,
+      ratingFilter: ratingFilter || 'all'
     });
 
     res.status(200).json({
@@ -353,5 +358,37 @@ export const getDoctorFeedbacks = async (req: Request, res: Response) => {
       message: 'Lỗi server khi lấy danh sách đánh giá',
       error: error.message
     });
+  }
+}; 
+
+// PATCH /api/feedbacks/:id/hide - Ẩn/hiện feedback
+export const hideFeedback = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { isHidden } = req.body;
+    if (typeof isHidden !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'isHidden phải là boolean' });
+    }
+    const updated = await feedbackService.hideFeedback(id, isHidden);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy feedback' });
+    }
+    res.json({ success: true, message: 'Cập nhật trạng thái feedback thành công', data: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Lỗi server khi cập nhật trạng thái feedback', error: error.message });
+  }
+};
+
+// DELETE /api/feedbacks/:id - Xóa feedback
+export const deleteFeedback = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const deleted = await feedbackService.deleteFeedback(id);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Không tìm thấy feedback' });
+    }
+    res.json({ success: true, message: 'Xóa feedback thành công' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Lỗi server khi xóa feedback', error: error.message });
   }
 }; 

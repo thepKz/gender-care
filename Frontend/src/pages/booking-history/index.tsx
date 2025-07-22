@@ -136,15 +136,17 @@ const BookingHistory: React.FC = () => {
             apt.serviceName ||
             apt.serviceId?.serviceName ||
             apt.packageId?.name ||
-            "Dịch vụ không xác định",
+            "Dịch vụ khám",
           packageName: apt.packageName || apt.packageId?.name,
           doctorName:
             apt.doctorName ||
+            apt.doctorInfo?.fullName ||
             apt.doctorId?.userId?.fullName ||
             apt.doctorId?.fullName ||
             "Chưa chỉ định bác sĩ",
           doctorAvatar:
             apt.doctorAvatar ||
+            apt.doctorInfo?.avatar ||
             apt.doctorId?.userId?.avatar ||
             apt.doctorId?.avatar ||
             "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150",

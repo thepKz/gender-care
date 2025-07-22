@@ -18,7 +18,7 @@ export class ServiceTestCategoriesService {
       throw new Error('Service not found');
     }
 
-    // Lấy test categories của service
+    // Lấy test categories của service (KHÔNG filter isDeleted)
     const serviceTestCategories = await ServiceTestCategories.find({ serviceId })
       .populate('testCategoryId', 'name description unit normalRange')
       .populate('serviceId', 'serviceName serviceType')
@@ -45,10 +45,10 @@ export class ServiceTestCategoriesService {
     // Calculate skip value for pagination
     const skip = (page - 1) * limit;
 
-    // Get total count
+    // Get total count (KHÔNG filter isDeleted)
     const total = await ServiceTestCategories.countDocuments(searchQuery);
 
-    // Get paginated results
+    // Get paginated results (KHÔNG filter isDeleted)
     const serviceTestCategories = await ServiceTestCategories.find(searchQuery)
       .populate('serviceId', 'serviceName serviceType price')
       .populate('testCategoryId', 'name description unit normalRange')
@@ -69,9 +69,9 @@ export class ServiceTestCategoriesService {
 
   // Gán test category cho service
   async assignTestCategoryToService(data: any, userRole: string) {
-    // Check permissions - chỉ doctor và staff mới được gán
-    if (!['doctor', 'staff', 'admin'].includes(userRole)) {
-      throw new Error('Only doctors and staff can assign test categories to services');
+    // Check permissions - cho phép cả manager
+    if (!['doctor', 'staff', 'admin', 'manager'].includes(userRole)) {
+      throw new Error('Only doctors, staff, admin, manager can assign test categories to services');
     }
 
     const { serviceId, testCategoryId, isRequired, unit, targetValue, minValue, maxValue, thresholdRules } = data;
@@ -145,8 +145,8 @@ export class ServiceTestCategoriesService {
   // Gán nhiều test categories cho service
   async assignMultipleTestCategoriesToService(data: any, userRole: string) {
     // Check permissions
-    if (!['doctor', 'staff', 'admin'].includes(userRole)) {
-      throw new Error('Only doctors and staff can assign test categories to services');
+    if (!['doctor', 'staff', 'admin', 'manager'].includes(userRole)) {
+      throw new Error('Only doctors, staff, admin, manager can assign test categories to services');
     }
 
     const { serviceId, testCategoryIds, isRequired } = data;
@@ -178,7 +178,7 @@ export class ServiceTestCategoriesService {
       throw new Error('One or more test categories not found');
     }
 
-    // Lấy danh sách đã được gán
+    // Lấy danh sách đã được gán (KHÔNG filter isDeleted)
     const existingAssignments = await ServiceTestCategories.find({
       serviceId,
       testCategoryId: { $in: testCategoryIds }
@@ -203,7 +203,7 @@ export class ServiceTestCategoriesService {
 
     const savedAssignments = await ServiceTestCategories.insertMany(newAssignments);
 
-    // Populate và return
+    // Populate và return (KHÔNG filter isDeleted)
     const populatedAssignments = await ServiceTestCategories.find({
       _id: { $in: savedAssignments.map(a => a._id) }
     })
@@ -216,8 +216,8 @@ export class ServiceTestCategoriesService {
   // Cập nhật service test category
   async updateServiceTestCategory(id: string, updateData: any, userRole: string) {
     // Check permissions
-    if (!['doctor', 'staff', 'admin'].includes(userRole)) {
-      throw new Error('Only doctors and staff can update test categories for services');
+    if (!['doctor', 'staff', 'admin', 'manager'].includes(userRole)) {
+      throw new Error('Only doctors, staff, admin, manager can update test categories for services');
     }
 
     // Validate ID
@@ -225,38 +225,46 @@ export class ServiceTestCategoriesService {
       throw new Error('Invalid assignment ID');
     }
 
-    const { isRequired, unit, targetValue, minValue, maxValue, thresholdRules } = updateData;
-
-    // Validate thresholdRules nếu có
-    if (thresholdRules && Array.isArray(thresholdRules)) {
-      for (const rule of thresholdRules) {
-        if (!rule.flag || !rule.message) {
-          throw new Error('Each thresholdRule must have flag and message');
+    // Nếu chỉ update isDeleted (xóa mềm), chỉ update trường này để tránh ảnh hưởng logic khác
+    let updateFields: any = {};
+    if (typeof updateData.isDeleted !== 'undefined') {
+      updateFields.isDeleted = updateData.isDeleted;
+    } else {
+      const { isRequired, unit, targetValue, minValue, maxValue, thresholdRules } = updateData;
+      // Validate thresholdRules nếu có
+      if (thresholdRules && Array.isArray(thresholdRules)) {
+        for (const rule of thresholdRules) {
+          if (!rule.flag || !rule.message) {
+            throw new Error('Each thresholdRule must have flag and message');
+          }
         }
       }
-    }
-
-    // Tự động tính targetValue từ minValue và maxValue nếu chưa có
-    let calculatedTargetValue = targetValue;
-    if (minValue !== undefined && maxValue !== undefined && !targetValue) {
-      calculatedTargetValue = ((minValue + maxValue) / 2).toString();
-    }
-
-    // Update assignment
-    const updatedAssignment = await ServiceTestCategories.findByIdAndUpdate(
-      id,
-      {
+      // Tự động tính targetValue từ minValue và maxValue nếu chưa có
+      let calculatedTargetValue = targetValue;
+      if (minValue !== undefined && maxValue !== undefined && !targetValue) {
+        calculatedTargetValue = ((minValue + maxValue) / 2).toString();
+      }
+      updateFields = {
         isRequired,
         unit,
         targetValue: calculatedTargetValue,
         minValue,
         maxValue,
         thresholdRules
-      },
+      };
+    }
+    // Debug log giá trị updateFields
+    console.log('Update ServiceTestCategory:', { id, updateFields });
+    // Update assignment
+    const updatedAssignment = await ServiceTestCategories.findByIdAndUpdate(
+      id,
+      updateFields,
       { new: true }
     )
       .populate('serviceId', 'serviceName serviceType')
       .populate('testCategoryId', 'name description unit normalRange');
+    // Debug log kết quả update
+    console.log('Updated ServiceTestCategory result:', updatedAssignment);
 
     if (!updatedAssignment) {
       throw new Error('Assignment not found');
@@ -268,8 +276,8 @@ export class ServiceTestCategoriesService {
   // Xóa test category khỏi service
   async removeTestCategoryFromService(id: string, userRole: string) {
     // Check permissions
-    if (!['doctor', 'staff', 'admin'].includes(userRole)) {
-      throw new Error('Only doctors and staff can remove test categories from services');
+    if (!['doctor', 'staff', 'admin', 'manager'].includes(userRole)) {
+      throw new Error('Only doctors, staff, admin, manager can remove test categories from services');
     }
 
     // Validate ID
@@ -286,17 +294,16 @@ export class ServiceTestCategoriesService {
     // TODO: Kiểm tra xem có test results nào đang sử dụng không
     // Có thể thêm logic để prevent delete nếu có data phụ thuộc
 
-    // Xóa assignment
-    await ServiceTestCategories.findByIdAndDelete(id);
-
+    // Xóa mềm assignment
+    await ServiceTestCategories.findByIdAndUpdate(id, { isDeleted: true });
     return { message: 'Test category removed from service successfully' };
   }
 
   // Xóa tất cả test categories của service
   async removeAllTestCategoriesFromService(serviceId: string, userRole: string) {
     // Check permissions
-    if (!['doctor', 'staff', 'admin'].includes(userRole)) {
-      throw new Error('Only doctors and staff can remove test categories from services');
+    if (!['doctor', 'staff', 'admin', 'manager'].includes(userRole)) {
+      throw new Error('Only doctors, staff, admin, manager can remove test categories from services');
     }
 
     // Validate ID
@@ -310,9 +317,8 @@ export class ServiceTestCategoriesService {
       throw new Error('Service not found');
     }
 
-    // Xóa tất cả assignments của service
-    const result = await ServiceTestCategories.deleteMany({ serviceId });
-
+    // Xóa mềm tất cả assignments của service
+    const result = await ServiceTestCategories.updateMany({ serviceId }, { isDeleted: true });
     return result;
   }
 } 

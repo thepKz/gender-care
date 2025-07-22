@@ -1,8 +1,9 @@
-import { Rate, Pagination, Empty } from 'antd';
+import { Rate, Pagination, Empty, Button } from 'antd';
 import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import { feedbackApi, FeedbackResponse } from '../../api/endpoints/feedback';
 import ModernCard from './ModernCard';
+import { formatCustomerName } from '../../utils/nameUtils';
 
 interface DoctorFeedbacksProps {
   doctorId: string;
@@ -20,9 +21,10 @@ const DoctorFeedbacks: React.FC<DoctorFeedbacksProps> = ({ doctorId }) => {
   const [stats, setStats] = useState<FeedbackStats | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [selectedRating, setSelectedRating] = useState<number | undefined>(undefined);
   const pageSize = 5;
 
-  const loadFeedbacks = async (page: number = 1) => {
+  const loadFeedbacks = async (page: number = 1, rating?: number) => {
     try {
       setLoading(true);
       
@@ -44,9 +46,9 @@ const DoctorFeedbacks: React.FC<DoctorFeedbacksProps> = ({ doctorId }) => {
         return;
       }
 
-      console.log('✅ Loading feedbacks for valid doctorId:', cleanDoctorId);
+      console.log('✅ Loading feedbacks for valid doctorId:', cleanDoctorId, 'with rating filter:', rating);
       
-      const response = await feedbackApi.getDoctorFeedbacks(cleanDoctorId, page, pageSize);
+      const response = await feedbackApi.getDoctorFeedbacks(cleanDoctorId, page, pageSize, rating);
       
       if (response.success) {
         setFeedbacks(response.data.feedbacks);
@@ -62,9 +64,9 @@ const DoctorFeedbacks: React.FC<DoctorFeedbacksProps> = ({ doctorId }) => {
 
   useEffect(() => {
     if (doctorId) {
-      loadFeedbacks(currentPage);
+      loadFeedbacks(currentPage, selectedRating);
     }
-  }, [doctorId, currentPage]);
+  }, [doctorId, currentPage, selectedRating]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN', {
@@ -76,6 +78,11 @@ const DoctorFeedbacks: React.FC<DoctorFeedbacksProps> = ({ doctorId }) => {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
+  };
+
+  const handleRatingFilter = (rating: number | undefined) => {
+    setSelectedRating(rating);
+    setCurrentPage(1); // Reset to first page when filter changes
   };
 
   if (loading) {
@@ -105,7 +112,7 @@ const DoctorFeedbacks: React.FC<DoctorFeedbacksProps> = ({ doctorId }) => {
           <ModernCard variant="default" className="bg-gradient-to-r from-yellow-50 to-orange-50">
             <div className="text-center space-y-4">
               <h3 className="text-2xl font-bold text-gray-900">
-                Đánh giá từ bệnh nhân
+                Đánh giá từ khách hàng
               </h3>
               
               <div className="flex items-center justify-center gap-4">
@@ -149,11 +156,40 @@ const DoctorFeedbacks: React.FC<DoctorFeedbacksProps> = ({ doctorId }) => {
         </motion.div>
       )}
 
+      {/* Rating Filter */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-xl font-semibold text-gray-900">
+            Nhận xét của khách hàng
+          </h4>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Lọc theo:</span>
+            <div className="flex gap-1">
+              <Button
+                size="small"
+                type={selectedRating === undefined ? 'primary' : 'default'}
+                onClick={() => handleRatingFilter(undefined)}
+              >
+                Tất cả
+              </Button>
+              {[5, 4, 3, 2, 1].map((star) => (
+                <Button
+                  key={star}
+                  size="small"
+                  type={selectedRating === star ? 'primary' : 'default'}
+                  onClick={() => handleRatingFilter(star)}
+                  className="flex items-center gap-1"
+                >
+                  {star} ⭐
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Danh sách feedback */}
       <div className="space-y-4">
-        <h4 className="text-xl font-semibold text-gray-900">
-          Nhận xét của bệnh nhân
-        </h4>
         
         {feedbacks.length === 0 ? (
           <Empty 
@@ -187,6 +223,16 @@ const DoctorFeedbacks: React.FC<DoctorFeedbacksProps> = ({ doctorId }) => {
                           {feedback.serviceId.serviceName}
                         </span>
                       )}
+                    </div>
+
+                    {/* Customer Name */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700">Khách hàng:</span>
+                      <span className="text-sm text-gray-600">
+                        {feedback.appointmentId?.profileId?.fullName 
+                          ? formatCustomerName(feedback.appointmentId.profileId.fullName)
+                          : 'Khách hàng'}
+                      </span>
                     </div>
 
                     <div className="text-gray-800 leading-relaxed">

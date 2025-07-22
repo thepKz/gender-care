@@ -16,6 +16,7 @@ import {
   CheckCircleOutlined,
   FileTextOutlined,
   HomeOutlined,
+  CommentOutlined,
 } from "@ant-design/icons";
 import EnhancedStatsCard from "../widgets/EnhancedStatsCard";
 import TableWidget from "../widgets/TableWidget";
@@ -26,6 +27,7 @@ import ServicePackageManagement from "../../../pages/dashboard/management/Servic
 import SystemLogManagement from "../../../pages/dashboard/management/SystemLogManagement";
 import LoginHistoryManagement from "../../../pages/dashboard/management/LoginHistoryManagement";
 import RefundManagement from "../../../pages/dashboard/management/RefundManagement";
+import FeedbackManagement from "../../../pages/dashboard/management/FeedbackManagement";
 
 import DoctorSchedulePage from "../../../pages/dashboard/management/DoctorSchedulePage";
 import MedicineManagement from "../../../pages/dashboard/management/MedicineManagement";
@@ -158,6 +160,11 @@ const getMenuItems = (role: "admin" | "manager"): MenuItem[] => {
         key: "refunds",
         icon: <DollarOutlined />,
         label: "Quản lý yêu cầu hoàn tiền",
+      },
+      {
+        key: "feedbacks",
+        icon: <CommentOutlined />,
+        label: "Quản lý Feedback",
       },
       {
         key: "login-history",
@@ -694,6 +701,9 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
 
       case "refunds":
         return <RefundManagement />;
+
+      case "feedbacks":
+        return <FeedbackManagement />;
 
       case "login-history":
         return <LoginHistoryManagement />;
