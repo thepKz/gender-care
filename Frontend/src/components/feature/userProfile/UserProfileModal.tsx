@@ -160,8 +160,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <SimpleDatePicker
               placeholder="Chọn ngày sinh"
               style={{ width: '100%' }}
-              value=""
-              onChange={() => {}}
             />
           </Form.Item>
         </Form>

@@ -325,8 +325,6 @@ const ProfilePage: React.FC = () => {
                       <SimpleDatePicker
                         style={{ width: '100%', height: '40px', borderRadius: '12px' }}
                         placeholder="Chọn ngày sinh"
-                        value=""
-                        onChange={() => {}}
                       />
                     </Form.Item>
                   </Col>

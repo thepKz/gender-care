@@ -1,8 +1,9 @@
 import React from 'react';
+import dayjs from 'dayjs';
 
 interface SimpleDatePickerProps {
-  value: string;
-  onChange: (value: string) => void;
+  value?: string | dayjs.Dayjs;
+  onChange?: (value: dayjs.Dayjs | null) => void;
   placeholder?: string;
   style?: React.CSSProperties;
   disabled?: boolean;
@@ -15,6 +16,13 @@ const SimpleDatePicker: React.FC<SimpleDatePickerProps> = ({
   style = {},
   disabled = false
 }) => {
+  // Convert value to string format for input
+  const stringValue = React.useMemo(() => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (dayjs.isDayjs(value)) return value.format('YYYY-MM-DD');
+    return '';
+  }, [value]);
   const defaultStyle: React.CSSProperties = {
     width: '100%',
     height: '32px',
@@ -44,7 +52,7 @@ const SimpleDatePicker: React.FC<SimpleDatePickerProps> = ({
     fontSize: '14px',
     color: '#999',
     padding: '0',
-    display: value ? 'block' : 'none'
+    display: stringValue ? 'block' : 'none'
   };
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -58,18 +66,28 @@ const SimpleDatePicker: React.FC<SimpleDatePickerProps> = ({
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onChange(e.target.value);
+    const dateValue = e.target.value;
+    if (onChange) {
+      if (dateValue) {
+        const dayjsValue = dayjs(dateValue);
+        onChange(dayjsValue.isValid() ? dayjsValue : null);
+      } else {
+        onChange(null);
+      }
+    }
   };
 
   const handleClear = () => {
-    onChange('');
+    if (onChange) {
+      onChange(null);
+    }
   };
 
   return (
     <div style={containerStyle}>
       <input
         type="date"
-        value={value}
+        value={stringValue}
         onChange={handleChange}
         onFocus={handleFocus}
         onBlur={handleBlur}
