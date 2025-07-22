@@ -1,9 +1,10 @@
-import { Alert, Button } from 'antd';
+import { Alert, Button, message, Space } from 'antd';
 import dayjs from 'dayjs';
 import { motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CreateUserProfileRequest, UpdateUserProfileRequest } from '../../api/endpoints/userProfileApi';
+import medicalApi from '../../api/endpoints/medical';
 import '../../components/feature/userProfile/UserProfile.css';
 import UserProfileList from '../../components/feature/userProfile/UserProfileList';
 import UserProfileModal from '../../components/feature/userProfile/UserProfileModal';
@@ -20,6 +21,7 @@ const UserProfilesPageContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const [modalVisible, setModalVisible] = useState(false);
   const [editingProfile, setEditingProfile] = useState<UserProfile | null>(null);
+  const [syncLoading, setSyncLoading] = useState(false);
 
   const {
     filteredProfiles,
@@ -68,6 +70,35 @@ const UserProfilesPageContent: React.FC = () => {
   const handleModalCancel = () => {
     setModalVisible(false);
     setEditingProfile(null);
+  };
+
+  // Handle sync medical records from appointments
+  const handleSyncMedicalRecords = async () => {
+    try {
+      setSyncLoading(true);
+      message.loading('Đang đồng bộ medical records...', 0);
+
+      const response = await medicalApi.syncAllCompletedAppointments();
+      message.destroy();
+
+      if (response.data.success) {
+        const results = response.data.data;
+        message.success(
+          `Đồng bộ hoàn tất! Thành công: ${results.success}/${results.total} medical records`
+        );
+
+        // Reload profiles to show new medical records
+        loadProfiles();
+      }
+    } catch (error: any) {
+      message.destroy();
+      message.error(
+        `Lỗi đồng bộ: ${error.response?.data?.message || error.message}`
+      );
+      console.error('Sync error:', error);
+    } finally {
+      setSyncLoading(false);
+    }
   };
 
   const handleModalSubmit = async (data: CreateUserProfileRequest | UpdateUserProfileRequest) => {
@@ -143,14 +174,24 @@ const UserProfilesPageContent: React.FC = () => {
                 onReset={handleResetFilters}
                 currentFilters={getCurrentFilters()}
               />
-              <Button 
-                type="primary"
-                size="large"
-                onClick={handleAddProfile}
-                className="bg-[#0C3C54] text-white border-0 hover:bg-[#0C3C54]/90 font-medium px-5 py-2 rounded-lg shadow-md transition-all duration-200 whitespace-nowrap"
-              >
-                + Tạo hồ sơ mới
-              </Button>
+              <Space>
+                <Button
+                  type="default"
+                  onClick={handleSyncMedicalRecords}
+                  loading={syncLoading}
+                  className="border-[#0C3C54] text-[#0C3C54] hover:bg-[#0C3C54] hover:text-white font-medium px-5 py-2 rounded-lg shadow-md transition-all duration-200 whitespace-nowrap"
+                >
+                  🔄 Đồng bộ Medical Records
+                </Button>
+                <Button
+                  type="primary"
+                  size="large"
+                  onClick={handleAddProfile}
+                  className="bg-[#0C3C54] text-white border-0 hover:bg-[#0C3C54]/90 font-medium px-5 py-2 rounded-lg shadow-md transition-all duration-200 whitespace-nowrap"
+                >
+                  + Tạo hồ sơ mới
+                </Button>
+              </Space>
             </div>
           </div>
 

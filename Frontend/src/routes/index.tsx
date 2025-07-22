@@ -50,6 +50,7 @@ import DemoIndexPage from '../pages/demo';
 import ComponentShowcasePage from '../pages/demo/components';
 import RichTextComposerDemo from '../pages/demo/RichTextComposerDemo';
 import TestManagementDemo from '../pages/demo/TestManagementDemo';
+import Flow5Demo from '../pages/demo/Flow5Demo';
 
 // Dashboard Wrapper Components
 import ManagementDashboardPage from '../pages/dashboard/management';
@@ -169,6 +170,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/demo/components" element={<ComponentShowcasePage />} />
         <Route path="/demo/composer" element={<RichTextComposerDemo />} />
         <Route path="/demo/test-management" element={<TestManagementDemo />} />
+        <Route path="/demo/flow5" element={<Flow5Demo />} />
         
         {/* Các route khác */}
         <Route path="*" element={<NotFoundPage />} />

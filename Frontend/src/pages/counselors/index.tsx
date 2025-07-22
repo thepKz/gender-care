@@ -5,6 +5,7 @@ import {
     Award,
     Star1,
 } from "iconsax-react";
+import { User } from "lucide-react";
 // Custom components
 import { ModernCounselorCard } from "../../components/ui/counselors/ModernCounselorCard";
 
@@ -158,7 +159,7 @@ const Counselors = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
             >
-              Đội ngũ bác sĩ chuyên nghiệp
+              Danh sách bác sĩ
             </motion.h1>
           </BlurFade>
           
@@ -169,7 +170,7 @@ const Counselors = () => {
               transition={{ duration: 0.8, delay: 0.6 }}
               className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto mb-8 text-enhanced"
             >
-              Kết nối với các chuyên gia hàng đầu về sức khỏe giới tính và sinh sản
+              Chọn bác sĩ phù hợp và đặt lịch tư vấn ngay hôm nay
             </motion.div>
           </BlurFade>
           
@@ -198,7 +199,7 @@ const Counselors = () => {
       </div>
 
       {/* Statistics Section */}
-      <div className="py-16 bg-gray-50 relative">
+      <div className="py-12 bg-gray-50 relative">
         <div className="container mx-auto px-4">
           <BlurFade delay={0.2} inView>
             <div className="text-center mb-12">
@@ -278,7 +279,7 @@ const Counselors = () => {
       </div>
 
       {/* Search Section with WarpBackground */}
-      <div className="py-12 bg-white">
+      <div className="py-8 bg-white">
         <div className="container mx-auto px-4 max-w-4xl">
           <BlurFade delay={0.2} inView>
             <WarpBackground className="group">
@@ -338,10 +339,10 @@ const Counselors = () => {
       </div>
 
       {/* Doctors Grid with enhanced animations */}
-      <div id="doctors" className="py-20 bg-gray-50">
+      <div id="doctors" className="py-12 bg-gray-50">
         <div className="container mx-auto px-4">
           <BlurFade delay={0.2} inView>
-            <div className="text-center mb-16">
+            <div className="text-center mb-8">
               <motion.h2 
                 className="text-3xl md:text-4xl font-bold text-gray-800 mb-4"
                 initial={{ opacity: 0, y: 20 }}
@@ -361,46 +362,48 @@ const Counselors = () => {
             </div>
           </BlurFade>
 
-          <motion.div 
+          <motion.div
             layout
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto"
           >
             {loadingDoctors ? (
-              [...Array(8)].map((_, index) => (
-                <BlurFade key={index} delay={index * 0.1} inView>
-                  <WarpBackground className="h-[400px] animate-pulse">
-                    <div className="p-6">
-                      <div className="w-full h-48 bg-gray-200 rounded-lg mb-4"></div>
-                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
-                      <div className="h-3 bg-gray-200 rounded mb-4"></div>
-                      <div className="h-3 bg-gray-200 rounded"></div>
+              [...Array(6)].map((_, index) => (
+                <div key={index} className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100 animate-pulse">
+                  <div className="p-6 pb-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-16 h-16 bg-gray-200 rounded-full"></div>
+                      <div className="flex-1">
+                        <div className="h-5 bg-gray-200 rounded mb-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-2/3 mb-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                      </div>
                     </div>
-                  </WarpBackground>
-                </BlurFade>
+                  </div>
+                  <div className="px-6 pb-6">
+                    <div className="h-4 bg-gray-200 rounded mb-3"></div>
+                    <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                    <div className="flex gap-3">
+                      <div className="flex-1 h-12 bg-gray-200 rounded-xl"></div>
+                      <div className="flex-1 h-12 bg-gray-200 rounded-xl"></div>
+                    </div>
+                  </div>
+                </div>
               ))
             ) : (
               filteredDoctors.map((doctor, index) => (
-                <BlurFade key={doctor._id} delay={index * 0.05} inView>
-                  <motion.div
-                    layout
-                    whileHover={{ y: -10 }}
-                    transition={{ duration: 0.3 }}
-                    className="h-full"
-                  >
-                    <ModernCounselorCard
-                      doctor={doctor}
-                      index={index}
-
-                      onBook={() => navigate(`/booking/consultation/${doctor._id}`)}
-                      onView={() => {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                        setTimeout(() => {
-                          navigate(`/doctors/${doctor._id}`);
-                        }, 300);
-                      }}
-                    />
-                  </motion.div>
-                </BlurFade>
+                <ModernCounselorCard
+                  key={doctor._id}
+                  doctor={doctor}
+                  index={index}
+                  onBook={() => navigate(`/booking/consultation/${doctor._id}`)}
+                  onView={() => {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    setTimeout(() => {
+                      navigate(`/doctors/${doctor._id}`);
+                    }, 300);
+                  }}
+                />
               ))
             )}
           </motion.div>
@@ -420,46 +423,30 @@ const Counselors = () => {
             </BlurFade>
           )}
 
-          {/* No Results with enhanced styling */}
+          {/* No Results */}
           {filteredDoctors.length === 0 && !loadingDoctors && (
-            <BlurFade delay={0.3} inView>
-              <WarpBackground className="mx-auto max-w-md">
-                <div className="text-center py-16 px-8">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ duration: 0.5 }}
-                    className="text-gray-400 mb-6 flex justify-center"
-                  >
-                    <Profile2User size={64} />
-                  </motion.div>
-                  <BoxReveal align="center">
-                    <h3 className="text-xl font-semibold text-gray-600 mb-2">
-                      Không tìm thấy bác sĩ phù hợp
-                    </h3>
-                  </BoxReveal>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, delay: 0.3 }}
-                    className="text-gray-500 mb-6 text-enhanced"
-                  >
-                    Hãy thử thay đổi từ khóa tìm kiếm hoặc bộ lọc chuyên khoa
-                  </motion.div>
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <PrimaryButton
-                      className="!bg-[#0C3C54] !text-white !font-semibold !px-8 !py-3"
-                      onClick={() => {
-                        setSearchTerm("");
-                        setSelectedSpecialization("all");
-                      }}
-                    >
-                      Xóa bộ lọc
-                    </PrimaryButton>
-                  </motion.div>
+            <div className="col-span-full">
+              <div className="text-center py-16 px-8 bg-white rounded-2xl shadow-lg border border-gray-100 max-w-md mx-auto">
+                <div className="text-gray-400 mb-6 flex justify-center">
+                  <User size={64} />
                 </div>
-              </WarpBackground>
-            </BlurFade>
+                <h3 className="text-xl font-semibold text-gray-600 mb-2">
+                  Không tìm thấy bác sĩ phù hợp
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  Hãy thử thay đổi từ khóa tìm kiếm hoặc bộ lọc chuyên khoa
+                </p>
+                <button
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setSelectedSpecialization("all");
+                  }}
+                >
+                  Xóa bộ lọc
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

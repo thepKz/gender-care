@@ -74,7 +74,7 @@ interface DisplayDoctor {
   experience: number | string;
   rating: number;
   education: string;
-  certificate: string;
+  certificate: string | string[];
   bio: string;
   status: 'active' | 'inactive' | 'suspended';
   createdAt: string;
@@ -104,7 +104,11 @@ const mapApiDoctorToDisplay = (apiDoctor: any): DisplayDoctor => {
     experience: doctorData.experience || apiDoctor.experience || 0,
     rating: doctorData.rating || apiDoctor.rating || 0,
     education: doctorData.education || apiDoctor.education || '',
-    certificate: doctorData.certificate || apiDoctor.certificate || '',
+    certificate: (() => {
+      const cert = doctorData.certificate || apiDoctor.certificate || [];
+      console.log('🏥 [CERTIFICATE DEBUG] Raw certificate data:', cert);
+      return cert;
+    })(),
     bio: doctorData.bio || apiDoctor.bio || '',
     status: (userData.isActive === false || doctorData.isDeleted) ? 'inactive' : 'active' as DisplayDoctor['status'],
     createdAt: apiDoctor.createdAt || new Date().toISOString(),
@@ -132,6 +136,7 @@ const DoctorManagement: React.FC = () => {
   const [editingDoctor, setEditingDoctor] = useState<DisplayDoctor | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm();
+  const [certificateFileList, setCertificateFileList] = useState<any[]>([]);
   
   // Get current user role for permissions
   const userRole = getCurrentUserRole();
@@ -230,17 +235,35 @@ const DoctorManagement: React.FC = () => {
     console.log('[EDIT] Avatar value:', doctor.avatar);
     console.log('[EDIT] Original doctor data:', doctor);
     
-    // Convert certificate string to fileList array
-    const certificateFileList = doctor.certificate
-      ? [{
-          uid: '-1',
-          name: 'certificate',
-          status: 'done',
-          url: doctor.certificate
-        }]
+    // Convert certificate to array format for form
+    const certificateArray = doctor.certificate
+      ? (Array.isArray(doctor.certificate) ? doctor.certificate : [doctor.certificate])
       : [];
-    
-    // ✅ Sửa certificate URL mapping để prefill đúng string
+
+    // ✅ Set certificate file list for Upload component
+    const fileList = certificateArray.map((cert, index) => {
+      // Check if cert is a valid URL or just filename
+      const isValidUrl = cert.startsWith('http') || cert.startsWith('https');
+      const displayUrl = isValidUrl ? cert : `${axiosInstance.defaults.baseURL}/uploads/${cert}`;
+
+      console.log(`Certificate ${index}:`, { original: cert, isValidUrl, displayUrl });
+
+      return {
+        uid: `cert-${index}`,
+        name: `certificate-${index + 1}`,
+        status: 'done' as const,
+        url: displayUrl,
+        thumbUrl: displayUrl, // Add thumbUrl for preview
+        response: { // Add response object for consistency
+          success: true,
+          data: { imageUrl: cert } // Keep original cert value for form
+        }
+      };
+    });
+    console.log('Setting certificate fileList:', fileList);
+    setCertificateFileList(fileList);
+
+    // ✅ Set form values with certificate array
     form.setFieldsValue({
       fullName: doctor.fullName,
       email: doctor.email,
@@ -251,7 +274,7 @@ const DoctorManagement: React.FC = () => {
       experience: doctor.experience,
       rating: doctor.rating,
       education: doctor.education,
-      certificate: doctor.certificate, // ✅ String URL thay vì array object
+      certificate: certificateArray, // ✅ Array of certificate URLs
       bio: doctor.bio,
     });
     
@@ -293,11 +316,20 @@ const DoctorManagement: React.FC = () => {
       // Xóa status khỏi values để không gửi lên API updateDoctor
       delete values.status;
       
-      // Extract certificate URL
-      if (values.certificate && typeof values.certificate === 'string') {
-        // ✅ Giữ string URL thay vì extract từ array
+      // Handle certificate - convert array to string for backend compatibility
+      if (values.certificate && Array.isArray(values.certificate)) {
+        // Convert array to string (take first certificate for now)
+        if (values.certificate.length > 0) {
+          values.certificate = values.certificate[0]; // Take first certificate
+          console.log('Certificate to save (first from array):', values.certificate);
+        } else {
+          values.certificate = '';
+          console.log('No certificates, setting empty string');
+        }
       } else {
-        delete values.certificate;
+        // If no certificates, set empty string to clear database
+        values.certificate = '';
+        console.log('No certificates, setting empty string');
       }
       
       if (editingDoctor) {
@@ -392,6 +424,7 @@ const DoctorManagement: React.FC = () => {
       setIsModalVisible(false);
       form.resetFields();
       setEditingDoctor(null);
+      setCertificateFileList([]);
       
       console.log(`🔄 [FRONTEND] Reloading data after update...`);
       await loadData();
@@ -440,6 +473,7 @@ const DoctorManagement: React.FC = () => {
     setIsModalVisible(false);
     form.resetFields();
     setEditingDoctor(null);
+    setCertificateFileList([]);
   };
 
   const showDoctorDetails = (doctor: DisplayDoctor) => {
@@ -462,7 +496,46 @@ const DoctorManagement: React.FC = () => {
           )}</p>
           <p><strong>Đánh giá:</strong> <Rate disabled value={doctor.rating} /></p>
           <p><strong>Học vấn:</strong> {doctor.education}</p>
-          <p><strong>Chứng chỉ:</strong> {doctor.certificate}</p>
+          <p><strong>Chứng chỉ:</strong></p>
+          {Array.isArray(doctor.certificate) ? (
+            <div style={{ marginLeft: '24px', marginBottom: '16px' }}>
+              {doctor.certificate.map((cert, index) => (
+                <div key={index} style={{ marginBottom: '8px' }}>
+                  <img
+                    src={cert}
+                    alt={`Chứng chỉ ${index + 1}`}
+                    style={{
+                      maxWidth: '200px',
+                      maxHeight: '150px',
+                      objectFit: 'contain',
+                      border: '1px solid #d9d9d9',
+                      borderRadius: '4px',
+                      marginRight: '8px'
+                    }}
+                  />
+                  <Text style={{ fontSize: '12px', color: '#666' }}>
+                    Chứng chỉ {index + 1}
+                  </Text>
+                </div>
+              ))}
+            </div>
+          ) : doctor.certificate ? (
+            <div style={{ marginLeft: '24px', marginBottom: '16px' }}>
+              <img
+                src={doctor.certificate}
+                alt="Chứng chỉ"
+                style={{
+                  maxWidth: '200px',
+                  maxHeight: '150px',
+                  objectFit: 'contain',
+                  border: '1px solid #d9d9d9',
+                  borderRadius: '4px'
+                }}
+              />
+            </div>
+          ) : (
+            <Text style={{ marginLeft: '24px', color: '#999' }}>Chưa có chứng chỉ</Text>
+          )}
           <p><strong>Tiểu sử:</strong> {doctor.bio}</p>
           <p><strong>Trạng thái:</strong> {getStatusText(doctor.status)}</p>
           <p><strong>Ngày tạo:</strong> {new Date(doctor.createdAt).toLocaleDateString('vi-VN')}</p>
@@ -591,7 +664,10 @@ const DoctorManagement: React.FC = () => {
             <Text strong>{fullName}</Text>
             <br />
             <Text type="secondary" style={{ fontSize: '12px' }}>
-              {record.certificate}
+              {Array.isArray(record.certificate)
+                ? `${record.certificate.length} chứng chỉ`
+                : record.certificate ? '1 chứng chỉ' : 'Chưa có chứng chỉ'
+              }
             </Text>
           </div>
         </div>
@@ -744,7 +820,10 @@ const DoctorManagement: React.FC = () => {
               <Button 
                 type="primary" 
                 icon={<PlusOutlined />}
-                onClick={() => setIsModalVisible(true)}
+                onClick={() => {
+                  setIsModalVisible(true);
+                  setCertificateFileList([]);
+                }}
               >
                 Tạo tài khoản bác sĩ
               </Button>
@@ -813,11 +892,18 @@ const DoctorManagement: React.FC = () => {
         onOk={handleModalOk}
         onCancel={handleModalCancel}
         width={800}
-        bodyStyle={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 24 }}
+        styles={{ body: { maxHeight: '70vh', overflowY: 'auto', paddingRight: 24 } }}
         okText={editingDoctor ? 'Cập nhật' : 'Tạo tài khoản & hồ sơ'}
         cancelText="Hủy"
         confirmLoading={submitting}
       >
+        <style>
+          {`
+            .avatar-container:hover .avatar-overlay {
+              opacity: 1 !important;
+            }
+          `}
+        </style>
         <Form
           form={form}
           layout="vertical"
@@ -825,7 +911,7 @@ const DoctorManagement: React.FC = () => {
         >
           <Row gutter={8}>
             <Col span={24}>
-              <Title level={5} style={{ margin: '0 0 16px 0', color: '#1890ff' }}>
+              <Title level={5} style={{ margin: '0 0 12px 0', color: '#1890ff' }}>
                 🔒 Thông tin tài khoản
               </Title>
             </Col>
@@ -927,7 +1013,7 @@ const DoctorManagement: React.FC = () => {
 
           <Row gutter={8}>
             <Col span={24}>
-              <Title level={5} style={{ margin: '24px 0 16px 0', color: '#52c41a' }}>
+              <Title level={5} style={{ margin: '16px 0 12px 0', color: '#52c41a' }}>
                 🩺 Thông tin chuyên môn
               </Title>
             </Col>
@@ -1001,37 +1087,73 @@ const DoctorManagement: React.FC = () => {
               <Form.Item
                 name="certificate"
                 label="Chứng chỉ hành nghề (ảnh)"
-                valuePropName="fileList"
-                getValueFromEvent={(e) => (Array.isArray(e) ? e : e && e.fileList)}
-                rules={[{ required: true, message: 'Vui lòng tải ảnh chứng chỉ!' }]}
+                rules={[{ required: false, message: 'Vui lòng tải ảnh chứng chỉ!' }]}
               >
-                <Upload.Dragger
+
+                <Upload
                   name="image"
-                  accept=".jpg,.jpeg,.png,.webp"
-                  maxCount={1}
-                  beforeUpload={async (file) => {
-                    try {
-                      const formData = new FormData();
-                      formData.append('image', file); // Match backend field name
-                      const res = await doctorApi.uploadImage(formData);
-                      if (res.success) {
-                        form.setFieldsValue({ certificate: res.data.imageUrl });
-                        return false;
-                      }
-                    } catch (err) {
-                      message.error('Upload chứng chỉ thất bại');
-                    }
-                    return Upload.LIST_IGNORE;
+                  listType="picture-card"
+                  multiple
+                  action={`${axiosInstance.defaults.baseURL}/doctors/upload-image`}
+                  headers={{
+                    'Authorization': `Bearer ${getValidTokenFromStorage('access_token') || ''}`
                   }}
-                  listType="picture"
-                  showUploadList={{ showRemoveIcon: true }}
+                  beforeUpload={handleBeforeUpload}
+                  onChange={(info) => {
+                    console.log('Certificate upload change:', info);
+                    // Update fileList state
+                    setCertificateFileList(info.fileList);
+
+                    // Handle certificate upload similar to avatar
+                    if (info.file.status === 'done' && info.file.response?.success) {
+                      const imageUrl = info.file.response.data.imageUrl;
+                      // Get current certificates - ensure it's always an array
+                      const currentCerts = form.getFieldValue('certificate');
+                      const certsArray = Array.isArray(currentCerts) ? currentCerts : [];
+                      const newCerts = [...certsArray, imageUrl];
+                      form.setFieldsValue({ certificate: newCerts });
+                      message.success(`Upload chứng chỉ "${info.file.name}" thành công!`);
+                    } else if (info.file.status === 'error') {
+                      message.error(`Upload chứng chỉ "${info.file.name}" thất bại!`);
+                    }
+                  }}
+                  onRemove={(file) => {
+                    console.log('Remove certificate:', file);
+                    // Remove from form value - ensure it's always an array
+                    const currentCerts = form.getFieldValue('certificate');
+                    const certsArray = Array.isArray(currentCerts) ? currentCerts : [];
+                    const imageUrl = file.response?.data?.imageUrl || file.url;
+                    const newCerts = certsArray.filter((cert: string) => cert !== imageUrl);
+                    form.setFieldsValue({ certificate: newCerts });
+
+                    // Update fileList state
+                    const newFileList = certificateFileList.filter(f => f.uid !== file.uid);
+                    setCertificateFileList(newFileList);
+
+                    message.success('Đã xóa chứng chỉ!');
+                    return true;
+                  }}
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  showUploadList={{
+                    showPreviewIcon: true,
+                    showDownloadIcon: false,
+                    showRemoveIcon: true,
+                  }}
+                  fileList={certificateFileList}
+                  onPreview={(file) => {
+                    console.log('Preview file:', file);
+                    // Open image in new tab
+                    window.open(file.url || file.thumbUrl, '_blank');
+                  }}
                 >
-                  <p className="ant-upload-drag-icon">
+                  <div>
                     <UploadOutlined />
-                  </p>
-                  <p className="ant-upload-text">Chọn hoặc kéo thả ảnh chứng chỉ</p>
-                  <p className="ant-upload-hint">JPG/PNG/WebP, tối đa 5MB</p>
-                </Upload.Dragger>
+                    <div style={{ marginTop: 8 }}>Thêm chứng chỉ</div>
+                    <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                      JPG/PNG/WebP, tối đa 5MB mỗi ảnh
+                    </div>
+                  </div>
+                </Upload>
               </Form.Item>
             </Col>
           </Row>
@@ -1052,34 +1174,101 @@ const DoctorManagement: React.FC = () => {
             name="avatar"
             extra="Khuyến nghị: JPG/PNG/WebP, tối đa 5MB, tỷ lệ gần vuông (1:1) cho hiển thị tốt nhất"
           >
-            <Upload
-              name="image"
-              listType="picture-card"
-              maxCount={1}
-              action={`${axiosInstance.defaults.baseURL}/api/doctors/upload-image`}
-              headers={{
-                'Authorization': `Bearer ${getValidTokenFromStorage('access_token') || ''}`
-              }}
-              beforeUpload={handleBeforeUpload} 
-              onChange={handleFileChange}
-              onRemove={handleRemoveFile}
-              accept="image/jpeg,image/jpg,image/png,image/webp"
-              showUploadList={{
-                showPreviewIcon: true,
-                showDownloadIcon: false,
-                showRemoveIcon: true,
-              }}
-            >
-              <div>
-                <UploadOutlined />
-                <div style={{ marginTop: 8 }}>Chọn ảnh bác sĩ</div>
-                <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
-                  JPG/PNG/WebP supported
+            {editingDoctor?.avatar ? (
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '120px',
+                    height: '120px',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease'
+                  }}
+                  className="avatar-container"
+                >
+                  <img
+                    src={editingDoctor.avatar}
+                    alt="Ảnh đại diện bác sĩ"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: 0,
+                      transition: 'opacity 0.3s ease',
+                      color: 'white',
+                      fontSize: '12px',
+                      textAlign: 'center'
+                    }}
+                    className="avatar-overlay"
+                  >
+                    <div>
+                      <UploadOutlined style={{ fontSize: '16px', display: 'block', marginBottom: '4px' }} />
+                      Đổi ảnh
+                    </div>
+                  </div>
                 </div>
+                <Upload
+                  name="image"
+                  showUploadList={false}
+                  action={`${axiosInstance.defaults.baseURL}/doctors/upload-image`}
+                  headers={{
+                    'Authorization': `Bearer ${getValidTokenFromStorage('access_token') || ''}`
+                  }}
+                  beforeUpload={handleBeforeUpload}
+                  onChange={handleFileChange}
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0 }}
+                >
+                  <div style={{ width: '120px', height: '120px' }} />
+                </Upload>
               </div>
-            </Upload>
+            ) : (
+              <Upload
+                name="image"
+                listType="picture-card"
+                maxCount={1}
+                fileList={[]}
+                action={`${axiosInstance.defaults.baseURL}/doctors/upload-image`}
+                headers={{
+                  'Authorization': `Bearer ${getValidTokenFromStorage('access_token') || ''}`
+                }}
+                beforeUpload={handleBeforeUpload}
+                onChange={handleFileChange}
+                onRemove={handleRemoveFile}
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                showUploadList={{
+                  showPreviewIcon: true,
+                  showDownloadIcon: false,
+                  showRemoveIcon: true,
+                }}
+              >
+                <div>
+                  <UploadOutlined />
+                  <div style={{ marginTop: 8 }}>Chọn ảnh bác sĩ</div>
+                  <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                    JPG/PNG/WebP supported
+                  </div>
+                </div>
+              </Upload>
+            )}
           </Form.Item>
-        </Form>
+        </Form> 
       </Modal>
     </div>
   );
