@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
     Card,
-  Typography, 
-  Button, 
+  Typography,
+  Button,
     Modal,
     Space,
     Tag,
-  Row, 
-  Col, 
+  Row,
+  Col,
     Tooltip,
   Avatar,
   Divider,
@@ -15,7 +15,7 @@ import {
   message
 } from 'antd';
 import {
-  CalendarOutlined, 
+  CalendarOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
   UserOutlined,
@@ -27,14 +27,18 @@ import {
   LeftOutlined,
   RightOutlined,
   PlayCircleOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  HomeOutlined,
+  LaptopOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import appointmentManagementService from '../../../api/services/appointmentManagementService';
 import { UnifiedAppointment } from '../../../types/appointment';
 import { meetingAPI, MeetingData } from '../../../api/endpoints/meeting';
+import appointmentApi from '../../../api/endpoints/appointment';
+import consultationApi from '../../../api/endpoints/consultation';
+import { useAuth } from '../../../hooks/useAuth';
 
 // Setup timezone cho dayjs - an toàn hơn
 dayjs.extend(utc);
@@ -65,7 +69,7 @@ interface WeekSchedule {
 // Define 8-hour working schedule (giống doctor schedule backend)
 const TIME_SLOTS = [
   '07:00 - 08:00',
-  '08:00 - 09:00', 
+  '08:00 - 09:00',
   '09:00 - 10:00',
   '10:00 - 11:00',
   '13:00 - 14:00',
@@ -84,51 +88,87 @@ interface ConsultationButtonConfig {
   disabled: boolean;
 }
 
+// Thêm hàm chuẩn hóa record về UnifiedAppointment
+function normalizeRecordToUnified(obj: Record<string, unknown>): UnifiedAppointment {
+  // Lấy tên bệnh nhân
+  let patientName = '';
+  if (typeof obj.profileId === 'object' && obj.profileId !== null) {
+    patientName = String((obj.profileId as any).fullName || (obj.profileId as any).name || '');
+  } else {
+    patientName = String(obj.patientName || obj.fullName || '');
+  }
+  // Lấy tên dịch vụ/gói
+  let serviceName = '';
+  if (typeof obj.serviceId === 'object' && obj.serviceId !== null && (obj.serviceId as any).serviceName) {
+    serviceName = String((obj.serviceId as any).serviceName);
+  } else if (typeof obj.packageId === 'object' && obj.packageId !== null && (obj.packageId as any).name) {
+    serviceName = 'Gói dịch vụ: ' + String((obj.packageId as any).name);
+  } else if (obj.serviceName) {
+    serviceName = String(obj.serviceName);
+  } else if (obj.type === 'consultation') {
+    serviceName = 'Tư vấn trực tuyến';
+  } else {
+    serviceName = 'Không xác định';
+  }
+  // Lấy giờ phút
+  let appointmentTime = '';
+  if (obj.appointmentTime) {
+    appointmentTime = String(obj.appointmentTime).slice(0, 5);
+  } else if (obj.appointmentSlot) {
+    appointmentTime = String(obj.appointmentSlot).slice(0, 5);
+  }
+  // Mapping typeLocation sang tiếng Việt
+  let typeLocation = '';
+  if (obj.typeLocation === 'clinic') typeLocation = 'Phòng khám';
+  else if (obj.typeLocation === 'Online') typeLocation = 'Trực tuyến';
+  else if (obj.typeLocation === 'home') typeLocation = 'Tại nhà';
+  else typeLocation = String(obj.typeLocation || '');
+  return {
+    id: String(obj._id || obj.id || ''),
+    type: (obj.type as 'appointment' | 'consultation') || 'appointment',
+    status: (obj.status as string) || '',
+    patientName,
+    patientPhone: typeof obj.profileId === 'object' && obj.profileId !== null
+      ? String((obj.profileId as any).phone || (obj.profileId as any).phoneNumber || '')
+      : String(obj.patientPhone || obj.phone || ''),
+    appointmentDate: String(obj.appointmentDate || ''),
+    appointmentTime,
+    serviceName,
+    typeLocation,
+    description: String(obj.description || obj.question || ''),
+    notes: String(obj.notes || ''),
+    address: String(obj.address || ''),
+    originalData: obj
+  };
+}
+
 const DoctorScheduleCalendar: React.FC = () => {
   const [selectedWeek, setSelectedWeek] = useState(dayjs().startOf('week'));
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [appointments, setAppointments] = useState<UnifiedAppointment[]>([]);
+  // Tách riêng 2 state
+  const [appointments, setAppointments] = useState<Record<string, unknown>[]>([]);
+  const [consultations, setConsultations] = useState<Record<string, unknown>[]>([]);
   const [meetingLoading, setMeetingLoading] = useState(false);
   const [currentMeeting, setCurrentMeeting] = useState<MeetingData | null>(null);
+  const { user } = useAuth();
+  const [doctorId, setDoctorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.role === 'doctor' && user?._id) {
+      // Nếu user._id là userId, cần mapping sang doctorId nếu cần
+      // Nếu user đã có doctorId, dùng luôn
+      setDoctorId(user.doctorId || user._id);
+    }
+  }, [user]);
 
   // ✅ Loại bỏ mock data transformation, chỉ sử dụng real API
-
-  const loadAppointments = async () => {
-    try {
-      setLoading(true);
-      console.log('📅 [API] Loading doctor appointments for calendar view');
-      
-      // ✅ SỬ DỤNG REAL API để lấy appointments từ database
-      const appointmentData = await appointmentManagementService.getAllDoctorAppointments({
-        page: 1,
-        limit: 500 // Lấy nhiều để cover cả tuần
-      });
-      
-      console.log('✅ [API] Calendar loaded real appointments:', appointmentData.length);
-      setAppointments(appointmentData);
-      
-      if (appointmentData.length === 0) {
-        console.log('ℹ️ [API] No appointments found for current doctor');
-      }
-      
-    } catch (error: unknown) {
-      console.error('❌ [API] Failed to load appointments for calendar:', error);
-      message.error('Không thể tải lịch làm việc từ cơ sở dữ liệu. Vui lòng thử lại sau.');
-      
-      // Fallback to empty array instead of mock data
-      setAppointments([]);
-      
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Smart button configuration based on consultation status
   const getConsultationButtonConfig = (appointment: UnifiedAppointment): ConsultationButtonConfig | null => {
     if (appointment.type !== 'consultation') return null;
-    
+
     switch (appointment.status) {
       case 'scheduled':
         return {
@@ -142,7 +182,7 @@ const DoctorScheduleCalendar: React.FC = () => {
       case 'consulting':
         return {
           text: 'Đang tư vấn',
-          action: 'rejoin', 
+          action: 'rejoin',
           color: '#fa8c16',
           icon: <VideoCameraOutlined />,
           loading: false,
@@ -152,7 +192,7 @@ const DoctorScheduleCalendar: React.FC = () => {
         return {
           text: 'Đã hoàn thành',
           action: 'completed',
-          color: '#8c8c8c', 
+          color: '#8c8c8c',
           icon: <CheckCircleOutlined />,
           loading: false,
           disabled: true
@@ -162,67 +202,153 @@ const DoctorScheduleCalendar: React.FC = () => {
     }
   };
 
-  // Transform appointments to calendar schedule format
+  // Sửa fetchAppointments: dùng getAllAppointments, filter lại doctorId
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      const res = await appointmentApi.getAllAppointments({ page: 1, limit: 500 });
+      let arr = res.data?.appointments || res.appointments || res.data || [];
+      if (user?.role === 'doctor' && doctorId) {
+        arr = arr.filter((apt: Record<string, unknown>) => {
+          const aptDoctorId = (apt.doctorId && typeof apt.doctorId === 'object') ? (apt.doctorId as any)._id : apt.doctorId;
+          return aptDoctorId === doctorId;
+        });
+      }
+      setAppointments(Array.isArray(arr) ? arr : []);
+    } catch {
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Fetch consultations
+  const fetchConsultations = async () => {
+    try {
+      setLoading(true);
+      const res = await consultationApi.getMyConsultations({ page: 1, limit: 500 });
+      const arr = res.data || [];
+      setConsultations(Array.isArray(arr) ? arr : []);
+    } catch {
+      setConsultations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Gọi cả 2 API khi mount
+  useEffect(() => {
+    fetchAppointments();
+    fetchConsultations();
+  }, []);
+
+  // Sau khi fetch xong, log dữ liệu
+  useEffect(() => {
+    fetchAppointments().then(() => {
+      console.log('Appointments:', appointments);
+    });
+    fetchConsultations().then(() => {
+      console.log('Consultations:', consultations);
+    });
+  }, []);
+
+  // Mapping lại normalizeRecordToUnified cho appointment giống DoctorAppointmentSchedule
+  function normalizeRecordToUnified(obj: Record<string, unknown>): UnifiedAppointment {
+    return {
+      id: String(obj._id || obj.id || ''),
+      type: (obj.type as 'appointment' | 'consultation') || 'appointment',
+      status: String(obj.status || ''),
+      patientName: typeof obj.profileId === 'object' && obj.profileId !== null
+        ? String((obj.profileId as any).fullName || '')
+        : String(obj.patientName || obj.fullName || ''),
+      patientPhone: typeof obj.profileId === 'object' && obj.profileId !== null
+        ? String((obj.profileId as any).phone || (obj.profileId as any).phoneNumber || '')
+        : String(obj.patientPhone || obj.phone || ''),
+      appointmentDate: String(obj.appointmentDate || ''),
+      appointmentTime: String(obj.appointmentTime || obj.appointmentSlot || ''),
+      serviceName: typeof obj.serviceId === 'object' && obj.serviceId !== null
+        ? String((obj.serviceId as any).serviceName || '')
+        : String(obj.serviceName || ''),
+      typeLocation: String(obj.typeLocation || ''),
+      description: String(obj.description || obj.question || ''),
+      notes: String(obj.notes || ''),
+      address: String(obj.address || ''),
+      originalData: obj
+    };
+  }
+
   const generateScheduleFromAPI = (startWeek: dayjs.Dayjs): WeekSchedule => {
     const schedule: DaySchedule[] = [];
     const weekEnd = startWeek.add(6, 'day');
-    const today = dayjs().startOf('day'); // Ngày hôm nay để so sánh
-    
+    const today = dayjs().startOf('day');
     for (let i = 0; i < 7; i++) {
       const currentDay = startWeek.add(i, 'day');
       const dayDateString = currentDay.format('YYYY-MM-DD');
-      const isPastDate = currentDay.isBefore(today, 'day'); // Kiểm tra ngày quá khứ
-      
+      const isPastDate = currentDay.isBefore(today, 'day');
       // Lọc appointments cho ngày này
       const dayAppointments = appointments.filter(apt => {
-        const aptDate = dayjs(apt.appointmentDate).format('YYYY-MM-DD');
+        const aptDate = dayjs(String(apt.appointmentDate)).format('YYYY-MM-DD');
         return aptDate === dayDateString;
       });
-      
+      // Lọc consultations cho ngày này
+      const dayConsultations = consultations.filter(qa => {
+        const qaDate = dayjs(String(qa.appointmentDate)).format('YYYY-MM-DD');
+        return qaDate === dayDateString;
+      });
       const daySchedule: DaySchedule = {
         date: currentDay.format('DD/MM'),
         dayName: currentDay.format('dddd'),
         fullDate: currentDay,
         slots: TIME_SLOTS.map((timeSlot, index) => {
           const slotId = `${currentDay.format('YYYY-MM-DD')}-${index}`;
-          
           // Tìm appointment matching với time slot này
           const matchingAppointment = dayAppointments.find(apt => {
-            const aptTime = apt.appointmentTime;
-            
-            // So sánh time slot (VD: "07:00 - 08:00" vs "07:00")
-            const slotStart = timeSlot.split(' - ')[0];
-            return aptTime.startsWith(slotStart) || aptTime === slotStart;
+            const slotStart = timeSlot.split(' - ')[0].trim(); // '07:00'
+            const aptTime = String(apt.appointmentTime || '').slice(0, 5); // '07:00'
+            const match = aptTime === slotStart;
+            if (match) {
+              console.log('MATCH APPOINTMENT:', { slotStart, aptTime, apt });
+            }
+            return match;
           });
-          
-          const slot: TimeSlot = {
+          // Tìm consultation matching với time slot này
+          const matchingConsultation = dayConsultations.find(qa => {
+            const slotStart = timeSlot.split(' - ')[0].trim(); // '07:00'
+            const qaTime = String(qa.appointmentSlot || '').slice(0, 5); // '07:00'
+            const match = qaTime === slotStart;
+            if (match) {
+              console.log('MATCH CONSULTATION:', { slotStart, qaTime, qa });
+            }
+            return match;
+          });
+          let slot: TimeSlot = {
             id: slotId,
             slotTime: timeSlot,
-            status: matchingAppointment ? 'Booked' : isPastDate ? 'Absent' : 'Free' // Ngày quá khứ = Absent
+            status: 'Free',
           };
-
-          if (matchingAppointment) {
-            slot.appointment = matchingAppointment;
+          if (matchingConsultation) {
+            slot = {
+              ...slot,
+              status: 'Booked',
+              appointment: normalizeRecordToUnified(matchingConsultation),
+            };
+          } else if (matchingAppointment) {
+            slot = {
+              ...slot,
+              status: 'Booked',
+              appointment: normalizeRecordToUnified(matchingAppointment),
+            };
+          } else if (isPastDate) {
+            slot.status = 'Absent';
           }
-
           return slot;
         })
       };
       schedule.push(daySchedule);
     }
-
     return {
       weekRange: `${startWeek.format('DD/MM')} - ${weekEnd.format('DD/MM/YYYY')}`,
       schedule
     };
   };
-
-  useEffect(() => {
-    loadAppointments();
-  }, []);
-
-  // Generate schedule data from real API data
-  const scheduleData = generateScheduleFromAPI(selectedWeek);
 
   const goToPreviousWeek = () => {
     setSelectedWeek(prev => prev.subtract(1, 'week'));
@@ -236,14 +362,16 @@ const DoctorScheduleCalendar: React.FC = () => {
     setSelectedWeek(dayjs().startOf('week'));
   };
 
+  // Khi cần refresh
   const refreshData = () => {
-    loadAppointments();
+    fetchAppointments();
+    fetchConsultations();
   };
 
   const handleSlotClick = (slot: TimeSlot) => {
     setSelectedSlot(slot);
     setIsModalVisible(true);
-    
+
     // Debug appointment data structure
     if (slot.appointment) {
       console.log('🧪 [DEBUG] Appointment data structure:', {
@@ -257,88 +385,79 @@ const DoctorScheduleCalendar: React.FC = () => {
     }
   };
 
-  const getSlotColor = (slot: TimeSlot) => {
+  // Hàm lấy màu border theo status/type/typeLocation
+  function getSlotColor(slot: TimeSlot): string {
     if (slot.appointment) {
-      switch (slot.appointment.status) {
-        case 'pending_payment':
-          return '#fa8c16'; // Orange
-        case 'scheduled':
-          return slot.appointment.type === 'consultation' ? '#1890ff' : '#722ed1'; // Blue for consultation, purple for appointment
-        case 'consulting':
-          return '#fa8c16'; // Orange - đang tư vấn
-        case 'completed':
-          return '#8c8c8c'; // Gray
-        case 'cancelled':
-          return '#f5222d'; // Red
-        default:
-          return '#d9d9d9';
-      }
+      const { status, type, typeLocation } = slot.appointment;
+      if (status === 'pending_payment') return '#fa8c16'; // cam
+      if (status === 'pending') return '#bfbfbf'; // xám
+      if (status === 'scheduled' || status === 'confirmed') return '#1890ff'; // xanh dương
+      if (status === 'consulting') return '#fa8c16'; // cam
+      if (status === 'completed') return '#3b82f6'; // xanh dương đậm (mới)
+      if (status === 'cancelled') return '#f5222d'; // đỏ
+      if (status === 'doctor_cancel') return '#a8071a'; // đỏ đậm
+      if (status === 'done_testResultItem' || status === 'done_testResult') return '#13c2c2'; // cyan
+      if (status === 'expired') return '#bfbfbf'; // xám nhạt
+      // Phân biệt loại
+      if (type === 'consultation') return '#722ed1'; // tím cho tư vấn
+      if (typeLocation === 'Trực tuyến') return '#722ed1'; // tím cho online
+      if (typeLocation === 'Tại nhà') return '#faad14'; // vàng cho tại nhà
+      if (typeLocation === 'Phòng khám') return '#2f54eb'; // xanh đậm cho tại phòng
+      return '#d9d9d9';
     }
-    
-    switch (slot.status) {
-      case 'Free':
-        return '#52c41a'; // Green
-      case 'Absent':
-        return '#8c8c8c'; // Gray
-      default:
-        return '#f5f5f5';
-    }
-  };
-
-  const getSlotIcon = (slot: TimeSlot) => {
+    if (slot.status === 'Free') return '#52c41a';
+    if (slot.status === 'Absent') return '#bfbfbf';
+    return '#d9d9d9';
+  }
+  // Hàm lấy icon theo status/type/typeLocation
+  function getSlotIcon(slot: TimeSlot): React.ReactNode {
     if (slot.appointment) {
-      switch (slot.appointment.status) {
-        case 'consulting':
-          return <VideoCameraOutlined />; // Live consultation
-        default:
-          switch (slot.appointment.type) {
-            case 'consultation':
-              return <VideoCameraOutlined />;
-            case 'appointment':
-              return slot.appointment.typeLocation === 'Online' ? 
-                <VideoCameraOutlined /> : <EnvironmentOutlined />;
-            default:
-              return <UserOutlined />;
-          }
-      }
-    }
-    
-    switch (slot.status) {
-      case 'Free':
+      const { status, type, typeLocation } = slot.appointment;
+      if (status === 'pending_payment') return <ExclamationCircleOutlined />;
+      if (status === 'pending') return <ClockCircleOutlined />;
+      if (status === 'scheduled' || status === 'confirmed') {
+        if (type === 'consultation' || typeLocation === 'Online') return <VideoCameraOutlined />;
+        if (typeLocation === 'home') return <HomeOutlined />;
+        if (typeLocation === 'clinic') return <EnvironmentOutlined />;
         return <CheckCircleOutlined />;
-      case 'Absent':
-        return <CloseCircleOutlined />;
-      default:
-        return <ClockCircleOutlined />;
-    }
-  };
-
-  const getSlotText = (slot: TimeSlot) => {
-    if (slot.appointment) {
-      switch (slot.appointment.status) {
-        case 'consulting':
-          return 'Đang tư vấn'; // Live status
-        default:
-          switch (slot.appointment.type) {
-            case 'consultation':
-              return 'Tư vấn Online';
-            case 'appointment':
-              return slot.appointment.typeLocation === 'Online' ? 'Online' : 'Tại phòng';
-            default:
-              return 'Đã đặt';
-          }
       }
+      if (status === 'consulting') return <PlayCircleOutlined />;
+      if (status === 'completed') return <CheckCircleOutlined />;
+      if (status === 'cancelled' || status === 'doctor_cancel') return <CloseCircleOutlined />;
+      if (status === 'done_testResultItem' || status === 'done_testResult') return <CheckCircleOutlined />;
+      if (status === 'expired') return <ClockCircleOutlined />;
+      return <UserOutlined />;
     }
-    
-    switch (slot.status) {
-      case 'Free':
-        return 'Lịch trống';
-      case 'Absent':
-        return 'Vắng mặt';
-      default:
-        return 'N/A';
+    if (slot.status === 'Free') return <CheckCircleOutlined />;
+    if (slot.status === 'Absent') return <CloseCircleOutlined />;
+    return <ClockCircleOutlined />;
+  }
+  // Hàm lấy text theo status/type/typeLocation
+  function getSlotText(slot: TimeSlot): string {
+    if (slot.appointment) {
+      const { status, type, typeLocation, patientName, serviceName } = slot.appointment;
+      // Đổi toàn bộ status sang tiếng Việt
+      if (status === 'pending_payment') return 'Chờ thanh toán';
+      if (status === 'pending') return 'Chờ xác nhận';
+      if (status === 'scheduled') return 'Đã lên lịch';
+      if (status === 'confirmed') return 'Đã xác nhận';
+      if (status === 'consulting') return type === 'consultation' ? 'Đang tư vấn' : 'Đang khám';
+      if (status === 'completed') return 'Hoàn thành';
+      if (status === 'cancelled') return 'Đã hủy';
+      if (status === 'doctor_cancel') return 'Bác sĩ hủy';
+      if (status === 'done_testResultItem' || status === 'done_testResult') return 'Đã có kết quả';
+      if (status === 'expired') return 'Hết hạn';
+      // Phân biệt loại
+      if (type === 'consultation') return 'Tư vấn Online';
+      if (typeLocation === 'Online') return 'Online';
+      if (typeLocation === 'home') return 'Tại nhà';
+      if (typeLocation === 'clinic') return 'Tại phòng';
+      return serviceName || patientName || 'Đã đặt';
     }
-  };
+    if (slot.status === 'Free') return 'Lịch trống';
+    if (slot.status === 'Absent') return 'Đã qua';
+    return 'N/A';
+  }
 
   const getStatusColor = (status: UnifiedAppointment['status']) => {
     const colors = {
@@ -404,7 +523,7 @@ const DoctorScheduleCalendar: React.FC = () => {
         console.log('✅ Found existing meeting:', meetingData);
       } catch {
         console.log('⚠️ Meeting chưa tồn tại, tạo mới...');
-        
+
         // 2. Tạo meeting mới với Jitsi
         const createMeetingData = {
           qaId,
@@ -416,7 +535,7 @@ const DoctorScheduleCalendar: React.FC = () => {
 
         const createResult = await meetingAPI.createMeeting(createMeetingData);
         console.log('✅ Created new meeting:', createResult);
-        
+
         // Lấy lại meeting data sau khi tạo
         meetingData = await meetingAPI.getMeetingByQA(qaId);
       }
@@ -435,7 +554,7 @@ const DoctorScheduleCalendar: React.FC = () => {
       if (meetingData.meetLink) {
         window.open(meetingData.meetLink, '_blank');
         message.success(`Đã mở ${meetingData.provider === 'google' ? 'Google Meet' : 'Jitsi Meet'}`);
-        
+
         // Cập nhật state để hiển thị thông tin meeting
         setCurrentMeeting(meetingData);
       } else {
@@ -444,12 +563,12 @@ const DoctorScheduleCalendar: React.FC = () => {
 
     } catch (error: unknown) {
       console.error('❌ Error joining meeting:', error);
-      
+
       // Fallback: Tạo Jitsi Meet link tạm thời
       const fallbackLink = `https://meet.jit.si/consultation-${Date.now()}`;
       window.open(fallbackLink, '_blank');
       message.warning('Không thể kết nối meeting chính, đã tạo phòng Jitsi tạm thời');
-      
+
     } finally {
       setMeetingLoading(false);
     }
@@ -476,10 +595,10 @@ const DoctorScheduleCalendar: React.FC = () => {
 
       // Call API to update consultation status to 'completed'
       console.log('✅ [API] Completing consultation - updating status to completed');
-      
+
       // TODO: Implement actual API call
       // await consultationAPI.updateStatus(qaId, 'completed');
-      
+
       message.success(`Đã hoàn thành tư vấn với ${appointment.patientName}`);
       refreshData();
 
@@ -490,6 +609,8 @@ const DoctorScheduleCalendar: React.FC = () => {
       setMeetingLoading(false);
     }
   };
+
+  const scheduleData = generateScheduleFromAPI(selectedWeek);
 
   return (
     <div style={{ background: '#f5f5f5', minHeight: '100vh', padding: '24px' }}>
@@ -514,7 +635,7 @@ const DoctorScheduleCalendar: React.FC = () => {
             >
                 Làm mới
             </Button>
-              <Button 
+              <Button
                 icon={<LeftOutlined />}
                 onClick={goToPreviousWeek}
               >
@@ -526,7 +647,7 @@ const DoctorScheduleCalendar: React.FC = () => {
             >
                 Hôm nay
             </Button>
-              <Button 
+              <Button
                 icon={<RightOutlined />}
                 onClick={goToNextWeek}
               >
@@ -564,17 +685,17 @@ const DoctorScheduleCalendar: React.FC = () => {
         <Spin spinning={loading}>
           <div style={{ overflowX: 'auto' }}>
             {/* Headers */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '120px repeat(7, 1fr)', 
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '120px repeat(7, 1fr)',
               gap: '1px',
               background: '#f0f0f0',
               padding: '1px'
             }}>
               {/* Time column header */}
-              <div style={{ 
-                background: '#fafafa', 
-                padding: '16px', 
+              <div style={{
+                background: '#fafafa',
+                padding: '16px',
                 textAlign: 'center',
                 fontWeight: 'bold',
                 color: '#666'
@@ -585,11 +706,11 @@ const DoctorScheduleCalendar: React.FC = () => {
 
               {/* Day headers */}
               {scheduleData.schedule.map((day) => (
-                <div 
+                <div
                   key={day.date}
-                  style={{ 
+                  style={{
                     background: day.fullDate.isSame(dayjs(), 'day') ? '#e6f7ff' : '#fafafa',
-                    padding: '16px', 
+                    padding: '16px',
                     textAlign: 'center',
                     fontWeight: 'bold',
                     color: day.fullDate.isSame(dayjs(), 'day') ? '#1890ff' : '#333'
@@ -603,20 +724,20 @@ const DoctorScheduleCalendar: React.FC = () => {
 
             {/* Time slots */}
             {TIME_SLOTS.map((timeSlot, timeIndex) => (
-              <div 
+              <div
                 key={timeSlot}
-                style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '120px repeat(7, 1fr)', 
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '120px repeat(7, 1fr)',
                   gap: '1px',
                   background: '#f0f0f0',
                   padding: '1px'
                 }}
               >
                 {/* Time label */}
-                <div style={{ 
-                  background: '#fafafa', 
-                  padding: '16px', 
+                <div style={{
+                  background: '#fafafa',
+                  padding: '16px',
                   textAlign: 'center',
                   fontWeight: '500',
                   color: '#666',
@@ -627,21 +748,21 @@ const DoctorScheduleCalendar: React.FC = () => {
                   <div style={{ fontSize: '12px', color: '#999' }}>Ca {timeIndex + 1}</div>
                   <div style={{ fontSize: '14px' }}>{timeSlot}</div>
                 </div>
-                
+
                 {/* Day slots */}
                 {scheduleData.schedule.map((day) => {
                   const slot = day.slots[timeIndex];
                   const isPastDate = day.fullDate.isBefore(dayjs(), 'day');
                   const isClickable = slot.appointment || !isPastDate; // Chỉ click được nếu có appointment hoặc không phải ngày quá khứ
-                  
+
                   return (
                     <Tooltip
                       key={slot.id}
                       title={
-                        slot.appointment 
+                        slot.appointment
                         ? `${slot.appointment.patientName} - ${slot.appointment.serviceName}`
-                        : isPastDate 
-                        ? 'Ngày đã qua' 
+                        : isPastDate
+                        ? 'Ngày đã qua'
                         : getSlotText(slot)
                       }
                     >
@@ -677,7 +798,7 @@ const DoctorScheduleCalendar: React.FC = () => {
                         }}>
                           {getSlotIcon(slot)}
               </div>
-                <div style={{ 
+                <div style={{
                           fontSize: '12px',
                           fontWeight: '500',
                           color: isPastDate && !slot.appointment ? '#bfbfbf' : getSlotColor(slot)
@@ -685,8 +806,8 @@ const DoctorScheduleCalendar: React.FC = () => {
                           {isPastDate && !slot.appointment ? 'Đã qua' : getSlotText(slot)}
                 </div>
                         {slot.appointment && (
-                  <div style={{ 
-                            fontSize: '10px', 
+                  <div style={{
+                            fontSize: '10px',
                             color: isPastDate ? '#999' : '#666',
                             marginTop: '4px',
                             textAlign: 'center'
@@ -708,7 +829,7 @@ const DoctorScheduleCalendar: React.FC = () => {
       <Modal
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ 
+                <div style={{
               width: '40px',
               height: '40px',
               borderRadius: '50%',
@@ -741,10 +862,10 @@ const DoctorScheduleCalendar: React.FC = () => {
           <div style={{ padding: '20px 0' }}>
             {!selectedSlot.appointment && selectedSlot.status === 'Free' && (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                <CheckCircleOutlined style={{ 
-                  fontSize: '48px', 
-                  color: '#52c41a', 
-                  marginBottom: '16px' 
+                <CheckCircleOutlined style={{
+                  fontSize: '48px',
+                  color: '#52c41a',
+                  marginBottom: '16px'
                 }} />
                 <Title level={3} style={{ color: '#52c41a', margin: '0 0 8px 0' }}>
                   Lịch trống
@@ -757,10 +878,10 @@ const DoctorScheduleCalendar: React.FC = () => {
 
             {!selectedSlot.appointment && selectedSlot.status === 'Absent' && (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                <ExclamationCircleOutlined style={{ 
-                  fontSize: '48px', 
-                  color: '#8c8c8c', 
-                  marginBottom: '16px' 
+                <ExclamationCircleOutlined style={{
+                  fontSize: '48px',
+                  color: '#8c8c8c',
+                  marginBottom: '16px'
                 }} />
                 <Title level={3} style={{ color: '#8c8c8c', margin: '0 0 8px 0' }}>
                   Vắng mặt
@@ -775,7 +896,7 @@ const DoctorScheduleCalendar: React.FC = () => {
               <div>
                 <Row gutter={[16, 16]}>
                   <Col span={24}>
-                    <Card size="small" style={{ 
+                    <Card size="small" style={{
                       background: selectedSlot.appointment.type === 'consultation' ? '#e6f7ff' : '#fff7e6'
                     }}>
                       <Row align="middle" gutter={16}>
@@ -794,7 +915,7 @@ const DoctorScheduleCalendar: React.FC = () => {
                           </div>
               </Col>
                         <Col>
-                          <Tag 
+                          <Tag
                             color={getStatusColor(selectedSlot.appointment.status)}
                             style={{ padding: '4px 12px' }}
                           >
@@ -811,18 +932,18 @@ const DoctorScheduleCalendar: React.FC = () => {
                         Dịch vụ:
                       </Text>
                       <Text>{selectedSlot.appointment.serviceName}</Text>
-                      
+
                       <Divider style={{ margin: '16px 0' }} />
-                      
+
                       <Text strong style={{ display: 'block', marginBottom: '8px' }}>
                         Loại:
                       </Text>
-                      <Tag 
+                      <Tag
                         color={selectedSlot.appointment.type === 'consultation' ? 'blue' : 'purple'}
                         style={{ padding: '4px 12px' }}
                       >
-                        {selectedSlot.appointment.type === 'consultation' ? 
-                          <><VideoCameraOutlined /> Tư vấn Online</> : 
+                        {selectedSlot.appointment.type === 'consultation' ?
+                          <><VideoCameraOutlined /> Tư vấn Online</> :
                           <><EnvironmentOutlined /> {selectedSlot.appointment.typeLocation}</>
                         }
                       </Tag>

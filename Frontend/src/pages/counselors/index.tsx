@@ -2,8 +2,6 @@ import { motion } from "framer-motion";
 import {
     Profile2User,
     SearchNormal1,
-    Award,
-    Star1,
 } from "iconsax-react";
 import { User } from "lucide-react";
 // Custom components

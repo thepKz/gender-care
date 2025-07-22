@@ -44,6 +44,7 @@ import { fetchOperationalDashboard } from '../../../api/endpoints/dashboard';
 import { doctorApi } from '../../../api/endpoints/doctorApi';
 import { filterMenuItemsByPermissions, type MenuItem } from '../../../utils/permissions';
 import dayjs from 'dayjs';
+import { appointmentApi } from '../../../api/endpoints'; // Thêm import API lấy lịch hẹn chuẩn
 
 const { Title, Text } = Typography;
 const { Header, Sider, Content } = Layout;
@@ -167,13 +168,18 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
 
   useEffect(() => {
     (async () => {
-      // setLoading(true);
-      // setError(null);
       try {
-        // Fetch dashboard data
-        const data = await fetchOperationalDashboard();
-        // setDashboardStats(data.stats || null);
-        setAppointments(data.appointments || []);
+        let data;
+        if (userRole === 'doctor') {
+          // Lấy lịch hẹn của bác sĩ hiện tại
+          const res = await appointmentApi.getMyAppointments();
+          data = res.data;
+          setAppointments(data.appointments || []);
+        } else {
+          // Staff vẫn dùng dashboard
+          const dashboardData = await fetchOperationalDashboard();
+          setAppointments(dashboardData.appointments || []);
+        }
         // Fetch feedback nếu là doctor
         if (userRole === 'doctor' && doctorId) {
           try {
@@ -270,6 +276,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
             title={userRole === 'doctor' ? 'Lịch khám hôm nay' : 'Lịch hẹn cần xử lý'}
             pagination={false}
             loading={loading}
+            showAvatar={true}
+            showPhone={true}
+            compact={true}
           />
         </Col>
 
