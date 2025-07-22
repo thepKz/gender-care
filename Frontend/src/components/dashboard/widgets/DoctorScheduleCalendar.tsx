@@ -34,7 +34,7 @@ import {
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { UnifiedAppointment } from '../../../types/appointment';
+import { UnifiedAppointment, UnifiedStatus, ApiAppointment, ApiConsultation } from '../../../types/appointment';
 import { meetingAPI, MeetingData } from '../../../api/endpoints/meeting';
 import appointmentApi from '../../../api/endpoints/appointment';
 import consultationApi from '../../../api/endpoints/consultation';
@@ -117,16 +117,28 @@ function normalizeRecordToUnified(obj: Record<string, unknown>): UnifiedAppointm
   } else if (obj.appointmentSlot) {
     appointmentTime = String(obj.appointmentSlot).slice(0, 5);
   }
-  // Mapping typeLocation sang tiếng Việt
-  let typeLocation = '';
-  if (obj.typeLocation === 'clinic') typeLocation = 'Phòng khám';
-  else if (obj.typeLocation === 'Online') typeLocation = 'Trực tuyến';
-  else if (obj.typeLocation === 'home') typeLocation = 'Tại nhà';
-  else typeLocation = String(obj.typeLocation || '');
+  // typeLocation giữ tiếng Anh cho type
+  let typeLocation: 'clinic' | 'Online' | 'home' = 'clinic';
+  if (obj.typeLocation === 'clinic' || obj.typeLocation === 'Online' || obj.typeLocation === 'home') {
+    typeLocation = obj.typeLocation as 'clinic' | 'Online' | 'home';
+  }
+  // status giữ đúng type
+  let status: UnifiedStatus = 'pending';
+  if (typeof obj.status === 'string' && [
+    'pending_payment','pending','scheduled','confirmed','consulting','completed','cancelled','doctor_cancel','payment_cancelled','expired','done_testResultItem','done_testResult'
+  ].includes(obj.status)) {
+    status = obj.status as UnifiedStatus;
+  }
+  // _id, key, serviceType, appointmentType, ...
+  const _id = String((obj as any)._id || (obj as any).id || '');
+  const key = _id;
+  const serviceType = (obj as any).serviceType || '';
+  const appointmentType = (obj as any).appointmentType || 'consultation';
   return {
-    id: String(obj._id || obj.id || ''),
+    _id,
+    key,
     type: (obj.type as 'appointment' | 'consultation') || 'appointment',
-    status: (obj.status as string) || '',
+    status,
     patientName,
     patientPhone: typeof obj.profileId === 'object' && obj.profileId !== null
       ? String((obj.profileId as any).phone || (obj.profileId as any).phoneNumber || '')
@@ -135,10 +147,12 @@ function normalizeRecordToUnified(obj: Record<string, unknown>): UnifiedAppointm
     appointmentTime,
     serviceName,
     typeLocation,
+    serviceType,
+    appointmentType,
     description: String(obj.description || obj.question || ''),
     notes: String(obj.notes || ''),
     address: String(obj.address || ''),
-    originalData: obj
+    originalData: (obj as unknown) as ApiAppointment | ApiConsultation
   };
 }
 
@@ -400,9 +414,9 @@ const DoctorScheduleCalendar: React.FC = () => {
       if (status === 'expired') return '#bfbfbf'; // xám nhạt
       // Phân biệt loại
       if (type === 'consultation') return '#722ed1'; // tím cho tư vấn
-      if (typeLocation === 'Trực tuyến') return '#722ed1'; // tím cho online
-      if (typeLocation === 'Tại nhà') return '#faad14'; // vàng cho tại nhà
-      if (typeLocation === 'Phòng khám') return '#2f54eb'; // xanh đậm cho tại phòng
+      if (typeLocation === 'Online') return '#722ed1'; // tím cho online
+      if (typeLocation === 'home') return '#faad14'; // vàng cho tại nhà
+      if (typeLocation === 'clinic') return '#2f54eb'; // xanh đậm cho tại phòng
       return '#d9d9d9';
     }
     if (slot.status === 'Free') return '#52c41a';
