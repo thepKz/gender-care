@@ -236,7 +236,7 @@ const DoctorDetail = () => {
               <Card className="mb-8 border-0 shadow-lg rounded-2xl overflow-hidden">
                 <div className="relative">
                   {/* Background Image */}
-                  <div className="h-48 bg-gradient-to-r from-[#0C3C54] to-[#2A7F9E]"></div>
+                  <div className="h-36 bg-gradient-to-r from-[#0C3C54] to-[#2A7F9E]"></div>
                   
                   {/* Doctor Avatar */}
                   <div className="absolute -bottom-16 left-8">
