@@ -130,16 +130,8 @@ export const appointmentApi = {
             console.error('Lỗi khi tạo cuộc hẹn:', error);
             if (axios.isAxiosError(error)) {
                 console.error('Chi tiết lỗi:', error.response?.data);
-
-                // Phân tích lỗi cụ thể từ API
-                if (error.response?.data?.errors) {
-                    const errorDetails = Object.entries(error.response.data.errors)
-                        .map(([key, value]) => `${key}: ${value}`)
-                        .join(', ');
-                    throw new Error(`Lỗi validation: ${errorDetails}`);
-                } else if (error.response?.data?.message) {
-                    throw new Error(error.response.data.message);
-                }
+                // Để axios error bubble up để BookingPageNew.tsx có thể access error.response
+                throw error;
             }
             throw error;
         }

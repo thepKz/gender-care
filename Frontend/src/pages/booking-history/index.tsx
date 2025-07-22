@@ -1297,25 +1297,23 @@ const BookingHistory: React.FC = () => {
 
                             {/* Actions */}
                             <td className="p-4">
-                              <div className="flex items-center justify-end gap-1">
+                              <div className="flex flex-wrap items-center justify-end gap-2 min-h-[40px]">
                                 <button
                                   onClick={() => handleViewDetail(appointment)}
-                                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                                  className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
                                   title="Xem chi tiết"
                                 >
                                   <Eye size={16} />
                                 </button>
-
                                 {appointment.canReschedule && (
                                   <button
                                     onClick={() => handleReschedule(appointment)}
-                                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600"
+                                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
                                     title="Đổi lịch"
                                   >
                                     <Refresh size={16} />
                                   </button>
                                 )}
-
                                 {appointment.canCancel && (
                                   <button
                                     onClick={() => {
@@ -1328,38 +1326,26 @@ const BookingHistory: React.FC = () => {
                                         onOk: () => handleCancel(appointment),
                                       });
                                     }}
-                                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
                                     title="Hủy lịch"
                                   >
                                     <Trash size={16} />
                                   </button>
                                 )}
-
                                 {appointment.status === "pending_payment" && (
                                   <>
                                     <button
                                       onClick={() => handlePayment(appointment)}
-                                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600"
+                                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
                                       title="Thanh toán"
                                     >
-                                      <svg
-                                        className="h-4 w-4"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                                        />
+                                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                                       </svg>
                                     </button>
-                                    {/* ✅ NEW: Force check button for stuck payments */}
                                     <button
                                       onClick={() => handleForceCheck(appointment)}
-                                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-orange-50 hover:text-orange-600"
+                                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-orange-50 hover:text-orange-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
                                       title="Kiểm tra thanh toán và chỉ định bác sĩ"
                                     >
                                       <Refresh size={16} />
@@ -1368,42 +1354,37 @@ const BookingHistory: React.FC = () => {
                                       onClick={() => {
                                         Modal.confirm({
                                           title: "Xác nhận hủy thanh toán",
-                                          content:
-                                            "Bạn có chắc chắn muốn hủy thanh toán? Lịch hẹn sẽ bị hủy.",
+                                          content: "Bạn có chắc chắn muốn hủy thanh toán? Lịch hẹn sẽ bị hủy.",
                                           okText: "Đồng ý hủy",
                                           okButtonProps: { danger: true },
                                           cancelText: "Không",
                                           onOk: () => handleCancelPayment(appointment),
                                         });
                                       }}
-                                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                                      title="Hủy thanh toán"
+                                      className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
                                     >
-                                      <svg
-                                        className="h-4 w-4"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M6 18L18 6M6 6l12 12"
-                                        />
+                                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                       </svg>
                                     </button>
                                   </>
                                 )}
-
                                 {appointment.status === "completed" && !appointment.rating && (
                                   <button
                                     onClick={() => handleFeedback(appointment)}
-                                    className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-yellow-50 hover:text-yellow-600"
+                                    className="rounded-lg p-2 text-yellow-600 bg-yellow-50 hover:bg-yellow-100 transition-colors min-w-[36px] min-h-[36px] flex items-center justify-center font-medium"
                                     title="Đánh giá"
                                   >
-                                    <Star size={16} />
+                                    <Star size={16} className="mr-1 text-yellow-400" />
+                                    <span className="hidden xl:inline">Đánh giá</span>
                                   </button>
+                                )}
+                                {appointment.status === "completed" && appointment.rating && (
+                                  <div className="flex items-center gap-1 px-3 py-2 text-xs bg-green-50 text-green-600 rounded-lg min-h-[36px] min-w-[80px] font-medium">
+                                    <Star size={12} className="fill-current text-yellow-400" />
+                                    <span>{appointment.rating}/5</span>
+                                    <span className="hidden xl:inline">Đã đánh giá</span>
+                                  </div>
                                 )}
                               </div>
                             </td>
@@ -1508,25 +1489,23 @@ const BookingHistory: React.FC = () => {
                       </div>
 
                       {/* Mobile Actions */}
-                      <div className="flex flex-wrap gap-2 border-t pt-3">
+                      <div className="flex flex-wrap gap-2 border-t pt-3 justify-end min-h-[40px]">
                         <button
                           onClick={() => handleViewDetail(appointment)}
-                          className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs transition-colors hover:bg-gray-200"
+                          className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs transition-colors hover:bg-gray-200 min-w-[36px] min-h-[36px]"
                         >
                           <Eye size={12} />
                           <span>Chi tiết</span>
                         </button>
-
                         {appointment.canReschedule && (
                           <button
                             onClick={() => handleReschedule(appointment)}
-                            className="flex items-center gap-1 rounded-lg bg-green-100 px-3 py-1.5 text-xs text-green-700 transition-colors hover:bg-green-200"
+                            className="flex items-center gap-1 rounded-lg bg-green-100 px-3 py-1.5 text-xs text-green-700 transition-colors hover:bg-green-200 min-w-[36px] min-h-[36px]"
                           >
                             <Refresh size={12} />
                             <span>Đổi lịch</span>
                           </button>
                         )}
-
                         {appointment.canCancel && (
                           <button
                             onClick={() => {
@@ -1539,38 +1518,26 @@ const BookingHistory: React.FC = () => {
                                 onOk: () => handleCancel(appointment),
                               });
                             }}
-                            className="flex items-center gap-1 rounded-lg bg-red-100 px-3 py-1.5 text-xs text-red-700 transition-colors hover:bg-red-200"
+                            className="flex items-center gap-1 rounded-lg bg-red-100 px-3 py-1.5 text-xs text-red-700 transition-colors hover:bg-red-200 min-w-[36px] min-h-[36px]"
                           >
                             <Trash size={12} />
                             <span>Hủy</span>
                           </button>
                         )}
-
                         {appointment.status === "pending_payment" && (
                           <>
                             <button
                               onClick={() => handlePayment(appointment)}
-                              className="flex items-center gap-1 rounded-lg bg-green-100 px-3 py-1.5 text-xs text-green-700 transition-colors hover:bg-green-200"
+                              className="flex items-center gap-1 rounded-lg bg-green-100 px-3 py-1.5 text-xs text-green-700 transition-colors hover:bg-green-200 min-w-[36px] min-h-[36px]"
                             >
-                              <svg
-                                className="h-3 w-3"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
-                                />
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                               </svg>
                               <span>Thanh toán</span>
                             </button>
-                            {/* ✅ NEW: Force check button for stuck payments */}
                             <button
                               onClick={() => handleForceCheck(appointment)}
-                              className="flex items-center gap-1 rounded-lg bg-orange-100 px-3 py-1.5 text-xs text-orange-700 transition-colors hover:bg-orange-200"
+                              className="flex items-center gap-1 rounded-lg bg-orange-100 px-3 py-1.5 text-xs text-orange-700 transition-colors hover:bg-orange-200 min-w-[36px] min-h-[36px]"
                               title="Kiểm tra thanh toán và chỉ định bác sĩ"
                             >
                               <Refresh size={12} />
@@ -1580,44 +1547,37 @@ const BookingHistory: React.FC = () => {
                               onClick={() => {
                                 Modal.confirm({
                                   title: "Xác nhận hủy thanh toán",
-                                  content:
-                                    "Bạn có chắc chắn muốn hủy thanh toán? Lịch hẹn sẽ bị hủy.",
+                                  content: "Bạn có chắc chắn muốn hủy thanh toán? Lịch hẹn sẽ bị hủy.",
                                   okText: "Đồng ý hủy",
                                   okButtonProps: { danger: true },
                                   cancelText: "Không",
                                   onOk: () => handleCancelPayment(appointment),
                                 });
                               }}
-                              className="flex items-center gap-1 rounded-lg bg-red-100 px-3 py-1.5 text-xs text-red-700 transition-colors hover:bg-red-200"
+                              className="flex items-center gap-1 rounded-lg bg-red-100 px-3 py-1.5 text-xs text-red-700 transition-colors hover:bg-red-200 min-w-[36px] min-h-[36px]"
                             >
-                              <svg
-                                className="h-3 w-3"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M6 18L18 6M6 6l12 12"
-                                />
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                               </svg>
                               <span>Hủy thanh toán</span>
                             </button>
                           </>
                         )}
-
-
-
-                        
+                        {appointment.status === 'completed' && !appointment.rating && (
+                          <button
+                            onClick={() => handleFeedback(appointment)}
+                            className="flex items-center gap-1 rounded-lg bg-yellow-50 px-3 py-1.5 text-xs text-yellow-600 hover:bg-yellow-100 transition-colors min-w-[36px] min-h-[36px] font-medium"
+                          >
+                            <Star size={12} className="mr-1 text-yellow-400" />
+                            <span>Đánh giá</span>
+                          </button>
+                        )}
                         {appointment.status === 'completed' && appointment.rating && (
-                          <div className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-100 text-green-700 rounded-lg">
-                            <Star size={12} className="fill-current" />
+                          <div className="flex items-center gap-1 px-3 py-1.5 text-xs bg-green-100 text-green-700 rounded-lg min-h-[36px] min-w-[80px] font-medium">
+                            <Star size={12} className="fill-current text-yellow-400" />
                             <span>{appointment.rating}/5</span>
-                            <span className="text-green-600">Đã đánh giá</span>
+                            <span className="hidden sm:inline">Đã đánh giá</span>
                           </div>
-
                         )}
                       </div>
                     </div>

@@ -1411,7 +1411,12 @@ const BookingPageNew: React.FC = () => {
   useEffect(() => {
     const checkConflicts = async () => {
       if (selectedProfile && selectedDate && selectedTimeSlot) {
-        console.log('🔍 [Conflict Check] Checking for existing appointments...');
+        console.log('🔍 [Conflict Check] Starting conflict check...', {
+          profileId: selectedProfile,
+          date: selectedDate.format('YYYY-MM-DD'),
+          timeSlot: selectedTimeSlot
+        });
+
         try {
           const existingAppointmentsResponse = await appointmentApi.getAllAppointments({
             profileId: selectedProfile,
@@ -1420,30 +1425,58 @@ const BookingPageNew: React.FC = () => {
             status: 'pending_payment,pending,confirmed,scheduled,consulting'
           });
 
-          if (existingAppointmentsResponse.success && existingAppointmentsResponse.data?.appointments) {
-            const conflictingAppointment = existingAppointmentsResponse.data.appointments.find((apt: any) =>
-              apt.appointmentTime === selectedTimeSlot
-            );
+          console.log('🔍 [Conflict Check] Raw API Response:', existingAppointmentsResponse);
 
-            if (conflictingAppointment) {
-              message.warning({
-                content: `⚠️ Bệnh nhân đã có lịch hẹn vào ${selectedTimeSlot} ngày ${selectedDate.format('DD/MM/YYYY')}. Vui lòng chọn khung giờ khác.`,
-                duration: 5,
-                key: 'conflict-warning'
+          // Check if response has appointments
+          if (existingAppointmentsResponse && existingAppointmentsResponse.data) {
+            const appointments = existingAppointmentsResponse.data.appointments || existingAppointmentsResponse.data;
+            console.log('🔍 [Conflict Check] Appointments array:', appointments);
+
+            if (Array.isArray(appointments) && appointments.length > 0) {
+              const conflictingAppointment = appointments.find((apt: any) => {
+                console.log('🔍 [Conflict Check] Comparing appointment:', {
+                  appointmentId: apt._id,
+                  aptTime: apt.appointmentTime,
+                  selectedTime: selectedTimeSlot,
+                  aptDate: apt.appointmentDate,
+                  selectedDate: selectedDate.format('YYYY-MM-DD'),
+                  match: apt.appointmentTime === selectedTimeSlot
+                });
+                return apt.appointmentTime === selectedTimeSlot;
               });
+
+              if (conflictingAppointment) {
+                console.log('🚨 [Conflict Check] CONFLICT DETECTED!', conflictingAppointment);
+                message.warning({
+                  content: `⚠️ Bệnh nhân đã có lịch hẹn vào ${selectedTimeSlot} ngày ${selectedDate.format('DD/MM/YYYY')}. Vui lòng chọn khung giờ khác.`,
+                  duration: 8,
+                  key: 'conflict-warning'
+                });
+              } else {
+                console.log('✅ [Conflict Check] No time conflicts found');
+                message.destroy('conflict-warning');
+              }
             } else {
-              // Clear warning if no conflict
+              console.log('✅ [Conflict Check] No existing appointments found');
               message.destroy('conflict-warning');
             }
+          } else {
+            console.log('⚠️ [Conflict Check] Invalid API response structure');
           }
         } catch (error) {
-          console.error('❌ [Conflict Check] Error:', error);
+          console.error('❌ [Conflict Check] API Error:', error);
         }
+      } else {
+        console.log('⚠️ [Conflict Check] Missing required data:', {
+          hasProfile: !!selectedProfile,
+          hasDate: !!selectedDate,
+          hasTimeSlot: !!selectedTimeSlot
+        });
       }
     };
 
     // Debounce the check to avoid too many API calls
-    const timeoutId = setTimeout(checkConflicts, 500);
+    const timeoutId = setTimeout(checkConflicts, 300);
     return () => clearTimeout(timeoutId);
   }, [selectedProfile, selectedDate, selectedTimeSlot]);
 
