@@ -450,7 +450,35 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       packagePurchaseId,
     });
 
-    // Lock slot trước khi save appointment
+    // 🔒 CRITICAL FIX: Lock slot TRƯỚC KHI tạo appointment để tránh race condition
+    if (slotId && totalAmount > 0) {
+      console.log("[createAppointment] Attempting to lock slot:", slotId);
+      const lockResult = await DoctorSchedules.findOneAndUpdate(
+        {
+          "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId),
+          "weekSchedule.slots.status": "Free",
+        },
+        {
+          $set: { "weekSchedule.$[].slots.$[slot].status": "Booked" },
+        },
+        {
+          arrayFilters: [{ "slot._id": new mongoose.Types.ObjectId(slotId) }],
+          new: true,
+        }
+      );
+
+      if (!lockResult) {
+        console.error("[createAppointment] RACE CONDITION: Slot đã được đặt:", slotId);
+        return res.status(409).json({
+          success: false,
+          message: "Slot thời gian này đã được đặt bởi người khác. Vui lòng chọn slot khác.",
+          errorCode: "SLOT_ALREADY_BOOKED"
+        });
+      }
+      console.log(`[Slot Lock] Slot ${slotId} đã được khóa TRƯỚC KHI tạo appointment.`);
+    }
+
+    // Sau khi lock slot thành công, mới tạo appointment
     try {
       const savedAppointment = await newAppointment.save();
       if (!savedAppointment || !savedAppointment._id) {
@@ -474,28 +502,6 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
           serviceId.toString(),
           savedAppointment._id.toString()
         );
-      }
-
-      if (savedAppointment.status === "pending_payment" && slotId) {
-        const lockResult = await DoctorSchedules.findOneAndUpdate(
-          {
-            "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId),
-            "weekSchedule.slots.status": "Free",
-          },
-          {
-            $set: { "weekSchedule.$[].slots.$[slot].status": "Booked" },
-          },
-          {
-            arrayFilters: [{ "slot._id": new mongoose.Types.ObjectId(slotId) }],
-            new: true,
-          }
-        );
-
-        if (!lockResult) {
-          console.error("[createAppointment] Không thể lock slot:", slotId);
-          throw new Error("Slot thời gian này đã được đặt hoặc không có sẵn.");
-        }
-        console.log(`[Slot Lock] Slot ${slotId} đã được khóa thành công.`);
       }
 
       await systemLogService.createLog({
@@ -522,11 +528,32 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       });
     } catch (error: any) {
       console.error(
-        "❌ [Appointment Error] Error during appointment creation or slot locking:",
+        "❌ [Appointment Error] Error during appointment creation:",
         error
       );
 
-      // Rollback logic
+      // 🔒 CRITICAL ROLLBACK: Release slot nếu đã lock
+      if (slotId && totalAmount > 0) {
+        try {
+          await DoctorSchedules.findOneAndUpdate(
+            {
+              "weekSchedule.slots._id": new mongoose.Types.ObjectId(slotId),
+              "weekSchedule.slots.status": "Booked",
+            },
+            {
+              $set: { "weekSchedule.$[].slots.$[slot].status": "Free" },
+            },
+            {
+              arrayFilters: [{ "slot._id": new mongoose.Types.ObjectId(slotId) }],
+            }
+          );
+          console.log(`🔓 [Rollback] Released slot ${slotId} due to appointment creation failure.`);
+        } catch (releaseError) {
+          console.error(`❌ [Rollback Error] Failed to release slot ${slotId}:`, releaseError);
+        }
+      }
+
+      // Rollback appointment deletion
       if (newAppointment?._id) {
         await Appointments.findByIdAndDelete(newAppointment._id);
         console.log(
@@ -2548,7 +2575,7 @@ export const getUserBookingHistory = async (
               appointmentSlot: apt.appointmentTime, // Alias cho consistency
               typeLocation: apt.typeLocation,
               status: apt.status,
-              price: apt.packageId?.price || apt.serviceId?.price || 0,
+              price: apt.totalAmount || apt.packageId?.price || apt.serviceId?.price || 0,
               createdAt: apt.createdAt,
               description: apt.description,
               notes: apt.notes,
