@@ -323,8 +323,6 @@ const EditProfilePage: React.FC<EditProfilePageProps> = () => {
                 <SimpleDatePicker
                   placeholder="Chọn ngày sinh"
                   style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                  value=""
-                  onChange={() => {}}
                 />
               </Form.Item>
             </div>

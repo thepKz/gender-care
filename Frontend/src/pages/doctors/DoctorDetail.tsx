@@ -150,9 +150,64 @@ const DoctorDetail = () => {
   console.log('📅 Available Slots:', availableSlots);
   console.log('📅 Schedules:', schedules);
 
-  const doctorCertificateUrl = doctorCertificate
-    ? (doctorCertificate.startsWith('http') ? doctorCertificate : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${doctorCertificate}`)
-    : '';
+  // Parse certificates - support multiple formats (enhanced version)
+  const parseCertificates = (certificateData: string): string[] => {
+    console.log('🏥 [CERTIFICATE PARSE] Raw certificate data:', certificateData);
+    console.log('🏥 [CERTIFICATE PARSE] Type:', typeof certificateData);
+
+    if (typeof certificateData === 'string' && certificateData.trim()) {
+      // Format 1: JSON array - ["url1", "url2"]
+      if (certificateData.trim().startsWith('[') && certificateData.trim().endsWith(']')) {
+        try {
+          const parsed = JSON.parse(certificateData);
+          if (Array.isArray(parsed)) {
+            console.log('🏥 [CERTIFICATE PARSE] Successfully parsed JSON array:', parsed);
+            console.log('🏥 [CERTIFICATE PARSE] Array length:', parsed.length);
+            return parsed.filter(url => url && url.trim()); // Filter out empty URLs
+          }
+        } catch (error) {
+          console.error('🏥 [CERTIFICATE PARSE] JSON parse error:', error);
+        }
+      }
+
+      // Format 2: Comma-separated URLs - "url1, url2, url3"
+      if (certificateData.includes(',')) {
+        const urls = certificateData.split(',')
+          .map(url => url.trim())
+          .filter(url => url && (url.startsWith('http') || url.includes('.')));
+
+        if (urls.length > 0) {
+          console.log('🏥 [CERTIFICATE PARSE] Parsed comma-separated URLs:', urls);
+          return urls;
+        }
+      }
+
+      // Format 3: Single certificate URL or filename
+      if (certificateData.startsWith('http') || certificateData.includes('.')) {
+        console.log('🏥 [CERTIFICATE PARSE] Single certificate URL:', certificateData);
+        return [certificateData];
+      }
+
+      // Format 4: Filename only (old format)
+      console.log('🏥 [CERTIFICATE PARSE] Treating as filename:', certificateData);
+      return [certificateData];
+    } else if (Array.isArray(certificateData)) {
+      console.log('🏥 [CERTIFICATE PARSE] Already an array:', certificateData);
+      return certificateData.filter(url => url && url.trim());
+    }
+
+    console.log('🏥 [CERTIFICATE PARSE] No certificates found');
+    return [];
+  };
+
+  const doctorCertificates = parseCertificates(doctorCertificate);
+  console.log('🏥 [CERTIFICATE FINAL] Final certificates array:', doctorCertificates);
+  console.log('🏥 [CERTIFICATE FINAL] Array length:', doctorCertificates.length);
+
+  const formatCertificateUrl = (cert: string): string => {
+    if (!cert) return '';
+    return cert.startsWith('http') ? cert : `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${cert}`;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -310,15 +365,28 @@ const DoctorDetail = () => {
                   </div>
 
                   {/* Certificates */}
-                  {doctorCertificate && (
+                  {doctorCertificates.length > 0 && (
                     <div className="mb-6">
-                      <h3 className="text-xl font-bold text-gray-800 mb-3 font-['Be_Vietnam_Pro',_sans-serif]">Chứng chỉ</h3>
-                      <div className="border border-gray-200 rounded-lg p-3">
-                        <img 
-                          src={doctorCertificateUrl} 
-                          alt="Chứng chỉ"
-                          className="w-full h-32 object-cover rounded"
-                        />
+                      <h3 className="text-xl font-bold text-gray-800 mb-3 font-['Be_Vietnam_Pro',_sans-serif]">
+                        Chứng chỉ {doctorCertificates.length > 1 && `(${doctorCertificates.length})`}
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {doctorCertificates.map((cert, index) => (
+                          <div key={index} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                            <img
+                              src={formatCertificateUrl(cert)}
+                              alt={`Chứng chỉ ${index + 1}`}
+                              className="w-full h-48 object-contain rounded bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                              onClick={() => window.open(formatCertificateUrl(cert), '_blank')}
+                              onError={(e) => {
+                                e.currentTarget.src = 'https://via.placeholder.com/400x300/f3f4f6/9ca3af?text=Không+thể+tải+chứng+chỉ';
+                              }}
+                            />
+                            <p className="text-sm text-gray-600 mt-2 text-center">
+                              Chứng chỉ {index + 1} - Nhấp để xem chi tiết
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}

@@ -455,15 +455,6 @@
   }
 }
 
-/* Prevent Chart Overlap */
-.ant-row {
-  margin-bottom: 24px !important;
-}
-
-.ant-col {
-  margin-bottom: 16px !important;
-  min-height: auto;
-}
 
 /* Animation keyframes */
 @keyframes fadeInUp {

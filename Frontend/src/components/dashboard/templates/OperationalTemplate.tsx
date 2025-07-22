@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Layout,
   Menu,
@@ -133,6 +134,7 @@ const getMenuItemsOperational = (role: 'staff' | 'doctor'): MenuItem[] => {
 const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   userRole
 }) => {
+  const navigate = useNavigate();
   const [selectedKey, setSelectedKey] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(false);
   const { handleLogout, user } = useAuth();
@@ -540,7 +542,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
           zIndex: 99,
           transition: 'left 0.2s',
         }}>
-          <Button type="link" icon={<DashboardOutlined />} onClick={() => {}}>Trang chủ</Button>
+          <Button type="link" icon={<DashboardOutlined />} onClick={() => navigate("/")}>Trang chủ</Button>
           <Button type="link" icon={<LogoutOutlined />} onClick={handleLogout}>Đăng xuất</Button>
         </Header>
         <Content style={{ 

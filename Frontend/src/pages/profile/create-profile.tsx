@@ -211,7 +211,7 @@ const CreateProfile: React.FC = () => {
                     { required: true, message: 'Vui lòng chọn ngày sinh' },
                     {
                       validator: (_, value) => {
-                        if (value && value.isAfter(dayjs().subtract(10, 'years'), 'day')) {
+                        if (value && dayjs.isDayjs(value) && value.isAfter(dayjs().subtract(10, 'years'), 'day')) {
                           return Promise.reject('Tuổi phải từ 10 trở lên');
                         }
                         return Promise.resolve();
@@ -222,8 +222,6 @@ const CreateProfile: React.FC = () => {
                   <SimpleDatePicker
                     placeholder="Chọn ngày sinh"
                     style={{ width: '100%', height: '40px', borderRadius: '8px' }}
-                    value=""
-                    onChange={() => {}}
                   />
                 </Form.Item>
               </div>

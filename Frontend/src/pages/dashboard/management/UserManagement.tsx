@@ -36,7 +36,8 @@ import {
   DeleteOutlined,
   IdcardOutlined,
   WarningOutlined,
-  CloseOutlined
+  CloseOutlined,
+  UploadOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps, UploadFile } from 'antd/es/upload';
@@ -390,33 +391,64 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  // Certificate upload props
+  // Certificate upload props - Updated to use API upload like DoctorManagement
   const certificateUploadProps: UploadProps = {
-    name: 'certificate',
+    name: 'image',
     multiple: true,
+    listType: 'picture-card',
     fileList: certificateFileList,
+    action: `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/doctors/upload-image`,
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('access_token') || ''}`
+    },
     beforeUpload: (file) => {
-      const isValidType = file.type === 'application/pdf' || 
-                         file.type === 'image/jpeg' || 
+      const isValidType = file.type === 'image/jpeg' ||
                          file.type === 'image/png' ||
-                         file.type === 'image/jpg';
+                         file.type === 'image/jpg' ||
+                         file.type === 'image/webp';
       if (!isValidType) {
-        messageApi.error('Chỉ cho phép upload file PDF, JPG, JPEG, PNG!');
+        messageApi.error('Chỉ cho phép upload file JPG, JPEG, PNG, WebP!');
         return false;
       }
-      const isLt2M = file.size / 1024 / 1024 < 2;
-      if (!isLt2M) {
-        messageApi.error('File phải nhỏ hơn 2MB!');
+      const isLt5M = file.size / 1024 / 1024 < 5;
+      if (!isLt5M) {
+        messageApi.error('File phải nhỏ hơn 5MB!');
         return false;
       }
-      return false; // Prevent auto upload, we'll handle it manually
+      return true; // Allow upload to API
     },
     onChange: (info) => {
+      console.log('🏥 [USER CERT UPLOAD] Upload change:', {
+        file: info.file,
+        fileList: info.fileList,
+        fileListLength: info.fileList.length,
+        fileStatus: info.file.status
+      });
+
       setCertificateFileList(info.fileList);
+
+      if (info.file.status === 'done' && info.file.response?.success) {
+        messageApi.success(`Upload chứng chỉ "${info.file.name}" thành công!`);
+      } else if (info.file.status === 'error') {
+        messageApi.error(`Upload chứng chỉ "${info.file.name}" thất bại!`);
+      }
     },
     onRemove: (file) => {
       setCertificateFileList(prev => prev.filter(item => item.uid !== file.uid));
+      return true;
     },
+    onPreview: (file) => {
+      const url = file.url || file.thumbUrl;
+      if (url) {
+        window.open(url, '_blank');
+      }
+    },
+    accept: 'image/jpeg,image/jpg,image/png,image/webp',
+    showUploadList: {
+      showPreviewIcon: true,
+      showDownloadIcon: false,
+      showRemoveIcon: true,
+    }
   };
 
   const addEducationItem = () => {
@@ -730,6 +762,13 @@ const UserManagement: React.FC = () => {
           onOk: async () => {
             try {
               // Create doctor with full profile
+              // Extract certificate URLs from uploaded files
+              const certificateUrls = certificateFileList
+                .filter(file => file.status === 'done' && file.response?.success)
+                .map(file => file.response.data.imageUrl);
+
+              console.log('🏥 [USER CREATE DOCTOR] Certificate URLs:', certificateUrls);
+
               const doctorData: CreateDoctorRequest = {
                 email: values.email,
                 fullName: values.fullName,
@@ -740,8 +779,7 @@ const UserManagement: React.FC = () => {
                 specialization: formattedSpecialization,
                 education: educationValidation.formattedEducation,
                 experience: experienceValidation.formattedExperience,
-                certificate: certificateFileList.map(file => file.name).join(', '), 
-                certificates: certificateFileList.map(file => file.originFileObj).filter(Boolean) as File[]
+                certificate: certificateUrls.length > 0 ? JSON.stringify(certificateUrls) : ''
               };
               
               const response = await userApi.createDoctor(doctorData);
@@ -1461,18 +1499,20 @@ const UserManagement: React.FC = () => {
           </div>
 
           <Form.Item
-            label="Chứng chỉ hành nghề"
+            label="Chứng chỉ hành nghề (ảnh)"
             rules={[{ required: true, message: 'Vui lòng upload chứng chỉ!' }]}
           >
-            <Dragger {...certificateUploadProps} style={{ padding: '20px' }}>
-              <p className="ant-upload-drag-icon">
-                <InboxOutlined />
-              </p>
-              <p className="ant-upload-text">Kéo thả file vào đây hoặc click để chọn file</p>
-              <p className="ant-upload-hint">
-                Hỗ trợ file PDF, JPG, PNG. Tối đa 2MB mỗi file.
-              </p>
-            </Dragger>
+            <Upload {...certificateUploadProps}>
+              {certificateFileList.length >= 5 ? null : (
+                <div>
+                  <UploadOutlined />
+                  <div style={{ marginTop: 8 }}>Thêm chứng chỉ</div>
+                  <div style={{ fontSize: '12px', color: '#8c8c8c' }}>
+                    JPG/PNG/WebP, tối đa 5MB mỗi ảnh
+                  </div>
+                </div>
+              )}
+            </Upload>
           </Form.Item>
 
           <Form.Item

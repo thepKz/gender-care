@@ -226,6 +226,7 @@ const ProfileEditPage: React.FC = () => {
                 rules={[{
                   validator: (_, value) => {
                     if (!value) return Promise.resolve();
+                    if (!dayjs.isDayjs(value)) return Promise.resolve();
                     const minDate = dayjs().subtract(12, 'years').endOf('day');
                     if (value.isAfter(minDate)) {
                       return Promise.reject('Bạn phải trên 12 tuổi!');
@@ -237,8 +238,6 @@ const ProfileEditPage: React.FC = () => {
                 <SimpleDatePicker
                   placeholder="Chọn ngày sinh"
                   style={{ width: '100%', height: '40px', borderRadius: '12px' }}
-                  value=""
-                  onChange={() => {}}
                 />
               </Form.Item>
             </div>
