@@ -9,13 +9,13 @@ export class ServiceTestCategoriesService {
   async getTestCategoriesByServiceId(serviceId: string) {
     // Validate serviceId
     if (!mongoose.Types.ObjectId.isValid(serviceId)) {
-      throw new Error('Invalid service ID');
+      throw new Error('ID dịch vụ không hợp lệ');
     }
 
     // Kiểm tra service có tồn tại không
     const service = await Service.findById(serviceId);
     if (!service) {
-      throw new Error('Service not found');
+      throw new Error('Không tìm thấy dịch vụ');
     }
 
     // Lấy test categories của service (KHÔNG filter isDeleted)
@@ -71,17 +71,17 @@ export class ServiceTestCategoriesService {
   async assignTestCategoryToService(data: any, userRole: string) {
     // Check permissions - cho phép cả manager
     if (!['doctor', 'staff', 'admin', 'manager'].includes(userRole)) {
-      throw new Error('Only doctors, staff, admin, manager can assign test categories to services');
+      throw new Error('Chỉ bác sĩ, nhân viên, quản trị viên, quản lý mới có thể gán chỉ số xét nghiệm cho dịch vụ');
     }
 
     const { serviceId, testCategoryId, isRequired, unit, targetValue, minValue, maxValue, thresholdRules } = data;
 
     // Validate IDs
     if (!mongoose.Types.ObjectId.isValid(serviceId)) {
-      throw new Error('Invalid service ID');
+      throw new Error('ID dịch vụ không hợp lệ');
     }
     if (!mongoose.Types.ObjectId.isValid(testCategoryId)) {
-      throw new Error('Invalid test category ID');
+      throw new Error('ID chỉ số xét nghiệm không hợp lệ');
     }
 
     // Kiểm tra service và test category có tồn tại không
@@ -91,10 +91,10 @@ export class ServiceTestCategoriesService {
     ]);
 
     if (!service) {
-      throw new Error('Service not found');
+      throw new Error('Không tìm thấy dịch vụ');
     }
     if (!testCategory) {
-      throw new Error('Test category not found');
+      throw new Error('Không tìm thấy chỉ số xét nghiệm');
     }
 
     // Kiểm tra đã được gán chưa
@@ -104,14 +104,14 @@ export class ServiceTestCategoriesService {
     });
 
     if (existingAssignment) {
-      throw new Error('Test category already assigned to this service');
+      throw new Error('Chỉ số xét nghiệm này đã được gán cho dịch vụ này');
     }
 
     // Validate thresholdRules nếu có
     if (thresholdRules && Array.isArray(thresholdRules)) {
       for (const rule of thresholdRules) {
         if (!rule.flag || !rule.message) {
-          throw new Error('Each thresholdRule must have flag and message');
+          throw new Error('Mỗi ngưỡng đánh giá phải có flag và message');
         }
       }
     }
@@ -146,27 +146,27 @@ export class ServiceTestCategoriesService {
   async assignMultipleTestCategoriesToService(data: any, userRole: string) {
     // Check permissions
     if (!['doctor', 'staff', 'admin', 'manager'].includes(userRole)) {
-      throw new Error('Only doctors, staff, admin, manager can assign test categories to services');
+      throw new Error('Chỉ bác sĩ, nhân viên, quản trị viên, quản lý mới có thể gán chỉ số xét nghiệm cho dịch vụ');
     }
 
     const { serviceId, testCategoryIds, isRequired } = data;
 
     // Validate serviceId
     if (!mongoose.Types.ObjectId.isValid(serviceId)) {
-      throw new Error('Invalid service ID');
+      throw new Error('ID dịch vụ không hợp lệ');
     }
 
     // Validate test category IDs
     for (const id of testCategoryIds) {
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new Error(`Invalid test category ID: ${id}`);
+        throw new Error(`ID chỉ số xét nghiệm không hợp lệ: ${id}`);
       }
     }
 
     // Kiểm tra service có tồn tại không
     const service = await Service.findById(serviceId);
     if (!service) {
-      throw new Error('Service not found');
+      throw new Error('Không tìm thấy dịch vụ');
     }
 
     // Kiểm tra test categories có tồn tại không
@@ -175,7 +175,7 @@ export class ServiceTestCategoriesService {
     });
 
     if (testCategories.length !== testCategoryIds.length) {
-      throw new Error('One or more test categories not found');
+      throw new Error('Một hoặc nhiều chỉ số xét nghiệm không tồn tại');
     }
 
     // Lấy danh sách đã được gán (KHÔNG filter isDeleted)
@@ -191,7 +191,7 @@ export class ServiceTestCategoriesService {
     );
 
     if (newTestCategoryIds.length === 0) {
-      throw new Error('All test categories are already assigned to this service');
+      throw new Error('Tất cả chỉ số xét nghiệm đã được gán cho dịch vụ này');
     }
 
     // Tạo assignments mới
@@ -217,12 +217,12 @@ export class ServiceTestCategoriesService {
   async updateServiceTestCategory(id: string, updateData: any, userRole: string) {
     // Check permissions
     if (!['doctor', 'staff', 'admin', 'manager'].includes(userRole)) {
-      throw new Error('Only doctors, staff, admin, manager can update test categories for services');
+      throw new Error('Chỉ bác sĩ, nhân viên, quản trị viên, quản lý mới có thể cập nhật chỉ số xét nghiệm cho dịch vụ');
     }
 
     // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new Error('Invalid assignment ID');
+      throw new Error('ID cấu hình chỉ số không hợp lệ');
     }
 
     // Nếu chỉ update isDeleted (xóa mềm), chỉ update trường này để tránh ảnh hưởng logic khác
@@ -235,7 +235,7 @@ export class ServiceTestCategoriesService {
       if (thresholdRules && Array.isArray(thresholdRules)) {
         for (const rule of thresholdRules) {
           if (!rule.flag || !rule.message) {
-            throw new Error('Each thresholdRule must have flag and message');
+            throw new Error('Mỗi ngưỡng đánh giá phải có flag và message');
           }
         }
       }
@@ -267,7 +267,7 @@ export class ServiceTestCategoriesService {
     console.log('Updated ServiceTestCategory result:', updatedAssignment);
 
     if (!updatedAssignment) {
-      throw new Error('Assignment not found');
+      throw new Error('Không tìm thấy cấu hình chỉ số');
     }
 
     return updatedAssignment;
@@ -277,18 +277,18 @@ export class ServiceTestCategoriesService {
   async removeTestCategoryFromService(id: string, userRole: string) {
     // Check permissions
     if (!['doctor', 'staff', 'admin', 'manager'].includes(userRole)) {
-      throw new Error('Only doctors, staff, admin, manager can remove test categories from services');
+      throw new Error('Chỉ bác sĩ, nhân viên, quản trị viên, quản lý mới có thể xóa chỉ số xét nghiệm khỏi dịch vụ');
     }
 
     // Validate ID
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      throw new Error('Invalid service test category ID');
+      throw new Error('ID cấu hình chỉ số không hợp lệ');
     }
 
     // Tìm assignment
     const assignment = await ServiceTestCategories.findById(id);
     if (!assignment) {
-      throw new Error('Service test category not found');
+      throw new Error('Không tìm thấy cấu hình chỉ số');
     }
 
     // TODO: Kiểm tra xem có test results nào đang sử dụng không
@@ -296,25 +296,25 @@ export class ServiceTestCategoriesService {
 
     // Xóa mềm assignment
     await ServiceTestCategories.findByIdAndUpdate(id, { isDeleted: true });
-    return { message: 'Test category removed from service successfully' };
+    return { message: 'Chỉ số xét nghiệm đã được xóa khỏi dịch vụ thành công' };
   }
 
   // Xóa tất cả test categories của service
   async removeAllTestCategoriesFromService(serviceId: string, userRole: string) {
     // Check permissions
     if (!['doctor', 'staff', 'admin', 'manager'].includes(userRole)) {
-      throw new Error('Only doctors, staff, admin, manager can remove test categories from services');
+      throw new Error('Chỉ bác sĩ, nhân viên, quản trị viên, quản lý mới có thể xóa chỉ số xét nghiệm khỏi dịch vụ');
     }
 
     // Validate ID
     if (!mongoose.Types.ObjectId.isValid(serviceId)) {
-      throw new Error('Invalid service ID');
+      throw new Error('ID dịch vụ không hợp lệ');
     }
 
     // Kiểm tra service có tồn tại không
     const service = await Service.findById(serviceId);
     if (!service) {
-      throw new Error('Service not found');
+      throw new Error('Không tìm thấy dịch vụ');
     }
 
     // Xóa mềm tất cả assignments của service

@@ -101,8 +101,12 @@ class ServiceTestCategoriesController {
         data: result
       });
     } catch (error: any) {
-      if (error.message.includes('Only') || error.message.includes('not found') ||
-        error.message.includes('already assigned')) {
+      if (
+        error.message.includes('Only') ||
+        error.message.includes('not found') ||
+        error.message.includes('already assigned') ||
+        error.message.includes('đã được gán cho dịch vụ này')
+      ) {
         res.status(400).json({
           success: false,
           message: error.message
@@ -110,7 +114,7 @@ class ServiceTestCategoriesController {
       } else {
         res.status(500).json({
           success: false,
-          message: 'Failed to assign test category to service',
+          message: 'Lỗi server, vui lòng thử lại sau',
           error: error.message
         });
       }

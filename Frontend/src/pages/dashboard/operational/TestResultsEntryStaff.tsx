@@ -684,7 +684,7 @@ const TestResultsEntry: React.FC = () => {
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
           <SimpleDatePicker
             value={selectedDate}
-            onChange={setSelectedDate}
+            onChange={date => setSelectedDate(date ? date.format('YYYY-MM-DD') : '')}
             style={{ width: 180 }}
             placeholder="Chọn ngày"
           />
