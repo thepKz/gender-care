@@ -39,7 +39,7 @@ router.get(
 router.post(
   '/',
   authMiddleware,
-  roleMiddleware(['admin', 'nursing_staff', 'doctor', 'staff']),
+  roleMiddleware(['admin', 'manager', 'doctor', 'staff']),
   testCategoriesController.createTestCategory
 );
 
@@ -47,7 +47,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
-  roleMiddleware(['admin', 'nursing_staff', 'doctor', 'staff']),
+  roleMiddleware(['admin', 'manager', 'doctor', 'staff']),
   testCategoriesController.updateTestCategory
 );
 

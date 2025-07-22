@@ -27,6 +27,8 @@ import medicalApi from '../../../api/endpoints/medical';
 import { testResultItemsApi, serviceTestCategoriesApi, testCategoriesApi } from '../../../api/endpoints/testManagementApi';
 import servicePackageApi from '../../../api/endpoints/servicePackageApi';
 // import './medical-records-view.css';
+import { useAuth } from '../../../hooks/useAuth';
+import { doctorApi } from '../../../api/endpoints/doctorApi';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -40,6 +42,7 @@ interface AppointmentTableItem {
   patientName: string;
   patientPhone: string;
   doctorName: string;
+  doctorId?: any;
   appointmentDate: string;
   appointmentTime: string;
   serviceName: string;
@@ -52,6 +55,7 @@ interface AppointmentTableItem {
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  description?: string;
 }
 
 // Định nghĩa type MedicineItem
@@ -86,6 +90,18 @@ const MedicalRecordsManagement: React.FC = () => {
   const [testCategories, setTestCategories] = useState<any[]>([]);
   const [activeTabKey, setActiveTabKey] = useState('1');
   const [serviceTestCategoriesMap, setServiceTestCategoriesMap] = useState({});
+  const { user } = useAuth();
+  const [myDoctorId, setMyDoctorId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.role === 'doctor' && user._id) {
+      doctorApi.getAllDoctors().then(doctors => {
+        const found = doctors.find(doc => doc.userId?._id === user._id);
+        setMyDoctorId(found?._id || null);
+        console.log('[DEBUG] user._id:', user._id, '=> myDoctorId:', found?._id, 'doctor:', found);
+      });
+    }
+  }, [user]);
 
   const loadData = async () => {
     try {
@@ -100,6 +116,7 @@ const MedicalRecordsManagement: React.FC = () => {
         patientName: item.profileId?.fullName || 'N/A',
         patientPhone: item.profileId?.phone || 'N/A',
         doctorName: item.doctorId?.userId?.fullName || 'N/A',
+        doctorId: item.doctorId,
         serviceName: item.serviceId?.serviceName || '',
         serviceId: item.serviceId,
         packageId: item.packageId || undefined, // Thêm dòng này
@@ -110,6 +127,7 @@ const MedicalRecordsManagement: React.FC = () => {
         createdAt: item.createdAt,
         updatedAt: item.updatedAt,
         notes: item.notes || '',
+        description: item.description || '',
       }));
       setAppointments(mapped);
     } catch (err: any) {
@@ -223,7 +241,15 @@ const MedicalRecordsManagement: React.FC = () => {
     if (appointments.length) fetchAllServiceTestCategories();
   }, [appointments]);
 
+  console.log('[DEBUG] appointments:', appointments);
   const filteredRecords = appointments.filter(record => {
+    if (user?.role === 'doctor' && myDoctorId) {
+      const doctorId = typeof record.doctorId === 'object' ? record.doctorId._id : record.doctorId;
+      if (doctorId !== myDoctorId) {
+        console.log('[DEBUG] Bỏ appointment', record, 'vì doctorId', doctorId, '!=', myDoctorId);
+        return false;
+      }
+    }
     const matchesSearch = record.patientName.toLowerCase().includes(searchText.toLowerCase()) ||
       record.doctorName.toLowerCase().includes(searchText.toLowerCase()) ||
       record.serviceName.toLowerCase().includes(searchText.toLowerCase());
@@ -232,6 +258,7 @@ const MedicalRecordsManagement: React.FC = () => {
     const matchesVerify = record.status === 'done_testResult' || record.status === 'completed';
     return matchesSearch && matchesStatus && matchesDoctor && matchesVerify;
   });
+  console.log('[DEBUG] filteredRecords:', filteredRecords);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -655,6 +682,10 @@ const MedicalRecordsManagement: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                  {/* Hiển thị description từ testCat nếu có */}
+                  {testCat?.description && (
+                    <div style={{ marginLeft: 0, width: '100%', fontSize: 12, color: '#888', marginTop: 0, marginBottom: 8, paddingLeft: 0 }}>{testCat.description}</div>
+                  )}
                   {/* Message kéo dài toàn bộ phần còn lại, bắt đầu từ min-max */}
                   {item.message && (
                     <div style={{ marginLeft: 320, width: 'calc(100% - 320px)', fontSize: 12, color: flagColor, marginTop: 2, textAlign: 'left', wordBreak: 'break-word' }}>{item.message}</div>
@@ -816,6 +847,11 @@ const MedicalRecordsManagement: React.FC = () => {
                   <div style={{ fontWeight: 600 }}>
                     Bác sĩ: <span style={{ fontWeight: 400 }}>{selectedAppointment.doctorName}</span>
                   </div>
+                  {/* Thêm mô tả và ghi chú ngay dưới bác sĩ */}
+                  <div style={{ marginTop: 8, fontSize: 14 }}>
+                    <div><b>Mô tả:</b> {selectedAppointment.description || 'Không có'}</div>
+                    <div><b>Ghi chú:</b> {selectedAppointment.notes || 'Không có'}</div>
+                  </div>
                 </div>
                 <div style={{ textAlign: 'right', minWidth: 210 }}>
                   <div style={{ fontWeight: 600, marginBottom: 2 }}>
@@ -852,52 +888,54 @@ const MedicalRecordsManagement: React.FC = () => {
                 const selectedNames = medicineList.map((m, i) => i !== idx && m.name).filter(Boolean);
                 const availableOptions = medicinesOptions.filter(opt => !selectedNames.includes(opt.name));
                 return (
-                  <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                    <Select
-                      showSearch
-                      placeholder="Tên thuốc"
-                      value={med.name}
-                      style={{ width: 150 }}
-                      onChange={val => {
-                        if (modalMode === 'view') return;
-                        const selected = medicinesOptions.find(m => m.name === val);
-                        handleMedicineChange(idx, 'name', selected?.name || val);
-                        if (selected) {
-                          handleMedicineChange(idx, 'dosage', selected.defaultDosage || '');
-                          handleMedicineChange(idx, 'instructions', selected.defaultTimingInstructions || '');
-                        } else {
-                          handleMedicineChange(idx, 'dosage', '');
-                          handleMedicineChange(idx, 'instructions', '');
-                        }
-                      }}
-                      options={availableOptions.map(m => ({ label: m.name, value: m.name }))}
-                      disabled={modalMode === 'view'}
+                  <div key={idx} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <Select
+                        showSearch
+                        placeholder="Tên thuốc"
+                        value={med.name}
+                        style={{ flex: 2, minWidth: 180, maxWidth: 320 }}
+                        onChange={val => {
+                          if (modalMode === 'view') return;
+                          const selected = medicinesOptions.find(m => m.name === val);
+                          handleMedicineChange(idx, 'name', selected?.name || val);
+                          if (selected) {
+                            handleMedicineChange(idx, 'dosage', selected.defaultDosage || '');
+                            handleMedicineChange(idx, 'instructions', selected.defaultTimingInstructions || '');
+                          } else {
+                            handleMedicineChange(idx, 'dosage', '');
+                            handleMedicineChange(idx, 'instructions', '');
+                          }
+                        }}
+                        options={availableOptions.map(m => ({ label: m.name, value: m.name }))}
+                        disabled={modalMode === 'view'}
+                      />
+                      <Input
+                        placeholder="Liều lượng/nhóm"
+                        value={med.dosage}
+                        onChange={e => modalMode !== 'view' && handleMedicineChange(idx, 'dosage', e.target.value)}
+                        style={{ width: 110, minWidth: 90, flex: '0 0 110px' }}
+                        readOnly={modalMode === 'view'}
+                      />
+                      <Input
+                        placeholder="Thời gian dùng (VD: 7 ngày, 2 tuần)"
+                        value={med.duration}
+                        onChange={e => modalMode !== 'view' && handleMedicineChange(idx, 'duration', e.target.value)}
+                        style={{ flex: 1.5, minWidth: 140, maxWidth: 220 }}
+                        readOnly={modalMode === 'view'}
+                      />
+                      <Button disabled={medicineList.length === 1 || modalMode === 'view'} onClick={() => handleRemoveMedicine(idx)} style={{ minWidth: 56 }}>Xóa</Button>
+                    </div>
+                    <Input
+                      placeholder="Hướng dẫn sử dụng"
+                      value={med.instructions}
+                      onChange={e => modalMode !== 'view' && handleMedicineChange(idx, 'instructions', e.target.value)}
+                      style={{ width: '100%', marginTop: 4 }}
+                      readOnly={modalMode === 'view'}
                     />
-                  <Input
-                    placeholder="Liều lượng/nhóm"
-                    value={med.dosage}
-                    onChange={e => modalMode !== 'view' && handleMedicineChange(idx, 'dosage', e.target.value)}
-                    style={{ width: 120 }}
-                    readOnly={modalMode === 'view'}
-                  />
-                  <Input
-                    placeholder="Hướng dẫn sử dụng"
-                    value={med.instructions}
-                    onChange={e => modalMode !== 'view' && handleMedicineChange(idx, 'instructions', e.target.value)}
-                    style={{ width: 180 }}
-                    readOnly={modalMode === 'view'}
-                  />
-                  <Input
-                    placeholder="Thời gian dùng (VD: 7 ngày, 2 tuần)"
-                    value={med.duration}
-                    onChange={e => modalMode !== 'view' && handleMedicineChange(idx, 'duration', e.target.value)}
-                    style={{ width: 120 }}
-                    readOnly={modalMode === 'view'}
-                  />
-                  <Button disabled={medicineList.length === 1 || modalMode === 'view'} onClick={() => handleRemoveMedicine(idx)}>Xóa</Button>
-                </div>
-              );
-            })}
+                  </div>
+                );
+              })}
               <Button type="dashed" onClick={handleAddMedicine} style={{ marginBottom: 16 }} disabled={modalMode === 'view'}>Thêm thuốc</Button>
               <Form.Item name="notes" label="Ghi chú">
                 <TextArea placeholder="Nhập ghi chú thêm (tùy chọn)" autoSize={{ minRows: 2 }} readOnly={modalMode === 'view'} />

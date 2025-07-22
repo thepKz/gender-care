@@ -581,7 +581,6 @@ const ServiceManagement: React.FC = () => {
             <Option value="all">Tất cả loại</Option>
             <Option value="consultation">Tư vấn</Option>
             <Option value="test">Xét nghiệm</Option>
-            <Option value="treatment">Điều trị</Option>
           </Select>
 
           <Select

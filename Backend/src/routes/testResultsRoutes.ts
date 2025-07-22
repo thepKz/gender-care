@@ -20,14 +20,14 @@ router.get('/:id',
 // POST /api/test-results - Tạo test result mới (Doctor/Nursing Staff/Staff)
 router.post('/', 
   verifyToken, 
-  roleMiddleware(['doctor', 'nursing_staff', 'staff']), 
+  roleMiddleware(['doctor', 'manager', 'staff']), 
   testResultsController.createTestResult
 );
 
 // PUT /api/test-results/:id - Cập nhật test result (Doctor/Nursing Staff/Staff)
 router.put('/:id', 
   verifyToken, 
-  roleMiddleware(['doctor', 'nursing_staff', 'staff']), 
+  roleMiddleware(['doctor', 'manager', 'staff']), 
   testResultsController.updateTestResult
 );
 
