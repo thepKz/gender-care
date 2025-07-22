@@ -106,7 +106,8 @@ const MedicalRecordsManagement: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const response = await appointmentApi.getAllAppointments({});
+      // Use getMyAppointments for doctors to only see their own medical records
+      const response = await appointmentApi.getMyAppointments({});
       const data: ApiAppointment[] = response.data.appointments;
       const mapped = data.map((item) => ({
         ...item,

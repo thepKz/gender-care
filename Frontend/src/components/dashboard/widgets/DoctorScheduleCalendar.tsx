@@ -216,19 +216,21 @@ const DoctorScheduleCalendar: React.FC = () => {
     }
   };
 
-  // Sửa fetchAppointments: dùng getAllAppointments, filter lại doctorId
+  // Fix: Use getMyAppointments for doctors to only get their own appointments
   const fetchAppointments = async () => {
     try {
       setLoading(true);
-      const res = await appointmentApi.getAllAppointments({ page: 1, limit: 500 });
-      let arr = res.data?.appointments || res.appointments || res.data || [];
-      if (user?.role === 'doctor' && doctorId) {
-        arr = arr.filter((apt: Record<string, unknown>) => {
-          const aptDoctorId = (apt.doctorId && typeof apt.doctorId === 'object') ? (apt.doctorId as any)._id : apt.doctorId;
-          return aptDoctorId === doctorId;
-        });
+      if (user?.role === 'doctor') {
+        // For doctors: use getMyAppointments to get only their own appointments
+        const res = await appointmentApi.getMyAppointments({ page: 1, limit: 500 });
+        const arr = res.data?.appointments || res.appointments || res.data || [];
+        setAppointments(Array.isArray(arr) ? arr : []);
+      } else {
+        // For staff: use getAllAppointments
+        const res = await appointmentApi.getAllAppointments({ page: 1, limit: 500 });
+        const arr = res.data?.appointments || res.appointments || res.data || [];
+        setAppointments(Array.isArray(arr) ? arr : []);
       }
-      setAppointments(Array.isArray(arr) ? arr : []);
     } catch {
       setAppointments([]);
     } finally {

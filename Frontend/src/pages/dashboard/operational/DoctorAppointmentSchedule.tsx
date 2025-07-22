@@ -200,21 +200,33 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const loadUnifiedSchedule = async () => {
     try {
       setLoading(true);
-      // 🔥 Parallel API calls
+      console.log('🔍 [DEBUG] Loading unified schedule for user:', user?.role, 'doctorId:', doctorId);
+
+      // 🔥 Parallel API calls with proper role-based endpoints
       const [appointmentsResponse, consultationsResponse] = await Promise.all([
-        appointmentApi.getAllAppointments().catch(() => ({ data: { appointments: [] } })),
-        consultationApi.getMyConsultations().catch(() => ({ data: [] }))
+        user?.role === 'doctor'
+          ? appointmentApi.getMyAppointments().catch((err) => {
+              console.error('❌ [DEBUG] Error getting doctor appointments:', err);
+              return { data: { appointments: [] } };
+            })
+          : appointmentApi.getAllAppointments().catch((err) => {
+              console.error('❌ [DEBUG] Error getting all appointments:', err);
+              return { data: { appointments: [] } };
+            }),
+        consultationApi.getMyConsultations().catch((err) => {
+          console.error('❌ [DEBUG] Error getting consultations:', err);
+          return { data: [] };
+        })
       ]);
+
+      console.log('🔍 [DEBUG] Appointments response:', appointmentsResponse);
+      console.log('🔍 [DEBUG] Consultations response:', consultationsResponse);
+
       let myAppointments = [];
       if (appointmentsResponse.data?.appointments) {
-        if (user?.role === 'staff') {
-          myAppointments = appointmentsResponse.data.appointments;
-        } else if (user?.role === 'doctor' && doctorId) {
-          myAppointments = appointmentsResponse.data.appointments.filter((appointment: any) => {
-            const aptDoctorId = appointment.doctorId?._id || appointment.doctorId;
-            return aptDoctorId === doctorId;
-          });
-        }
+        // No need to filter anymore since getMyAppointments already filters by doctor
+        myAppointments = appointmentsResponse.data.appointments;
+        console.log('✅ [DEBUG] Found appointments:', myAppointments.length);
       }
       let myConsultations = [];
       if (consultationsResponse.data && Array.isArray(consultationsResponse.data)) {
@@ -224,6 +236,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
       } else if (consultationsResponse.data?.data) {
         myConsultations = Array.isArray(consultationsResponse.data.data) ? consultationsResponse.data.data : [];
       }
+      console.log('✅ [DEBUG] Found consultations:', myConsultations.length);
       // --- Sửa logic lấy tên dịch vụ/package ---
       // Tạo map packageId -> name để tránh gọi API nhiều lần
       const packageNameCache: Record<string, string> = {};
@@ -347,6 +360,12 @@ const DoctorAppointmentSchedule: React.FC = () => {
       const allItems = [...convertedAppointments, ...convertedConsultations].sort(
         (a, b) => dayjs(b.appointmentDate).valueOf() - dayjs(a.appointmentDate).valueOf()
       );
+      console.log('🎯 [DEBUG] Final merged items:', allItems.length, 'items');
+      console.log('📋 [DEBUG] Items breakdown:', {
+        appointments: convertedAppointments.length,
+        consultations: convertedConsultations.length,
+        total: allItems.length
+      });
       setScheduleItems(allItems);
     } catch (err: any) {
       console.error('❌ Error loading schedule:', err);
@@ -746,49 +765,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
         </Row>
       </div>
 
-      {/* Statistics Cards */}
-      <Row gutter={16} style={{ marginBottom: '24px' }}>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Hôm nay"
-              value={todayItems.length}
-              prefix={<ClockCircleOutlined style={{ color: '#1890ff' }} />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Sắp tới"
-              value={upcomingItems.length}
-              prefix={<CalendarOutlined style={{ color: '#52c41a' }} />}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Đã hoàn thành"
-              value={completedItems.length}
-              prefix={<CheckCircleOutlined style={{ color: '#8c8c8c' }} />}
-              valueStyle={{ color: '#8c8c8c' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Tổng cộng"
-              value={scheduleItems.length}
-              prefix={<FileTextOutlined style={{ color: '#722ed1' }} />}
-              valueStyle={{ color: '#722ed1' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+
 
       {/* ✅ ENHANCED: Beautiful Filters and Tabs */}
       <Card style={{ marginBottom: '24px' }}>

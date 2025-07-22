@@ -2159,16 +2159,15 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
       matchStage.appointmentDate = { $lte: new Date(endDate as string) };
     }
 
-    // Pipeline để tìm appointments của doctor cụ thể
-    const pipeline: any[] = [
-      // Bước 1: Match appointments có slotId
+    // ✅ FIX: Pipeline để tìm appointments của doctor theo 2 cách
+    // Cách 1: Appointments có slotId thuộc về doctor schedule
+    const slotBasedPipeline: any[] = [
       {
         $match: {
           slotId: { $exists: true, $ne: null },
           ...matchStage,
         },
       },
-      // Bước 2: Lookup để join với DoctorSchedules
       {
         $lookup: {
           from: "doctorschedules",
@@ -2206,13 +2205,69 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
           as: "doctorSchedule",
         },
       },
-      // Bước 3: Chỉ lấy appointments có matching doctor schedule
       {
         $match: {
           "doctorSchedule.0": { $exists: true },
         },
       },
-      // Bước 4: Lookup các thông tin liên quan
+      {
+        $addFields: {
+          source: "slot-based"
+        }
+      }
+    ];
+
+    // Cách 2: Appointments có doctorId trực tiếp
+    const doctorBasedPipeline: any[] = [
+      {
+        $match: {
+          doctorId: new mongoose.Types.ObjectId(doctorId),
+          ...matchStage,
+        },
+      },
+      {
+        $addFields: {
+          source: "doctor-based"
+        }
+      }
+    ];
+
+    // Union 2 pipelines và loại bỏ duplicates
+    const pipeline: any[] = [
+      {
+        $facet: {
+          slotBased: slotBasedPipeline,
+          doctorBased: doctorBasedPipeline,
+        },
+      },
+      {
+        $project: {
+          appointments: {
+            $concatArrays: ["$slotBased", "$doctorBased"],
+          },
+        },
+      },
+      {
+        $unwind: "$appointments",
+      },
+      {
+        $replaceRoot: {
+          newRoot: "$appointments",
+        },
+      },
+      // Loại bỏ duplicates dựa trên _id
+      {
+        $group: {
+          _id: "$_id",
+          doc: { $first: "$$ROOT" },
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: "$doc",
+        },
+      },
+      // Lookup các thông tin liên quan
       {
         $lookup: {
           from: "userprofiles",

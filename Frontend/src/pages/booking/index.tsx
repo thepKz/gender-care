@@ -1,5 +1,8 @@
 import { Form, Input, message } from 'antd';
 import axios from 'axios';
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import {
   Activity,
   Heart,
@@ -7,6 +10,10 @@ import {
 } from 'iconsax-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+
+// Configure dayjs plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
 import { appointmentApi } from '../../api/endpoints';
 import { doctorApi } from '../../api/endpoints/doctorApi';
 import doctorScheduleApi from '../../api/endpoints/doctorSchedule';
@@ -830,6 +837,40 @@ const Booking: React.FC = () => {
     }
   };
 
+  // Helper function to filter slots based on current time (real-time filtering)
+  const filterSlotsByCurrentTime = useCallback((slots: TimeSlot[], selectedDate: string) => {
+    const now = dayjs().tz('Asia/Ho_Chi_Minh');
+    const selectedDateObj = dayjs(selectedDate);
+    const isToday = selectedDateObj.isSame(now, 'day');
+
+    if (!isToday) {
+      return slots; // If not today, return all available slots
+    }
+
+    // If today, filter slots that are still bookable
+    return slots.map(slot => {
+      if (!slot.isAvailable) return slot; // Keep unavailable slots as is
+
+      // Parse slot time (format: "07:00-08:00" -> start time "07:00")
+      const slotStartTime = slot.time.split('-')[0];
+      const [hours, minutes] = slotStartTime.split(':').map(Number);
+
+      // Create slot datetime for today
+      const slotDateTime = selectedDateObj.hour(hours).minute(minutes).second(0);
+
+      // Add 1 hour buffer - can't book slot that starts within 1 hour
+      const bufferTime = 60; // minutes (1 hour as requested)
+      const cutoffTime = now.add(bufferTime, 'minute');
+
+      // If slot starts before cutoff time, mark as unavailable
+      if (slotDateTime.isBefore(cutoffTime)) {
+        return { ...slot, isAvailable: false };
+      }
+
+      return slot;
+    });
+  }, []);
+
   // Fetch time slots for selected date
   const fetchTimeSlots = async () => {
     if (!selectedDate) return;
@@ -888,7 +929,7 @@ const Booking: React.FC = () => {
       });
       
       // 🔒 CHỈ HIỂN THỊ TIME SLOT CÓ ÍT NHẤT 1 BÁC SĨ THỰC SỰ FREE (không có appointment)
-      const mappedTimeSlots: TimeSlot[] = Array.from(timeSlotAvailabilityMap.entries())
+      const rawTimeSlots: TimeSlot[] = Array.from(timeSlotAvailabilityMap.entries())
         .filter(([, availability]) => availability.hasReallyFreeSlot) // 🔒 KEY FILTER: chỉ slot có bác sĩ thực sự free
         .map(([slotTime, availability]) => ({
           id: slotTime,
@@ -896,9 +937,12 @@ const Booking: React.FC = () => {
           isAvailable: availability.hasReallyFreeSlot
         }))
         .sort((a, b) => a.time.localeCompare(b.time));
-      
-      console.log('✅ [Debug] Available time slots (with at least 1 REALLY free doctor):', mappedTimeSlots);
-      setTimeSlots(mappedTimeSlots);
+
+      // Apply real-time filtering for today's slots
+      const filteredTimeSlots = filterSlotsByCurrentTime(rawTimeSlots, selectedDate);
+
+      console.log('✅ [Debug] Available time slots (with at least 1 REALLY free doctor):', filteredTimeSlots);
+      setTimeSlots(filteredTimeSlots);
       
     } catch (error) {
       console.error('❌ [Debug] Error fetching time slots:', error);

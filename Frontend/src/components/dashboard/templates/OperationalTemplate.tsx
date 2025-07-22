@@ -174,7 +174,23 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
           // Lấy lịch hẹn của bác sĩ hiện tại
           const res = await appointmentApi.getMyAppointments();
           data = res.data;
-          setAppointments(data.appointments || []);
+
+          // Transform API data to match AppointmentItem interface
+          const transformedAppointments = (data.appointments || []).map((apt: any) => ({
+            id: apt._id,
+            patientName: apt.profileId?.fullName || 'Không xác định',
+            doctorName: apt.doctorId?.userId?.fullName || 'Chưa chỉ định',
+            time: `${dayjs(apt.appointmentDate).format('YYYY-MM-DD')} ${apt.appointmentTime}`,
+            status: apt.status,
+            service: apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
+            notes: apt.notes || apt.description,
+            priority: 'medium' as const,
+            // Keep original data for compatibility
+            appointmentDate: apt.appointmentDate,
+            appointmentTime: apt.appointmentTime,
+          }));
+
+          setAppointments(transformedAppointments);
         } else {
           // Staff vẫn dùng dashboard
           const dashboardData = await fetchOperationalDashboard();
@@ -208,8 +224,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   const cancelledCount = appointments.filter(a => a.status === 'cancelled').length;
   const upcomingCount = appointments.filter(a => a.status === 'confirmed').length;
   const todayCount = appointments.filter(a => {
-    const dateStr = a.time.split(' ')[0];
-    return dayjs(dateStr).isSame(dayjs(), 'day');
+    // Handle both dashboard format (time) and API format (appointmentDate)
+    const dateStr = (a as any).appointmentDate || (a as any).time?.split(' ')[0];
+    return dateStr && dayjs(dateStr).isSame(dayjs(), 'day');
   }).length;
   const pieData = [
     { type: 'Hoàn thành', value: completedCount },
@@ -240,8 +257,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   const barData = weekDays.map((d, i) => {
     const date = dayjs().startOf('week').add(i, 'day');
     const count = appointments.filter(a => {
-      const dateStr = a.time.split(' ')[0];
-      return dayjs(dateStr).isSame(date, 'day');
+      // Handle both dashboard format (time) and API format (appointmentDate)
+      const dateStr = (a as any).appointmentDate || (a as any).time?.split(' ')[0];
+      return dateStr && dayjs(dateStr).isSame(date, 'day');
     }).length;
     return { day: d, value: count };
   });
@@ -257,8 +275,12 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   // };
   // Lịch hẹn gần nhất
   const sortedAppointments = [...appointments].sort((a, b) => {
-    const dateA = dayjs(a.time.split(' ')[0]);
-    const dateB = dayjs(b.time.split(' ')[0]);
+    // Handle both dashboard format (time) and API format (appointmentDate)
+    const dateStrA = (a as any).appointmentDate || (a as any).time?.split(' ')[0];
+    const dateStrB = (b as any).appointmentDate || (b as any).time?.split(' ')[0];
+    if (!dateStrA || !dateStrB) return 0;
+    const dateA = dayjs(dateStrA);
+    const dateB = dayjs(dateStrB);
     return dateB.valueOf() - dateA.valueOf();
   });
   // Xóa biến không dùng

@@ -2,6 +2,12 @@ import { Button, Calendar, Form, Input, message, Modal, notification, Select, Al
 import { InfoCircleOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
+
+// Configure dayjs plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -502,6 +508,39 @@ const BookingPageNew: React.FC = () => {
   // Cache for time slots to avoid repeated API calls
   const [timeSlotsCache, setTimeSlotsCache] = useState<Map<string, any>>(new Map());
 
+  // Helper function to filter slots based on current time (real-time filtering)
+  const filterSlotsByCurrentTime = useCallback((slots: TimeSlot[], selectedDate: Dayjs) => {
+    const now = dayjs().tz('Asia/Ho_Chi_Minh');
+    const isToday = selectedDate.isSame(now, 'day');
+
+    if (!isToday) {
+      return slots; // If not today, return all available slots
+    }
+
+    // If today, filter slots that are still bookable
+    return slots.map(slot => {
+      if (!slot.isAvailable) return slot; // Keep unavailable slots as is
+
+      // Parse slot time (format: "07:00-08:00" -> start time "07:00")
+      const slotStartTime = slot.time.split('-')[0];
+      const [hours, minutes] = slotStartTime.split(':').map(Number);
+
+      // Create slot datetime for today
+      const slotDateTime = selectedDate.hour(hours).minute(minutes).second(0);
+
+      // Add 1 hour buffer - can't book slot that starts within 1 hour
+      const bufferTime = 60; // minutes (1 hour as requested)
+      const cutoffTime = now.add(bufferTime, 'minute');
+
+      // If slot starts before cutoff time, mark as unavailable
+      if (slotDateTime.isBefore(cutoffTime)) {
+        return { ...slot, isAvailable: false };
+      }
+
+      return slot;
+    });
+  }, []);
+
   // Fetch time slots based on selected date with caching
   const fetchTimeSlots = useCallback(async (date: Dayjs) => {
     if (!date) return;
@@ -536,8 +575,8 @@ const BookingPageNew: React.FC = () => {
       });
       
       // Create time slots with availability count
-      const slotsArray: TimeSlot[] = Object.entries(slotAvailability)
-        .filter(([time, count]) => count > 0) // Only show slots with available doctors
+      const rawSlotsArray: TimeSlot[] = Object.entries(slotAvailability)
+        .filter(([, count]) => count > 0) // Only show slots with available doctors
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([time, count]) => ({
         id: time,
@@ -545,12 +584,15 @@ const BookingPageNew: React.FC = () => {
           isAvailable: count > 0,
           availableDoctors: count
       }));
-      
-      setTimeSlots(slotsArray);
+
+      // Apply real-time filtering for today's slots
+      const filteredSlotsArray = filterSlotsByCurrentTime(rawSlotsArray, date);
+
+      setTimeSlots(filteredSlotsArray);
 
       // Cache the result for 5 minutes - increased for better performance
       const newCache = new Map(timeSlotsCache);
-      newCache.set(dateStr, slotsArray);
+      newCache.set(dateStr, filteredSlotsArray);
       setTimeSlotsCache(newCache);
 
       // Clear old cache entries after 5 minutes

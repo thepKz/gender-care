@@ -134,13 +134,20 @@ const TestResultsEntry: React.FC = () => {
     try {
       setLoading(true);
       const targetDate = selectedDate ? dayjs(selectedDate).format('YYYY-MM-DD') : undefined;
-      // Lấy tất cả các appointment trong ngày
-      const response = await appointmentApi.getAllAppointments({
-        page: 1,
-        limit: 200,
-        startDate: targetDate,
-        endDate: targetDate
-      });
+      // Use appropriate API based on user role
+      const response = user?.role === 'doctor'
+        ? await appointmentApi.getMyAppointments({
+            page: 1,
+            limit: 200,
+            startDate: targetDate,
+            endDate: targetDate
+          })
+        : await appointmentApi.getAllAppointments({
+            page: 1,
+            limit: 200,
+            startDate: targetDate,
+            endDate: targetDate
+          });
       const appointmentsRaw = response.data.appointments;
       const filtered: Appointment[] = [];
       for (const appointment of appointmentsRaw) {

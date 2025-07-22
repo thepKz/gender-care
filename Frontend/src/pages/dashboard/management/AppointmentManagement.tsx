@@ -388,9 +388,8 @@ const AppointmentManagement: React.FC = () => {
             rules={[{ required: true, message: 'Vui lòng chọn bác sĩ!' }]}
           >
             <Select placeholder="Chọn bác sĩ">
-              <Option value="Dr. Nguyễn Thị Hương">Dr. Nguyễn Thị Hương</Option>
-              <Option value="Dr. Trần Minh Đức">Dr. Trần Minh Đức</Option>
-              <Option value="Dr. Lê Thị Mai">Dr. Lê Thị Mai</Option>
+              {/* TODO: Replace with dynamic doctor list from API */}
+              <Option value="">Chưa có dữ liệu bác sĩ</Option>
             </Select>
           </Form.Item>
 
