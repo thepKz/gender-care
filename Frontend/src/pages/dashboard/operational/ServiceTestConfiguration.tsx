@@ -9,25 +9,19 @@ import {
   Modal,
   Form,
   Typography,
-  message,
   Tag,
   Popconfirm,
   Row,
   Col,
-  Tabs,
   Alert,
-  Descriptions,
   App,
   Checkbox,
   InputNumber
 } from 'antd';
-import { useSelector } from 'react-redux';
-import type { RootState } from '../../../redux/store';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  EyeOutlined,
   ExperimentOutlined,
   SettingOutlined,
   SearchOutlined,
@@ -44,8 +38,6 @@ import { servicesApi } from '../../../api/endpoints';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
-const { Option } = Select;
-const { TextArea } = Input;
 
 interface Service {
   _id: string;
@@ -75,7 +67,6 @@ const ServiceTestConfigurationInner: React.FC = () => {
   const [bulkForm] = Form.useForm();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<ServiceTestCategory | null>(null);
-  const [newTestCategoryName, setNewTestCategoryName] = useState('');
   const [form] = Form.useForm();
   const selectRef = useRef<any>(null); // ref cho Select
   const [customTestCategoryName, setCustomTestCategoryName] = useState<string>('');
@@ -556,249 +547,270 @@ const ServiceTestConfigurationInner: React.FC = () => {
         </Text>
       </div>
 
+      {/* Button group tab UI đẹp thay cho Tabs --- */}
       <Card>
-        <Tabs 
-          activeKey={activeTab} 
-          onChange={setActiveTab}
-          items={[
-            {
-              key: 'services',
-              label: (
-                <span>
-                  <ExperimentOutlined />
+        <div style={{ marginBottom: '16px' }}>
+          <Row gutter={16} align="middle" justify="center">
+            <Col flex="auto">
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Button
+                  type={activeTab === 'services' ? 'primary' : 'default'}
+                  icon={<ExperimentOutlined />}
+                  onClick={() => setActiveTab('services')}
+                  style={{
+                    borderRadius: '6px',
+                    height: '40px',
+                    minWidth: '180px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: 18
+                  }}
+                >
                   Danh sách dịch vụ
-                </span>
-              ),
-              children: (
-                <>
-                  <div className="mb-4">
-                    <Row gutter={16}>
-                      <Col xs={24} sm={12} md={8}>
-                        <Search
-                          placeholder="Tìm kiếm dịch vụ..."
-                          value={searchText}
-                          onChange={(e) => setSearchText(e.target.value)}
-                          allowClear
-                        />
-                      </Col>
-                    </Row>
-                  </div>
-
-                  <Table
-                    columns={serviceColumns}
-                    dataSource={filteredServices}
-                    rowKey="_id"
-                    loading={loading}
-                    pagination={{
-                      pageSize: 10,
-                      showSizeChanger: true,
-                      showQuickJumper: true,
-                      showTotal: (total, range) =>
-                        `${range[0]}-${range[1]} của ${total} dịch vụ`,
-                    }}
-                  />
-                </>
-              ),
-            },
-            {
-              key: 'configurations',
-              label: (
-                <span>
-                  <SettingOutlined />
+                </Button>
+                <Button
+                  type={activeTab === 'configurations' ? 'primary' : 'default'}
+                  icon={<SettingOutlined />}
+                  onClick={() => setActiveTab('configurations')}
+                  disabled={!selectedService}
+                  style={{
+                    borderRadius: '6px',
+                    height: '40px',
+                    minWidth: '180px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: 18
+                  }}
+                >
                   Cấu hình xét nghiệm
-                </span>
-              ),
-              disabled: !selectedService,
-              children: selectedService && (
-                <>
-                  <Alert
-                    message={`Thiết lập chỉ số tiêu chuẩn cho dịch vụ: ${selectedService.serviceName}`}
-                    description="Các chỉ số bạn thiết lập ở đây sẽ được sử dụng để đánh giá kết quả xét nghiệm khi bác sĩ nhập kết quả cho khách hàng."
-                    type="info"
-                    className="mb-4"
-                    action={
-                      <Button
-                        size="small"
-                        onClick={() => setActiveTab('services')}
-                      >
-                        Chọn dịch vụ khác
-                      </Button>
-                    }
+                </Button>
+              </div>
+            </Col>
+          </Row>
+        </div>
+        {/* Render children tương ứng với activeTab */}
+        {activeTab === 'services' && (
+          <>
+            <div className="mb-4">
+              <Row gutter={16}>
+                <Col xs={24} sm={12} md={8}>
+                  <Search
+                    placeholder="Tìm kiếm dịch vụ..."
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    allowClear
                   />
-
-                  <div className="mb-4">
-                    <Space>
-                      {!bulkEditMode ? (
-                        <>
-                          <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            onClick={handleAddTestCategory}
-                          >
-                            Thêm chỉ số xét nghiệm
-                          </Button>
-                          <Button
-                            icon={<SettingOutlined />}
-                            onClick={handleBulkEdit}
-                          >
-                            Cập nhật nhiều chỉ số
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            type="primary"
-                            onClick={handleBulkSave}
-                            loading={loading}
-                          >
-                            Lưu tất cả chỉ số
-                          </Button>
-                          <Button
-                            onClick={() => setBulkEditMode(false)}
-                          >
-                            Hủy
-                          </Button>
-                        </>
-                      )}
-                    </Space>
-                  </div>
-
-                  {!bulkEditMode ? (
-                    <Table
-                      columns={testCategoryColumns}
-                      dataSource={serviceTestCategories}
-                      rowKey="_id"
+                </Col>
+              </Row>
+            </div>
+            <Table
+              columns={serviceColumns}
+              dataSource={filteredServices}
+              rowKey="_id"
+              loading={loading}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total, range) =>
+                  `${range[0]}-${range[1]} của ${total} dịch vụ`,
+              }}
+            />
+          </>
+        )}
+        {activeTab === 'configurations' && selectedService && (
+          <>
+            <Alert
+              message={`Thiết lập chỉ số tiêu chuẩn cho dịch vụ: ${selectedService.serviceName}`}
+              description="Các chỉ số bạn thiết lập ở đây sẽ được sử dụng để đánh giá kết quả xét nghiệm khi bác sĩ nhập kết quả cho khách hàng."
+              type="info"
+              className="mb-4"
+              action={
+                <Button
+                  size="small"
+                  onClick={() => setActiveTab('services')}
+                >
+                  Chọn dịch vụ khác
+                </Button>
+              }
+            />
+            <div className="mb-4">
+              <Space>
+                {!bulkEditMode ? (
+                  <>
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={handleAddTestCategory}
+                    >
+                      Thêm chỉ số xét nghiệm
+                    </Button>
+                    <Button
+                      icon={<SettingOutlined />}
+                      onClick={handleBulkEdit}
+                    >
+                      Cập nhật nhiều chỉ số
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      type="primary"
+                      onClick={handleBulkSave}
                       loading={loading}
-                      pagination={{
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showQuickJumper: true,
-                        showTotal: (total, range) =>
-                          `${range[0]}-${range[1]} của ${total} xét nghiệm`,
-                      }}
+                    >
+                      Lưu tất cả chỉ số
+                    </Button>
+                    <Button
+                      onClick={() => setBulkEditMode(false)}
+                    >
+                      Hủy
+                    </Button>
+                  </>
+                )}
+              </Space>
+            </div>
+            {!bulkEditMode ? (
+              <Table
+                columns={testCategoryColumns}
+                dataSource={serviceTestCategories}
+                rowKey="_id"
+                loading={loading}
+                pagination={{
+                  pageSize: 10,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total, range) =>
+                    `${range[0]}-${range[1]} của ${total} xét nghiệm`,
+                }}
+              />
+            ) : (
+              <Form form={bulkForm} layout="vertical" preserve={false}>
+                <Alert
+                  message="Cấu hình nhiều chỉ số cùng lúc"
+                  description="Điền thông tin cho các chỉ số bạn muốn cấu hình. Các chỉ số để trống sẽ không được tạo/cập nhật."
+                  type="info"
+                  className="mb-4"
+                />
+                
+                {testCategories.length === 0 ? (
+                  <div>
+                    <Alert
+                      message="Tạo chỉ số xét nghiệm cho dịch vụ"
+                      description="Hiện chưa có danh sách chỉ số xét nghiệm. Bạn có thể tạo trực tiếp các chỉ số cần thiết cho dịch vụ này."
+                      type="info"
+                      showIcon
+                      className="mb-4"
                     />
-                  ) : (
-                    <Form form={bulkForm} layout="vertical" preserve={false}>
-                      <Alert
-                        message="Cấu hình nhiều chỉ số cùng lúc"
-                        description="Điền thông tin cho các chỉ số bạn muốn cấu hình. Các chỉ số để trống sẽ không được tạo/cập nhật."
-                        type="info"
-                        className="mb-4"
-                      />
-                      
-                      {testCategories.length === 0 ? (
-                        <div>
-                          <Alert
-                            message="Tạo chỉ số xét nghiệm cho dịch vụ"
-                            description="Hiện chưa có danh sách chỉ số xét nghiệm. Bạn có thể tạo trực tiếp các chỉ số cần thiết cho dịch vụ này."
-                            type="info"
-                            showIcon
-                            className="mb-4"
-                          />
-                          
-                          <Card title="Tạo chỉ số xét nghiệm mới" size="small">
-                            <Form
-                              layout="inline"
-                              onFinish={async (values) => {
-                                try {
-                                  // Gọi API tạo test category mới
-                                  await testCategoriesApi.create(values);
-                                  message.success('Đã tạo chỉ số xét nghiệm mới');
-                                  loadInitialData(); // Reload data
-                                } catch (error) {
-                                  message.error('Lỗi khi tạo chỉ số xét nghiệm');
-                                }
-                              }}
+                    
+                    <Card title="Tạo chỉ số xét nghiệm mới" size="small">
+                      <Form
+                        layout="inline"
+                        onFinish={async (values) => {
+                          try {
+                            // Gọi API tạo test category mới
+                            await testCategoriesApi.create(values);
+                            message.success('Đã tạo chỉ số xét nghiệm mới');
+                            loadInitialData(); // Reload data
+                          } catch (error) {
+                            message.error('Lỗi khi tạo chỉ số xét nghiệm');
+                          }
+                        }}
+                      >
+                        <Form.Item name="name" rules={[{ required: true, message: 'Vui lòng nhập tên chỉ số' }]}>
+                          <Input placeholder="Tên chỉ số (VD: Cholesterol)" />
+                        </Form.Item>
+                        <Form.Item name="unit">
+                          <Input placeholder="Đơn vị (VD: mg/dL)" />
+                        </Form.Item>
+                        <Form.Item name="normalRange">
+                          <Input placeholder="Khoảng chuẩn (VD: <200)" />
+                        </Form.Item>
+                        <Form.Item>
+                          <Button type="primary" htmlType="submit">
+                            Thêm chỉ số
+                          </Button>
+                        </Form.Item>
+                      </Form>
+                    </Card>
+                  </div>
+                ) : (
+                  <Row gutter={[16, 24]}>
+                    {testCategories.map(tc => (
+                    <Col xs={24} lg={12} key={tc._id}>
+                      <Card
+                        size="small"
+                        title={
+                          <Space>
+                            <ExperimentOutlined />
+                            <strong>{tc.name}</strong>
+                          </Space>
+                        }
+                        extra={
+                          <Form.Item
+                            name={`${tc._id}_isRequired`}
+                            valuePropName="checked"
+                            style={{ margin: 0 }}
+                          >
+                            <Checkbox>Bắt buộc</Checkbox>
+                          </Form.Item>
+                        }
+                      >
+                        <Row gutter={12}>
+                          <Col span={12}>
+                            <Form.Item
+                              name={`${tc._id}_targetValue`}
+                              label="Giá trị bình thường"
+                              style={{ marginBottom: 12 }}
                             >
-                              <Form.Item name="name" rules={[{ required: true, message: 'Vui lòng nhập tên chỉ số' }]}>
-                                <Input placeholder="Tên chỉ số (VD: Cholesterol)" />
-                              </Form.Item>
-                              <Form.Item name="unit">
-                                <Input placeholder="Đơn vị (VD: mg/dL)" />
-                              </Form.Item>
-                              <Form.Item name="normalRange">
-                                <Input placeholder="Khoảng chuẩn (VD: <200)" />
-                              </Form.Item>
-                              <Form.Item>
-                                <Button type="primary" htmlType="submit">
-                                  Thêm chỉ số
-                                </Button>
-                              </Form.Item>
-                            </Form>
-                          </Card>
-                        </div>
-                      ) : (
-                        <Row gutter={[16, 24]}>
-                          {testCategories.map(tc => (
-                          <Col xs={24} lg={12} key={tc._id}>
-                            <Card
-                              size="small"
-                              title={
-                                <Space>
-                                  <ExperimentOutlined />
-                                  <strong>{tc.name}</strong>
-                                </Space>
-                              }
-                              extra={
-                                <Form.Item
-                                  name={`${tc._id}_isRequired`}
-                                  valuePropName="checked"
-                                  style={{ margin: 0 }}
-                                >
-                                  <Checkbox>Bắt buộc</Checkbox>
-                                </Form.Item>
-                              }
-                            >
-                              <Row gutter={12}>
-                                <Col span={12}>
-                                  <Form.Item
-                                    name={`${tc._id}_targetValue`}
-                                    label="Giá trị bình thường"
-                                    style={{ marginBottom: 12 }}
-                                  >
-                                    <Input 
-                                      placeholder="Ví dụ: 4.5, <5.0"
-                                      size="small"
-                                    />
-                                  </Form.Item>
-                                </Col>
-                              </Row>
-                              
-                              <Form.Item
-                                name={`${tc._id}_minValue`}
-                                label="Giá trị thấp nhất"
-                                style={{ marginBottom: 12 }}
-                              >
-                                <InputNumber 
-                                  placeholder="VD: 3.5" 
-                                  style={{ width: '100%' }}
-                                  step={0.1}
-                                />
-                              </Form.Item>
-                              
-                              <Form.Item
-                                name={`${tc._id}_maxValue`}
-                                label="Giá trị cao nhất"
-                                style={{ marginBottom: 12 }}
-                              >
-                                <InputNumber 
-                                  placeholder="VD: 5.0" 
-                                  style={{ width: '100%' }}
-                                  step={0.1}
-                                />
-                              </Form.Item>
-                            </Card>
+                              <Input 
+                                placeholder="Ví dụ: 4.5, <5.0"
+                                size="small"
+                              />
+                            </Form.Item>
                           </Col>
-                        ))}
                         </Row>
-                      )}
-                    </Form>
-                  )}
-                </>
-              ),
-            },
-          ]}
-        />
+                        
+                        <Form.Item
+                          name={`${tc._id}_minValue`}
+                          label="Giá trị thấp nhất"
+                          style={{ marginBottom: 12 }}
+                        >
+                          <InputNumber 
+                            placeholder="VD: 3.5" 
+                            style={{ width: '100%' }}
+                            step={0.1}
+                          />
+                        </Form.Item>
+                        
+                        <Form.Item
+                          name={`${tc._id}_maxValue`}
+                          label="Giá trị cao nhất"
+                          style={{ marginBottom: 12 }}
+                        >
+                          <InputNumber 
+                            placeholder="VD: 5.0" 
+                            style={{ width: '100%' }}
+                            step={0.1}
+                          />
+                        </Form.Item>
+                      </Card>
+                    </Col>
+                  ))}
+                  </Row>
+                )}
+              </Form>
+            )}
+          </>
+        )}
       </Card>
 
       {/* Modal để tạo/chỉnh sửa chỉ số */}

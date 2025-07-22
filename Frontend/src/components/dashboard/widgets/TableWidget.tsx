@@ -12,6 +12,9 @@ interface TableWidgetProps {
   loading?: boolean;
   showViewAll?: boolean;
   pagination?: boolean | object;
+  showAvatar?: boolean;
+  showPhone?: boolean;
+  compact?: boolean;
 }
 
 const TableWidget: React.FC<TableWidgetProps> = ({ 
@@ -19,7 +22,10 @@ const TableWidget: React.FC<TableWidgetProps> = ({
   title = "Lịch hẹn hôm nay",
   loading = false,
   showViewAll = true,
-  pagination = false
+  pagination = false,
+  showAvatar = false,
+  showPhone = false,
+  compact = false
 }) => {
   const getStatusColor = (status: AppointmentItem['status']) => {
     switch (status) {
@@ -55,19 +61,6 @@ const TableWidget: React.FC<TableWidgetProps> = ({
     }
   };
 
-  const getPriorityColor = (priority?: AppointmentItem['priority']) => {
-    switch (priority) {
-      case 'high':
-        return 'red';
-      case 'medium':
-        return 'orange';
-      case 'low':
-        return 'blue';
-      default:
-        return 'default';
-    }
-  };
-
   const columns: ColumnsType<AppointmentItem> = [
     {
       title: 'Thời gian',
@@ -75,28 +68,9 @@ const TableWidget: React.FC<TableWidgetProps> = ({
       key: 'time',
       width: 100,
       render: (time: string) => (
-        <Text strong style={{ color: '#3b82f6', fontSize: '14px' }}>
+        <Text strong style={{ color: '#3b82f6', fontSize: compact ? '13px' : '14px' }}>
           {time}
         </Text>
-      )
-    },
-    {
-      title: 'Bệnh nhân',
-      dataIndex: 'patientName',
-      key: 'patientName',
-      render: (name: string, record: AppointmentItem) => (
-        <div>
-          <Text strong style={{ fontSize: '14px', color: '#1f2937' }}>
-            {name}
-          </Text>
-          {record.notes && (
-            <div>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                {record.notes}
-              </Text>
-            </div>
-          )}
-        </div>
       )
     },
     {
@@ -105,23 +79,28 @@ const TableWidget: React.FC<TableWidgetProps> = ({
       key: 'service',
       ellipsis: true,
       render: (service: string) => (
-        <Text style={{ fontSize: '13px' }}>{service}</Text>
+        <Text style={{ fontSize: compact ? '12px' : '13px' }}>{service}</Text>
       )
     },
     {
-      title: 'Bác sĩ',
-      dataIndex: 'doctorName',
-      key: 'doctorName',
-      render: (doctorName?: string) => (
-        doctorName ? (
-          <Text style={{ fontSize: '13px', color: '#6b7280' }}>
-            {doctorName}
-          </Text>
-        ) : (
-          <Text type="secondary" style={{ fontSize: '12px' }}>
-            Chưa phân công
-          </Text>
-        )
+      title: 'Bệnh nhân',
+      dataIndex: 'patientName',
+      key: 'patientName',
+      render: (name: string, record: AppointmentItem) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {showAvatar && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: compact ? 28 : 32, height: compact ? 28 : 32, background: '#f0f2f5', borderRadius: '50%' }}>
+              <svg width={compact ? 18 : 20} height={compact ? 18 : 20} fill="#bdbdbd" viewBox="0 0 24 24"><path d="M12 12c2.7 0 5-2.3 5-5s-2.3-5-5-5-5 2.3-5 5 2.3 5 5 5zm0 2c-3.3 0-10 1.7-10 5v3h20v-3c0-3.3-6.7-5-10-5z"/></svg>
+            </span>
+          )}
+          <div>
+            <Text strong style={{ fontSize: compact ? '13px' : '14px', color: '#1f2937' }}>{name}</Text>
+            {/* Nếu AppointmentItem không có phone, fallback sang notes hoặc để trống */}
+            {showPhone && (typeof (record as { phone?: string }).phone === 'string' ? (record as { phone?: string }).phone : record.notes) && (
+              <div style={{ fontSize: compact ? '11px' : '12px', color: '#666' }}>{typeof (record as { phone?: string }).phone === 'string' ? (record as { phone?: string }).phone : record.notes || ''}</div>
+            )}
+          </div>
+        </div>
       )
     },
     {
@@ -129,20 +108,10 @@ const TableWidget: React.FC<TableWidgetProps> = ({
       dataIndex: 'status',
       key: 'status',
       width: 120,
-      render: (status: AppointmentItem['status'], record: AppointmentItem) => (
-        <Space direction="vertical" size={4}>
-          <Tag color={getStatusColor(status)} style={{ margin: 0 }}>
-            {getStatusText(status)}
-          </Tag>
-          {record.priority && (
-            <Tag 
-              color={getPriorityColor(record.priority)} 
-              style={{ margin: 0, fontSize: '10px' }}
-            >
-              {record.priority.toUpperCase()}
-            </Tag>
-          )}
-        </Space>
+      render: (status: AppointmentItem['status']) => (
+        <Tag color={getStatusColor(status)} style={{ margin: 0, fontSize: compact ? '11px' : '12px', padding: compact ? '2px 8px' : undefined }}>
+          {getStatusText(status)}
+        </Tag>
       )
     }
   ];
@@ -154,7 +123,8 @@ const TableWidget: React.FC<TableWidgetProps> = ({
         borderRadius: '12px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
         border: '1px solid #e5e7eb',
-        height: '100%'
+        height: '100%',
+        padding: compact ? 8 : 16
       }}
       extra={
         showViewAll && (
@@ -178,7 +148,8 @@ const TableWidget: React.FC<TableWidgetProps> = ({
           ...(typeof pagination === 'object' ? pagination : {})
         }}
         scroll={{ x: 800 }}
-        size="small"
+        size={compact ? 'small' : 'middle'}
+        style={{ fontSize: compact ? 13 : 14 }}
       />
     </Card>
   );

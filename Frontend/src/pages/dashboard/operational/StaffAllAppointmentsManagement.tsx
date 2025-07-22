@@ -14,8 +14,7 @@ import {
   Descriptions,
   Popconfirm,
   Row,
-  Col,
-  Tabs
+  Col
 } from 'antd';
 import {
   SearchOutlined,
@@ -24,9 +23,7 @@ import {
   UserOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
-  ExperimentOutlined,
-  FileTextOutlined,
-  PlayCircleOutlined
+  FileTextOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -38,9 +35,6 @@ import MedicalRecordModal from '../../../components/ui/forms/MedicalRecordModal'
 import ViewMedicalRecordModal from '../../../components/ui/forms/ViewMedicalRecordModal';
 import SimpleDatePicker from '../../../components/ui/SimpleDatePicker';
 import medicalApi from '../../../api/endpoints/medical';
-import { doctorApi } from '../../../api/endpoints/doctorApi';
-import { getServicePackageById } from '../../../api/endpoints/servicePackageApi';
-import { getServiceById } from '../../../api/endpoints/serviceApi';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -217,7 +211,7 @@ const StaffAllAppointmentsManagement: React.FC = () => {
         break;
       case 'upcoming':
         filtered = filtered.filter(apt =>
-          dayjs(apt.appointmentDate).isSameOrAfter(dayjs(), 'day') &&
+          dayjs(apt.appointmentDate).isAfter(dayjs(), 'day') &&
           !['cancelled', 'expired', 'doctor_cancel'].includes(apt.status)
         );
         break;
@@ -392,7 +386,7 @@ const StaffAllAppointmentsManagement: React.FC = () => {
       title: 'Thao tác',
       key: 'actions',
       render: (_, record) => (
-        <Space>
+        activeTab !== 'today' ? (
           <Tooltip title="Xem chi tiết">
             <Button
               type="text"
@@ -400,68 +394,68 @@ const StaffAllAppointmentsManagement: React.FC = () => {
               onClick={() => showAppointmentDetails(record)}
             />
           </Tooltip>
-
-          {record.status === 'confirmed' && (
-            <Popconfirm
-              title="Xác nhận bắt đầu khám?"
-              onConfirm={async () => {
-                try {
-                  await appointmentApi.updateAppointmentStatus(record._id, 'consulting');
-                  message.success('Đã chuyển trạng thái sang Đang khám');
-                  loadStaffAppointments();
-                } catch (error) {
-                  message.error('Lỗi khi cập nhật trạng thái cuộc hẹn');
-                }
-              }}
-              okText="Có"
-              cancelText="Không"
-            >
-              <Tooltip title="Bắt đầu khám">
-                <Button
-                  type="text"
-                  icon={<CheckCircleOutlined style={{ color: '#52c41a', fontSize: 20 }} />}
-                  style={{ backgroundColor: '#e6ffed', border: 'none', borderRadius: '50%' }}
-                />
-              </Tooltip>
-            </Popconfirm>
-          )}
-
-          {/* Nút chuyển trạng thái từ consulting về confirmed */}
-          {record.status === 'consulting' && (
-            <Popconfirm
-              title="Chuyển về trạng thái Đã xác nhận?"
-              onConfirm={async () => {
-                try {
-                  await appointmentApi.updateAppointmentStatus(record._id, 'confirmed');
-                  message.success('Đã chuyển trạng thái về Đã xác nhận');
-                  loadStaffAppointments();
-                } catch (error) {
-                  message.error('Lỗi khi cập nhật trạng thái cuộc hẹn');
-                }
-              }}
-              okText="Có"
-              cancelText="Không"
-            >
-              <Tooltip title="Chuyển về Đã xác nhận">
-                <Button
-                  type="text"
-                  icon={<CheckCircleOutlined style={{ color: '#1890ff', fontSize: 20 }} />}
-                  style={{ backgroundColor: '#e6f7ff', border: 'none', borderRadius: '50%' }}
-                />
-              </Tooltip>
-            </Popconfirm>
-          )}
-
-          {(record.status === 'completed' && record.serviceId.serviceType === 'test' && false) && (
-            <Tooltip title="Nhập kết quả xét nghiệm">
+        ) : (
+          <Space>
+            <Tooltip title="Xem chi tiết">
               <Button
                 type="text"
-                icon={<ExperimentOutlined />}
-                onClick={() => handleStartExamination(record)}
+                icon={<EyeOutlined />}
+                onClick={() => showAppointmentDetails(record)}
               />
             </Tooltip>
-          )}
-        </Space>
+
+            {record.status === 'confirmed' && (
+              <Popconfirm
+                title="Xác nhận bắt đầu khám?"
+                onConfirm={async () => {
+                  try {
+                    await appointmentApi.updateAppointmentStatus(record._id, 'consulting');
+                    message.success('Đã chuyển trạng thái sang Đang khám');
+                    loadStaffAppointments();
+                  } catch (error) {
+                    message.error('Lỗi khi cập nhật trạng thái cuộc hẹn');
+                  }
+                }}
+                okText="Có"
+                cancelText="Không"
+              >
+                <Tooltip title="Bắt đầu khám">
+                  <Button
+                    type="text"
+                    icon={<CheckCircleOutlined style={{ color: '#52c41a', fontSize: 20 }} />}
+                    style={{ backgroundColor: '#e6ffed', border: 'none', borderRadius: '50%' }}
+                  />
+                </Tooltip>
+              </Popconfirm>
+            )}
+
+            {/* Nút chuyển trạng thái từ consulting về confirmed */}
+            {record.status === 'consulting' && (
+              <Popconfirm
+                title="Chuyển về trạng thái Đã xác nhận?"
+                onConfirm={async () => {
+                  try {
+                    await appointmentApi.updateAppointmentStatus(record._id, 'confirmed');
+                    message.success('Đã chuyển trạng thái về Đã xác nhận');
+                    loadStaffAppointments();
+                  } catch (error) {
+                    message.error('Lỗi khi cập nhật trạng thái cuộc hẹn');
+                  }
+                }}
+                okText="Có"
+                cancelText="Không"
+              >
+                <Tooltip title="Chuyển về Đã xác nhận">
+                  <Button
+                    type="text"
+                    icon={<CheckCircleOutlined style={{ color: '#1890ff', fontSize: 20 }} />}
+                    style={{ backgroundColor: '#e6f7ff', border: 'none', borderRadius: '50%' }}
+                  />
+                </Tooltip>
+              </Popconfirm>
+            )}
+          </Space>
+        )
       ),
     },
   ];
@@ -480,6 +474,20 @@ const StaffAllAppointmentsManagement: React.FC = () => {
     );
   }
 
+  // Thay thế phần Tabs filter ở trên cùng bằng Button group giống doctor
+
+  // --- TÍNH SỐ LƯỢNG TỪNG LOẠI ---
+  const todayAppointments = appointments.filter(apt =>
+    dayjs(apt.appointmentDate).format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD')
+  );
+  const upcomingAppointments = appointments.filter(apt =>
+    dayjs(apt.appointmentDate).isAfter(dayjs(), 'day') &&
+    !['cancelled', 'expired', 'doctor_cancel'].includes(apt.status)
+  );
+  const completedAppointments = appointments.filter(apt =>
+    ['completed', 'done_testResult', 'done_testResultItem'].includes(apt.status)
+  );
+
   return (
     <div className="doctorAppointmentSchedule p-6">
       <div className="doctorAppointmentSchedule__header mb-6">
@@ -492,49 +500,82 @@ const StaffAllAppointmentsManagement: React.FC = () => {
       </div>
 
       <Card className="mb-6">
-        <Tabs 
-          activeKey={activeTab} 
-          onChange={setActiveTab}
-          items={[
-            {
-              key: "today",
-              label: (
-                <span>
-                  <ClockCircleOutlined />
-                  Hôm nay
-                </span>
-              ),
-            },
-            {
-              key: "upcoming",
-              label: (
-                <span>
-                  <CalendarOutlined />
-                  Sắp tới
-                </span>
-              ),
-            },
-            {
-              key: "completed",
-              label: (
-                <span>
-                  <CheckCircleOutlined />
-                  Đã hoàn thành
-                </span>
-              ),
-            },
-            {
-              key: "selected-date",
-              label: (
-                <span>
-                  <SearchOutlined />
+        {/* Button group giống doctor */}
+        <div style={{ marginBottom: '16px' }}>
+          <Row gutter={16} align="middle" justify="center">
+            <Col flex="auto">
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <Button
+                  type={activeTab === 'today' ? 'primary' : 'default'}
+                  icon={<ClockCircleOutlined />}
+                  onClick={() => setActiveTab('today')}
+                  style={{
+                    borderRadius: '6px',
+                    height: '40px',
+                    minWidth: '120px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  Hôm nay ({todayAppointments.length})
+                </Button>
+                <Button
+                  type={activeTab === 'upcoming' ? 'primary' : 'default'}
+                  icon={<CalendarOutlined />}
+                  onClick={() => setActiveTab('upcoming')}
+                  style={{
+                    borderRadius: '6px',
+                    height: '40px',
+                    minWidth: '120px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  Sắp tới ({upcomingAppointments.length})
+                </Button>
+                <Button
+                  type={activeTab === 'completed' ? 'primary' : 'default'}
+                  icon={<CheckCircleOutlined />}
+                  onClick={() => setActiveTab('completed')}
+                  style={{
+                    borderRadius: '6px',
+                    height: '40px',
+                    minWidth: '120px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  Đã hoàn thành ({completedAppointments.length})
+                </Button>
+                <Button
+                  type={activeTab === 'selected-date' ? 'primary' : 'default'}
+                  icon={<SearchOutlined />}
+                  onClick={() => setActiveTab('selected-date')}
+                  style={{
+                    borderRadius: '6px',
+                    height: '40px',
+                    minWidth: '120px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
                   Theo ngày
-                </span>
-              ),
-            },
-          ]}
-        />
-
+                </Button>
+              </div>
+            </Col>
+          </Row>
+        </div>
+        {/* Giữ nguyên các filter khác */}
         <div className="mt-4">
           <Row gutter={16}>
             <Col xs={24} sm={12} md={8}>
@@ -575,7 +616,7 @@ const StaffAllAppointmentsManagement: React.FC = () => {
               <Col xs={24} sm={12} md={8}>
                 <SimpleDatePicker
                   value={selectedDate}
-                  onChange={setSelectedDate}
+                  onChange={date => setSelectedDate(date ? date.format('YYYY-MM-DD') : '')}
                   placeholder="Chọn ngày"
                 />
               </Col>
@@ -603,82 +644,96 @@ const StaffAllAppointmentsManagement: React.FC = () => {
 
       {/* Detail Modal */}
       <Modal
-        title="Chi tiết cuộc hẹn"
+        title={
+          <Space>
+            <FileTextOutlined style={{ color: '#1890ff' }} />
+            <span>Chi tiết cuộc hẹn</span>
+          </Space>
+        }
         open={isDetailModalVisible}
         onCancel={() => setIsDetailModalVisible(false)}
-        footer={(() => {
-          if (!selectedAppointment) return [<Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>];
-          const isTest = selectedAppointment.serviceId?.serviceType === 'test';
-          // Nếu là xét nghiệm
-          if (isTest) {
-            return [
-              <Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>,
-              // TODO: kiểm tra đã có testResult chưa, nếu chưa thì cho nhập, nếu có thì cho xem
-              false && <Button key="test" type="primary" onClick={() => { setShowTestForm(true); setIsDetailModalVisible(false); }}>
-                Nhập kết quả xét nghiệm
-              </Button>
-            ];
-          }
-          // Nếu là tư vấn/điều trị
-          return [
-            <Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>,
-            hasMedicalRecord === false && (
-              <Button key="create" type="primary" onClick={() => setMedicalRecordModalVisible(true)}>
-                Tạo hồ sơ bệnh án
-              </Button>
-            ),
-            hasMedicalRecord === true && medicalRecordId && (
-              <Button key="view" onClick={() => setViewMedicalRecordModalVisible(true)}>
-                Xem hồ sơ bệnh án
-              </Button>
-            )
-          ].filter(Boolean);
-        })()}
-        width={600}
+        footer={[
+          <Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>
+        ]}
+        width={700}
       >
         {selectedAppointment && (
-          <Descriptions bordered column={1}>
-            <Descriptions.Item label="Bệnh nhân">
-              {selectedAppointment.profileId.fullName}
-            </Descriptions.Item>
-            <Descriptions.Item label="Số điện thoại">
-              {selectedAppointment.profileId.phoneNumber}
-            </Descriptions.Item>
-            <Descriptions.Item label="Dịch vụ">
-              {selectedAppointment.serviceId.serviceName}
-            </Descriptions.Item>
-            <Descriptions.Item label="Loại dịch vụ">
-              {selectedAppointment.serviceId.serviceType}
-            </Descriptions.Item>
-            <Descriptions.Item label="Ngày hẹn">
-              {dayjs(selectedAppointment.appointmentDate).format('DD/MM/YYYY')}
-            </Descriptions.Item>
-            <Descriptions.Item label="Thời gian">
-              {selectedAppointment.appointmentTime}
-            </Descriptions.Item>
-            <Descriptions.Item label="Địa điểm">
-              {selectedAppointment.typeLocation === 'clinic' ? 'Phòng khám' : 
-               selectedAppointment.typeLocation === 'Online' ? 'Trực tuyến' : 'Tại nhà'}
-            </Descriptions.Item>
-            {selectedAppointment.address && (
-              <Descriptions.Item label="Địa chỉ">
-                {selectedAppointment.address}
-              </Descriptions.Item>
-            )}
-            <Descriptions.Item label="Mô tả">
-              {selectedAppointment.description || 'Không có mô tả'}
-            </Descriptions.Item>
-            {selectedAppointment.notes && (
-              <Descriptions.Item label="Ghi chú">
-                {selectedAppointment.notes}
-              </Descriptions.Item>
-            )}
-            <Descriptions.Item label="Trạng thái">
-              <Tag color={getStatusColor(selectedAppointment.status)}>
-                {getStatusText(selectedAppointment.status)}
-              </Tag>
-            </Descriptions.Item>
-          </Descriptions>
+          <div>
+            <Row gutter={16}>
+              {/* Thông tin bệnh nhân */}
+              <Col span={12}>
+                <Card title="Thông tin bệnh nhân" size="small" style={{ marginBottom: '16px' }}>
+                  <Descriptions column={1} size="small">
+                    <Descriptions.Item label="Họ tên">
+                      <Space>
+                        <UserOutlined />
+                        <span style={{ fontWeight: 500 }}>{selectedAppointment.profileId.fullName}</span>
+                      </Space>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Số điện thoại">
+                      <Space>
+                        <span>{selectedAppointment.profileId.phoneNumber}</span>
+                      </Space>
+                    </Descriptions.Item>
+                  </Descriptions>
+                </Card>
+              </Col>
+              {/* Thông tin lịch hẹn */}
+              <Col span={12}>
+                <Card title="Thông tin lịch hẹn" size="small" style={{ marginBottom: '16px' }}>
+                  <Descriptions column={1} size="small">
+                    <Descriptions.Item label="Dịch vụ">
+                      <div style={{ fontWeight: 500 }}>{selectedAppointment.serviceId.serviceName}</div>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Loại dịch vụ">
+                      {selectedAppointment.serviceId.serviceType}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Ngày hẹn">
+                      <Space>
+                        <CalendarOutlined />
+                        <span>{dayjs(selectedAppointment.appointmentDate).format('DD/MM/YYYY')}</span>
+                      </Space>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Thời gian">
+                      <Space>
+                        <ClockCircleOutlined />
+                        <span>{selectedAppointment.appointmentTime}</span>
+                      </Space>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Địa điểm">
+                      <span>
+                        {selectedAppointment.typeLocation === 'clinic' ? 'Phòng khám' : 
+                         selectedAppointment.typeLocation === 'Online' ? 'Trực tuyến' : 'Tại nhà'}
+                      </span>
+                    </Descriptions.Item>
+                  </Descriptions>
+                </Card>
+              </Col>
+            </Row>
+            {/* Thông tin chi tiết */}
+            <Card title="Thông tin chi tiết" size="small">
+              <Descriptions column={1} size="small">
+                {selectedAppointment.address && (
+                  <Descriptions.Item label="Địa chỉ">
+                    {selectedAppointment.address}
+                  </Descriptions.Item>
+                )}
+                <Descriptions.Item label="Mô tả">
+                  {selectedAppointment.description || 'Không có mô tả'}
+                </Descriptions.Item>
+                {selectedAppointment.notes && (
+                  <Descriptions.Item label="Ghi chú">
+                    {selectedAppointment.notes}
+                  </Descriptions.Item>
+                )}
+                <Descriptions.Item label="Trạng thái">
+                  <Tag color={getStatusColor(selectedAppointment.status)}>
+                    {getStatusText(selectedAppointment.status)}
+                  </Tag>
+                </Descriptions.Item>
+              </Descriptions>
+            </Card>
+          </div>
         )}
       </Modal>
 

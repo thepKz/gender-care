@@ -42,7 +42,6 @@ import { appointmentApi } from '../../../api/endpoints';
 import consultationApi from '../../../api/endpoints/consultation';
 import { useAuth } from '../../../hooks/useAuth';
 import { TestResultsForm } from '../../../components/feature/medical/TestResultsForm';
-import MedicalRecordModal from '../../../components/ui/forms/MedicalRecordModal';
 import ViewMedicalRecordModal from '../../../components/ui/forms/ViewMedicalRecordModal';
 import medicalApi from '../../../api/endpoints/medical';
 import { doctorApi } from '../../../api/endpoints/doctorApi';
@@ -150,7 +149,6 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [showTestForm, setShowTestForm] = useState(false);
   const [activeTab, setActiveTab] = useState('today');
-  const [medicalRecordModalVisible, setMedicalRecordModalVisible] = useState(false);
   const [viewMedicalRecordModalVisible, setViewMedicalRecordModalVisible] = useState(false);
   const [hasMedicalRecord, setHasMedicalRecord] = useState<boolean | null>(null);
   const [medicalRecordId, setMedicalRecordId] = useState<string | null>(null);
@@ -358,11 +356,10 @@ const DoctorAppointmentSchedule: React.FC = () => {
     }
   };
 
-  // Sửa filterScheduleItems để tab "Đã hủy" hiển thị cả cancelled và doctor_cancel
+  // --- Sửa filterScheduleItems: nâng cấp sort theo mức độ liên quan khi search ---
   const filterScheduleItems = () => {
     let filtered = scheduleItems;
     const today = dayjs().format('YYYY-MM-DD');
-
     const selectedDateStr = selectedDate;
 
     switch (activeTab) {
@@ -374,7 +371,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
         break;
       case 'upcoming':
         filtered = filtered.filter(item => 
-          dayjs(item.appointmentDate).isSameOrAfter(dayjs(), 'day') && 
+          dayjs(item.appointmentDate).isAfter(dayjs(), 'day') &&
           ['confirmed', 'scheduled'].includes(item.status)
         );
         break;
@@ -389,16 +386,34 @@ const DoctorAppointmentSchedule: React.FC = () => {
           filtered = filtered.filter(item =>
             dayjs(item.appointmentDate).format('YYYY-MM-DD') === selectedDateStr
           );
+          // sort theo giờ tăng dần
+          filtered = filtered.sort((a, b) => {
+            const getStart = (t) => t && t.split('-')[0] ? t.split('-')[0] : '';
+            return getStart(a.appointmentTime).localeCompare(getStart(b.appointmentTime));
+          });
         }
         break;
     }
     if (searchText) {
+      const keyword = searchText.toLowerCase();
       filtered = filtered.filter(item =>
-        item.profileId.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
-        item.profileId.phoneNumber.includes(searchText) ||
-        item.serviceInfo.serviceName.toLowerCase().includes(searchText.toLowerCase()) ||
-        (item.question && item.question.toLowerCase().includes(searchText.toLowerCase()))
+        item.profileId.fullName.toLowerCase().includes(keyword) ||
+        item.profileId.phoneNumber.includes(keyword) ||
+        item.serviceInfo.serviceName.toLowerCase().includes(keyword) ||
+        (item.question && item.question.toLowerCase().includes(keyword))
       );
+      // sort theo mức độ liên quan
+      filtered = filtered.sort((a, b) => {
+        const kw = keyword;
+        const score = (item) => {
+          if (item.profileId.fullName.toLowerCase().includes(kw)) return 4;
+          if (item.serviceInfo.serviceName.toLowerCase().includes(kw)) return 3;
+          if (item.profileId.phoneNumber.includes(kw)) return 2;
+          if (item.question && item.question.toLowerCase().includes(kw)) return 1;
+          return 0;
+        };
+        return score(b) - score(a);
+      });
     }
     if (selectedStatus !== 'all') {
       filtered = filtered.filter(item => item.status === selectedStatus);
@@ -482,19 +497,6 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const showItemDetails = (item: UnifiedScheduleItem) => {
     setSelectedItem(item);
     setIsDetailModalVisible(true);
-  };
-
-  const handleCreateMedicalRecord = async (medicalRecordData) => {
-    try {
-      await medicalApi.createMedicalRecord(medicalRecordData);
-      setMedicalRecordModalVisible(false);
-      setHasMedicalRecord(true);
-      message.success('Tạo hồ sơ bệnh án thành công!');
-      return true;
-    } catch (e) {
-      message.error('Tạo hồ sơ bệnh án thất bại!');
-      return false;
-    }
   };
 
   // Cancel handler
@@ -635,7 +637,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
               />
             </Tooltip>
 
-            {['confirmed', 'scheduled'].includes(record.status) && (
+            {['confirmed', 'scheduled'].includes(record.status) && activeTab === 'today' && (
               <Popconfirm
                 title="Xác nhận bắt đầu khám?"
                 onConfirm={() => handleStartConsulting(record)}
@@ -711,7 +713,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
   );
   
   const upcomingItems = scheduleItems.filter(item => 
-    dayjs(item.appointmentDate).isSameOrAfter(dayjs(), 'day') && 
+    dayjs(item.appointmentDate).isAfter(dayjs(), 'day') && 
     ['confirmed', 'scheduled'].includes(item.status)
   );
   
@@ -791,13 +793,14 @@ const DoctorAppointmentSchedule: React.FC = () => {
       {/* ✅ ENHANCED: Beautiful Filters and Tabs */}
       <Card style={{ marginBottom: '24px' }}>
         <div style={{ marginBottom: '16px' }}>
-          <Row gutter={16} align="middle">
+          <Row gutter={16} align="middle" justify="center">
             <Col flex="auto">
               <div style={{ 
                 display: 'flex', 
                 gap: '8px',
                 flexWrap: 'wrap',
-                alignItems: 'center'
+                alignItems: 'center',
+                justifyContent: 'center'
               }}>
                 <Button 
                   type={activeTab === 'today' ? 'primary' : 'default'}
@@ -882,22 +885,21 @@ const DoctorAppointmentSchedule: React.FC = () => {
             </Col>
           </Row>
         </div>
-
-        <Row gutter={16}>
-          <Col xs={24} sm={12} md={8}>
+        <Row gutter={16} align="middle" justify="center">
+          <Col xs={24} sm={8} md={6}>
             <Search
               placeholder="Tìm kiếm bệnh nhân, dịch vụ, câu hỏi..."
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               allowClear
-              style={{ height: '40px' }}
+              style={{ height: '44px', borderRadius: 12, padding: '0 12px', fontSize: 16 }}
             />
           </Col>
-          <Col xs={24} sm={12} md={8}>
+          <Col xs={24} sm={8} md={6}>
             <Select
               value={selectedStatus}
               onChange={setSelectedStatus}
-              style={{ width: '100%', height: '40px' }}
+              style={{ width: '100%', height: '44px', borderRadius: 12, fontSize: 16 }}
             >
               <Option value="all">Tất cả trạng thái</Option>
               <Option value="pending_payment">Chờ thanh toán</Option>
@@ -910,11 +912,11 @@ const DoctorAppointmentSchedule: React.FC = () => {
             </Select>
           </Col>
           {activeTab === 'selected-date' && (
-            <Col xs={24} sm={12} md={8}>
+            <Col xs={24} sm={8} md={6}>
               <SimpleDatePicker
                 value={selectedDate}
-                onChange={setSelectedDate}
-                style={{ width: '100%', height: '40px' }}
+                onChange={(date) => setSelectedDate(date ? date.format('YYYY-MM-DD') : '')}
+                style={{ width: '100%', height: '44px', borderRadius: 12, fontSize: 16 }}
                 placeholder="Chọn ngày"
               />
             </Col>
@@ -961,18 +963,12 @@ const DoctorAppointmentSchedule: React.FC = () => {
           if (selectedItem.sourceType === 'consultation') {
             return [<Button key="close" onClick={() => setIsDetailModalVisible(false)}>Đóng</Button>];
           }
+          // XÓA biến isCancelled không còn dùng
           const isTest = selectedItem.serviceInfo?.serviceType === 'test';
-          // Ẩn nút tạo hồ sơ bệnh án nếu lịch đã bị hủy
-          const isCancelled = selectedItem.status === 'cancelled' || selectedItem.status === 'doctor_cancel';
           return [
             <Button key="close" onClick={() => setIsDetailModalVisible(false)}>
               Đóng
             </Button>,
-            (!isTest && hasMedicalRecord === false && !isCancelled) && (
-              <Button key="create" type="primary" onClick={() => setMedicalRecordModalVisible(true)}>
-                Tạo hồ sơ bệnh án
-              </Button>
-            ),
             (!isTest && hasMedicalRecord === true && medicalRecordId) && (
               <Button key="view" onClick={() => setViewMedicalRecordModalVisible(true)}>
                 Xem hồ sơ bệnh án
@@ -1126,36 +1122,6 @@ const DoctorAppointmentSchedule: React.FC = () => {
       </Modal>
 
       {/* Medical Record Modals */}
-      <MedicalRecordModal
-        visible={medicalRecordModalVisible}
-        onCancel={() => setMedicalRecordModalVisible(false)}
-        appointment={selectedItem && {
-          key: selectedItem._id,
-          _id: selectedItem._id,
-          patientName: selectedItem.profileId?.fullName || '',
-          patientPhone: selectedItem.profileId?.phoneNumber || '',
-          serviceName: selectedItem.serviceInfo?.serviceName || '',
-          serviceType: selectedItem.serviceInfo?.serviceType || '',
-          doctorName: selectedItem.doctorId?.userId?.fullName || '',
-          doctorSpecialization: '',
-          appointmentDate: selectedItem.appointmentDate,
-          appointmentTime: selectedItem.appointmentTime,
-          appointmentType: selectedItem.appointmentType,
-          typeLocation: selectedItem.typeLocation,
-          address: selectedItem.address,
-          description: selectedItem.description,
-          notes: selectedItem.notes,
-          status: selectedItem.status as any,
-          totalAmount: selectedItem.consultationFee,
-          paymentStatus: undefined,
-          bookingType: undefined,
-          createdAt: selectedItem.createdAt,
-          updatedAt: selectedItem.updatedAt,
-          type: selectedItem.sourceType,
-          originalData: selectedItem as any
-        }}
-        onSubmit={handleCreateMedicalRecord}
-      />
       
       <ViewMedicalRecordModal
         visible={viewMedicalRecordModalVisible}
