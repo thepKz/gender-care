@@ -29,6 +29,7 @@ import servicePackageApi from '../../../api/endpoints/servicePackageApi';
 // import './medical-records-view.css';
 import { useAuth } from '../../../hooks/useAuth';
 import { doctorApi } from '../../../api/endpoints/doctorApi';
+import { preventNonNumericInput } from '../../../utils';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -109,27 +110,32 @@ const MedicalRecordsManagement: React.FC = () => {
       // Use getMyAppointments for doctors to only see their own medical records
       const response = await appointmentApi.getMyAppointments({});
       const data: ApiAppointment[] = response.data.appointments;
-      const mapped = data.map((item) => ({
-        ...item,
-        key: item._id,
-        id: item._id,
-        appointmentId: item._id,
-        patientName: item.profileId?.fullName || 'N/A',
-        patientPhone: item.profileId?.phone || 'N/A',
-        doctorName: item.doctorId?.userId?.fullName || 'N/A',
-        doctorId: item.doctorId,
-        serviceName: item.serviceId?.serviceName || '',
-        serviceId: item.serviceId,
-        packageId: item.packageId || undefined, // Thêm dòng này
-        packageName: item.packageId?.name || '', // Thêm dòng này
-        appointmentType: item.appointmentType,
-        status: item.status,
-        paymentStatus: item.paymentStatus,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-        notes: item.notes || '',
-        description: item.description || '',
-      }));
+      const mapped = data.map((item) => {
+        // Debug log để kiểm tra cấu trúc doctorId
+        console.log('[DEBUG] Appointment item:', item._id, 'doctorId:', item.doctorId);
+        
+        return {
+          ...item,
+          key: item._id,
+          id: item._id,
+          appointmentId: item._id,
+          patientName: item.profileId?.fullName || 'N/A',
+          patientPhone: item.profileId?.phone || 'N/A',
+          doctorName: item.doctorId?.userId?.fullName || 'N/A',
+          doctorId: item.doctorId,
+          serviceName: item.serviceId?.serviceName || '',
+          serviceId: item.serviceId,
+          packageId: item.packageId || undefined, // Thêm dòng này
+          packageName: item.packageId?.name || '', // Thêm dòng này
+          appointmentType: item.appointmentType,
+          status: item.status,
+          paymentStatus: item.paymentStatus,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+          notes: item.notes || '',
+          description: item.description || '',
+        };
+      });
       setAppointments(mapped);
     } catch (err: any) {
       message.error(err?.message || 'Không thể tải danh sách cuộc hẹn');
@@ -403,13 +409,7 @@ const MedicalRecordsManagement: React.FC = () => {
         </div>
       )
     },
-    {
-      title: 'Bác sĩ',
-      dataIndex: 'doctorName',
-      key: 'doctorName',
-      width: 100,
-      render: (text: string) => <Text>{text}</Text>
-    },
+
     {
       title: 'Ngày',
       dataIndex: 'appointmentDate',
@@ -494,6 +494,10 @@ const MedicalRecordsManagement: React.FC = () => {
     const newList = [...medicineList];
     if (field === 'instruction' || field === 'instructions') {
       newList[idx].instructions = value;
+    } else if (field === 'duration') {
+      // Chỉ cho phép nhập số cho trường duration
+      const numericValue = value.replace(/[^0-9]/g, '');
+      (newList[idx] as any)[field] = numericValue;
     } else {
       (newList[idx] as any)[field] = value;
     }
@@ -722,39 +726,7 @@ const MedicalRecordsManagement: React.FC = () => {
         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Title level={3} style={{ marginBottom: 24 }}>Quản lý hồ sơ bệnh án</Title>
         </div>
-        <div style={{ marginBottom: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <Search
-            placeholder="Tìm kiếm theo tên bệnh nhân, bác sĩ hoặc dịch vụ..."
-            allowClear
-            style={{ width: 350 }}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            prefix={<SearchOutlined />}
-          />
-          <Select
-            placeholder="Trạng thái"
-            style={{ width: 150 }}
-            value={selectedStatus}
-            onChange={setSelectedStatus}
-          >
-            <Option value="all">Tất cả trạng thái</Option>
-            <Option value="pending">Chờ xác nhận</Option>
-            <Option value="scheduled">Đã lên lịch</Option>
-            <Option value="confirmed">Đã xác nhận</Option>
-            <Option value="consulting">Đang tư vấn</Option>
-            <Option value="completed">Hoàn thành</Option>
-            <Option value="cancelled">Đã hủy</Option>
-          </Select>
-          <Select
-            placeholder="Bác sĩ"
-            style={{ width: 200 }}
-            value={selectedDoctor}
-            onChange={setSelectedDoctor}
-          >
-            <Option value="all">Tất cả bác sĩ</Option>
-            {/* Có thể map động danh sách bác sĩ nếu cần */}
-          </Select>
-        </div>
+   
         <Table
           columns={columns}
           dataSource={filteredRecords}
@@ -922,6 +894,7 @@ const MedicalRecordsManagement: React.FC = () => {
                         placeholder="Thời gian dùng (VD: 7 ngày, 2 tuần)"
                         value={med.duration}
                         onChange={e => modalMode !== 'view' && handleMedicineChange(idx, 'duration', e.target.value)}
+                        onKeyDown={modalMode === 'view' ? undefined : preventNonNumericInput}
                         style={{ flex: 1.5, minWidth: 140, maxWidth: 220 }}
                         readOnly={modalMode === 'view'}
                       />

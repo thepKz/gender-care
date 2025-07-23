@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
+import { preventNonNumericInput } from '../../../utils';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -248,6 +249,7 @@ const ServiceModal: React.FC<ServiceModalProps> = ({
               formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={(value: any) => (value || '').replace(/\$\s?|(,*)/g, '')}
               placeholder="Nhập giá dịch vụ"
+              onKeyDown={preventNonNumericInput}
             />
           </Form.Item>
 

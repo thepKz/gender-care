@@ -419,7 +419,7 @@ const DoctorSchedulePage: React.FC = () => {
   };
   
   // Calendar view state
-  const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
+  const [viewMode, setViewMode] = useState<'calendar' | 'table'>('table');
   const [calendarView, setCalendarView] = useState<CalendarView>('month');
 
   // Load schedules for selected month
@@ -905,89 +905,7 @@ const DoctorSchedulePage: React.FC = () => {
         </Card>
       )}
 
-      {/* Status Legend */}
-      <Card style={{ marginBottom: 16, backgroundColor: '#f8f9fa' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <Text strong style={{ fontSize: '14px', color: '#2c3e50' }}>
-              📋 Trạng thái khung giờ làm việc:
-            </Text>
-          </div>
-          <Space size="large" wrap>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CheckCircleOutlined style={{ color: '#52c41a', fontSize: '16px' }} />
-              <Text style={{ fontSize: '13px' }}>
-                <strong style={{ color: '#52c41a' }}>Free</strong> - Có thể đặt lịch
-              </Text>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <UserOutlined style={{ color: '#1890ff', fontSize: '16px' }} />
-              <Text style={{ fontSize: '13px' }}>
-                <strong style={{ color: '#1890ff' }}>Booked</strong> - Đã có bệnh nhân đặt
-              </Text>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <MinusCircleOutlined style={{ color: '#fa8c16', fontSize: '16px' }} />
-              <Text style={{ fontSize: '13px' }}>
-                <strong style={{ color: '#fa8c16' }}>Absent</strong> - Bác sĩ vắng mặt
-              </Text>
-            </div>
-          </Space>
-        </div>
-      </Card>
 
-      {/* Statistics */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Tổng khung giờ"
-              value={scheduleStats.total}
-              prefix={<ClockCircleOutlined />}
-              formatter={(value) => value.toLocaleString()}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Trống"
-              value={scheduleStats.free}
-              valueStyle={{ color: '#52c41a' }}
-              prefix={<CheckCircleOutlined />}
-              formatter={(value) => value.toLocaleString()}
-            />
-            <div style={{ fontSize: '12px', color: '#52c41a', marginTop: '4px' }}>
-              ✅ Có thể đặt lịch
-            </div>
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Đã đặt"
-              value={scheduleStats.booked}
-              valueStyle={{ color: '#1890ff' }}
-              prefix={<UserOutlined />}
-              formatter={(value) => value.toLocaleString()}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={6}>
-          <Card>
-            <Statistic
-              title="Vắng mặt"
-              value={scheduleStats.absent || 0}
-              valueStyle={{ color: '#fa8c16' }}
-              prefix={<MinusCircleOutlined />}
-              formatter={(value) => value.toLocaleString()}
-            />
-            <div style={{ fontSize: '12px', color: '#fa8c16', marginTop: '4px' }}>
-              ⚠️ Không có mặt
-            </div>
-          </Card>
-        </Col>
-      </Row>
 
       {/* Controls */}
       <Card style={{ marginBottom: '24px' }}>
@@ -1016,10 +934,10 @@ const DoctorSchedulePage: React.FC = () => {
             <Space style={{ float: 'right' }}>
               <Text strong>Chế độ xem:</Text>
               <Switch
-                checkedChildren={<CalendarOutlined />}
-                unCheckedChildren={<TableOutlined />}
-                checked={viewMode === 'calendar'}
-                onChange={(checked) => setViewMode(checked ? 'calendar' : 'table')}
+                unCheckedChildren={<CalendarOutlined />}
+                checkedChildren={<TableOutlined />}
+                checked={viewMode === 'table'}
+                onChange={(checked) => setViewMode(checked ? 'table' : 'calendar')}
               />
               <Text>{viewMode === 'calendar' ? 'Lịch' : 'Bảng'}</Text>
             </Space>

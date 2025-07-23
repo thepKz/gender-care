@@ -148,7 +148,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<UnifiedScheduleItem | null>(null);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [showTestForm, setShowTestForm] = useState(false);
-  const [activeTab, setActiveTab] = useState('today');
+  const [activeTab, setActiveTab] = useState('available');
   const [viewMedicalRecordModalVisible, setViewMedicalRecordModalVisible] = useState(false);
   const [hasMedicalRecord, setHasMedicalRecord] = useState<boolean | null>(null);
   const [medicalRecordId, setMedicalRecordId] = useState<string | null>(null);
@@ -382,6 +382,12 @@ const DoctorAppointmentSchedule: React.FC = () => {
     const selectedDateStr = selectedDate;
 
     switch (activeTab) {
+      case 'available':
+        // Hiển thị tất cả appointments có thể khám được (không giới hạn ngày)
+        filtered = filtered.filter(item =>
+          ['consulting', 'done_testResultItem', 'done_testResult', 'completed', 'confirmed', 'scheduled'].includes(item.status)
+        );
+        break;
       case 'today':
         filtered = filtered.filter(item =>
           dayjs(item.appointmentDate).format('YYYY-MM-DD') === today &&
@@ -656,7 +662,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
               />
             </Tooltip>
 
-            {['confirmed', 'scheduled'].includes(record.status) && activeTab === 'today' && (
+            {['confirmed', 'scheduled'].includes(record.status) && (activeTab === 'available' || activeTab === 'today') && (
               <Popconfirm
                 title="Xác nhận bắt đầu khám?"
                 onConfirm={() => handleStartConsulting(record)}
@@ -727,15 +733,19 @@ const DoctorAppointmentSchedule: React.FC = () => {
   }
 
   // ✅ FIXED: Calculate counts from full scheduleItems, not filteredItems
+  const availableItems = scheduleItems.filter(item =>
+    ['consulting', 'done_testResultItem', 'done_testResult', 'completed', 'confirmed', 'scheduled'].includes(item.status)
+  );
+
   const todayItems = scheduleItems.filter(item =>
     dayjs(item.appointmentDate).format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD')
   );
-  
-  const upcomingItems = scheduleItems.filter(item => 
-    dayjs(item.appointmentDate).isAfter(dayjs(), 'day') && 
+
+  const upcomingItems = scheduleItems.filter(item =>
+    dayjs(item.appointmentDate).isAfter(dayjs(), 'day') &&
     ['confirmed', 'scheduled'].includes(item.status)
   );
-  
+
   const completedItems = scheduleItems.filter(item => item.status === 'completed');
   const cancelledItems = scheduleItems.filter(item => item.status === 'cancelled' || item.status === 'doctor_cancel');
 
@@ -779,20 +789,20 @@ const DoctorAppointmentSchedule: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <Button 
-                  type={activeTab === 'today' ? 'primary' : 'default'}
+                <Button
+                  type={activeTab === 'available' ? 'primary' : 'default'}
                   icon={<ClockCircleOutlined />}
-                  onClick={() => setActiveTab('today')}
-                  style={{ 
+                  onClick={() => setActiveTab('available')}
+                  style={{
                     borderRadius: '6px',
                     height: '40px',
-                    minWidth: '120px',
+                    minWidth: '140px',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px'
                   }}
                 >
-                  Hôm nay ({todayItems.length})
+                  Có thể khám ({availableItems.length})
                 </Button>
                 
                 <Button 

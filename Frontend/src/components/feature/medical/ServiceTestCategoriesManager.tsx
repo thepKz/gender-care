@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { message, Form, Input, InputNumber, Select, Button } from 'antd';
+import { preventNonNumericDecimalInput } from '../../../utils';
 import { 
   serviceTestCategoriesApi, 
   testCategoriesApi, 
@@ -342,14 +343,22 @@ export const ServiceTestCategoriesManager: React.FC<ServiceTestCategoriesManager
                             name={[field.name, 'from']}
                             style={{ flex: 1 }}
                           >
-                            <InputNumber placeholder="From" style={{ width: '100%' }} />
+                            <InputNumber 
+                              placeholder="From" 
+                              style={{ width: '100%' }}
+                              onKeyDown={preventNonNumericDecimalInput}
+                            />
                           </Form.Item>
                           <Form.Item
                             key={`to-${field.key}`}
                             name={[field.name, 'to']}
                             style={{ flex: 1 }}
                           >
-                            <InputNumber placeholder="To" style={{ width: '100%' }} />
+                            <InputNumber 
+                              placeholder="To" 
+                              style={{ width: '100%' }}
+                              onKeyDown={preventNonNumericDecimalInput}
+                            />
                           </Form.Item>
                           <Form.Item
                             key={`flag-${field.key}`}
