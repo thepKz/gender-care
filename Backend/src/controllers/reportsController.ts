@@ -22,13 +22,30 @@ export const getManagementReports = async (req: AuthRequest, res: Response) => {
 
     const now = new Date();
 
-    // Revenue last 12 months
+    // Revenue last 12 months - chỉ tính những payment có paymentStatus là 'paid'
     const startOfPeriod = new Date(now.getFullYear(), now.getMonth() - 11, 1);
     const revenueAgg = await PaymentTracking.aggregate([
       {
         $match: {
           status: 'success',
-          createdAt: { $gte: startOfPeriod }
+          createdAt: { $gte: startOfPeriod },
+          serviceType: 'appointment' // Chỉ lấy payment của appointment
+        }
+      },
+      {
+        $lookup: {
+          from: 'appointments',
+          localField: 'appointmentId',
+          foreignField: '_id',
+          as: 'appointment'
+        }
+      },
+      {
+        $unwind: '$appointment'
+      },
+      {
+        $match: {
+          'appointment.paymentStatus': 'paid' // Chỉ lấy những appointment có paymentStatus là 'paid'
         }
       },
       {

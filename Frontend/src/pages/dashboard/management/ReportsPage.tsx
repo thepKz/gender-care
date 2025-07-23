@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Row, Col, Spin, Typography, DatePicker, Select, Button, Table, message, Tag, Progress, Statistic, Space, Divider } from 'antd';
-import { DownloadOutlined, RiseOutlined, FallOutlined, CalendarOutlined, DollarOutlined, ClockCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Spin, Typography, DatePicker, Select, Button, Table, message, Tag, Progress, Statistic, Space, Divider, Modal } from 'antd';
+import { DownloadOutlined, RiseOutlined, FallOutlined, CalendarOutlined, DollarOutlined, ClockCircleOutlined, CheckCircleOutlined, FileExcelOutlined } from '@ant-design/icons';
 import { 
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, 
   PieChart, Pie, Cell, Legend, AreaChart, Area, ComposedChart, RadialBarChart, RadialBar,
@@ -157,7 +157,7 @@ const ReportsPage: React.FC = () => {
     }
   };
   
-  // Handler for exporting to Excel
+  // Handler for exporting detailed report to Excel
   const handleExport = async () => {
     if (!detailedData || detailedData.length === 0) {
       message.warning('Không có dữ liệu để xuất. Vui lòng áp dụng bộ lọc trước.');
@@ -176,6 +176,124 @@ const ReportsPage: React.FC = () => {
       message.error('Lỗi khi xuất file Excel.');
     } finally {
       setLoadingDetailed(false);
+    }
+  };
+
+  // Handler for exporting overview report to Excel
+  const handleExportOverview = async () => {
+    if (!overviewData) {
+      message.warning('Không có dữ liệu tổng quan để xuất.');
+      return;
+    }
+
+    // Hiển thị modal xác nhận
+    Modal.confirm({
+      title: 'Xuất Báo Cáo Tổng Quan',
+      content: (
+        <div>
+          <p>Bạn có muốn xuất báo cáo tổng quan ra file Excel không?</p>
+          <p><strong>Báo cáo sẽ bao gồm:</strong></p>
+          <ul>
+            <li>📊 Doanh thu theo tháng (12 tháng gần nhất)</li>
+            <li>👥 Phân bố người dùng theo vai trò</li>
+            <li>📅 Trạng thái cuộc hẹn</li>
+            <li>📈 Cuộc hẹn 7 ngày gần nhất</li>
+            <li>🎯 Tóm tắt các chỉ số KPI</li>
+          </ul>
+        </div>
+      ),
+      okText: 'Xuất Excel',
+      cancelText: 'Hủy',
+      icon: <FileExcelOutlined style={{ color: '#52c41a' }} />,
+      onOk: async () => {
+        await performExportOverview();
+      }
+    });
+  };
+
+  const performExportOverview = async () => {
+    setLoadingOverview(true);
+    try {
+      // Tạo workbook Excel
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.Workbook();
+
+      // Sheet 1: Doanh thu theo tháng
+      const revenueSheet = workbook.addWorksheet('Doanh Thu Theo Tháng');
+      revenueSheet.addRow(['Tháng', 'Doanh Thu (VND)']);
+      revenueData.forEach(item => {
+        revenueSheet.addRow([item.month, item.total]);
+      });
+
+      // Sheet 2: Phân bố người dùng
+      const userSheet = workbook.addWorksheet('Phân Bố Người Dùng');
+      userSheet.addRow(['Vai Trò', 'Số Lượng']);
+      roleDistribution.forEach(item => {
+        userSheet.addRow([item.name, item.value]);
+      });
+
+      // Sheet 3: Trạng thái cuộc hẹn
+      const statusSheet = workbook.addWorksheet('Trạng Thái Cuộc Hẹn');
+      statusSheet.addRow(['Trạng Thái', 'Số Lượng']);
+      statusCounts.forEach(item => {
+        statusSheet.addRow([item.name, item.value]);
+      });
+
+      // Sheet 4: Cuộc hẹn 7 ngày
+      const appointmentSheet = workbook.addWorksheet('Cuộc Hẹn 7 Ngày');
+      appointmentSheet.addRow(['Ngày', 'Số Cuộc Hẹn']);
+      appointments7d.forEach(item => {
+        appointmentSheet.addRow([item.date, item.count]);
+      });
+
+      // Sheet 5: Tóm tắt KPI
+      const kpiSheet = workbook.addWorksheet('Tóm Tắt KPI');
+      kpiSheet.addRow(['Chỉ Số', 'Giá Trị']);
+      kpiSheet.addRow(['Tổng Doanh Thu (VND)', totalRevenue]);
+      kpiSheet.addRow(['Tổng Cuộc Hẹn (7 ngày)', totalAppointments]);
+      kpiSheet.addRow(['Tỷ Lệ Hoàn Thành (%)', completionRate.toFixed(2)]);
+      kpiSheet.addRow(['Tỷ Lệ Hủy Bỏ (%)', cancellationRate.toFixed(2)]);
+      kpiSheet.addRow(['Trung Bình Doanh Thu/Tháng (VND)', avgRevenuePerMonth.toFixed(0)]);
+      kpiSheet.addRow(['Trung Bình Cuộc Hẹn/Ngày', avgAppointmentsPerDay.toFixed(1)]);
+
+      // Định dạng header cho tất cả sheets
+      [revenueSheet, userSheet, statusSheet, appointmentSheet, kpiSheet].forEach(sheet => {
+        const headerRow = sheet.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1890FF' }
+        };
+        headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+
+        // Auto-fit columns
+        sheet.columns.forEach(column => {
+          column.width = 20;
+        });
+      });
+
+      // Xuất file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Bao-Cao-Tong-Quan-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      message.success('Xuất báo cáo tổng quan thành công!');
+    } catch (err) {
+      console.error('Failed to export overview report', err);
+      message.error('Lỗi khi xuất báo cáo tổng quan.');
+    } finally {
+      setLoadingOverview(false);
     }
   };
 
@@ -300,10 +418,24 @@ const ReportsPage: React.FC = () => {
   return (
     <div className="analytics-dashboard">
       <div className="dashboard-header">
-        <Title level={2} className="dashboard-title">
-          📊 Analytics Dashboard - Hệ thống Y tế
-        </Title>
-        <Text className="dashboard-subtitle">Báo cáo tổng quan và phân tích chi tiết hiệu suất hệ thống</Text>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <Title level={2} className="dashboard-title" style={{ margin: 0 }}>
+              📊 Analytics Dashboard - Hệ thống Y tế
+            </Title>
+            <Text className="dashboard-subtitle">Báo cáo tổng quan và phân tích chi tiết hiệu suất hệ thống</Text>
+          </div>
+          <Button
+            type="primary"
+            icon={<FileExcelOutlined />}
+            size="large"
+            onClick={handleExportOverview}
+            loading={loadingOverview}
+            className="enhanced-button"
+          >
+            Xuất Báo Cáo Tổng Quan
+          </Button>
+        </div>
       </div>
       
       {/* KPI Cards Section */}
@@ -319,15 +451,16 @@ const ReportsPage: React.FC = () => {
               suffix="VND"
               formatter={(value) => `${Number(value).toLocaleString('vi-VN')}`}
             />
-            <div className="kpi-trend">
-              {revenueGrowth >= 0 ? (
-                <RiseOutlined style={{ color: '#3f8600' }} />
-              ) : (
-                <FallOutlined style={{ color: '#cf1322' }} />
-              )}
-              <Text type="secondary">
-                {formatSafePercentage(revenueGrowth)} so với tháng trước
-              </Text>
+            <div style={{ marginTop: '12px' }}>
+              <Button
+                type="link"
+                size="small"
+                icon={<FileExcelOutlined />}
+                onClick={handleExportOverview}
+                loading={loadingOverview}
+              >
+                Xuất Excel
+              </Button>
             </div>
           </Card>
         </Col>
@@ -341,16 +474,6 @@ const ReportsPage: React.FC = () => {
                prefix={<CalendarOutlined />}
                suffix="cuộc hẹn"
              />
-                           <div className="kpi-trend">
-                {appointmentGrowth >= 0 ? (
-                  <RiseOutlined style={{ color: '#3f8600' }} />
-                ) : (
-                  <FallOutlined style={{ color: '#cf1322' }} />
-                )}
-                <Text type="secondary">
-                  {formatSafePercentage(appointmentGrowth)} so với ngày trước
-                </Text>
-              </div>
            </Card>
          </Col>
          
@@ -364,9 +487,7 @@ const ReportsPage: React.FC = () => {
                prefix={<CheckCircleOutlined />}
                suffix="%"
              />
-             <div className="kpi-trend">
-               <Progress percent={completionRate} strokeColor="#722ed1" size="small" className="enhanced-progress" />
-             </div>
+             
            </Card>
          </Col>
          
@@ -375,14 +496,12 @@ const ReportsPage: React.FC = () => {
              <Statistic
                title="Trung Bình/Ngày"
                value={avgAppointmentsPerDay}
-               precision={1}
+               precision={0}
                valueStyle={{ color: '#fa8c16' }}
                prefix={<ClockCircleOutlined />}
                suffix="cuộc hẹn"
              />
-             <div className="kpi-trend">
-               <Text type="secondary">Hủy: {formatSafePercentage(cancellationRate)}</Text>
-             </div>
+            
            </Card>
          </Col>
       </Row>
@@ -581,224 +700,17 @@ const ReportsPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* Advanced Healthcare Analytics */}
-      <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>
-        {/* Doctor Performance Analytics */}
-        <Col xs={24} lg={12}>
-          <Card className="advanced-chart-card fade-in-up" title="👨‍⚕️ Hiệu Suất Bác Sĩ" extra={<Text type="secondary">Top 6 bác sĩ</Text>}>
-            <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={analyticsData?.doctorPerformance || []} margin={CHART_CONFIG.margin}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="name" 
-                  fontSize={CHART_CONFIG.fontSize}
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                />
-                <YAxis yAxisId="left" orientation="left" fontSize={CHART_CONFIG.fontSize} />
-                <YAxis yAxisId="right" orientation="right" fontSize={CHART_CONFIG.fontSize} />
-                <Tooltip 
-                  formatter={(value: any, name: string) => {
-                    if (name === 'Doanh thu') {
-                      return [formatCurrency(Number(value)), name];
-                    }
-                    return [`${Number(value).toFixed(1)}%`, name];
-                  }}
-                />
-                <Legend />
-                <Bar yAxisId="left" dataKey="completionRate" fill="#52c41a" name="Tỷ lệ hoàn thành (%)" />
-                <Bar yAxisId="left" dataKey="patientSatisfaction" fill="#1890ff" name="Hài lòng (%)" />
-                <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#fa8c16" 
-                      strokeWidth={3} name="Doanh thu" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </Card>
-        </Col>
-
-        {/* Service Popularity & Growth */}
-        <Col xs={24} lg={12}>
-          <Card className="advanced-chart-card fade-in-up" title="🔥 Dịch Vụ Phổ Biến" extra={<Text type="secondary">Theo lượng booking</Text>}>
-            <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={analyticsData?.servicePopularity || []} layout="horizontal" margin={CHART_CONFIG.margin}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis type="number" fontSize={CHART_CONFIG.fontSize} />
-                <YAxis type="category" dataKey="name" fontSize={CHART_CONFIG.fontSize} width={100} />
-                <Tooltip 
-                  formatter={(value: any, name: string) => {
-                    if (name === 'Doanh thu') {
-                      return [formatCurrency(Number(value)), name];
-                    }
-                    if (name === 'Tăng trưởng') {
-                      return [`${Number(value).toFixed(1)}%`, name];
-                    }
-                    return [`${value} lượt`, name];
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="value" fill="#722ed1" name="Lượt booking" />
-                <Bar dataKey="growth" fill="#52c41a" name="Tăng trưởng (%)" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Patient Demographics & Hourly Analytics */}
-      <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>
-        {/* Patient Age & Gender Distribution */}
-        <Col xs={24} lg={14}>
-          <Card className="chart-card fade-in-up" title="👥 Phân Bố Bệnh Nhân Theo Tuổi & Giới Tính">
-            <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={analyticsData?.patientDemographics || []} margin={CHART_CONFIG.margin}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="ageGroup" fontSize={CHART_CONFIG.fontSize} />
-                <YAxis fontSize={CHART_CONFIG.fontSize} />
-                <Tooltip formatter={(value: any) => [`${value} người`, 'Số lượng']} />
-                <Legend />
-                <Bar dataKey="male" stackId="gender" fill="#1890ff" name="Nam" />
-                <Bar dataKey="female" stackId="gender" fill="#eb2f96" name="Nữ" />
-                <Line type="monotone" dataKey="total" stroke="#fa8c16" 
-                      strokeWidth={3} name="Tổng cộng" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </Card>
-        </Col>
-
-        {/* Service Popularity Funnel */}
-        <Col xs={24} lg={10}>
-          <Card className="chart-card fade-in-up" title="📊 Phân Tích Dịch Vụ" extra={<Text type="secondary">Theo doanh thu</Text>}>
-            <ResponsiveContainer width="100%" height={350}>
-              <FunnelChart>
-                <Tooltip formatter={(value: any) => [formatCurrency(Number(value)), 'Doanh thu']} />
-                <Funnel
-                  dataKey="revenue"
-                  data={analyticsData?.servicePopularity || []}
-                  isAnimationActive
-                  fill="#8884d8"
-                >
-                  {analyticsData?.servicePopularity?.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={HEALTHCARE_COLORS[index % HEALTHCARE_COLORS.length]} />
-                  ))}
-                </Funnel>
-              </FunnelChart>
-            </ResponsiveContainer>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Hourly Analytics & System Performance */}
-      <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>
-        {/* Hourly Appointment Distribution */}
-        <Col xs={24} lg={16}>
-          <Card className="chart-card fade-in-up" title="⏰ Phân Bố Lịch Hẹn Theo Giờ" extra={<Text type="secondary">24h trong ngày</Text>}>
-            <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={analyticsData?.hourlyDistribution || []} margin={CHART_CONFIG.margin}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="hour" fontSize={CHART_CONFIG.fontSize} />
-                <YAxis yAxisId="left" orientation="left" fontSize={CHART_CONFIG.fontSize} />
-                <YAxis yAxisId="right" orientation="right" fontSize={CHART_CONFIG.fontSize} />
-                <Tooltip 
-                  formatter={(value: any, name: string) => {
-                    if (name === 'Hiệu suất') {
-                      return [`${Number(value).toFixed(1)}%`, name];
-                    }
-                    return [`${value} cuộc hẹn`, name];
-                  }}
-                />
-                <Legend />
-                <defs>
-                  <linearGradient id="hourlyGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#13c2c2" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#13c2c2" stopOpacity={0.2}/>
-                  </linearGradient>
-                </defs>
-                <Area yAxisId="left" type="monotone" dataKey="appointments" stroke="#13c2c2" 
-                      fill="url(#hourlyGradient)" name="Số lịch hẹn" />
-                <Line yAxisId="right" type="monotone" dataKey="efficiency" stroke="#fa541c" 
-                      strokeWidth={3} name="Hiệu suất (%)" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </Card>
-        </Col>
-
-        {/* System Health Metrics */}
-        <Col xs={24} lg={8}>
-          <Card className="performance-card fade-in-up" title="⚡ Chỉ Số Hệ Thống" style={{ height: '421px' }}>
-            <div className="performance-content">
-              <div className="performance-item">
-                <Text strong>Độ hài lòng bệnh nhân</Text>
-                <Progress 
-                  className="enhanced-progress"
-                  percent={systemStats.patientSatisfaction || 92.5}
-                  strokeColor={{
-                    '0%': '#fa541c',
-                    '50%': '#faad14', 
-                    '100%': '#52c41a',
-                  }}
-                  size="small"
-                />
-                <Text type="secondary">{formatPercentage(systemStats.patientSatisfaction || 92.5)}</Text>
-              </div>
-
-              <Divider />
-
-              <div className="performance-item">
-                <Text strong>Tỷ lệ sử dụng bác sĩ</Text>
-                <Progress 
-                  className="enhanced-progress"
-                  percent={systemStats.doctorUtilization || 78.3}
-                  strokeColor="#1890ff"
-                  size="small"
-                />
-                <Text type="secondary">{formatPercentage(systemStats.doctorUtilization || 78.3)}</Text>
-              </div>
-
-              <Divider />
-
-              <div className="performance-item">
-                <Text strong>Thời gian chờ trung bình</Text>
-                <Progress 
-                  className="enhanced-progress"
-                  percent={Math.max(0, Math.min(100, safeDivision((30 - (systemStats.averageWaitTime || 15)), 30) * 100))}
-                  strokeColor="#52c41a"
-                  size="small"
-                />
-                <Text type="secondary">{systemStats.averageWaitTime || 15} phút</Text>
-              </div>
-
-              <Divider />
-
-              <div className="performance-stats">
-                <div className="stat-row">
-                  <span className="stat-label">Uptime hệ thống:</span>
-                  <span className="stat-value">{formatPercentage(systemStats.systemUptime || 99.8)}</span>
-                </div>
-                <div className="stat-row">
-                  <span className="stat-label">Doanh thu/Bệnh nhân:</span>
-                  <span className="stat-value">{formatCurrency(systemStats.revenuePerPatient || safeDivision(totalRevenue, totalAppointments))}</span>
-                </div>
-                <div className="stat-row">
-                  <span className="stat-label">Tỷ lệ hoàn thành:</span>
-                  <span className="stat-value">{formatPercentage(systemStats.appointmentFulfillment || completionRate)}</span>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </Col>
-      </Row>
-
       {/* Advanced Business Intelligence */}
       <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>
         {/* Monthly Revenue Heatmap */}
-        <Col xs={24} lg={12}>
+        <Col xs={24}>
           <Card className="chart-card fade-in-up" title="🗓️ Doanh Thu Theo Tháng (Heatmap)" extra={<Text type="secondary">12 tháng gần nhất</Text>}>
             <ResponsiveContainer width="100%" height={350}>
               <AreaChart data={revenueWithGrowth} margin={CHART_CONFIG.margin}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" fontSize={CHART_CONFIG.fontSize} />
                 <YAxis fontSize={CHART_CONFIG.fontSize} />
-                <Tooltip 
+                <Tooltip
                   formatter={(value: any, name: string) => {
                     if (name === 'Doanh thu') return [formatCurrency(Number(value)), name];
                     if (name === 'Mục tiêu') return [formatCurrency(Number(value)), name];
@@ -816,195 +728,46 @@ const ReportsPage: React.FC = () => {
                     <stop offset="95%" stopColor="#52c41a" stopOpacity={0.1}/>
                   </linearGradient>
                 </defs>
-                <Area type="monotone" dataKey="total" stroke="#fa8c16" 
+                <Area type="monotone" dataKey="total" stroke="#fa8c16"
                       fill="url(#revenueHeatmap)" name="Doanh thu" />
-                <Area type="monotone" dataKey={(item: any) => item.total * 1.2} stroke="#52c41a" 
+                <Area type="monotone" dataKey={(item: any) => item.total * 1.2} stroke="#52c41a"
                       fill="url(#targetGradient)" name="Mục tiêu" strokeDasharray="5 5" />
-                <ReferenceLine y={safeDivision(totalRevenue, revenueData.length)} stroke="#ff4d4f" strokeDasharray="8 4" 
+                <ReferenceLine y={safeDivision(totalRevenue, revenueData.length)} stroke="#ff4d4f" strokeDasharray="8 4"
                                label="Trung bình" />
               </AreaChart>
             </ResponsiveContainer>
           </Card>
         </Col>
-
-        {/* Patient Satisfaction Trends */}
-        <Col xs={24} lg={12}>
-          <Card className="chart-card fade-in-up" title="😊 Xu Hướng Hài Lòng Bệnh Nhân" extra={<Text type="secondary">Theo tuần</Text>}>
-            <ResponsiveContainer width="100%" height={350}>
-              <ComposedChart data={satisfactionData} margin={CHART_CONFIG.margin}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" fontSize={CHART_CONFIG.fontSize} />
-                <YAxis yAxisId="left" orientation="left" fontSize={CHART_CONFIG.fontSize} />
-                <YAxis yAxisId="right" orientation="right" fontSize={CHART_CONFIG.fontSize} />
-                <Tooltip 
-                  formatter={(value: any, name: string) => {
-                    if (name === 'Hài lòng') return [`${Number(value).toFixed(1)}%`, name];
-                    if (name === 'Đánh giá TB') return [`${Number(value).toFixed(1)}/5`, name];
-                    return [`${value} cuộc hẹn`, name];
-                  }}
-                />
-                <Legend />
-                <Bar yAxisId="left" dataKey="count" fill="#e6f7ff" stroke="#1890ff" name="Số lịch hẹn" />
-                <Line yAxisId="right" type="monotone" dataKey="satisfactionRate" 
-                      stroke="#52c41a" strokeWidth={3} name="Hài lòng (%)" />
-                <Line yAxisId="right" type="monotone" dataKey={(item: any) => (item.averageRating / 5) * 100} 
-                      stroke="#fa8c16" strokeWidth={2} name="Đánh giá TB" strokeDasharray="3 3" />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </Card>
-        </Col>
       </Row>
 
-      {/* Performance Metrics & Growth Analysis */}
-      <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>
-        {/* Growth Metrics Scatter Plot */}
-        <Col xs={24} lg={16}>
-          <Card className="chart-card fade-in-up" title="📈 Phân Tích Tăng Trưởng & Hiệu Suất" extra={<Text type="secondary">Correlation matrix</Text>}>
-            <ResponsiveContainer width="100%" height={350}>
-              <ScatterChart margin={CHART_CONFIG.margin}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis 
-                  dataKey="x" 
-                  fontSize={CHART_CONFIG.fontSize}
-                  name="Doanh thu (triệu VND)"
-                  domain={['dataMin - 1000000', 'dataMax + 1000000']}
-                  tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
-                />
-                <YAxis 
-                  dataKey="y" 
-                  fontSize={CHART_CONFIG.fontSize}
-                  name="Số lịch hẹn"
-                  domain={['dataMin - 5', 'dataMax + 5']}
-                />
-                <Tooltip 
-                  formatter={(value: any, name: string) => {
-                    if (name === 'Doanh thu (triệu VND)') return [formatCurrency(Number(value)), 'Doanh thu'];
-                    return [`${value} cuộc hẹn`, 'Lịch hẹn'];
-                  }}
-                  labelFormatter={(label) => `Tháng: ${label}`}
-                />
-                <Scatter 
-                  name="Hiệu suất theo tháng" 
-                  data={revenueData.map((item, index) => ({
-                    x: item.total,
-                    y: appointments7d[index % appointments7d.length]?.count || 0,
-                    month: item.month
-                  }))}
-                  fill="#1890ff"
-                />
-                <Scatter 
-                  name="Mục tiêu"
-                  data={revenueData.map((item, index) => ({
-                    x: item.total * 1.15,
-                    y: (appointments7d[index % appointments7d.length]?.count || 0) * 1.1,
-                    month: item.month
-                  }))}
-                  fill="#52c41a"
-                />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </Card>
-        </Col>
-
-        {/* Resource Utilization */}
-        <Col xs={24} lg={8}>
-          <Card className="performance-card fade-in-up" title="🎯 Hiệu Suất Tài Nguyên" style={{ height: '421px' }}>
-            <div className="performance-content">
-              <div className="performance-item">
-                <Text strong>Công suất phòng khám</Text>
-                <Progress 
-                  className="enhanced-progress"
-                  percent={analyticsData?.resourceUtilization?.clinicCapacity || 82}
-                  strokeColor="#1890ff"
-                  size="small"
-                />
-                <Text type="secondary">{analyticsData?.resourceUtilization?.clinicCapacity || 82}% (Tốt)</Text>
-              </div>
-
-              <Divider />
-
-              <div className="performance-item">
-                <Text strong>Hiệu quả đặt lịch</Text>
-                <Progress 
-                  className="enhanced-progress"
-                  percent={analyticsData?.resourceUtilization?.bookingEfficiency || 76}
-                  strokeColor={{
-                    '0%': '#ff4d4f',
-                    '50%': '#faad14',
-                    '100%': '#52c41a',
-                  }}
-                  size="small"
-                />
-                <Text type="secondary">{analyticsData?.resourceUtilization?.bookingEfficiency || 76}% (Trung bình)</Text>
-              </div>
-
-              <Divider />
-
-              <div className="performance-item">
-                <Text strong>Tỷ lệ tái khám</Text>
-                <Progress 
-                  className="enhanced-progress"
-                  percent={analyticsData?.resourceUtilization?.returnRate || 68}
-                  strokeColor="#722ed1"
-                  size="small"
-                />
-                <Text type="secondary">{analyticsData?.resourceUtilization?.returnRate || 68}% (Cải thiện được)</Text>
-              </div>
-
-              <Divider />
-
-              <div className="performance-stats">
-                <div className="stat-row">
-                  <span className="stat-label">Chi phí/Lịch hẹn:</span>
-                  <span className="stat-value">{formatCurrency(analyticsData?.costs?.averageCostPerAppointment || 125000)}</span>
-                </div>
-                <div className="stat-row">
-                  <span className="stat-label">ROI Marketing:</span>
-                  <span className="stat-value">{analyticsData?.marketing?.roi || 285}%</span>
-                </div>
-                <div className="stat-row">
-                  <span className="stat-label">Thời gian TB/Bệnh nhân:</span>
-                  <span className="stat-value">{analyticsData?.performance?.averageTimePerPatient || 45} phút</span>
-                </div>
-                <div className="stat-row">
-                  <span className="stat-label">Tỷ lệ no-show:</span>
-                  <span className="stat-value">{analyticsData?.performance?.noShowRate || 8.5}%</span>
-                </div>
-              </div>
+      {/* Quick Export Section */}
+      <Card className="chart-card fade-in-up" style={{ marginBottom: '24px', textAlign: 'center' }}>
+        <Space size="large">
+          <div>
+            <FileExcelOutlined style={{ fontSize: '24px', color: '#52c41a', marginBottom: '8px' }} />
+            <div>
+              <Text strong>Xuất Báo Cáo Tổng Quan</Text>
+              <br />
+              <Text type="secondary">Tất cả dữ liệu analytics trong một file Excel</Text>
             </div>
-          </Card>
-        </Col>
-      </Row>
+          </div>
+          <Button
+            type="primary"
+            size="large"
+            icon={<FileExcelOutlined />}
+            onClick={handleExportOverview}
+            loading={loadingOverview}
+            className="enhanced-button"
+          >
+            Tải Xuống Excel
+          </Button>
+        </Space>
+      </Card>
 
       {/* Detailed Report Section */}
              <Card className="chart-card fade-in-up" title="📋 Báo Cáo Chi Tiết Cuộc Hẹn" 
              extra={<Space>
-               <Text type="secondary">Lọc và xuất dữ liệu chi tiết</Text>
-               <Button 
-                 size="small" 
-                 type="dashed" 
-                 onClick={async () => {
-                   try {
-                     const response = await fetch('/api/reports/seed-sample-data', {
-                       method: 'POST',
-                       headers: {
-                         'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-                         'Content-Type': 'application/json'
-                       }
-                     });
-                     if (response.ok) {
-                       message.success('Tạo dữ liệu mẫu thành công! Vui lòng refresh trang.');
-                       window.location.reload();
-                     } else {
-                       message.error('Chỉ Admin mới có thể tạo dữ liệu mẫu.');
-                     }
-                   } catch (error) {
-                     message.error('Lỗi khi tạo dữ liệu mẫu.');
-                   }
-                 }}
-               >
-                 Tạo Dữ Liệu Mẫu
-               </Button>
+              
              </Space>}
              style={{ marginBottom: '24px' }}>
          <div className="filter-section">
