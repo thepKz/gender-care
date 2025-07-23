@@ -21,6 +21,7 @@ import {
 import { UnifiedAppointment } from '../../../types/appointment';
 import moment from 'moment';
 import medicinesApi, { IMedicine } from '../../../api/endpoints/medicines';
+import { preventNonNumericInput } from '../../../utils';
 const { Text } = Typography;
 
 interface MedicalRecordModalProps {
@@ -62,7 +63,12 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
   }, [visible]);
 
   const handlePrescriptionChange = (idx, field, value) => {
-    setPrescriptions(prev => prev.map((item, i) => i === idx ? { ...item, [field]: value } : item));
+    let processedValue = value;
+    if (field === 'duration') {
+      // Chỉ cho phép nhập số cho trường duration
+      processedValue = value.replace(/[^0-9]/g, '');
+    }
+    setPrescriptions(prev => prev.map((item, i) => i === idx ? { ...item, [field]: processedValue } : item));
   };
 
   const handleMedicineSelect = (idx, medicineId) => {
@@ -316,6 +322,7 @@ const MedicalRecordModal: React.FC<MedicalRecordModalProps> = ({
                             placeholder="Thời gian dùng (VD: 7 ngày, 2 tuần)"
                             value={item.duration}
                             onChange={e => handlePrescriptionChange(idx, 'duration', e.target.value)}
+                            onKeyDown={preventNonNumericInput}
                           />
                         </div>
                         <div style={{ flex: 2, padding: '0 4px' }}>

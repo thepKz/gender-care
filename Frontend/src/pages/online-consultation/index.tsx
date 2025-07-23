@@ -22,6 +22,7 @@
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
 import { consultationApi } from '../../api';
+import { preventNonNumericInput } from '../../utils';
 import 'dayjs/locale/vi';
 
 // Setup dayjs for Vietnam timezone
@@ -672,6 +673,7 @@ dayjs.extend(weekday);
                                 max={100}
                                 value={form.age || ''}
                                 onChange={e => setForm(prev => ({ ...prev, age: e.target.value }))}
+                                onKeyDown={preventNonNumericInput}
                                 className="w-full rounded-lg border border-gray-300 px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#0C3C54] focus:border-transparent text-base transition-all duration-300 appearance-none"
                                 placeholder="Tuổi"
                                 required

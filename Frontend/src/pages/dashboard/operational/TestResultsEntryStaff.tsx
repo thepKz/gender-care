@@ -22,6 +22,7 @@ import { TestResultsForm } from '../../../components/feature/medical/TestResults
 import { getServicePackageById } from '../../../api/endpoints/servicePackageApi';
 import { getServiceById } from '../../../api/endpoints/serviceApi';
 import { doctorApi } from '../../../api/endpoints/doctorApi';
+import { preventNonNumericDecimalInput } from '../../../utils';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -580,9 +581,16 @@ const TestResultsEntry: React.FC = () => {
 
   // Hàm xử lý thay đổi input
   const handleInputChange = (key: string, value: string) => {
+    // Chỉ cho phép nhập số và dấu chấm thập phân
+    const numericValue = value.replace(/[^0-9.]/g, '');
+    
+    // Đảm bảo chỉ có một dấu chấm thập phân
+    const parts = numericValue.split('.');
+    const filteredValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : numericValue;
+    
     setInputValues(prev => ({
       ...prev,
-      [key]: value
+      [key]: filteredValue
     }));
     
     // Tìm test category để lấy threshold rules
@@ -592,14 +600,14 @@ const TestResultsEntry: React.FC = () => {
     const thresholdRules = testCategory?.thresholdRules || [];
     
     // Tính toán đánh giá tự động
-    const evaluation = getAutoEvaluation(value, thresholdRules);
+    const evaluation = getAutoEvaluation(filteredValue, thresholdRules);
     
     // Cập nhật form value với cả value, flag và message
     testItemForm.setFieldsValue({
       testItemValues: {
         ...testItemForm.getFieldValue('testItemValues'),
         [key]: { 
-          value,
+          value: filteredValue,
           flag: evaluation.flag,
           message: evaluation.message
         }
@@ -1044,6 +1052,7 @@ const TestResultsEntry: React.FC = () => {
                               type="number"
                               value={testItemForm.getFieldValue(['testItemValues', key, 'value'])}
                               onChange={(e) => handleInputChange(key, e.target.value)}
+                              onKeyDown={preventNonNumericDecimalInput}
                             />
                           </Form.Item>
                           {/* Đánh giá text tự động */}

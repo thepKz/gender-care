@@ -32,6 +32,7 @@ import {
   StopOutlined
 } from '@ant-design/icons';
 import doctorApi, { type Doctor } from '../../../api/endpoints/doctorApi';
+import { preventNonNumericInput } from '../../../utils';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -631,7 +632,11 @@ const ManagerDoctorProfilesPage: React.FC = () => {
                 name="experience"
                 rules={[{ required: true, message: 'Vui lòng nhập kinh nghiệm!' }]}
               >
-                <Input type="number" placeholder="Số năm kinh nghiệm" />
+                <Input 
+                  type="number" 
+                  placeholder="Số năm kinh nghiệm"
+                  onKeyDown={preventNonNumericInput}
+                />
               </Form.Item>
             </Col>
           </Row>
