@@ -18,6 +18,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { getServices } from '../../../api/endpoints/serviceApi';
 import { CreateServicePackageRequest, Service, ServicePackage, UpdateServicePackageRequest, ServiceItem } from '../../../types';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
+import { preventNonNumericInput } from '../../../utils';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -289,6 +290,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                 max={365}
                 className="w-full"
                 addonAfter="ngày"
+                onKeyDown={preventNonNumericInput}
               />
             </Form.Item>
           </Col>
@@ -379,6 +381,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                               const currentServices = form.getFieldValue('services');
                               handleServicesChange(currentServices);
                             }}
+                            onKeyDown={preventNonNumericInput}
                           />
                         </Form.Item>
                       </Col>
@@ -440,6 +443,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                 disabled
                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                 parser={(value) => value?.replace(/\$\s?|,*/g, '') as any}
+                onKeyDown={preventNonNumericInput}
               />
             </Form.Item>
           </Col>
@@ -468,6 +472,7 @@ const ServicePackageModal: React.FC<ServicePackageModalProps> = ({
                 className="w-full"
                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                 parser={(value) => value?.replace(/\$\s?|,*/g, '') as any}
+                onKeyDown={preventNonNumericInput}
               />
             </Form.Item>
           </Col>

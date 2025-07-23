@@ -35,6 +35,7 @@ import {
   CreateServiceTestCategoryData 
 } from '../../../api/endpoints/testManagementApi';
 import { servicesApi } from '../../../api/endpoints';
+import { preventNonNumericDecimalInput } from '../../../utils';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -788,6 +789,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
                             placeholder="VD: 3.5" 
                             style={{ width: '100%' }}
                             step={0.1}
+                            onKeyDown={preventNonNumericDecimalInput}
                           />
                         </Form.Item>
                         
@@ -800,6 +802,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
                             placeholder="VD: 5.0" 
                             style={{ width: '100%' }}
                             step={0.1}
+                            onKeyDown={preventNonNumericDecimalInput}
                           />
                         </Form.Item>
                       </Card>
@@ -941,11 +944,12 @@ const ServiceTestConfigurationInner: React.FC = () => {
                   })]}
                   style={{ marginBottom: 8 }}
                 >
-                  <InputNumber 
-                    placeholder="VD: 3.5" 
-                    style={{ width: '100%' }}
-                    step={0.1}
-                  />
+                                            <InputNumber 
+                            placeholder="VD: 3.5" 
+                            style={{ width: '100%' }}
+                            step={0.1}
+                            onKeyDown={preventNonNumericDecimalInput}
+                          />
                 </Form.Item>
               </div>
               <div style={{ flex: 1 }}>
@@ -963,11 +967,12 @@ const ServiceTestConfigurationInner: React.FC = () => {
                   })]}
                   style={{ marginBottom: 8 }}
                 >
-                  <InputNumber 
-                    placeholder="VD: 5.0" 
-                    style={{ width: '100%' }}
-                    step={0.1}
-                  />
+                                            <InputNumber 
+                            placeholder="VD: 5.0" 
+                            style={{ width: '100%' }}
+                            step={0.1}
+                            onKeyDown={preventNonNumericDecimalInput}
+                          />
                 </Form.Item>
               </div>
             </div>
@@ -1015,14 +1020,22 @@ const ServiceTestConfigurationInner: React.FC = () => {
                         name={[field.name, 'from']}
                         style={{ flex: 1, marginBottom: 0 }}
                       >
-                        <InputNumber placeholder="From" style={{ width: '100%' }} />
+                        <InputNumber 
+                          placeholder="From" 
+                          style={{ width: '100%' }}
+                          onKeyDown={preventNonNumericDecimalInput}
+                        />
                       </Form.Item>
                       <Form.Item
                         key={`to-${field.key}`}
                         name={[field.name, 'to']}
                         style={{ flex: 1, marginBottom: 0 }}
                       >
-                        <InputNumber placeholder="To" style={{ width: '100%' }} />
+                        <InputNumber 
+                          placeholder="To" 
+                          style={{ width: '100%' }}
+                          onKeyDown={preventNonNumericDecimalInput}
+                        />
                       </Form.Item>
                       <Form.Item
                         key={`flag-${field.key}`}

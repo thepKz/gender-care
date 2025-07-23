@@ -2299,6 +2299,35 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
           pipeline: [{ $project: { name: 1, price: 1 } }],
         },
       },
+      // Lookup doctorId và userId
+      {
+        $lookup: {
+          from: "doctors",
+          localField: "doctorId",
+          foreignField: "_id",
+          as: "doctorId",
+          pipeline: [
+            { $match: { isDeleted: { $ne: true } } },
+            {
+              $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "_id",
+                as: "userId",
+                pipeline: [
+                  { $project: { fullName: 1, email: 1, avatar: 1 } }
+                ]
+              }
+            },
+            {
+              $unwind: {
+                path: "$userId",
+                preserveNullAndEmptyArrays: true
+              }
+            }
+          ]
+        }
+      },
       // Bước 5: Unwind để flatten arrays
       {
         $unwind: {
@@ -2315,6 +2344,12 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
       {
         $unwind: {
           path: "$packageId",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $unwind: {
+          path: "$doctorId",
           preserveNullAndEmptyArrays: true,
         },
       },
