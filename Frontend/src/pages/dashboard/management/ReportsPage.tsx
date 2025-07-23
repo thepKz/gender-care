@@ -443,7 +443,7 @@ const ReportsPage: React.FC = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card className="kpi-card fade-in-up">
             <Statistic
-              title="Tổng Doanh Thu (12 tháng)"
+              title="Tổng Doanh Thu"
               value={totalRevenue}
               precision={0}
               valueStyle={{ color: '#3f8600' }}
@@ -451,17 +451,7 @@ const ReportsPage: React.FC = () => {
               suffix="VND"
               formatter={(value) => `${Number(value).toLocaleString('vi-VN')}`}
             />
-            <div style={{ marginTop: '12px' }}>
-              <Button
-                type="link"
-                size="small"
-                icon={<FileExcelOutlined />}
-                onClick={handleExportOverview}
-                loading={loadingOverview}
-              >
-                Xuất Excel
-              </Button>
-            </div>
+           
           </Card>
         </Col>
         
@@ -474,20 +464,6 @@ const ReportsPage: React.FC = () => {
                prefix={<CalendarOutlined />}
                suffix="cuộc hẹn"
              />
-           </Card>
-         </Col>
-         
-         <Col xs={24} sm={12} lg={6}>
-           <Card className="kpi-card fade-in-up">
-             <Statistic
-               title="Tỷ Lệ Hoàn Thành"
-               value={completionRate}
-               precision={1}
-               valueStyle={{ color: '#722ed1' }}
-               prefix={<CheckCircleOutlined />}
-               suffix="%"
-             />
-             
            </Card>
          </Col>
          
@@ -509,7 +485,6 @@ const ReportsPage: React.FC = () => {
       {/* Main Analytics Section */}
       <Row gutter={[24, 24]} style={{ marginBottom: '32px' }}>
         {/* Revenue Trend with Growth */}
-                 <Col xs={24} lg={16}>
            <Card className="chart-card fade-in-up" title="📈 Phân Tích Doanh Thu & Tăng Trưởng" 
                  extra={<Text type="secondary">12 tháng gần nhất</Text>}>
              <ResponsiveContainer width="100%" height={400}>
@@ -539,61 +514,7 @@ const ReportsPage: React.FC = () => {
               </ComposedChart>
             </ResponsiveContainer>
           </Card>
-        </Col>
 
-        {/* Performance Metrics */}
-                 <Col xs={24} lg={8}>
-           <Card className="performance-card fade-in-up" title="🎯 Chỉ Số Hiệu Suất" style={{ height: '471px' }}>
-             <div className="performance-content">
-                             <div className="performance-item">
-                 <Text strong>Tỷ lệ hoàn thành</Text>
-                 <Progress 
-                   className="enhanced-progress"
-                   percent={isFinite(completionRate) ? completionRate : 0} 
-                   strokeColor={{ '0%': '#108ee9', '100%': '#87d068' }}
-                   format={() => formatSafePercentage(completionRate)}
-                 />
-               </div>
-               
-               <div className="performance-item">
-                 <Text strong>Tỷ lệ hủy bỏ</Text>
-                 <Progress 
-                   className="enhanced-progress"
-                   percent={isFinite(cancellationRate) ? cancellationRate : 0} 
-                   strokeColor="#ff4d4f"
-                   format={() => formatSafePercentage(cancellationRate)}
-                 />
-               </div>
-               
-               <div className="performance-item">
-                 <Text strong>Hiệu suất tổng thể</Text>
-                 <Progress 
-                   className="enhanced-progress"
-                   percent={isFinite(100 - cancellationRate) ? (100 - cancellationRate) : 0} 
-                   strokeColor="#722ed1"
-                   format={() => formatSafePercentage(100 - cancellationRate)}
-                 />
-               </div>
-               
-               <Divider />
-               
-               <div className="performance-stats">
-                 <div className="stat-row">
-                   <span className="stat-label">Doanh thu TB/tháng:</span>
-                   <span className="stat-value">{isFinite(avgRevenuePerMonth) ? avgRevenuePerMonth.toLocaleString('vi-VN') : '0'} VND</span>
-                 </div>
-                 <div className="stat-row">
-                   <span className="stat-label">Lịch hẹn TB/ngày:</span>
-                   <span className="stat-value">{isFinite(avgAppointmentsPerDay) ? avgAppointmentsPerDay.toFixed(1) : '0.0'}</span>
-                 </div>
-                 <div className="stat-row">
-                   <span className="stat-label">Tổng người dùng:</span>
-                   <span className="stat-value">{roleDistribution.reduce((sum, role) => sum + role.value, 0)}</span>
-                 </div>
-               </div>
-            </div>
-          </Card>
-        </Col>
       </Row>
 
       {/* Advanced Analytics Row */}
@@ -740,30 +661,7 @@ const ReportsPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* Quick Export Section */}
-      <Card className="chart-card fade-in-up" style={{ marginBottom: '24px', textAlign: 'center' }}>
-        <Space size="large">
-          <div>
-            <FileExcelOutlined style={{ fontSize: '24px', color: '#52c41a', marginBottom: '8px' }} />
-            <div>
-              <Text strong>Xuất Báo Cáo Tổng Quan</Text>
-              <br />
-              <Text type="secondary">Tất cả dữ liệu analytics trong một file Excel</Text>
-            </div>
-          </div>
-          <Button
-            type="primary"
-            size="large"
-            icon={<FileExcelOutlined />}
-            onClick={handleExportOverview}
-            loading={loadingOverview}
-            className="enhanced-button"
-          >
-            Tải Xuống Excel
-          </Button>
-        </Space>
-      </Card>
-
+      
       {/* Detailed Report Section */}
              <Card className="chart-card fade-in-up" title="📋 Báo Cáo Chi Tiết Cuộc Hẹn" 
              extra={<Space>
