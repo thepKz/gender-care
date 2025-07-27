@@ -131,17 +131,16 @@ export const getAllAppointments = async (req: AuthRequest, res: Response) => {
           );
         }
       } else {
+        // Ensure doctor info is properly populated
         appointmentObj.doctorInfo = {
-          doctorId: populatedDoctor._id,
-          userId: populatedDoctor.userId._id,
-          fullName: populatedDoctor.userId.fullName,
-          email: populatedDoctor.userId.email,
-          avatar: populatedDoctor.userId.avatar,
-          isActive: populatedDoctor.userId.isActive !== false,
-          specialization: populatedDoctor.specialization,
-          experience: populatedDoctor.experience,
-          rating: populatedDoctor.rating,
+          fullName: populatedDoctor.userId.fullName || "Bác sĩ",
+          email: populatedDoctor.userId.email || null,
+          avatar: populatedDoctor.userId.avatar || null,
+          isActive: populatedDoctor.userId.isActive || false,
+          specialization: populatedDoctor.specialization || null,
           missing: false,
+          experience: populatedDoctor.experience,
+          rating: populatedDoctor.rating
         };
       }
 
@@ -421,6 +420,77 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
 
     console.log("[createAppointment] Tạo appointment với doctorId:", doctorId);
 
+    // 🤖 AUTO-ASSIGN DOCTOR: Nếu không có doctorId, tự động chỉ định bác sĩ
+    let finalDoctorId = doctorId;
+    if (!doctorId || doctorId === 'auto' || doctorId === '') {
+      console.log("🤖 [Auto-Assign] No doctor specified, auto-assigning...");
+      try {
+        const { default: Doctor } = await import('../models/Doctor');
+        const { default: DoctorSchedule } = await import('../models/DoctorSchedules');
+
+        // Tìm bác sĩ khả dụng cho slot cụ thể
+        if (slotId && appointmentDate) {
+          console.log("🤖 [Auto-Assign] Finding doctor available for slot:", slotId, "on date:", appointmentDate);
+
+          // Tìm schedule có slot này
+          const schedule = await DoctorSchedule.findOne({
+            'slots._id': slotId,
+            date: new Date(appointmentDate)
+          }).populate('doctorId', '_id');
+
+          if (schedule && schedule.doctorId) {
+            finalDoctorId = schedule.doctorId._id;
+            console.log("🤖 [Auto-Assign] Found doctor from schedule:", finalDoctorId);
+          }
+        }
+
+        // Nếu vẫn chưa có doctor, tìm bác sĩ khả dụng chung
+        if (!finalDoctorId) {
+          const availableDoctor = await Doctor.findOne({
+            isDeleted: { $ne: true }
+          }).populate('userId', 'fullName isActive');
+
+          if (availableDoctor && (availableDoctor.userId as any)?.isActive) {
+            finalDoctorId = availableDoctor._id;
+            console.log("🤖 [Auto-Assign] Assigned available doctor:", (availableDoctor.userId as any)?.fullName || 'Unknown', "ID:", finalDoctorId);
+          } else {
+            console.warn("⚠️ [Auto-Assign] No available doctors found");
+            // Vẫn tiếp tục tạo appointment, có thể assign sau
+          }
+        }
+      } catch (autoAssignError) {
+        console.error("❌ [Auto-Assign] Error:", autoAssignError);
+        // Vẫn tiếp tục tạo appointment
+      }
+    } else if (doctorId) {
+      // 🔧 FIX: Kiểm tra xem doctorId có phải là userId không, nếu có thì convert sang doctorId
+      console.log("🔍 [Doctor Validation] Checking if doctorId is actually userId:", doctorId);
+
+      try {
+        // Thử tìm doctor record với _id = doctorId
+        const doctorRecord = await Doctor.findById(doctorId);
+
+        if (!doctorRecord) {
+          // Nếu không tìm thấy, có thể doctorId là userId, tìm doctor theo userId
+          console.log("🔍 [Doctor Fix] doctorId not found as Doctor._id, checking if it's userId...");
+          const doctorByUserId = await Doctor.findOne({ userId: doctorId, isDeleted: { $ne: true } });
+
+          if (doctorByUserId) {
+            finalDoctorId = doctorByUserId._id;
+            console.log("✅ [Doctor Fix] Found doctor by userId, corrected doctorId:", finalDoctorId);
+          } else {
+            console.warn("⚠️ [Doctor Fix] No doctor found with userId:", doctorId);
+            // Giữ nguyên doctorId, có thể là ID hợp lệ khác
+          }
+        } else {
+          console.log("✅ [Doctor Validation] doctorId is valid Doctor._id");
+        }
+      } catch (validationError) {
+        console.error("❌ [Doctor Validation] Error:", validationError);
+        // Giữ nguyên doctorId
+      }
+    }
+
     // ✅ FIX: Chỉ tạo appointment, KHÔNG tạo PaymentTracking (Lazy Payment Creation)
     // ✅ FIX: Khi sử dụng purchased package, lưu packageId thay vì serviceId
     const appointmentData: any = {
@@ -433,7 +503,7 @@ export const createAppointment = async (req: AuthRequest, res: Response) => {
       typeLocation,
       description,
       notes,
-      doctorId: doctorId,
+      doctorId: finalDoctorId, // Sử dụng finalDoctorId thay vì doctorId
       slotId: slotId,
       totalAmount: totalAmount,
       bookingType: bookingType,
@@ -2089,16 +2159,15 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
       matchStage.appointmentDate = { $lte: new Date(endDate as string) };
     }
 
-    // Pipeline để tìm appointments của doctor cụ thể
-    const pipeline: any[] = [
-      // Bước 1: Match appointments có slotId
+    // ✅ FIX: Pipeline để tìm appointments của doctor theo 2 cách
+    // Cách 1: Appointments có slotId thuộc về doctor schedule
+    const slotBasedPipeline: any[] = [
       {
         $match: {
           slotId: { $exists: true, $ne: null },
           ...matchStage,
         },
       },
-      // Bước 2: Lookup để join với DoctorSchedules
       {
         $lookup: {
           from: "doctorschedules",
@@ -2136,13 +2205,69 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
           as: "doctorSchedule",
         },
       },
-      // Bước 3: Chỉ lấy appointments có matching doctor schedule
       {
         $match: {
           "doctorSchedule.0": { $exists: true },
         },
       },
-      // Bước 4: Lookup các thông tin liên quan
+      {
+        $addFields: {
+          source: "slot-based"
+        }
+      }
+    ];
+
+    // Cách 2: Appointments có doctorId trực tiếp
+    const doctorBasedPipeline: any[] = [
+      {
+        $match: {
+          doctorId: new mongoose.Types.ObjectId(doctorId),
+          ...matchStage,
+        },
+      },
+      {
+        $addFields: {
+          source: "doctor-based"
+        }
+      }
+    ];
+
+    // Union 2 pipelines và loại bỏ duplicates
+    const pipeline: any[] = [
+      {
+        $facet: {
+          slotBased: slotBasedPipeline,
+          doctorBased: doctorBasedPipeline,
+        },
+      },
+      {
+        $project: {
+          appointments: {
+            $concatArrays: ["$slotBased", "$doctorBased"],
+          },
+        },
+      },
+      {
+        $unwind: "$appointments",
+      },
+      {
+        $replaceRoot: {
+          newRoot: "$appointments",
+        },
+      },
+      // Loại bỏ duplicates dựa trên _id
+      {
+        $group: {
+          _id: "$_id",
+          doc: { $first: "$$ROOT" },
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: "$doc",
+        },
+      },
+      // Lookup các thông tin liên quan
       {
         $lookup: {
           from: "userprofiles",
@@ -2174,6 +2299,35 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
           pipeline: [{ $project: { name: 1, price: 1 } }],
         },
       },
+      // Lookup doctorId và userId
+      {
+        $lookup: {
+          from: "doctors",
+          localField: "doctorId",
+          foreignField: "_id",
+          as: "doctorId",
+          pipeline: [
+            { $match: { isDeleted: { $ne: true } } },
+            {
+              $lookup: {
+                from: "users",
+                localField: "userId",
+                foreignField: "_id",
+                as: "userId",
+                pipeline: [
+                  { $project: { fullName: 1, email: 1, avatar: 1 } }
+                ]
+              }
+            },
+            {
+              $unwind: {
+                path: "$userId",
+                preserveNullAndEmptyArrays: true
+              }
+            }
+          ]
+        }
+      },
       // Bước 5: Unwind để flatten arrays
       {
         $unwind: {
@@ -2190,6 +2344,12 @@ export const getMyAppointments = async (req: AuthRequest, res: Response) => {
       {
         $unwind: {
           path: "$packageId",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $unwind: {
+          path: "$doctorId",
           preserveNullAndEmptyArrays: true,
         },
       },

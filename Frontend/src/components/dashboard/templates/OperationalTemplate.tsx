@@ -174,7 +174,23 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
           // Lấy lịch hẹn của bác sĩ hiện tại
           const res = await appointmentApi.getMyAppointments();
           data = res.data;
-          setAppointments(data.appointments || []);
+
+          // Transform API data to match AppointmentItem interface
+          const transformedAppointments = (data.appointments || []).map((apt: any) => ({
+            id: apt._id,
+            patientName: apt.profileId?.fullName || 'Không xác định',
+            doctorName: apt.doctorId?.userId?.fullName || 'Chưa chỉ định',
+            time: `${dayjs(apt.appointmentDate).format('YYYY-MM-DD')} ${apt.appointmentTime}`,
+            status: apt.status,
+            service: apt.serviceId?.serviceName || apt.packageId?.name || 'Dịch vụ không xác định',
+            notes: apt.notes || apt.description,
+            priority: 'medium' as const,
+            // Keep original data for compatibility
+            appointmentDate: apt.appointmentDate,
+            appointmentTime: apt.appointmentTime,
+          }));
+
+          setAppointments(transformedAppointments);
         } else {
           // Staff vẫn dùng dashboard
           const dashboardData = await fetchOperationalDashboard();
@@ -208,8 +224,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   const cancelledCount = appointments.filter(a => a.status === 'cancelled').length;
   const upcomingCount = appointments.filter(a => a.status === 'confirmed').length;
   const todayCount = appointments.filter(a => {
-    const dateStr = a.time.split(' ')[0];
-    return dayjs(dateStr).isSame(dayjs(), 'day');
+    // Handle both dashboard format (time) and API format (appointmentDate)
+    const dateStr = (a as any).appointmentDate || (a as any).time?.split(' ')[0];
+    return dateStr && dayjs(dateStr).isSame(dayjs(), 'day');
   }).length;
   const pieData = [
     { type: 'Hoàn thành', value: completedCount },
@@ -240,8 +257,9 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   const barData = weekDays.map((d, i) => {
     const date = dayjs().startOf('week').add(i, 'day');
     const count = appointments.filter(a => {
-      const dateStr = a.time.split(' ')[0];
-      return dayjs(dateStr).isSame(date, 'day');
+      // Handle both dashboard format (time) and API format (appointmentDate)
+      const dateStr = (a as any).appointmentDate || (a as any).time?.split(' ')[0];
+      return dateStr && dayjs(dateStr).isSame(date, 'day');
     }).length;
     return { day: d, value: count };
   });
@@ -257,8 +275,12 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
   // };
   // Lịch hẹn gần nhất
   const sortedAppointments = [...appointments].sort((a, b) => {
-    const dateA = dayjs(a.time.split(' ')[0]);
-    const dateB = dayjs(b.time.split(' ')[0]);
+    // Handle both dashboard format (time) and API format (appointmentDate)
+    const dateStrA = (a as any).appointmentDate || (a as any).time?.split(' ')[0];
+    const dateStrB = (b as any).appointmentDate || (b as any).time?.split(' ')[0];
+    if (!dateStrA || !dateStrB) return 0;
+    const dateA = dayjs(dateStrA);
+    const dateB = dayjs(dateStrB);
     return dateB.valueOf() - dateA.valueOf();
   });
   // Xóa biến không dùng
@@ -282,107 +304,7 @@ const OperationalTemplate: React.FC<OperationalTemplateProps> = ({
           />
         </Col>
 
-        {/* Right Column */}
-        <Col xs={24} lg={8}>
-          <Row gutter={[0, 24]}>
-            {/* Daily Progress */}
-            <Col xs={24}>
-              <Card 
-                title={userRole === 'doctor' ? 'Tiến độ khám bệnh' : 'Tiến độ công việc'}
-                style={{ 
-                  borderRadius: '12px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                  border: '1px solid #e5e7eb'
-                }}
-                loading={loading}
-              >
-                {!loading && (
-                  <>
-                    <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                      <div style={{ position: 'relative', display: 'inline-block' }}>
-                        <Progress
-                          type="circle"
-                          percent={metrics.appointmentCompletion}
-                          size={120}
-                          strokeColor="#667eea"
-                          strokeWidth={8}
-                        />
-                        <div style={{
-                          position: 'absolute',
-                          top: '50%',
-                          left: '50%',
-                          transform: 'translate(-50%, -50%)',
-                          textAlign: 'center'
-                        }}>
-                          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1f2937' }}>
-                            {Math.round(defaultAppointments.length * metrics.appointmentCompletion / 100)}/{defaultAppointments.length}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                            Hoàn thành
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ marginTop: '16px' }}>
-                      <Text type="secondary">
-                        {userRole === 'doctor' ? 'Bệnh nhân đã khám' : 'Công việc đã xong'}
-                      </Text>
-                    </div>
-                  </>
-                )}
-              </Card>
-            </Col>
-
-            {/* Performance Metrics */}
-            <Col xs={24}>
-              <Card 
-                title="Hiệu suất làm việc"
-                style={{ 
-                  borderRadius: '12px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                  border: '1px solid #e5e7eb'
-                }}
-                loading={loading}
-              >
-                {!loading && (
-                  <>
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <Text style={{ fontSize: '13px' }}>
-                          {userRole === 'doctor' ? 'Mức độ hài lòng' : 'Hiệu quả xử lý'}
-                        </Text>
-                        <Text strong style={{ fontSize: '13px' }}>
-                          {metrics.patientSatisfaction}%
-                        </Text>
-                      </div>
-                      <Progress percent={metrics.patientSatisfaction} size="small" strokeColor="#52c41a" />
-                    </div>
-                    
-                    <div style={{ marginBottom: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <Text style={{ fontSize: '13px' }}>Quản lý thời gian</Text>
-                        <Text strong style={{ fontSize: '13px' }}>
-                          {metrics.efficiency}%
-                        </Text>
-                      </div>
-                      <Progress percent={metrics.efficiency} size="small" strokeColor="#faad14" />
-                    </div>
-                    
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <Text style={{ fontSize: '13px' }}>Thời gian phản hồi</Text>
-                        <Text strong style={{ fontSize: '13px' }}>
-                          {metrics.responseTime}%
-                        </Text>
-                      </div>
-                      <Progress percent={metrics.responseTime} size="small" strokeColor="#3b82f6" />
-                    </div>
-                  </>
-                )}
-              </Card>
-            </Col>
-          </Row>
-        </Col>
+    
       </Row>
 
       {/* Doctor Schedule Calendar - only show for doctors */}

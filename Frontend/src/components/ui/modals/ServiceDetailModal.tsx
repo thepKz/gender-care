@@ -143,10 +143,7 @@ const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
                   <span className="font-semibold text-gray-800">Linh hoạt theo lịch hẹn</span>
                 </div>
                 
-                <div className="flex items-center justify-between py-2">
-                  <span className="text-gray-600">Đánh giá:</span>
-                  <span className="font-semibold text-yellow-600">4.8/5 ⭐</span>
-                </div>
+               
               </div>
             </div>
           </div>

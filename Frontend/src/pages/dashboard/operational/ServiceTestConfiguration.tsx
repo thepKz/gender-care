@@ -35,6 +35,7 @@ import {
   CreateServiceTestCategoryData 
 } from '../../../api/endpoints/testManagementApi';
 import { servicesApi } from '../../../api/endpoints';
+import { preventNonNumericDecimalInput } from '../../../utils';
 
 const { Title, Text } = Typography;
 const { Search } = Input;
@@ -788,6 +789,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
                             placeholder="VD: 3.5" 
                             style={{ width: '100%' }}
                             step={0.1}
+                            onKeyDown={preventNonNumericDecimalInput}
                           />
                         </Form.Item>
                         
@@ -800,6 +802,7 @@ const ServiceTestConfigurationInner: React.FC = () => {
                             placeholder="VD: 5.0" 
                             style={{ width: '100%' }}
                             step={0.1}
+                            onKeyDown={preventNonNumericDecimalInput}
                           />
                         </Form.Item>
                       </Card>
@@ -941,11 +944,12 @@ const ServiceTestConfigurationInner: React.FC = () => {
                   })]}
                   style={{ marginBottom: 8 }}
                 >
-                  <InputNumber 
-                    placeholder="VD: 3.5" 
-                    style={{ width: '100%' }}
-                    step={0.1}
-                  />
+                                            <InputNumber 
+                            placeholder="VD: 3.5" 
+                            style={{ width: '100%' }}
+                            step={0.1}
+                            onKeyDown={preventNonNumericDecimalInput}
+                          />
                 </Form.Item>
               </div>
               <div style={{ flex: 1 }}>
@@ -963,11 +967,12 @@ const ServiceTestConfigurationInner: React.FC = () => {
                   })]}
                   style={{ marginBottom: 8 }}
                 >
-                  <InputNumber 
-                    placeholder="VD: 5.0" 
-                    style={{ width: '100%' }}
-                    step={0.1}
-                  />
+                                            <InputNumber 
+                            placeholder="VD: 5.0" 
+                            style={{ width: '100%' }}
+                            step={0.1}
+                            onKeyDown={preventNonNumericDecimalInput}
+                          />
                 </Form.Item>
               </div>
             </div>
@@ -983,21 +988,35 @@ const ServiceTestConfigurationInner: React.FC = () => {
                   }
                   for (let i = 0; i < rules.length; i++) {
                     const { from, to } = rules[i] || {};
+                    const isEmpty = (v) => v === null || v === undefined || v === '';
+                    // Dòng đầu tiên: from có thể trống, to phải có giá trị
                     if (i === 0) {
-                      if (to !== null && to !== undefined && from !== null && from !== undefined && from >= to) {
+                      if (isEmpty(to)) {
+                        return Promise.reject(new Error('Ngưỡng đầu tiên phải có giá trị kết thúc (Đến).'));
+                      }
+                      if (!isEmpty(from) && Number(from) >= Number(to)) {
                         return Promise.reject(new Error('Giá trị bắt đầu phải nhỏ hơn giá trị kết thúc trong mỗi ngưỡng.'));
                       }
-                    } else {
-                      if (from === null || from === undefined) {
-                        return Promise.reject(new Error('Chỉ ngưỡng đầu tiên được phép để trống giá trị bắt đầu (Từ).'));
+                    }
+                    // Dòng cuối cùng: to có thể trống, from phải có giá trị
+                    else if (i === rules.length - 1) {
+                      if (isEmpty(from)) {
+                        return Promise.reject(new Error('Ngưỡng cuối cùng phải có giá trị bắt đầu (Từ).'));
                       }
-                      if (rules[i - 1].to === null || rules[i - 1].to === undefined) {
+                      if (isEmpty(rules[i - 1].to)) {
                         return Promise.reject(new Error('Chỉ ngưỡng cuối cùng được phép để trống giá trị kết thúc (Đến).'));
                       }
-                      if (from !== rules[i - 1].to) {
-                        return Promise.reject(new Error('Các ngưỡng phải liền kề nhau, không được bỏ trống giữa các khoảng.'));
+                    }
+                    // Các dòng giữa: from và to đều phải có giá trị, liền kề nhau (cho phép lệch nhỏ hơn hoặc bằng 0.01)
+                    else {
+                      if (isEmpty(from) || isEmpty(to)) {
+                        return Promise.reject(new Error('Các ngưỡng ở giữa phải có cả giá trị bắt đầu (Từ) và kết thúc (Đến).'));
                       }
-                      if (to !== null && to !== undefined && from >= to) {
+                      // Cho phép lệch nhỏ hơn hoặc bằng 0.01
+                      if (Math.abs(Number(from) - Number(rules[i - 1].to)) > 0.01) {
+                        return Promise.reject(new Error('Các ngưỡng phải liền kề nhau (chênh lệch không quá 0.01), không được bỏ trống giữa các khoảng.'));
+                      }
+                      if (Number(from) >= Number(to)) {
                         return Promise.reject(new Error('Giá trị bắt đầu phải nhỏ hơn giá trị kết thúc trong mỗi ngưỡng.'));
                       }
                     }
@@ -1015,14 +1034,22 @@ const ServiceTestConfigurationInner: React.FC = () => {
                         name={[field.name, 'from']}
                         style={{ flex: 1, marginBottom: 0 }}
                       >
-                        <InputNumber placeholder="From" style={{ width: '100%' }} />
+                        <InputNumber 
+                          placeholder="From" 
+                          style={{ width: '100%' }}
+                          onKeyDown={preventNonNumericDecimalInput}
+                        />
                       </Form.Item>
                       <Form.Item
                         key={`to-${field.key}`}
                         name={[field.name, 'to']}
                         style={{ flex: 1, marginBottom: 0 }}
                       >
-                        <InputNumber placeholder="To" style={{ width: '100%' }} />
+                        <InputNumber 
+                          placeholder="To" 
+                          style={{ width: '100%' }}
+                          onKeyDown={preventNonNumericDecimalInput}
+                        />
                       </Form.Item>
                       <Form.Item
                         key={`flag-${field.key}`}

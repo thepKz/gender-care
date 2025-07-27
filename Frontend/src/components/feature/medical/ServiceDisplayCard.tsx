@@ -167,10 +167,6 @@ const ServiceDisplayCard: React.FC<ServiceDisplayCardProps> = ({
                 </div>
               </div>
               
-              <div className="text-right">
-                <div className="text-xs text-gray-500 mb-1">Đánh giá</div>
-                <div className="text-yellow-600 font-bold">4.8 ⭐</div>
-              </div>
             </div>
           </div>
 

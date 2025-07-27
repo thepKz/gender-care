@@ -1777,7 +1777,7 @@ const UserManagement: React.FC = () => {
                   fontSize: '14px',
                   fontWeight: 500
                 }}>
-                  ✅ Bạn có quyền xem tất cả các role trong hệ thống
+                 
                 </div>
               )}
             </div>

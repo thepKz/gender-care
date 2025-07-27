@@ -151,7 +151,15 @@ class ReportService {
           totalAppointments: { $sum: 1 },
           completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
           cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
-          revenue: { $sum: '$totalAmount' }
+          revenue: {
+            $sum: {
+              $cond: [
+                { $eq: ['$paymentStatus', 'paid'] },
+                '$totalAmount',
+                0
+              ]
+            }
+          }
         }
       },
       {
@@ -187,7 +195,15 @@ class ReportService {
         $group: {
           _id: '$serviceId',
           totalBookings: { $sum: 1 },
-          revenue: { $sum: '$totalAmount' }
+          revenue: {
+            $sum: {
+              $cond: [
+                { $eq: ['$paymentStatus', 'paid'] },
+                '$totalAmount',
+                0
+              ]
+            }
+          }
         }
       },
       {

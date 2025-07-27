@@ -148,7 +148,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const [selectedItem, setSelectedItem] = useState<UnifiedScheduleItem | null>(null);
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [showTestForm, setShowTestForm] = useState(false);
-  const [activeTab, setActiveTab] = useState('today');
+  const [activeTab, setActiveTab] = useState('available');
   const [viewMedicalRecordModalVisible, setViewMedicalRecordModalVisible] = useState(false);
   const [hasMedicalRecord, setHasMedicalRecord] = useState<boolean | null>(null);
   const [medicalRecordId, setMedicalRecordId] = useState<string | null>(null);
@@ -200,21 +200,33 @@ const DoctorAppointmentSchedule: React.FC = () => {
   const loadUnifiedSchedule = async () => {
     try {
       setLoading(true);
-      // 🔥 Parallel API calls
+      console.log('🔍 [DEBUG] Loading unified schedule for user:', user?.role, 'doctorId:', doctorId);
+
+      // 🔥 Parallel API calls with proper role-based endpoints
       const [appointmentsResponse, consultationsResponse] = await Promise.all([
-        appointmentApi.getAllAppointments().catch(() => ({ data: { appointments: [] } })),
-        consultationApi.getMyConsultations().catch(() => ({ data: [] }))
+        user?.role === 'doctor'
+          ? appointmentApi.getMyAppointments().catch((err) => {
+              console.error('❌ [DEBUG] Error getting doctor appointments:', err);
+              return { data: { appointments: [] } };
+            })
+          : appointmentApi.getAllAppointments().catch((err) => {
+              console.error('❌ [DEBUG] Error getting all appointments:', err);
+              return { data: { appointments: [] } };
+            }),
+        consultationApi.getMyConsultations().catch((err) => {
+          console.error('❌ [DEBUG] Error getting consultations:', err);
+          return { data: [] };
+        })
       ]);
+
+      console.log('🔍 [DEBUG] Appointments response:', appointmentsResponse);
+      console.log('🔍 [DEBUG] Consultations response:', consultationsResponse);
+
       let myAppointments = [];
       if (appointmentsResponse.data?.appointments) {
-        if (user?.role === 'staff') {
-          myAppointments = appointmentsResponse.data.appointments;
-        } else if (user?.role === 'doctor' && doctorId) {
-          myAppointments = appointmentsResponse.data.appointments.filter((appointment: any) => {
-            const aptDoctorId = appointment.doctorId?._id || appointment.doctorId;
-            return aptDoctorId === doctorId;
-          });
-        }
+        // No need to filter anymore since getMyAppointments already filters by doctor
+        myAppointments = appointmentsResponse.data.appointments;
+        console.log('✅ [DEBUG] Found appointments:', myAppointments.length);
       }
       let myConsultations = [];
       if (consultationsResponse.data && Array.isArray(consultationsResponse.data)) {
@@ -224,6 +236,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
       } else if (consultationsResponse.data?.data) {
         myConsultations = Array.isArray(consultationsResponse.data.data) ? consultationsResponse.data.data : [];
       }
+      console.log('✅ [DEBUG] Found consultations:', myConsultations.length);
       // --- Sửa logic lấy tên dịch vụ/package ---
       // Tạo map packageId -> name để tránh gọi API nhiều lần
       const packageNameCache: Record<string, string> = {};
@@ -347,6 +360,12 @@ const DoctorAppointmentSchedule: React.FC = () => {
       const allItems = [...convertedAppointments, ...convertedConsultations].sort(
         (a, b) => dayjs(b.appointmentDate).valueOf() - dayjs(a.appointmentDate).valueOf()
       );
+      console.log('🎯 [DEBUG] Final merged items:', allItems.length, 'items');
+      console.log('📋 [DEBUG] Items breakdown:', {
+        appointments: convertedAppointments.length,
+        consultations: convertedConsultations.length,
+        total: allItems.length
+      });
       setScheduleItems(allItems);
     } catch (err: any) {
       console.error('❌ Error loading schedule:', err);
@@ -363,6 +382,12 @@ const DoctorAppointmentSchedule: React.FC = () => {
     const selectedDateStr = selectedDate;
 
     switch (activeTab) {
+      case 'available':
+        // Hiển thị tất cả appointments có thể khám được (không giới hạn ngày)
+        filtered = filtered.filter(item =>
+          ['consulting', 'done_testResultItem', 'done_testResult', 'completed', 'confirmed', 'scheduled'].includes(item.status)
+        );
+        break;
       case 'today':
         filtered = filtered.filter(item =>
           dayjs(item.appointmentDate).format('YYYY-MM-DD') === today &&
@@ -637,7 +662,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
               />
             </Tooltip>
 
-            {['confirmed', 'scheduled'].includes(record.status) && activeTab === 'today' && (
+            {['confirmed', 'scheduled'].includes(record.status) && (activeTab === 'available' || activeTab === 'today') && (
               <Popconfirm
                 title="Xác nhận bắt đầu khám?"
                 onConfirm={() => handleStartConsulting(record)}
@@ -708,15 +733,19 @@ const DoctorAppointmentSchedule: React.FC = () => {
   }
 
   // ✅ FIXED: Calculate counts from full scheduleItems, not filteredItems
+  const availableItems = scheduleItems.filter(item =>
+    ['consulting', 'done_testResultItem', 'done_testResult', 'completed', 'confirmed', 'scheduled'].includes(item.status)
+  );
+
   const todayItems = scheduleItems.filter(item =>
     dayjs(item.appointmentDate).format('YYYY-MM-DD') === dayjs().format('YYYY-MM-DD')
   );
-  
-  const upcomingItems = scheduleItems.filter(item => 
-    dayjs(item.appointmentDate).isAfter(dayjs(), 'day') && 
+
+  const upcomingItems = scheduleItems.filter(item =>
+    dayjs(item.appointmentDate).isAfter(dayjs(), 'day') &&
     ['confirmed', 'scheduled'].includes(item.status)
   );
-  
+
   const completedItems = scheduleItems.filter(item => item.status === 'completed');
   const cancelledItems = scheduleItems.filter(item => item.status === 'cancelled' || item.status === 'doctor_cancel');
 
@@ -746,49 +775,7 @@ const DoctorAppointmentSchedule: React.FC = () => {
         </Row>
       </div>
 
-      {/* Statistics Cards */}
-      <Row gutter={16} style={{ marginBottom: '24px' }}>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Hôm nay"
-              value={todayItems.length}
-              prefix={<ClockCircleOutlined style={{ color: '#1890ff' }} />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Sắp tới"
-              value={upcomingItems.length}
-              prefix={<CalendarOutlined style={{ color: '#52c41a' }} />}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Đã hoàn thành"
-              value={completedItems.length}
-              prefix={<CheckCircleOutlined style={{ color: '#8c8c8c' }} />}
-              valueStyle={{ color: '#8c8c8c' }}
-            />
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card>
-            <Statistic
-              title="Tổng cộng"
-              value={scheduleItems.length}
-              prefix={<FileTextOutlined style={{ color: '#722ed1' }} />}
-              valueStyle={{ color: '#722ed1' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+
 
       {/* ✅ ENHANCED: Beautiful Filters and Tabs */}
       <Card style={{ marginBottom: '24px' }}>
@@ -802,20 +789,20 @@ const DoctorAppointmentSchedule: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
-                <Button 
-                  type={activeTab === 'today' ? 'primary' : 'default'}
+                <Button
+                  type={activeTab === 'available' ? 'primary' : 'default'}
                   icon={<ClockCircleOutlined />}
-                  onClick={() => setActiveTab('today')}
-                  style={{ 
+                  onClick={() => setActiveTab('available')}
+                  style={{
                     borderRadius: '6px',
                     height: '40px',
-                    minWidth: '120px',
+                    minWidth: '140px',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px'
                   }}
                 >
-                  Hôm nay ({todayItems.length})
+                  Có thể khám ({availableItems.length})
                 </Button>
                 
                 <Button 

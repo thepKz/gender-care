@@ -299,14 +299,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
               change: "",
               trend: "up",
             },
-            {
-              title: "Doanh thu tháng",
-              value: data.stats.monthlyRevenue,
-              icon: "DollarOutlined",
-              color: "#ef4444",
-              change: "",
-              trend: "up",
-            },
+        
           ];
           setStats(mapped as DashboardStat[]);
         }
@@ -545,13 +538,7 @@ const ManagementTemplate: React.FC<ManagementTemplateProps> = ({
         >
           <Row gutter={[0, 24]}>
             {/* Today's Appointments */}
-            <Col xs={24}>
-              <TableWidget
-                data={todayList.slice(0, 8)}
-                title="Lịch hẹn hôm nay"
-                pagination={false}
-              />
-            </Col>
+   
 
             {/* Recent Activities - Compact Version */}
             {activities.length > 0 && (

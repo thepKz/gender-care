@@ -91,22 +91,58 @@ const DoctorDetail = () => {
     }
   };
 
+  // Helper function to filter slots based on current time (real-time filtering)
+  const filterSlotsByCurrentTime = (slots: any[], selectedDate: dayjs.Dayjs) => {
+    const now = dayjs(); // Use system time for testing
+    const isToday = selectedDate.isSame(now, 'day');
+
+    if (!isToday) {
+      return slots; // If not today, return all available slots
+    }
+
+    // If today, filter slots that are still bookable
+    return slots.filter(slot => {
+      const slotTime = typeof slot === 'string' ? slot : slot.slotTime;
+      if (!slotTime) return false;
+
+      // Parse slot time (format: "07:00-08:00" -> start time "07:00")
+      const slotStartTime = slotTime.split('-')[0];
+      const [hours, minutes] = slotStartTime.split(':').map(Number);
+
+      // Create slot datetime for today
+      const slotDateTime = selectedDate.hour(hours).minute(minutes).second(0);
+
+      // Add 1 hour buffer - can't book slot that starts within 1 hour
+      const bufferTime = 60; // minutes (1 hour as requested)
+      const cutoffTime = now.add(bufferTime, 'minute');
+
+      // If slot starts before cutoff time, filter it out
+      return slotDateTime.isAfter(cutoffTime) || slotDateTime.isSame(cutoffTime);
+    });
+  };
+
   const fetchAvailableSlots = async (date: dayjs.Dayjs) => {
     if (!id) return;
-    
+
     try {
       const slots = await doctorApi.getAvailableSlots(id, date.format('YYYY-MM-DD'));
       console.log('Available slots received:', slots);
+
+      let rawSlots: any[] = [];
       // Handle different response structures
       if (Array.isArray(slots)) {
-        setAvailableSlots(slots);
+        rawSlots = slots;
       } else if (slots.availableSlots) {
-        setAvailableSlots(slots.availableSlots);
+        rawSlots = slots.availableSlots;
       } else if (slots.data && Array.isArray(slots.data)) {
-        setAvailableSlots(slots.data);
+        rawSlots = slots.data;
       } else {
-        setAvailableSlots([]);
+        rawSlots = [];
       }
+
+      // Apply real-time filtering for today's slots
+      const filteredSlots = filterSlotsByCurrentTime(rawSlots, date);
+      setAvailableSlots(filteredSlots);
     } catch (error) {
       console.error('Error fetching available slots:', error);
       setAvailableSlots([]);

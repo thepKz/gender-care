@@ -4,6 +4,7 @@ import SimpleDateRangePicker from "../../components/ui/SimpleDateRangePicker";
 import axios from "axios";
 import type { Dayjs } from "dayjs";
 import { AnimatePresence, motion } from "framer-motion";
+import { useEffect as useScrollEffect } from "react";
 
 // Khai báo biến toàn cục để theo dõi trạng thái cảnh báo
 declare global {
@@ -214,6 +215,11 @@ const BookingHistory: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Scroll to top when component mounts
+  useScrollEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
